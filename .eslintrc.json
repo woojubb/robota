@@ -10,12 +10,7 @@
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module",
-    "project": [
-      "./tsconfig.json",
-      "./packages/*/tsconfig.json",
-      "./packages/*/tsconfig.test.json",
-      "./apps/*/tsconfig.json"
-    ],
+    "project": ["./tsconfig.eslint.json"],
     "tsconfigRootDir": "."
   },
   "plugins": ["@typescript-eslint", "eslint-comments", "jsx-a11y"],

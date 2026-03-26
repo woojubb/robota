@@ -27,6 +27,8 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-pro
 npm install -g @robota-sdk/agent-cli
 ```
 
+> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
+
 ## Your First Agent
 
 ### 1. Create a simple conversational agent

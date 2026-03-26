@@ -1,15 +1,16 @@
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
-import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
+import type { IToolCall, TUniversalMessage, TMessageState } from '../interfaces/messages';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { ConversationSession } from '../managers/conversation-history-manager';
+import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
+import { getModelContextWindow } from '../context/models';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
@@ -55,6 +56,7 @@ export async function callProviderWithCache(
   config: IAgentConfig,
   resolved: IResolvedProviderInfo,
   cacheService?: ExecutionCacheService,
+  overrides?: Partial<IChatOptions>,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -72,6 +74,7 @@ export async function callProviderWithCache(
       temperature: config.defaultModel.temperature,
     }),
     ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
+    ...overrides,
   };
 
   if (cacheService) {
@@ -152,7 +155,7 @@ export function validateAndExtractResponse(
  */
 export async function executeAndRecordToolCalls(
   assistantToolCalls: IToolCall[],
-  conversationSession: ConversationSession,
+  conversationStore: ConversationStore,
   conversationId: string,
   executionId: string,
   currentRound: number,
@@ -160,7 +163,9 @@ export async function executeAndRecordToolCalls(
   previousThinkingNodeId: string | undefined,
   roundState: IExecutionRoundState,
   deps: IRoundDependencies,
-): Promise<void> {
+  config?: IAgentConfig,
+  signal?: AbortSignal,
+): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
   logger.debug('Tool calls detected, executing tools', {
@@ -206,6 +211,7 @@ export async function executeAndRecordToolCalls(
     mode: 'parallel',
     maxConcurrency: 5,
     continueOnError: true,
+    signal,
   };
 
   const toolSummary = await toolExecutionService.executeTools(toolContext);
@@ -219,12 +225,14 @@ export async function executeAndRecordToolCalls(
     }),
   );
 
-  addToolResultsToHistory(
+  const contextLimit = getModelContextWindow(config?.defaultModel?.model ?? '');
+  const toolResultsOutcome = addToolResultsToHistory(
     assistantToolCalls,
     toolSummary,
-    conversationSession,
+    conversationStore,
     currentRound,
     logger,
+    { contextLimit, cumulativeInputTokens: roundState.cumulativeInputTokens },
   );
 
   eventEmitter.emitToolResultsEvents(
@@ -239,11 +247,26 @@ export async function executeAndRecordToolCalls(
   );
 
   eventEmitter.clearToolEventServices();
+
+  return toolResultsOutcome;
 }
 
 /**
  * Add tool execution results to conversation history in call order
  */
+const CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE =
+  'Error: Context window near capacity. Tool execution result skipped. Respond with available results and re-request skipped tools if needed.';
+
+/** Result of addToolResultsToHistory indicating whether context overflow occurred */
+export interface IToolResultsOutcome {
+  /** Whether any tool results were skipped due to context overflow */
+  contextOverflowed: boolean;
+  /** Number of tool results that were added normally */
+  addedCount: number;
+  /** Number of tool results that were skipped */
+  skippedCount: number;
+}
+
 export function addToolResultsToHistory(
   assistantToolCalls: IToolCall[],
   toolSummary: {
@@ -256,10 +279,18 @@ export function addToolResultsToHistory(
     }>;
     errors: Error[];
   },
-  conversationSession: ConversationSession,
+  conversationStore: ConversationStore,
   currentRound: number,
   logger: ILogger,
-): void {
+  contextBudget?: { contextLimit: number; cumulativeInputTokens: number },
+): IToolResultsOutcome {
+  // chars/2 — conservative estimate, especially for Korean/JSON/code content
+  const CHARS_PER_TOKEN = 2;
+  const TOOL_RESULT_OVERFLOW_THRESHOLD = 0.8;
+  let contextOverflowed = false;
+  let addedCount = 0;
+  let skippedCount = 0;
+
   for (const toolCall of assistantToolCalls) {
     if (!toolCall.id) {
       throw new Error(`Tool call missing ID: ${JSON.stringify(toolCall)}`);
@@ -267,6 +298,23 @@ export function addToolResultsToHistory(
     const toolCallName = toolCall.function?.name;
     if (!toolCallName || toolCallName.length === 0) {
       throw new Error(`[EXECUTION] Tool call "${toolCall.id}" missing function name`);
+    }
+
+    // Context budget check: if already overflowed, skip remaining tool results
+    if (contextOverflowed) {
+      logger.warn('[ROUND] Skipping tool result due to context overflow', {
+        toolCallId: toolCall.id,
+        toolName: toolCallName,
+        round: currentRound,
+      });
+      conversationStore.addToolMessageWithId(
+        CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE,
+        toolCall.id,
+        toolCallName,
+        { round: currentRound, success: false, error: 'context_overflow', toolName: toolCallName },
+      );
+      skippedCount++;
+      continue;
     }
 
     const result = toolSummary.results.find((r) => r.executionId === toolCall.id);
@@ -315,17 +363,42 @@ export function addToolResultsToHistory(
       toolName: toolCallName,
       content: content.substring(0, PREVIEW_LENGTH),
       round: currentRound,
-      currentHistoryLength: conversationSession.getMessages().length,
+      currentHistoryLength: conversationStore.getMessages().length,
     });
 
-    conversationSession.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
+    conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
+
+    // Check context budget after adding each tool result
+    if (contextBudget) {
+      const historyChars = JSON.stringify(conversationStore.getMessages()).length;
+      const estimatedTokens = Math.max(
+        contextBudget.cumulativeInputTokens,
+        Math.ceil(historyChars / CHARS_PER_TOKEN),
+      );
+      if (estimatedTokens > contextBudget.contextLimit * TOOL_RESULT_OVERFLOW_THRESHOLD) {
+        logger.warn(
+          '[ROUND] Context budget exceeded after tool result — skipping remaining tools',
+          {
+            estimatedTokens,
+            contextLimit: contextBudget.contextLimit,
+            toolCallId: toolCall.id,
+            round: currentRound,
+          },
+        );
+        contextOverflowed = true;
+      }
+    }
+
+    addedCount++;
 
     logger.debug('Tool result added to history', {
       toolCallId: toolCall.id,
-      newHistoryLength: conversationSession.getMessages().length,
+      newHistoryLength: conversationStore.getMessages().length,
       round: currentRound,
     });
   }
+
+  return { contextOverflowed, addedCount, skippedCount };
 }
 
 /**
@@ -335,7 +408,7 @@ export function addToolResultsToHistory(
 export async function executeRound(
   roundState: IExecutionRoundState,
   maxRounds: number,
-  conversationSession: ConversationSession,
+  conversationStore: ConversationStore,
   conversationId: string,
   executionId: string,
   fullContext: IExecutionContext,
@@ -353,7 +426,7 @@ export async function executeRound(
     maxRounds,
   });
 
-  const historyMessages = conversationSession.getMessages();
+  const historyMessages = conversationStore.getMessages();
   if (!Array.isArray(historyMessages)) {
     throw new Error('[EXECUTION] Conversation messages must be an array');
   }
@@ -416,30 +489,32 @@ export async function executeRound(
     },
   );
 
-  // Pre-send context check: use API-reported token count when available,
-  // fall back to chars/3 estimation for the first round.
-  // Threshold at 83.5% matching Claude Code's approach (accurate tokens assumed).
-  // NOTE: When parallel tool execution is implemented, this check must account for
-  // partial results — only count completed tool results, not pending ones.
-  const CHARS_PER_TOKEN = 3;
+  // Pre-send context check: always estimate from current history size (chars/3)
+  // because cumulativeInputTokens from the previous round doesn't account for
+  // tool results added after the last provider call.
+  // Threshold at 83.5% matching Claude Code's approach.
+  // chars/2 is more conservative than chars/3 — better for Korean, JSON, code content
+  // where the actual char/token ratio is often higher than 3
+  const CHARS_PER_TOKEN = 2;
   const CONTEXT_OVERFLOW_THRESHOLD = 0.835;
-  const estimatedTokens = roundState.cumulativeInputTokens > 0
-    ? roundState.cumulativeInputTokens
-    : Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
-  const modelContextSizes: Record<string, number> = {
-    'claude-sonnet-4-6': 200_000,
-    'claude-sonnet-4-5': 200_000,
-    'claude-opus-4-6': 1_000_000,
-    'claude-opus-4-5': 200_000,
-    'claude-haiku-4-5': 200_000,
-  };
-  const contextLimit = modelContextSizes[config.defaultModel.model] ?? 200_000;
+  const historyCharsEstimate = Math.ceil(
+    JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN,
+  );
+  // Use the higher of API-reported tokens and chars estimate to be conservative
+  const estimatedTokens = Math.max(roundState.cumulativeInputTokens, historyCharsEstimate);
+  const contextLimit = getModelContextWindow(config.defaultModel.model);
   if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
     logger.warn('[ROUND] Context overflow prevention — tokens exceed 83.5% of context window', {
       estimatedTokens,
       contextLimit,
       round: currentRound,
     });
+    // Inject a clear assistant message so the caller doesn't get a cryptic fallback
+    conversationStore.addAssistantMessage(
+      'Context window is near capacity. Cannot process further in this round.',
+      [],
+      { round: currentRound, contextOverflow: true },
+    );
     return true; // Break the execution loop
   }
 
@@ -450,12 +525,48 @@ export async function executeRound(
     if (cb) cb('\n\n');
   }
 
-  const response = await callProviderWithCache(
-    conversationMessages,
-    config,
-    resolved,
-    cacheService,
-  );
+  // Begin assistant response tracking — ensures commitAssistant always has data
+  conversationStore.beginAssistant();
+
+  // Wrap onTextDelta to accumulate streaming text in ConversationStore.
+  // Passed via chatOptions (not monkey-patching) to avoid mutating shared provider instance.
+  const originalOnTextDelta = (resolved.provider as { onTextDelta?: (delta: string) => void })
+    .onTextDelta;
+  const wrappedOnTextDelta = (delta: string): void => {
+    conversationStore.appendStreaming(delta);
+    originalOnTextDelta?.call(resolved.provider, delta);
+  };
+
+  let response: TUniversalMessage;
+  try {
+    response = await callProviderWithCache(conversationMessages, config, resolved, cacheService, {
+      signal: fullContext.signal,
+      onTextDelta: wrappedOnTextDelta,
+    });
+  } catch (providerError) {
+    // Re-throw AbortErrors so the execution service can handle them cleanly.
+    // Check both error name AND message pattern — some SDKs throw non-standard abort errors.
+    const isAbortError =
+      providerError instanceof Error &&
+      (providerError.name === 'AbortError' ||
+        providerError.message.includes('aborted') ||
+        providerError.message.includes('abort'));
+    if (isAbortError) {
+      // Commit pending streaming state before re-throwing (append-only guarantee)
+      conversationStore.commitAssistant('interrupted', { round: currentRound });
+      throw providerError;
+    }
+    // Provider rejected the request (e.g., context too large for API).
+    // Discard pending streaming state, inject error message instead.
+    conversationStore.discardPending();
+    const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
+    logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
+    conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
+      round: currentRound,
+      providerError: true,
+    });
+    return true;
+  }
 
   const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(
     response,
@@ -488,7 +599,22 @@ export async function executeRound(
   if (inputTokens > 0) {
     roundState.cumulativeInputTokens = inputTokens; // input_tokens already includes full context
   }
-  conversationSession.addAssistantMessage(assistantResponse.content ?? '', assistantToolCalls, {
+
+  // If provider did not stream (no onTextDelta calls), seed pending state with full response content.
+  // This handles non-streaming providers and test mocks that return content directly.
+  // beginAssistant() already created the pending state, so check if content was actually streamed.
+  if (assistantResponse.content && !conversationStore.getPendingContent()) {
+    conversationStore.appendStreaming(assistantResponse.content);
+  }
+
+  // Extract tool calls from provider response and add to pending state
+  for (const tc of assistantToolCalls) {
+    conversationStore.appendToolCall(tc);
+  }
+
+  // Single commit path — state determined by signal
+  const messageState: TMessageState = fullContext.signal?.aborted ? 'interrupted' : 'complete';
+  conversationStore.commitAssistant(messageState, {
     round: currentRound,
     ...(inputTokens > 0 && { inputTokens }),
     ...(outputTokens > 0 && { outputTokens }),
@@ -515,9 +641,9 @@ export async function executeRound(
     return true;
   }
 
-  await executeAndRecordToolCalls(
+  const toolOutcome = await executeAndRecordToolCalls(
     assistantToolCalls,
-    conversationSession,
+    conversationStore,
     conversationId,
     executionId,
     currentRound,
@@ -525,7 +651,22 @@ export async function executeRound(
     previousThinkingNodeId,
     roundState,
     deps,
+    config,
+    fullContext.signal,
   );
+
+  if (toolOutcome.contextOverflowed) {
+    logger.warn(
+      '[ROUND] Tool results partially skipped due to context overflow — continuing to let AI respond',
+      {
+        added: toolOutcome.addedCount,
+        skipped: toolOutcome.skippedCount,
+        round: currentRound,
+      },
+    );
+    // Don't break — let the AI see the mixed results (normal + context error)
+    // and decide how to respond (partial answer, request /compact, retry, etc.)
+  }
 
   logger.debug(
     `Round ${currentRound} completed - continuing to next round for agent ${fullContext.conversationId}`,

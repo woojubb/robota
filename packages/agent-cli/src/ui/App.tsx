@@ -1,463 +1,207 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { createSession, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
-import type { Session } from '@robota-sdk/agent-sdk';
-import type {
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  SessionStore,
-} from '@robota-sdk/agent-sdk';
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { ITerminalOutput, ISpinner } from '../types.js';
-import type { IChatMessage, IPermissionRequest, TPermissionResult } from './types.js';
-import { CommandRegistry } from '../commands/command-registry.js';
-import { BuiltinCommandSource } from '../commands/builtin-source.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
+import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  getUserSettingsPath,
+  updateModelInSettings,
+  deleteSettings,
+  readSettings,
+  writeSettings,
+} from '../utils/settings-io.js';
+import { useInteractiveSession } from './hooks/useInteractiveSession.js';
+import type { ISideEffects } from './hooks/useInteractiveSession.js';
+import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
+import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
-import { renderMarkdown } from './render-markdown.js';
+import StreamingIndicator from './StreamingIndicator.js';
+import PluginTUI from './PluginTUI.js';
+import ListPicker from './ListPicker.js';
+
+import type { SessionStore, ISessionRecord } from '@robota-sdk/agent-sessions';
 
 interface IProps {
-  config: IResolvedConfig;
-  context: ILoadedContext;
-  projectInfo?: IProjectInfo;
-  sessionStore?: SessionStore;
+  cwd: string;
+  provider: IAIProvider;
+  modelId?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  cwd?: string;
   version?: string;
+  sessionStore?: SessionStore;
+  resumeSessionId?: string;
+  forkSession?: boolean;
+  sessionName?: string;
 }
 
-let msgIdCounter = 0;
-function nextId(): string {
-  msgIdCounter += 1;
-  return `msg_${msgIdCounter}`;
+const EXIT_DELAY_MS = 500;
+const SESSION_ID_DISPLAY_LENGTH = 8;
+
+/**
+ * Outer wrapper that manages session switching via React key remounting.
+ * When a session is selected from the picker, activeSessionId changes,
+ * causing AppInner to unmount and remount with the new resumeSessionId.
+ */
+export default function App(props: IProps): React.ReactElement {
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
+
+  return (
+    <AppInner
+      key={activeSessionId ?? '__new__'}
+      {...props}
+      resumeSessionId={activeSessionId}
+      onSessionSwitch={(sessionId) => setActiveSessionId(sessionId)}
+    />
+  );
 }
 
-/** No-op ITerminalOutput for Ink mode (permissions handled via permissionHandler) */
-const NOOP_TERMINAL: ITerminalOutput = {
-  write: () => {},
-  writeLine: () => {},
-  writeMarkdown: () => {},
-  writeError: () => {},
-  prompt: () => Promise.resolve(''),
-  select: () => Promise.resolve(0),
-  spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
-};
+function AppInner(
+  props: IProps & { onSessionSwitch: (sessionId: string) => void },
+): React.ReactElement {
+  const { exit } = useApp();
+  const cwd = props.cwd;
 
-/** Hook: create a Session instance once and provide a stable permission handler + streaming. */
-function useSession(props: IProps): {
-  session: Session;
-  permissionRequest: IPermissionRequest | null;
-  streamingText: string;
-  clearStreamingText: () => void;
-} {
-  const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
-  const [streamingText, setStreamingText] = useState('');
+  const {
+    interactiveSession,
+    registry,
+    history,
+    addEntry,
+    streamingText,
+    activeTools,
+    isThinking,
+    isAborting,
+    pendingPrompt,
+    permissionRequest,
+    contextState,
+    handleSubmit: baseHandleSubmit,
+    handleAbort,
+    handleCancelQueue,
+  } = useInteractiveSession({
+    cwd,
+    provider: props.provider,
+    permissionMode: props.permissionMode,
+    maxTurns: props.maxTurns,
+    sessionStore: props.sessionStore,
+    resumeSessionId: props.resumeSessionId,
+    forkSession: props.forkSession,
+    sessionName: props.sessionName,
+  });
 
-  // Permission queue — handles concurrent tool permission requests sequentially
-  const permissionQueueRef = useRef<
-    Array<{
-      toolName: string;
-      toolArgs: TToolArgs;
-      resolve: (result: TPermissionResult) => void;
-    }>
-  >([]);
-  const processingRef = useRef(false);
+  const pluginCallbacks = usePluginCallbacks(cwd);
 
-  const processNextPermission = useCallback(() => {
-    if (processingRef.current) return;
-    const next = permissionQueueRef.current[0];
-    if (!next) {
-      setPermissionRequest(null);
+  // TUI-specific state
+  const [pendingModelId, setPendingModelId] = useState<string | null>(null);
+  const pendingModelChangeRef = useRef<string | null>(null);
+  const [showPluginTUI, setShowPluginTUI] = useState(false);
+  const [showSessionPicker, setShowSessionPicker] = useState(
+    props.resumeSessionId === '__picker__',
+  );
+  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
+
+  // Sync session name from InteractiveSession when resuming a named session
+  useEffect(() => {
+    const name = interactiveSession?.getName?.();
+    if (name && !sessionName) setSessionName(name);
+  }, [interactiveSession, sessionName]);
+
+  // Update terminal title when session name changes
+  useEffect(() => {
+    const title = sessionName ? `Robota — ${sessionName}` : 'Robota';
+    process.stdout.write(`\x1b]0;${title}\x07`);
+  }, [sessionName]);
+
+  // Wrap submit to handle TUI-specific side effects from system commands
+  const handleSubmit = async (input: string): Promise<void> => {
+    await baseHandleSubmit(input);
+
+    // Check for TUI-specific side effects set by useInteractiveSession
+    const sideEffects = interactiveSession as InteractiveSession & ISideEffects;
+
+    if (sideEffects._pendingModelId) {
+      const modelId = sideEffects._pendingModelId as string;
+      delete sideEffects._pendingModelId;
+      pendingModelChangeRef.current = modelId;
+      setPendingModelId(modelId);
       return;
     }
-    processingRef.current = true;
-    setPermissionRequest({
-      toolName: next.toolName,
-      toolArgs: next.toolArgs,
-      resolve: (result: TPermissionResult) => {
-        permissionQueueRef.current.shift();
-        processingRef.current = false;
-        setPermissionRequest(null);
-        next.resolve(result);
-        // Process next in queue after a tick
-        setTimeout(() => processNextPermission(), 0);
-      },
-    });
-  }, []);
 
-  const sessionRef = useRef<Session | null>(null);
-  if (sessionRef.current === null) {
-    const permissionHandler = (
-      toolName: string,
-      toolArgs: TToolArgs,
-    ): Promise<TPermissionResult> => {
-      return new Promise<TPermissionResult>((resolve) => {
-        permissionQueueRef.current.push({ toolName, toolArgs, resolve });
-        processNextPermission();
-      });
-    };
-
-    const onTextDelta = (delta: string): void => {
-      setStreamingText((prev) => prev + delta);
-    };
-
-    const paths = projectPaths(props.cwd ?? process.cwd());
-    sessionRef.current = createSession({
-      config: props.config,
-      context: props.context,
-      terminal: NOOP_TERMINAL,
-      sessionLogger: new FileSessionLogger(paths.logs),
-      projectInfo: props.projectInfo,
-      sessionStore: props.sessionStore,
-      permissionMode: props.permissionMode,
-      maxTurns: props.maxTurns,
-      permissionHandler,
-      onTextDelta,
-    });
-  }
-
-  const clearStreamingText = useCallback(() => setStreamingText(''), []);
-
-  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText };
-}
-
-/** Hook: manage chat messages list. */
-function useMessages(): {
-  messages: IChatMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>;
-  addMessage: (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
-} {
-  const [messages, setMessages] = useState<IChatMessage[]>([]);
-  const addMessage = useCallback((msg: Omit<IChatMessage, 'id' | 'timestamp'>) => {
-    setMessages((prev) => [...prev, { ...msg, id: nextId(), timestamp: new Date() }]);
-  }, []);
-  return { messages, setMessages, addMessage };
-}
-
-type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
-
-const HELP_TEXT = [
-  'Available commands:',
-  '  /help              — Show this help',
-  '  /clear             — Clear conversation',
-  '  /compact [instr]   — Compact context (optional focus instructions)',
-  '  /mode [m]          — Show/change permission mode',
-  '  /cost              — Show session info',
-  '  /reset             — Delete settings and exit',
-  '  /exit              — Exit CLI',
-].join('\n');
-
-/** Handle the /mode slash command. */
-function handleModeCommand(
-  arg: string | undefined,
-  session: Session,
-  addMessage: TAddMessage,
-): boolean {
-  const validModes: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
-  if (!arg) {
-    addMessage({ role: 'system', content: `Current mode: ${session.getPermissionMode()}` });
-  } else if (validModes.includes(arg as TPermissionMode)) {
-    session.setPermissionMode(arg as TPermissionMode);
-    addMessage({ role: 'system', content: `Permission mode set to: ${arg}` });
-  } else {
-    addMessage({ role: 'system', content: `Invalid mode. Valid: ${validModes.join(' | ')}` });
-  }
-  return true;
-}
-
-/** Execute a parsed slash command. Returns true if handled. */
-async function executeSlashCommand(
-  cmd: string,
-  parts: string[],
-  session: Session,
-  addMessage: TAddMessage,
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
-  exit: () => void,
-  registry: CommandRegistry,
-): Promise<boolean> {
-  switch (cmd) {
-    case 'help':
-      addMessage({ role: 'system', content: HELP_TEXT });
-      return true;
-    case 'clear':
-      setMessages([]);
-      session.clearHistory();
-      addMessage({ role: 'system', content: 'Conversation cleared.' });
-      return true;
-    case 'compact': {
-      const instructions = parts.slice(1).join(' ').trim() || undefined;
-      const before = session.getContextState().usedPercentage;
-      addMessage({ role: 'system', content: 'Compacting context...' });
-      await session.compact(instructions);
-      const after = session.getContextState().usedPercentage;
-      addMessage({
-        role: 'system',
-        content: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
-      });
-      return true;
-    }
-    case 'mode':
-      return handleModeCommand(parts[1], session, addMessage);
-    case 'cost':
-      addMessage({
-        role: 'system',
-        content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
-      });
-      return true;
-    case 'permissions': {
-      const mode = session.getPermissionMode();
-      const sessionAllowed = session.getSessionAllowedTools();
-      const lines = [`Permission mode: ${mode}`];
-      if (sessionAllowed.length > 0) {
-        lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
-      } else {
-        lines.push('No session-approved tools.');
-      }
-      addMessage({ role: 'system', content: lines.join('\n') });
-      return true;
-    }
-    case 'context': {
-      const ctx = session.getContextState();
-      addMessage({
-        role: 'system',
-        content: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
-      });
-      return true;
-    }
-    case 'reset': {
-      const { existsSync: exists, unlinkSync: unlink } = await import('node:fs');
-      const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-      const settingsPath = `${home}/.robota/settings.json`;
-      if (exists(settingsPath)) {
-        unlink(settingsPath);
-        addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
-      } else {
-        addMessage({ role: 'system', content: 'No user settings found.' });
-      }
-      setTimeout(() => exit(), 500);
-      return true;
-    }
-    case 'exit':
-      exit();
-      return true;
-    default: {
-      const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
-      if (skillCmd) {
-        addMessage({ role: 'system', content: `Invoking skill: ${cmd}` });
-        return false; // Signal caller to run as session prompt
-      }
-      addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });
-      return true;
-    }
-  }
-}
-
-/** Hook: handle slash commands. Returns an async handler function. */
-function useSlashCommands(
-  session: Session,
-  addMessage: TAddMessage,
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
-  exit: () => void,
-  registry: CommandRegistry,
-): (input: string) => Promise<boolean> {
-  return useCallback(
-    async (input: string): Promise<boolean> => {
-      const parts = input.slice(1).split(/\s+/);
-      const cmd = parts[0]?.toLowerCase() ?? '';
-      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit, registry);
-    },
-    [session, addMessage, setMessages, exit, registry],
-  );
-}
-
-/** Streaming text indicator shown while the agent is generating a response */
-function StreamingIndicator({ text }: { text: string }): React.ReactElement {
-  if (text) {
-    return (
-      <Box flexDirection="column">
-        <Text color="cyan" bold>
-          Robota:{' '}
-        </Text>
-        <Text> </Text>
-        <Box marginLeft={2}>
-          <Text wrap="wrap">{renderMarkdown(text)}</Text>
-        </Box>
-      </Box>
-    );
-  }
-  return <Text color="yellow">Thinking...</Text>;
-}
-
-/** Run a prompt through the session with thinking/streaming state management */
-async function runSessionPrompt(
-  prompt: string,
-  session: Session,
-  addMessage: TAddMessage,
-  clearStreamingText: () => void,
-  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
-  setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
-): Promise<void> {
-  setIsThinking(true);
-  clearStreamingText();
-
-  // Record history position to extract tool calls after run
-  const historyBefore = session.getHistory().length;
-
-  try {
-    const response = await session.run(prompt);
-    clearStreamingText();
-
-    // Extract tool calls from session history — group into one message
-    const history = session.getHistory();
-    const toolLines: string[] = [];
-    for (let i = historyBefore; i < history.length; i++) {
-      const msg = history[i] as { role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> };
-      if (msg.role === 'assistant' && msg.toolCalls) {
-        for (const tc of msg.toolCalls) {
-          let value = '';
-          try {
-            const parsed = JSON.parse(tc.function.arguments);
-            const firstVal = Object.values(parsed)[0];
-            value = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal);
-          } catch {
-            value = tc.function.arguments;
-          }
-          const truncated = value.length > 80 ? value.slice(0, 77) + '...' : value;
-          toolLines.push(`${tc.function.name}(${truncated})`);
-        }
-      }
-    }
-    if (toolLines.length > 0) {
-      addMessage({ role: 'tool', content: toolLines.join('\n'), toolName: `${toolLines.length} tools` });
-    }
-
-    addMessage({ role: 'assistant', content: response || '(empty response)' });
-    setContextPercentage(session.getContextState().usedPercentage);
-  } catch (err) {
-    clearStreamingText();
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      addMessage({ role: 'system', content: 'Cancelled.' });
-    } else {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      addMessage({ role: 'system', content: `Error: ${errMsg}` });
-    }
-  } finally {
-    setIsThinking(false);
-  }
-}
-
-/** Build a skill prompt from a slash command input and registry */
-function buildSkillPrompt(input: string, registry: CommandRegistry): string | null {
-  const parts = input.slice(1).split(/\s+/);
-  const cmd = parts[0]?.toLowerCase() ?? '';
-  const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
-  if (!skillCmd) return null;
-  const args = parts.slice(1).join(' ').trim();
-  const userInstruction = args || skillCmd.description;
-
-  // Inject SKILL.md content if available
-  if (skillCmd.skillContent) {
-    return `<skill name="${cmd}">\n${skillCmd.skillContent}\n</skill>\n\nExecute the "${cmd}" skill: ${userInstruction}`;
-  }
-  return `Use the "${cmd}" skill: ${userInstruction}`;
-}
-
-/** Hook: build the handleSubmit callback for user input */
-function useSubmitHandler(
-  session: Session,
-  addMessage: TAddMessage,
-  handleSlashCommand: (input: string) => Promise<boolean>,
-  clearStreamingText: () => void,
-  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
-  setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
-  registry: CommandRegistry,
-): (input: string) => Promise<void> {
-  return useCallback(
-    async (input: string) => {
-      if (input.startsWith('/')) {
-        const handled = await handleSlashCommand(input);
-        if (handled) {
-          setContextPercentage(session.getContextState().usedPercentage);
-          return;
-        }
-        // Skill command — send as session prompt
-        const prompt = buildSkillPrompt(input, registry);
-        if (!prompt) return;
-        return runSessionPrompt(
-          prompt,
-          session,
-          addMessage,
-          clearStreamingText,
-          setIsThinking,
-          setContextPercentage,
-        );
-      }
-
-      addMessage({ role: 'user', content: input });
-      return runSessionPrompt(
-        input,
-        session,
-        addMessage,
-        clearStreamingText,
-        setIsThinking,
-        setContextPercentage,
+    if (sideEffects._pendingLanguage) {
+      const lang = sideEffects._pendingLanguage as string;
+      delete sideEffects._pendingLanguage;
+      const settingsPath = getUserSettingsPath();
+      const settings = readSettings(settingsPath);
+      settings.language = lang;
+      writeSettings(settingsPath, settings);
+      addEntry(
+        messageToHistoryEntry(createSystemMessage(`Language set to "${lang}". Restarting...`)),
       );
-    },
-    [
-      session,
-      addMessage,
-      handleSlashCommand,
-      clearStreamingText,
-      setIsThinking,
-      setContextPercentage,
-      registry,
-    ],
-  );
-}
+      setTimeout(() => exit(), EXIT_DELAY_MS);
+      return;
+    }
 
-/** Hook: create a CommandRegistry once with builtin and skill commands */
-function useCommandRegistry(cwd: string): CommandRegistry {
-  const registryRef = useRef<CommandRegistry | null>(null);
-  if (registryRef.current === null) {
-    const registry = new CommandRegistry();
-    registry.addSource(new BuiltinCommandSource());
-    registry.addSource(new SkillCommandSource(cwd));
-    registryRef.current = registry;
-  }
-  return registryRef.current;
-}
+    if (sideEffects._resetRequested) {
+      delete sideEffects._resetRequested;
+      const settingsPath = getUserSettingsPath();
+      if (deleteSettings(settingsPath)) {
+        addEntry(messageToHistoryEntry(createSystemMessage(`Deleted ${settingsPath}. Exiting...`)));
+      } else {
+        addEntry(messageToHistoryEntry(createSystemMessage('No user settings found.')));
+      }
+      setTimeout(() => exit(), EXIT_DELAY_MS);
+      return;
+    }
 
-export default function App(props: IProps): React.ReactElement {
-  const { exit } = useApp();
-  const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
-  const { messages, setMessages, addMessage } = useMessages();
-  const [isThinking, setIsThinking] = useState(false);
-  const [contextPercentage, setContextPercentage] = useState(0);
-  const registry = useCommandRegistry(props.cwd ?? process.cwd());
+    if (sideEffects._exitRequested) {
+      delete sideEffects._exitRequested;
+      setTimeout(() => exit(), EXIT_DELAY_MS);
+      return;
+    }
 
-  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit, registry);
-  const handleSubmit = useSubmitHandler(
-    session,
-    addMessage,
-    handleSlashCommand,
-    clearStreamingText,
-    setIsThinking,
-    setContextPercentage,
-    registry,
-  );
+    if (sideEffects._triggerPluginTUI) {
+      delete sideEffects._triggerPluginTUI;
+      setShowPluginTUI(true);
+      return;
+    }
 
+    if (sideEffects._triggerResumePicker) {
+      delete sideEffects._triggerResumePicker;
+      setShowSessionPicker(true);
+      return;
+    }
+
+    if (sideEffects._sessionName) {
+      const name = sideEffects._sessionName as string;
+      delete sideEffects._sessionName;
+      interactiveSession.setName(name);
+      setSessionName(name);
+      return;
+    }
+  };
+
+  // ESC abort
   useInput(
-    (_input: string, key: { ctrl: boolean; escape: boolean }) => {
-      if (key.ctrl && _input === 'c') exit();
-      if (key.escape && isThinking) session.abort();
+    (_input: string, key: { escape: boolean }) => {
+      if (key.escape && isThinking) {
+        handleAbort();
+      }
     },
-    { isActive: !permissionRequest },
+    { isActive: !permissionRequest && !showPluginTUI && !showSessionPicker },
   );
+
+  // Session may not be initialized yet (async config/context loading)
+  let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
+  let sessionId = '';
+  try {
+    const session = interactiveSession.getSession();
+    permissionMode = session.getPermissionMode();
+    sessionId = session.getSessionId();
+  } catch {
+    // Not yet initialized — use defaults
+  }
 
   return (
     <Box flexDirection="column">
@@ -472,29 +216,135 @@ export default function App(props: IProps): React.ReactElement {
         <Text dimColor> v{props.version ?? '0.0.0'}</Text>
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        <MessageList messages={messages} />
-        {isThinking && (
+        <MessageList history={history} />
+        {(isThinking || activeTools.length > 0) && (
           <Box flexDirection="column" marginBottom={1}>
-            <StreamingIndicator text={streamingText} />
+            <StreamingIndicator text={streamingText} activeTools={activeTools} />
           </Box>
         )}
       </Box>
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
+      {pendingModelId && (
+        <ConfirmPrompt
+          message={`Change model to ${getModelName(pendingModelId)}? This will restart the session.`}
+          onSelect={(index) => {
+            setPendingModelId(null);
+            pendingModelChangeRef.current = null;
+            if (index === 0) {
+              try {
+                const settingsPath = getUserSettingsPath();
+                updateModelInSettings(settingsPath, pendingModelId);
+                addEntry(
+                  messageToHistoryEntry(
+                    createSystemMessage(
+                      `Model changed to ${getModelName(pendingModelId)}. Restarting...`,
+                    ),
+                  ),
+                );
+                setTimeout(() => exit(), EXIT_DELAY_MS);
+              } catch (err) {
+                addEntry(
+                  messageToHistoryEntry(
+                    createSystemMessage(
+                      `Failed: ${err instanceof Error ? err.message : String(err)}`,
+                    ),
+                  ),
+                );
+              }
+            } else {
+              addEntry(messageToHistoryEntry(createSystemMessage('Model change cancelled.')));
+            }
+          }}
+        />
+      )}
+      {showPluginTUI && (
+        <PluginTUI
+          callbacks={pluginCallbacks}
+          onClose={() => setShowPluginTUI(false)}
+          addMessage={(msg) => addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))}
+        />
+      )}
+      {showSessionPicker && (
+        <Box flexDirection="column" paddingX={1} marginBottom={1}>
+          <Text bold color="cyan">
+            Select a session to resume (ESC to cancel):
+          </Text>
+          <ListPicker<ISessionRecord>
+            items={(props.sessionStore?.list() ?? []).filter((s) => s.cwd === props.cwd)}
+            renderItem={(session: ISessionRecord, isSelected: boolean) => {
+              const lastMsg = session.messages
+                .slice()
+                .reverse()
+                .find((m) => {
+                  const msg = m as { role?: string; content?: string };
+                  return msg.role === 'assistant' && msg.content;
+                }) as { content?: string } | undefined;
+              const rawPreview = lastMsg?.content?.replace(/[\n\r]+/g, ' ').trim() ?? '';
+              const preview = rawPreview
+                ? rawPreview.slice(0, 60) + (rawPreview.length > 60 ? '...' : '')
+                : '';
+              return (
+                <Text>
+                  {isSelected ? '> ' : '  '}
+                  <Text bold>{session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}</Text>
+                  {'  '}
+                  <Text dimColor>
+                    {new Date(session.updatedAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                  {'  '}
+                  <Text dimColor>msgs: {session.messages.length}</Text>
+                  {preview ? (
+                    <>
+                      {'\n    '}
+                      <Text color="gray">{preview}</Text>
+                    </>
+                  ) : null}
+                </Text>
+              );
+            }}
+            onSelect={(session: ISessionRecord) => {
+              setShowSessionPicker(false);
+              props.onSessionSwitch(session.id);
+            }}
+            onCancel={() => {
+              setShowSessionPicker(false);
+              addEntry(messageToHistoryEntry(createSystemMessage('Session resume cancelled.')));
+            }}
+          />
+        </Box>
+      )}
       <StatusBar
-        permissionMode={session.getPermissionMode()}
-        modelName={props.config.provider.model}
-        sessionId={session.getSessionId()}
-        messageCount={messages.length}
+        permissionMode={permissionMode}
+        modelName={props.modelId ? getModelName(props.modelId) : ''}
+        sessionId={sessionId}
+        messageCount={history.length}
         isThinking={isThinking}
-        contextPercentage={contextPercentage}
-        contextUsedTokens={session.getContextState().usedTokens}
-        contextMaxTokens={session.getContextState().maxTokens}
+        contextPercentage={contextState.percentage}
+        contextUsedTokens={contextState.usedTokens}
+        contextMaxTokens={contextState.maxTokens}
+        sessionName={sessionName}
       />
       <InputArea
         onSubmit={handleSubmit}
-        isDisabled={isThinking || !!permissionRequest}
+        onCancelQueue={handleCancelQueue}
+        isDisabled={
+          !!permissionRequest ||
+          showPluginTUI ||
+          showSessionPicker ||
+          (isThinking && !!pendingPrompt)
+        }
+        isAborting={isAborting}
+        pendingPrompt={pendingPrompt}
         registry={registry}
+        sessionName={sessionName}
       />
+      {/* Permanent blank line below input — required for Korean IME stability. */}
+      <Text> </Text>
     </Box>
   );
 }

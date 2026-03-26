@@ -16,6 +16,7 @@ import type {
   TToolArgs,
   THooksConfig,
   IHookInput,
+  IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 
@@ -88,6 +89,16 @@ export interface IPermissionEnforcerOptions {
     toolArgs: TToolArgs,
   ) => Promise<boolean>;
   sessionLogger?: ISessionLogger;
+  onToolExecution?: (event: {
+    type: 'start' | 'end';
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
+  }) => void;
+  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
+  hookTypeExecutors?: IHookTypeExecutor[];
 }
 
 export class PermissionEnforcer {
@@ -99,6 +110,8 @@ export class PermissionEnforcer {
   private readonly permissionHandler?: TPermissionHandler;
   private readonly promptForApprovalFn?: IPermissionEnforcerOptions['promptForApprovalFn'];
   private readonly sessionLogger?: ISessionLogger;
+  private readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
+  private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly sessionAllowedTools = new Set<string>();
 
   constructor(options: IPermissionEnforcerOptions) {
@@ -110,6 +123,8 @@ export class PermissionEnforcer {
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
     this.sessionLogger = options.sessionLogger;
+    this.onToolExecution = options.onToolExecution;
+    this.hookTypeExecutors = options.hookTypeExecutors;
   }
 
   /** Wrap all tools with permission checking */
@@ -162,13 +177,33 @@ export class PermissionEnforcer {
         const allowed = await enforcer.checkPermission(toolName, parameters as TToolArgs);
         if (!allowed) {
           enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
+          enforcer.onToolExecution?.({
+            type: 'end',
+            toolName,
+            toolArgs: parameters as TToolArgs,
+            success: false,
+            denied: true,
+          });
           return PERMISSION_DENIED_RESULT;
         }
+
+        enforcer.onToolExecution?.({ type: 'start', toolName, toolArgs: parameters as TToolArgs });
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
 
         // Truncate oversized tool output (Claude Code uses 30K char limit)
         const truncatedResult = enforcer.truncateToolResult(result);
+
+        enforcer.onToolExecution?.({
+          type: 'end',
+          toolName,
+          toolArgs: parameters as TToolArgs,
+          success: truncatedResult.success,
+          toolResultData:
+            typeof truncatedResult.data === 'string'
+              ? truncatedResult.data
+              : JSON.stringify(truncatedResult.data),
+        });
 
         const dataSize =
           typeof truncatedResult.data === 'string'
@@ -229,6 +264,7 @@ export class PermissionEnforcer {
       this.config.hooks as THooksConfig | undefined,
       'PreToolUse',
       hookInput,
+      this.hookTypeExecutors,
     );
     if (hookResult.blocked) {
       return {
@@ -251,9 +287,12 @@ export class PermissionEnforcer {
       hook_event_name: 'PostToolUse',
       tool_output: typeof result.data === 'string' ? result.data : JSON.stringify(result.data),
     };
-    runHooks(this.config.hooks as THooksConfig | undefined, 'PostToolUse', postHookInput).catch(
-      () => {},
-    );
+    runHooks(
+      this.config.hooks as THooksConfig | undefined,
+      'PostToolUse',
+      postHookInput,
+      this.hookTypeExecutors,
+    ).catch(() => {});
   }
 
   /** Evaluate permission for a tool call using the current mode and config */

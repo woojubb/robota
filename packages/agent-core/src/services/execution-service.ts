@@ -12,8 +12,9 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { createLogger, type ILogger } from '../utils/logger';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IEventService } from '../interfaces/event-service';
+import { randomUUID } from 'node:crypto';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { ConversationSession } from '../managers/conversation-history-manager';
+import type { ConversationStore } from '../managers/conversation-history-manager';
 
 // Re-export constants for public API compatibility
 export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-constants';
@@ -130,6 +131,7 @@ export class ExecutionService {
       ...(context?.sessionId && { sessionId: context.sessionId }),
       ...(context?.userId && { userId: context.userId }),
       ...(context?.metadata && { metadata: context.metadata }),
+      ...(context?.signal && { signal: context.signal }),
     };
 
     this.eventEmitter.prepareOwnerPathBases(conversationId);
@@ -151,15 +153,15 @@ export class ExecutionService {
       executionId,
     );
 
-    try {
-      const conversationSession = this.initializeConversationSession(
-        conversationId,
-        messages,
-        config,
-        executionId,
-      );
+    const conversationStore = this.initializeConversationStore(
+      conversationId,
+      messages,
+      config,
+      executionId,
+    );
 
-      conversationSession.addUserMessage(input, { executionId });
+    try {
+      conversationStore.addUserMessage(input, { executionId });
       this.eventEmitter.emitUserMessageEvent(input, conversationId, executionId);
 
       await callPluginHook(
@@ -182,7 +184,7 @@ export class ExecutionService {
         cumulativeInputTokens: 0,
       };
 
-      const initialMessages = conversationSession.getMessages();
+      const initialMessages = conversationStore.getMessages();
       for (const msg of initialMessages) {
         if (msg.role === 'assistant') {
           roundState.runningAssistantCount++;
@@ -200,11 +202,12 @@ export class ExecutionService {
       };
 
       while (roundState.currentRound < maxRounds) {
+        if (context?.signal?.aborted) break;
         roundState.currentRound++;
         const shouldBreak = await executeRound(
           roundState,
           maxRounds,
-          conversationSession,
+          conversationStore,
           conversationId,
           executionId,
           fullContext,
@@ -213,18 +216,105 @@ export class ExecutionService {
           roundDeps,
         );
         if (shouldBreak) break;
+        if (context?.signal?.aborted) break;
       }
 
-      if (roundState.currentRound >= maxRounds) {
-        this.logger.warn('Maximum execution rounds reached', { maxRounds, conversationId });
+      // If loop ended without a final text response (e.g., maxRounds reached while
+      // AI was still issuing tool calls), make one more provider call so the AI
+      // can generate a summary from the results collected so far.
+      const allMsgs = conversationStore.getMessages();
+      const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : undefined;
+      const hasTextResponse =
+        lastMsg?.role === 'assistant' &&
+        typeof lastMsg.content === 'string' &&
+        lastMsg.content.length > 0 &&
+        (!('toolCalls' in lastMsg) || (lastMsg.toolCalls as unknown[]).length === 0);
+
+      if (!hasTextResponse) {
+        this.logger.warn('No final text response — forcing summary call', {
+          maxRounds,
+          currentRound: roundState.currentRound,
+          conversationId,
+        });
+        try {
+          // Inject instruction to summarize, then call provider directly
+          const syntheticMsg =
+            'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
+          conversationStore.addUserMessage(syntheticMsg);
+          const summaryMessages = conversationStore.getMessages();
+          const systemMsg = config.systemMessage ?? '';
+
+          // Ensure system message is included in the messages sent to the provider
+          const hasSystemMsg = summaryMessages.some(
+            (m) => m.role === 'system' && m.content === systemMsg,
+          );
+          const messagesForProvider =
+            systemMsg && !hasSystemMsg
+              ? [
+                  {
+                    id: randomUUID(),
+                    role: 'system' as const,
+                    content: systemMsg,
+                    state: 'complete' as const,
+                    timestamp: new Date(),
+                  },
+                  ...summaryMessages,
+                ]
+              : summaryMessages;
+
+          // Use streaming if onTextDelta is available on the provider
+          const chatOptions: { model: string; onTextDelta?: (delta: string) => void } = {
+            model: resolved.aiProviderInfo.model,
+          };
+          if (
+            'onTextDelta' in resolved.provider &&
+            typeof resolved.provider.onTextDelta === 'function'
+          ) {
+            chatOptions.onTextDelta = resolved.provider.onTextDelta as (delta: string) => void;
+          }
+
+          const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);
+
+          // Remove synthetic message from history to avoid polluting conversation
+          const currentMessages = conversationStore.getMessages();
+          const syntheticIndex = currentMessages.findIndex(
+            (m) => m.role === 'user' && m.content === syntheticMsg,
+          );
+          if (syntheticIndex !== -1) {
+            const cleaned = currentMessages.filter(
+              (m) => !(m.role === 'user' && m.content === syntheticMsg),
+            );
+            conversationStore.clear();
+            for (const m of cleaned) {
+              conversationStore.addMessage(m);
+            }
+          }
+
+          const responseText =
+            typeof forceResponse.content === 'string' ? forceResponse.content : '';
+          if (responseText) {
+            conversationStore.addAssistantMessage(responseText, [], forceResponse.metadata);
+          } else {
+            conversationStore.addAssistantMessage(
+              'Maximum rounds reached. Partial results available in conversation history.',
+            );
+          }
+        } catch (forceErr) {
+          this.logger.warn('Forced summary call failed', {
+            error: forceErr instanceof Error ? forceErr.message : String(forceErr),
+          });
+        }
       }
 
-      const result = this.buildFinalResult(
-        conversationSession,
-        executionId,
-        startTime,
-        roundState.toolsExecuted,
-      );
+      const result = {
+        ...this.buildFinalResult(
+          conversationStore,
+          executionId,
+          startTime,
+          roundState.toolsExecuted,
+        ),
+        interrupted: context?.signal?.aborted ?? false,
+      };
 
       await callPluginHook(
         this.plugins,
@@ -267,8 +357,36 @@ export class ExecutionService {
 
       return result;
     } catch (error) {
+      const isAbortError =
+        error instanceof Error &&
+        (error.name === 'AbortError' ||
+          error.message.includes('aborted') ||
+          error.message.includes('abort'));
+      if (isAbortError) {
+        const abortMessages = conversationStore.getMessages();
+        return {
+          response: '',
+          messages: abortMessages,
+          executionId,
+          duration: Date.now() - startTime.getTime(),
+          toolsExecuted: [],
+          success: true,
+          interrupted: true,
+        };
+      }
       await this.handleExecutionError(error, fullContext, startTime, conversationId, executionId);
-      throw error;
+      // Return a graceful result instead of throwing — prevents "No response received"
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const duration = Date.now() - startTime.getTime();
+      return {
+        response: `Error: ${errMsg}`,
+        messages: [],
+        tokensUsed: 0,
+        toolsExecuted: [],
+        duration,
+        executionId,
+        success: false,
+      };
     } finally {
       this.eventEmitter.resetOwnerPathBases();
     }
@@ -347,13 +465,13 @@ export class ExecutionService {
     }
   }
 
-  private initializeConversationSession(
+  private initializeConversationStore(
     conversationId: string,
     messages: TUniversalMessage[],
     config: IAgentConfig,
     executionId: string,
-  ): ConversationSession {
-    const session = this.conversationHistory.getConversationSession(conversationId);
+  ): ConversationStore {
+    const session = this.conversationHistory.getConversationStore(conversationId);
     if (session.getMessageCount() === 0 && messages.length > 0) {
       for (const msg of messages) {
         if (msg.role === 'user') {
@@ -389,20 +507,22 @@ export class ExecutionService {
   }
 
   private buildFinalResult(
-    conversationSession: ConversationSession,
+    conversationStore: ConversationStore,
     executionId: string,
     startTime: Date,
     toolsExecuted: string[],
   ): IExecutionResult {
-    const finalMessages = conversationSession.getMessages();
-    const lastAssistantMessage = finalMessages.filter((msg) => msg.role === 'assistant').pop();
-    const hasValidResponse: boolean =
-      !!lastAssistantMessage &&
-      typeof lastAssistantMessage.content === 'string' &&
-      lastAssistantMessage.content.length > 0;
-    const response: string = hasValidResponse
-      ? (lastAssistantMessage!.content as string)
-      : '(execution interrupted: no final assistant response — possible context overflow or max turn limit)';
+    const finalMessages = conversationStore.getMessages();
+    // Find last assistant message with actual content (skip stripped tool-round messages)
+    const lastAssistantMessage = finalMessages
+      .filter(
+        (msg) =>
+          msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0,
+      )
+      .pop();
+    const response: string = lastAssistantMessage
+      ? (lastAssistantMessage.content as string)
+      : 'No response received. The context window may be full.';
     const duration = Date.now() - startTime.getTime();
     return {
       response,
@@ -433,7 +553,7 @@ export class ExecutionService {
           return sum;
         }, 0),
       toolsExecuted,
-      success: hasValidResponse,
+      success: !!lastAssistantMessage,
     };
   }
 

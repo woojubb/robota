@@ -1,39 +1,39 @@
 /**
- * CLI entry point — parses arguments, loads config/context, and starts the
- * Ink TUI or runs in print mode.
+ * CLI entry point — parses arguments, creates provider, and starts the Ink TUI.
  *
- * CLI flags:
- *   robota                         Interactive TUI mode
- *   robota "prompt"                TUI with initial prompt (future)
- *   robota -p "prompt"             Print mode (one-shot, exit after response)
- *   robota -c                      Continue last session
- *   robota -r <id>                 Resume session by ID
- *   robota --model <model>         Model override
- *   robota --permission-mode <m>   plan|default|acceptEdits|bypassPermissions
- *   robota --max-turns <n>         Limit agentic turns
- *   robota --version               Print package version and exit
+ * CLI owns provider creation. SDK owns everything else
+ * (config, context, session, tools).
  */
 
-import { parseArgs } from 'node:util';
-import { readFileSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as readline from 'node:readline';
-import {
-  loadConfig,
-  loadContext,
-  detectProject,
-  createSession,
-  SessionStore,
-  FileSessionLogger,
-  projectPaths,
-} from '@robota-sdk/agent-sdk';
-import type { TPermissionMode } from '@robota-sdk/agent-sdk';
-import type { ITerminalOutput, ISpinner } from './types.js';
-import { promptForApproval } from '@robota-sdk/agent-sdk';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { SessionStore } from '@robota-sdk/agent-sessions';
+import { parseCliArgs } from './utils/cli-args.js';
+import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
+import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+/** Result of checking a settings file. */
+type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
+
+/** Check a settings file's state. */
+function checkSettingsFile(filePath: string): TSettingsCheck {
+  if (!existsSync(filePath)) return 'missing';
+  try {
+    const raw = readFileSync(filePath, 'utf8').trim();
+    if (raw.length === 0) return 'incomplete';
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const provider = parsed.provider as Record<string, unknown> | undefined;
+    if (!provider?.apiKey) return 'incomplete';
+    return 'valid';
+  } catch {
+    return 'corrupt';
+  }
+}
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -59,146 +59,10 @@ function readVersion(): string {
   }
 }
 
-/** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
-function parsePermissionMode(raw: string | undefined): TPermissionMode | undefined {
-  if (raw === undefined) return undefined;
-  if (!VALID_MODES.includes(raw as TPermissionMode)) {
-    process.stderr.write(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}\n`);
-    process.exit(1);
-  }
-  return raw as TPermissionMode;
-}
-
-/** Validate and return a positive integer from a raw CLI string, or exit on error. */
-function parseMaxTurns(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined;
-  const n = parseInt(raw, 10);
-  if (isNaN(n) || n <= 0) {
-    process.stderr.write(`Invalid --max-turns "${raw}". Must be a positive integer.\n`);
-    process.exit(1);
-  }
-  return n;
-}
-
-/** Parse and validate CLI arguments */
-function parseCliArgs(): {
-  positional: string[];
-  printMode: boolean;
-  continueMode: boolean;
-  resumeId: string | undefined;
-  model: string | undefined;
-  permissionMode: TPermissionMode | undefined;
-  maxTurns: number | undefined;
-  version: boolean;
-  reset: boolean;
-} {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      p: { type: 'boolean', short: 'p', default: false },
-      c: { type: 'boolean', short: 'c', default: false },
-      r: { type: 'string', short: 'r' },
-      model: { type: 'string' },
-      'permission-mode': { type: 'string' },
-      'max-turns': { type: 'string' },
-      version: { type: 'boolean', default: false },
-      reset: { type: 'boolean', default: false },
-    },
-  });
-
-  return {
-    positional: positionals,
-    printMode: values['p'] ?? false,
-    continueMode: values['c'] ?? false,
-    resumeId: values['r'],
-    model: values['model'],
-    permissionMode: parsePermissionMode(values['permission-mode']),
-    maxTurns: parseMaxTurns(values['max-turns']),
-    version: values['version'] ?? false,
-    reset: values['reset'] ?? false,
-  };
-}
-
-/**
- * Minimal ITerminalOutput for print mode (-p).
- *
- * Writes to stdout/stderr directly. The readline-based prompt and select are
- * only invoked if the agent triggers a permission-gated tool, which is rare in
- * one-shot print mode but must still work correctly.
- */
-class PrintTerminal implements ITerminalOutput {
-  write(text: string): void {
-    process.stdout.write(text);
-  }
-  writeLine(text: string): void {
-    process.stdout.write(text + '\n');
-  }
-  writeMarkdown(md: string): void {
-    // Print mode outputs plain text — no markdown rendering needed
-    process.stdout.write(md);
-  }
-  writeError(text: string): void {
-    process.stderr.write(text + '\n');
-  }
-  prompt(question: string): Promise<string> {
-    return new Promise<string>((resolve) => {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: false,
-        historySize: 0,
-      });
-      rl.question(question, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    });
-  }
-  async select(options: string[], initialIndex = 0): Promise<number> {
-    for (let i = 0; i < options.length; i++) {
-      const marker = i === initialIndex ? '>' : ' ';
-      process.stdout.write(`  ${marker} ${i + 1}) ${options[i]}\n`);
-    }
-    const answer = await this.prompt(
-      `  Choose [1-${options.length}] (default: ${options[initialIndex]}): `,
-    );
-    const trimmed = answer.trim().toLowerCase();
-    if (trimmed === '') return initialIndex;
-    const num = parseInt(trimmed, 10);
-    if (!isNaN(num) && num >= 1 && num <= options.length) return num - 1;
-    return initialIndex;
-  }
-  spinner(_message: string): ISpinner {
-    return { stop(): void {}, update(): void {} };
-  }
-}
-
-/** Get the user-global settings file path */
-function getUserSettingsPath(): string {
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-  return join(home, '.robota', 'settings.json');
-}
-
-/**
- * Check if any settings file exists. If not, prompt for API key and create one.
- */
-async function ensureConfig(cwd: string): Promise<void> {
-  const userPath = getUserSettingsPath();
-  const projectPath = join(cwd, '.robota', 'settings.json');
-  const localPath = join(cwd, '.robota', 'settings.local.json');
-
-  if (existsSync(userPath) || existsSync(projectPath) || existsSync(localPath)) {
-    return; // Config exists
-  }
-
-  // First run — prompt for API key
-  process.stdout.write('\n');
-  process.stdout.write('  Welcome to Robota CLI!\n');
-  process.stdout.write('  No configuration found. Let\'s set up your API key.\n');
-  process.stdout.write('\n');
-
-  const apiKey = await new Promise<string>((resolve) => {
-    process.stdout.write('  Anthropic API key: ');
+/** Prompt for input in raw mode. Mask with asterisks if masked=true. */
+function promptInput(label: string, masked = false): Promise<string> {
+  return new Promise<string>((resolve) => {
+    process.stdout.write(label);
     let input = '';
     const stdin = process.stdin;
     const wasRaw = stdin.isRaw;
@@ -224,39 +88,82 @@ async function ensureConfig(cwd: string): Promise<void> {
           process.exit(0);
         } else if (ch.charCodeAt(0) >= 32) {
           input += ch;
-          process.stdout.write('*');
+          process.stdout.write(masked ? '*' : ch);
         }
       }
     };
     stdin.on('data', onData);
   });
+}
 
+/**
+ * Check if any settings file exists. If not, prompt for setup and create one.
+ */
+async function ensureConfig(cwd: string): Promise<void> {
+  const userPath = getUserSettingsPath();
+  const projectPath = join(cwd, '.robota', 'settings.json');
+  const localPath = join(cwd, '.robota', 'settings.local.json');
+
+  const paths = [userPath, projectPath, localPath];
+  const checks = paths.map((p) => ({ path: p, status: checkSettingsFile(p) }));
+
+  if (checks.some((c) => c.status === 'valid')) {
+    return;
+  }
+
+  const corrupt = checks.filter((c) => c.status === 'corrupt');
+  const incomplete = checks.filter((c) => c.status === 'incomplete');
+
+  process.stdout.write('\n');
+  if (corrupt.length > 0) {
+    for (const c of corrupt) {
+      process.stderr.write(`  ERROR: Settings file is corrupt (invalid JSON): ${c.path}\n`);
+    }
+    process.stdout.write('\n');
+  }
+  if (incomplete.length > 0) {
+    for (const c of incomplete) {
+      process.stderr.write(`  WARNING: Settings file is missing provider.apiKey: ${c.path}\n`);
+    }
+    process.stdout.write('\n');
+  }
+
+  if (corrupt.length === 0 && incomplete.length === 0) {
+    process.stdout.write('  Welcome to Robota CLI!\n');
+    process.stdout.write("  No configuration found. Let's set up.\n");
+  } else {
+    process.stdout.write('  Reconfiguring...\n');
+  }
+  process.stdout.write('\n');
+
+  const apiKey = await promptInput('  Anthropic API key: ', true);
   if (!apiKey) {
     process.stderr.write('\n  No API key provided. Exiting.\n');
     process.exit(1);
   }
 
-  // Create ~/.robota/settings.json
+  const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
+
   const settingsDir = dirname(userPath);
   mkdirSync(settingsDir, { recursive: true });
-  const settings = {
+  const settings: Record<string, unknown> = {
     provider: {
       name: 'anthropic',
       model: 'claude-sonnet-4-6',
       apiKey,
     },
   };
+  if (language) {
+    settings.language = language;
+  }
   writeFileSync(userPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
   process.stdout.write(`\n  Config saved to ${userPath}\n\n`);
 }
 
-/**
- * Delete user settings and exit. Used by --reset flag.
- */
+/** Delete user settings and exit. */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
-  if (existsSync(userPath)) {
-    unlinkSync(userPath);
+  if (deleteSettings(userPath)) {
     process.stdout.write(`Deleted ${userPath}\n`);
   } else {
     process.stdout.write('No user settings found.\n');
@@ -265,18 +172,15 @@ function resetConfig(): void {
 
 /**
  * Main CLI orchestration function.
- * Called from bin.ts as the top-level entry.
  */
 export async function startCli(): Promise<void> {
   const args = parseCliArgs();
 
-  // --version early exit
   if (args.version) {
     process.stdout.write(`robota ${readVersion()}\n`);
     return;
   }
 
-  // --reset: delete config and exit
   if (args.reset) {
     resetConfig();
     return;
@@ -287,51 +191,84 @@ export async function startCli(): Promise<void> {
   // First-run setup: prompt for API key if no config exists
   await ensureConfig(cwd);
 
-  // Load config and context in parallel
-  const [config, context, projectInfo] = await Promise.all([
-    loadConfig(cwd),
-    loadContext(cwd),
-    detectProject(cwd),
-  ]);
+  // CLI owns provider creation
+  const providerSettings = readProviderSettings(cwd);
+  const modelId = args.model ?? providerSettings.model;
+  const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
 
-  // Model override
-  if (args.model !== undefined) {
-    config.provider.model = args.model;
+  // Session management
+  const sessionStore = new SessionStore();
+  let resumeSessionId: string | undefined;
+
+  if (args.continueMode) {
+    const sessions = sessionStore.list().filter((s) => s.cwd === cwd);
+    if (sessions.length > 0) {
+      resumeSessionId = sessions[0]!.id;
+    }
+  } else if (args.resumeId !== undefined) {
+    if (args.resumeId === '') {
+      // -r without argument = show picker (handled in App.tsx)
+      resumeSessionId = '__picker__';
+    } else {
+      const sessions = sessionStore.list();
+      const match = sessions.find((s) => s.id === args.resumeId || s.name === args.resumeId);
+      if (match) {
+        resumeSessionId = match.id;
+      } else {
+        process.stderr.write(`Session not found: ${args.resumeId}\n`);
+        process.exit(1);
+      }
+    }
   }
 
-  const sessionStore = new SessionStore();
-
-  // Print mode: send single prompt, output response, exit
+  // Print mode (-p): one-shot prompt via headless transport, then exit
   if (args.printMode) {
-    const prompt = args.positional.join(' ').trim();
-    if (prompt.length === 0) {
+    let prompt = args.positional.join(' ').trim();
+
+    // Stdin pipe: read from stdin if no positional args and stdin is piped
+    if (!prompt && !process.stdin.isTTY) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk as Buffer);
+      }
+      prompt = Buffer.concat(chunks).toString('utf-8').trim();
+    }
+
+    if (!prompt) {
       process.stderr.write('Print mode (-p) requires a prompt argument.\n');
       process.exit(1);
     }
-    const terminal = new PrintTerminal();
-    const paths = projectPaths(cwd);
-    const session = createSession({
-      config,
-      context,
-      terminal,
-      sessionLogger: new FileSessionLogger(paths.logs),
-      projectInfo,
-      permissionMode: args.permissionMode,
-      promptForApproval: promptForApproval,
+
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      permissionMode: args.permissionMode ?? 'bypassPermissions',
+      maxTurns: args.maxTurns,
+      sessionStore,
+      sessionName: args.sessionName,
     });
-    const response = await session.run(prompt);
-    process.stdout.write(response + '\n');
-    return;
+
+    const transport = createHeadlessTransport({
+      outputFormat: (args.outputFormat as 'text' | 'json' | 'stream-json') ?? 'text',
+      prompt,
+    });
+    session.attachTransport(transport);
+    await transport.start();
+    process.exit(transport.getExitCode());
   }
 
   // Interactive TUI mode (Ink)
   renderApp({
-    config,
-    context,
-    projectInfo,
-    sessionStore,
+    cwd,
+    provider,
+    modelId,
+    language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version: readVersion(),
+    sessionStore,
+    resumeSessionId,
+    forkSession: args.forkSession,
+    sessionName: args.sessionName,
   });
 }

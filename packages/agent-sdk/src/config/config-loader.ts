@@ -1,10 +1,12 @@
 /**
  * Config loader — discovers, merges, and validates settings files.
  *
- * Precedence (highest → lowest):
- *   .robota/settings.local.json  (project-local overrides, git-ignored)
- *   .robota/settings.json        (project-level)
- *   ~/.robota/settings.json      (user-level)
+ * Precedence (lowest → highest):
+ *   1. ~/.robota/settings.json       (user)
+ *   2. .robota/settings.json         (project)
+ *   3. .robota/settings.local.json   (project-local)
+ *   4. .claude/settings.json         (project, Claude Code compat)
+ *   5. .claude/settings.local.json   (project-local, highest priority)
  */
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -41,8 +43,17 @@ function readJsonFile(filePath: string): unknown {
   if (!existsSync(filePath)) {
     return undefined;
   }
-  const raw = readFileSync(filePath, 'utf-8');
-  return JSON.parse(raw) as unknown;
+  const raw = readFileSync(filePath, 'utf-8').trim();
+  if (raw.length === 0) {
+    // Empty file — likely from a crash during write. Treat as missing.
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    // Corrupt JSON — likely from a crash during write. Treat as missing.
+    return undefined;
+  }
 }
 
 /**
@@ -99,6 +110,11 @@ function mergeSettings(layers: TSettings[]): TSettings {
         ...(merged.env ?? {}),
         ...(layer.env ?? {}),
       },
+      enabledPlugins:
+        merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
+          ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
+          : undefined,
+      extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
     };
   }, {});
 }
@@ -109,6 +125,7 @@ function mergeSettings(layers: TSettings[]): TSettings {
 function toResolvedConfig(merged: TSettings): IResolvedConfig {
   return {
     defaultTrustLevel: merged.defaultTrustLevel ?? DEFAULTS.defaultTrustLevel,
+    language: merged.language,
     provider: {
       name: merged.provider?.name ?? DEFAULTS.provider.name,
       model: merged.provider?.model ?? DEFAULTS.provider.model,
@@ -120,32 +137,45 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
     },
     env: merged.env ?? DEFAULTS.env,
     hooks: merged.hooks ?? undefined,
+    enabledPlugins: merged.enabledPlugins ?? undefined,
+    extraKnownMarketplaces: merged.extraKnownMarketplaces ?? undefined,
   };
+}
+
+/**
+ * Build the ordered list of settings file paths (lowest → highest priority).
+ */
+function getSettingsPaths(cwd: string): string[] {
+  const home = getHomeDir();
+  return [
+    join(home, '.robota', 'settings.json'), // 1. user (lowest)
+    join(cwd, '.robota', 'settings.json'), // 2. project
+    join(cwd, '.robota', 'settings.local.json'), // 3. project-local
+    join(cwd, '.claude', 'settings.json'), // 4. project, Claude Code compat
+    join(cwd, '.claude', 'settings.local.json'), // 5. project-local (highest)
+  ];
 }
 
 /**
  * Load and merge all settings files, validate with Zod, return resolved config.
  *
- * @param cwd - The working directory (project root) to search for .robota/
+ * @param cwd - The working directory (project root) to search for settings
  */
 export async function loadConfig(cwd: string): Promise<IResolvedConfig> {
-  const userSettingsPath = join(getHomeDir(), '.robota', 'settings.json');
-  const projectSettingsPath = join(cwd, '.robota', 'settings.json');
-  const localSettingsPath = join(cwd, '.robota', 'settings.local.json');
+  const allPaths = getSettingsPaths(cwd);
 
-  const rawLayers: unknown[] = [
-    readJsonFile(userSettingsPath),
-    readJsonFile(projectSettingsPath),
-    readJsonFile(localSettingsPath),
-  ].filter((v): v is unknown => v !== undefined);
+  const rawEntries: Array<{ raw: unknown; path: string }> = [];
+  for (const filePath of allPaths) {
+    const raw = readJsonFile(filePath);
+    if (raw !== undefined) {
+      rawEntries.push({ raw, path: filePath });
+    }
+  }
 
-  const parsedLayers: TSettings[] = rawLayers.map((raw, index) => {
+  const parsedLayers: TSettings[] = rawEntries.map(({ raw, path }) => {
     const result = SettingsSchema.safeParse(raw);
     if (!result.success) {
-      const paths = [userSettingsPath, projectSettingsPath, localSettingsPath].filter(
-        (_, i) => rawLayers[i] !== undefined,
-      );
-      throw new Error(`Invalid settings in ${paths[index] ?? 'unknown'}: ${result.error.message}`);
+      throw new Error(`Invalid settings in ${path}: ${result.error.message}`);
     }
     return resolveEnvRefs(result.data);
   });

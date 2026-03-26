@@ -229,24 +229,71 @@ export class Robota
   // --- History ---
 
   override getHistory(): TUniversalMessage[] {
-    const session = this.conversationHistory.getConversationSession(this.conversationId);
+    const session = this.conversationHistory.getConversationStore(this.conversationId);
     return session.getMessages().map((msg) => ({
+      id: msg.id,
       role: msg.role,
       content: msg.content,
+      state: msg.state,
       timestamp: msg.timestamp,
       metadata: msg.metadata,
       ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-      ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {}),
+      ...(msg.role === 'tool' && 'toolCallId' in msg
+        ? { toolCallId: (msg as { toolCallId: string }).toolCallId }
+        : {}),
+      ...(msg.role === 'tool' && 'name' in msg ? { name: (msg as { name: string }).name } : {}),
     })) as TUniversalMessage[];
   }
 
+  /** Get full history timeline (IHistoryEntry[]) including events */
+  getFullHistory(): Array<{
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }> {
+    const store = this.conversationHistory.getConversationStore(this.conversationId);
+    if ('getHistory' in store && typeof store.getHistory === 'function') {
+      return store.getHistory() as Array<{
+        id: string;
+        timestamp: Date;
+        category: string;
+        type: string;
+        data?: unknown;
+      }>;
+    }
+    // Fallback for stores that don't support getHistory yet
+    return store.getMessages().map((msg) => ({
+      id: msg.id,
+      timestamp: msg.timestamp,
+      category: 'chat' as const,
+      type: msg.role,
+      data: msg,
+    }));
+  }
+
+  /** Add an event entry to history */
+  addHistoryEntry(entry: {
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }): void {
+    const store = this.conversationHistory.getConversationStore(this.conversationId);
+    if ('addEntry' in store && typeof store.addEntry === 'function') {
+      (store as { addEntry: (e: unknown) => void }).addEntry(entry);
+    }
+  }
+
   override clearHistory(): void {
-    this.conversationHistory.getConversationSession(this.conversationId).clear();
+    this.conversationHistory.getConversationStore(this.conversationId).clear();
   }
 
   /** Inject a message into conversation history without triggering execution. */
   injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
-    const session = this.conversationHistory.getConversationSession(this.conversationId);
+    const session = this.conversationHistory.getConversationStore(this.conversationId);
     if (role === 'assistant') {
       session.addAssistantMessage(content, []);
     } else if (role === 'system') {

@@ -158,7 +158,31 @@ export {
   isAssistantMessage,
   isSystemMessage,
   isToolMessage,
+  isChatEntry,
+  chatEntryToMessage,
+  messageToHistoryEntry,
+  getMessagesForAPI,
 } from './interfaces/messages';
+
+/**
+ * Universal history entry — base type for all conversation history records.
+ *
+ * @public
+ */
+export type { IHistoryEntry } from './interfaces/messages';
+
+/**
+ * Message factory functions for creating typed conversation messages.
+ * Inline re-export avoids rollup-plugin-dts conflicts from duplicate symbol names.
+ *
+ * @public
+ */
+export {
+  createUserMessage,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolMessage,
+} from './managers/conversation-history-manager';
 
 /**
  * Provider request/response types (raw provider boundary).
@@ -276,7 +300,7 @@ export {
   type IAgentLifecycleEvents,
 } from './managers/agent-factory';
 export { AgentTemplates, type ITemplateApplicationResult } from './managers/agent-templates';
-export { ConversationHistory, ConversationSession } from './managers/conversation-history-manager';
+export { ConversationHistory, ConversationStore } from './managers/conversation-history-manager';
 
 // ===== TOOL SYSTEM EXPORTS =====
 // NOTE: ToolRegistry, FunctionTool, createFunctionTool, createZodFunctionTool, OpenAPITool
@@ -314,6 +338,32 @@ export type {
   IEventEmitterMetrics,
   IEventEmitterMetricsSnapshot,
 } from './plugins/event-emitter/metrics';
+
+// ===== EVENT SERVICE IMPLEMENTATION EXPORTS (PUBLIC) =====
+// NOTE: agent-core is the SSOT for all event types and implementations.
+// agent-event-service re-exports from here; do not define duplicates there.
+export type {
+  TEventExtensionValue,
+  TEventUniversalValue,
+  TEventLoggerData,
+  IEventObjectValue,
+} from './event-service/interfaces';
+
+export {
+  AbstractEventService,
+  DEFAULT_ABSTRACT_EVENT_SERVICE,
+  isDefaultEventService,
+  bindEventServiceOwner,
+  bindWithOwnerPath,
+  DefaultEventService,
+  StructuredEventService,
+  ObservableEventService,
+  composeEventName,
+} from './event-service/event-service';
+
+export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
+export { USER_EVENTS, USER_EVENT_PREFIX } from './event-service/user-events';
+export type { TUserEvent } from './event-service/user-events';
 
 // ===== EVENT CONSTANT EXPORTS (PUBLIC) =====
 // NOTE: These are the single source of truth for event names. Do not hardcode strings.
@@ -392,6 +442,16 @@ export {
  * @public
  */
 export type { IContextTokenUsage, IContextWindowState } from './context/index.js';
+export type { IModelDefinition } from './context/index.js';
+export {
+  CLAUDE_MODELS,
+  DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_MAX_OUTPUT,
+  getModelContextWindow,
+  getModelMaxOutput,
+  getModelName,
+  formatTokenCount,
+} from './context/index.js';
 
 // ===== HOOKS MODULE =====
 /**
@@ -403,8 +463,13 @@ export type {
   THookEvent,
   THooksConfig,
   IHookGroup,
+  ICommandHookDefinition,
+  IHttpHookDefinition,
+  IPromptHookDefinition,
+  IAgentHookDefinition,
   IHookDefinition,
   IHookInput,
   IHookResult,
+  IHookTypeExecutor,
 } from './hooks/index.js';
 export { runHooks } from './hooks/index.js';

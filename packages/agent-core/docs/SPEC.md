@@ -1,4 +1,4 @@
-# Agents Specification
+# Agent Core Specification
 
 ## Scope
 
@@ -36,8 +36,10 @@ Robota (Facade)
   │     ├── permission-mode.ts      — MODE_POLICY matrix, UNKNOWN_TOOL_FALLBACK
   │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
   ├── Hook Layer
-  │     ├── hook-runner.ts          — runHooks(): shell command hook execution engine
-  │     └── types.ts                — THookEvent, THooksConfig, IHookInput, IHookResult
+  │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
+  │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
+  │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
+  │     └── types.ts                — THookEvent (8 events), IHookDefinition (discriminated union), IHookTypeExecutor
   └── Plugin Layer (1 built-in + 8 external @robota-sdk/agent-plugin-* packages)
         ├── EventEmitterPlugin           (built-in — event coordination)
         └── External plugins (per @robota-sdk/agent-plugin-*):
@@ -69,36 +71,53 @@ Safe defaults use the Null Object pattern:
 
 This package is the single source of truth (SSOT) for the following types:
 
-| Type                        | Location                         | Purpose                                                                                                                                                 |
-| --------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TUniversalMessage`         | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)                                                                                                 |
-| `TUniversalMessageMetadata` | `interfaces/messages.ts`         | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects) |
-| `TUniversalValue`           | `interfaces/types.ts`            | Recursive value type without `any`                                                                                                                      |
-| `TMetadata`                 | `interfaces/types.ts`            | Metadata record type                                                                                                                                    |
-| `IAgentConfig`              | `interfaces/agent.ts`            | Agent configuration contract                                                                                                                            |
-| `IAIProvider`               | `interfaces/provider.ts`         | Provider integration contract                                                                                                                           |
-| `IToolSchema`               | `interfaces/provider.ts`         | Tool schema contract                                                                                                                                    |
-| `TToolParameters`           | `interfaces/types.ts`            | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                              |
-| `IEventService`             | `event-service/interfaces.ts`    | Event emission contract                                                                                                                                 |
-| `IOwnerPathSegment`         | `event-service/interfaces.ts`    | Execution path tracking                                                                                                                                 |
-| `RobotaError`               | `utils/errors.ts`                | Base error hierarchy                                                                                                                                    |
-| `TTextDeltaCallback`        | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`                                                                                                 |
-| `TPermissionMode`           | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                         |
-| `TTrustLevel`               | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                                                                                                            |
-| `TPermissionDecision`       | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                                                                                                                 |
-| `TToolArgs`                 | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                                                                                           |
-| `IPermissionLists`          | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                                                                                          |
-| `TKnownToolName`            | `permissions/permission-mode.ts` | Known tool names in the permission system                                                                                                               |
-| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                             |
-| `THooksConfig`              | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                                                                                      |
-| `IHookGroup`                | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                                                                                          |
-| `IHookDefinition`           | `hooks/types.ts`                 | Single hook definition (type: command, command string)                                                                                                  |
-| `IHookInput`                | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                                                                                 |
-| `IHookResult`               | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                                                                                        |
-| `IContextTokenUsage`        | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                                                                                        |
-| `IContextWindowState`       | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                       |
+| Type                        | Location                         | Purpose                                                                                                                                                                                                               |
+| --------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TUniversalMessage`         | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)                                                                                                                                                               |
+| `TUniversalMessageMetadata` | `interfaces/messages.ts`         | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects)                                                               |
+| `TUniversalValue`           | `interfaces/types.ts`            | Recursive value type without `any`                                                                                                                                                                                    |
+| `TMetadata`                 | `interfaces/types.ts`            | Metadata record type                                                                                                                                                                                                  |
+| `IAgentConfig`              | `interfaces/agent.ts`            | Agent configuration contract                                                                                                                                                                                          |
+| `IAIProvider`               | `interfaces/provider.ts`         | Provider integration contract                                                                                                                                                                                         |
+| `IToolSchema`               | `interfaces/provider.ts`         | Tool schema contract                                                                                                                                                                                                  |
+| `TToolParameters`           | `interfaces/types.ts`            | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                            |
+| `IEventService`             | `event-service/interfaces.ts`    | Event emission contract                                                                                                                                                                                               |
+| `IOwnerPathSegment`         | `event-service/interfaces.ts`    | Execution path tracking                                                                                                                                                                                               |
+| `RobotaError`               | `utils/errors.ts`                | Base error hierarchy                                                                                                                                                                                                  |
+| `TTextDeltaCallback`        | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`                                                                                                                                                               |
+| `TPermissionMode`           | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                       |
+| `TTrustLevel`               | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                                                                                                                                                                          |
+| `TPermissionDecision`       | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                                                                                                                                                                               |
+| `TToolArgs`                 | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                                                                                                                                                         |
+| `IPermissionLists`          | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                                                                                                                                                        |
+| `TKnownToolName`            | `permissions/permission-mode.ts` | Known tool names in the permission system                                                                                                                                                                             |
+| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events (8 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, Notification                                                                                |
+| `THooksConfig`              | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                                                                                                                                                    |
+| `IHookGroup`                | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                                                                                                                                                        |
+| `IHookDefinition`           | `hooks/types.ts`                 | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                              |
+| `IHookTypeExecutor`         | `hooks/types.ts`                 | Strategy interface for hook type execution                                                                                                                                                                            |
+| `IHookInput`                | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                                                                                                                                               |
+| `IHookResult`               | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                      |
+| `IContextTokenUsage`        | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                      |
+| `IContextWindowState`       | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                     |
+| `IHistoryEntry`             | `interfaces/history.ts`          | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type) |
 
 Provider packages import these types. They must not re-declare them.
+
+### Model Definitions (SSOT)
+
+`context/models.ts` is the single source of truth for Claude model metadata. Source: https://platform.claude.com/docs/en/about-claude/models/overview
+
+| Export                      | Kind      | Description                                          |
+| --------------------------- | --------- | ---------------------------------------------------- |
+| `IModelDefinition`          | Interface | Model metadata: name, id, contextWindow, maxOutput   |
+| `CLAUDE_MODELS`             | Record    | All known Claude models (4.5+) keyed by API ID       |
+| `DEFAULT_CONTEXT_WINDOW`    | Constant  | 200,000 tokens fallback                              |
+| `DEFAULT_MAX_OUTPUT`        | Constant  | 16,384 tokens fallback for max output                |
+| `getModelContextWindow(id)` | Function  | Get context window size for a model ID               |
+| `getModelMaxOutput(id)`     | Function  | Get max output tokens for a model ID                 |
+| `getModelName(id)`          | Function  | Get human-readable name (e.g., "Claude Sonnet 4.6")  |
+| `formatTokenCount(tokens)`  | Function  | Format tokens as human-readable (e.g., "200K", "1M") |
 
 ## Public API Surface
 
@@ -135,15 +154,18 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 
 ### Hooks
 
-| Export            | Kind     | Description                                                                                  |
-| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `runHooks`        | function | Execute shell command hooks for lifecycle events                                             |
-| `THookEvent`      | type     | `'PreToolUse' \| 'PostToolUse' \| 'SessionStart' \| 'Stop' \| 'PreCompact' \| 'PostCompact'` |
-| `THooksConfig`    | type     | Event to hook group array mapping                                                            |
-| `IHookGroup`      | type     | Matcher pattern + hook definitions                                                           |
-| `IHookDefinition` | type     | Single hook definition (command type)                                                        |
-| `IHookInput`      | type     | JSON input passed to hooks via stdin                                                         |
-| `IHookResult`     | type     | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                     |
+| Export              | Kind      | Description                                                                                                    |
+| ------------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
+| `runHooks`          | function  | Execute hooks for lifecycle events using pluggable type executors                                              |
+| `THookEvent`        | type      | 8 events: PreToolUse, PostToolUse, SessionStart, Stop, PreCompact, PostCompact, UserPromptSubmit, Notification |
+| `THooksConfig`      | type      | Event to hook group array mapping                                                                              |
+| `IHookGroup`        | type      | Matcher pattern + hook definitions                                                                             |
+| `IHookDefinition`   | type      | Discriminated union: command, http, prompt, agent hook types                                                   |
+| `IHookTypeExecutor` | interface | Strategy interface for executing a specific hook type                                                          |
+| `CommandExecutor`   | class     | Built-in executor for `command` type hooks (shell execution)                                                   |
+| `HttpExecutor`      | class     | Built-in executor for `http` type hooks (HTTP request)                                                         |
+| `IHookInput`        | type      | JSON input passed to hooks via stdin                                                                           |
+| `IHookResult`       | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                       |
 
 ### Streaming
 
@@ -162,6 +184,16 @@ This callback is declared in `IChatOptions.onTextDelta` and used by providers to
 
 These types are consumed by `@robota-sdk/agent-sessions` to track cumulative token usage and context window state across conversation turns.
 
+### History Entry Helpers
+
+| Export                  | Kind      | Description                                                                                                 |
+| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| `IHistoryEntry`         | interface | Rich history entry: `id`, `timestamp`, `category` ('chat' \| 'event'), `type`, `data`                       |
+| `isChatEntry`           | function  | Type guard: `(entry: IHistoryEntry) => entry is IChatHistoryEntry` — narrows to chat category entries       |
+| `chatEntryToMessage`    | function  | Converts an `IChatHistoryEntry` to a `TUniversalMessage` for API use                                        |
+| `messageToHistoryEntry` | function  | Converts a `TUniversalMessage` to an `IHistoryEntry` with `category: 'chat'`                                |
+| `getMessagesForAPI`     | function  | Extracts `TUniversalMessage[]` from `IHistoryEntry[]` for provider API calls (filters to chat entries only) |
+
 ### Managers
 
 | Export                | Kind  | Description                   |
@@ -169,17 +201,15 @@ These types are consumed by `@robota-sdk/agent-sessions` to track cumulative tok
 | `AgentFactory`        | class | Agent creation and lifecycle  |
 | `AgentTemplates`      | class | Template-based agent creation |
 | `ConversationHistory` | class | History management            |
-| `ConversationSession` | class | Session management            |
+| `ConversationStore`   | class | Session management            |
 
 ### Services
 
-| Export                   | Kind           | Description         |
-| ------------------------ | -------------- | ------------------- |
-| `AbstractEventService`   | abstract class | Event system base   |
-| `DefaultEventService`    | class          | No-op event service |
-| `StructuredEventService` | class          | Owner-bound events  |
-| `ObservableEventService` | class          | RxJS integration    |
-| `EventHistoryModule`     | class          | Event recording     |
+| Export               | Kind  | Description     |
+| -------------------- | ----- | --------------- |
+| `EventHistoryModule` | class | Event recording |
+
+Note: `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, and `ObservableEventService` are internal implementation details and are not exported from `src/index.ts`.
 
 ### Plugins (1 built-in)
 
@@ -261,18 +291,58 @@ Patterns follow the format `ToolName(argGlob)`:
 
 ## Hook System
 
-The hook module (`src/hooks/`) provides a shell command-based lifecycle hook mechanism. Hooks receive JSON input on stdin and communicate results via exit codes.
+The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Hooks support multiple execution types (command, http, prompt, agent) via the strategy pattern. Command hooks receive JSON input on stdin and communicate results via exit codes.
 
 ### Hook Events
 
-| Event          | Timing                    | Purpose                                          |
-| -------------- | ------------------------- | ------------------------------------------------ |
-| `PreToolUse`   | Before tool execution     | Validation, blocking, transformation             |
-| `PostToolUse`  | After tool execution      | Logging, auditing, notification                  |
-| `SessionStart` | Session initialization    | Setup, environment checks                        |
-| `Stop`         | Session termination       | Cleanup, reporting                               |
-| `PreCompact`   | Before context compaction | Validation, logging (trigger: auto/manual)       |
-| `PostCompact`  | After context compaction  | Logging, notification (includes compact_summary) |
+| Event              | Timing                    | Purpose                                          |
+| ------------------ | ------------------------- | ------------------------------------------------ |
+| `PreToolUse`       | Before tool execution     | Validation, blocking, transformation             |
+| `PostToolUse`      | After tool execution      | Logging, auditing, notification                  |
+| `SessionStart`     | Session initialization    | Setup, environment checks                        |
+| `Stop`             | Session termination       | Cleanup, reporting                               |
+| `PreCompact`       | Before context compaction | Validation, logging (trigger: auto/manual)       |
+| `PostCompact`      | After context compaction  | Logging, notification (includes compact_summary) |
+| `UserPromptSubmit` | After user submits prompt | Pre-processing, validation, prompt rewriting     |
+| `Notification`     | On notable events         | External notification (Slack, email, etc.)       |
+
+### Hook Definition Types (Discriminated Union)
+
+`IHookDefinition` is a discriminated union on the `type` field:
+
+| Type      | Fields                               | Description                                      |
+| --------- | ------------------------------------ | ------------------------------------------------ |
+| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes) |
+| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint             |
+| `prompt`  | `prompt: string`                     | LLM prompt injection into session context        |
+| `agent`   | `agent: string`, `config?`           | Delegate to a sub-agent for processing           |
+
+### Hook Type Executors (Strategy Pattern)
+
+`IHookTypeExecutor` defines the strategy interface for executing a specific hook type:
+
+```typescript
+interface IHookTypeExecutor {
+  readonly type: string;
+  execute(hook: IHookDefinition, input: IHookInput): Promise<IHookResult>;
+}
+```
+
+`runHooks` accepts an optional `executors` map to register additional hook type executors beyond the built-in ones. This enables higher-level packages to add `prompt` and `agent` executors without modifying agent-core.
+
+**Built-in executors (agent-core):**
+
+| Executor          | Hook Type | Behavior                                                     |
+| ----------------- | --------- | ------------------------------------------------------------ |
+| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, reads exit code |
+| `HttpExecutor`    | `http`    | Sends HTTP request, maps response status to exit code        |
+
+**Extended executors (agent-sdk):**
+
+| Executor         | Hook Type | Behavior                                                |
+| ---------------- | --------- | ------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Injects prompt text into session context                |
+| `AgentExecutor`  | `agent`   | Delegates to a sub-agent session for complex processing |
 
 ### Exit Code Protocol
 
@@ -284,7 +354,112 @@ The hook module (`src/hooks/`) provides a shell command-based lifecycle hook mec
 
 ### Hook Configuration
 
-Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` commands. Hooks have a 10-second timeout.
+Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` entries. Hooks have a 10-second timeout.
+
+## Abort Execution Support
+
+The execution loop supports cooperative cancellation via the standard `AbortSignal` API. An `AbortSignal` can be threaded through the entire execution pipeline to allow callers to cancel in-progress runs.
+
+### Interface Changes
+
+| Interface                    | Field                   | Description                                                       |
+| ---------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`  | Allows callers to cancel execution of `Robota.run()`              |
+| `IChatOptions`               | `signal?: AbortSignal`  | Passed to provider `chat()` / `chatStream()` for cancelling calls |
+| `IExecutionContext`          | `signal?: AbortSignal`  | Threaded through the execution context for round-level checks     |
+| `IExecutionResult`           | `interrupted?: boolean` | Indicates the execution was aborted before natural completion     |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`  | Allows skipping queued tool executions when abort is signalled    |
+
+### Signal Propagation
+
+AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
+
+- **ExecutionService**: Checks `signal.aborted` at round loop boundaries. If aborted, the loop exits early and the result includes `interrupted: true`.
+- **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation.
+- **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
+- **streamWithAbort**: Checks `signal.aborted` after each yielded event, breaking out of the stream iteration loop.
+- **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
+
+### Partial Content Preservation on Abort
+
+When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
+
+This ensures:
+
+- The partial response is saved in conversation history for the next turn
+- The model can see what it started saying before interruption
+- Tool results from completed tools in earlier rounds are preserved
+
+If the partial response includes tool_use blocks (abort during tool call streaming), the tool execution step runs but skips queued tools via `signal.aborted` check in `IToolExecutionBatchContext`. Completed tools have normal results; skipped tools have `"Execution interrupted by user"` error results. Both are recorded in history.
+
+## Conversation History Principles
+
+- **Append-only**: Messages are only added, never edited or deleted.
+- **Read-only**: Consumers read history but do not mutate existing messages.
+- **Always committed**: `beginAssistant()` + `commitAssistant()` guarantees an assistant message is always appended, even on abort with empty content.
+- **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
+
+## Message Model
+
+`IBaseMessage` is the foundation for all message types in the conversation history.
+
+| Field   | Type            | Required | Description                                        |
+| ------- | --------------- | -------- | -------------------------------------------------- |
+| `id`    | `string`        | Yes      | UUID identifier, auto-generated via `randomUUID()` |
+| `state` | `TMessageState` | Yes      | `'complete' \| 'interrupted'`                      |
+| `role`  | `string`        | Yes      | Message role (user, assistant, system, tool)       |
+
+**State rules:**
+
+- Non-assistant messages (user, system, tool) always have `state: 'complete'`.
+- Only assistant messages may have `state: 'interrupted'`, indicating the response was aborted by the user before natural completion.
+
+## Message Factories
+
+All message factory functions auto-generate `id` via `randomUUID()` and set `state: 'complete'` by default.
+
+| Factory                  | Role      | Notes                                                    |
+| ------------------------ | --------- | -------------------------------------------------------- |
+| `createUserMessage`      | user      | Always `state: 'complete'`                               |
+| `createAssistantMessage` | assistant | Accepts optional `state` parameter (default: `complete`) |
+| `createSystemMessage`    | system    | Always `state: 'complete'`                               |
+| `createToolMessage`      | tool      | Always `state: 'complete'`                               |
+
+## ConversationStore Streaming State
+
+`ConversationStore` (renamed from `ConversationSession`) manages pending assistant state during streaming:
+
+| Method                              | Description                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `beginAssistant()`                  | Initializes pending state before provider call. Guarantees commitAssistant has data.                     |
+| `appendStreaming(delta)`            | Accumulates streaming text into pending state                                                            |
+| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                                     |
+| `commitAssistant(state, metadata?)` | Commits pending to history. Text is ALWAYS preserved. History is append-only.                            |
+| `discardPending()`                  | Clears pending without saving                                                                            |
+| `hasPendingAssistant()`             | Checks if streaming is in progress                                                                       |
+| `getPendingContent()`               | Returns the accumulated pending text content                                                             |
+| `addEntry(entry: IHistoryEntry)`    | Appends a pre-built `IHistoryEntry` to history (used for event entries such as tool summaries).          |
+| `getHistory()`                      | Returns the full history as `IHistoryEntry[]`. Each chat message wraps a `TUniversalMessage` via `data`. |
+
+**`commitAssistant` behavior:**
+
+- Text content is ALWAYS preserved — no stripping, even when tool calls are present. Context savings is compaction's job.
+- The `state` parameter determines whether the committed message has `state: 'complete'` or `state: 'interrupted'`.
+- Single commit path — no branching between normal completion and abort.
+
+## getMessagesForAPI
+
+`getMessagesForAPI()` prepares the conversation history for provider API calls. For interrupted assistant messages (`state: 'interrupted'`), the text is annotated with `[This response was interrupted by the user]` suffix. This allows the model to understand that its previous response was cut short.
+
+## executeRound Streaming Flow
+
+The `executeRound` function manages streaming through `ConversationStore`:
+
+1. `beginAssistant()` initializes pending state before the provider call.
+2. Provider's `onTextDelta` callback is wrapped to call `appendStreaming(delta)` on each delta.
+3. After the provider returns: tool calls are added via `appendToolCall(toolCall)`.
+4. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
+5. Single commit path — no branching between normal and abort flows.
 
 ## Extension Points
 
@@ -319,15 +494,72 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 ### Execution Loop Error Handling
 
-When the execution loop ends without a final assistant text message (e.g., due to context overflow mid-loop or max turn limit during tool execution), `ExecutionService.buildFinalResult()` must:
+When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 
-1. **Not throw** — return a partial result with an error indicator instead
-2. **Preserve conversation history** — all messages up to the point of failure remain in the session
-3. **Return a descriptive response** — e.g., `"(execution interrupted: <reason>)"` so the caller can display it
+1. **Force a final summary call** — inject a synthetic user message requesting the AI to respond with what it has so far, noting what remains incomplete and that the user can follow up. Call `provider.chat()` WITHOUT tools (preventing further tool calls). The system message from config must be included. Use streaming (onTextDelta) if available.
+2. **Preserve conversation history** — strip the synthetic user message from history after the provider call completes so it doesn't pollute future turns.
+3. **Fallback on empty response** — if the forced call produces no text, return: `"Maximum rounds reached. Partial results available in conversation history."`.
+4. **If the forced call throws** — catch the error and return the fallback message without re-throwing.
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. When API response metadata (`usage.input_tokens`) is available from prior rounds, the authoritative token count is used. For the first round (no metadata yet), `JSON.stringify(messages).length / 3` is used as a conservative fallback. If usage exceeds 83.5% of the context window (matching Claude Code's threshold), the execution loop stops early. The `IExecutionRoundState.cumulativeInputTokens` field tracks the authoritative count across rounds.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. The estimate uses `Math.max(cumulativeInputTokens, chars/2)` — the higher of the API-reported token count and the character-based estimate. `chars/2` (not `chars/3`) is used because Korean text, JSON, and code content have a higher char-to-token ratio. If usage exceeds 83.5% of the context window, the execution loop stops early with a clear assistant message prompting the user to `/compact`.
+
+### Provider Error Recovery
+
+If `provider.chat()` throws an error (e.g., API 400 for context too large), `executeRound` catches it and injects an assistant message with the error. This ensures the user always sees a readable error message rather than "No response received." If the entire execution pipeline throws, `ExecutionService.execute()` catches it and returns a graceful error result instead of re-throwing.
+
+### AbstractAIProvider.streamWithAbort
+
+`streamWithAbort()` is a protected async generator on `AbstractAIProvider` that wraps any async iterable with cooperative abort checking. All provider implementations MUST use this method for streaming iteration.
+
+**Mechanism:**
+
+1. For each event from the source iterable, yields with a `setTimeout(0)` interleave to allow the event loop to process abort signals.
+2. Checks `signal.aborted` after each yield — breaks out of the loop if aborted.
+3. Providers wrap their SDK stream with `this.streamWithAbort(stream, signal)` in their `chatWithStreaming` implementation.
+
+**Usage pattern (in provider):**
+
+```typescript
+for await (const event of this.streamWithAbort(stream, signal)) {
+  // process event
+}
+// After loop: check signal.aborted to determine stopReason
+```
+
+This ensures all providers have consistent, low-latency abort responsiveness without duplicating the abort-checking logic.
+
+### Tool Result Context Budget
+
+After the assistant message is committed to history, tool results are added to history one by one. After each addition, the estimated token count (`chars/2`) is checked against 80% of the model's context window.
+
+If exceeded, remaining tool results are replaced with a short context-error message (permission-deny pattern):
+
+```
+Error: Context window near capacity. Tool execution result skipped.
+```
+
+**Key behavior:**
+
+- Follows the permission-deny pattern — AI receives a mix of normal results and context-error results
+- The execution loop does NOT break — it continues to the next provider call so the AI can see the mixed results and respond
+- AI autonomously decides how to handle: partial answer from available results, retry with fewer tools, etc.
+- Skipped tool results are short error messages (~80 chars), so the next provider call succeeds
+
+**Example flow:**
+
+```
+[assistant] text + tool_use(Read, Bash, Glob, Write)
+[tool] Read result (normal, context at 75%)
+[tool] Bash result (normal, context at 82% → overflow detected)
+[tool] Glob: "Error: Context window near capacity. Tool execution result skipped."
+[tool] Write: "Error: Context window near capacity. Tool execution result skipped."
+→ next provider call succeeds
+→ AI responds based on Read and Bash results, notes Glob and Write were skipped
+```
+
+**Return value:** `addToolResultsToHistory` returns `IToolResultsOutcome` with `contextOverflowed`, `addedCount`, and `skippedCount`.
 
 ### Streaming Round Separator
 
@@ -353,7 +585,7 @@ When the execution loop starts round 2+ (after tool execution), `execution-round
 | `IEventService`                   | `StructuredEventService`      | production               | `src/event-service/event-service.ts`           |
 | `IEventService`                   | `ObservableEventService`      | production               | `src/event-service/event-service.ts`           |
 | `IConversationHistory`            | `ConversationHistory`         | production               | `src/managers/conversation-history-manager.ts` |
-| `IConversationHistory`            | `ConversationSession`         | production               | `src/managers/conversation-session.ts`         |
+| `IConversationHistory`            | `ConversationStore`           | production               | `src/managers/conversation-store.ts`           |
 | `IConversationService`            | `ConversationService`         | production               | `src/services/conversation-service/index.ts`   |
 | `IToolManager`                    | `Tools`                       | production               | `src/managers/tool-manager.ts`                 |
 | `IAIProviderManager`              | `AIProviders`                 | production               | `src/managers/ai-provider-manager.ts`          |

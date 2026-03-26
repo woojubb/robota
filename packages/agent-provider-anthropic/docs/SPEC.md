@@ -33,6 +33,18 @@ The package follows a provider-adapter pattern:
 
 Dependency direction: `@robota-sdk/agent-provider-anthropic` depends on `@robota-sdk/agent-core` (peer dependency) and `@anthropic-ai/sdk` (direct dependency). No other workspace packages are imported.
 
+## Streaming Policy
+
+The provider MUST always use the streaming API (`messages.stream` / SSE) for all provider calls, regardless of whether an `onTextDelta` callback is provided. When no callback is provided, streaming results are assembled silently without calling any delta callback.
+
+**Reason:** Anthropic SDK enforces a 10-minute timeout on non-streaming requests. Agentic workflows with tool loops can exceed this limit. Streaming connections have no such timeout.
+
+**Implementation:** The non-streaming code path (`client.messages.create` without streaming) is removed. All calls go through `chatWithStreaming`, passing a no-op callback when `onTextDelta` is not available.
+
+## Output Token Limits
+
+The provider uses `max_tokens` from `IChatOptions.maxTokens` if provided. When not specified, the provider MUST use the model's `maxOutput` from `CLAUDE_MODELS` (via `getModelMaxOutput`) as the default. A low hardcoded default (e.g., 4096) is insufficient for agentic workflows where tool loops and long responses are common.
+
 ## Type Ownership
 
 | Type                            | Owner                                  | Location                         |
@@ -62,14 +74,14 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 
 ## Public API Surface
 
-| Export                                  | Kind             | Source                           | Description                                                                                                                                     |
-| --------------------------------------- | ---------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AnthropicProvider`                     | class            | `src/provider.ts`                | Anthropic provider implementing `AbstractAIProvider`. Methods: `chat()`, `chatStream()`, `supportsTools()`, `validateConfig()`, `dispose()`.    |
-| ~~`AnthropicResponseParser`~~           | class (internal) | `src/parsers/response-parser.ts` | Internal static utility — not exported from `src/index.ts`. Used by `AnthropicProvider` internally for response/streaming parsing.              |
-| `IAnthropicProviderOptions`             | interface        | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature. |
-| `TAnthropicProviderOptionValue`         | type alias       | `src/types.ts`                   | Union type for valid provider option values.                                                                                                    |
-| `createAnthropicProvider`               | function (stub)  | `src/index.ts`                   | Stub — currently returns `void`. Not yet implemented; placeholder for future factory pattern.                                                   |
-| All types from `src/types/api-types.ts` | interfaces/types | `src/types/api-types.ts`         | Anthropic API type definitions (messages, requests, tools, streaming, errors). Exported transitively via `src/types.ts` re-export pattern.      |
+| Export                                      | Kind                        | Source                           | Description                                                                                                                                                                                                                   |
+| ------------------------------------------- | --------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AnthropicProvider`                         | class                       | `src/provider.ts`                | Anthropic provider implementing `AbstractAIProvider`. Methods: `chat()`, `chatStream()`, `supportsTools()`, `validateConfig()`, `dispose()`.                                                                                  |
+| ~~`AnthropicResponseParser`~~               | class (internal)            | `src/parsers/response-parser.ts` | Internal static utility — not exported from `src/index.ts`. Used by `AnthropicProvider` internally for response/streaming parsing.                                                                                            |
+| `IAnthropicProviderOptions`                 | interface                   | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature.                                                                               |
+| `TAnthropicProviderOptionValue`             | type alias                  | `src/types.ts`                   | Union type for valid provider option values.                                                                                                                                                                                  |
+| `createAnthropicProvider`                   | function (stub)             | `src/index.ts`                   | Stub — currently returns `void`. Not yet implemented; placeholder for future factory pattern.                                                                                                                                 |
+| ~~All types from `src/types/api-types.ts`~~ | interfaces/types (internal) | `src/types/api-types.ts`         | Anthropic API type definitions (messages, requests, tools, streaming, errors). **Not exported** — these types are internal-only and are not part of the public API surface. `src/types.ts` does not re-export `api-types.ts`. |
 
 ### AnthropicProvider Public Instance Fields
 
@@ -96,6 +108,16 @@ The provider supports Anthropic's server-side web search tool:
 - **Response parsing**: Two parsing paths coexist — `convertFromAnthropicResponse()` (inline in provider, used by `chat()`) and `AnthropicResponseParser` (separate class, used by `chatStream()`). They have minor behavioral differences (e.g., `null` vs `''` for tool-only content).
 - **Local API types**: `IAnthropicStreamChunk` and other types in `api-types.ts` were written before migration to the native Anthropic SDK. The provider's streaming code now uses native SDK event types directly; local API types are partially unused but retained for backward compatibility.
 - **`validateConfig()` edge case**: Returns `false` for executor-based providers (no client/apiKey) even though the provider is functional. This is a known gap.
+
+## Abort Signal Support
+
+The provider accepts an `AbortSignal` via `IChatOptions.signal` for cooperative cancellation of in-flight API requests.
+
+### Behavior
+
+- **`chat()` / `chatWithStreaming()`**: The `signal` from `IChatOptions` is passed to the Anthropic SDK via `messages.create(params, { signal })`. This enables the underlying HTTP request to be cancelled when the signal is aborted.
+- **Streaming abort**: When an `AbortError` occurs during streaming, the provider catches the error and returns partial content collected so far (text accumulated before the abort). This ensures the caller receives whatever was streamed up to the cancellation point.
+- **Backward compatible**: When no `signal` is provided, existing behavior is unchanged — no cancellation support is wired.
 
 ## Extension Points
 

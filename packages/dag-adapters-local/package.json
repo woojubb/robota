@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-adapters-local",
-  "version": "0.1.0",
+  "version": "3.0.0-beta.52",
   "description": "Local adapter implementations for DAG ports (in-memory and file-based)",
   "type": "module",
   "main": "dist/node/index.js",

@@ -14,7 +14,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Session } from '../session.js';
 
 // Track calls to mock Robota
-let mockHistory: Array<{ role: string; content: string | null; metadata?: Record<string, unknown> }> = [];
+let mockHistory: Array<{
+  role: string;
+  content: string | null;
+  metadata?: Record<string, unknown>;
+}> = [];
 let mockInjectCalls: Array<{ role: string; content: string }> = [];
 let mockRunCalls: string[] = [];
 let mockClearCount = 0;
@@ -44,7 +48,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
         mockHistory.push({ role, content });
       }),
     })),
-    runHooks: vi.fn().mockResolvedValue(undefined),
+    runHooks: vi.fn().mockResolvedValue({ blocked: false, stdout: '' }),
   };
 });
 
@@ -122,11 +126,13 @@ describe('Session compaction', () => {
     await session.compact();
 
     expect(mockClearCount).toBe(1);
-    expect(mockInjectCalls.length).toBe(1);
-    expect(mockInjectCalls[0].role).toBe('assistant');
-    expect(mockInjectCalls[0].content).toContain('[Context Summary]');
-    // Verify actual summary content from provider is included
-    expect(mockInjectCalls[0].content).toContain('summary of the conversation so far');
+    // System message is re-injected first, then summary as assistant message
+    expect(mockInjectCalls.length).toBe(2);
+    expect(mockInjectCalls[0].role).toBe('system');
+    expect(mockInjectCalls[0].content).toBe('test system');
+    expect(mockInjectCalls[1].role).toBe('assistant');
+    expect(mockInjectCalls[1].content).toContain('[Context Summary]');
+    expect(mockInjectCalls[1].content).toContain('summary of the conversation so far');
   });
 
   it('compact() does not call robota.run() (no streaming interference)', async () => {
@@ -198,11 +204,12 @@ describe('Session compaction', () => {
     // run() should trigger auto-compact at the START (before processing the message)
     await session.run('next question');
 
-    // compact was triggered: history was cleared and summary injected
+    // compact was triggered: history was cleared, system message + summary injected
     expect(mockClearCount).toBeGreaterThanOrEqual(1);
-    expect(mockInjectCalls.length).toBeGreaterThanOrEqual(1);
-    expect(mockInjectCalls[0].role).toBe('assistant');
-    expect(mockInjectCalls[0].content).toContain('[Context Summary]');
+    expect(mockInjectCalls.length).toBeGreaterThanOrEqual(2);
+    expect(mockInjectCalls[0].role).toBe('system');
+    expect(mockInjectCalls[1].role).toBe('assistant');
+    expect(mockInjectCalls[1].content).toContain('[Context Summary]');
 
     // The user's message was still processed (robota.run called)
     expect(mockRunCalls).toContain('next question');

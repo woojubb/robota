@@ -1,6 +1,8 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is an interactive terminal AI coding assistant built on Robota SDK. It loads project context (AGENTS.md, CLAUDE.md) and provides a full TUI with tool execution, permission prompts, and context management.
+`@robota-sdk/agent-cli` is a purely TUI layer built on `InteractiveSession` from `@robota-sdk/agent-sdk`. The CLI has no session logic of its own: the `useInteractiveSession` React hook subscribes to `InteractiveSession` events and translates them into React state. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the SDK layer.
+
+State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. The `useInteractiveSession` hook wraps `TuiStateManager` and feeds its output into the React component tree via `useState`.
 
 ## Installation
 
@@ -19,8 +21,65 @@ robota -r <session-id>              # Resume specific session
 robota --model claude-opus-4-6      # Model override
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
+robota --output-format json         # Output format (text/json/stream-json)
+robota --system-prompt "..."        # Replace system prompt
+robota --append-system-prompt "..." # Append to system prompt
+robota --reset                      # Delete user settings and exit
 robota --version                    # Show version
 ```
+
+## Non-Interactive (Headless) Mode
+
+Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting.
+
+### Output Formats
+
+Use `--output-format` to control how the response is written to stdout:
+
+**Text (default):**
+
+```bash
+robota -p "Explain this error"
+# Prints plain text response to stdout
+```
+
+**JSON:**
+
+```bash
+robota -p "Summarize the project" --output-format json
+# Output: { "type": "result", "result": "...", "session_id": "...", "subtype": "success" }
+```
+
+**Stream JSON (newline-delimited):**
+
+```bash
+robota -p "Write a function" --output-format stream-json
+# Each line is a JSON object: content_block_delta events followed by a final result
+```
+
+### Stdin Pipe
+
+When `-p` is specified without a positional argument and stdin is piped, the CLI reads from stdin:
+
+```bash
+echo "Explain this code" | robota -p
+cat error.log | robota -p "What went wrong?"
+git diff | robota -p "Review this diff" --output-format json
+```
+
+### System Prompt Overrides
+
+```bash
+robota -p "query" --system-prompt "You are a code reviewer"
+robota -p "query" --append-system-prompt "Focus on security issues"
+```
+
+### Exit Codes
+
+| Code | Meaning |
+| ---- | ------- |
+| 0    | Success |
+| 1    | Error   |
 
 ## Interactive TUI
 
@@ -31,28 +90,157 @@ The TUI (built with React + Ink) provides:
 - **Status bar** — Permission mode, model, context usage %, message count
 - **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
 - **Streaming** — Real-time text output as the model responds
+- **ESC abort** — Press ESC during streaming to cancel. Partial response is saved with interrupted state
+- **History SSOT** — Renders from `IHistoryEntry[]` — the universal timeline of chat messages and session events
+
+### useInteractiveSession Hook
+
+The `useInteractiveSession` hook is the sole bridge between `InteractiveSession` (SDK) and the React component tree. It:
+
+1. Receives an `InteractiveSession` instance as its argument.
+2. Passes SDK events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) to a `TuiStateManager` instance.
+3. Exposes derived React state and actions (`submit`, `abort`, `cancelQueue`).
+
+The state shape exposed to components includes `history: IHistoryEntry[]` — the universal timeline of chat messages and session events. Components render from this single list; there is no separate `messages` array.
+
+`TuiStateManager` is a pure TypeScript class with no React dependency. It can be instantiated and tested independently of the component tree, making state transition logic fully unit-testable.
+
+The CLI contains no session management logic beyond this hook. The old `useSession`, `useSubmitHandler`, `useSlashCommands`, `useCommandRegistry`, and `useMessages` hooks have been removed and their responsibilities moved to `InteractiveSession` in the SDK.
 
 ## Slash Commands
 
-Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to select.
+Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-| Command                   | Description                    |
-| ------------------------- | ------------------------------ |
-| `/help`                   | Show available commands        |
-| `/clear`                  | Clear conversation history     |
-| `/mode [mode]`            | Show or change permission mode |
-| `/model [model]`          | Show or change AI model        |
-| `/compact [instructions]` | Compress context window        |
-| `/cost`                   | Show session info              |
-| `/context`                | Context window details         |
-| `/permissions`            | Show permission rules          |
-| `/exit`                   | Exit CLI                       |
+The available command list is provided by `InteractiveSession.getCommands()`, which aggregates `BuiltinCommandSource` and `SkillCommandSource`. The CLI renders this list but does not own it.
+
+| Command                   | Description                      |
+| ------------------------- | -------------------------------- |
+| `/help`                   | Show available commands          |
+| `/clear`                  | Clear conversation history       |
+| `/mode [mode]`            | Show or change permission mode   |
+| `/model [model]`          | Show or change AI model          |
+| `/compact [instructions]` | Compress context window          |
+| `/cost`                   | Show session info                |
+| `/context`                | Context window details           |
+| `/permissions`            | Show permission rules            |
+| `/exit`                   | Exit CLI                         |
+| `/plugin`                 | Plugin manager (interactive TUI) |
+| `/reload-plugins`         | Reload all plugins               |
+| `/language [lang]`        | Show or change UI language       |
 
 `/mode` and `/model` show nested submenus for selection.
 
+### Plugin Management
+
+Plugins extend the CLI with additional skills, hooks, and tools. They are stored in `~/.robota/plugins/` (user scope) or `.robota/plugins/` (project scope).
+
+**Interactive TUI (`/plugin`):**
+
+Typing `/plugin` opens an interactive menu with arrow-key navigation:
+
+```
+Plugin Management
+│
+├─ Marketplace
+│    ├─ Add Marketplace      → enter source (owner/repo or git URL)
+│    └─ <marketplace-name>   → Browse plugins / Update / Remove
+│         └─ Browse          → plugin list → Install (scope) or Uninstall
+│
+└─ Installed Plugins
+     └─ <plugin-name>       → Uninstall (with confirmation)
+```
+
+Navigate with arrow keys, Enter to select, Esc to go back.
+
+**Text subcommands** (also available when typed directly):
+
+```bash
+/plugin install <name>@<marketplace>   # Install plugin
+/plugin uninstall <name>@<marketplace> # Uninstall plugin
+/plugin marketplace add <source>       # Add marketplace source
+/plugin marketplace remove <name>      # Remove marketplace
+/plugin marketplace update <name>      # Update marketplace
+/plugin marketplace list               # List registered marketplaces
+```
+
+Use `/reload-plugins` to reload all plugins without restarting the CLI.
+
+### Model Change (`/model`)
+
+Select a model from the submenu (e.g., `Claude Opus 4.6 (1M)`). A confirmation prompt appears warning that the CLI will restart. If confirmed, the new model is saved to `~/.robota/settings.json` and the CLI exits.
+
+Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-core`, which is the single source of truth for model IDs, names, and context window sizes.
+
 ### Skill Commands
 
-Skills discovered from `.agents/skills/*/SKILL.md` (project) and `~/.claude/skills/*/SKILL.md` (user) appear as additional slash commands below the built-in commands.
+Skills are discovered by `SkillCommandSource` in `agent-sdk`. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
+
+1. `.agents/skills/` (project, Robota primary)
+2. `.claude/skills/` (project, Claude Code compatible)
+3. `.claude/commands/` (project, Claude Code legacy)
+4. `~/.robota/skills/` (user)
+
+Skills appear as additional slash commands below the built-in commands.
+
+Plugin skills appear with a hint showing their source: `/audit (rulebased-harness) Run audit checks`
+Plugin commands use colon format: `/rulebased-harness:audit`
+
+### Skill Frontmatter
+
+Each skill is a markdown file with YAML frontmatter controlling its behavior:
+
+| Field                      | Type    | Description                                            |
+| -------------------------- | ------- | ------------------------------------------------------ |
+| `name`                     | string  | Display name for the slash command                     |
+| `description`              | string  | One-line description shown in autocomplete             |
+| `argument-hint`            | string  | Placeholder text for the argument (e.g., `<file>`)     |
+| `disable-model-invocation` | boolean | If true, model cannot auto-invoke this skill           |
+| `user-invocable`           | boolean | If false, only the model can invoke (not via `/` menu) |
+| `allowed-tools`            | array   | Tool allowlist for the skill's execution context       |
+| `model`                    | string  | Model override for skill execution                     |
+| `effort`                   | string  | Reasoning effort level                                 |
+| `context`                  | string  | Execution context; `fork` spawns a subagent            |
+| `agent`                    | string  | Agent definition name for subagent execution           |
+
+### Variable Substitution
+
+Skill markdown bodies support variable substitution before execution:
+
+- `$ARGUMENTS` / `$ARGUMENTS[N]` — Full argument string or Nth argument
+- `$N` — Shorthand for Nth positional argument
+- `${CLAUDE_SESSION_ID}` — Current session ID
+- `${CLAUDE_SKILL_DIR}` — Directory containing the skill file
+
+### Shell Preprocessing
+
+Use the `` !`command` `` syntax to embed shell command output into the skill body at invocation time. The command runs in the project working directory.
+
+### Invocation Methods
+
+- **User direct**: Type `/skill-name` in the input area
+- **Model auto-invoke**: The model calls the Skill tool during a conversation (unless `disable-model-invocation: true`)
+- **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
+
+When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
+
+## Session Management
+
+The CLI supports continuing, resuming, forking, and naming sessions for workflow continuity across invocations.
+
+### Continue and Resume
+
+```bash
+robota -c                    # Continue the most recent session
+robota -r <session-id>       # Resume a specific session by ID
+robota --fork-session <id>   # Fork a session (new session with copied history)
+robota --name "my-task"      # Assign a name to the session at startup
+```
+
+Within the TUI, use `/resume` to list recent sessions and select one to resume. Use `/rename <name>` to rename the current session.
+
+### Session Names
+
+When a session has a name, it is displayed in the input area border, the terminal title bar, and the status bar. Names make it easy to identify sessions when resuming later.
 
 ## Permission Modes
 
@@ -81,17 +269,64 @@ Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact`
 /compact focus on the API design decisions
 ```
 
+## Prompt Queue
+
+If you submit a prompt while the model is still executing (thinking), `InteractiveSession` queues the new prompt automatically. The input area border turns cyan to indicate a prompt is waiting. As soon as the current execution completes, the queued prompt is submitted automatically. Press Backspace while a prompt is queued to cancel it (calls `cancelQueue()` on the session).
+
+## Input Navigation
+
+The input area supports multi-line cursor movement. When input spans multiple rows, press Up/Down arrows to move the cursor to the previous or next display row within the input. This lets you navigate and edit long prompts without the cursor jumping out of the input box.
+
+## Paste Handling
+
+When pasting multiline text into the input area, the CLI collapses the content into a compact label:
+
+```
+[Pasted text #1 +42 lines]
+```
+
+Multiple pastes are numbered sequentially (`#1`, `#2`, etc.). The full pasted content is expanded when the prompt is submitted, so the AI receives the complete text. This keeps the input area readable while supporting large code blocks and log excerpts.
+
+## Tool Display
+
+Tool invocations in the TUI use a unified display format with status indicators:
+
+| Status  | Symbol | Color                        | Meaning            |
+| ------- | ------ | ---------------------------- | ------------------ |
+| Running | ⟳      | Yellow                       | Tool is executing  |
+| Success | ✓      | Green                        | Completed normally |
+| Error   | ✗      | Red + strikethrough          | Execution failed   |
+| Denied  | ⊘      | YellowBright + strikethrough | Permission denied  |
+
+Long tool arguments are middle-truncated, keeping the last 30 characters visible for context.
+
+### Edit Diff Display
+
+When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. The display format consists of a file path header followed by red (`-`) lines for removals and greenBright (`+`) lines for additions. A maximum of 10 lines are displayed; larger diffs are truncated with an `... and N more lines` indicator. No-op edits (where old and new strings are identical) are suppressed entirely.
+
+### Subagent Execution
+
+The AI can spawn subagents via the **Agent** tool to handle complex subtasks (e.g., exploring the codebase, planning multi-step changes). Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
+
 ## Session Logging
 
 Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `assistant`, `server_tool`, and `context`.
 
+## First-Run Setup
+
+When no settings file exists, the CLI prompts for an Anthropic API key (input is masked with asterisks) and creates `~/.robota/settings.json` with a minimal config. Use `robota --reset` to delete the settings file and return to the first-run state.
+
 ## Configuration
 
-The CLI uses the same 3-layer configuration as the SDK:
+The CLI uses a layered configuration system. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
 
 1. `~/.robota/settings.json` (user global)
-2. `.robota/settings.json` (project)
+2. `.robota/settings.json` (project, primary)
 3. `.robota/settings.local.json` (local override, gitignored)
+4. `.claude/settings.json` (project, Claude Code compatible)
+5. `.claude/settings.local.json` (local override, gitignored, Claude Code compatible)
+
+The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
 
 See [Using the SDK — Configuration](./sdk.md#configuration) for the full config format.
 
@@ -100,7 +335,17 @@ See [Using the SDK — Configuration](./sdk.md#configuration) for the full confi
 - Tool output is capped at 30,000 characters (middle-truncated)
 - Glob tool defaults to a maximum of 1,000 entries per invocation
 
+## Memory Management
+
+The TUI applies several optimizations to keep memory usage bounded during long sessions:
+
+- **Message windowing**: Only the most recent `MAX_RENDERED_MESSAGES` (100) messages are rendered in the React tree. Older messages are removed from the DOM but retained in session state.
+- **Tool state cleanup**: Completed tool results beyond `MAX_COMPLETED_TOOLS` (50) have their detailed state cleared to reduce memory pressure.
+- **React.memo**: `MessageItem` components are wrapped with `React.memo` to prevent unnecessary re-renders when new messages arrive.
+
+See [agent-cli SPEC.md](../../packages/agent-cli/docs/SPEC.md) for implementation details.
+
 ## Known Limitations
 
-- **Korean IME**: Ink's raw mode does not fully support Korean IME composition. A custom `CjkTextInput` component mitigates common issues, but edge cases remain on Terminal.app.
-- **Abort propagation**: `session.abort()` rejects the run promise but does not cancel the underlying provider API call.
+- **Korean IME + macOS Terminal.app crash**: Korean/CJK IME input may crash macOS Terminal.app due to an Ink raw mode + Terminal.app IME interaction bug. **Use [iTerm2](https://iterm2.com/) instead.** This is a known industry-wide issue shared with Claude Code (issues #22732, #3045). A custom `CjkTextInput` component mitigates common issues but cannot prevent the Terminal.app crash.
+- **Abort propagation**: `session.abort()` triggers an AbortSignal that flows through the entire chain (Session -> Robota -> Provider). The provider returns partial content with `state: 'interrupted'`. Streaming renders are debounced at 16ms. Interrupted responses display "Interrupted by user." and failed requests display "Request failed:" messages. The "Thinking..." indicator has been removed; a "Waiting for response... (ESC to interrupt)" message is shown instead.

@@ -5,27 +5,25 @@
 import React from 'react';
 import { render } from 'ink';
 import App from './App.js';
-import type {
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  SessionStore,
-} from '@robota-sdk/agent-sdk';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 export interface IRenderOptions {
-  config: IResolvedConfig;
-  context: ILoadedContext;
-  projectInfo?: IProjectInfo;
-  sessionStore?: SessionStore;
+  cwd: string;
+  provider: IAIProvider;
+  modelId?: string;
+  language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  cwd?: string;
   version?: string;
+  sessionStore?: SessionStore;
+  resumeSessionId?: string;
+  forkSession?: boolean;
+  sessionName?: string;
 }
 
 export function renderApp(options: IRenderOptions): void {
-  // Catch unhandled rejections to prevent silent Ink crashes
   process.on('unhandledRejection', (reason) => {
     process.stderr.write(`\n[UNHANDLED REJECTION] ${reason}\n`);
     if (reason instanceof Error) {
@@ -33,13 +31,26 @@ export function renderApp(options: IRenderOptions): void {
     }
   });
 
+  if (process.stdin.isTTY && process.stdout.isTTY) {
+    process.stdout.write('\x1b[?2004h');
+  }
+
   const instance = render(<App {...options} />, {
     exitOnCtrlC: true,
   });
 
-  instance.waitUntilExit().catch((err) => {
-    if (err) {
-      process.stderr.write(`\n[EXIT ERROR] ${err}\n`);
-    }
-  });
+  instance
+    .waitUntilExit()
+    .then(() => {
+      if (process.stdout.isTTY) {
+        process.stdout.write('\x1b[?2004l');
+      }
+      process.exit(0);
+    })
+    .catch((err) => {
+      if (err) {
+        process.stderr.write(`\n[EXIT ERROR] ${err}\n`);
+      }
+      process.exit(1);
+    });
 }

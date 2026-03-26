@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ConversationSession,
+  ConversationStore,
   ConversationHistory,
   isToolMessage,
   isAssistantMessage,
@@ -10,10 +10,10 @@ import {
   createSystemMessage,
 } from './conversation-history-manager';
 
-describe('ConversationSession', () => {
+describe('ConversationStore', () => {
   describe('addToolMessageWithId', () => {
     it('should add tool message successfully with unique toolCallId', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addToolMessageWithId('Tool result content', 'tool-call-1', 'testTool', {
         success: true,
@@ -27,7 +27,7 @@ describe('ConversationSession', () => {
     });
 
     it('should throw error when adding tool message with duplicate toolCallId', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       // Add first tool message
       session.addToolMessageWithId('First tool result', 'tool-call-1', 'testTool', {
@@ -51,7 +51,7 @@ describe('ConversationSession', () => {
     });
 
     it('should allow different toolCallIds', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addToolMessageWithId('First tool result', 'tool-call-1', 'testTool', {
         success: true,
@@ -71,7 +71,7 @@ describe('ConversationSession', () => {
     });
 
     it('should maintain proper message order', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addUserMessage('User input');
       session.addAssistantMessage('Assistant response', [
@@ -89,7 +89,7 @@ describe('ConversationSession', () => {
 
   describe('High-level API data integrity', () => {
     it('should preserve assistant message with null content and tool calls', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       // Add user message
       session.addUserMessage('What is 5 plus 3?');
@@ -135,7 +135,7 @@ describe('ConversationSession', () => {
     });
 
     it('should preserve assistant message with empty string content and tool calls', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       // Add assistant message with empty content and tool calls
       session.addAssistantMessage('', [
@@ -159,7 +159,7 @@ describe('ConversationSession', () => {
     });
 
     it('should preserve assistant message with meaningful content and tool calls', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addAssistantMessage('Let me calculate that for you.', [
         {
@@ -185,7 +185,7 @@ describe('ConversationSession', () => {
     });
 
     it('should handle complete tool execution conversation flow', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       // Step 1: User asks question
       session.addUserMessage('Calculate 15 * 24');
@@ -231,7 +231,7 @@ describe('ConversationSession', () => {
     });
 
     it('should handle multiple tool calls in single assistant message', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addAssistantMessage(null, [
         {
@@ -268,7 +268,7 @@ describe('ConversationSession', () => {
     });
 
     it('should preserve metadata for all message types', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       const userMetadata = { userId: 'user123', timestamp: '2024-01-01' };
       const assistantMetadata = { model: 'gpt-4', provider: 'openai' };
@@ -286,7 +286,7 @@ describe('ConversationSession', () => {
     });
 
     it('should preserve multimodal parts for user, assistant, system, and tool messages', () => {
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addUserMessage('', undefined, [
         { type: 'image_inline', mimeType: 'image/png', data: 'ZmFrZS1pbWFnZQ==' },
@@ -364,8 +364,8 @@ describe('ConversationHistory', () => {
     it('should maintain conversation integrity across sessions', () => {
       const history = new ConversationHistory();
 
-      const sessionA = history.getConversationSession('conversation-a');
-      const sessionB = history.getConversationSession('conversation-b');
+      const sessionA = history.getConversationStore('conversation-a');
+      const sessionB = history.getConversationStore('conversation-b');
 
       // Add messages to different sessions
       sessionA.addUserMessage('Hello from A');
@@ -390,8 +390,8 @@ describe('ConversationHistory', () => {
     it('should provide accurate statistics', () => {
       const history = new ConversationHistory();
 
-      const session1 = history.getConversationSession('conv1');
-      const session2 = history.getConversationSession('conv2');
+      const session1 = history.getConversationStore('conv1');
+      const session2 = history.getConversationStore('conv2');
 
       session1.addUserMessage('Message 1');
       session1.addAssistantMessage('Response 1');
@@ -408,7 +408,7 @@ describe('ConversationHistory', () => {
   describe('Tool execution loop prevention integration test', () => {
     it('should prevent infinite tool execution by preserving conversation history correctly', () => {
       // This test simulates the exact scenario that was causing infinite tool execution
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       // Simulate the conversation flow that was causing the issue:
 
@@ -464,7 +464,7 @@ describe('ConversationHistory', () => {
 
     it('should demonstrate the infinite loop scenario that was happening before the fix', () => {
       // This test documents what was happening before we fixed the content handling
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addUserMessage('What is 5 plus 3?');
 
@@ -508,7 +508,7 @@ describe('ConversationHistory', () => {
 
     it('should handle edge case of assistant message with both content and tool calls', () => {
       // Some AI models might return both content and tool calls
-      const session = new ConversationSession();
+      const session = new ConversationStore();
 
       session.addUserMessage('Calculate 10 * 5 and explain the process');
 

@@ -15,12 +15,12 @@ Key endpoints:
 ## Boundaries
 
 - Host-level composition only. Core package contracts remain in their respective packages.
-- Does not own `RemoteServer` routes (owned by `@robota-sdk/agent-remote-server-core`).
+- Provider chat/stream routes are inlined (formerly in `@robota-sdk/agent-remote-server-core`, now deleted).
 - Does not own DAG concerns (owned by `apps/dag-runtime-server`).
 
 ## Architecture Overview
 
-`createApp()` composes Express with helmet, CORS, rate limiting, and body parsing. Registers AI providers (OpenAI, Anthropic, Google) based on environment API keys. Mounts remote routes via `registerRemoteServerRoutes`. Creates `PlaygroundWebSocketServer` on the HTTP server.
+`createApp()` composes Express with helmet, CORS, rate limiting, and body parsing. Registers AI providers (OpenAI, Anthropic, Google) based on environment API keys. Inlines provider chat/health routes. Creates `PlaygroundWebSocketServer` on the HTTP server.
 
 Firebase Functions entry point (`src/index.ts`) wraps `createApp()` for serverless deployment.
 

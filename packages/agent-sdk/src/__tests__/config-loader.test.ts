@@ -18,16 +18,20 @@ describe('loadConfig', () => {
   let cwd: string;
   let projectDir: string;
   let userDir: string;
+  let claudeProjectDir: string;
   const originalHome = process.env.HOME;
 
   beforeEach(() => {
     cwd = join(TMP_BASE, 'cwd-' + Math.random().toString(36).slice(2));
     projectDir = join(cwd, '.robota');
-    userDir = join(TMP_BASE, 'home-' + Math.random().toString(36).slice(2), '.robota');
+    claudeProjectDir = join(cwd, '.claude');
+    const homeBase = join(TMP_BASE, 'home-' + Math.random().toString(36).slice(2));
+    userDir = join(homeBase, '.robota');
     setupDir(cwd);
     setupDir(projectDir);
     setupDir(userDir);
-    process.env.HOME = join(userDir, '..');
+    setupDir(claudeProjectDir);
+    process.env.HOME = homeBase;
   });
 
   afterEach(() => {
@@ -115,5 +119,115 @@ describe('loadConfig', () => {
     const config = await loadConfig(cwd);
     expect(config.provider.apiKey).toBe('sk-test-value');
     delete process.env.TEST_API_KEY_XYZ;
+  });
+
+  // --- .claude/ path support ---
+
+  it('loads settings from .claude/settings.json', async () => {
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      defaultTrustLevel: 'full',
+    });
+    const config = await loadConfig(cwd);
+    expect(config.defaultTrustLevel).toBe('full');
+  });
+
+  it('.claude/settings.local.json has highest priority', async () => {
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      defaultTrustLevel: 'safe',
+    });
+    writeJson(join(claudeProjectDir, 'settings.local.json'), {
+      defaultTrustLevel: 'full',
+    });
+    const config = await loadConfig(cwd);
+    expect(config.defaultTrustLevel).toBe('full');
+  });
+
+  it('.claude/ paths win over legacy .robota/ paths', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      defaultTrustLevel: 'safe',
+      provider: { model: 'legacy-model' },
+    });
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      defaultTrustLevel: 'full',
+    });
+    const config = await loadConfig(cwd);
+    // .claude/ wins for trust level
+    expect(config.defaultTrustLevel).toBe('full');
+    // .robota/ model is inherited since .claude/ didn't set it
+    expect(config.provider.model).toBe('legacy-model');
+  });
+
+  it('full 5-layer precedence: .claude/settings.local.json wins over all', async () => {
+    writeJson(join(userDir, 'settings.json'), { defaultTrustLevel: 'safe' });
+    writeJson(join(projectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
+    writeJson(join(projectDir, 'settings.local.json'), { defaultTrustLevel: 'safe' });
+    writeJson(join(claudeProjectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
+    writeJson(join(claudeProjectDir, 'settings.local.json'), { defaultTrustLevel: 'full' });
+    const config = await loadConfig(cwd);
+    expect(config.defaultTrustLevel).toBe('full');
+  });
+
+  it('hooks from .claude/settings.json are loaded and merged', async () => {
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo test' }] }],
+      },
+    });
+    const config = await loadConfig(cwd);
+    expect(config.hooks).toBeDefined();
+    expect(config.hooks?.PreToolUse).toHaveLength(1);
+    expect(config.hooks?.PreToolUse?.[0]?.matcher).toBe('Bash');
+  });
+
+  it('hooks support all Phase 1 event types', async () => {
+    const allEvents = {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo pre' }] }],
+      PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo post' }] }],
+      SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo start' }] }],
+      Stop: [{ matcher: '', hooks: [{ type: 'command', command: 'echo stop' }] }],
+      PreCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prec' }] }],
+      PostCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo postc' }] }],
+      UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prompt' }] }],
+      Notification: [{ matcher: '', hooks: [{ type: 'command', command: 'echo notify' }] }],
+    };
+    writeJson(join(claudeProjectDir, 'settings.json'), { hooks: allEvents });
+    const config = await loadConfig(cwd);
+    expect(config.hooks).toBeDefined();
+    expect(Object.keys(config.hooks ?? {})).toHaveLength(8);
+  });
+
+  it('hooks support http hook type', async () => {
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      hooks: {
+        PreToolUse: [{ matcher: '', hooks: [{ type: 'http', url: 'https://example.com/hook' }] }],
+      },
+    });
+    const config = await loadConfig(cwd);
+    expect(config.hooks?.PreToolUse?.[0]?.hooks[0]).toEqual({
+      type: 'http',
+      url: 'https://example.com/hook',
+    });
+  });
+
+  // --- enabledPlugins and extraKnownMarketplaces ---
+
+  it('loads enabledPlugins from settings', async () => {
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      enabledPlugins: { 'my-plugin': true, 'other-plugin': false },
+    });
+    const config = await loadConfig(cwd);
+    expect(config.enabledPlugins).toEqual({ 'my-plugin': true, 'other-plugin': false });
+  });
+
+  it('loads extraKnownMarketplaces from settings', async () => {
+    writeJson(join(claudeProjectDir, 'settings.json'), {
+      extraKnownMarketplaces: {
+        'my-market': { source: { type: 'github', repo: 'org/plugins' } },
+      },
+    });
+    const config = await loadConfig(cwd);
+    expect(config.extraKnownMarketplaces).toEqual({
+      'my-market': { source: { type: 'github', repo: 'org/plugins' } },
+    });
   });
 });

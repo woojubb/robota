@@ -76,13 +76,38 @@ const provider = new AnthropicProvider({
 });
 ```
 
-## Public Instance Fields
+## Public API
+
+### Exports
+
+| Export                          | Kind      | Description                                                               |
+| ------------------------------- | --------- | ------------------------------------------------------------------------- |
+| `AnthropicProvider`             | class     | Anthropic provider implementing `AbstractAIProvider`                      |
+| `IAnthropicProviderOptions`     | interface | Constructor options: `apiKey`, `timeout`, `baseURL`, `client`, `executor` |
+| `TAnthropicProviderOptionValue` | type      | Union type for valid provider option values                               |
+| `createAnthropicProvider`       | function  | Stub — placeholder for future factory pattern (currently returns void)    |
+
+`api-types.ts` is an internal module and is not part of the public API.
+
+### AnthropicProvider Instance Fields
 
 | Field             | Type                  | Default | Description                    |
 | ----------------- | --------------------- | ------- | ------------------------------ |
 | `enableWebTools`  | `boolean`             | `false` | Include web search server tool |
 | `onTextDelta`     | `TTextDeltaCallback?` | —       | Streaming text callback        |
 | `onServerToolUse` | `function?`           | —       | Server tool execution callback |
+
+## Always-Streaming Policy
+
+The provider always uses the streaming API (`messages.stream`) internally, even when no `onTextDelta` callback is set. This prevents the 10-minute HTTP timeout that can occur during long-running tool loops with non-streaming requests. The complete response text is assembled from the streamed chunks.
+
+## Abort Signal Support
+
+Pass an `AbortSignal` via `IChatOptions.signal`. When aborted during streaming, the provider returns partial content accumulated so far with `stopReason: 'aborted'`.
+
+## Output Token Limits
+
+When `IChatOptions.maxTokens` is not specified, the provider uses the model's `maxOutput` from the `CLAUDE_MODELS` registry in `agent-core` as the default.
 
 ## Known Limitations
 

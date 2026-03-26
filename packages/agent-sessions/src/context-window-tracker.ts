@@ -5,17 +5,7 @@
  */
 
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
-
-/** Known model context window sizes (tokens) */
-const MODEL_CONTEXT_SIZES: Record<string, number> = {
-  'claude-sonnet-4-6': 200_000,
-  'claude-sonnet-4-5': 200_000,
-  'claude-opus-4-6': 1_000_000,
-  'claude-opus-4-5': 200_000,
-  'claude-haiku-4-5': 200_000,
-};
-
-const DEFAULT_CONTEXT_SIZE = 200_000;
+import { getModelContextWindow } from '@robota-sdk/agent-core';
 
 /** Percentage conversion factor */
 const PERCENT = 100;
@@ -28,7 +18,7 @@ export class ContextWindowTracker {
   private readonly contextMaxTokens: number;
 
   constructor(model: string, contextMaxTokens?: number) {
-    this.contextMaxTokens = contextMaxTokens ?? MODEL_CONTEXT_SIZES[model] ?? DEFAULT_CONTEXT_SIZE;
+    this.contextMaxTokens = contextMaxTokens ?? getModelContextWindow(model);
   }
 
   /** Get current context window state */

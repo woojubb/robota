@@ -9,6 +9,7 @@ export type {
   TUniversalMessage,
   TUniversalMessageRole,
   TUniversalMessageMetadata,
+  TMessageState,
   IBaseMessage,
   IUserMessage,
   IAssistantMessage,

@@ -23,7 +23,6 @@ export default defineConfig({
   rewrites: {
     'README.md': 'index.md',
     ':dir/README.md': ':dir/index.md',
-    'api-reference/:package/README.md': 'api-reference/:package/index.md',
   },
 
   // Vite plugin configuration
@@ -74,100 +73,27 @@ export default defineConfig({
           // Other folders keep original order
           return data;
         },
-        // sidebar completed hook, remove duplicates
+        // sidebar completed hook
         sideBarResolved: (sidebar) => {
-          // Debug: check sidebar structure
-          // console.log('sideBarResolved sidebar:', JSON.stringify(sidebar, null, 2));
-          const isPackageRoot = (key, link) => {
-            if (key !== '/api-reference/') return false;
-
-            if (!link) return false;
-
-            if (link.split('/').length !== 4) return false;
-
-            const packagePath = link.split('/').slice(0, 4).join('/');
-
-            return packagePath === link;
-          };
-
-          // Create default links for items without links
-          const ensureLinks = (key, basePath = '/', items) => {
+          // Fix README.html links to correct path
+          const fixReadmeLinks = (items) => {
             if (!items) return items;
-
             return items.map((item) => {
-              // Create default link if no link
-              if (!item.link && item.items?.length) {
-                // If folder, create link based on text
-                const folderPath = item?.text?.toLowerCase().replace(/\s+/g, '-') || '';
-                const newLink = `${basePath}${folderPath ? `${folderPath}/` : ''}`;
-
-                item.isPackageRoot = isPackageRoot(key, newLink);
-
-                // item.link = newLink;
-              } else {
-                item.isPackageRoot = isPackageRoot(key, item.link);
-              }
-
-              // Recursively process subitems
-              if (item.items) {
-                const folderPath = item?.text?.toLowerCase().replace(/\s+/g, '-') || '';
-                const newBasePath = `${basePath}${folderPath ? `${folderPath}/` : ''}`;
-                item.items = ensureLinks(key, newBasePath, item.items);
-              }
-
-              return item;
-            });
-          };
-
-          const fixText = (key, items) => {
-            if (!items) return items;
-
-            return items.map((item) => {
-              if (key === '/api-reference/') {
-                if (!item.link && item.items?.length && item.isPackageRoot) {
-                  item.text = `@robota-sdk/${item.text}`;
-                } else if (item.link && item.isPackageRoot && item.link.endsWith('/README.html')) {
-                  item.text = `Overview`;
-                } else if (item.text && !item.link && item.items?.length) {
-                  const text = item.text;
-                  item.text = text.charAt(0).toUpperCase() + text.slice(1);
-                }
-              }
-
-              if (item.items) {
-                item.items = fixText(key, item.items);
-              }
-              return item;
-            });
-          };
-
-          // Fix README.html links to correct path and improve text
-          const fixReadmeLinks = (key, items) => {
-            if (!items) return items;
-
-            return items.map((item) => {
-              // Convert README.html links to index
               if (item.link && item.link.endsWith('/README.html')) {
                 item.link = item.link.replace('/README.html', '/');
               } else if (item.link && item.link.endsWith('README.html')) {
                 item.link = item.link.replace('README.html', '');
               }
-
-              // Recursively process subitems
               if (item.items) {
-                item.items = fixReadmeLinks(key, item.items);
+                item.items = fixReadmeLinks(item.items);
               }
-
               return item;
             });
           };
 
-          // Process all sidebar sections
           Object.keys(sidebar).forEach((key) => {
             if (Array.isArray(sidebar[key])) {
-              sidebar[key] = ensureLinks(key, key, sidebar[key]);
-              sidebar[key] = fixText(key, sidebar[key]);
-              sidebar[key] = fixReadmeLinks(key, sidebar[key]);
+              sidebar[key] = fixReadmeLinks(sidebar[key]);
             }
           });
 
@@ -274,7 +200,7 @@ export default defineConfig({
           price: '0',
           priceCurrency: 'USD',
         },
-        downloadUrl: 'https://www.npmjs.com/package/@robota-sdk/agents',
+        downloadUrl: 'https://www.npmjs.com/package/@robota-sdk/agent-cli',
         codeRepository: 'https://github.com/woojubb/robota',
       }),
     ],
@@ -316,7 +242,7 @@ export default defineConfig({
     // Social links
     socialLinks: [
       { icon: 'github', link: 'https://github.com/woojubb/robota' },
-      { icon: 'npm', link: 'https://www.npmjs.com/package/@robota-sdk/agents' },
+      { icon: 'npm', link: 'https://www.npmjs.com/package/@robota-sdk/agent-cli' },
     ],
   },
 

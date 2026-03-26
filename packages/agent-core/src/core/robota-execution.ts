@@ -44,6 +44,7 @@ export async function robotaRun(
       ...(options.sessionId && { sessionId: options.sessionId }),
       ...(options.userId && { userId: options.userId }),
       ...(options.metadata && { metadata: options.metadata }),
+      ...(options.signal && { signal: options.signal }),
     });
 
     deps.logger.debug('Robota execution completed', {
@@ -51,7 +52,13 @@ export async function robotaRun(
       duration: result.duration,
       tokensUsed: result.tokensUsed,
       toolsExecuted: result.toolsExecuted,
+      interrupted: result.interrupted,
     });
+
+    if (result.interrupted) {
+      deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_COMPLETE, {});
+      return result.response;
+    }
 
     if (!result.success && result.error) {
       throw result.error;

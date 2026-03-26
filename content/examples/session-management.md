@@ -2,6 +2,49 @@
 
 Multi-turn sessions with permissions, context tracking, and compaction.
 
+## Using InteractiveSession (Recommended)
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { SessionStore } from '@robota-sdk/agent-sessions';
+
+const sessionStore = new SessionStore();
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore, // auto-persist after each submit
+  sessionName: 'my-task', // optional name
+});
+
+// Submit prompts
+await session.submit('What is the architecture?');
+await session.submit('Show me the main entry point.');
+
+// Session name
+session.setName('architecture-review');
+console.log(session.getName()); // 'architecture-review'
+
+// Resume a previous session
+const resumed = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore,
+  resumeSessionId: 'session_abc123', // restores history + AI context
+});
+
+// Fork a session (new ID, same context)
+const forked = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore,
+  resumeSessionId: 'session_abc123',
+  forkSession: true,
+});
+```
+
+## Using Session Directly (Advanced)
+
 ```typescript
 import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
 
@@ -69,3 +112,32 @@ await session.run('Hello');
 const sessions = store.list();
 const record = store.load(sessions[0].id);
 ```
+
+## CLI Session Management
+
+```bash
+# Continue last session
+robota -c
+
+# Resume specific session (by name or ID)
+robota -r my-feature
+robota --resume
+
+# Fork from existing session (new ID, same context)
+robota -c --fork-session
+
+# Name a session
+robota --name "auth-refactor"
+```
+
+## TUI Commands
+
+```bash
+# Inside TUI:
+/resume          # Show session picker
+/rename my-task  # Rename current session
+```
+
+## Session Name
+
+Session name appears in three places: input box border, terminal title, status bar.
