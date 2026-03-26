@@ -167,6 +167,14 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   // Connect TuiStateManager to React re-renders
   manager.onChange = () => forceRender((n) => n + 1);
 
+  // Sync restored history immediately (session resume restores history in constructor)
+  if (manager.history.length === 0) {
+    const restored = interactiveSession.getFullHistory();
+    if (restored.length > 0) {
+      manager.syncHistory(restored);
+    }
+  }
+
   // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {
     interactiveSession.on('text_delta', manager.onTextDelta);
@@ -177,7 +185,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('interrupted', manager.onInterrupted);
     interactiveSession.on('error', manager.onError);
 
-    // Sync context state after async initialization
+    // Sync context state and restored history after async initialization
     const initCheck = setInterval(() => {
       try {
         const ctx = interactiveSession.getContextState();
@@ -186,6 +194,11 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           usedTokens: ctx.usedTokens,
           maxTokens: ctx.maxTokens,
         });
+        // Sync restored history (from session resume) on first init
+        const restored = interactiveSession.getFullHistory();
+        if (restored.length > 0) {
+          manager.syncHistory(restored);
+        }
         clearInterval(initCheck);
       } catch {
         /* Not yet initialized */
