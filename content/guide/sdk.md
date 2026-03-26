@@ -49,7 +49,9 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 const history: IHistoryEntry[] = session.getFullHistory();
 ```
 
-`IHistoryEntry` has a `kind` discriminant: `'chat'` entries carry role/content for the AI provider; event entries carry typed metadata for display. When forwarding conversation context to an AI provider, the session filters to chat-only entries automatically — the provider never sees event entries.
+`IHistoryEntry` has a `category` field: `'chat'` entries carry role/content for the AI provider; `'event'` entries carry typed metadata for display. When forwarding conversation context to an AI provider, the session filters to chat-only entries automatically — the provider never sees event entries.
+
+Event types include: `tool-start` (individual tool execution began), `tool-end` (individual tool execution completed with result), `tool-summary` (aggregated summary at execution end), and `skill-invocation` (skill activated).
 
 ### Command Discovery
 
