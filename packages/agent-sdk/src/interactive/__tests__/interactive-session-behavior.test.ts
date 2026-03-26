@@ -570,4 +570,111 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     );
     expect(interruptMsg).toBeDefined();
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // Display order: Tool → Robota (SPEC-mandated fixed order)
+  // ══════════════════════════════════════════════════════════════
+
+  it('tool summary message appears before assistant message on completion', async () => {
+    const mockSession = createMockSession({ runResult: 'final answer' });
+    // Simulate tools accumulating during run()
+    mockSession.run.mockImplementation(async function (this: void) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (session as any).activeTools = [
+        { toolName: 'Read', firstArg: 'file.ts', isRunning: false, result: 'success' },
+        { toolName: 'Edit', firstArg: 'file.ts', isRunning: false, result: 'success' },
+      ];
+      return 'final answer';
+    });
+    const session = new InteractiveSession({
+      session: mockSession as never,
+    } as never);
+
+    await session.submit('fix the bug');
+
+    const messages = session.getMessages();
+    const toolIdx = messages.findIndex((m) => m.role === 'tool');
+    const assistantIdx = messages.findIndex((m) => m.role === 'assistant');
+
+    // Tool message must exist
+    expect(toolIdx).toBeGreaterThanOrEqual(0);
+    // Assistant message must exist
+    expect(assistantIdx).toBeGreaterThanOrEqual(0);
+    // Tool must come BEFORE assistant (Tool → Robota order)
+    expect(toolIdx).toBeLessThan(assistantIdx);
+
+    // Tool message contains tool names
+    const toolMsg = messages[toolIdx]!;
+    expect(toolMsg.content).toContain('Read');
+    expect(toolMsg.content).toContain('Edit');
+
+    // activeTools should be cleared after completion
+    expect(session.getActiveTools()).toEqual([]);
+  });
+
+  it('tool summary appears before assistant on abort', async () => {
+    const abortError = new DOMException('aborted', 'AbortError');
+    let rejectRun: (err: Error) => void;
+    const mockSession = createMockSession();
+    mockSession.run.mockImplementation(
+      () =>
+        new Promise<string>((_, reject) => {
+          rejectRun = reject;
+        }),
+    );
+    mockSession.getHistory.mockReturnValue([]);
+    mockSession.abort.mockImplementation(() => {
+      mockSession.getHistory.mockReturnValue([
+        { role: 'user', content: 'test' },
+        { role: 'assistant', content: 'partial', state: 'interrupted' },
+      ]);
+    });
+
+    const session = new InteractiveSession({
+      session: mockSession as never,
+    } as never);
+
+    const exec = session.submit('test');
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Simulate tools accumulated during execution (before abort)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (session as any).activeTools = [{ toolName: 'Bash', firstArg: 'ls', isRunning: true }];
+
+    session.abort();
+    rejectRun!(abortError);
+    await exec;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const messages = session.getMessages();
+    const toolIdx = messages.findIndex((m) => m.role === 'tool');
+    const assistantIdx = messages.findIndex((m) => m.role === 'assistant');
+    const systemIdx = messages.findIndex(
+      (m) => m.role === 'system' && m.content?.includes('Interrupted'),
+    );
+
+    // All must exist
+    expect(toolIdx).toBeGreaterThanOrEqual(0);
+    expect(assistantIdx).toBeGreaterThanOrEqual(0);
+    expect(systemIdx).toBeGreaterThanOrEqual(0);
+
+    // Order: Tool → Robota → System
+    expect(toolIdx).toBeLessThan(assistantIdx);
+    expect(assistantIdx).toBeLessThan(systemIdx);
+
+    // activeTools should be cleared
+    expect(session.getActiveTools()).toEqual([]);
+  });
+
+  it('no tool summary when no tools were executed', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'simple answer' }) as never,
+    } as never);
+
+    await session.submit('hello');
+
+    const messages = session.getMessages();
+    const toolMsg = messages.find((m) => m.role === 'tool');
+    expect(toolMsg).toBeUndefined();
+  });
 });
