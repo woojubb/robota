@@ -560,6 +560,22 @@ When a permission prompt is shown for an Edit tool, the diff should be displayed
 
 ## Keyboard Controls
 
+### Message Display Order (fixed)
+
+The display order is fixed and identical for both normal completion and ESC abort:
+
+```
+You: [user prompt]
+Robota: [response or partial response]
+Tool: [tool execution list]
+System: Interrupted by user.        ← abort only
+```
+
+- `You:` and `Robota:` come from `MessageList` (renders `messages` array in order).
+- `Tool:` comes from `StreamingIndicator` (renders `activeTools`, always below `MessageList`).
+- `System:` comes from `MessageList` (appended to `messages` after `Robota:`).
+- This order is the same during streaming (real-time) and after completion/abort.
+
 ### Ctrl+C — Process Exit
 
 Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtrlC: true` option at the render level, bypassing all `useInput` handlers. It works regardless of which UI overlay is active (PluginTUI, permission prompt, etc.).
