@@ -76,7 +76,7 @@ interface IProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit?: (value: string) => void;
-  onPaste?: (text: string) => void;
+  onPaste?: (text: string, cursorPosition: number) => void;
   placeholder?: string;
   focus?: boolean;
   showCursor?: boolean;
@@ -139,7 +139,7 @@ export default function CjkTextInput({
               // Multiline paste → label replacement via onPaste
               // Single-line paste → insert directly as typed text
               if (text.includes('\n') && onPaste) {
-                onPaste(text);
+                onPaste(text, cursorRef.current);
               } else {
                 const printable = filterPrintable(text);
                 if (printable.length > 0) {
@@ -184,7 +184,7 @@ export default function CjkTextInput({
         // Fallback for terminals without bracketed paste mode:
         // multi-char input with newlines is likely a paste
         if (input.length > 1 && (input.includes('\n') || input.includes('\r')) && onPaste) {
-          onPaste(input.replace(/\r\n?/g, '\n'));
+          onPaste(input.replace(/\r\n?/g, '\n'), cursorRef.current);
           return;
         }
 

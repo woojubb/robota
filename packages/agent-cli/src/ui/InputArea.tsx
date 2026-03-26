@@ -139,13 +139,13 @@ export default function InputArea({
     setShowPopup,
   } = useAutocomplete(value, registry);
 
-  const handlePaste = useCallback((text: string) => {
+  const handlePaste = useCallback((text: string, cursorPosition: number) => {
     pasteIdRef.current += 1;
     const id = pasteIdRef.current;
     pasteStore.current.set(id, text);
     const lineCount = text.split('\n').length;
     const label = `[Pasted text #${id} +${lineCount} lines]`;
-    setValue((prev) => (prev ? `${prev} ${label}` : label));
+    setValue((prev) => prev.slice(0, cursorPosition) + label + prev.slice(cursorPosition));
   }, []);
 
   /** Tab: insert command into input field without executing */
