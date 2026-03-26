@@ -1,5 +1,12 @@
 # @robota-sdk/dag-scheduler
 
+## 3.0.0-beta.49
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.49
+- @robota-sdk/dag-runtime@3.0.0-beta.49
+
 ## 3.0.0-beta.48
 
 ### Patch Changes
