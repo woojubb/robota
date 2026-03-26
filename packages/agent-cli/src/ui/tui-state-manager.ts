@@ -14,10 +14,37 @@ import type { IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 /** Max messages kept in rendering state */
 const MAX_RENDERED_MESSAGES = 100;
 
+/** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
+const STREAMING_DEBOUNCE_MS = 100;
+
 export interface IContextState {
   percentage: number;
   usedTokens: number;
   maxTokens: number;
+}
+
+/** Create a debounced notify — schedules at most one call per interval. */
+function createDebouncedNotify(
+  notify: () => void,
+  ms: number,
+): { schedule: () => void; flush: () => void } {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    schedule() {
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = null;
+          notify();
+        }, ms);
+      }
+    },
+    flush() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    },
+  };
 }
 
 export class TuiStateManager {
@@ -35,6 +62,7 @@ export class TuiStateManager {
 
   // ── Internal ──────────────────────────────────────────────────
   private streamBuf = '';
+  private debouncedStreamNotify = createDebouncedNotify(() => this.notify(), STREAMING_DEBOUNCE_MS);
 
   private notify(): void {
     this.onChange?.();
@@ -45,7 +73,7 @@ export class TuiStateManager {
   onTextDelta = (delta: string): void => {
     this.streamBuf += delta;
     this.streamingText = this.streamBuf;
-    this.notify();
+    this.debouncedStreamNotify.schedule();
   };
 
   onToolStart = (state: IToolState): void => {
@@ -67,6 +95,7 @@ export class TuiStateManager {
     this.isThinking = thinking;
     if (thinking) {
       // Clear at START of new execution (preserves previous result until next)
+      this.debouncedStreamNotify.flush();
       this.streamBuf = '';
       this.streamingText = '';
       this.activeTools = [];
@@ -79,6 +108,7 @@ export class TuiStateManager {
   onComplete = (result: IExecutionResult): void => {
     // Tool summary is now in messages (pushed by InteractiveSession)
     // Clear streaming display
+    this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';
     this.activeTools = [];
@@ -92,6 +122,7 @@ export class TuiStateManager {
 
   onInterrupted = (): void => {
     // Tool summary is now in messages
+    this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';
     this.activeTools = [];
@@ -100,6 +131,7 @@ export class TuiStateManager {
 
   onError = (): void => {
     // Tool summary is now in messages
+    this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';
     this.activeTools = [];

@@ -314,6 +314,10 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 The `StreamingIndicator` (showing active tools) is rendered when `isThinking || activeTools.length > 0`. Streaming state (`streamBuf`, `activeTools`) is cleared at the **start** of a new execution (when `thinking: true`), not at the end. This means the tool list stays visible after execution completes or is aborted, until the next execution begins.
 
+### Streaming Text Debounce
+
+`TuiStateManager.onTextDelta` debounces `notify()` calls to reduce React re-render and markdown rendering frequency. Text deltas are accumulated in `streamBuf` immediately (no data loss), but `notify()` fires at most once per `STREAMING_DEBOUNCE_MS` (default 100ms). This limits `renderMarkdown()` invocations to ~10/second instead of per-token (hundreds/second). A `createDebouncedNotify` utility manages the timer lifecycle; `flush()` is called on completion/interruption/error to clean up.
+
 ## Command Registry Architecture
 
 The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, and `SkillCommandSource` are all owned by `@robota-sdk/agent-sdk`. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds only `PluginCommandSource`.
