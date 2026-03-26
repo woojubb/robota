@@ -2,7 +2,12 @@
  * Types for InteractiveSession — event-driven session wrapper.
  */
 
-import type { TUniversalMessage, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  TUniversalMessage,
+  IContextWindowState,
+  TToolArgs,
+  IHistoryEntry,
+} from '@robota-sdk/agent-core';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
@@ -28,7 +33,7 @@ export interface IDiffLine {
 /** Result of a completed prompt execution. */
 export interface IExecutionResult {
   response: string;
-  messages: TUniversalMessage[];
+  history: IHistoryEntry[];
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
 }

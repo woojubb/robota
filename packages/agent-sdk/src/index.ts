@@ -41,7 +41,17 @@ export type { SkillPromptContext } from './utils/skill-prompt.js';
 export type { TToolResult, TTrustLevel, TPermissionDecision, TPermissionMode } from './types.js';
 export { TRUST_TO_MODE } from './types.js';
 export type { ITerminalOutput, ISpinner } from './types.js';
-export type { IContextWindowState, IContextTokenUsage } from '@robota-sdk/agent-core';
+export type {
+  IContextWindowState,
+  IContextTokenUsage,
+  IHistoryEntry,
+} from '@robota-sdk/agent-core';
+export {
+  isChatEntry,
+  chatEntryToMessage,
+  messageToHistoryEntry,
+  getMessagesForAPI,
+} from '@robota-sdk/agent-core';
 export type { TToolArgs, IPermissionLists } from '@robota-sdk/agent-core';
 export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 export type { IAIProvider } from '@robota-sdk/agent-core';
