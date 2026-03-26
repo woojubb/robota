@@ -154,7 +154,7 @@ export default function InputArea({
       if (trimmed.length === 0) return;
 
       if (showPopup && filteredCommands[selectedIndex]) {
-        selectCommand(filteredCommands[selectedIndex]);
+        enterSelectCommand(filteredCommands[selectedIndex]);
         return;
       }
 
@@ -168,14 +168,38 @@ export default function InputArea({
 
       onSubmit(expanded);
     },
-    [showPopup, filteredCommands, selectedIndex, onSubmit],
+    [showPopup, filteredCommands, selectedIndex, onSubmit, enterSelectCommand],
   );
 
-  const selectCommand = useCallback(
+  /** Tab: insert command into input field without executing */
+  const tabCompleteCommand = useCallback(
     (cmd: ISlashCommand): void => {
       const parsed = parseSlashInput(value);
 
-      // If in subcommand mode, execute parent + subcommand
+      if (parsed.parentCommand) {
+        // Subcommand mode: insert full command with space for args
+        setValue(`/${parsed.parentCommand} ${cmd.name} `);
+        return;
+      }
+
+      if (cmd.subcommands && cmd.subcommands.length > 0) {
+        // Has subcommands: enter subcommand mode
+        setValue(`/${cmd.name} `);
+        setSelectedIndex(0);
+        return;
+      }
+
+      // Insert command with trailing space for optional args
+      setValue(`/${cmd.name} `);
+    },
+    [value, setSelectedIndex],
+  );
+
+  /** Enter: insert and execute command immediately */
+  const enterSelectCommand = useCallback(
+    (cmd: ISlashCommand): void => {
+      const parsed = parseSlashInput(value);
+
       if (parsed.parentCommand) {
         const fullCommand = `/${parsed.parentCommand} ${cmd.name}`;
         setValue('');
@@ -183,14 +207,12 @@ export default function InputArea({
         return;
       }
 
-      // If command has subcommands, enter subcommand mode
       if (cmd.subcommands && cmd.subcommands.length > 0) {
         setValue(`/${cmd.name} `);
         setSelectedIndex(0);
         return;
       }
 
-      // Execute command directly
       setValue('');
       onSubmit(`/${cmd.name}`);
     },
@@ -212,7 +234,7 @@ export default function InputArea({
         setShowPopup(false);
       } else if (key.tab) {
         const cmd = filteredCommands[selectedIndex];
-        if (cmd) selectCommand(cmd);
+        if (cmd) tabCompleteCommand(cmd);
       }
     },
     { isActive: showPopup && !isDisabled },
