@@ -1,6 +1,6 @@
 ---
 title: agent-cli monolith decomposition
-status: backlog
+status: completed
 priority: high
 urgency: soon
 created: 2026-03-27

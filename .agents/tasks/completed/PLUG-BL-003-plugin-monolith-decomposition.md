@@ -1,6 +1,6 @@
 ---
 title: agent-plugin-* monolith decomposition (8 packages, 8 files)
-status: backlog
+status: completed
 priority: medium
 urgency: later
 created: 2026-03-27

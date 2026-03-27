@@ -3,58 +3,25 @@ import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
 import { TASK_EVENTS } from '../event-service/index';
-import type { IUniversalObjectValue, TUniversalValue } from '../interfaces/types';
+import type { TUniversalValue } from '../interfaces/types';
+import {
+  IExecutionProxyConfig,
+  IMethodConfig,
+  TMetadataExtractor,
+  TExecutionProxyTarget,
+  TExecutionProxyArgs,
+  asObjectValue,
+  getStringLength,
+} from './execution-proxy-types';
+
+export type {
+  IExecutionProxyConfig,
+  IMethodConfig,
+  TMetadataExtractor,
+} from './execution-proxy-types';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
-
-/**
- * Configuration for execution proxy
- */
-export interface IExecutionProxyConfig {
-  eventService: IEventService;
-  sourceType: 'agent' | 'team' | 'tool';
-  sourceId: string;
-  enabledEvents?: {
-    execution?: boolean;
-    toolCall?: boolean;
-    task?: boolean;
-  };
-}
-
-/**
- * Metadata extractor function type
- */
-type TExecutionProxyTarget = Record<string, TUniversalValue>;
-type TExecutionProxyArgs = TUniversalValue[];
-
-function asObjectValue(input: TUniversalValue | undefined): IUniversalObjectValue | undefined {
-  if (!input || typeof input !== 'object' || Array.isArray(input) || input instanceof Date) {
-    return undefined;
-  }
-  return input as IUniversalObjectValue;
-}
-
-function getStringLength(input: TUniversalValue | undefined): number {
-  return typeof input === 'string' ? input.length : 0;
-}
-
-export type TMetadataExtractor = (
-  target: TExecutionProxyTarget,
-  methodName: string,
-  args: TExecutionProxyArgs,
-) => Record<string, TUniversalValue>;
-
-/**
- * Method configuration for proxy
- */
-export interface IMethodConfig {
-  startEvent?: string;
-  completeEvent?: string;
-  errorEvent?: string;
-  extractMetadata?: TMetadataExtractor;
-  extractResult?: (result: TUniversalValue) => Record<string, TUniversalValue>;
-}
 
 /**
  * ExecutionProxy - Automatic event emission using Proxy pattern

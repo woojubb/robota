@@ -18,6 +18,13 @@ import type {
 import type { ILogger } from '../utils/logger';
 import { SilentLogger } from '../utils/logger';
 import type { TUniversalValue } from '../interfaces/types';
+import {
+  getWorkflowDataStats,
+  buildSuccessResult,
+  buildFailureResult,
+  defaultValidateInput,
+  defaultValidateOutput,
+} from './workflow-converter-helpers';
 
 /**
  * Converter options (enabled flag + injected logger).
@@ -206,77 +213,28 @@ export abstract class AbstractWorkflowConverter<
 
   /**
    * Default input validation (can be overridden by subclasses)
-   *
-   * @param input - Input workflow data
-   * @returns Promise resolving to validation result
    */
-  async validateInput(input: TInput): Promise<{
-    isValid: boolean;
-    errors: string[];
-    warnings: string[];
-  }> {
-    // Basic null/undefined check
-    if (input == null) {
-      return {
-        isValid: false,
-        errors: ['Input data is null or undefined'],
-        warnings: [],
-      };
-    }
-
-    // Subclasses should override for specific validation
-    return {
-      isValid: true,
-      errors: [],
-      warnings: [],
-    };
+  async validateInput(
+    input: TInput,
+  ): Promise<{ isValid: boolean; errors: string[]; warnings: string[] }> {
+    return defaultValidateInput(input);
   }
 
   /**
    * Default output validation (can be overridden by subclasses)
-   *
-   * @param output - Output workflow data
-   * @returns Promise resolving to validation result
    */
-  async validateOutput(output: TOutput): Promise<{
-    isValid: boolean;
-    errors: string[];
-    warnings: string[];
-  }> {
-    // Basic null/undefined check
-    if (output == null) {
-      return {
-        isValid: false,
-        errors: ['Output data is null or undefined'],
-        warnings: [],
-      };
-    }
-
-    // Subclasses should override for specific validation
-    return {
-      isValid: true,
-      errors: [],
-      warnings: [],
-    };
+  async validateOutput(
+    output: TOutput,
+  ): Promise<{ isValid: boolean; errors: string[]; warnings: string[] }> {
+    return defaultValidateOutput(output);
   }
 
-  /**
-   * Default implementation for checking if converter can handle input
-   * Should be overridden by subclasses for specific type checking
-   *
-   * @param input - Input data to check
-   * @returns True if converter can handle this input
-   */
+  /** Check if converter can handle this input. Override for specific type checking. */
   canConvert(input: IWorkflowData): input is TInput {
-    // Basic existence check - subclasses should provide more specific logic
     return input != null;
   }
 
-  /**
-   * Get converter statistics
-   *
-   * @returns Converter performance metrics
-   */
+  /** Get converter statistics. */
   getStats() {
     return {
       totalConversions: this.stats.totalConversions,
@@ -305,7 +263,8 @@ export abstract class AbstractWorkflowConverter<
   }
 
   /**
-   * Create success result with metadata
+   * Create success result with metadata.
+   * Can be overridden if subclasses need a different shape.
    */
   protected createSuccessResult(
     data: TOutput,
@@ -313,84 +272,41 @@ export abstract class AbstractWorkflowConverter<
     input: TInput,
     options: IWorkflowConversionOptions,
   ): IWorkflowConversionResult<TOutput> {
-    const now = new Date();
-    const processingTime = now.getTime() - startTime;
-
-    return {
-      data,
-      success: true,
-      errors: [],
-      warnings: [],
-      metadata: {
-        convertedAt: now,
-        processingTime,
-        inputStats: this.getDataStats(input as Record<string, TUniversalValue>),
-        outputStats: this.getDataStats(data as Record<string, TUniversalValue>),
-        converter: this.name,
-        version: this.version,
-        ...(options.includeDebug ? { options } : {}),
-      },
-    };
+    return buildSuccessResult(data, startTime, input, options, this.name, this.version, (d) =>
+      this.getDataStats(d),
+    );
   }
 
   /**
-   * Create failure result with error information
+   * Create failure result with error information.
    */
   protected createFailureResult(
     errors: string[],
     warnings: string[],
     startTime: number,
     input: TInput,
-    _logger: ILogger,
+    logger: ILogger,
   ): IWorkflowConversionResult<TOutput> {
-    const now = new Date();
-    const processingTime = now.getTime() - startTime;
-
-    return {
-      // On failure, data has no meaningful value. Use undefined cast since
-      // the result's success=false signals that data should not be consumed.
-      data: undefined as unknown as TOutput,
-      success: false,
+    return buildFailureResult(
       errors,
       warnings,
-      metadata: {
-        convertedAt: now,
-        processingTime,
-        inputStats: this.getDataStats(input as Record<string, TUniversalValue>),
-        outputStats: { nodeCount: 0, edgeCount: 0 },
-        converter: this.name,
-        version: this.version,
-      },
-    };
+      startTime,
+      input,
+      logger,
+      this.name,
+      this.version,
+      (d) => this.getDataStats(d),
+    );
   }
 
   /**
-   * Extract basic statistics from workflow data
-   * Can be overridden by subclasses for specific data formats
+   * Extract basic statistics from workflow data.
+   * Can be overridden by subclasses for specific data formats.
    */
   protected getDataStats(data: Record<string, TUniversalValue>): {
     nodeCount: number;
     edgeCount: number;
   } {
-    if (!data) {
-      return { nodeCount: 0, edgeCount: 0 };
-    }
-
-    // Try to extract node and edge counts from common properties
-    const nodeCount = Array.isArray(data.nodes)
-      ? data.nodes.length
-      : Array.isArray(data.node)
-        ? data.node.length
-        : 0;
-
-    const edgeCount = Array.isArray(data.edges)
-      ? data.edges.length
-      : Array.isArray(data.connections)
-        ? data.connections.length
-        : Array.isArray(data.edge)
-          ? data.edge.length
-          : 0;
-
-    return { nodeCount, edgeCount };
+    return getWorkflowDataStats(data);
   }
 }

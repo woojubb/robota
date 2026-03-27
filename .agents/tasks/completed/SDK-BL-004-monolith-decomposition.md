@@ -1,6 +1,6 @@
 ---
 title: agent-sdk monolith decomposition (3 files)
-status: backlog
+status: completed
 priority: high
 urgency: soon
 created: 2026-03-27

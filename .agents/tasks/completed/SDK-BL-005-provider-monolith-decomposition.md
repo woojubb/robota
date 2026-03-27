@@ -1,6 +1,6 @@
 ---
 title: agent-provider-* monolith decomposition (3 packages, 3 files)
-status: backlog
+status: completed
 priority: medium
 urgency: later
 created: 2026-03-27

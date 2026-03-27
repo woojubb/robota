@@ -1,6 +1,6 @@
 ---
 title: agent-sessions + agent-tools + agent-tool-mcp + agent-remote-client monolith decomposition
-status: backlog
+status: completed
 priority: medium
 urgency: soon
 created: 2026-03-27
