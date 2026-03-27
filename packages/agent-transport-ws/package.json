@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-ws",
-  "version": "3.0.0-beta.52",
+  "version": "3.0.0-beta.53",
   "description": "WebSocket transport adapter for exposing InteractiveSession over real-time connections",
   "type": "module",
   "main": "dist/node/index.js",

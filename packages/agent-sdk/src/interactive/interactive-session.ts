@@ -8,83 +8,44 @@
  * Config/context loading is internal. Consumer provides cwd + provider.
  */
 
-import { createSession } from '../assembly/index.js';
-import type { ICreateSessionOptions } from '../assembly/index.js';
-import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import { projectPaths } from '../paths.js';
-import { loadConfig } from '../config/config-loader.js';
-import { loadContext } from '../context/context-loader.js';
-import { detectProject } from '../context/project-detector.js';
-import type {
-  TUniversalMessage,
-  IContextWindowState,
-  TToolArgs,
-  IHistoryEntry,
-} from '@robota-sdk/agent-core';
+import type { TUniversalMessage, IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
-  createToolMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import { randomUUID } from 'node:crypto';
 import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
-import { BundlePluginLoader } from '../plugins/index.js';
-import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import type {
   IToolState,
-  IExecutionResult,
-  IToolSummary,
-  TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
   ITransportAdapter,
 } from './types.js';
-
-/** Max chars to display from first tool argument. */
-const TOOL_ARG_DISPLAY_MAX = 80;
-const TAIL_KEEP = 30;
-/** Max completed tools to keep in the activeTools array during a single response. */
-const MAX_COMPLETED_TOOLS = 50;
-/** Streaming text flush interval (ms) — ~60fps. */
-const STREAMING_FLUSH_INTERVAL_MS = 16;
-
-/** Standard construction: cwd + provider. Config/context loaded internally. */
-interface IInteractiveSessionStandardOptions {
-  cwd: string;
-  provider: IAIProvider;
-  permissionMode?: ICreateSessionOptions['permissionMode'];
-  maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: SessionStore;
-  sessionName?: string;
-  resumeSessionId?: string;
-  forkSession?: boolean;
-}
-
-/** Test/advanced construction: inject pre-built session directly. */
-interface IInteractiveSessionInjectedOptions {
-  session: Session;
-  cwd?: string;
-  provider?: IAIProvider;
-  permissionMode?: ICreateSessionOptions['permissionMode'];
-  maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: SessionStore;
-  sessionName?: string;
-  resumeSessionId?: string;
-  forkSession?: boolean;
-}
-
-export type IInteractiveSessionOptions =
-  | IInteractiveSessionStandardOptions
-  | IInteractiveSessionInjectedOptions;
+import {
+  isAbortError,
+  buildResult,
+  buildInterruptedResult,
+  persistSession,
+} from './interactive-session-execution.js';
+import {
+  STREAMING_FLUSH_INTERVAL_MS,
+  pushToolSummaryToHistory,
+  applyToolStart,
+  applyToolEnd,
+} from './interactive-session-streaming.js';
+import {
+  createInteractiveSession,
+  injectSavedMessage,
+  loadSessionRecord,
+} from './interactive-session-init.js';
+import type {
+  IInteractiveSessionOptions,
+  IInteractiveSessionStandardOptions,
+} from './interactive-session-init.js';
+export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
 export class InteractiveSession {
   private session: Session | null = null;
@@ -93,34 +54,28 @@ export class InteractiveSession {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
 
-  // Streaming state
   private streamingText = '';
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // Tool state
   private activeTools: IToolState[] = [];
-
-  // Execution state
   private executing = false;
   private pendingPrompt: string | null = null;
   private pendingDisplayInput: string | undefined;
   private pendingRawInput: string | undefined;
-
-  // Full history timeline (chat messages + events)
   private history: IHistoryEntry[] = [];
-
-  // Session persistence
   private sessionStore?: SessionStore;
   private sessionName?: string;
   private cwd?: string;
-
-  // Session restore state
   private pendingRestoreMessages: unknown[] | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
 
   constructor(options: IInteractiveSessionOptions) {
     this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
+    this.sessionStore = options.sessionStore;
+    this.sessionName = options.sessionName;
+    this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
+    this.resumeSessionId = options.resumeSessionId;
+    this.forkSession = options.forkSession ?? false;
 
     if ('session' in options && options.session) {
       this.session = options.session;
@@ -130,104 +85,41 @@ export class InteractiveSession {
       this.initPromise = this.initializeAsync(stdOpts);
     }
 
-    this.sessionStore = options.sessionStore;
-    this.sessionName = options.sessionName;
-    this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
-    this.resumeSessionId = options.resumeSessionId;
-    this.forkSession = options.forkSession ?? false;
-
-    // Restore session if resumeSessionId provided
     if (options.resumeSessionId && this.sessionStore) {
-      const record = this.sessionStore.load(options.resumeSessionId);
-      if (record) {
-        this.history = (record.history ?? []) as IHistoryEntry[];
-        this.sessionName = record.name;
-
-        if (record.messages) {
-          if (this.session) {
-            // Injected-session path: session is already available
-            for (const msg of record.messages) {
-              const m = msg as { role?: string; content?: string };
-              if (m.role && m.content) {
-                this.session.injectMessage(m.role as 'user' | 'assistant' | 'system', m.content);
-              }
-            }
-          } else {
-            // Standard path: session not yet created, defer injection
-            this.pendingRestoreMessages = record.messages;
-          }
-        }
-      }
+      const restored = loadSessionRecord(
+        this.sessionStore,
+        options.resumeSessionId,
+        this.forkSession,
+        this.session,
+      );
+      if (restored.history.length > 0) this.history = restored.history;
+      if (restored.sessionName) this.sessionName = restored.sessionName;
+      this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
-    const cwd = options.cwd;
-    const [config, context, projectInfo] = await Promise.all([
-      loadConfig(cwd),
-      loadContext(cwd),
-      detectProject(cwd),
-    ]);
-
-    // Load plugin hooks and merge into config
-    const pluginsDir = join(homedir(), '.robota', 'plugins');
-    const pluginLoader = new BundlePluginLoader(pluginsDir);
-    let mergedConfig = config;
-    try {
-      const plugins = pluginLoader.loadPluginsSync();
-      if (plugins.length > 0) {
-        const pluginHooks = mergePluginHooks(plugins);
-        mergedConfig = {
-          ...config,
-          hooks: mergeHooksIntoConfig(
-            config.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
-            pluginHooks as Record<string, Array<Record<string, unknown>>>,
-          ),
-        };
-      }
-    } catch {
-      // No plugins dir or load failed
-    }
-
-    const paths = projectPaths(cwd);
-
-    // For non-fork resume, reuse the original session ID so saves update the same file
-    const sessionId = this.resumeSessionId && !this.forkSession ? this.resumeSessionId : undefined;
-
-    this.session = createSession({
-      config: mergedConfig,
-      context,
-      projectInfo,
+    this.session = await createInteractiveSession({
+      cwd: options.cwd,
+      provider: options.provider,
       permissionMode: options.permissionMode,
       maxTurns: options.maxTurns,
-      terminal: NOOP_TERMINAL,
-      sessionLogger: new FileSessionLogger(paths.logs),
       permissionHandler: options.permissionHandler,
-      provider: options.provider,
+      resumeSessionId: this.resumeSessionId,
+      forkSession: this.forkSession,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
       onToolExecution: (event) => this.handleToolExecution(event),
-      sessionId,
     });
 
-    // Inject deferred restore messages now that session is created
     if (this.pendingRestoreMessages) {
-      for (const msg of this.pendingRestoreMessages) {
-        if (msg && typeof msg === 'object' && 'role' in msg && 'content' in msg) {
-          this.session.injectMessage(
-            (msg as { role: string }).role as 'user' | 'assistant' | 'system',
-            (msg as { content: string }).content,
-          );
-        }
-      }
+      for (const msg of this.pendingRestoreMessages) injectSavedMessage(this.session, msg);
       this.pendingRestoreMessages = null;
     }
-
     this.initialized = true;
   }
 
   private async ensureInitialized(): Promise<void> {
-    if (this.initialized) return;
-    if (this.initPromise) await this.initPromise;
+    if (!this.initialized && this.initPromise) await this.initPromise;
   }
 
   private getSessionOrThrow(): Session {
@@ -236,12 +128,8 @@ export class InteractiveSession {
     return this.session;
   }
 
-  // ── Event system ──────────────────────────────────────────────
-
   on<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
     this.listeners.get(event)!.add(handler as (...args: unknown[]) => void);
   }
 
@@ -254,16 +142,9 @@ export class InteractiveSession {
     ...args: Parameters<IInteractiveSessionEvents[E]>
   ): void {
     const handlers = this.listeners.get(event);
-    if (handlers) {
-      for (const handler of handlers) {
-        handler(...args);
-      }
-    }
+    if (handlers) for (const handler of handlers) handler(...args);
   }
 
-  // ── Public API ────────────────────────────────────────────────
-
-  /** Submit a prompt. Queues if already executing (max 1 queued). */
   async submit(input: string, displayInput?: string, rawInput?: string): Promise<void> {
     await this.ensureInitialized();
     if (this.executing) {
@@ -275,7 +156,6 @@ export class InteractiveSession {
     await this.executePrompt(input, displayInput, rawInput);
   }
 
-  /** Execute a system command by name. Returns null if not found. */
   async executeCommand(
     name: string,
     args: string,
@@ -284,7 +164,6 @@ export class InteractiveSession {
     return this.commandExecutor.execute(name, this, args);
   }
 
-  /** List all registered system commands. */
   listCommands(): Array<{ name: string; description: string }> {
     return this.commandExecutor.listCommands().map((cmd) => ({
       name: cmd.name,
@@ -292,16 +171,15 @@ export class InteractiveSession {
     }));
   }
 
-  /** Abort current execution and clear queue. */
   abort(): void {
-    this.pendingPrompt = null;
-    this.pendingDisplayInput = undefined;
-    this.pendingRawInput = undefined;
+    this.clearPendingQueue();
     this.session?.abort();
   }
-
-  /** Cancel queued prompt without aborting current execution. */
   cancelQueue(): void {
+    this.clearPendingQueue();
+  }
+
+  private clearPendingQueue(): void {
     this.pendingPrompt = null;
     this.pendingDisplayInput = undefined;
     this.pendingRawInput = undefined;
@@ -310,41 +188,33 @@ export class InteractiveSession {
   isExecuting(): boolean {
     return this.executing;
   }
-
   getPendingPrompt(): string | null {
     return this.pendingPrompt;
   }
-
-  /** Get full history timeline (chat + events) for TUI rendering */
   getFullHistory(): IHistoryEntry[] {
     return this.history;
   }
-
-  /** Get chat messages only (backward compatible) */
   getMessages(): TUniversalMessage[] {
     return this.history
       .filter((e) => e.category === 'chat')
       .map((e) => e.data as TUniversalMessage);
   }
-
   getStreamingText(): string {
     return this.streamingText;
   }
-
   getActiveTools(): IToolState[] {
     return this.activeTools;
   }
-
   getContextState(): IContextWindowState {
     return this.getSessionOrThrow().getContextState();
   }
-
-  /** Get session name. */
   getName(): string | undefined {
     return this.sessionName;
   }
+  getSession(): Session {
+    return this.getSessionOrThrow();
+  }
 
-  /** Set session name and persist if store is available. */
   setName(name: string): void {
     this.sessionName = name;
     if (this.sessionStore && this.session) {
@@ -357,22 +227,14 @@ export class InteractiveSession {
           this.sessionStore.save(existing);
         }
       } catch {
-        // Session not initialized yet
+        /* Session not initialized yet */
       }
     }
   }
 
-  /** Attach a transport adapter to this session. Calls transport.attach(this). */
   attachTransport(transport: ITransportAdapter): void {
     transport.attach(this);
   }
-
-  /** Access underlying Session. For advanced use / testing only. */
-  getSession(): Session {
-    return this.getSessionOrThrow();
-  }
-
-  // ── Execution ─────────────────────────────────────────────────
 
   private async executePrompt(
     input: string,
@@ -389,27 +251,35 @@ export class InteractiveSession {
     try {
       const response = await this.getSessionOrThrow().run(input, rawInput);
       this.flushStreaming();
-      this.pushToolSummaryMessage();
+      pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
       this.clearStreaming();
-
-      const result = this.buildResult(response || '(empty response)', historyBefore);
+      const result = buildResult(
+        response || '(empty response)',
+        this.getSessionOrThrow().getHistory(),
+        this.history,
+        historyBefore,
+        this.getContextState(),
+      );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
       this.emit('complete', result);
       this.emit('context_update', this.getContextState());
     } catch (err) {
       this.flushStreaming();
-
       if (isAbortError(err)) {
-        const result = this.buildInterruptedResult(historyBefore);
-        this.pushToolSummaryMessage();
+        const result = buildInterruptedResult(
+          this.getSessionOrThrow().getHistory(),
+          this.history,
+          historyBefore,
+          this.getContextState(),
+        );
+        pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
         this.clearStreaming();
-        if (result.response) {
+        if (result.response)
           this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-        }
         this.history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
         this.emit('interrupted', result);
       } else {
-        this.pushToolSummaryMessage();
+        pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
         this.clearStreaming();
         const errMsg = err instanceof Error ? err.message : String(err);
         this.history.push(messageToHistoryEntry(createSystemMessage(`Error: ${errMsg}`)));
@@ -418,39 +288,24 @@ export class InteractiveSession {
     } finally {
       this.executing = false;
       this.emit('thinking', false);
-
-      // Persist session if store is available
       if (this.sessionStore && this.session) {
-        try {
-          const sessionId = this.getSessionOrThrow().getSessionId();
-          const existing = this.sessionStore.load(sessionId);
-          this.sessionStore.save({
-            id: sessionId,
-            name: this.sessionName ?? existing?.name,
-            cwd: this.cwd ?? '',
-            createdAt: existing?.createdAt ?? new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            messages: this.getSessionOrThrow().getHistory(),
-            history: this.history,
-          });
-        } catch {
-          // Persist failure should not break execution
-        }
+        persistSession(
+          this.sessionStore,
+          this.session,
+          this.sessionName,
+          this.cwd ?? '',
+          this.history,
+        );
       }
-
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;
         const queuedRaw = this.pendingRawInput;
-        this.pendingPrompt = null;
-        this.pendingDisplayInput = undefined;
-        this.pendingRawInput = undefined;
+        this.clearPendingQueue();
         setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
     }
   }
-
-  // ── Streaming callbacks ───────────────────────────────────────
 
   private handleTextDelta(delta: string): void {
     this.streamingText += delta;
@@ -470,85 +325,16 @@ export class InteractiveSession {
     denied?: boolean;
     toolResultData?: string;
   }): void {
+    const streamingState = { activeTools: this.activeTools, history: this.history };
     if (event.type === 'start') {
-      const firstArg = extractFirstArg(event.toolArgs);
-      const state: IToolState = { toolName: event.toolName, firstArg, isRunning: true };
-      this.activeTools.push(state);
-      this.emit('tool_start', state);
-
-      // Record individual tool start in history
-      this.history.push({
-        id: randomUUID(),
-        timestamp: new Date(),
-        category: 'event',
-        type: 'tool-start',
-        data: { toolName: event.toolName, firstArg, isRunning: true },
-      });
+      const toolState = applyToolStart(streamingState, event);
+      this.activeTools = streamingState.activeTools;
+      this.emit('tool_start', toolState);
     } else {
-      const result: IToolState['result'] = event.denied
-        ? 'denied'
-        : event.success === false
-          ? 'error'
-          : 'success';
-      const idx = this.activeTools.findIndex((t) => t.toolName === event.toolName && t.isRunning);
-      if (idx !== -1) {
-        const finished: IToolState = { ...this.activeTools[idx]!, isRunning: false, result };
-        this.activeTools[idx] = finished;
-        this.trimCompletedTools();
-        this.emit('tool_end', finished);
-
-        // Record individual tool end in history
-        this.history.push({
-          id: randomUUID(),
-          timestamp: new Date(),
-          category: 'event',
-          type: 'tool-end',
-          data: {
-            toolName: finished.toolName,
-            firstArg: finished.firstArg,
-            isRunning: false,
-            result,
-          },
-        });
-      }
+      const finished = applyToolEnd(streamingState, event);
+      this.activeTools = streamingState.activeTools;
+      if (finished) this.emit('tool_end', finished);
     }
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────
-
-  /** Push tool execution summary into messages (before Robota response).
-   *  Moves tool info from activeTools (real-time display) to messages (permanent display).
-   *  After this, activeTools will be cleared by clearStreaming(). */
-  private pushToolSummaryMessage(): void {
-    if (this.activeTools.length === 0) return;
-    const summary = this.activeTools
-      .map((t) => {
-        const status = t.isRunning
-          ? '⟳'
-          : t.result === 'success'
-            ? '✓'
-            : t.result === 'error'
-              ? '✗'
-              : '⊘';
-        return `${status} ${t.toolName}${t.firstArg ? `(${t.firstArg})` : ''}`;
-      })
-      .join('\n');
-    // Tool summary as an event entry (not a chat message)
-    this.history.push({
-      id: randomUUID(),
-      timestamp: new Date(),
-      category: 'event',
-      type: 'tool-summary',
-      data: {
-        tools: this.activeTools.map((t) => ({
-          toolName: t.toolName,
-          firstArg: t.firstArg,
-          isRunning: t.isRunning,
-          result: t.result,
-        })),
-        summary,
-      },
-    });
   }
 
   private clearStreaming(): void {
@@ -566,89 +352,4 @@ export class InteractiveSession {
       this.flushTimer = null;
     }
   }
-
-  private buildResult(response: string, historyBefore: number): IExecutionResult {
-    const toolSummaries = this.extractToolSummaries(historyBefore);
-    return {
-      response,
-      history: this.history,
-      toolSummaries,
-      contextState: this.getContextState(),
-    };
-  }
-
-  private buildInterruptedResult(historyBefore: number): IExecutionResult {
-    const history = this.getSessionOrThrow().getHistory();
-    const toolSummaries = this.extractToolSummaries(historyBefore);
-    const parts: string[] = [];
-    for (let i = historyBefore; i < history.length; i++) {
-      const msg = history[i];
-      if (msg?.role === 'assistant' && msg.content) parts.push(msg.content);
-    }
-    return {
-      response: parts.join('\n\n'),
-      history: this.history,
-      toolSummaries,
-      contextState: this.getContextState(),
-    };
-  }
-
-  private extractToolSummaries(historyBefore: number): IToolSummary[] {
-    const history = this.getSessionOrThrow().getHistory();
-    const summaries: IToolSummary[] = [];
-    for (let i = historyBefore; i < history.length; i++) {
-      const msg = history[i];
-      if (msg?.role === 'assistant' && msg.toolCalls) {
-        for (const tc of msg.toolCalls as Array<{
-          function: { name: string; arguments: string };
-        }>) {
-          summaries.push({ name: tc.function.name, args: tc.function.arguments });
-        }
-      }
-    }
-    return summaries;
-  }
-
-  private trimCompletedTools(): void {
-    const completed = this.activeTools.filter((t) => !t.isRunning);
-    if (completed.length > MAX_COMPLETED_TOOLS) {
-      const excess = completed.length - MAX_COMPLETED_TOOLS;
-      let removed = 0;
-      this.activeTools = this.activeTools.filter((t) => {
-        if (!t.isRunning && removed < excess) {
-          removed++;
-          return false;
-        }
-        return true;
-      });
-    }
-  }
 }
-
-// ── Utilities ─────────────────────────────────────────────────
-
-function isAbortError(err: unknown): boolean {
-  return (
-    (err instanceof DOMException && err.name === 'AbortError') ||
-    (err instanceof Error && (err.message.includes('aborted') || err.message.includes('abort')))
-  );
-}
-
-function extractFirstArg(toolArgs?: Record<string, unknown>): string {
-  if (!toolArgs) return '';
-  const firstVal = Object.values(toolArgs)[0];
-  const raw = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal ?? '');
-  return raw.length > TOOL_ARG_DISPLAY_MAX
-    ? raw.slice(0, TOOL_ARG_DISPLAY_MAX - TAIL_KEEP - 3) + '...' + raw.slice(-TAIL_KEEP)
-    : raw;
-}
-
-const NOOP_TERMINAL = {
-  write: (): void => {},
-  writeLine: (): void => {},
-  writeMarkdown: (): void => {},
-  writeError: (): void => {},
-  prompt: (): Promise<string> => Promise.resolve(''),
-  select: (): Promise<number> => Promise.resolve(0),
-  spinner: () => ({ stop: () => {}, update: () => {} }),
-};

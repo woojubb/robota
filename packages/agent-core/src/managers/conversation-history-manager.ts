@@ -33,8 +33,9 @@ export {
 export {
   SimpleConversationHistory,
   PersistentSystemConversationHistory,
-  ConversationStore,
-} from './conversation-store';
+} from './conversation-store-history';
+
+export { ConversationStore } from './conversation-store';
 
 export type { IProviderApiMessage } from './conversation-store';
 

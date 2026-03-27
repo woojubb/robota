@@ -1,5 +1,17 @@
 # @robota-sdk/agent-sdk
 
+## 3.0.0-beta.53
+
+### Patch Changes
+
+- refactor: monolith decomposition — all agent-\* files under 300 lines
+- fix: PR #69 code review — session resume tool messages, type SSOT, fork isolation, settings crash, Notification removal, chat validation
+- Updated dependencies
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.53
+  - @robota-sdk/agent-sessions@3.0.0-beta.53
+  - @robota-sdk/agent-tools@3.0.0-beta.53
+
 ## 3.0.0-beta.52
 
 ### Patch Changes

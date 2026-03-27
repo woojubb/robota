@@ -10,8 +10,7 @@ export type THookEvent =
   | 'Stop'
   | 'PreCompact'
   | 'PostCompact'
-  | 'UserPromptSubmit'
-  | 'Notification'; // TODO: Notification event is defined but not yet wired — no firing point exists until a notification system is implemented
+  | 'UserPromptSubmit';
 
 /** Command hook — executes a shell command */
 export interface ICommandHookDefinition {

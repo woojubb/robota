@@ -11,9 +11,8 @@ describe('Hook types', () => {
       'PreCompact',
       'PostCompact',
       'UserPromptSubmit',
-      'Notification',
     ];
-    expect(events).toHaveLength(8);
+    expect(events).toHaveLength(7);
   });
 
   it('should support discriminated union for hook definitions', () => {
