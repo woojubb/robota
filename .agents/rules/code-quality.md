@@ -34,6 +34,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never mutate function parameters directly. Clone or create new objects instead.
 - No magic numbers or strings. Use named constants with descriptive names. Exceptions: `0`, `1`, `-1` as array/math primitives.
 - Production files should not exceed 300 lines. Functions should not exceed 50 lines. Exceptions require justification in code review.
+- **Anti-monolith.** A single file that handles multiple independent concerns (e.g., CLI arg parsing + session setup + mode routing) must be split. Each file should have one clear responsibility. When a file grows past 300 lines, treat it as a signal that it is doing too much — split by responsibility, not by arbitrary line count. Mechanically enforced by `pnpm harness:scan`.
 - **Parallel collection invariant.** When two or more collections must maintain a 1:1 relationship (e.g., items and their descriptions, tools and their configs), they must be structurally coupled into a single data structure (array of objects, Map, or tuple). Maintaining separate parallel arrays is prohibited — desynchronization is a guaranteed bug.
 - **Post-event hook timing.** Post-event hooks and completion callbacks must fire only after the operation's all state mutations (history replacement, token recalculation, persistence) are fully complete. Firing mid-operation causes observers to see inconsistent state and masks failures in subsequent steps.
 
