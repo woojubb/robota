@@ -9,12 +9,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Claude Code 같은 도구는 어떻게 동작할까 — 직접 만들어보면서 알아낸 구조</title>
-<meta name="description" content="AI 코딩 에이전트의 내부 구조를 직접 만들어보면서 알아낸 이야기. AGENTS.md, 실행 루프, 도구 시스템, 퍼미션, 훅, 스킬, 컨텍스트 압축.">
+<title>코딩 에이전트 CLI는 어떻게 만들까 — 직접 만들어본 코딩 에이전트 CLI</title>
+<meta name="description" content="코딩 에이전트 CLI를 직접 만들어본 개발기. AGENTS.md, 실행 루프, 도구, 퍼미션, 훅, 스킬, 컨텍스트 관리.">
 <meta name="author" content="Jung Youn">
 <meta name="keywords" content="Claude Code, AI agent, coding CLI, Robota, AGENTS.md, 코딩 에이전트, 프레젠테이션">
-<meta property="og:title" content="Claude Code 같은 도구는 어떻게 동작할까">
-<meta property="og:description" content="AI 코딩 에이전트의 내부 구조를 직접 만들어보면서 알아낸 이야기">
+<meta property="og:title" content="코딩 에이전트 CLI는 어떻게 만들까">
+<meta property="og:description" content="코딩 에이전트 CLI를 직접 만들어본 개발기">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://robota.io/slides/how-coding-agent-works.html">
 <link rel="canonical" href="https://robota.io/slides/how-coding-agent-works.html">
@@ -592,8 +592,8 @@ tr:last-child td { border-bottom: none; }
  | |_) | | | |  _ \| | | || | / _ \
  |  _ &lt;| |_| | |_) | |_| || |/ ___ \
  |_| \_\\___/|____/ \___/ |_/_/   \_\</pre>
-    <div class="subtitle" style="color:var(--text);font-size:1.2rem;margin-bottom:4px">Claude Code 같은 도구는 어떻게 동작할까</div>
-    <div class="subtitle">직접 만들어보면서 알아낸 구조 · by <a href="https://github.com/woojubb" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">woojubb</a></div>
+    <div class="subtitle" style="color:var(--text);font-size:1.2rem;margin-bottom:4px">코딩 에이전트 CLI는 어떻게 만들까</div>
+    <div class="subtitle">직접 만들어본 코딩 에이전트 CLI · by <a href="https://github.com/woojubb" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">woojubb</a></div>
     <div class="prompt-line">
       <span class="dim">$</span> robota <span class="cursor"></span>
     </div>
