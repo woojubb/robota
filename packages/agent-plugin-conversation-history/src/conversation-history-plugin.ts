@@ -6,7 +6,6 @@ import {
   createLogger,
   type ILogger,
   PluginError,
-  ConfigurationError,
   type TTimerId,
   startPeriodicTask,
   stopPeriodicTask,
@@ -17,7 +16,12 @@ import {
   IConversationHistoryEntry,
   IHistoryStorage,
 } from './types';
-import { MemoryHistoryStorage, FileHistoryStorage, DatabaseHistoryStorage } from './storages/index';
+import {
+  validateConversationHistoryOptions,
+  createHistoryStorage,
+  loadConversationEntry,
+  savePendingConversations,
+} from './conversation-history-helpers';
 
 const DEFAULT_MAX_CONVERSATIONS = 100;
 const DEFAULT_MAX_MESSAGES = 1000;
@@ -68,7 +72,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
     this.priority = PluginPriority.HIGH;
 
     // Validate options
-    this.validateOptions(options);
+    validateConversationHistoryOptions(options);
 
     // Set defaults
     this.pluginOptions = {
@@ -88,7 +92,12 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
     };
 
     // Initialize storage
-    this.storage = this.createStorage();
+    this.storage = createHistoryStorage(
+      this.pluginOptions.storage,
+      this.pluginOptions.maxConversations,
+      this.pluginOptions.filePath,
+      this.pluginOptions.connectionString,
+    );
 
     // Setup batch saving if not auto-saving
     if (!this.pluginOptions.autoSave) {
@@ -182,20 +191,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
    * Load conversation history
    */
   async loadConversation(conversationId: string): Promise<IConversationHistoryEntry | undefined> {
-    try {
-      const entry = await this.storage.load(conversationId);
-      this.logger.debug('Loaded conversation', {
-        conversationId,
-        found: !!entry,
-        messageCount: entry?.messages.length ?? 0,
-      });
-      return entry;
-    } catch (error) {
-      throw new PluginError('Failed to load conversation', this.name, {
-        conversationId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    return loadConversationEntry(this.storage, conversationId, this.name, this.logger);
   }
 
   /**
@@ -256,25 +252,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
    * Individual save failures are logged but do not abort the remaining saves.
    */
   async savePending(): Promise<void> {
-    if (this.pendingSaves.size === 0) return;
-
-    const conversationIds = Array.from(this.pendingSaves);
-    this.logger.debug('Saving pending conversations', { count: conversationIds.length });
-
-    for (const conversationId of conversationIds) {
-      try {
-        const entry = await this.storage.load(conversationId);
-        if (entry) {
-          await this.storage.save(conversationId, entry);
-        }
-        this.pendingSaves.delete(conversationId);
-      } catch (error) {
-        this.logger.error('Failed to save pending conversation', {
-          conversationId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+    await savePendingConversations(this.storage, this.pendingSaves, this.name, this.logger);
   }
 
   /**
@@ -293,59 +271,6 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
       this.logger.error('Error during plugin cleanup', {
         error: error instanceof Error ? error.message : String(error),
       });
-    }
-  }
-
-  /**
-   * Validate plugin options
-   */
-  private validateOptions(options: IConversationHistoryPluginOptions): void {
-    if (!options.storage) {
-      throw new ConfigurationError('Storage strategy is required');
-    }
-
-    if (!['memory', 'file', 'database'].includes(options.storage)) {
-      throw new ConfigurationError('Invalid storage strategy', {
-        validStrategies: ['memory', 'file', 'database'],
-        provided: options.storage,
-      });
-    }
-
-    if (options.storage === 'file' && !options.filePath) {
-      throw new ConfigurationError('File path is required for file storage strategy');
-    }
-
-    if (options.storage === 'database' && !options.connectionString) {
-      throw new ConfigurationError('Connection string is required for database storage strategy');
-    }
-
-    if (options.maxConversations !== undefined && options.maxConversations <= 0) {
-      throw new ConfigurationError('Max conversations must be positive');
-    }
-
-    if (
-      options.maxMessagesPerConversation !== undefined &&
-      options.maxMessagesPerConversation <= 0
-    ) {
-      throw new ConfigurationError('Max messages per conversation must be positive');
-    }
-  }
-
-  /**
-   * Create storage instance based on strategy
-   */
-  private createStorage(): IHistoryStorage {
-    switch (this.pluginOptions.storage) {
-      case 'memory':
-        return new MemoryHistoryStorage(this.pluginOptions.maxConversations);
-      case 'file':
-        return new FileHistoryStorage(this.pluginOptions.filePath);
-      case 'database':
-        return new DatabaseHistoryStorage(this.pluginOptions.connectionString);
-      default:
-        throw new ConfigurationError('Unknown storage strategy', {
-          strategy: this.pluginOptions.storage,
-        });
     }
   }
 
