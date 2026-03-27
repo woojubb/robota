@@ -3,7 +3,7 @@
  * Manages a stack of screens: main, marketplace, installed plugins, etc.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import MenuSelect from './MenuSelect.js';
 import TextPrompt from './TextPrompt.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
@@ -18,6 +18,7 @@ import {
 } from './plugin-tui-handlers.js';
 import type { IMenuSelectItem } from './MenuSelect.js';
 import type { IPluginCallbacks } from '../commands/slash-executor.js';
+import { usePluginScreenData } from './hooks/usePluginScreenData.js';
 
 type TScreenId =
   | 'main'
@@ -53,9 +54,6 @@ interface IProps {
 
 export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): React.ReactElement {
   const [stack, setStack] = useState<IMenuState[]>([{ screen: 'main' }]);
-  const [items, setItems] = useState<IMenuSelectItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>();
   const [confirm, setConfirm] = useState<IConfirmState | undefined>();
   const [refreshCounter, setRefreshCounter] = useState(0);
 
@@ -63,8 +61,6 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
   const push = useCallback((state: IMenuState) => {
     setStack((prev) => [...prev, state]);
-    setItems([]);
-    setError(undefined);
   }, []);
 
   const pop = useCallback(() => {
@@ -75,8 +71,6 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
       }
       return prev.slice(0, -1);
     });
-    setItems([]);
-    setError(undefined);
   }, [onClose]);
 
   const popN = useCallback(
@@ -89,8 +83,6 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
         }
         return next;
       });
-      setItems([]);
-      setError(undefined);
     },
     [onClose],
   );
@@ -103,73 +95,18 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
   );
 
   const refresh = useCallback(() => {
-    setItems([]);
     setRefreshCounter((c) => c + 1);
   }, []);
 
   const nav = { push, pop, popN, notify, setConfirm, refresh };
 
-  // Fetch data when screen or refreshCounter changes
-  useEffect(() => {
-    const screen = current.screen;
-
-    if (screen === 'marketplace-list') {
-      setLoading(true);
-      callbacks
-        .marketplaceList()
-        .then((sources) => {
-          const baseItems: IMenuSelectItem[] = [{ label: 'Add Marketplace', value: '__add__' }];
-          const sourceItems: IMenuSelectItem[] = sources.map((s) => ({
-            label: s.name,
-            value: s.name,
-            hint: s.type,
-          }));
-          setItems([...baseItems, ...sourceItems]);
-          setLoading(false);
-        })
-        .catch((err: unknown) => {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        });
-    } else if (screen === 'marketplace-browse') {
-      const marketplace = current.context?.marketplace ?? '';
-      setLoading(true);
-      callbacks
-        .listAvailablePlugins(marketplace)
-        .then((plugins) => {
-          setItems(
-            plugins.map((p) => ({
-              label: p.name,
-              value: p.name,
-              hint: p.installed ? 'installed' : p.description,
-            })),
-          );
-          setLoading(false);
-        })
-        .catch((err: unknown) => {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        });
-    } else if (screen === 'installed-list') {
-      setLoading(true);
-      callbacks
-        .listInstalled()
-        .then((plugins) => {
-          setItems(
-            plugins.map((p) => ({
-              label: p.name,
-              value: p.name,
-              hint: p.description,
-            })),
-          );
-          setLoading(false);
-        })
-        .catch((err: unknown) => {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        });
-    }
-  }, [stack.length, current.screen, current.context?.marketplace, callbacks, refreshCounter]);
+  const { items, loading, error } = usePluginScreenData(
+    current.screen,
+    current.context?.marketplace,
+    callbacks,
+    refreshCounter,
+    stack.length,
+  );
 
   const handleSelect = useCallback(
     (value: string) => {

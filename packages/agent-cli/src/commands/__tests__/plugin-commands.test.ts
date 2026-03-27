@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { IPluginCallbacks } from '../slash-executor.js';
-import { handlePluginCommand, handleReloadPlugins } from '../slash-executor.js';
+import { handlePluginCommand, handleReloadPlugins } from '../slash-plugin-handlers.js';
 import { PluginCommandSource } from '../plugin-source.js';
 import type { ILoadedBundlePlugin } from '@robota-sdk/agent-sdk';
 
