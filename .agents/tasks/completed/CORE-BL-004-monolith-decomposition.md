@@ -1,6 +1,6 @@
 ---
 title: agent-core monolith decomposition (15 files)
-status: backlog
+status: completed
 priority: high
 urgency: soon
 created: 2026-03-27

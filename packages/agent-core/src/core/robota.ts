@@ -11,13 +11,7 @@
  * @public
  */
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import {
-  TUniversalMessage,
-  IAgentConfig,
-  IRunOptions,
-  IAgent,
-  IExecutionContextInjection,
-} from '../interfaces/agent';
+import { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
 import type {
   IPluginContract,
   IPluginHooks,
@@ -27,38 +21,74 @@ import type {
 import type { IModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import type { ExecutionService } from '../services/execution-service';
-import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../agents/constants';
-import type {
-  IEventService,
-  IOwnerPathSegment,
-  IAgentEventData,
-} from '../interfaces/event-service';
-import {
-  DEFAULT_ABSTRACT_EVENT_SERVICE,
-  isDefaultEventService,
-  bindWithOwnerPath,
-} from '../event-service/index';
+import type { IEventService, IAgentEventData } from '../interfaces/event-service';
+import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import type { IModuleResultData } from '../abstracts/abstract-module';
 import type { IHistoryEntry } from '../interfaces/messages';
-import { RobotaModuleManager } from './robota-module-manager';
-import { RobotaPluginManager } from './robota-plugin-manager';
-import { RobotaConfigManager, validateAgentConfig } from './robota-config-manager';
-import { performAsyncInitialization } from './robota-initializer';
+import { validateAgentConfig } from './robota-config-manager';
+import { createRobotaDelegates } from './robota-delegate-factory';
+import type { RobotaModuleManager } from './robota-module-manager';
+import type { RobotaPluginManager } from './robota-plugin-manager';
+import type { RobotaConfigManager } from './robota-config-manager';
+import { performDoAsyncInit } from './robota-initializer';
 import { robotaRun, robotaRunStream, type IRobotaExecutionDeps } from './robota-execution';
 import { buildAgentStats, destroyAgent } from './robota-lifecycle';
+import {
+  getHistory,
+  getFullHistory,
+  addHistoryEntry,
+  clearHistory,
+  injectMessage,
+} from './robota-history';
+import {
+  emitCreatedEvent,
+  emitAgentEvent,
+  buildOwnerPath,
+  createModuleEventEmitter,
+} from './robota-events';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
 
 export type { TAgentStatsMetadata } from './robota-config-manager';
+
+/** Shared model configuration shape used in setModel / getModel. */
+type TModelConfig = {
+  provider: string;
+  model: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  systemMessage?: string;
+};
+
+/** Return shape of getConfiguration(). */
+type TConfigurationSnapshot = {
+  version: number;
+  tools: Array<{ name: string; parameters?: string[] }>;
+  updatedAt: number;
+};
+
+/** Return shape of getModuleStats(). */
+type TModuleStats =
+  | {
+      totalExecutions: number;
+      successfulExecutions: number;
+      failedExecutions: number;
+      averageExecutionTime: number;
+      lastExecutionTime?: Date;
+    }
+  | undefined;
+
+/** Shorthand for the plugin contract type used throughout this class. */
+type TPlugin = IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks;
 
 /**
  * Core AI agent integrating multiple AI providers, tools, and plugins
@@ -114,91 +144,42 @@ export class Robota
     this.tools = new Tools();
     this.agentFactory = new AgentFactory();
     this.conversationHistory = new ConversationHistory();
-    this.eventEmitter = new EventEmitterPlugin({
-      enabled: true,
-      events: [
-        EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
-        EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
-        EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
-        EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START,
-        EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
-        EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
-        EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START,
-        EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
-        EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR,
-      ],
-    });
+    this.eventEmitter = createModuleEventEmitter();
     this.moduleRegistry = new ModuleRegistry(this.eventEmitter);
 
     this.eventService = config.eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
     this.agentEventService = bindWithOwnerPath(this.eventService, {
       ownerType: 'agent',
       ownerId: this.conversationId,
-      ownerPath: this.buildOwnerPath(this.config.executionContext),
+      ownerPath: buildOwnerPath(this.conversationId, this.config.executionContext),
     });
 
-    this.initDelegates();
-    this.emitCreatedEvent();
-  }
-
-  private initDelegates(): void {
-    this.moduleManager = new RobotaModuleManager(
-      this.name,
-      this.moduleRegistry,
-      this.logger,
-      () => this.isFullyInitialized,
-      () => this.ensureFullyInitialized(),
-    );
-    this.pluginManager = new RobotaPluginManager(
-      this.logger,
-      () => this.isFullyInitialized,
-      () => this.executionService,
-    );
-    this.configManager = new RobotaConfigManager(
-      this.logger,
-      () => this.aiProviders,
-      () => this.tools,
-      () => this.eventService,
-      () => this.isFullyInitialized,
-      () => this.ensureFullyInitialized(),
-      () => this.config,
-      (c: IAgentConfig) => {
+    const delegates = createRobotaDelegates({
+      getName: () => this.name,
+      getModuleRegistry: () => this.moduleRegistry,
+      getLogger: () => this.logger,
+      getIsFullyInitialized: () => this.isFullyInitialized,
+      ensureFullyInitialized: () => this.ensureFullyInitialized(),
+      getExecutionService: () => this.executionService,
+      getAiProviders: () => this.aiProviders,
+      getTools: () => this.tools,
+      getEventService: () => this.eventService,
+      getConfig: () => this.config,
+      setConfig: (c) => {
         this.config = c;
       },
-      () => this.configVersion,
-      () => ++this.configVersion,
-      () => this.configUpdatedAt,
-      (t: number) => {
+      getConfigVersion: () => this.configVersion,
+      incrementConfigVersion: () => ++this.configVersion,
+      getConfigUpdatedAt: () => this.configUpdatedAt,
+      setConfigUpdatedAt: (t) => {
         this.configUpdatedAt = t;
       },
-      (eventType: string, data: Record<string, unknown>) => {
-        this.emitAgentEvent(eventType, data as Omit<IAgentEventData, 'timestamp'>);
-      },
-    );
-  }
-
-  private emitCreatedEvent(): void {
-    const toolNames: string[] = Array.isArray(this.config.tools)
-      ? this.config.tools
-          .map((t) => {
-            const sn = t?.schema?.name;
-            if (typeof sn === 'string' && sn.length > 0) return sn;
-            const nm = (t as { name?: string } | undefined)?.name;
-            if (typeof nm === 'string' && nm.length > 0) return nm;
-            return '';
-          })
-          .filter((n): n is string => typeof n === 'string' && n.length > 0)
-      : [];
-    this.emitAgentEvent(AGENT_EVENTS.CREATED, {
-      parameters: {
-        tools: toolNames,
-        systemMessage: this.config.defaultModel.systemMessage,
-        provider: this.config.defaultModel.provider,
-        model: this.config.defaultModel.model,
-        temperature: this.config.defaultModel.temperature,
-        maxTokens: this.config.defaultModel.maxTokens,
-      },
+      emitAgentEvent: (t, d) => this.emitAgentEvent(t, d as Omit<IAgentEventData, 'timestamp'>),
     });
+    this.moduleManager = delegates.moduleManager;
+    this.pluginManager = delegates.pluginManager;
+    this.configManager = delegates.configManager;
+    emitCreatedEvent(this.config, (t, d) => this.emitAgentEvent(t, d));
   }
 
   // --- Execution ---
@@ -230,54 +211,23 @@ export class Robota
   // --- History ---
 
   override getHistory(): TUniversalMessage[] {
-    const session = this.conversationHistory.getConversationStore(this.conversationId);
-    return session.getMessages().map((msg) => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      state: msg.state,
-      timestamp: msg.timestamp,
-      metadata: msg.metadata,
-      ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-      ...(msg.role === 'tool' && 'toolCallId' in msg
-        ? { toolCallId: (msg as { toolCallId: string }).toolCallId }
-        : {}),
-      ...(msg.role === 'tool' && 'name' in msg ? { name: (msg as { name: string }).name } : {}),
-    })) as TUniversalMessage[];
+    return getHistory(this.conversationHistory, this.conversationId);
   }
-
-  /** Get full history timeline (IHistoryEntry[]) including events */
   getFullHistory(): IHistoryEntry[] {
-    const store = this.conversationHistory.getConversationStore(this.conversationId);
-    return store.getHistory();
+    return getFullHistory(this.conversationHistory, this.conversationId);
   }
-
-  /** Add an event entry to history */
   addHistoryEntry(entry: IHistoryEntry): void {
-    const store = this.conversationHistory.getConversationStore(this.conversationId);
-    store.addEntry(entry);
+    addHistoryEntry(this.conversationHistory, this.conversationId, entry);
   }
-
   override clearHistory(): void {
-    this.conversationHistory.getConversationStore(this.conversationId).clear();
+    clearHistory(this.conversationHistory, this.conversationId);
   }
-
-  /** Inject a message into conversation history without triggering execution. */
   injectMessage(
     role: 'user' | 'assistant' | 'system' | 'tool',
     content: string,
     options?: { toolCallId?: string; name?: string },
   ): void {
-    const session = this.conversationHistory.getConversationStore(this.conversationId);
-    if (role === 'tool' && options?.toolCallId) {
-      session.addToolMessageWithId(content, options.toolCallId, options.name ?? 'unknown');
-    } else if (role === 'assistant') {
-      session.addAssistantMessage(content, []);
-    } else if (role === 'system') {
-      session.addSystemMessage(content);
-    } else {
-      session.addUserMessage(content);
-    }
+    injectMessage(this.conversationHistory, this.conversationId, role, content, options);
   }
 
   // --- Config / Model / Tools (delegated) ---
@@ -288,31 +238,13 @@ export class Robota
   async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
     return this.configManager.updateConfiguration(patch);
   }
-  async getConfiguration(): Promise<{
-    version: number;
-    tools: Array<{ name: string; parameters?: string[] }>;
-    updatedAt: number;
-  }> {
+  async getConfiguration(): Promise<TConfigurationSnapshot> {
     return this.configManager.getConfiguration();
   }
-  setModel(mc: {
-    provider: string;
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemMessage?: string;
-  }): void {
+  setModel(mc: TModelConfig): void {
     this.configManager.setModel(mc);
   }
-  getModel(): {
-    provider: string;
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemMessage?: string;
-  } {
+  getModel(): TModelConfig {
     return this.configManager.getModel();
   }
   registerTool(tool: AbstractTool): void {
@@ -327,18 +259,16 @@ export class Robota
 
   // --- Plugins (delegated) ---
 
-  addPlugin(plugin: IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks): void {
+  addPlugin(plugin: TPlugin): void {
     this.pluginManager.addPlugin(plugin);
   }
   removePlugin(pluginName: string): boolean {
     return this.pluginManager.removePlugin(pluginName);
   }
-  getPlugin(
-    pluginName: string,
-  ): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | undefined {
+  getPlugin(pluginName: string): TPlugin | undefined {
     return this.pluginManager.getPlugin(pluginName);
   }
-  getPlugins(): Array<IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks> {
+  getPlugins(): TPlugin[] {
     return this.pluginManager.getPlugins();
   }
   getPluginNames(): string[] {
@@ -382,19 +312,11 @@ export class Robota
   ): Promise<{ success: boolean; data?: IModuleResultData; error?: Error; duration?: number }> {
     return this.moduleManager.executeModule(moduleName, context);
   }
-  getModuleStats(moduleName: string):
-    | {
-        totalExecutions: number;
-        successfulExecutions: number;
-        failedExecutions: number;
-        averageExecutionTime: number;
-        lastExecutionTime?: Date;
-      }
-    | undefined {
+  getModuleStats(moduleName: string): TModuleStats {
     return this.moduleManager.getModuleStats(moduleName);
   }
 
-  // --- Stats & Lifecycle ---
+  // --- Stats, Lifecycle & Initialization ---
 
   getStats() {
     return buildAgentStats({
@@ -426,8 +348,6 @@ export class Robota
     });
   }
 
-  // --- Initialization ---
-
   protected override async initialize(): Promise<void> {
     await this.ensureFullyInitialized();
   }
@@ -438,9 +358,9 @@ export class Robota
     await this.initializationPromise;
   }
 
-  private async doAsyncInit(): Promise<void> {
-    try {
-      this.executionService = await performAsyncInitialization({
+  private doAsyncInit(): Promise<void> {
+    return performDoAsyncInit({
+      ctx: {
         config: this.config,
         aiProviders: this.aiProviders,
         tools: this.tools,
@@ -450,35 +370,23 @@ export class Robota
         eventEmitter: this.eventEmitter,
         eventService: this.eventService,
         logger: this.logger,
-      });
-      this.isFullyInitialized = true;
-    } catch (error) {
-      this.logger.error('Robota initialization failed', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
+      },
+      setExecutionService: (svc) => {
+        this.executionService = svc;
+      },
+      setFullyInitialized: (v) => {
+        this.isFullyInitialized = v;
+      },
+    });
   }
-
-  // --- Internal helpers ---
 
   private emitAgentEvent(eventType: string, data: Omit<IAgentEventData, 'timestamp'>): void {
-    if (isDefaultEventService(this.agentEventService)) return;
-    this.agentEventService.emit(
+    emitAgentEvent(
+      this.agentEventService,
+      this.conversationId,
+      this.config.executionContext,
       eventType,
-      { timestamp: new Date(), ...data },
-      {
-        ownerType: AGENT_EVENT_PREFIX,
-        ownerId: this.conversationId,
-        ownerPath: this.buildOwnerPath(this.config.executionContext),
-      },
+      data,
     );
-  }
-
-  private buildOwnerPath(executionContext?: IExecutionContextInjection): IOwnerPathSegment[] {
-    const base = executionContext?.ownerPath?.length
-      ? executionContext.ownerPath.map((segment) => ({ ...segment }))
-      : [];
-    return [...base, { type: 'agent', id: this.conversationId }];
   }
 }

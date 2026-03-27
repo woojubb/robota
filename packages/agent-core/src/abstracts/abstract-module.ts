@@ -16,6 +16,19 @@ import type {
   IModuleExecutionEventData,
   IModuleDisposalEventData,
 } from './abstract-module-events';
+import {
+  buildModuleContextData,
+  convertModuleEventData,
+  buildModuleData,
+  buildModuleStats,
+  filterScalarOptions,
+  emitInitializeStartEvent,
+  emitInitializeCompleteEvent,
+  emitInitializeErrorEvent,
+  emitDisposeStartEvent,
+  emitDisposeCompleteEvent,
+  emitDisposeErrorEvent,
+} from './module-helpers';
 
 // Re-export all types so existing importers keep working
 export type {
@@ -86,65 +99,36 @@ export abstract class AbstractModule<
   async initialize(options?: TOptions, eventEmitter?: IEventEmitterPlugin): Promise<void> {
     this.options = options;
     this.eventEmitter = eventEmitter;
-    if (options && 'enabled' in options && typeof options.enabled === 'boolean') {
-      this.enabled = options.enabled;
-    } else {
-      this.enabled = true;
-    }
+    this.enabled =
+      options && 'enabled' in options && typeof options.enabled === 'boolean'
+        ? options.enabled
+        : true;
     const startTime = Date.now();
-
-    if (this.eventEmitter && this.enabled) {
-      const filteredOptions = options
-        ? Object.fromEntries(
-            Object.entries(options).filter(
-              ([_, v]) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean',
-            ),
-          )
-        : undefined;
-      await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START, {
-        data: this.convertToEventData({
-          moduleName: this.name,
-          moduleType: this.getModuleType().type,
-          phase: 'start',
-          timestamp: new Date(),
-          ...(filteredOptions &&
-            Object.keys(filteredOptions).length > 0 && { options: filteredOptions }),
-        }),
-        timestamp: new Date(),
-      });
-    }
-
+    const moduleType = this.getModuleType().type;
+    const filteredOptions = options
+      ? filterScalarOptions(options as Record<string, unknown>)
+      : undefined;
+    await emitInitializeStartEvent(
+      this.eventEmitter,
+      this.enabled,
+      this.name,
+      moduleType,
+      filteredOptions,
+    );
     try {
       await this.onInitialize(options);
       this.initialized = true;
-      if (this.eventEmitter && this.enabled) {
-        await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE, {
-          data: this.convertToEventData({
-            moduleName: this.name,
-            moduleType: this.getModuleType().type,
-            phase: 'complete',
-            timestamp: new Date(),
-            duration: Date.now() - startTime,
-          }),
-          timestamp: new Date(),
-        });
-      }
+      await emitInitializeCompleteEvent(
+        this.eventEmitter,
+        this.enabled,
+        this.name,
+        moduleType,
+        startTime,
+      );
     } catch (error) {
       this.initialized = false;
-      if (this.eventEmitter) {
-        await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR, {
-          data: this.convertToEventData({
-            moduleName: this.name,
-            moduleType: this.getModuleType().type,
-            phase: 'error',
-            timestamp: new Date(),
-            duration: Date.now() - startTime,
-            error: error instanceof Error ? error.message : String(error),
-          }),
-          error: error instanceof Error ? error : new Error(String(error)),
-          timestamp: new Date(),
-        });
-      }
+      const errObj = error instanceof Error ? error : new Error(String(error));
+      await emitInitializeErrorEvent(this.eventEmitter, this.name, moduleType, startTime, errObj);
       throw error;
     }
   }
@@ -236,49 +220,16 @@ export abstract class AbstractModule<
 
   async dispose(): Promise<void> {
     const startTime = Date.now();
-    if (this.eventEmitter && this.initialized) {
-      await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START, {
-        data: this.convertToEventData({
-          moduleName: this.name,
-          moduleType: this.getModuleType().type,
-          phase: 'start',
-          timestamp: new Date(),
-        }),
-        timestamp: new Date(),
-      });
-    }
+    const moduleType = this.getModuleType().type;
+    await emitDisposeStartEvent(this.eventEmitter, this.initialized, this.name, moduleType);
     try {
       await this.onDispose();
       this.initialized = false;
       this.enabled = false;
-      if (this.eventEmitter) {
-        await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE, {
-          data: this.convertToEventData({
-            moduleName: this.name,
-            moduleType: this.getModuleType().type,
-            phase: 'complete',
-            timestamp: new Date(),
-            duration: Date.now() - startTime,
-            resourcesReleased: ['memory', 'event-handlers', 'timers'],
-          }),
-          timestamp: new Date(),
-        });
-      }
+      await emitDisposeCompleteEvent(this.eventEmitter, this.name, moduleType, startTime);
     } catch (error) {
-      if (this.eventEmitter) {
-        await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR, {
-          data: this.convertToEventData({
-            moduleName: this.name,
-            moduleType: this.getModuleType().type,
-            phase: 'error',
-            timestamp: new Date(),
-            duration: Date.now() - startTime,
-            error: error instanceof Error ? error.message : String(error),
-          }),
-          error: error instanceof Error ? error : new Error(String(error)),
-          timestamp: new Date(),
-        });
-      }
+      const errObj = error instanceof Error ? error : new Error(String(error));
+      await emitDisposeErrorEvent(this.eventEmitter, this.name, moduleType, startTime, errObj);
       throw error;
     }
   }
@@ -300,31 +251,18 @@ export abstract class AbstractModule<
   }
 
   getData(): IModuleData {
-    return {
-      name: this.name,
-      version: this.version,
-      type: this.getModuleType().type,
-      enabled: this.enabled,
-      initialized: this.initialized,
-      capabilities: this.getCapabilities(),
-      metadata: { category: this.getModuleType().category, layer: this.getModuleType().layer },
-    };
+    return buildModuleData(
+      this.name,
+      this.version,
+      () => this.getModuleType(),
+      this.enabled,
+      this.initialized,
+      () => this.getCapabilities(),
+    );
   }
 
   getStats(): TStats {
-    const avg =
-      this.stats.executionCount > 0
-        ? this.stats.totalExecutionTime / this.stats.executionCount
-        : undefined;
-    const base: IModuleStats = {
-      enabled: this.enabled,
-      initialized: this.initialized,
-      executionCount: this.stats.executionCount,
-      errorCount: this.stats.errorCount,
-      ...(this.stats.lastActivity && { lastActivity: this.stats.lastActivity }),
-      ...(avg !== undefined && { averageExecutionTime: avg }),
-    };
-    return base as TStats;
+    return buildModuleStats(this.stats, this.enabled, this.initialized) as TStats;
   }
 
   getStatus(): {
@@ -346,33 +284,13 @@ export abstract class AbstractModule<
   }
 
   private buildContextData(context: IModuleExecutionContext): Record<string, string> {
-    const cd: Record<string, string> = {};
-    if (context['sessionId']) cd['sessionId'] = context['sessionId'];
-    if (context['userId']) cd['userId'] = context['userId'];
-    if (context['agentName']) cd['agentName'] = context['agentName'];
-    return cd;
+    return buildModuleContextData(context);
   }
 
   private convertToEventData(
     data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData,
   ): Record<string, TEventDataValue> {
-    const payload: Record<string, TEventDataValue> = {
-      moduleName: data.moduleName,
-      moduleType: data.moduleType,
-      timestamp: data.timestamp.toISOString(),
-    };
-    if (data.metadata) payload['metadata'] = data.metadata;
-    if ('phase' in data) payload['phase'] = data.phase;
-    if ('duration' in data && data.duration !== undefined) payload['duration'] = data.duration;
-    if ('error' in data && data.error !== undefined) payload['error'] = data.error;
-    if ('options' in data && data.options) payload['options'] = data.options;
-    if ('executionId' in data) payload['executionId'] = data.executionId;
-    if ('success' in data && data.success !== undefined) payload['success'] = data.success;
-    if ('inputSize' in data && data.inputSize !== undefined) payload['inputSize'] = data.inputSize;
-    if ('outputSize' in data && data.outputSize !== undefined)
-      payload['outputSize'] = data.outputSize;
-    if ('context' in data && data.context) payload['context'] = data.context;
-    return payload;
+    return convertModuleEventData(data);
   }
 
   async beforeExecution?(context: IModuleExecutionContext): Promise<void>;

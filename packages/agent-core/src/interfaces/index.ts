@@ -74,16 +74,15 @@ export type {
   ITool,
   IFunctionTool,
   IToolRegistry,
-  IToolFactory,
   IToolResult,
   IToolExecutionResult,
   IToolExecutionContext,
   IParameterValidationResult,
   TToolExecutor,
-  IOpenAPIToolConfig,
-  IMCPToolConfig,
   TToolMetadata,
 } from './tool';
+
+export type { IToolFactory, IOpenAPIToolConfig, IMCPToolConfig } from './tool-integration';
 
 export type {
   IEventService,
