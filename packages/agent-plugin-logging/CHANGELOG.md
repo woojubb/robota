@@ -1,5 +1,14 @@
 # @robota-sdk/agent-plugin-logging
 
+## 3.0.0-beta.53
+
+### Patch Changes
+
+- refactor: monolith decomposition — all agent-\* files under 300 lines
+- Updated dependencies
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.53
+
 ## 3.0.0-beta.52
 
 ### Patch Changes

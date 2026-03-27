@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-http
 
+## 3.0.0-beta.53
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.53
+
 ## 3.0.0-beta.52
 
 ### Patch Changes

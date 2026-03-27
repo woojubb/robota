@@ -60,7 +60,9 @@
   "changesets": [
     "add-package-metadata",
     "fix-package-metadata-order",
+    "monolith-decomposition",
     "paste-cursor-fixes",
+    "pr69-code-review-fixes",
     "session-continue-resume",
     "streaming-debounce",
     "tool-execution-history-fix",

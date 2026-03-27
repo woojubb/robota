@@ -1,5 +1,12 @@
 # @robota-sdk/dag-node-text-output
 
+## 3.0.0-beta.53
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.53
+- @robota-sdk/dag-node@3.0.0-beta.53
+
 ## 3.0.0-beta.52
 
 ### Patch Changes
