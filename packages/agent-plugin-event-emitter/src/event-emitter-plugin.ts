@@ -16,6 +16,7 @@ import {
   type IEventEmitterEventData,
   type TEventName,
   type TEventEmitterListener,
+  type TEventDataValue,
 } from './types';
 import { InMemoryEventEmitterMetrics, type IEventEmitterMetrics } from './metrics';
 import type {
@@ -23,6 +24,13 @@ import type {
   IEventEmitterPluginOptions,
   IEventEmitterPluginStats,
 } from './plugin-types';
+import {
+  validateEventEmitterOptions,
+  buildConversationStartData,
+  buildConversationCompleteData,
+  buildToolBeforeData,
+  buildToolAfterBaseData,
+} from './event-emitter-helpers';
 
 // Re-export types that were originally exported from this file
 export type { TEventName };
@@ -65,7 +73,7 @@ export class EventEmitterPlugin extends AbstractPlugin<
     super();
     this.logger = createLogger('EventEmitterPlugin');
     this.metrics = options.metrics ?? new InMemoryEventEmitterMetrics();
-    this.validateOptions(options);
+    validateEventEmitterOptions(options, 'EventEmitterPlugin');
 
     this.pluginOptions = {
       enabled: options.enabled ?? true,
@@ -126,52 +134,17 @@ export class EventEmitterPlugin extends AbstractPlugin<
   }
 
   override async beforeConversation(context: IPluginExecutionContext): Promise<void> {
-    await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_START, {
-      executionId: context.executionId,
-      sessionId: context.sessionId,
-      userId: context.userId,
-      data: {
-        messages: context.messages?.map((msg) => ({
-          role: msg.role,
-          content: msg.content || '',
-          timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString(),
-        })),
-        config: context.config as Record<
-          string,
-          | string
-          | number
-          | boolean
-          | Date
-          | string[]
-          | number[]
-          | boolean[]
-          | Record<string, string | number | boolean | null>
-          | null
-          | undefined
-        >,
-      },
-    });
+    await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_START, buildConversationStartData(context));
   }
 
   override async afterConversation(
     context: IPluginExecutionContext,
     result: IPluginExecutionResult,
   ): Promise<void> {
-    await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_COMPLETE, {
-      executionId: context.executionId,
-      sessionId: context.sessionId,
-      userId: context.userId,
-      data: {
-        response: result.content || result.response,
-        tokensUsed: result.usage?.totalTokens || result.tokensUsed,
-        toolCalls: result.toolCalls?.map((call) => ({
-          id: call.id || '',
-          name: call.name || '',
-          arguments: JSON.stringify(call.arguments || {}),
-          result: String(call.result || ''),
-        })),
-      },
-    });
+    await this.emit(
+      EVENT_EMITTER_EVENTS.CONVERSATION_COMPLETE,
+      buildConversationCompleteData(context, result),
+    );
   }
 
   override async beforeToolExecution(
@@ -179,16 +152,10 @@ export class EventEmitterPlugin extends AbstractPlugin<
     toolData: IToolExecutionContext,
   ): Promise<void> {
     if (!toolData) return;
-    await this.emit(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, {
-      executionId: context.executionId,
-      sessionId: context.sessionId,
-      userId: context.userId,
-      data: {
-        toolName: toolData.toolName,
-        toolId: toolData.executionId,
-        arguments: JSON.stringify(toolData.parameters ?? {}),
-      },
-    });
+    await this.emit(
+      EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE,
+      buildToolBeforeData(context, toolData),
+    );
   }
 
   override async afterToolExecution(
@@ -201,22 +168,14 @@ export class EventEmitterPlugin extends AbstractPlugin<
         toolCall.result === null
           ? EVENT_EMITTER_EVENTS.TOOL_ERROR
           : EVENT_EMITTER_EVENTS.TOOL_SUCCESS;
-      const baseData = {
-        executionId: context.executionId,
-        sessionId: context.sessionId,
-        userId: context.userId,
-        data: {
-          toolName: toolCall.name || '',
-          toolId: toolCall.id || '',
-          toolResult: toolCall.result !== null ? String(toolCall.result) : undefined,
-          duration: toolResults.duration,
-          success: toolCall.result !== null,
-        },
-      };
+      const baseData = buildToolAfterBaseData(context, toolCall, toolResults.duration);
       await this.emit(eventType, baseData);
       await this.emit(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, {
         ...baseData,
-        data: { ...baseData.data, toolResult: String(toolCall.result || '') },
+        data: {
+          ...(baseData.data as Record<string, TEventDataValue>),
+          toolResult: String(toolCall.result || ''),
+        },
       });
     }
   }
@@ -364,34 +323,5 @@ export class EventEmitterPlugin extends AbstractPlugin<
     if (this.bufferTimer) clearInterval(this.bufferTimer);
     await this.flushBuffer();
     this.clearAllListeners();
-  }
-
-  private validateOptions(options: IEventEmitterPluginOptions): void {
-    if (options.maxListeners !== undefined && options.maxListeners < 0)
-      throw new PluginError(
-        `Invalid maxListeners option: ${options.maxListeners}. Must be a non-negative number.`,
-        this.name,
-        { maxListeners: options.maxListeners },
-      );
-    if (
-      options.buffer !== undefined &&
-      options.buffer.maxSize !== undefined &&
-      options.buffer.maxSize < 0
-    )
-      throw new PluginError(
-        `Invalid buffer.maxSize option: ${options.buffer.maxSize}. Must be a non-negative number.`,
-        this.name,
-        { bufferMaxSize: options.buffer.maxSize },
-      );
-    if (
-      options.buffer !== undefined &&
-      options.buffer.flushInterval !== undefined &&
-      options.buffer.flushInterval < 0
-    )
-      throw new PluginError(
-        `Invalid buffer.flushInterval option: ${options.buffer.flushInterval}. Must be a non-negative number.`,
-        this.name,
-        { bufferFlushInterval: options.buffer.flushInterval },
-      );
   }
 }

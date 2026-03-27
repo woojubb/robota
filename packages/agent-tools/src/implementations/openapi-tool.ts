@@ -7,14 +7,15 @@ import type {
   IParameterValidationResult,
   IEventService,
 } from '@robota-sdk/agent-core';
-import type { IToolSchema, IParameterSchema } from '@robota-sdk/agent-core';
+import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { OpenAPIV3 } from 'openapi-types';
 import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
+import {
+  type THTTPMethod,
+  findOperation,
+  createSchemaFromOperation,
+} from './openapi-schema-converter';
 
-/**
- * OpenAPI operation method types
- */
-type THTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
 /**
  * OpenAPI tool implementation
  * Executes API calls based on OpenAPI 3.0 specifications
@@ -157,44 +158,15 @@ export class OpenAPITool implements ITool {
     _context?: IToolExecutionContext,
   ): Promise<never> {
     // Find the operation in the OpenAPI spec
-    const operation = this.findOperation();
+    const operation = findOperation(this.apiSpec, this.operationId);
     if (!operation) {
       throw new Error(`Operation ${this.operationId} not found in OpenAPI spec`);
     }
 
     // Build the HTTP request
-    const requestConfig = this.buildRequestConfig(operation, parameters);
+    this.buildRequestConfig(operation, parameters);
 
     throw new Error('Not implemented: actual API execution is not yet available');
-  }
-
-  /**
-   * Find the operation in the OpenAPI specification
-   */
-  private findOperation():
-    | { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject }
-    | undefined {
-    for (const [path, pathItem] of Object.entries(this.apiSpec.paths || {})) {
-      if (!pathItem) continue;
-
-      for (const method of [
-        'get',
-        'post',
-        'put',
-        'delete',
-        'patch',
-        'head',
-        'options',
-      ] as THTTPMethod[]) {
-        const operation = (pathItem as Record<string, OpenAPIV3.OperationObject | undefined>)[
-          method
-        ];
-        if (operation?.operationId === this.operationId) {
-          return { method, path, operation };
-        }
-      }
-    }
-    return undefined;
   }
 
   /**
@@ -290,7 +262,7 @@ export class OpenAPITool implements ITool {
    * Create tool schema from OpenAPI operation specification
    */
   private createSchemaFromOpenAPI(): IToolSchema {
-    const operation = this.findOperation();
+    const operation = findOperation(this.apiSpec, this.operationId);
     if (!operation) {
       throw new Error(
         `[STRICT-POLICY][EMITTER-CONTRACT] OpenAPI operation not found: ${this.operationId}. ` +
@@ -298,148 +270,7 @@ export class OpenAPITool implements ITool {
       );
     }
 
-    const { operation: opSpec } = operation;
-    const properties: Record<string, IParameterSchema> = {};
-    const required: string[] = [];
-
-    // Convert OpenAPI parameters to tool schema
-    const params = (opSpec.parameters as OpenAPIV3.ParameterObject[]) || [];
-    for (const param of params) {
-      properties[param.name] = this.convertOpenAPIParamToSchema(param);
-      if (param.required) {
-        required.push(param.name);
-      }
-    }
-
-    // Handle request body for POST/PUT/PATCH operations
-    if (opSpec.requestBody) {
-      const requestBody = opSpec.requestBody as OpenAPIV3.RequestBodyObject;
-      const jsonContent = requestBody.content?.['application/json'];
-      if (jsonContent?.schema) {
-        const bodySchema = this.convertOpenAPISchemaToParameterSchema(jsonContent.schema);
-        if (bodySchema.type === 'object' && bodySchema.properties) {
-          Object.assign(properties, bodySchema.properties);
-          // Handle required properties for object schemas
-          const schemaWithRequired = bodySchema as IParameterSchema & { required?: string[] };
-          if (schemaWithRequired.required) {
-            required.push(...schemaWithRequired.required);
-          }
-        }
-      }
-    }
-
-    const schemaParams: {
-      type: 'object';
-      properties: Record<string, IParameterSchema>;
-      required?: string[];
-    } = {
-      type: 'object',
-      properties,
-    };
-
-    if (required.length > 0) {
-      schemaParams.required = required;
-    }
-
-    return {
-      name: this.operationId,
-      description: opSpec.summary || opSpec.description || `OpenAPI operation: ${this.operationId}`,
-      parameters: schemaParams,
-    };
-  }
-
-  /**
-   * Convert OpenAPI parameter to tool parameter schema
-   */
-  private convertOpenAPIParamToSchema(param: OpenAPIV3.ParameterObject): IParameterSchema {
-    const schema = param.schema as OpenAPIV3.SchemaObject;
-    return this.convertOpenAPISchemaToParameterSchema(schema);
-  }
-
-  /**
-   * Convert OpenAPI schema to parameter schema
-   */
-  private convertOpenAPISchemaToParameterSchema(
-    schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
-  ): IParameterSchema {
-    // Handle reference objects
-    if ('$ref' in schema) {
-      // For now, treat references as generic objects
-      return { type: 'object' };
-    }
-
-    const result: IParameterSchema = {
-      type: this.mapOpenAPIType(schema.type),
-    };
-
-    if (schema.description) {
-      result.description = schema.description;
-    }
-
-    if (schema.enum) {
-      result.enum = schema.enum as (string | number | boolean)[];
-    }
-
-    if (schema.minimum !== undefined) {
-      result.minimum = schema.minimum;
-    }
-
-    if (schema.maximum !== undefined) {
-      result.maximum = schema.maximum;
-    }
-
-    if (schema.pattern) {
-      result.pattern = schema.pattern;
-    }
-
-    if (schema.format) {
-      result.format = schema.format;
-    }
-
-    if (schema.default !== undefined) {
-      result.default = schema.default;
-    }
-
-    // Handle array items
-    if (schema.type === 'array' && schema.items) {
-      result.items = this.convertOpenAPISchemaToParameterSchema(schema.items);
-    }
-
-    // Handle object properties
-    if (schema.type === 'object' && schema.properties) {
-      result.properties = {};
-      for (const [propName, propSchema] of Object.entries(schema.properties)) {
-        result.properties[propName] = this.convertOpenAPISchemaToParameterSchema(propSchema);
-      }
-
-      if (schema.required && schema.required.length > 0) {
-        (result as { required?: string[] }).required = schema.required;
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Map OpenAPI type to JSON schema type
-   */
-  private mapOpenAPIType(type: string | undefined): IParameterSchema['type'] {
-    switch (type) {
-      case 'string':
-        return 'string';
-      case 'number':
-        return 'number';
-      case 'integer':
-        return 'integer';
-      case 'boolean':
-        return 'boolean';
-      case 'array':
-        return 'array';
-      case 'object':
-        return 'object';
-      default:
-        return 'string';
-    }
+    return createSchemaFromOperation(this.operationId, operation.operation);
   }
 }
 
