@@ -10,6 +10,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Code 같은 도구는 어떻게 동작할까 — 직접 만들어보면서 알아낸 구조</title>
+<meta name="description" content="AI 코딩 에이전트의 내부 구조를 직접 만들어보면서 알아낸 이야기. AGENTS.md, 실행 루프, 도구 시스템, 퍼미션, 훅, 스킬, 컨텍스트 압축.">
+<meta name="author" content="Jung Youn">
+<meta name="keywords" content="Claude Code, AI agent, coding CLI, Robota, AGENTS.md, 코딩 에이전트, 프레젠테이션">
+<meta property="og:title" content="Claude Code 같은 도구는 어떻게 동작할까">
+<meta property="og:description" content="AI 코딩 에이전트의 내부 구조를 직접 만들어보면서 알아낸 이야기">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://robota.io/slides/how-coding-agent-works.html">
+<link rel="canonical" href="https://robota.io/slides/how-coding-agent-works.html">
+<meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;0,800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -583,7 +592,8 @@ tr:last-child td { border-bottom: none; }
  | |_) | | | |  _ \| | | || | / _ \
  |  _ &lt;| |_| | |_) | |_| || |/ ___ \
  |_| \_\\___/|____/ \___/ |_/_/   \_\</pre>
-    <div class="subtitle">Claude Code 같은 도구는 어떻게 동작할까<br>직접 만들어보면서 알아낸 구조</div>
+    <div class="subtitle" style="color:var(--text);font-size:1.2rem;margin-bottom:4px">Claude Code 같은 도구는 어떻게 동작할까</div>
+    <div class="subtitle">직접 만들어보면서 알아낸 구조 · by <a href="https://github.com/woojubb" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">woojubb</a></div>
     <div class="prompt-line">
       <span class="dim">$</span> robota <span class="cursor"></span>
     </div>
@@ -592,9 +602,9 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 2 -->
   <div class="slide" data-index="1">
     <h2>"나도 만들 수 있을까?"</h2>
-    <p class="slide-subtitle">에이전트 라이브러리를 가지고 있었다. 이 위에 Claude Code 같은 CLI를 올릴 수 있을까?</p>
+    <p class="slide-subtitle">AI 에이전트 라이브러리를 만들어 배포했다. 이걸로 Claude Code 같은 CLI를 만들 수 있을까?</p>
 
-    <p>10개월 전, Robota SDK를 만들어 npm에 공개했다. 멀티 프로바이더 AI 엔진, 도구 시스템, 플러그인. Team 에이전트까지 개발했고, CLI도 시험해 봤다. Robota는 Cursor로 바이브 코딩하면서 개발했는데, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
+    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 프로바이더 AI 엔진, 도구 시스템, 플러그인, Team 에이전트까지 개발했고 CLI도 시험해 봤다. Robota는 Cursor로 바이브 코딩하면서 개발했는데, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
     <p>당시에는 AGENTS.md 같은 개념이 없어서 코딩 에이전트에 적용해 보지 못했지만, 최근에 Claude Code를 매일 쓰면서 "나도 코딩을 도와주는 CLI를 구현할 수 있을까?" 하는 생각이 들었다.</p>
 
     <h3>이미 있던 패키지</h3>
@@ -610,18 +620,19 @@ tr:last-child td { border-bottom: none; }
 
   <!-- Slide 3 -->
   <div class="slide" data-index="2">
-    <h2>AGENTS.md는 시스템 프롬프트다</h2>
-    <p class="slide-subtitle">특별한 파싱이 아니라, 대화 시작 시 시스템 메시지로 넣는 텍스트</p>
+    <h2>AGENTS.md란 무엇인가</h2>
+    <p class="slide-subtitle">대화가 시작되면 시스템 메시지로 주입하는 지시문이다</p>
 
-    <p>AGENTS.md, CLAUDE.md 같은 파일은 프로젝트 루트에서 탐색한 뒤 시스템 프롬프트에 주입한다. LLM은 이 내용을 "프로젝트의 규칙"으로 인식하고 따른다.</p>
+    <p>AGENTS.md, CLAUDE.md 같은 파일은 프로젝트 루트에서 탐색한 뒤 시스템 프롬프트에 주입한다. LLM은 이 내용을 프로젝트 규칙으로 인식하고 따른다.</p>
 
+    <h3>동작 방식</h3>
     <ul>
       <li>대화가 시작되면 AGENTS.md 내용을 시스템 메시지로 넣는다</li>
-      <li>문서 안에 다른 .md 파일 링크가 있으면 그 파일도 참조하도록 유도한다</li>
+      <li>문서 안에 다른 .md 파일 링크가 있으면 기억해 두었다가, 필요할 때 해당 파일을 읽는다</li>
       <li>LLM은 이 규칙을 따르면서 도구를 호출하고, 결과를 받아서 다시 판단한다</li>
     </ul>
 
-    <p>코딩 에이전트의 핵심은 결국 이 세 가지다: <span class="accent">시스템 프롬프트</span> + <span class="accent">도구</span> + <span class="accent">실행 루프</span>.</p>
+    <p>코딩 에이전트 핵심은 결국 이 세 가지다: <span class="accent">시스템 프롬프트</span> + <span class="accent">도구</span> + <span class="accent">실행 루프</span>.</p>
   </div>
 
   <!-- Slide 4: 프로젝트 폴더 구조 -->
@@ -640,12 +651,11 @@ tr:last-child td { border-bottom: none; }
       <tr><td class="accent">.claude/commands/</td><td>Claude Code 커스텀 명령</td></tr>
     </table>
 
-    <p>폴더에 파일을 넣으면 에이전트가 자동으로 인식한다. 별도 설정이 필요 없다.</p>
   </div>
 
   <!-- Slide 5: 도구 시스템 -->
   <div class="slide" data-index="4">
-    <h2>코딩 에이전트의 기본 도구</h2>
+    <h2>코딩 에이전트 기본 도구</h2>
     <p class="slide-subtitle">에이전트의 손발 — 이 6개로 코드를 읽고, 쓰고, 실행한다</p>
 
     <table>
@@ -658,36 +668,31 @@ tr:last-child td { border-bottom: none; }
       <tr><td class="accent">Grep</td><td>내용 검색</td><td>코드에서 함수 이름 찾기</td></tr>
     </table>
 
-    <p>LLM이 이 도구를 자유롭게 조합해서 호출한다. 파일을 읽고, 수정하고, 테스트를 돌리고, 결과를 확인하는 — 개발자가 터미널에서 하는 일을 그대로 한다.</p>
+    <p>LLM이 이 도구를 자유롭게 조합해서 호출한다. 파일을 읽고, 수정하고, 테스트를 돌리고, 결과를 확인한다. 개발자가 터미널에서 하는 일 그대로다.</p>
   </div>
 
   <!-- Slide 5: 실행 루프 -->
   <div class="slide" data-index="5">
-    <h2>실행 루프의 구조</h2>
-    <p class="slide-subtitle">프롬프트 하나에 도구가 여러 번 돌 수 있다</p>
+    <h2>실행 루프 구조</h2>
+    <p class="slide-subtitle">LLM 호출 → 도구 실행 → 결과 재주입을 반복한다</p>
 
-    <h3>한 라운드</h3>
-    <p>LLM에 메시지를 보내면 응답이 온다. 응답에 도구 호출이 포함되어 있으면 도구를 실행하고, 결과를 대화에 추가한 뒤, LLM을 다시 호출한다. 도구 호출이 없을 때까지 반복한다.</p>
+    <table>
+      <tr><th>단계</th><th>동작</th></tr>
+      <tr><td>1</td><td>LLM에 메시지를 보낸다</td></tr>
+      <tr><td>2</td><td>응답에 도구 호출이 포함되면 도구를 실행한다</td></tr>
+      <tr><td>3</td><td>실행 결과를 대화에 추가하고 LLM을 다시 호출한다</td></tr>
+      <tr><td>4</td><td>도구 호출이 없으면 최종 응답을 출력한다</td></tr>
+    </table>
 
-    <h3>멀티 라운드</h3>
-    <p>사용자가 "이 파일을 읽고 버그를 고쳐줘"라고 하면:</p>
-    <ul>
-      <li>라운드 1: LLM이 <span class="accent">Read</span>로 파일을 읽는다</li>
-      <li>라운드 2: 읽은 내용을 보고 <span class="accent">Edit</span>으로 수정한다</li>
-      <li>라운드 3: <span class="accent">Bash</span>로 테스트를 돌린다</li>
-      <li>라운드 4: 테스트 결과를 보고 최종 응답을 한다</li>
-    </ul>
-
-    <h3>스트리밍</h3>
-    <p>각 라운드에서 LLM의 응답은 토큰 단위로 실시간 출력한다. 도구 실행 상태도 동시에 표시한다. 사용자는 AI가 "생각하는 과정"을 실시간으로 본다.</p>
+    <p>각 라운드에서 LLM 응답은 토큰 단위로 실시간 출력(스트리밍)한다. 사용자는 AI가 생각하는 과정을 실시간으로 본다.</p>
   </div>
 
   <!-- Slide 6: 도구 실행 안전장치 -->
   <div class="slide" data-index="6">
-    <h2>도구 실행의 안전장치</h2>
-    <p class="slide-subtitle">Bash와 Write를 아무 제한 없이 실행할 수는 없다</p>
+    <h2>도구 실행 권한</h2>
+    <p class="slide-subtitle">어떤 도구를 허용하고 어떤 도구를 차단할지 결정하는 구조</p>
 
-    <p>에이전트가 파일을 수정하고 셸 명령을 실행한다. 잘못하면 코드를 망가뜨리거나 위험한 명령을 실행할 수 있다. 그래서 도구 호출마다 퍼미션 체크가 필요하다.</p>
+    <p>에이전트가 파일을 수정하고 셸 명령을 실행한다. 모든 도구 호출에 대해 실행 전에 권한을 평가한다.</p>
 
     <h3>3단계 평가</h3>
     <ul>
@@ -708,10 +713,10 @@ tr:last-child td { border-bottom: none; }
 
   <!-- Slide 7: 훅 시스템 -->
   <div class="slide" data-index="7">
-    <h2>훅 시스템</h2>
-    <p class="slide-subtitle">도구 실행, 세션 시작/종료, 사용자 입력 등 주요 시점에 끼어들 수 있다</p>
+    <h2>훅(Hook)</h2>
+    <p class="slide-subtitle">도구 실행, 세션 시작/종료, 사용자 입력 등 주요 시점에 끼어든다</p>
 
-    <p>코딩 에이전트의 동작 흐름 곳곳에 커스텀 로직을 끼워 넣을 수 있다. 도구 실행 전후뿐 아니라, 세션 시작/종료, 사용자 입력 직후에도 훅이 동작한다.</p>
+    <p>코딩 에이전트 동작 흐름 곳곳에 커스텀 로직을 끼워 넣는다. 도구 실행 전후뿐 아니라, 세션 시작/종료, 사용자 입력 직후에도 훅이 동작한다.</p>
 
     <table>
       <tr><th>훅 이벤트</th><th>시점</th><th>활용 예시</th></tr>
@@ -722,15 +727,32 @@ tr:last-child td { border-bottom: none; }
       <tr><td class="accent">UserPromptSubmit</td><td>사용자 입력 후</td><td>입력 전처리, 검증</td></tr>
     </table>
 
-    <p>훅은 셸 커맨드, HTTP 호출, 프롬프트, 에이전트 실행 등 여러 방식으로 구현할 수 있다.</p>
+    <p>훅은 셸 커맨드, HTTP 호출, 프롬프트, 에이전트 실행 등 여러 방식으로 구현한다.</p>
   </div>
 
-  <!-- Slide 9: 스킬 시스템 -->
+  <!-- Slide 9: 체크포인트와 되돌리기 -->
   <div class="slide" data-index="8">
-    <h2>스킬 시스템</h2>
-    <p class="slide-subtitle">폴더에 스킬 파일을 넣으면 슬래시 명령으로 실행할 수 있다</p>
+    <h2>체크포인트와 되돌리기</h2>
+    <p class="slide-subtitle">파일 수정을 자동으로 추적하고, 언제든 이전 상태로 되돌린다</p>
 
-    <p><span class="accent">.agents/skills/</span> 또는 <span class="accent">.claude/commands/</span> 안에 마크다운 파일을 넣으면 에이전트가 자동으로 발견하고 슬래시 명령 메뉴에 등록한다.</p>
+    <p>매 프롬프트마다 파일 상태를 자동으로 스냅샷한다. Write, Edit 도구로 수정한 파일만 추적하고, Bash 명령(rm, mv 등)으로 변경한 파일은 추적하지 않는다.</p>
+
+    <h3>되돌리기 옵션</h3>
+    <table>
+      <tr><th>옵션</th><th>동작</th></tr>
+      <tr><td>코드 + 대화 복원</td><td>파일과 대화 모두 해당 시점으로 되돌린다</td></tr>
+      <tr><td>대화만 복원</td><td>대화를 되돌리되 현재 파일은 유지한다</td></tr>
+      <tr><td>코드만 복원</td><td>파일을 되돌리되 대화는 유지한다</td></tr>
+      <tr><td>여기서부터 요약</td><td>선택 시점 이후 대화를 압축한다 (파일 변경 없음)</td></tr>
+    </table>
+
+    <p>체크포인트는 세션 단위의 빠른 복구용이다. Git을 대체하지 않는다.</p>
+  </div>
+
+  <!-- Slide 10: 스킬 시스템 -->
+  <div class="slide" data-index="9">
+    <h2>스킬(Skill)</h2>
+    <p class="slide-subtitle">폴더에 스킬 파일을 넣으면 슬래시 명령으로 실행한다</p>
 
     <h3>스킬 파일 구조</h3>
     <div class="code-block"><span class="cmt">---</span>
@@ -747,15 +769,15 @@ tr:last-child td { border-bottom: none; }
       <li><span class="accent">context: fork</span> — 별도 세션에서 실행 (서브에이전트)</li>
     </ul>
 
-    <p>스킬은 프로젝트마다 다르게 구성할 수 있다. 코드 리뷰, 커밋, 테스트, 문서 생성 등 반복 작업을 스킬로 만들어두면 슬래시 명령 한 번으로 실행한다.</p>
+    <p>스킬은 프로젝트마다 다르게 구성한다. 코드 리뷰, 커밋, 테스트, 문서 생성 등 반복 작업을 스킬로 만들어두면 슬래시 명령 한 번으로 실행한다.</p>
   </div>
 
   <!-- Slide 10: 컨텍스트 관리 개념 -->
-  <div class="slide" data-index="9">
+  <div class="slide" data-index="10">
     <h2>컨텍스트 관리 문제</h2>
     <p class="slide-subtitle">대화가 길어지면 AI가 앞의 내용을 잊는다</p>
 
-    <p>AI 모델은 한 번에 처리할 수 있는 컨텍스트 크기에 한계가 있다. Sonnet 4.5는 200K 토큰, Opus 4.6은 1M 토큰. 많아 보이지만, 코딩 에이전트는 컨텍스트에 엄청난 양의 정보를 담는다.</p>
+    <p>AI 모델은 한 번에 처리하는 컨텍스트 크기에 한계를 가진다. Sonnet 4.5는 200K 토큰, Opus 4.6은 1M 토큰. 많아 보이지만, 코딩 에이전트는 컨텍스트에 엄청난 양의 정보를 담는다.</p>
 
     <h3>왜 문제인가</h3>
     <ul>
@@ -765,7 +787,7 @@ tr:last-child td { border-bottom: none; }
       <li>모델이 허용하는 컨텍스트 크기를 넘으면 API가 에러를 낸다</li>
     </ul>
 
-    <h3>코딩 에이전트가 해결해야 하는 것</h3>
+    <h3>코딩 에이전트가 해결해야 하는 과제</h3>
     <ul>
       <li>컨텍스트가 얼마나 찼는지 추적</li>
       <li>한계에 가까워지면 이전 대화를 요약해서 압축</li>
@@ -775,11 +797,11 @@ tr:last-child td { border-bottom: none; }
   </div>
 
   <!-- Slide 9: 전환 — 구조를 알았으니 만들어봤다 -->
-  <div class="slide" data-index="10">
-    <h2>이 구조를 직접 구현해 봤다</h2>
-    <p class="slide-subtitle">내 에이전트 엔진 위에 올렸더니 작동했다</p>
+  <div class="slide" data-index="11">
+    <h2>이 구조로 직접 CLI를 만들어 봤다</h2>
+    <p class="slide-subtitle">기존 에이전트 엔진에 실행 루프, 도구, 퍼미션을 조립했다</p>
 
-    <p>AGENTS.md와 실행 루프만 맞춰줬더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 5개(<span class="accent">Bash, Read, Write, Edit, Glob, Grep</span>)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.</p>
+    <p>AGENTS.md와 실행 루프만 맞춰줬더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 6개(<span class="accent">Bash, Read, Write, Edit, Glob, Grep</span>)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.</p>
 
     <p>기존 Robota SDK 위에 계층을 나눠서 쌓았다:</p>
 
@@ -802,42 +824,48 @@ tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
-    <p style="margin-top:20px"><span class="bold">단방향 의존성.</span> 위에서 아래로만 의존한다. core는 아무것에도 의존하지 않는다.</p>
   </div>
 
   <!-- Slide 6 (was 8) -->
-  <div class="slide" data-index="11">
+  <div class="slide" data-index="12">
     <h2>구현한 기능 목록</h2>
     <p class="slide-subtitle">결국 다 만들어야 한다</p>
-    <p>Claude Code를 쓰는 사람이 넘어오려면 익숙한 기능을 다 갖춰야 한다. 하나하나 구현하는 건 따분하고 소모적이지만, 하나라도 빠지면 제품이 아니다.</p>
+    <p>Claude Code를 쓰는 사람이 넘어오려면 익숙한 기능을 다 갖춰야 한다. 하나하나 구현하는 건 따분하지만, 빠지면 쓰기 불편하다.</p>
 
+    <h3>터미널 UI</h3>
     <ul>
-      <li>터미널 UI — React 기반 (Ink)</li>
-      <li>퍼미션 시스템 — Claude Code 4단계 모드 호환</li>
-      <li>훅 시스템 — PreToolUse, PostToolUse, SessionStart, Stop 등</li>
+      <li>React 기반 TUI (Ink)</li>
       <li>스트리밍 마크다운 렌더링 + 디바운스</li>
-      <li>슬래시 커맨드 + Tab 자동완성</li>
-      <li>CJK(한국어/중국어/일본어) 입력 지원</li>
-      <li>멀티라인 붙여넣기</li>
-      <li>세션 이어가기 / 분기 / 이름 지정</li>
-      <li>서브에이전트 실행</li>
       <li>도구 실행 실시간 표시 + Edit Diff</li>
-      <li>실행 중단 — ESC, Ctrl+C</li>
-      <li>프롬프트 큐 — 실행 중 다음 입력 가능</li>
-      <li>비대화형 모드 — Headless Transport</li>
-      <li>모델 선택, 언어 설정, 첫 실행 API 키 설정</li>
+      <li>CJK(한국어) 입력 지원</li>
+    </ul>
+
+    <h3>세션과 입력</h3>
+    <ul>
+      <li>세션 이어가기 / 분기 / 이름 지정</li>
+      <li>슬래시 커맨드 + Tab 자동완성</li>
+      <li>멀티라인 붙여넣기</li>
+      <li>실행 중단(ESC, Ctrl+C) + 프롬프트 큐</li>
+    </ul>
+
+    <h3>시스템</h3>
+    <ul>
+      <li>퍼미션 4단계 모드, 훅 시스템</li>
+      <li>서브에이전트 실행</li>
+      <li>비대화형 모드 (Headless Transport)</li>
+      <li>모델 선택, 언어 설정, 첫 실행 설정</li>
     </ul>
   </div>
 
   <!-- Slide 7 (was 6) -->
-  <div class="slide" data-index="12">
+  <div class="slide" data-index="13">
     <h2>컨텍스트 압축 — 내가 구현한 방법</h2>
-    <p class="slide-subtitle">5가지 전략으로 컨텍스트 폭발을 막았다</p>
+    <p class="slide-subtitle">5가지 방법으로 컨텍스트를 관리한다</p>
 
     <table>
       <tr><th>전략</th><th>설명</th></tr>
       <tr><td>사전 감지</td><td>매 라운드 전 토큰 추정 (chars/2). 83.5% 초과 시 경고</td></tr>
-      <tr><td>자동 압축</td><td>/compact 또는 자동. 이전 메시지를 AI가 요약</td></tr>
+      <tr><td>자동 압축</td><td>/compact 또는 자동. AI가 이전 메시지를 요약</td></tr>
       <tr><td>시스템 메시지 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
       <tr><td>도구 출력 캡</td><td>30K 문자 초과 시 자동 절삭</td></tr>
       <tr><td>도구 결과 스킵</td><td>80% 초과 시 나머지 건너뜀 + LLM에 누락 알림</td></tr>
@@ -850,83 +878,103 @@ tr:last-child td { border-bottom: none; }
   </div>
 
   <!-- Slide 8 (was 7) -->
-  <div class="slide" data-index="13">
-    <h2>플러그인 호환과 서브에이전트</h2>
-    <p class="slide-subtitle">생태계와 호환하지 않으면 또 하나의 고립한 도구로 끝난다</p>
+  <div class="slide" data-index="14">
+    <h2>Claude Code와 호환하는 플러그인 기능</h2>
+    <p class="slide-subtitle">생태계와 호환하지 않으면 혼자만 쓰는 도구로 끝난다</p>
 
-    <h3>이중 경로 전략</h3>
-    <div class="code-block"><span class="str">~/.robota/</span>       ← Robota 주 경로
-<span class="cyan">~/.claude/</span>       ← Claude Code 호환 (우선순위 높음)
+    <h3>플러그인 명령어</h3>
+    <div class="code-block"><span class="fn">/plugin marketplace add</span> owner/repo    ← 마켓플레이스 등록
+<span class="fn">/plugin install</span> name@marketplace     ← 플러그인 설치</div>
 
-<span class="str">.agents/skills/</span>  ← Robota 스킬
-<span class="cyan">.claude/commands/</span> ← Claude Code 커맨드 (호환)</div>
+    <p>마켓플레이스를 등록하고, 거기서 플러그인을 설치/제거할 수 있다. Claude Code와 동일한 경로 구조를 지원한다.</p>
 
-    <p><span class="bold">서브에이전트가 필요한 이유:</span> Claude Code의 스킬 파일에는 프론트매터에 <span class="accent">context: fork</span>라는 설정이 있다. 이 스킬은 메인 대화와 분리한 별도 세션에서 실행하라는 뜻이다. CLI에서 이걸 지원하지 않으면 플러그인이 의도와 다르게 동작하거나 메인 컨텍스트를 오염시킨다.</p>
+    <h3>서브에이전트</h3>
+    <p>서브에이전트도 구현했다. Claude Code의 스킬 파일 중 프론트매터에 <span class="accent">context: fork</span>가 있으면 메인 대화와 분리한 별도 세션에서 실행한다.</p>
   </div>
 
   <!-- Slide 9: 터미널 입력 문제 -->
-  <div class="slide" data-index="14">
+  <div class="slide" data-index="15">
     <h2>만들면서 부딪힌 문제 (1)</h2>
     <p class="slide-subtitle">터미널에서 한국어를 쓰는 건 쉽지 않았다</p>
 
     <h3>CJK 입력</h3>
-    <p><span class="bold">문제:</span> 터미널 raw mode에서 한국어 IME가 정상 작동하지 않았다. 글자가 탈락하거나, 잘못된 위치에 입력되거나, Mac 터미널이 크래시하기도 했다.</p>
-    <p><span class="bold">원인:</span> React의 <span class="accent">useState</span>가 비동기로 배칭하는데, IME는 동기로 키스트로크를 보낸다. 이 충돌이 근본 원인이었다.</p>
-    <p><span class="bold">해결:</span> 기존 라이브러리(ink-text-input)를 버리고 <span class="accent">CjkTextInput</span>을 직접 작성. <span class="accent">useRef</span>로 값을 즉시 반영하고, useState는 렌더링 트리거로만 사용.</p>
+    <ul>
+      <li><span class="red">문제</span> — 터미널 raw mode에서 한국어 IME가 정상 작동하지 않았다. 글자 탈락, 잘못된 위치에 입력</li>
+      <li><span class="amber">원인</span> — React <span class="accent">useState</span>가 비동기로 배칭하는데, IME는 동기로 키스트로크를 보낸다</li>
+      <li><span class="green">해결</span> — ink-text-input을 버리고 <span class="accent">CjkTextInput</span>을 직접 작성. <span class="accent">useRef</span>로 즉시 반영, useState는 렌더링 트리거로만</li>
+    </ul>
 
-    <h3>Mac 터미널 크래시 (SIGSEGV)</h3>
-    <p><span class="bold">문제:</span> Mac 기본 터미널(Terminal.app)에서 한국어를 입력하면 앱 자체가 크래시했다.</p>
-    <p><span class="bold">원인:</span> Ink의 <span class="accent">setCursorPosition()</span>이 터미널 커서를 잘못된 위치로 이동시키면, IME가 그 위치에서 <span class="accent">attributedSubstringFromRange:</span>를 호출하다가 세그멘테이션 폴트 발생.</p>
-    <p><span class="bold">해결:</span> setCursorPosition 호출을 제거. IME 후보창 위치가 왼쪽 하단에 고정되지만 크래시는 막았다.</p>
+    <h3>Mac Terminal.app 크래시 (SIGSEGV)</h3>
+    <ul>
+      <li><span class="red">문제</span> — Terminal.app에서 한국어를 입력하면 터미널 앱 자체가 크래시</li>
+      <li><span class="amber">원인</span> — Ink의 <span class="accent">setCursorPosition()</span>이 커서를 잘못된 위치로 이동시키면 IME가 세그멘테이션 폴트를 일으킨다</li>
+      <li><span class="green">해결</span> — setCursorPosition 호출을 제거</li>
+    </ul>
   </div>
 
   <!-- Slide 10: 아키텍처 문제 -->
-  <div class="slide" data-index="15">
+  <div class="slide" data-index="16">
     <h2>만들면서 부딪힌 문제 (2)</h2>
     <p class="slide-subtitle">데이터 구조를 바로잡으니 나머지가 풀렸다</p>
 
     <h3>컨텍스트 오버플로우</h3>
-    <p><span class="bold">문제:</span> 도구 결과가 실시간으로 누적되면서 컨텍스트가 급격히 커지고, LLM이 오류를 내며 중단.</p>
-    <p><span class="bold">해결:</span> 임계값 초과 시 도구 결과를 더 추가하지 않고 "컨텍스트 문제로 누락됨" 메시지를 삽입. LLM이 이를 보고 자연스럽게 복구.</p>
+    <ul>
+      <li><span class="red">문제</span> — 도구 결과가 실시간으로 쌓이면서 컨텍스트가 급격히 커지고, LLM이 오류로 중단</li>
+      <li><span class="green">해결</span> — 임계값 초과 시 "컨텍스트 문제로 누락됨" 메시지를 삽입. LLM이 이를 보고 자연스럽게 복구</li>
+    </ul>
 
-    <h3>히스토리 아키텍처 리팩토링</h3>
-    <p>채팅 메시지, 도구 실행, 스킬 호출 등 모든 정보가 하나의 타임라인에 남아야 했다. agent-core에 <span class="accent">IHistoryEntry</span> 타입을 신설하고, 히스토리에 규칙을 세웠다:</p>
+    <h3>히스토리 확장</h3>
+    <p>기존 에이전트는 API 호출에 필요한 채팅 내용만 대화 목록에 담았다. 하지만 CLI에서 세션을 관리하려면 대화뿐 아니라 도구 실행, 스킬 호출, 이벤트 등 다양한 정보를 함께 기록해야 했다.</p>
+    <p>agent-core에 <span class="accent">IHistoryEntry</span> 타입을 신설하고, 모든 정보를 하나의 타임라인에 담았다:</p>
     <ul>
       <li><span class="bold">append-only, read-only</span> — 수정/삭제 없음. 데이터가 없으면 fallback이 아니라 버그</li>
-      <li><span class="bold">투명한 저장</span> — resume 시 가공 없이 그대로 불러옴. 변환이 필요하면 저장 로직이 잘못된 것</li>
+      <li><span class="bold">투명한 저장</span> — resume 시 가공 없이 그대로 불러옴. 변환이 필요하면 저장 로직을 고친다</li>
     </ul>
-    <p class="dim">이 규칙 덕분에 세션 이어가기, 히스토리 표시, 이벤트 추적을 모두 단순하게 풀었다. 세션을 JSON 파일로 저장하고, resume 시 그대로 불러와서 AI 컨텍스트에 주입한다.</p>
+    <p class="dim">이 구조 덕분에 세션 이어가기, 히스토리 표시, 이벤트 추적이 모두 단순해졌다.</p>
   </div>
 
   <!-- Slide 11 -->
-  <div class="slide" data-index="16">
+  <div class="slide" data-index="17">
     <h2>그래서, 지금 쓸 수 있나?</h2>
-    <p class="slide-subtitle">된다</p>
-    <p>실제로 코딩 작업에 사용해 봤고, 일상 개발 작업을 할 수 있는 수준이다. 이제 Robota를 Robota CLI로 개발할 수 있다.</p>
+    <p class="slide-subtitle">실제로 코딩 작업에 사용해 봤고, 일상 개발 작업을 할 수 있는 수준이다</p>
+
+    <p>이제 Robota를 Robota CLI로 개발할 수 있다.</p>
 
     <ul>
-      <li>Claude Code와 동일한 도구 세트</li>
+      <li>Claude Code와 동일한 도구 세트 (Bash, Read, Write, Edit, Glob, Grep)</li>
       <li>스킬/플러그인 생태계 호환</li>
+      <li>퍼미션 시스템과 훅 시스템 구현</li>
+      <li>컨텍스트 압축으로 긴 세션 유지</li>
       <li>세션을 이어가며 며칠에 걸친 작업 가능</li>
       <li>서브에이전트로 병렬 작업 위임</li>
+      <li>스트리밍 마크다운 렌더링</li>
+      <li>CJK(한국어) 입력 지원</li>
+      <li>agent-sdk를 분리했기 때문에 다른 프로젝트에서 SDK만 불러와서 동일한 코딩 어시스턴트를 구성한다</li>
     </ul>
   </div>
 
   <!-- Slide 12: 현실적인 한계 -->
-  <div class="slide" data-index="17">
+  <div class="slide" data-index="18">
     <h2>하지만 현실의 한계</h2>
-    <p class="slide-subtitle">아직 Claude Code가 더 안정적이다</p>
+    <p class="slide-subtitle">거의 근접하게 만들었지만, 아직 넘어야 할 벽이 남아 있다</p>
 
+    <h3>Claude Code 대비 부족한 점</h3>
     <ul>
-      <li>API 종량제라 Claude Code 구독보다 비용이 더 들 수 있다</li>
-      <li>API 키가 필요해서 개발자가 아니면 진입 장벽이 있다</li>
+      <li>아직 Claude Code가 더 안정적이다</li>
+      <li>API 종량제라 구독 대비 비용이 더 들 수 있다</li>
+      <li>API 키가 필요해서 개발자가 아니면 진입 장벽이 높다</li>
     </ul>
 
-    <p style="margin-top:24px">아직은 Claude Code가 더 안정적이다. 하지만 거의 근접하게 만들었고, 실제 코딩이 가능한 수준까지 왔다. 내 엔진 위에서 돌아가므로 커스터마이징이 자유롭고, 프로바이더를 교체할 수 있고, 원하는 방식으로 확장할 수 있다.</p>
+    <h3>대신 얻는 장점</h3>
+    <ul>
+      <li>내 엔진 위에서 돌아가므로 커스터마이징이 자유롭다</li>
+      <li>프로바이더 교체가 가능하다 (Anthropic → OpenAI 등)</li>
+      <li>원하는 방식으로 확장 가능하다</li>
+    </ul>
   </div>
 
   <!-- Slide 13: 회고 -->
-  <div class="slide" data-index="18">
+  <div class="slide" data-index="19">
     <h2>회고</h2>
     <p class="slide-subtitle">9일, 385커밋</p>
 
@@ -936,58 +984,43 @@ tr:last-child td { border-bottom: none; }
       <div class="stat-card"><div class="stat-number">2,098+</div><div class="stat-label">테스트</div></div>
     </div>
 
-    <h3>잘한 것</h3>
+    <h3>Keep — 계속할 방향</h3>
     <ul>
-      <li>에이전트 구조를 최대한 자연스럽게 구현해냈다 — 엔진, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
+      <li>Claude Code와 최대한 비슷하게 만들었다 — 도구, 퍼미션, 훅, 스킬, 컨텍스트 압축까지</li>
+      <li>계층을 나눠서 쌓았다 — 엔진, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
       <li>개발 과정에서 발견한 문제를 그때그때 규칙으로 남겨뒀다</li>
-      <li>히스토리를 하나의 타임라인으로 통합해서 세션 이어가기가 단순해졌다</li>
     </ul>
 
-    <h3>뒤늦게 바로잡은 것</h3>
+    <h3>Problem — 아쉬운 것</h3>
     <ul>
-      <li>300줄 제한 규칙이 있었지만 강제하지 않아서 79개 파일이 초과</li>
-      <li>8개 병렬 에이전트를 동원한 대규모 분해 작업이 필요했다</li>
+      <li>Claude Code 대비 아직 안정성이 부족하다</li>
+      <li>API 종량제 비용 문제를 해결하지 못했다</li>
     </ul>
 
-    <p style="margin-top:16px">만드는 과정에서 에이전트의 작동 원리를 훨씬 정확하게 이해하게 됐다.</p>
+    <h3>Try — 다음에 시도할 과제</h3>
+    <ul>
+      <li>Robota CLI를 실제 프로젝트에 투입해서 안정성을 검증한다</li>
+      <li>OpenAI 등 다른 프로바이더로 동일한 구조가 동작하는지 검증한다</li>
+    </ul>
+
+    <p style="margin-top:16px">만드는 과정에서 에이전트 작동 원리를 훨씬 정확하게 이해했다.</p>
   </div>
 
-  <!-- Slide 14: 규칙 -->
-  <div class="slide" data-index="19">
-    <h2>9일 동안 추가된 규칙</h2>
-    <p class="slide-subtitle">문제가 터질 때마다 규칙으로 남겼다</p>
-
-    <table>
-      <tr><th>시기</th><th>규칙</th><th>계기</th></tr>
-      <tr><td>Day 1</td><td>core는 agent-* 의존 금지</td><td>순환 의존 발견</td></tr>
-      <tr><td>Day 2</td><td>계층 건너뛰기 금지</td><td>CLI가 core 내부를 직접 사용</td></tr>
-      <tr><td>Day 2</td><td>npm publish 금지, pnpm만</td><td>workspace:* 깨짐</td></tr>
-      <tr><td>Day 3</td><td>기능 추가 시 SPEC/README 동시 업데이트</td><td>문서와 코드 불일치 누적</td></tr>
-      <tr><td>Day 5</td><td>스펙 먼저, 코드 나중</td><td>코드부터 쓰고 스펙 끼워 맞추기</td></tr>
-      <tr><td>Day 8</td><td>SPEC은 검증 중 수정 금지</td><td>검증 중 스펙을 코드에 맞춰 고치는 실수</td></tr>
-      <tr><td>Day 9</td><td>300줄 초과 파일 분리</td><td>79개 파일 초과 방치</td></tr>
-      <tr><td>Day 9</td><td>모든 개발 문서에 테스트 계획 필수</td><td>계획만 있고 테스트 계획이 없던 문서들</td></tr>
-    </table>
-
-    <div class="insight" style="margin-top:20px">
-      <div class="insight-label">교훈</div>
-      <p>규칙만으로는 안 된다. <span class="bold">기계로 강제하지 않으면 규칙은 무시한다.</span></p>
-    </div>
+  <!-- Slide 14 -->
+  <div class="slide" data-index="20">
+    <h2>다음에 해볼 만한 일</h2>
+    <p>멀티 프로바이더 엔진, 도구 시스템, MCP, 플러그인, 세션 영속화, Transport 추상화, DAG 엔진. 그리고 이제 CLI까지 갖추고 나니 이 기반 위에서 동작하는 무언가에 대한 아이디어가 계속 떠오르고 있습니다.</p>
+    <p style="margin-top:24px;font-size:1.2rem;color:var(--green);font-family:var(--mono)">하나씩 만들어보겠습니다.</p>
   </div>
 
-  <!-- Slide 15 -->
-  <div class="slide" data-index="20" style="justify-content:center;align-items:center;text-align:center;">
-    <h2 style="font-size:2.4rem;margin-bottom:40px">아이디어가 멈추질 않는다</h2>
-    <p style="max-width:600px;text-align:center;margin:0 auto;font-size:1.1rem;line-height:2;color:var(--text-dim)">
-      이미 가지고 있는 기반들 —<br>
-      멀티 프로바이더 엔진. 도구 시스템. MCP. 플러그인.<br>
-      세션 영속화. Transport 추상화. DAG 엔진.<br>
-      그리고 이제 CLI.
-    </p>
-    <p style="max-width:600px;text-align:center;margin:32px auto 0;font-size:1.3rem;color:var(--green);font-family:var(--mono)">
-      이게 이미 다 있으니까,<br>"이 위에 뭘 더 만들 수 있지?"
-    </p>
-    <p class="dim" style="margin-top:40px;font-size:0.95rem">한동안 잠을 줄여야 할 것 같다.</p>
+  <!-- Slide: 감사합니다 -->
+  <div class="slide" data-index="21" style="justify-content:center;align-items:center;text-align:center;">
+    <h2 style="font-size:2.4rem;margin-bottom:32px">감사합니다</h2>
+    <div class="code-block" style="display:inline-block;font-size:1.1rem;padding:16px 32px;margin-bottom:24px;text-align:left"><span style="color:var(--text-dim)"># https://robota.io</span>
+
+$ npm install -g @robota-sdk/agent-cli
+$ robota</div>
+    <p class="dim" style="font-size:1rem;margin-top:16px">많은 관심 부탁드립니다.</p>
   </div>
 
 </div>
