@@ -93,6 +93,16 @@ export function createApp(): express.Application {
   app.post('/api/v1/remote/chat', async (req, res) => {
     try {
       const { provider: providerName, messages, model } = req.body;
+      if (!providerName || typeof providerName !== 'string') {
+        res.status(400).json({ error: 'Missing or invalid "provider" field' });
+        return;
+      }
+      if (!Array.isArray(messages) || messages.length === 0) {
+        res
+          .status(400)
+          .json({ error: 'Missing or invalid "messages" field: must be a non-empty array' });
+        return;
+      }
       const provider = providers[providerName];
       if (!provider) {
         res.status(400).json({ error: `Unknown provider: ${providerName}` });

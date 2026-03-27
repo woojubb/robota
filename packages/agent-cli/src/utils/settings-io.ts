@@ -12,10 +12,16 @@ export function getUserSettingsPath(): string {
   return join(home, '.robota', 'settings.json');
 }
 
-/** Read settings from a JSON file. Returns empty object if file doesn't exist. */
+/** Read settings from a JSON file. Returns empty object if file doesn't exist or is corrupt. */
 export function readSettings(path: string): Record<string, unknown> {
   if (!existsSync(path)) return {};
-  return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  const raw = readFileSync(path, 'utf8');
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    process.stderr.write(`Warning: corrupt settings file at ${path}, resetting to defaults\n`);
+    return {};
+  }
 }
 
 /** Write settings to a JSON file, creating parent directories as needed. */

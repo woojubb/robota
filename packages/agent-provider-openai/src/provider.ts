@@ -2,16 +2,11 @@ import OpenAI from 'openai';
 import type { IOpenAIProviderOptions } from './types';
 import type { IOpenAIError } from './types/api-types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
-import type {
-  TUniversalMessage,
-  IChatOptions,
-  IToolCall,
-  IToolSchema,
-  IAssistantMessage,
-} from '@robota-sdk/agent-core';
+import type { TUniversalMessage, IChatOptions, IAssistantMessage } from '@robota-sdk/agent-core';
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { SilentLogger } from '@robota-sdk/agent-core';
+import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
 
 /**
  * OpenAI provider implementation for Robota
@@ -59,14 +54,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     this.responseParser = new OpenAIResponseParser(this.logger);
 
     // Initialize payload logger
-    this.payloadLogger = this.initializePayloadLogger(options) ?? undefined;
-  }
-
-  /**
-   * Initialize payload logger
-   */
-  private initializePayloadLogger(options: IOpenAIProviderOptions): IPayloadLogger | undefined {
-    return options.payloadLogger;
+    this.payloadLogger = options.payloadLogger;
   }
 
   /**
@@ -100,7 +88,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
     try {
       // 1. Convert TUniversalMessage → OpenAI format
-      const openaiMessages = this.convertToOpenAIMessages(messages);
+      const openaiMessages = convertToOpenAIMessages(messages);
 
       // 2. Validate required model parameter
       if (!options?.model) {
@@ -116,7 +104,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         ...(options?.temperature !== undefined && { temperature: options.temperature }),
         ...(options?.maxTokens && { max_tokens: options.maxTokens }),
         ...(options?.tools && {
-          tools: this.convertToOpenAITools(options.tools),
+          tools: convertToOpenAITools(options.tools),
           tool_choice: 'auto',
         }),
       };
@@ -136,7 +124,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
       const response = await this.client.chat.completions.create(requestParams);
 
-      // 3. Convert OpenAI response → TUniversalMessage
+      // 4. Convert OpenAI response → TUniversalMessage
       return this.responseParser.parseResponse(response);
     } catch (error) {
       const openaiError = error as IOpenAIError;
@@ -174,7 +162,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
     try {
       // 1. Convert TUniversalMessage → OpenAI format
-      const openaiMessages = this.convertToOpenAIMessages(messages);
+      const openaiMessages = convertToOpenAIMessages(messages);
 
       // 2. Validate required model parameter
       if (!options?.model) {
@@ -191,7 +179,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         ...(options?.temperature !== undefined && { temperature: options.temperature }),
         ...(options?.maxTokens && { max_tokens: options.maxTokens }),
         ...(options?.tools && {
-          tools: this.convertToOpenAITools(options.tools),
+          tools: convertToOpenAITools(options.tools),
           tool_choice: 'auto',
         }),
       };
@@ -211,7 +199,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
       const stream = await this.client.chat.completions.create(requestParams);
 
-      // 3. Stream conversion: OpenAI chunks → TUniversalMessage
+      // 4. Stream conversion: OpenAI chunks → TUniversalMessage
       for await (const chunk of stream) {
         const universalMessage = this.responseParser.parseStreamingChunk(chunk);
         if (universalMessage) {
@@ -238,75 +226,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   }
 
   /**
-   * Convert TUniversalMessage array to OpenAI format
-   */
-  private convertToOpenAIMessages(
-    messages: TUniversalMessage[],
-  ): OpenAI.Chat.ChatCompletionMessageParam[] {
-    return messages.map((msg) => {
-      switch (msg.role) {
-        case 'user':
-          return {
-            role: 'user' as const,
-            content: msg.content || '',
-          };
-        case 'assistant': {
-          const assistantMsg = msg as IAssistantMessage;
-          if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
-            return {
-              role: 'assistant' as const,
-              // IMPORTANT: Preserve null for tool calls as per OpenAI API spec
-              content: assistantMsg.content === '' ? null : assistantMsg.content || null,
-              tool_calls: assistantMsg.toolCalls.map((toolCall: IToolCall) => ({
-                id: toolCall.id,
-                type: 'function' as const,
-                function: {
-                  name: toolCall.function.name,
-                  arguments: toolCall.function.arguments,
-                },
-              })),
-            };
-          }
-          return {
-            role: 'assistant' as const,
-            content: msg.content || '',
-          };
-        }
-        case 'system':
-          return {
-            role: 'system' as const,
-            content: msg.content || '',
-          };
-        case 'tool':
-          return {
-            role: 'tool' as const,
-            content: msg.content || '',
-            tool_call_id: msg.toolCallId || '',
-          };
-        default: {
-          const exhaustive: never = msg;
-          throw new Error(`Unsupported message role: ${(exhaustive as { role: string }).role}`);
-        }
-      }
-    });
-  }
-
-  /**
-   * Convert tool schemas to OpenAI format
-   */
-  private convertToOpenAITools(tools: IToolSchema[]): OpenAI.Chat.ChatCompletionTool[] {
-    return tools.map((tool) => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters,
-      },
-    }));
-  }
-
-  /**
-   * Validate messages before sending to API
+   * Validate messages before sending to API.
    *
    * IMPORTANT: OpenAI API Content Handling Policy
    * =============================================

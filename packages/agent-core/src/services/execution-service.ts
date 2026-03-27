@@ -1,39 +1,34 @@
-import {
-  IAgentConfig,
-  IAssistantMessage,
-  IToolMessage,
-  IExecutionContextInjection,
-} from '../interfaces/agent';
-import { TMetadata } from '../interfaces/types';
+import { IAgentConfig, IAssistantMessage, IExecutionContextInjection } from '../interfaces/agent';
 import { ToolExecutionService } from './tool-execution-service';
-import type { IAIProviderManager } from '../interfaces/manager';
-import type { IToolManager } from '../interfaces/manager';
+import type { IAIProviderManager, IToolManager } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { createLogger, type ILogger } from '../utils/logger';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IEventService } from '../interfaces/event-service';
-import { randomUUID } from 'node:crypto';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { ConversationStore } from '../managers/conversation-history-manager';
 
 // Re-export constants for public API compatibility
 export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-constants';
 
-import { EXECUTION_EVENTS } from './execution-constants';
 import {
-  type IResolvedProviderInfo,
   type IExecutionRoundState,
   type IExecutionContext,
   type IExecutionResult,
   type IExecutionServicePluginStats,
-  PREVIEW_LENGTH,
-  ID_RADIX,
-  ID_RANDOM_LENGTH,
 } from './execution-types';
 import { ExecutionEventEmitter } from './execution-event-emitter';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
+import { TMetadata } from '../interfaces/types';
 import { executeStream as executeStreamFn } from './execution-stream';
-import { executeRound } from './execution-round';
+import {
+  resolveProviderAndTools,
+  validateProvider,
+  initializeConversationStore,
+  handleExecutionError,
+  generateExecutionId,
+  requireConversationId,
+} from './execution-service-helpers';
+import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
 
 /**
  * Service that orchestrates the entire execution pipeline.
@@ -118,9 +113,9 @@ export class ExecutionService {
     config: IAgentConfig,
     context?: Partial<IExecutionContext>,
   ): Promise<IExecutionResult> {
-    const executionId = this.generateExecutionId();
+    const executionId = generateExecutionId();
     const startTime = new Date();
-    const conversationId = this.requireConversationId(context, 'execute');
+    const conversationId = requireConversationId(context, 'execute');
 
     const fullContext: IExecutionContext = {
       messages,
@@ -143,7 +138,7 @@ export class ExecutionService {
       hasContext: !!context,
     });
 
-    const resolved = this.resolveProviderAndTools(config);
+    const resolved = resolveProviderAndTools(this.aiProviders, this.tools, config);
     this.eventEmitter.emitExecutionStartEvent(
       input,
       config,
@@ -153,7 +148,8 @@ export class ExecutionService {
       executionId,
     );
 
-    const conversationStore = this.initializeConversationStore(
+    const conversationStore = initializeConversationStore(
+      this.conversationHistory,
       conversationId,
       messages,
       config,
@@ -174,7 +170,7 @@ export class ExecutionService {
         this.logger,
       );
 
-      this.validateProvider(resolved);
+      validateProvider(resolved);
 
       const roundState: IExecutionRoundState = {
         toolsExecuted: [],
@@ -184,178 +180,44 @@ export class ExecutionService {
         cumulativeInputTokens: 0,
       };
 
-      const initialMessages = conversationStore.getMessages();
-      for (const msg of initialMessages) {
+      for (const msg of conversationStore.getMessages()) {
         if (msg.role === 'assistant') {
           roundState.runningAssistantCount++;
           roundState.lastTrackedAssistantMessage = msg as IAssistantMessage;
         }
       }
 
-      const maxRounds = 10;
-      const roundDeps = {
-        toolExecutionService: this.toolExecutionService,
-        plugins: this.plugins,
-        logger: this.logger,
-        eventEmitter: this.eventEmitter,
-        cacheService: this.cacheService,
-      };
+      await runExecutionLoop(
+        conversationStore,
+        conversationId,
+        executionId,
+        fullContext,
+        config,
+        resolved,
+        roundState,
+        context?.signal,
+        {
+          toolExecutionService: this.toolExecutionService,
+          plugins: this.plugins,
+          logger: this.logger,
+          eventEmitter: this.eventEmitter,
+          cacheService: this.cacheService,
+        },
+      );
 
-      while (roundState.currentRound < maxRounds) {
-        if (context?.signal?.aborted) break;
-        roundState.currentRound++;
-        const shouldBreak = await executeRound(
-          roundState,
-          maxRounds,
-          conversationStore,
-          conversationId,
-          executionId,
-          fullContext,
-          config,
-          resolved,
-          roundDeps,
-        );
-        if (shouldBreak) break;
-        if (context?.signal?.aborted) break;
-      }
-
-      // If loop ended without a final text response (e.g., maxRounds reached while
-      // AI was still issuing tool calls), make one more provider call so the AI
-      // can generate a summary from the results collected so far.
-      const allMsgs = conversationStore.getMessages();
-      const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : undefined;
-      const hasTextResponse =
-        lastMsg?.role === 'assistant' &&
-        typeof lastMsg.content === 'string' &&
-        lastMsg.content.length > 0 &&
-        (!('toolCalls' in lastMsg) || (lastMsg.toolCalls as unknown[]).length === 0);
-
-      if (!hasTextResponse) {
-        this.logger.warn('No final text response — forcing summary call', {
-          maxRounds,
-          currentRound: roundState.currentRound,
-          conversationId,
-        });
-        try {
-          // Inject instruction to summarize, then call provider directly
-          const syntheticMsg =
-            'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
-          conversationStore.addUserMessage(syntheticMsg);
-          const summaryMessages = conversationStore.getMessages();
-          const systemMsg = config.systemMessage ?? '';
-
-          // Ensure system message is included in the messages sent to the provider
-          const hasSystemMsg = summaryMessages.some(
-            (m) => m.role === 'system' && m.content === systemMsg,
-          );
-          const messagesForProvider =
-            systemMsg && !hasSystemMsg
-              ? [
-                  {
-                    id: randomUUID(),
-                    role: 'system' as const,
-                    content: systemMsg,
-                    state: 'complete' as const,
-                    timestamp: new Date(),
-                  },
-                  ...summaryMessages,
-                ]
-              : summaryMessages;
-
-          // Use streaming if onTextDelta is available on the provider
-          const chatOptions: { model: string; onTextDelta?: (delta: string) => void } = {
-            model: resolved.aiProviderInfo.model,
-          };
-          if (
-            'onTextDelta' in resolved.provider &&
-            typeof resolved.provider.onTextDelta === 'function'
-          ) {
-            chatOptions.onTextDelta = resolved.provider.onTextDelta as (delta: string) => void;
-          }
-
-          const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);
-
-          // Remove synthetic message from history to avoid polluting conversation
-          const currentMessages = conversationStore.getMessages();
-          const syntheticIndex = currentMessages.findIndex(
-            (m) => m.role === 'user' && m.content === syntheticMsg,
-          );
-          if (syntheticIndex !== -1) {
-            const cleaned = currentMessages.filter(
-              (m) => !(m.role === 'user' && m.content === syntheticMsg),
-            );
-            conversationStore.clear();
-            for (const m of cleaned) {
-              conversationStore.addMessage(m);
-            }
-          }
-
-          const responseText =
-            typeof forceResponse.content === 'string' ? forceResponse.content : '';
-          if (responseText) {
-            conversationStore.addAssistantMessage(responseText, [], forceResponse.metadata);
-          } else {
-            conversationStore.addAssistantMessage(
-              'Maximum rounds reached. Partial results available in conversation history.',
-            );
-          }
-        } catch (forceErr) {
-          this.logger.warn('Forced summary call failed', {
-            error: forceErr instanceof Error ? forceErr.message : String(forceErr),
-          });
-        }
-      }
-
-      const result = {
-        ...this.buildFinalResult(
-          conversationStore,
-          executionId,
-          startTime,
-          roundState.toolsExecuted,
-        ),
-        interrupted: context?.signal?.aborted ?? false,
-      };
-
-      await callPluginHook(
+      return finalizeExecution(
+        input,
+        conversationStore,
+        executionId,
+        startTime,
+        roundState,
+        conversationId,
+        context?.signal?.aborted ?? false,
+        context,
         this.plugins,
-        'afterRun',
-        {
-          input,
-          response: result.response,
-          metadata: context?.metadata as TMetadata,
-        },
         this.logger,
+        this.eventEmitter,
       );
-
-      this.logger.debug('Execution pipeline completed successfully', {
-        executionId,
-        conversationId,
-        duration: result.duration,
-        tokensUsed: result.tokensUsed,
-        toolsExecuted: result.toolsExecuted.length,
-        rounds: roundState.currentRound,
-      });
-
-      this.eventEmitter.emitExecution(
-        EXECUTION_EVENTS.COMPLETE,
-        {
-          result: {
-            success: true,
-            data: result.response.substring(0, PREVIEW_LENGTH) + '...',
-          },
-          metadata: {
-            method: 'execute',
-            success: true,
-            duration: result.duration,
-            tokensUsed: result.tokensUsed,
-            toolsExecuted: result.toolsExecuted,
-          },
-        },
-        conversationId,
-        executionId,
-      );
-
-      return result;
     } catch (error) {
       const isAbortError =
         error instanceof Error &&
@@ -363,10 +225,9 @@ export class ExecutionService {
           error.message.includes('aborted') ||
           error.message.includes('abort'));
       if (isAbortError) {
-        const abortMessages = conversationStore.getMessages();
         return {
           response: '',
-          messages: abortMessages,
+          messages: conversationStore.getMessages(),
           executionId,
           duration: Date.now() - startTime.getTime(),
           toolsExecuted: [],
@@ -374,16 +235,23 @@ export class ExecutionService {
           interrupted: true,
         };
       }
-      await this.handleExecutionError(error, fullContext, startTime, conversationId, executionId);
-      // Return a graceful result instead of throwing — prevents "No response received"
+      await handleExecutionError(
+        error,
+        fullContext,
+        startTime,
+        conversationId,
+        executionId,
+        this.plugins,
+        this.logger,
+        this.eventEmitter,
+      );
       const errMsg = error instanceof Error ? error.message : String(error);
-      const duration = Date.now() - startTime.getTime();
       return {
         response: `Error: ${errMsg}`,
         messages: [],
         tokensUsed: 0,
         toolsExecuted: [],
-        duration,
+        duration: Date.now() - startTime.getTime(),
         executionId,
         success: false,
       };
@@ -407,7 +275,7 @@ export class ExecutionService {
       plugins: this.plugins,
       logger: this.logger,
       eventEmitter: this.eventEmitter,
-      generateExecutionId: () => this.generateExecutionId(),
+      generateExecutionId: () => generateExecutionId(),
     });
   }
 
@@ -424,200 +292,5 @@ export class ExecutionService {
   clearPlugins(): void {
     this.plugins = [];
     this.logger.debug('All plugins cleared');
-  }
-
-  // --- Private helpers ---
-
-  private resolveProviderAndTools(config: IAgentConfig): IResolvedProviderInfo {
-    const currentInfo = this.aiProviders.getCurrentProvider();
-    const provider = currentInfo ? this.aiProviders.getProvider(currentInfo.provider) : null;
-    if (!currentInfo || !currentInfo.provider || !provider) {
-      throw new Error('[EXECUTION] Provider is required');
-    }
-    const availableTools = this.tools.getTools();
-    const aiProviderInfo = {
-      providerName: currentInfo.provider,
-      model: config.defaultModel.model,
-      temperature: config.defaultModel.temperature,
-      maxTokens: config.defaultModel.maxTokens,
-    };
-    const toolsInfo = availableTools.map((tool) => {
-      const paramSchema = tool.parameters as { properties?: Record<string, object> } | undefined;
-      const props = paramSchema?.properties;
-      if (!tool.description || tool.description.length === 0) {
-        throw new Error(`[EXECUTION] Tool "${tool.name}" is missing description`);
-      }
-      return {
-        name: tool.name,
-        description: tool.description,
-        parameters: props && typeof props === 'object' ? Object.keys(props) : [],
-      };
-    });
-    return { provider, currentInfo, aiProviderInfo, toolsInfo, availableTools };
-  }
-
-  private validateProvider(resolved: IResolvedProviderInfo): void {
-    if (!resolved.currentInfo) throw new Error('No AI provider configured');
-    if (!resolved.provider)
-      throw new Error(`AI provider '${resolved.currentInfo.provider}' not found`);
-    if (typeof resolved.provider.chat !== 'function') {
-      throw new Error('Provider must have chat method to support execution');
-    }
-  }
-
-  private initializeConversationStore(
-    conversationId: string,
-    messages: TUniversalMessage[],
-    config: IAgentConfig,
-    executionId: string,
-  ): ConversationStore {
-    const session = this.conversationHistory.getConversationStore(conversationId);
-    if (session.getMessageCount() === 0 && messages.length > 0) {
-      for (const msg of messages) {
-        if (msg.role === 'user') {
-          session.addUserMessage(msg.content, msg.metadata, msg.parts);
-        } else if (msg.role === 'assistant') {
-          session.addAssistantMessage(
-            msg.content,
-            (msg as IAssistantMessage).toolCalls,
-            msg.metadata,
-            msg.parts,
-          );
-        } else if (msg.role === 'system') {
-          session.addSystemMessage(msg.content, msg.metadata, msg.parts);
-        } else if (msg.role === 'tool') {
-          const toolName = msg.metadata?.['toolName'];
-          if (typeof toolName !== 'string' || toolName.length === 0) {
-            throw new Error('[EXECUTION] Tool message missing toolName metadata');
-          }
-          session.addToolMessageWithId(
-            msg.content,
-            (msg as IToolMessage).toolCallId,
-            toolName,
-            msg.metadata,
-            msg.parts,
-          );
-        }
-      }
-    }
-    if (config.systemMessage) {
-      session.addSystemMessage(config.systemMessage, { executionId });
-    }
-    return session;
-  }
-
-  private buildFinalResult(
-    conversationStore: ConversationStore,
-    executionId: string,
-    startTime: Date,
-    toolsExecuted: string[],
-  ): IExecutionResult {
-    const finalMessages = conversationStore.getMessages();
-    // Find last assistant message with actual content (skip stripped tool-round messages)
-    const lastAssistantMessage = finalMessages
-      .filter(
-        (msg) =>
-          msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0,
-      )
-      .pop();
-    const response: string = lastAssistantMessage
-      ? (lastAssistantMessage.content as string)
-      : 'No response received. The context window may be full.';
-    const duration = Date.now() - startTime.getTime();
-    return {
-      response,
-      messages: finalMessages.map((msg) => {
-        if (typeof msg.content !== 'string')
-          throw new Error('[EXECUTION] Message content is required');
-        return {
-          role: msg.role,
-          content: msg.content,
-          timestamp: msg.timestamp,
-          metadata: msg.metadata,
-          ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-          ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {}),
-        };
-      }) as TUniversalMessage[],
-      executionId,
-      duration,
-      tokensUsed: finalMessages
-        .filter((msg) => msg.metadata?.['usage'])
-        .reduce((sum, msg) => {
-          const usage = msg.metadata?.['usage'];
-          if (usage && typeof usage === 'object' && 'totalTokens' in usage) {
-            const totalTokens = Number(usage.totalTokens);
-            if (Number.isNaN(totalTokens))
-              throw new Error('[EXECUTION] totalTokens must be a number');
-            return sum + totalTokens;
-          }
-          return sum;
-        }, 0),
-      toolsExecuted,
-      success: !!lastAssistantMessage,
-    };
-  }
-
-  private async handleExecutionError(
-    error: unknown,
-    fullContext: IExecutionContext,
-    startTime: Date,
-    conversationId: string,
-    executionId: string,
-  ): Promise<void> {
-    const duration = Date.now() - startTime.getTime();
-    const normalizedError = error instanceof Error ? error : new Error(String(error));
-    await callPluginHook(
-      this.plugins,
-      'onError',
-      {
-        error: normalizedError,
-        executionContext: this.convertExecutionContextToPluginFormat(fullContext),
-      },
-      this.logger,
-    );
-    this.logger.error('Execution pipeline failed', {
-      executionId,
-      conversationId,
-      duration,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    this.eventEmitter.emitExecution(
-      EXECUTION_EVENTS.ERROR,
-      {
-        error: error instanceof Error ? error.message : String(error),
-        metadata: { method: 'execute', success: false, duration },
-      },
-      conversationId,
-      executionId,
-    );
-  }
-
-  private generateExecutionId(): string {
-    return `exec_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
-  }
-
-  private requireConversationId(
-    context: { conversationId?: string } | undefined,
-    label: string,
-  ): string {
-    if (!context?.conversationId || context.conversationId.length === 0) {
-      throw new Error(`[EXECUTION] conversationId is required for ${label}`);
-    }
-    return context.conversationId;
-  }
-
-  private convertExecutionContextToPluginFormat(
-    context: IExecutionContext,
-  ): Record<string, string | number | boolean> {
-    const conversationId = this.requireConversationId(context, 'plugin-context');
-    const payload: Record<string, string | number | boolean> = {
-      conversationId,
-      executionId: context.executionId,
-      startTime: context.startTime.toISOString(),
-      messageCount: context.messages.length,
-    };
-    if (context.sessionId) payload.sessionId = context.sessionId;
-    if (context.userId) payload.userId = context.userId;
-    return payload;
   }
 }

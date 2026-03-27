@@ -18,6 +18,12 @@ import type {
   IExecutionAnalyticsPluginStats,
 } from './types';
 import { aggregateExecutionStats } from './analytics-aggregation';
+import {
+  validateExecutionAnalyticsOptions,
+  generateExecutionId,
+  findActiveExecution,
+  buildErrorExecutionStats,
+} from './execution-analytics-helpers';
 
 const DEFAULT_MAX_ENTRIES = 1000;
 const DEFAULT_PERFORMANCE_THRESHOLD_MS = 5000;
@@ -46,7 +52,6 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     super();
     this.category = PluginCategory.MONITORING;
     this.priority = PluginPriority.NORMAL;
-    this.validateOptions(options);
     this.pluginOptions = {
       enabled: options.enabled ?? true,
       maxEntries: options.maxEntries || DEFAULT_MAX_ENTRIES,
@@ -58,6 +63,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
       moduleEvents: options.moduleEvents ?? [],
       subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
     };
+    validateExecutionAnalyticsOptions(options, this.pluginOptions);
     this.logger = createLogger('ExecutionAnalyticsPlugin');
     this.beforeRun = this.beforeRun.bind(this);
     this.afterRun = this.afterRun.bind(this);
@@ -67,7 +73,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
   }
 
   override beforeRun = async (input: string, _options?: IRunOptions): Promise<void> => {
-    this.activeExecutions.set(this.generateExecutionId(), {
+    this.activeExecutions.set(generateExecutionId('exec', ++this.executionCounter), {
       startTime: Date.now(),
       operation: 'run',
       input: input.substring(0, PREVIEW_LENGTH),
@@ -79,7 +85,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     response: string,
     options?: IRunOptions,
   ): Promise<void> => {
-    const execution = this.findActiveExecution('run', input);
+    const execution = findActiveExecution(this.activeExecutions, 'run', input);
     if (!execution) return;
     const { executionId, executionData } = execution;
     const duration = Date.now() - executionData.startTime;
@@ -108,7 +114,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
   };
 
   override beforeProviderCall = async (messages: TUniversalMessage[]): Promise<void> => {
-    this.activeExecutions.set(this.generateExecutionId('provider'), {
+    this.activeExecutions.set(generateExecutionId('provider', ++this.executionCounter), {
       startTime: Date.now(),
       operation: 'provider-call',
       input: messages[0]?.content || 'N/A',
@@ -119,7 +125,11 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     messages: TUniversalMessage[],
     response: TUniversalMessage,
   ): Promise<void> => {
-    const execution = this.findActiveExecution('provider-call', messages[0]?.content || '');
+    const execution = findActiveExecution(
+      this.activeExecutions,
+      'provider-call',
+      messages[0]?.content || '',
+    );
     if (!execution) return;
     const { executionId, executionData } = execution;
     const duration = Date.now() - executionData.startTime;
@@ -153,7 +163,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
   };
 
   override async beforeToolCall(toolName: string, _parameters: TToolParameters): Promise<void> {
-    this.activeExecutions.set(this.generateExecutionId('tool'), {
+    this.activeExecutions.set(generateExecutionId('tool', ++this.executionCounter), {
       startTime: Date.now(),
       operation: 'tool-call',
       input: toolName,
@@ -165,7 +175,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     parameters: TToolParameters,
     result: IToolExecutionResult,
   ): Promise<void> {
-    const execution = this.findActiveExecution('tool-call', toolName);
+    const execution = findActiveExecution(this.activeExecutions, 'tool-call', toolName);
     if (!execution) return;
     const { executionId, executionData } = execution;
     const duration = Date.now() - executionData.startTime;
@@ -196,28 +206,15 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     const activeExecution = Array.from(this.activeExecutions.entries())[0];
     if (activeExecution) {
       const [executionId, executionData] = activeExecution;
-      const duration = Date.now() - executionData.startTime;
-      const errorInfo = this.pluginOptions.trackErrors
-        ? {
-            message: error.message,
-            ...(error.stack && { stack: error.stack }),
-            type: error.constructor.name,
-          }
-        : undefined;
-      this.recordStats({
-        executionId,
-        operation: executionData.operation,
-        startTime: new Date(executionData.startTime),
-        endTime: new Date(),
-        duration,
-        success: false,
-        ...(errorInfo && { error: errorInfo }),
-        metadata: {
-          errorSource: 'onError-hook',
-          contextType: context ? typeof context : 'none',
-          hasContext: !!context,
-        },
-      });
+      this.recordStats(
+        buildErrorExecutionStats(
+          executionId,
+          executionData,
+          error,
+          this.pluginOptions.trackErrors,
+          context,
+        ),
+      );
       this.activeExecutions.delete(executionId);
     }
   }
@@ -258,22 +255,15 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     oldestRecord?: Date;
     newestRecord?: Date;
   } {
-    const result: {
-      totalRecorded: number;
-      activeExecutions: number;
-      memoryUsage: number;
-      oldestRecord?: Date;
-      newestRecord?: Date;
-    } = {
+    const oldest = this.executionHistory[0];
+    const newest = this.executionHistory[this.executionHistory.length - 1];
+    return {
       totalRecorded: this.executionHistory.length,
       activeExecutions: this.activeExecutions.size,
       memoryUsage: this.executionHistory.length + this.activeExecutions.size,
+      ...(oldest && { oldestRecord: oldest.startTime }),
+      ...(newest && { newestRecord: newest.endTime }),
     };
-    const oldest = this.executionHistory[0];
-    const newest = this.executionHistory[this.executionHistory.length - 1];
-    if (oldest) result.oldestRecord = oldest.startTime;
-    if (newest) result.newestRecord = newest.endTime;
-    return result;
   }
 
   async destroy(): Promise<void> {
@@ -289,16 +279,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     this.clearStats();
   }
 
-  override getStatus(): {
-    name: string;
-    version: string;
-    enabled: boolean;
-    initialized: boolean;
-    category: PluginCategory;
-    priority: number;
-    subscribedEventsCount: number;
-    hasEventEmitter: boolean;
-  } {
+  override getStatus() {
     return {
       name: this.name,
       version: this.version,
@@ -330,36 +311,5 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
   private recordStats(stats: IExecutionStats): void {
     this.executionHistory.push(stats);
     if (this.executionHistory.length > this.pluginOptions.maxEntries) this.executionHistory.shift();
-  }
-
-  private generateExecutionId(prefix: string = 'exec'): string {
-    return `${prefix}-${Date.now()}-${++this.executionCounter}`;
-  }
-
-  private findActiveExecution(
-    operation: string,
-    input?: string,
-  ):
-    | {
-        executionId: string;
-        executionData: { startTime: number; operation: string; input?: string };
-      }
-    | undefined {
-    for (const [executionId, executionData] of this.activeExecutions.entries()) {
-      if (executionData.operation === operation) {
-        if (operation === 'run' && input && executionData.input !== input) continue;
-        return { executionId, executionData };
-      }
-    }
-    return undefined;
-  }
-
-  private validateOptions(options: IExecutionAnalyticsOptions): void {
-    if (options.maxEntries !== undefined && options.maxEntries < 1) {
-      this.pluginOptions.maxEntries = 1000;
-    }
-    if (options.performanceThreshold !== undefined && options.performanceThreshold < 0) {
-      this.pluginOptions.performanceThreshold = 5000;
-    }
   }
 }

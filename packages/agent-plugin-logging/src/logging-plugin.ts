@@ -6,10 +6,8 @@ import {
   type ILogger,
   SilentLogger,
   PluginError,
-  ConfigurationError,
   type IEventEmitterEventData,
   type TEventName,
-  EVENT_EMITTER_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import {
@@ -21,16 +19,18 @@ import {
   ILogFormatter,
 } from './types';
 import {
-  ConsoleLogStorage,
-  FileLogStorage,
-  RemoteLogStorage,
-  SilentLogStorage,
-} from './storages/index';
+  validateLoggingOptions,
+  createLoggingStorage,
+  extractLoggingModuleData,
+  LOGGING_MODULE_EVENT_MAP,
+  logExecutionStartHelper,
+  logExecutionCompleteHelper,
+  logToolExecutionHelper,
+} from './logging-helpers';
 
 const DEFAULT_MAX_LOGS = 10000;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 30000;
-const PREVIEW_LENGTH = 100;
 
 /**
  * Logging context data - structured data for log entries
@@ -96,7 +96,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     this.priority = PluginPriority.HIGH;
 
     // Validate options
-    this.validateOptions(options);
+    validateLoggingOptions(options);
 
     // Set defaults
     this.pluginOptions = {
@@ -119,7 +119,13 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     };
 
     // Initialize storage
-    this.storage = this.createStorage();
+    this.storage = createLoggingStorage(
+      this.pluginOptions.strategy,
+      this.pluginOptions.filePath,
+      this.pluginOptions.remoteEndpoint,
+      this.pluginOptions.flushInterval,
+      this.pluginOptions.formatter,
+    );
 
     this.logger.info('LoggingPlugin initialized', {
       strategy: this.pluginOptions.strategy,
@@ -127,65 +133,6 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
       maxLogs: this.pluginOptions.maxLogs,
     });
   }
-
-  /** Event name → log descriptor mapping. Eliminates the 9-case switch statement. */
-  private static readonly MODULE_EVENT_MAP: ReadonlyMap<
-    string,
-    { level: TLogLevel; message: string; operation: string }
-  > = new Map([
-    [
-      EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
-      {
-        level: 'info',
-        message: 'Module initialization started',
-        operation: 'module_initialize_start',
-      },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
-      {
-        level: 'info',
-        message: 'Module initialization completed',
-        operation: 'module_initialize_complete',
-      },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
-      {
-        level: 'error',
-        message: 'Module initialization failed',
-        operation: 'module_initialize_error',
-      },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START,
-      { level: 'debug', message: 'Module execution started', operation: 'module_execution_start' },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
-      {
-        level: 'debug',
-        message: 'Module execution completed',
-        operation: 'module_execution_complete',
-      },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
-      { level: 'error', message: 'Module execution failed', operation: 'module_execution_error' },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START,
-      { level: 'debug', message: 'Module disposal started', operation: 'module_dispose_start' },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
-      { level: 'info', message: 'Module disposal completed', operation: 'module_dispose_complete' },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR,
-      { level: 'error', message: 'Module disposal failed', operation: 'module_dispose_error' },
-    ],
-  ]);
 
   /**
    * Routes module lifecycle events (initialize, execute, dispose) to the
@@ -196,10 +143,10 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     eventData: IEventEmitterEventData,
   ): Promise<void> {
     try {
-      const descriptor = LoggingPlugin.MODULE_EVENT_MAP.get(eventName);
+      const descriptor = LOGGING_MODULE_EVENT_MAP.get(eventName);
       if (!descriptor) return;
 
-      const { moduleName, moduleType, duration, success } = LoggingPlugin.extractModuleData(
+      const { moduleName, moduleType, duration, success } = extractLoggingModuleData(
         eventData.data,
       );
       const context: ILoggingContextData = { moduleName, moduleType };
@@ -222,23 +169,6 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
         error instanceof Error ? error : new Error(String(error)),
       );
     }
-  }
-
-  /** Safely extracts module data fields from untyped event data. */
-  private static extractModuleData(data: unknown): {
-    moduleName: string;
-    moduleType: string;
-    duration?: number;
-    success?: boolean;
-  } {
-    const record =
-      typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
-    return {
-      moduleName: typeof record['moduleName'] === 'string' ? record['moduleName'] : 'unknown',
-      moduleType: typeof record['moduleType'] === 'string' ? record['moduleType'] : 'unknown',
-      ...(typeof record['duration'] === 'number' && { duration: record['duration'] }),
-      ...(typeof record['success'] === 'boolean' && { success: record['success'] }),
-    };
   }
 
   /**
@@ -274,9 +204,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
   }
 
-  /**
-   * Log debug message
-   */
+  /** Log debug message */
   async debug(
     message: string,
     context?: ILoggingContextData,
@@ -285,9 +213,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     await this.log('debug', message, context, metadata);
   }
 
-  /**
-   * Log info message
-   */
+  /** Log info message */
   async info(
     message: string,
     context?: ILoggingContextData,
@@ -296,9 +222,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     await this.log('info', message, context, metadata);
   }
 
-  /**
-   * Log warning message
-   */
+  /** Log warning message */
   async warn(
     message: string,
     context?: ILoggingContextData,
@@ -337,15 +261,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     userInput: string,
     metadata?: ILogEntry['metadata'],
   ): Promise<void> {
-    await this.info(
-      'Execution started',
-      { userInput: userInput.substring(0, PREVIEW_LENGTH) },
-      {
-        executionId,
-        operation: 'execution_start',
-        ...metadata,
-      },
-    );
+    await logExecutionStartHelper(this, executionId, userInput, metadata);
   }
 
   /**
@@ -356,16 +272,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     duration: number,
     metadata?: ILogEntry['metadata'],
   ): Promise<void> {
-    await this.info(
-      'Execution completed',
-      { duration },
-      {
-        executionId,
-        operation: 'execution_complete',
-        ...(duration !== undefined && { duration }),
-        ...metadata,
-      },
-    );
+    await logExecutionCompleteHelper(this, executionId, duration, metadata);
   }
 
   /**
@@ -378,17 +285,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     success?: boolean,
     metadata?: ILogEntry['metadata'],
   ): Promise<void> {
-    const message = success ? 'Tool executed successfully' : 'Tool execution failed';
-    const level: TLogLevel = success ? 'info' : 'error';
-
-    const logMetadata = {
-      executionId,
-      operation: 'tool_execution',
-      ...(duration !== undefined && { duration }),
-      ...(metadata && typeof metadata === 'object' ? metadata : {}),
-    } as ILogEntry['metadata'];
-
-    await this.log(level, message, { toolName, success: success ?? false }, logMetadata);
+    await logToolExecutionHelper(this, toolName, executionId, duration, success, metadata);
   }
 
   /**
@@ -419,79 +316,10 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
   }
 
-  /**
-   * Check if message should be logged based on level
-   */
+  /** Check if message should be logged based on level */
   private shouldLog(level: TLogLevel): boolean {
     const currentLevelIndex = this.logLevels.indexOf(this.pluginOptions.level);
     const messageLevelIndex = this.logLevels.indexOf(level);
     return messageLevelIndex >= currentLevelIndex;
-  }
-
-  /**
-   * Validate plugin options
-   */
-  private validateOptions(options: ILoggingPluginOptions): void {
-    if (!options.strategy) {
-      throw new ConfigurationError('Logging strategy is required');
-    }
-
-    if (!['console', 'file', 'remote', 'silent'].includes(options.strategy)) {
-      throw new ConfigurationError('Invalid logging strategy', {
-        validStrategies: ['console', 'file', 'remote', 'silent'],
-        provided: options.strategy,
-      });
-    }
-
-    if (options.level && !['debug', 'info', 'warn', 'error'].includes(options.level)) {
-      throw new ConfigurationError('Invalid log level', {
-        validLevels: ['debug', 'info', 'warn', 'error'],
-        provided: options.level,
-      });
-    }
-
-    if (options.strategy === 'file' && !options.filePath) {
-      throw new ConfigurationError('File path is required for file logging strategy');
-    }
-
-    if (options.strategy === 'remote' && !options.remoteEndpoint) {
-      throw new ConfigurationError('Remote endpoint is required for remote logging strategy');
-    }
-
-    if (options.maxLogs !== undefined && options.maxLogs <= 0) {
-      throw new ConfigurationError('Max logs must be positive');
-    }
-
-    if (options.batchSize !== undefined && options.batchSize <= 0) {
-      throw new ConfigurationError('Batch size must be positive');
-    }
-
-    if (options.flushInterval !== undefined && options.flushInterval <= 0) {
-      throw new ConfigurationError('Flush interval must be positive');
-    }
-  }
-
-  /**
-   * Create storage instance based on strategy
-   */
-  private createStorage(): ILogStorage {
-    const formatter = this.pluginOptions.formatter;
-
-    switch (this.pluginOptions.strategy) {
-      case 'console':
-        return new ConsoleLogStorage(formatter);
-      case 'file':
-        return new FileLogStorage(this.pluginOptions.filePath, formatter);
-      case 'remote':
-        return new RemoteLogStorage(this.pluginOptions.remoteEndpoint, {
-          timeout: this.pluginOptions.flushInterval,
-        });
-      case 'silent':
-        return new SilentLogStorage();
-      default:
-        throw new ConfigurationError('Unknown logging strategy', {
-          strategy: this.pluginOptions.strategy,
-        });
-    }
   }
 }
