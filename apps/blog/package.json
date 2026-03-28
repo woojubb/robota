@@ -12,8 +12,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^6.1.1",
     "@astrojs/rss": "^4.0.0",
-    "@astrojs/sitemap": "^3.3.0"
+    "@astrojs/sitemap": "^3.3.0",
+    "astro": "^6.1.1",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-pretty-code": "^0.14.3",
+    "remark-toc": "^9.0.0",
+    "shiki": "^4.0.2"
   }
 }
