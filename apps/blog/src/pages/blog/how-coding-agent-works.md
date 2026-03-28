@@ -190,10 +190,16 @@ AI 모델은 한 번에 처리하는 컨텍스트 크기를 제한한다. Sonnet
 
 기존 Robota SDK 위에 계층을 나눠서 쌓았다:
 
-- `agent-cli` — 터미널 UI (Ink/React)
-- `agent-sdk` — InteractiveSession, 커맨드, 스킬, 플러그인
-- `agent-sessions` — Session, 퍼미션, 훅, 컨텍스트
-- `agent-core` — Robota 라이브러리, 프로바이더, 도구, 실행 루프
+```mermaid
+%%{ init: { 'flowchart': { 'nodeSpacing': 30, 'rankSpacing': 40 } } }%%
+graph TD
+  CLI["agent-cli<br/>터미널 UI"]
+  SDK["agent-sdk<br/>세션, 커맨드, 스킬"]
+  SESSIONS["agent-sessions<br/>퍼미션, 훅, 컨텍스트"]
+  CORE["agent-core<br/>프로바이더, 도구, 실행 루프"]
+
+  CLI --> SDK --> SESSIONS --> CORE
+```
 
 ## 구현한 기능 목록
 
