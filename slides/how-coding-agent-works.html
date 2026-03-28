@@ -661,10 +661,11 @@ tr:last-child td { border-bottom: none; }
     <h2>"나도 만들 수 있을까?"</h2>
     <p class="slide-subtitle">AI 에이전트 라이브러리를 만들어 배포했다. 이걸로 Claude Code 같은 CLI를 만들 수 있을까?</p>
 
-    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 프로바이더 AI 엔진, 도구 시스템, 플러그인, Team 에이전트까지 개발했고 CLI도 시험해 봤다. Robota는 Cursor로 바이브 코딩하면서 개발했는데, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
-    <p>당시에는 AGENTS.md 같은 개념이 없어서 코딩 에이전트에 적용해 보지 못했지만, 최근에 Claude Code를 매일 쓰면서 "나도 코딩을 도와주는 CLI를 구현할 수 있을까?" 하는 생각이 들었다.</p>
+    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 프로바이더 AI 엔진, 도구, 플러그인, Team 에이전트까지 갖췄다.</p>
+    <p>Cursor로 바이브 코딩하면서 만들었고, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
+    <p>최근 Claude Code를 매일 쓰면서 AGENTS.md라는 개념을 알게 됐고, 내 SDK 위에 코딩 에이전트 CLI를 만들 수 있겠다는 생각이 들었다.</p>
 
-    <h3>이미 있던 패키지</h3>
+    <h3>Robota SDK 구성</h3>
     <table>
       <tr><th>계층</th><th>패키지</th><th>역할</th></tr>
       <tr><td>핵심 엔진</td><td class="accent">agent-core, sessions, tools, sdk</td><td>실행 루프, 대화 관리, 플러그인</td></tr>
@@ -1066,8 +1067,9 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 14 -->
   <div class="slide" data-index="20">
     <h2>다음에 해볼 만한 일</h2>
-    <p>멀티 프로바이더 엔진, 도구 시스템, MCP, 플러그인, 세션 영속화, Transport 추상화, DAG 엔진. 그리고 이제 CLI까지 갖추고 나니 이 기반 위에서 동작하는 무언가에 대한 아이디어가 계속 떠오르고 있습니다.</p>
+    <p>멀티 프로바이더 엔진, 도구, MCP, 플러그인, 세션, Transport, DAG 엔진. 이제 CLI까지 갖추고 나니 이 기반 위에서 만들고 싶은 것이 계속 떠오른다.</p>
     <p style="margin-top:24px;font-size:1.2rem;color:var(--green);font-family:var(--mono)">하나씩 만들어보겠습니다.</p>
+    <p style="margin-top:16px">궁금한 점이나 피드백이 있다면 <a href="https://github.com/woojubb/robota" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>에 남겨주세요.</p>
   </div>
 
   <!-- Slide: 감사합니다 -->
