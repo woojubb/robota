@@ -157,6 +157,45 @@ pre code {
   color: inherit;
 }
 
+/* ── Mermaid theme override via CSS ── */
+pre.mermaid {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+pre.mermaid svg {
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+
+pre.mermaid .node rect,
+pre.mermaid .node polygon {
+  fill: var(--bg-elevated) !important;
+  stroke: var(--green) !important;
+}
+
+pre.mermaid .nodeLabel,
+pre.mermaid .node .label {
+  color: var(--text) !important;
+}
+
+pre.mermaid .edgePath path {
+  stroke: var(--green) !important;
+}
+
+pre.mermaid .edgePath marker path {
+  fill: var(--green) !important;
+  stroke: var(--green) !important;
+}
+
+pre.mermaid .cluster rect {
+  fill: var(--bg-surface) !important;
+  stroke: var(--border) !important;
+}
+
 /* ── Theme toggle button ── */
 .theme-btn {
   background: none;
