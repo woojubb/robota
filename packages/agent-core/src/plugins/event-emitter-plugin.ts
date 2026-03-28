@@ -8,7 +8,6 @@ import {
 } from '../abstracts/abstract-plugin';
 import type { IToolExecutionContext } from '../interfaces/tool';
 import { createLogger, type ILogger } from '../utils/logger';
-import { PluginError } from '../utils/errors';
 import type { TTimerId } from '../utils';
 import {
   EVENT_EMITTER_EVENTS,
@@ -22,6 +21,14 @@ import type {
   IEventEmitterPluginOptions,
   IEventEmitterPluginStats,
 } from './event-emitter/plugin-types';
+import {
+  validateEventEmitterOptions,
+  executeEventHandler,
+  processEvent as processEventHelper,
+  buildEventEmitterStats,
+  registerHandler,
+  unregisterHandler,
+} from './event-emitter-helpers';
 
 // Re-export types that were originally exported from this file
 export type { TEventName };
@@ -64,7 +71,7 @@ export class EventEmitterPlugin extends AbstractPlugin<
     super();
     this.logger = createLogger('EventEmitterPlugin');
     this.metrics = options.metrics ?? new InMemoryEventEmitterMetrics();
-    this.validateOptions(options);
+    validateEventEmitterOptions(options, this.name);
 
     this.pluginOptions = {
       enabled: options.enabled ?? true,
@@ -233,27 +240,18 @@ export class EventEmitterPlugin extends AbstractPlugin<
   on(
     eventType: TEventName,
     listener: TEventEmitterListener,
-    options?: {
-      once?: boolean;
-      filter?: (event: IEventEmitterEventData) => boolean;
-    },
+    options?: { once?: boolean; filter?: (event: IEventEmitterEventData) => boolean },
   ): string {
     const handlerId = `handler_${this.nextHandlerId++}`;
-    if (!this.handlers.has(eventType)) this.handlers.set(eventType, []);
-    const handlers = this.handlers.get(eventType)!;
-    if (handlers.length >= this.pluginOptions.maxListeners) {
-      throw new PluginError(
-        `Maximum listeners (${this.pluginOptions.maxListeners}) exceeded for event type: ${eventType}`,
-        this.name,
-        { eventType, currentListeners: handlers.length },
-      );
-    }
-    handlers.push({
-      id: handlerId,
+    registerHandler(
+      this.handlers,
+      eventType,
+      handlerId,
       listener,
-      once: options?.once ?? false,
-      ...(options?.filter && { filter: options.filter }),
-    });
+      options,
+      this.pluginOptions.maxListeners,
+      this.name,
+    );
     return handlerId;
   }
 
@@ -266,17 +264,7 @@ export class EventEmitterPlugin extends AbstractPlugin<
   }
 
   off(eventType: TEventName, handlerIdOrListener: string | TEventEmitterListener): boolean {
-    const handlers = this.handlers.get(eventType);
-    if (!handlers) return false;
-    const index =
-      typeof handlerIdOrListener === 'string'
-        ? handlers.findIndex((h) => h.id === handlerIdOrListener)
-        : handlers.findIndex((h) => h.listener === handlerIdOrListener);
-    if (index !== -1) {
-      handlers.splice(index, 1);
-      return true;
-    }
-    return false;
+    return unregisterHandler(this.handlers, eventType, handlerIdOrListener);
   }
 
   async emit(
@@ -297,35 +285,14 @@ export class EventEmitterPlugin extends AbstractPlugin<
   }
 
   private async processEvent(event: IEventEmitterEventData): Promise<void> {
-    const handlers = this.handlers.get(event.type);
-    if (!handlers || handlers.length === 0) return;
-    const handlersToCall = handlers.filter((h) => !h.filter || h.filter(event));
-    if (handlersToCall.length === 0) return;
-    for (const h of handlersToCall.filter((h) => h.once)) this.off(event.type, h.id);
-    if (this.pluginOptions.async) {
-      await Promise.all(handlersToCall.map((h) => this.executeHandler(h, event)));
-      return;
-    }
-    for (const h of handlersToCall) await this.executeHandler(h, event);
-  }
-
-  private async executeHandler(
-    handler: IEventEmitterHandlerRegistration,
-    event: IEventEmitterEventData,
-  ): Promise<void> {
-    try {
-      await handler.listener(event);
-    } catch (error) {
-      this.metrics.incrementErrors();
-      if (this.pluginOptions.catchErrors) {
-        this.logger.error('Event handler error', {
-          eventType: event.type,
-          handlerId: handler.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      throw error instanceof Error ? error : new Error(String(error));
-    }
+    await processEventHelper(
+      event,
+      this.handlers,
+      this.pluginOptions.async,
+      (t, id) => this.off(t, id),
+      (h, e) =>
+        executeEventHandler(h, e, this.metrics, this.pluginOptions.catchErrors, this.logger),
+    );
   }
 
   async flushBuffer(): Promise<void> {
@@ -336,23 +303,12 @@ export class EventEmitterPlugin extends AbstractPlugin<
   }
 
   override getStats(): IEventEmitterPluginStats {
-    const base = super.getStats();
-    const metrics = this.metrics.getSnapshot();
-    const listenerCounts: Partial<Record<TEventName, number>> = {};
-    let totalListeners = 0;
-    for (const [eventType, handlers] of this.handlers) {
-      listenerCounts[eventType] = handlers.length;
-      totalListeners += handlers.length;
-    }
-    return {
-      ...base,
-      eventTypes: Array.from(this.handlers.keys()),
-      listenerCounts,
-      totalListeners,
-      bufferedEvents: this.eventBuffer.length,
-      totalEmitted: metrics.totalEmitted,
-      totalErrors: metrics.totalErrors,
-    };
+    return buildEventEmitterStats(
+      super.getStats(),
+      this.handlers,
+      this.eventBuffer.length,
+      this.metrics,
+    );
   }
 
   clearAllListeners(): void {
@@ -363,34 +319,5 @@ export class EventEmitterPlugin extends AbstractPlugin<
     if (this.bufferTimer) clearInterval(this.bufferTimer);
     await this.flushBuffer();
     this.clearAllListeners();
-  }
-
-  private validateOptions(options: IEventEmitterPluginOptions): void {
-    if (options.maxListeners !== undefined && options.maxListeners < 0)
-      throw new PluginError(
-        `Invalid maxListeners option: ${options.maxListeners}. Must be a non-negative number.`,
-        this.name,
-        { maxListeners: options.maxListeners },
-      );
-    if (
-      options.buffer !== undefined &&
-      options.buffer.maxSize !== undefined &&
-      options.buffer.maxSize < 0
-    )
-      throw new PluginError(
-        `Invalid buffer.maxSize option: ${options.buffer.maxSize}. Must be a non-negative number.`,
-        this.name,
-        { bufferMaxSize: options.buffer.maxSize },
-      );
-    if (
-      options.buffer !== undefined &&
-      options.buffer.flushInterval !== undefined &&
-      options.buffer.flushInterval < 0
-    )
-      throw new PluginError(
-        `Invalid buffer.flushInterval option: ${options.buffer.flushInterval}. Must be a non-negative number.`,
-        this.name,
-        { bufferFlushInterval: options.buffer.flushInterval },
-      );
   }
 }

@@ -18,6 +18,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Plans without a test strategy are incomplete and must not be executed.
 - For each task in the plan, test steps (write failing test → verify fail → implement → verify pass) must be explicit, not implied.
 - When reviewing or approving a plan, verify the test strategy exists and covers the critical paths before proceeding.
+- **Mechanical enforcement**: `pnpm harness:scan:test-plans` scans all documents in `docs/superpowers/plans/`, `docs/superpowers/specs/`, and `.agents/tasks/` for a test plan section (heading matching `## Test Plan`, `## Test Strategy`, `## Testing`, `## 테스트`, `## 검증`) with at least 50 characters of content. Documents without a qualifying test plan section cause the scan to fail.
 
 ### Plan Documentation Requirement
 

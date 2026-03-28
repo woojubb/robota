@@ -6,7 +6,7 @@
  * slash command routing (TUI-specific input processing).
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -16,19 +16,12 @@ import {
   SkillCommandSource,
   PluginCommandSource,
   BundlePluginLoader,
-  buildSkillPrompt,
 } from '@robota-sdk/agent-sdk';
 import type { IAIProvider, TPermissionResultValue } from '@robota-sdk/agent-sdk';
-import type {
-  TPermissionMode,
-  TUniversalMessage,
-  TToolArgs,
-  IHistoryEntry,
-} from '@robota-sdk/agent-core';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { randomUUID } from 'node:crypto';
+import type { TPermissionMode, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
+import { useSlashRouting } from './useSlashRouting.js';
 
 /** Side-effect flags for TUI-specific actions */
 export interface ISideEffects {
@@ -227,95 +220,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     }
   }, [manager.isThinking, interactiveSession, manager]);
 
-  // Slash command routing (TUI-specific input processing)
-  const handleSubmit = useCallback(
-    async (input: string) => {
-      if (input.startsWith('/')) {
-        const parts = input.slice(1).split(/\s+/);
-        const cmd = parts[0]?.toLowerCase() ?? '';
-        const args = parts.slice(1).join(' ');
-
-        const result = await interactiveSession.executeCommand(cmd, args);
-        if (result) {
-          manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
-          const effects = interactiveSession as InteractiveSession & ISideEffects;
-          if (result.data?.modelId) {
-            effects._pendingModelId = result.data.modelId as string;
-            return;
-          }
-          if (result.data?.language) {
-            effects._pendingLanguage = result.data.language as string;
-            return;
-          }
-          if (result.data?.resetRequested) {
-            effects._resetRequested = true;
-            return;
-          }
-          if (result.data?.triggerResumePicker) {
-            effects._triggerResumePicker = true;
-            return;
-          }
-          if (result.data?.name) {
-            effects._sessionName = result.data.name as string;
-            return;
-          }
-          const ctx = interactiveSession.getContextState();
-          manager.setContextState({
-            percentage: ctx.usedPercentage,
-            usedTokens: ctx.usedTokens,
-            maxTokens: ctx.maxTokens,
-          });
-          return;
-        }
-
-        const skillCmd = registry
-          .getCommands()
-          .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
-        if (skillCmd) {
-          manager.addEntry({
-            id: randomUUID(),
-            timestamp: new Date(),
-            category: 'event',
-            type: 'skill-invocation',
-            data: {
-              skillName: cmd,
-              source: skillCmd.source,
-              message: `Invoking ${skillCmd.source}: ${cmd}`,
-            },
-          });
-          const prompt = await buildSkillPrompt(input, registry);
-          if (prompt) {
-            const qualifiedName = registry.resolveQualifiedName(cmd);
-            const hookInput = qualifiedName
-              ? `/${qualifiedName}${input.slice(1 + cmd.length)}`
-              : input;
-            await interactiveSession.submit(prompt, input, hookInput);
-            manager.setPendingPrompt(interactiveSession.getPendingPrompt());
-            return;
-          }
-        }
-
-        if (cmd === 'exit') {
-          (interactiveSession as InteractiveSession & ISideEffects)._exitRequested = true;
-          return;
-        }
-        if (cmd === 'plugin') {
-          (interactiveSession as InteractiveSession & ISideEffects)._triggerPluginTUI = true;
-          return;
-        }
-
-        manager.addEntry(
-          messageToHistoryEntry(
-            createSystemMessage(`Unknown command "/${cmd}". Type /help for help.`),
-          ),
-        );
-        return;
-      }
-      await interactiveSession.submit(input);
-      manager.setPendingPrompt(interactiveSession.getPendingPrompt());
-    },
-    [interactiveSession, registry, manager],
-  );
+  // Slash command routing (delegated to useSlashRouting)
+  const handleSubmit = useSlashRouting(interactiveSession, registry, manager);
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);

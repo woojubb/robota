@@ -9,18 +9,21 @@ const distDir = path.resolve(__dirname, '../.vitepress/dist');
 console.log('📁 Copying public files to build output...');
 
 if (fs.existsSync(publicDir)) {
-    const files = fs.readdirSync(publicDir);
+  const files = fs.readdirSync(publicDir);
 
-    for (const file of files) {
-        const srcPath = path.join(publicDir, file);
-        const destPath = path.join(distDir, file);
+  for (const file of files) {
+    const srcPath = path.join(publicDir, file);
+    const destPath = path.join(distDir, file);
 
-        if (fs.statSync(srcPath).isFile()) {
-            fs.copyFileSync(srcPath, destPath);
-            console.log(`✅ Copied: ${file}`);
-        }
+    if (fs.statSync(srcPath).isDirectory()) {
+      fs.copySync(srcPath, destPath);
+      console.log(`✅ Copied directory: ${file}/`);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`✅ Copied: ${file}`);
     }
-    console.log('✅ Public files copied successfully!');
+  }
+  console.log('✅ Public files copied successfully!');
 } else {
-    console.log('⚠️  Public directory not found:', publicDir);
-} 
+  console.log('⚠️  Public directory not found:', publicDir);
+}

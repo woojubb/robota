@@ -1,0 +1,165 @@
+---
+const { frontmatter } = Astro.props;
+const { title, subtitle, date, image } = frontmatter;
+const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZPV4BX97JF"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-ZPV4BX97JF');</script>
+  <title>{title} — Robota</title>
+  <meta name="description" content={subtitle || title} />
+  <link rel="canonical" href={`https://blog.robota.io${Astro.url.pathname}`} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={subtitle || title} />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content={`https://blog.robota.io${Astro.url.pathname}`} />
+  <meta property="og:site_name" content="Robota" />
+  {image && <meta property="og:image" content={image} />}
+  <meta name="twitter:card" content={image ? "summary_large_image" : "summary"} />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={subtitle || title} />
+  {image && <meta name="twitter:image" content={image} />}
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles/global.css" />
+  <script is:inline>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var t = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="logo">Robota</a>
+    <nav>
+      <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">☀</button>
+      <a href="/">blog</a>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <div class="post-meta">
+        <time datetime={date}>{formattedDate}</time>
+      </div>
+      <h1>{title}</h1>
+      {subtitle && <p class="subtitle">{subtitle}</p>}
+      <div class="post-content">
+        <slot />
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      <a href="https://github.com/woojubb">woojubb</a> ·
+      <a href="https://robota.io">robota.io</a>
+    </p>
+  </footer>
+  <script is:inline>
+    var btn = document.getElementById('theme-toggle');
+    function updateBtn() {
+      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
+    }
+    updateBtn();
+    btn.addEventListener('click', function() {
+      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateBtn();
+    });
+  </script>
+</body>
+</html>
+
+<style>
+  .site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+    max-width: 720px;
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--green);
+    text-decoration: none;
+  }
+
+  nav a {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+
+  nav a:hover {
+    color: var(--green);
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+
+  .post-meta {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-dim);
+    margin-top: -8px;
+    margin-bottom: 48px;
+  }
+
+  .post-content {
+    margin-top: 32px;
+  }
+
+  .site-footer {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .site-footer p {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .site-footer a {
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+
+  .site-footer a:hover {
+    color: var(--green);
+  }
+</style>

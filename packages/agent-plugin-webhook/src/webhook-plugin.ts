@@ -10,16 +10,21 @@ import {
   type IPluginExecutionContext,
   type IPluginExecutionResult,
   type IPluginErrorContext,
-  EXECUTION_EVENTS,
-  EXECUTION_EVENT_PREFIX,
   createLogger,
   type ILogger,
   PluginError,
-  type TTimerId,
 } from '@robota-sdk/agent-core';
 
 import { WebhookTransformer } from './transformer';
 import { WebhookHttpClient } from './http-client';
+import {
+  validateWebhookEndpoints,
+  WEBHOOK_EXEC_EVENTS,
+  WEBHOOK_CONV_EVENTS,
+  WEBHOOK_TOOL_EVENTS,
+  WEBHOOK_ERROR_EVENTS,
+} from './webhook-helpers';
+import { WebhookQueueManager } from './webhook-queue';
 import type {
   TWebhookEventName,
   IWebhookEventData,
@@ -28,31 +33,7 @@ import type {
   IWebhookEndpoint,
   IWebhookPluginOptions,
   IWebhookPluginStats,
-  IWebhookRequest,
 } from './types';
-
-// Local event constants for webhook usage (kept internal to plugin)
-const EXEC_EVENTS: {
-  START: TWebhookEventName;
-  COMPLETE: TWebhookEventName;
-  ERROR: TWebhookEventName;
-} = {
-  START: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.START}`,
-  COMPLETE: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.COMPLETE}`,
-  ERROR: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.ERROR}`,
-} as const;
-
-const CONV_EVENTS: { COMPLETE: TWebhookEventName } = {
-  COMPLETE: 'conversation.complete',
-} as const;
-
-const TOOL_EVENTS_LOCAL: { EXECUTED: TWebhookEventName } = {
-  EXECUTED: 'tool.executed',
-} as const;
-
-const ERROR_EVENTS: { OCCURRED: TWebhookEventName } = {
-  OCCURRED: 'error.occurred',
-} as const;
 
 /**
  * Sends HTTP webhook notifications for agent execution lifecycle events.
@@ -87,14 +68,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
 
   private pluginOptions: Required<IWebhookPluginOptions>;
   private logger: ILogger;
-  private httpClient: WebhookHttpClient;
-  private requestQueue: IWebhookRequest[] = [];
-  private batchQueue: IWebhookPayload[] = [];
-  private activeConcurrency = 0;
-  private batchTimer?: TTimerId;
-  private totalSentCount = 0;
-  private totalErrorCount = 0;
-  private totalResponseTime = 0;
+  private queue: WebhookQueueManager;
 
   constructor(options: IWebhookPluginOptions) {
     super();
@@ -112,10 +86,10 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     this.pluginOptions = {
       enabled: options.enabled ?? true,
       events: [
-        EXEC_EVENTS.COMPLETE,
-        CONV_EVENTS.COMPLETE,
-        TOOL_EVENTS_LOCAL.EXECUTED,
-        ERROR_EVENTS.OCCURRED,
+        WEBHOOK_EXEC_EVENTS.COMPLETE,
+        WEBHOOK_CONV_EVENTS.COMPLETE,
+        WEBHOOK_TOOL_EVENTS.EXECUTED,
+        WEBHOOK_ERROR_EVENTS.OCCURRED,
       ],
       defaultTimeout: 5000,
       defaultRetries: 3,
@@ -136,12 +110,28 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     };
 
     this.logger = createLogger(`${this.name}`);
-    this.httpClient = new WebhookHttpClient(this.logger);
+    const httpClient = new WebhookHttpClient(this.logger);
+    this.queue = new WebhookQueueManager(
+      this.logger,
+      httpClient,
+      this.pluginOptions.maxConcurrency,
+    );
 
-    this.validateEndpoints();
+    validateWebhookEndpoints(this.pluginOptions.endpoints, this.name, [
+      WEBHOOK_EXEC_EVENTS.START,
+      WEBHOOK_EXEC_EVENTS.COMPLETE,
+      WEBHOOK_EXEC_EVENTS.ERROR,
+      WEBHOOK_CONV_EVENTS.COMPLETE,
+      WEBHOOK_TOOL_EVENTS.EXECUTED,
+      WEBHOOK_ERROR_EVENTS.OCCURRED,
+      'custom',
+    ]);
 
     if (this.pluginOptions.batching.enabled) {
-      this.setupBatching();
+      this.queue.setupBatching(
+        this.pluginOptions.batching.flushInterval,
+        this.getEndpointsForEvent.bind(this),
+      );
     }
 
     this.logger.info('WebhookPlugin initialized', {
@@ -161,8 +151,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     const webhookContext = WebhookTransformer.contextToWebhook(context);
     const webhookResult = WebhookTransformer.resultToWebhook(result);
     const eventData = WebhookTransformer.createExecutionData(webhookContext, webhookResult);
-
-    await this.sendWebhook(EXEC_EVENTS.COMPLETE, eventData);
+    await this.sendWebhook(WEBHOOK_EXEC_EVENTS.COMPLETE, eventData);
   }
 
   /**
@@ -175,8 +164,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     const webhookContext = WebhookTransformer.contextToWebhook(context);
     const webhookResult = WebhookTransformer.resultToWebhook(result);
     const eventData = WebhookTransformer.createConversationData(webhookContext, webhookResult);
-
-    await this.sendWebhook(CONV_EVENTS.COMPLETE, eventData);
+    await this.sendWebhook(WEBHOOK_CONV_EVENTS.COMPLETE, eventData);
   }
 
   /**
@@ -187,7 +175,6 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     toolResults: IPluginExecutionResult,
   ): Promise<void> {
     const webhookContext = WebhookTransformer.contextToWebhook(context);
-    // Handle tool results from IPluginExecutionResult
     if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
       for (const toolCall of toolResults.toolCalls) {
         const toolData = {
@@ -198,7 +185,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
           duration: toolResults.duration,
         };
         const eventData = WebhookTransformer.createToolData(webhookContext, toolData);
-        await this.sendWebhook(TOOL_EVENTS_LOCAL.EXECUTED, eventData);
+        await this.sendWebhook(WEBHOOK_TOOL_EVENTS.EXECUTED, eventData);
       }
     }
   }
@@ -208,21 +195,11 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
    */
   override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
     const webhookContext = context
-      ? {
-          executionId: context.executionId,
-          sessionId: context.sessionId,
-          userId: context.userId,
-        }
-      : {
-          executionId: undefined,
-          sessionId: undefined,
-          userId: undefined,
-        };
-
+      ? { executionId: context.executionId, sessionId: context.sessionId, userId: context.userId }
+      : { executionId: undefined, sessionId: undefined, userId: undefined };
     const errorEventData = WebhookTransformer.createErrorData(webhookContext, error);
-
-    await this.sendWebhook(ERROR_EVENTS.OCCURRED, errorEventData);
-    await this.sendWebhook(EXEC_EVENTS.ERROR, errorEventData);
+    await this.sendWebhook(WEBHOOK_ERROR_EVENTS.OCCURRED, errorEventData);
+    await this.sendWebhook(WEBHOOK_EXEC_EVENTS.ERROR, errorEventData);
   }
 
   /**
@@ -234,9 +211,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     data: IWebhookEventData,
     metadata?: TWebhookMetadata,
   ): Promise<void> {
-    if (!this.pluginOptions.events.includes(event)) {
-      return;
-    }
+    if (!this.pluginOptions.events.includes(event)) return;
 
     const payload: IWebhookPayload = {
       event,
@@ -244,8 +219,6 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
       data: this.pluginOptions.payloadTransformer(event, data),
       ...(metadata && { metadata }),
     };
-
-    // Add context data if available
     if (data.executionId) payload.executionId = data.executionId;
     if (data.sessionId) payload.sessionId = data.sessionId;
     if (data.userId) payload.userId = data.userId;
@@ -255,15 +228,18 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
       endpointCount: this.getEndpointsForEvent(event).length,
     });
 
-    // Batch or send immediately
     if (this.pluginOptions.batching.enabled) {
-      this.batchQueue.push(payload);
-
-      if (this.batchQueue.length >= this.pluginOptions.batching.maxSize) {
-        await this.flushBatch();
-      }
+      await this.queue.enqueueBatch(
+        payload,
+        this.pluginOptions.batching.maxSize,
+        this.getEndpointsForEvent.bind(this),
+      );
     } else {
-      await this.sendToEndpoints(payload);
+      await this.queue.sendToEndpoints(
+        payload,
+        this.getEndpointsForEvent.bind(this),
+        this.pluginOptions.async,
+      );
     }
   }
 
@@ -275,170 +251,6 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
   }
 
   /**
-   * Send payload to all applicable endpoints
-   */
-  private async sendToEndpoints(payload: IWebhookPayload): Promise<void> {
-    const endpoints = this.getEndpointsForEvent(payload.event);
-
-    if (endpoints.length === 0) {
-      return;
-    }
-
-    const requests: IWebhookRequest[] = endpoints.map((endpoint) => ({
-      endpoint,
-      payload,
-      attempt: 1,
-      timestamp: new Date(),
-    }));
-
-    if (this.pluginOptions.async) {
-      // Add to queue for async processing
-      this.requestQueue.push(...requests);
-      this.processQueue();
-    } else {
-      // Send synchronously
-      await Promise.allSettled(
-        requests.map((req) => {
-          const startTime = Date.now();
-          return this.httpClient
-            .sendRequest(req)
-            .then(() => {
-              this.totalSentCount++;
-              this.totalResponseTime += Date.now() - startTime;
-            })
-            .catch((error: unknown) => {
-              this.totalErrorCount++;
-              throw error;
-            });
-        }),
-      );
-    }
-  }
-
-  /**
-   * Process webhook request queue
-   */
-  private async processQueue(): Promise<void> {
-    while (
-      this.requestQueue.length > 0 &&
-      this.activeConcurrency < this.pluginOptions.maxConcurrency
-    ) {
-      const request = this.requestQueue.shift();
-      if (!request) break;
-
-      this.activeConcurrency++;
-
-      // Process request asynchronously
-      const startTime = Date.now();
-      this.httpClient
-        .sendRequest(request)
-        .then(() => {
-          this.totalSentCount++;
-          this.totalResponseTime += Date.now() - startTime;
-        })
-        .catch((error: unknown) => {
-          this.totalErrorCount++;
-          const message = error instanceof Error ? error.message : String(error);
-          this.logger.error('Webhook request failed', {
-            endpoint: request.endpoint.url,
-            event: request.payload.event,
-            error: message,
-          });
-        })
-        .finally(() => {
-          this.activeConcurrency--;
-          // Continue processing queue
-          if (this.requestQueue.length > 0) {
-            this.processQueue();
-          }
-        });
-    }
-  }
-
-  /**
-   * Get endpoints that should receive the event
-   */
-  private getEndpointsForEvent(event: TWebhookEventName): IWebhookEndpoint[] {
-    return this.pluginOptions.endpoints.filter((endpoint) => {
-      if (!endpoint.events || endpoint.events.length === 0) {
-        return true; // No event filter means all events
-      }
-      return endpoint.events.includes(event);
-    });
-  }
-
-  /**
-   * Setup event batching
-   */
-  private setupBatching(): void {
-    this.batchTimer = setInterval(() => {
-      this.flushBatch();
-    }, this.pluginOptions.batching.flushInterval);
-  }
-
-  /**
-   * Flush batched webhooks
-   */
-  private async flushBatch(): Promise<void> {
-    if (this.batchQueue.length === 0) {
-      return;
-    }
-
-    const payloads = [...this.batchQueue];
-    this.batchQueue = [];
-
-    this.logger.debug('Flushing webhook batch', { payloadCount: payloads.length });
-
-    // Send all batched payloads
-    for (const payload of payloads) {
-      await this.sendToEndpoints(payload);
-    }
-  }
-
-  /**
-   * Validate webhook endpoints
-   */
-  private validateEndpoints(): void {
-    for (const endpoint of this.pluginOptions.endpoints) {
-      if (!endpoint.url) {
-        throw new PluginError(`Webhook endpoint URL is required`, this.name);
-      }
-
-      let parsed: URL;
-      try {
-        parsed = new URL(endpoint.url);
-      } catch {
-        throw new PluginError(`Invalid webhook URL: ${endpoint.url}`, this.name);
-      }
-
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-        throw new PluginError(
-          `Webhook endpoint URL must use http or https: ${endpoint.url}`,
-          this.name,
-        );
-      }
-
-      if (endpoint.events) {
-        const validEvents: TWebhookEventName[] = [
-          EXEC_EVENTS.START,
-          EXEC_EVENTS.COMPLETE,
-          EXEC_EVENTS.ERROR,
-          CONV_EVENTS.COMPLETE,
-          TOOL_EVENTS_LOCAL.EXECUTED,
-          ERROR_EVENTS.OCCURRED,
-          'custom',
-        ];
-
-        for (const event of endpoint.events) {
-          if (!validEvents.includes(event)) {
-            throw new PluginError(`Invalid webhook event: ${event}`, this.name);
-          }
-        }
-      }
-    }
-  }
-
-  /**
    * Get webhook plugin statistics
    */
   override getStats(): IWebhookPluginStats {
@@ -446,14 +258,16 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     return {
       ...base,
       endpointCount: this.pluginOptions.endpoints.length,
-      queueLength: this.requestQueue.length,
-      batchQueueLength: this.batchQueue.length,
-      activeConcurrency: this.activeConcurrency,
+      queueLength: this.queue.queueLength,
+      batchQueueLength: this.queue.batchQueueLength,
+      activeConcurrency: this.queue.activeConcurrency,
       supportedEvents: this.pluginOptions.events,
-      totalSent: this.totalSentCount,
-      totalErrors: this.totalErrorCount,
+      totalSent: this.queue.totalSentCount,
+      totalErrors: this.queue.totalErrorCount,
       averageResponseTime:
-        this.totalSentCount > 0 ? this.totalResponseTime / this.totalSentCount : 0,
+        this.queue.totalSentCount > 0
+          ? this.queue.totalResponseTime / this.queue.totalSentCount
+          : 0,
     };
   }
 
@@ -461,8 +275,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
    * Clear webhook queue
    */
   clearQueue(): void {
-    this.requestQueue = [];
-    this.batchQueue = [];
+    this.queue.clearQueues();
     this.logger.info('Webhook queues cleared');
   }
 
@@ -470,13 +283,16 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
    * Flushes pending batches, clears request queues, and stops the batch timer.
    */
   async destroy(): Promise<void> {
-    if (this.batchTimer) {
-      clearInterval(this.batchTimer);
-    }
-
-    await this.flushBatch();
+    this.queue.stopBatchTimer();
+    await this.queue.drainBatch(this.getEndpointsForEvent.bind(this));
     this.clearQueue();
-
     this.logger.info('WebhookPlugin destroyed');
+  }
+
+  private getEndpointsForEvent(event: TWebhookEventName): IWebhookEndpoint[] {
+    return this.pluginOptions.endpoints.filter((endpoint) => {
+      if (!endpoint.events || endpoint.events.length === 0) return true;
+      return endpoint.events.includes(event);
+    });
   }
 }

@@ -5,7 +5,6 @@ import {
   createLogger,
   type ILogger,
   PluginError,
-  ConfigurationError,
 } from '@robota-sdk/agent-core';
 
 // Import from Facade pattern modules for type safety
@@ -15,6 +14,12 @@ import type {
   IErrorHandlingPluginStats,
 } from './types';
 import { toErrorContext, createPluginErrorContext } from './context-adapter';
+import {
+  validateErrorHandlingOptions,
+  resolveRetryDelay,
+  isCircuitBreakerStillOpen,
+  sleep,
+} from './error-handling-helpers';
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 1000;
@@ -66,7 +71,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
     this.logger = createLogger('ErrorHandlingPlugin');
 
     // Validate options
-    this.validateOptions(options);
+    validateErrorHandlingOptions(options);
 
     // Set defaults
     this.pluginOptions = {
@@ -152,8 +157,20 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
     while (attempt <= this.pluginOptions.maxRetries) {
       try {
         // Check circuit breaker
-        if (this.pluginOptions.strategy === 'circuit-breaker' && this.isCircuitBreakerOpen()) {
-          throw new PluginError('Circuit breaker is open', this.name, toErrorContext(context));
+        if (this.pluginOptions.strategy === 'circuit-breaker') {
+          const cbState = isCircuitBreakerStillOpen(
+            this.circuitBreakerOpen,
+            this.lastFailureTime,
+            this.pluginOptions.circuitBreakerTimeout,
+          );
+          if (cbState.shouldReset) {
+            this.circuitBreakerOpen = false;
+            this.failureCount = 0;
+            this.logger.info('Circuit breaker timeout passed, attempting to close');
+          }
+          if (cbState.open) {
+            throw new PluginError('Circuit breaker is open', this.name, toErrorContext(context));
+          }
         }
 
         const result = await fn();
@@ -177,17 +194,18 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
           await this.handleError(lastError, { ...context, attempt });
 
           // Calculate delay
-          const delay =
-            this.pluginOptions.strategy === 'exponential-backoff'
-              ? this.pluginOptions.retryDelay * Math.pow(2, attempt - 1)
-              : this.pluginOptions.retryDelay;
+          const delay = resolveRetryDelay(
+            this.pluginOptions.strategy,
+            this.pluginOptions.retryDelay,
+            attempt,
+          );
 
           this.logger.debug('Retrying operation', {
             attempt: attempt,
             delay: delay,
             context: context,
           });
-          await this.sleep(delay);
+          await sleep(delay);
         } else {
           await this.handleError(lastError, { ...context, finalAttempt: true });
         }
@@ -271,50 +289,5 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
       failureCount: this.failureCount,
       context: context,
     });
-  }
-
-  private isCircuitBreakerOpen(): boolean {
-    if (!this.circuitBreakerOpen) {
-      return false;
-    }
-
-    // Check if timeout period has passed
-    const timeoutPassed =
-      Date.now() - this.lastFailureTime > this.pluginOptions.circuitBreakerTimeout;
-    if (timeoutPassed) {
-      this.circuitBreakerOpen = false;
-      this.failureCount = 0;
-      this.logger.info('Circuit breaker timeout passed, attempting to close');
-      return false;
-    }
-
-    return true;
-  }
-
-  private validateOptions(options: IErrorHandlingPluginOptions): void {
-    if (!options.strategy) {
-      throw new ConfigurationError('Error handling strategy is required');
-    }
-
-    if (
-      !['simple', 'circuit-breaker', 'exponential-backoff', 'silent'].includes(options.strategy)
-    ) {
-      throw new ConfigurationError('Invalid error handling strategy', {
-        validStrategies: ['simple', 'circuit-breaker', 'exponential-backoff', 'silent'],
-        provided: options.strategy,
-      });
-    }
-
-    if (options.maxRetries !== undefined && options.maxRetries < 0) {
-      throw new ConfigurationError('Max retries must be non-negative');
-    }
-
-    if (options.retryDelay !== undefined && options.retryDelay <= 0) {
-      throw new ConfigurationError('Retry delay must be positive');
-    }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

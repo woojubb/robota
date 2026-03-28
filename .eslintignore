@@ -15,6 +15,7 @@ node_modules/
 # Ignore config files
 *.config.js
 *.config.ts
+*.config.mjs
 vitest.config.ts
 tsup.config.ts
 

@@ -18,6 +18,12 @@ import type { TUniversalMessage } from '../interfaces/messages';
 import { isAssistantMessage } from '../interfaces/messages';
 import type { ILogger } from '../utils/logger';
 import { SilentLogger } from '../utils/logger';
+import {
+  validateProviderMessages,
+  validateProviderTools,
+  executeChatViaExecutor,
+  executeChatStreamViaExecutor,
+} from './ai-provider-helpers';
 
 /**
  * Provider logging data type
@@ -52,72 +58,13 @@ export interface IExecutorAwareProviderConfig {
 }
 
 /**
- * Base AI provider implementation with proper type constraints
- * All AI providers should extend this class
+ * Base AI provider implementation with proper type constraints.
+ * All AI providers should extend this class.
  *
- * ========================================
- * CRITICAL IMPLEMENTATION GUIDELINES
- * ========================================
+ * Subclasses MUST: extend this class, use override keyword, call super() in constructor,
+ * not redefine types that exist in agent-core, handle null message content correctly.
  *
- * ALL AI PROVIDER IMPLEMENTATIONS (OpenAI, Anthropic, Google, etc.) MUST:
- *
- * 1. EXTEND THIS CLASS:
- *    ```typescript
- *    export class OpenAIProvider extends AbstractAIProvider {
- *        override readonly name = 'openai';
- *        override readonly version = '1.0.0';
- *    ```
- *
- * 2. USE IMPORTS FROM @robota-sdk/agent-core:
- *    ```typescript
- *    import { AbstractAIProvider } from '@robota-sdk/agent-core';
- *    import type {
- *        TUniversalMessage,
- *        ChatOptions,
- *        IToolCall,
- *        ToolSchema,
- *        AssistantMessage
- *    } from '@robota-sdk/agent-core';
- *    ```
- *
- * 3. USE OVERRIDE KEYWORD FOR ALL INHERITED METHODS:
- *    - override async chat(...)
- *    - override async *chatStream(...)
- *    - override supportsTools()
- *    - override validateConfig()
- *    - override async dispose()
- *
- * 4. DO NOT REDEFINE TYPES THAT EXIST IN @robota-sdk/agent-core:
- *    - TUniversalMessage
- *    - ChatOptions
- *    - IToolCall
- *    - ToolSchema
- *    - AssistantMessage
- *    - SystemMessage
- *    - UserMessage
- *    - ToolMessage
- *
- * 5. HANDLE MESSAGE CONTENT PROPERLY:
- *    - For tool calls: content should be null (not empty string)
- *    - For regular messages: content can be string or null
- *    - Always preserve null values from API responses
- *
- * 6. CALL SUPER() IN CONSTRUCTOR:
- *    ```typescript
- *    constructor(options: IProviderOptions) {
- *        super();
- *        // provider-specific initialization
- *    }
- *    ```
- *
- * This ensures ExecutionService can properly identify providers
- * and prevents type conflicts across the codebase.
- *
- * ========================================
- *
- * @template TConfig - Provider configuration type (defaults to IProviderConfig for type safety)
- * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
- * @template TResponse - Response type (defaults to TUniversalMessage for backward compatibility)
+ * @template TConfig - Provider configuration type
  */
 export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements IAIProvider {
   abstract readonly name: string;
@@ -251,125 +198,46 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements I
     return true;
   }
 
-  /**
-   * Utility method for validating TUniversalMessage array
-   * @param messages - Messages to validate
-   */
+  /** Validate that messages is a non-empty array with valid roles. */
   protected validateMessages(messages: TUniversalMessage[]): void {
-    if (!Array.isArray(messages)) {
-      throw new Error('Messages must be an array');
-    }
-
-    if (messages.length === 0) {
-      throw new Error('Messages array cannot be empty');
-    }
-
-    for (const message of messages) {
-      if (!message.role || !['user', 'assistant', 'system', 'tool'].includes(message.role)) {
-        throw new Error(`Invalid message role: ${message.role}`);
-      }
-    }
+    validateProviderMessages(messages);
   }
 
-  /**
-   * Utility method for validating tool schemas
-   * @param tools - Tool schemas to validate
-   */
+  /** Validate tool schemas. No-ops if tools is undefined. */
   protected validateTools(tools?: IToolSchema[]): void {
-    if (!tools) return;
-
-    if (!Array.isArray(tools)) {
-      throw new Error('Tools must be an array');
-    }
-
-    for (const tool of tools) {
-      if (!tool.name || typeof tool.name !== 'string') {
-        throw new Error('Tool must have a valid name');
-      }
-      if (!tool.description || typeof tool.description !== 'string') {
-        throw new Error('Tool must have a valid description');
-      }
-      if (
-        !tool.parameters ||
-        typeof tool.parameters !== 'object' ||
-        tool.parameters === null ||
-        Array.isArray(tool.parameters)
-      ) {
-        throw new Error('Tool must have valid parameters');
-      }
-    }
+    validateProviderTools(tools);
   }
 
   /**
    * Execute chat via executor.
-   *
    * Subclasses should call this only when an executor is configured.
    */
   protected async executeViaExecutorOrDirect(
     messages: TUniversalMessage[],
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
-    if (!this.executor) {
-      throw new Error(
-        `Executor is required for ${this.name} provider. Configure an executor or use direct execution path.`,
-      );
-    }
-    if (!options?.model) {
-      throw new Error(`Model is required for executor execution in ${this.name} provider.`);
-    }
-
-    const result = await this.executor.executeChat({
-      messages,
-      options,
-      provider: this.name,
-      model: options.model,
-      ...(options.tools && { tools: options.tools }),
-    });
-
-    return result;
+    return executeChatViaExecutor(this.executor, this.name, messages, options);
   }
 
   /**
    * Execute streaming chat via executor.
-   *
    * Subclasses should call this only when an executor is configured.
    */
   protected async *executeStreamViaExecutorOrDirect(
     messages: TUniversalMessage[],
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
-    if (!this.executor || !this.executor.executeChatStream) {
-      throw new Error(`Streaming executor is required for ${this.name} provider.`);
-    }
-    if (!options?.model) {
-      throw new Error(`Model is required for executor streaming in ${this.name} provider.`);
-    }
-
-    // 🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Preparing executor request
     this.logger.debug?.(
       '🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Executor request',
       {
         provider: this.name,
-        model: options.model,
-        hasTools: !!options.tools,
-        toolsCount: options.tools?.length || 0,
-        toolNames: options.tools?.map((t: IToolSchema) => t.name) || [],
+        model: options?.model,
+        hasTools: !!options?.tools,
+        toolsCount: options?.tools?.length || 0,
+        toolNames: options?.tools?.map((t: IToolSchema) => t.name) || [],
       },
     );
-
-    const stream = this.executor.executeChatStream({
-      messages,
-      options,
-      provider: this.name,
-      model: options.model,
-      stream: true,
-      ...(options.tools && { tools: options.tools }),
-    });
-
-    for await (const chunk of stream) {
-      yield chunk;
-    }
-    return;
+    yield* executeChatStreamViaExecutor(this.executor, this.name, messages, options);
   }
 
   /**

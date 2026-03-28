@@ -13,18 +13,8 @@ import type {
   IImageGenerationResult,
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
-import {
-  convertToGeminiFormat,
-  convertFromGeminiResponse,
-  convertToolsToGeminiFormat,
-} from './message-converter';
-import {
-  hasImagePart,
-  mapInlineImagePartsToMediaOutputs,
-  mapImageInputSourceToPart,
-  buildResponseModalities,
-  buildGenerationConfig,
-} from './image-operations';
+import { mapImageInputSourceToPart } from './image-operations';
+import { executeDirect, executeDirectStream, runImageRequest } from './execution-helpers';
 
 /**
  * Google Gemini provider implementation for Robota
@@ -78,8 +68,12 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
       }
     }
 
+    if (!this.client) {
+      throw new Error('Google client not available. Either provide apiKey or use an executor.');
+    }
+
     try {
-      return await this.executeDirect(messages, options);
+      return await executeDirect(this.client, this.options, messages, options);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google chat failed: ${errorMessage}`);
@@ -105,8 +99,12 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
       }
     }
 
+    if (!this.client) {
+      throw new Error('Google client not available. Either provide apiKey or use an executor.');
+    }
+
     try {
-      yield* this.executeDirectStream(messages, options);
+      yield* executeDirectStream(this.client, this.options, messages, options);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google stream failed: ${errorMessage}`);
@@ -144,7 +142,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
       parts: [{ type: 'text', text: request.prompt }],
       timestamp: new Date(),
     };
-    return this.runImageRequest([message], request.model);
+    return runImageRequest(this.chat.bind(this), [message], request.model);
   }
 
   /** Edit an existing image based on a text prompt using the Gemini API. */
@@ -183,7 +181,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
       parts: [inputPartResult.value, { type: 'text', text: request.prompt }],
       timestamp: new Date(),
     };
-    return this.runImageRequest([message], request.model);
+    return runImageRequest(this.chat.bind(this), [message], request.model);
   }
 
   /** Compose multiple images together based on a text prompt using the Gemini API. */
@@ -236,7 +234,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
       parts: messageParts,
       timestamp: new Date(),
     };
-    return this.runImageRequest([message], request.model);
+    return runImageRequest(this.chat.bind(this), [message], request.model);
   }
 
   override supportsTools(): boolean {
@@ -249,127 +247,5 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
 
   override async dispose(): Promise<void> {
     // Google client does not need explicit cleanup
-  }
-
-  private async executeDirect(
-    messages: TUniversalMessage[],
-    options?: IChatOptions,
-  ): Promise<TUniversalMessage> {
-    if (!this.client) {
-      throw new Error('Google client not available. Either provide apiKey or use an executor.');
-    }
-    if (!options?.model) {
-      throw new Error(
-        'Model is required in IChatOptions. Please specify a model in defaultModel configuration.',
-      );
-    }
-
-    const model = this.client.getGenerativeModel({ model: options.model as string });
-    const geminiMessages = convertToGeminiFormat(messages);
-    const genConfig = buildGenerationConfig(
-      messages,
-      this.options.defaultResponseModalities,
-      this.options.imageCapableModels,
-      options,
-    );
-
-    const result = await model.generateContent({
-      contents: geminiMessages,
-      generationConfig: genConfig,
-      ...(options?.tools && {
-        tools: [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }],
-      }),
-    });
-
-    const convertedResponse = convertFromGeminiResponse(result.response);
-    const responseModalities = buildResponseModalities(
-      messages,
-      this.options.defaultResponseModalities,
-      options?.google?.responseModalities,
-    );
-    if (responseModalities.includes('IMAGE') && !hasImagePart(convertedResponse.parts)) {
-      throw new Error(
-        'Gemini response did not include an image part while IMAGE modality was requested.',
-      );
-    }
-    return convertedResponse;
-  }
-
-  private async *executeDirectStream(
-    messages: TUniversalMessage[],
-    options?: IChatOptions,
-  ): AsyncIterable<TUniversalMessage> {
-    const responseModalities = buildResponseModalities(
-      messages,
-      this.options.defaultResponseModalities,
-      options?.google?.responseModalities,
-    );
-    if (responseModalities.includes('IMAGE')) {
-      throw new Error('Google provider does not support streaming image modality responses.');
-    }
-    if (!this.client) {
-      throw new Error('Google client not available. Either provide apiKey or use an executor.');
-    }
-    if (!options?.model) {
-      throw new Error(
-        'Model is required in IChatOptions. Please specify a model in defaultModel configuration.',
-      );
-    }
-
-    const model = this.client.getGenerativeModel({ model: options.model as string });
-    const geminiMessages = convertToGeminiFormat(messages);
-    const genConfig = buildGenerationConfig(
-      messages,
-      this.options.defaultResponseModalities,
-      this.options.imageCapableModels,
-      options,
-    );
-
-    const result = await model.generateContentStream({
-      contents: geminiMessages,
-      generationConfig: genConfig,
-      ...(options?.tools && {
-        tools: [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }],
-      }),
-    });
-
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) {
-        yield {
-          id: randomUUID(),
-          role: 'assistant',
-          content: text,
-          state: 'complete' as const,
-          timestamp: new Date(),
-        };
-      }
-    }
-  }
-
-  private async runImageRequest(
-    messages: TUniversalMessage[],
-    model: string,
-  ): Promise<TProviderMediaResult<IImageGenerationResult>> {
-    try {
-      const response = await this.chat(messages, {
-        model,
-        google: { responseModalities: ['TEXT', 'IMAGE'] },
-      });
-      const outputs = mapInlineImagePartsToMediaOutputs(response.parts);
-      if (outputs.length === 0) {
-        return {
-          ok: false,
-          error: {
-            code: 'PROVIDER_UPSTREAM_ERROR',
-            message: 'Google image response did not include image output parts.',
-          },
-        };
-      }
-      return { ok: true, value: { outputs, model } };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Google image request failed.';
-      return { ok: false, error: { code: 'PROVIDER_UPSTREAM_ERROR', message: errorMessage } };
-    }
   }
 }

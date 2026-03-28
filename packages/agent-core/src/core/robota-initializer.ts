@@ -139,3 +139,29 @@ export async function performAsyncInitialization(
   logger.debug('Robota initialization completed successfully with independent managers');
   return executionService;
 }
+
+/**
+ * Mutable init state passed to performDoAsyncInit.
+ */
+export interface IRobotaInitState {
+  ctx: IRobotaInitContext;
+  setExecutionService: (svc: ExecutionService) => void;
+  setFullyInitialized: (v: boolean) => void;
+}
+
+/**
+ * Wraps performAsyncInitialization with the standard error handling pattern
+ * from the Robota class, setting executionService and isFullyInitialized on success.
+ */
+export async function performDoAsyncInit(state: IRobotaInitState): Promise<void> {
+  try {
+    const svc = await performAsyncInitialization(state.ctx);
+    state.setExecutionService(svc);
+    state.setFullyInitialized(true);
+  } catch (error) {
+    state.ctx.logger.error('Robota initialization failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
