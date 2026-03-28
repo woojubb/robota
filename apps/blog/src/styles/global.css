@@ -134,16 +134,20 @@ code {
 }
 
 pre {
-  background: var(--bg-surface);
+  background: var(--bg-surface) !important;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 20px 24px;
   font-family: var(--mono);
   font-size: 0.9rem;
   line-height: 1.7;
-  color: var(--text-dim);
+  color: var(--text-dim) !important;
   overflow-x: auto;
   margin: 16px 0;
+}
+
+pre code span {
+  color: inherit;
 }
 
 pre code {
