@@ -1,0 +1,96 @@
+---
+const { title = 'Robota blog', description = '' } = Astro.props;
+---
+
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  {description && <meta name="description" content={description} />}
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles/global.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="logo">Robota</a>
+    <nav>
+      <a href="/">blog</a>
+    </nav>
+  </header>
+
+  <main>
+    <slot />
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      <a href="https://github.com/Robota">Robota</a> ·
+      <a href="https://robota.io">robota.io</a>
+    </p>
+  </footer>
+</body>
+</html>
+
+<style>
+  .site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+    max-width: 720px;
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--green);
+    text-decoration: none;
+  }
+
+  nav a {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+
+  nav a:hover {
+    color: var(--green);
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+
+  .site-footer {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .site-footer p {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .site-footer a {
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+
+  .site-footer a:hover {
+    color: var(--green);
+  }
+</style>
