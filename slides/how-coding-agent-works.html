@@ -678,13 +678,13 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 3 -->
   <div class="slide" data-index="2">
     <h2>AGENTS.md란 무엇인가</h2>
-    <p class="slide-subtitle">대화가 시작되면 시스템 메시지로 주입하는 지시문이다</p>
+    <p class="slide-subtitle">대화가 시작되면 시스템 프롬프트로 주입하는 지시문이다</p>
 
     <p>AGENTS.md, CLAUDE.md 같은 파일은 프로젝트 루트에서 탐색한 뒤 시스템 프롬프트에 주입한다. LLM은 이 내용을 프로젝트 규칙으로 인식하고 따른다.</p>
 
     <h3>동작 방식</h3>
     <ul>
-      <li>대화가 시작되면 AGENTS.md 내용을 시스템 메시지로 넣는다</li>
+      <li>대화가 시작되면 AGENTS.md 내용을 시스템 프롬프트로 넣는다</li>
       <li>문서 안에 다른 .md 파일 링크가 있으면 기억해 두었다가, 필요할 때 해당 파일을 읽는다</li>
       <li>LLM은 이 규칙을 따르면서 도구를 호출하고, 결과를 받아서 다시 판단한다</li>
     </ul>
@@ -923,7 +923,7 @@ tr:last-child td { border-bottom: none; }
       <tr><th>전략</th><th>설명</th></tr>
       <tr><td>사전 감지</td><td>매 라운드 전 토큰 추정 (chars/2). 83.5% 초과 시 경고</td></tr>
       <tr><td>자동 압축</td><td>/compact 또는 자동. AI가 이전 메시지를 요약</td></tr>
-      <tr><td>시스템 메시지 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
+      <tr><td>시스템 프롬프트 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
       <tr><td>도구 출력 캡</td><td>30K 문자 초과 시 자동 절삭</td></tr>
       <tr><td>도구 결과 스킵</td><td>80% 초과 시 나머지 건너뜀 + LLM에 누락 알림</td></tr>
     </table>
