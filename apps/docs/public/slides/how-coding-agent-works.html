@@ -522,6 +522,58 @@ tr:last-child td { border-bottom: none; }
   z-index: 100;
 }
 
+/* ── Mobile: blog-style scroll layout ── */
+@media (max-width: 800px) {
+  html, body {
+    overflow: auto;
+    height: auto;
+  }
+
+  .deck {
+    position: static;
+    height: auto;
+  }
+
+  .slide {
+    position: static;
+    opacity: 1;
+    transform: none;
+    transition: none;
+    pointer-events: auto;
+    padding: 40px 20px;
+    border-bottom: 1px solid var(--border);
+    min-height: auto;
+  }
+
+  .slide.exit-left {
+    opacity: 1;
+    transform: none;
+  }
+
+  .slide-cover {
+    padding: 60px 20px;
+    min-height: 60vh;
+  }
+
+  .slide-cover h1 { font-size: 2rem; }
+  .ascii-logo { font-size: 0.8rem; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.05rem; }
+  p, li { font-size: 0.95rem; }
+  .code-block { font-size: 0.8rem; white-space: pre-wrap; }
+  table { font-size: 0.85rem; }
+  td, th { padding: 8px 10px; }
+  td:first-child { white-space: normal; }
+  .arch-stack { max-width: 100%; }
+  .arch-name { min-width: auto; }
+  .flowchart { padding: 16px; max-width: 100%; }
+
+  .progress-bar,
+  .slide-counter {
+    display: none;
+  }
+}
+
 /* ── Quote ── */
 .quote {
   border-left: 3px solid var(--green);
@@ -609,13 +661,14 @@ tr:last-child td { border-bottom: none; }
     <h2>"나도 만들 수 있을까?"</h2>
     <p class="slide-subtitle">AI 에이전트 라이브러리를 만들어 배포했다. 이걸로 Claude Code 같은 CLI를 만들 수 있을까?</p>
 
-    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 프로바이더 AI 엔진, 도구 시스템, 플러그인, Team 에이전트까지 개발했고 CLI도 시험해 봤다. Robota는 Cursor로 바이브 코딩하면서 개발했는데, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
-    <p>당시에는 AGENTS.md 같은 개념이 없어서 코딩 에이전트에 적용해 보지 못했지만, 최근에 Claude Code를 매일 쓰면서 "나도 코딩을 도와주는 CLI를 구현할 수 있을까?" 하는 생각이 들었다.</p>
+    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 AI 프로바이더, 도구, 플러그인, Team 에이전트까지 갖췄다.</p>
+    <p>Cursor로 바이브 코딩하면서 만들었고, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
+    <p>최근 Claude Code를 매일 쓰면서 AGENTS.md라는 개념을 알게 됐고, 내 SDK 위에 코딩 에이전트 CLI를 만들 수 있겠다는 생각이 들었다.</p>
 
-    <h3>이미 있던 패키지</h3>
+    <h3>Robota SDK 구성</h3>
     <table>
       <tr><th>계층</th><th>패키지</th><th>역할</th></tr>
-      <tr><td>핵심 엔진</td><td class="accent">agent-core, sessions, tools, sdk</td><td>실행 루프, 대화 관리, 플러그인</td></tr>
+      <tr><td>핵심 라이브러리</td><td class="accent">agent-core, sessions, tools, sdk</td><td>실행 루프, 대화 관리, 플러그인</td></tr>
       <tr><td>AI 프로바이더</td><td class="accent">anthropic / openai / google</td><td>Claude, GPT-4, Gemini</td></tr>
       <tr><td>플러그인 (9개)</td><td class="accent">agent-plugin-*</td><td>로깅, 분석, 에러, 성능 등</td></tr>
       <tr><td>DAG (8개)</td><td class="accent">dag-core ~ dag-worker</td><td>워크플로우 실행 엔진</td></tr>
@@ -626,13 +679,13 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 3 -->
   <div class="slide" data-index="2">
     <h2>AGENTS.md란 무엇인가</h2>
-    <p class="slide-subtitle">대화가 시작되면 시스템 메시지로 주입하는 지시문이다</p>
+    <p class="slide-subtitle">대화가 시작되면 시스템 프롬프트로 주입하는 지시문이다</p>
 
     <p>AGENTS.md, CLAUDE.md 같은 파일은 프로젝트 루트에서 탐색한 뒤 시스템 프롬프트에 주입한다. LLM은 이 내용을 프로젝트 규칙으로 인식하고 따른다.</p>
 
     <h3>동작 방식</h3>
     <ul>
-      <li>대화가 시작되면 AGENTS.md 내용을 시스템 메시지로 넣는다</li>
+      <li>대화가 시작되면 AGENTS.md 내용을 시스템 프롬프트로 넣는다</li>
       <li>문서 안에 다른 .md 파일 링크가 있으면 기억해 두었다가, 필요할 때 해당 파일을 읽는다</li>
       <li>LLM은 이 규칙을 따르면서 도구를 호출하고, 결과를 받아서 다시 판단한다</li>
     </ul>
@@ -804,7 +857,7 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 9: 전환 — 구조를 알았으니 만들어봤다 -->
   <div class="slide" data-index="11">
     <h2>이 구조로 직접 CLI를 만들어 봤다</h2>
-    <p class="slide-subtitle">기존 에이전트 엔진에 실행 루프, 도구, 퍼미션을 조립했다</p>
+    <p class="slide-subtitle">기존 에이전트에 실행 루프, 도구, 퍼미션을 조립했다</p>
 
     <p>AGENTS.md와 실행 루프만 맞춰줬더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 6개(<span class="accent">Bash, Read, Write, Edit, Glob, Grep</span>)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.</p>
 
@@ -825,7 +878,7 @@ tr:last-child td { border-bottom: none; }
       </div>
       <div class="arch-layer">
         <span class="arch-name">agent-core</span>
-        <span class="arch-desc">Robota 엔진, 프로바이더, 도구, 실행 루프</span>
+        <span class="arch-desc">Robota 라이브러리, 프로바이더, 도구, 실행 루프</span>
       </div>
     </div>
 
@@ -871,7 +924,7 @@ tr:last-child td { border-bottom: none; }
       <tr><th>전략</th><th>설명</th></tr>
       <tr><td>사전 감지</td><td>매 라운드 전 토큰 추정 (chars/2). 83.5% 초과 시 경고</td></tr>
       <tr><td>자동 압축</td><td>/compact 또는 자동. AI가 이전 메시지를 요약</td></tr>
-      <tr><td>시스템 메시지 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
+      <tr><td>시스템 프롬프트 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
       <tr><td>도구 출력 캡</td><td>30K 문자 초과 시 자동 절삭</td></tr>
       <tr><td>도구 결과 스킵</td><td>80% 초과 시 나머지 건너뜀 + LLM에 누락 알림</td></tr>
     </table>
@@ -972,7 +1025,7 @@ tr:last-child td { border-bottom: none; }
 
     <h3>대신 얻는 장점</h3>
     <ul>
-      <li>내 엔진 위에서 돌아가므로 커스터마이징이 자유롭다</li>
+      <li>내가 만든 라이브러리 위에서 돌아가므로 커스터마이징이 자유롭다</li>
       <li>프로바이더 교체가 가능하다 (Anthropic → OpenAI 등)</li>
       <li>원하는 방식으로 확장 가능하다</li>
     </ul>
@@ -992,7 +1045,7 @@ tr:last-child td { border-bottom: none; }
     <h3>Keep — 계속할 방향</h3>
     <ul>
       <li>Claude Code와 최대한 비슷하게 만들었다 — 도구, 퍼미션, 훅, 스킬, 컨텍스트 압축까지</li>
-      <li>계층을 나눠서 쌓았다 — 엔진, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
+      <li>계층을 나눠서 쌓았다 — 라이브러리, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
       <li>개발 과정에서 발견한 문제를 그때그때 규칙으로 남겨뒀다</li>
     </ul>
 
@@ -1014,8 +1067,9 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 14 -->
   <div class="slide" data-index="20">
     <h2>다음에 해볼 만한 일</h2>
-    <p>멀티 프로바이더 엔진, 도구 시스템, MCP, 플러그인, 세션 영속화, Transport 추상화, DAG 엔진. 그리고 이제 CLI까지 갖추고 나니 이 기반 위에서 동작하는 무언가에 대한 아이디어가 계속 떠오르고 있습니다.</p>
+    <p>멀티 AI 프로바이더, 도구, MCP, 플러그인, 세션, Transport, DAG. 이제 CLI까지 갖추고 나니 이 기반 위에서 만들고 싶은 것이 계속 떠오른다.</p>
     <p style="margin-top:24px;font-size:1.2rem;color:var(--green);font-family:var(--mono)">하나씩 만들어보겠습니다.</p>
+    <p style="margin-top:16px">궁금한 점이나 피드백이 있다면 <a href="https://github.com/woojubb/robota" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>에 남겨주세요.</p>
   </div>
 
   <!-- Slide: 감사합니다 -->
@@ -1036,20 +1090,19 @@ $ robota</div>
 <script>
 const slides = document.querySelectorAll('.slide');
 let current = 0;
+const isMobile = () => window.innerWidth <= 800;
 
 function show(index) {
+  if (isMobile()) return;
   if (index < 0 || index >= slides.length) return;
   if (index === current && slides[current].classList.contains('active')) {
-    // Already showing, just update counter
     document.getElementById('progress').style.width = ((current / (slides.length - 1)) * 100) + '%';
     document.getElementById('counter').textContent = (current + 1) + ' / ' + slides.length;
     return;
   }
 
-  // Remove active from all
   slides.forEach(s => s.classList.remove('active', 'exit-left'));
 
-  // Add exit animation to previous slide
   if (index !== current && index > current) {
     slides[current].classList.add('exit-left');
   }
@@ -1062,21 +1115,23 @@ function show(index) {
 }
 
 document.addEventListener('keydown', (e) => {
+  if (isMobile()) return;
   if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
   if (e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key === 'PageUp') { e.preventDefault(); show(current - 1); }
   if (e.key === 'Home') { e.preventDefault(); show(0); }
   if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
 });
 
-// Touch support
+// Touch support (desktop only)
 let touchStartX = 0;
 document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
 document.addEventListener('touchend', (e) => {
+  if (isMobile()) return;
   const diff = touchStartX - e.changedTouches[0].clientX;
   if (Math.abs(diff) > 50) { diff > 0 ? show(current + 1) : show(current - 1); }
 });
 
-show(0);
+if (!isMobile()) show(0);
 </script>
 
 </body>
