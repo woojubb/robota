@@ -661,14 +661,14 @@ tr:last-child td { border-bottom: none; }
     <h2>"나도 만들 수 있을까?"</h2>
     <p class="slide-subtitle">AI 에이전트 라이브러리를 만들어 배포했다. 이걸로 Claude Code 같은 CLI를 만들 수 있을까?</p>
 
-    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 프로바이더 AI 엔진, 도구, 플러그인, Team 에이전트까지 갖췄다.</p>
+    <p>10개월 전, AI 에이전트를 쉽게 개발할 수 있는 <a href="https://robota.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Robota SDK</a>를 만들어 npm에 공개했다. 멀티 AI 프로바이더, 도구, 플러그인, Team 에이전트까지 갖췄다.</p>
     <p>Cursor로 바이브 코딩하면서 만들었고, 월 $1,000을 쓰기도 했다. 공개 후 한동안 업데이트를 하지 않았다.</p>
     <p>최근 Claude Code를 매일 쓰면서 AGENTS.md라는 개념을 알게 됐고, 내 SDK 위에 코딩 에이전트 CLI를 만들 수 있겠다는 생각이 들었다.</p>
 
     <h3>Robota SDK 구성</h3>
     <table>
       <tr><th>계층</th><th>패키지</th><th>역할</th></tr>
-      <tr><td>핵심 엔진</td><td class="accent">agent-core, sessions, tools, sdk</td><td>실행 루프, 대화 관리, 플러그인</td></tr>
+      <tr><td>핵심 라이브러리</td><td class="accent">agent-core, sessions, tools, sdk</td><td>실행 루프, 대화 관리, 플러그인</td></tr>
       <tr><td>AI 프로바이더</td><td class="accent">anthropic / openai / google</td><td>Claude, GPT-4, Gemini</td></tr>
       <tr><td>플러그인 (9개)</td><td class="accent">agent-plugin-*</td><td>로깅, 분석, 에러, 성능 등</td></tr>
       <tr><td>DAG (8개)</td><td class="accent">dag-core ~ dag-worker</td><td>워크플로우 실행 엔진</td></tr>
@@ -857,7 +857,7 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 9: 전환 — 구조를 알았으니 만들어봤다 -->
   <div class="slide" data-index="11">
     <h2>이 구조로 직접 CLI를 만들어 봤다</h2>
-    <p class="slide-subtitle">기존 에이전트 엔진에 실행 루프, 도구, 퍼미션을 조립했다</p>
+    <p class="slide-subtitle">기존 에이전트에 실행 루프, 도구, 퍼미션을 조립했다</p>
 
     <p>AGENTS.md와 실행 루프만 맞춰줬더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 6개(<span class="accent">Bash, Read, Write, Edit, Glob, Grep</span>)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.</p>
 
@@ -878,7 +878,7 @@ tr:last-child td { border-bottom: none; }
       </div>
       <div class="arch-layer">
         <span class="arch-name">agent-core</span>
-        <span class="arch-desc">Robota 엔진, 프로바이더, 도구, 실행 루프</span>
+        <span class="arch-desc">Robota 라이브러리, 프로바이더, 도구, 실행 루프</span>
       </div>
     </div>
 
@@ -1025,7 +1025,7 @@ tr:last-child td { border-bottom: none; }
 
     <h3>대신 얻는 장점</h3>
     <ul>
-      <li>내 엔진 위에서 돌아가므로 커스터마이징이 자유롭다</li>
+      <li>내가 만든 라이브러리 위에서 돌아가므로 커스터마이징이 자유롭다</li>
       <li>프로바이더 교체가 가능하다 (Anthropic → OpenAI 등)</li>
       <li>원하는 방식으로 확장 가능하다</li>
     </ul>
@@ -1045,7 +1045,7 @@ tr:last-child td { border-bottom: none; }
     <h3>Keep — 계속할 방향</h3>
     <ul>
       <li>Claude Code와 최대한 비슷하게 만들었다 — 도구, 퍼미션, 훅, 스킬, 컨텍스트 압축까지</li>
-      <li>계층을 나눠서 쌓았다 — 엔진, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
+      <li>계층을 나눠서 쌓았다 — 라이브러리, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
       <li>개발 과정에서 발견한 문제를 그때그때 규칙으로 남겨뒀다</li>
     </ul>
 
@@ -1067,7 +1067,7 @@ tr:last-child td { border-bottom: none; }
   <!-- Slide 14 -->
   <div class="slide" data-index="20">
     <h2>다음에 해볼 만한 일</h2>
-    <p>멀티 프로바이더 엔진, 도구, MCP, 플러그인, 세션, Transport, DAG 엔진. 이제 CLI까지 갖추고 나니 이 기반 위에서 만들고 싶은 것이 계속 떠오른다.</p>
+    <p>멀티 AI 프로바이더, 도구, MCP, 플러그인, 세션, Transport, DAG. 이제 CLI까지 갖추고 나니 이 기반 위에서 만들고 싶은 것이 계속 떠오른다.</p>
     <p style="margin-top:24px;font-size:1.2rem;color:var(--green);font-family:var(--mono)">하나씩 만들어보겠습니다.</p>
     <p style="margin-top:16px">궁금한 점이나 피드백이 있다면 <a href="https://github.com/woojubb/robota" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>에 남겨주세요.</p>
   </div>
