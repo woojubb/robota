@@ -681,6 +681,8 @@ tr:last-child td { border-bottom: none; }
     <h2>AGENTS.md란 무엇인가</h2>
     <p class="slide-subtitle">대화가 시작되면 시스템 프롬프트로 주입하는 지시문이다</p>
 
+    <p>Claude Code를 쓰면서 AGENTS.md 파일 하나가 에이전트의 행동을 완전히 바꾸는 걸 봤다. 열어보니 그냥 텍스트 파일이었다.</p>
+
     <p>AGENTS.md, CLAUDE.md 같은 파일은 프로젝트 루트에서 탐색한 뒤 시스템 프롬프트에 주입한다. LLM은 이 내용을 프로젝트 규칙으로 인식하고 따른다.</p>
 
     <h3>동작 방식</h3>
@@ -716,6 +718,8 @@ tr:last-child td { border-bottom: none; }
     <h2>코딩 에이전트 기본 도구</h2>
     <p class="slide-subtitle">에이전트의 손발 — 이 6개로 코드를 읽고, 쓰고, 실행한다</p>
 
+    <p>처음에는 도구가 수십 개 필요할 줄 알았는데, 실제로는 6개로 거의 모든 코딩 작업을 처리했다.</p>
+
     <table>
       <tr><th>도구</th><th>역할</th><th>예시</th></tr>
       <tr><td class="accent">Bash</td><td>셸 명령 실행</td><td>pnpm test, git status, ls</td></tr>
@@ -733,6 +737,8 @@ tr:last-child td { border-bottom: none; }
   <div class="slide" data-index="5">
     <h2>실행 루프 구조</h2>
     <p class="slide-subtitle">LLM 호출 → 도구 실행 → 결과 재주입을 반복한다</p>
+
+    <p>LLM을 한 번 호출하면 답이 나오는 줄 알았다. 실제로는 도구를 호출하고, 결과를 돌려주고, 다시 판단하는 루프를 계속 돈다.</p>
 
     <table>
       <tr><th>단계</th><th>동작</th></tr>
@@ -835,6 +841,8 @@ tr:last-child td { border-bottom: none; }
     <h2>컨텍스트 관리 문제</h2>
     <p class="slide-subtitle">대화가 길어지면 AI가 앞의 내용을 잊는다</p>
 
+    <p>도구를 10번 호출하는 프롬프트 하나가 컨텍스트의 절반을 채우는 걸 보고 나서야, 이게 진짜 문제라는 걸 알았다.</p>
+
     <p>AI 모델은 한 번에 처리하는 컨텍스트 크기에 한계를 가진다. Sonnet 4.5는 200K 토큰, Opus 4.6은 1M 토큰. 많아 보이지만, 코딩 에이전트는 컨텍스트에 엄청난 양의 정보를 담는다.</p>
 
     <h3>왜 문제인가</h3>
@@ -859,7 +867,7 @@ tr:last-child td { border-bottom: none; }
     <h2>이 구조로 직접 CLI를 만들어 봤다</h2>
     <p class="slide-subtitle">기존 에이전트에 실행 루프, 도구, 퍼미션을 조립했다</p>
 
-    <p>AGENTS.md와 실행 루프만 맞춰줬더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 6개(<span class="accent">Bash, Read, Write, Edit, Glob, Grep</span>)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.</p>
+    <p>여기까지 파악하고 나니 내 SDK로 만들 수 있겠다는 확신이 들었다. AGENTS.md와 실행 루프만 조립했더니 정말 Claude Code처럼 동작했다. 핵심은 기본 도구 6개(<span class="accent">Bash, Read, Write, Edit, Glob, Grep</span>)였다. 그리고 이 구조는 Anthropic API에 종속하지 않는다 — OpenAI API를 써도 동일하게 돌아갈 구조다.</p>
 
     <p>기존 Robota SDK 위에 계층을 나눠서 쌓았다:</p>
 
@@ -915,43 +923,8 @@ tr:last-child td { border-bottom: none; }
     </ul>
   </div>
 
-  <!-- Slide 7 (was 6) -->
+  <!-- Slide 13: 만들면서 부딪힌 문제 (1) -->
   <div class="slide" data-index="13">
-    <h2>컨텍스트 압축 — 내가 구현한 방법</h2>
-    <p class="slide-subtitle">5가지 방법으로 컨텍스트를 관리한다</p>
-
-    <table>
-      <tr><th>전략</th><th>설명</th></tr>
-      <tr><td>사전 감지</td><td>매 라운드 전 토큰 추정 (chars/2). 83.5% 초과 시 경고</td></tr>
-      <tr><td>자동 압축</td><td>/compact 또는 자동. AI가 이전 메시지를 요약</td></tr>
-      <tr><td>시스템 프롬프트 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
-      <tr><td>도구 출력 캡</td><td>30K 문자 초과 시 자동 절삭</td></tr>
-      <tr><td>도구 결과 스킵</td><td>80% 초과 시 나머지 건너뜀 + LLM에 누락 알림</td></tr>
-    </table>
-
-    <div class="insight">
-      <div class="insight-label">핵심</div>
-      <p>압축 한 번에 토큰 40~60% 절약. 단, 세부 맥락을 잃는다.</p>
-    </div>
-  </div>
-
-  <!-- Slide 8 (was 7) -->
-  <div class="slide" data-index="14">
-    <h2>Claude Code와 호환하는 플러그인 기능</h2>
-    <p class="slide-subtitle">생태계와 호환하지 않으면 혼자만 쓰는 도구로 끝난다</p>
-
-    <h3>플러그인 명령어</h3>
-    <div class="code-block"><span class="fn">/plugin marketplace add</span> owner/repo    ← 마켓플레이스 등록
-<span class="fn">/plugin install</span> name@marketplace     ← 플러그인 설치</div>
-
-    <p>마켓플레이스를 등록하고, 거기서 플러그인을 설치/제거할 수 있다. Claude Code와 동일한 경로 구조를 지원한다.</p>
-
-    <h3>서브에이전트</h3>
-    <p>서브에이전트도 구현했다. Claude Code의 스킬 파일 중 프론트매터에 <span class="accent">context: fork</span>가 있으면 메인 대화와 분리한 별도 세션에서 실행한다.</p>
-  </div>
-
-  <!-- Slide 9: 터미널 입력 문제 -->
-  <div class="slide" data-index="15">
     <h2>만들면서 부딪힌 문제 (1)</h2>
     <p class="slide-subtitle">터미널에서 한국어를 쓰는 건 쉽지 않았다</p>
 
@@ -970,8 +943,8 @@ tr:last-child td { border-bottom: none; }
     </ul>
   </div>
 
-  <!-- Slide 10: 아키텍처 문제 -->
-  <div class="slide" data-index="16">
+  <!-- Slide 14: 만들면서 부딪힌 문제 (2) -->
+  <div class="slide" data-index="14">
     <h2>만들면서 부딪힌 문제 (2)</h2>
     <p class="slide-subtitle">데이터 구조를 바로잡으니 나머지가 풀렸다</p>
 
@@ -991,12 +964,47 @@ tr:last-child td { border-bottom: none; }
     <p class="dim">이 구조 덕분에 세션 이어가기, 히스토리 표시, 이벤트 추적이 모두 단순해졌다.</p>
   </div>
 
-  <!-- Slide 11 -->
+  <!-- Slide 15: 컨텍스트 압축 -->
+  <div class="slide" data-index="15">
+    <h2>컨텍스트 압축 — 내가 구현한 방법</h2>
+    <p class="slide-subtitle">5가지 방법으로 컨텍스트를 관리한다</p>
+
+    <table>
+      <tr><th>전략</th><th>설명</th></tr>
+      <tr><td>사전 감지</td><td>매 라운드 전 토큰 추정 (chars/2). 83.5% 초과 시 경고</td></tr>
+      <tr><td>자동 압축</td><td>/compact 또는 자동. AI가 이전 메시지를 요약</td></tr>
+      <tr><td>시스템 프롬프트 보존</td><td>AGENTS.md 등은 압축하지 않고 유지</td></tr>
+      <tr><td>도구 출력 캡</td><td>30K 문자 초과 시 자동 절삭</td></tr>
+      <tr><td>도구 결과 스킵</td><td>80% 초과 시 나머지 건너뜀 + LLM에 누락 알림</td></tr>
+    </table>
+
+    <div class="insight">
+      <div class="insight-label">핵심</div>
+      <p>압축 한 번에 토큰 40~60% 절약. 단, 세부 맥락을 잃는다.</p>
+    </div>
+  </div>
+
+  <!-- Slide 16: 플러그인 -->
+  <div class="slide" data-index="16">
+    <h2>Claude Code와 호환하는 플러그인 기능</h2>
+    <p class="slide-subtitle">생태계와 호환하지 않으면 혼자만 쓰는 도구로 끝난다</p>
+
+    <h3>플러그인 명령어</h3>
+    <div class="code-block"><span class="fn">/plugin marketplace add</span> owner/repo    ← 마켓플레이스 등록
+<span class="fn">/plugin install</span> name@marketplace     ← 플러그인 설치</div>
+
+    <p>마켓플레이스를 등록하고, 거기서 플러그인을 설치/제거할 수 있다. Claude Code와 동일한 경로 구조를 지원한다.</p>
+
+    <h3>서브에이전트</h3>
+    <p>서브에이전트도 구현했다. Claude Code의 스킬 파일 중 프론트매터에 <span class="accent">context: fork</span>가 있으면 메인 대화와 분리한 별도 세션에서 실행한다.</p>
+  </div>
+
+  <!-- Slide 17: 그래서, 지금 쓸 수 있나? (merged 18+19) -->
   <div class="slide" data-index="17">
     <h2>그래서, 지금 쓸 수 있나?</h2>
     <p class="slide-subtitle">실제로 코딩 작업에 사용해 봤고, 일상 개발 작업을 할 수 있는 수준이다</p>
 
-    <p>이제 Robota를 Robota CLI로 개발할 수 있다.</p>
+    <p>쓸 수 있다. 이제 Robota를 Robota CLI로 개발할 수 있다.</p>
 
     <ul>
       <li>Claude Code와 동일한 도구 세트 (Bash, Read, Write, Edit, Glob, Grep)</li>
@@ -1009,77 +1017,36 @@ tr:last-child td { border-bottom: none; }
       <li>CJK(한국어) 입력 지원</li>
       <li>agent-sdk를 분리했기 때문에 다른 프로젝트에서 SDK만 불러와서 동일한 코딩 어시스턴트를 구성한다</li>
     </ul>
-  </div>
 
-  <!-- Slide 12: 현실적인 한계 -->
-  <div class="slide" data-index="18">
-    <h2>하지만 현실의 한계</h2>
-    <p class="slide-subtitle">거의 근접하게 만들었지만, 아직 넘어야 할 벽이 남아 있다</p>
+    <p style="margin-top:20px">단, 조건이 있다.</p>
 
-    <h3>Claude Code 대비 부족한 점</h3>
     <ul>
       <li>아직 Claude Code가 더 안정적이다</li>
       <li>API 종량제라 구독 대비 비용이 더 들 수 있다</li>
       <li>API 키가 필요해서 개발자가 아니면 진입 장벽이 높다</li>
     </ul>
 
-    <h3>대신 얻는 장점</h3>
-    <ul>
-      <li>내가 만든 라이브러리 위에서 돌아가므로 커스터마이징이 자유롭다</li>
-      <li>프로바이더 교체가 가능하다 (Anthropic → OpenAI 등)</li>
-      <li>원하는 방식으로 확장 가능하다</li>
-    </ul>
+    <p>대신 내가 만든 라이브러리 위에서 돌아가므로 프로바이더 교체, 커스터마이징, 확장이 자유롭다.</p>
   </div>
 
-  <!-- Slide 13: 회고 -->
-  <div class="slide" data-index="19">
-    <h2>회고</h2>
-    <p class="slide-subtitle">9일, 385커밋</p>
+  <!-- Slide 18: 마무리 (merged 20+21+22) -->
+  <div class="slide" data-index="18">
+    <h2>마무리</h2>
 
-    <div class="stat-grid">
-      <div class="stat-card"><div class="stat-number">385</div><div class="stat-label">커밋</div></div>
-      <div class="stat-card"><div class="stat-number">53</div><div class="stat-label">npm 릴리즈</div></div>
-      <div class="stat-card"><div class="stat-number">2,098+</div><div class="stat-label">테스트</div></div>
-    </div>
+    <p>9일 동안 385커밋, 53번의 npm 릴리즈. 만드는 과정에서 에이전트 작동 원리를 훨씬 정확하게 이해했다.</p>
 
-    <h3>Keep — 계속할 방향</h3>
-    <ul>
-      <li>Claude Code와 최대한 비슷하게 만들었다 — 도구, 퍼미션, 훅, 스킬, 컨텍스트 압축까지</li>
-      <li>계층을 나눠서 쌓았다 — 라이브러리, 세션, SDK, CLI가 각자 역할에 맞게 분리</li>
-      <li>개발 과정에서 발견한 문제를 그때그때 규칙으로 남겨뒀다</li>
-    </ul>
+    <p>이제 이 기반 위에서 만들고 싶은 것이 계속 떠오른다.</p>
 
-    <h3>Problem — 아쉬운 것</h3>
-    <ul>
-      <li>Claude Code 대비 아직 안정성이 부족하다</li>
-      <li>API 종량제 비용 문제를 해결하지 못했다</li>
-    </ul>
+    <p style="margin-top:24px;font-size:1.2rem;color:var(--green);font-family:var(--mono)">앞으로 하나씩 만들어보겠습니다.</p>
 
-    <h3>Try — 다음에 시도할 과제</h3>
-    <ul>
-      <li>Robota CLI를 실제 프로젝트에 투입해서 안정성을 검증한다</li>
-      <li>OpenAI 등 다른 프로바이더로 동일한 구조가 동작하는지 검증한다</li>
-    </ul>
+    <img src="assets/cli-demo.png" alt="Robota CLI demo" style="max-width:680px;width:100%;border-radius:8px;border:1px solid var(--border);margin-bottom:24px;margin-top:24px">
 
-    <p style="margin-top:16px">만드는 과정에서 에이전트 작동 원리를 훨씬 정확하게 이해했다.</p>
-  </div>
-
-  <!-- Slide 14 -->
-  <div class="slide" data-index="20">
-    <h2>다음에 해볼 만한 일</h2>
-    <p>멀티 AI 프로바이더, 도구, MCP, 플러그인, 세션, Transport, DAG. 이제 CLI까지 갖추고 나니 이 기반 위에서 만들고 싶은 것이 계속 떠오른다.</p>
-    <p style="margin-top:24px;font-size:1.2rem;color:var(--green);font-family:var(--mono)">하나씩 만들어보겠습니다.</p>
-    <p style="margin-top:16px">궁금한 점이나 피드백이 있다면 <a href="https://github.com/woojubb/robota" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>에 남겨주세요.</p>
-  </div>
-
-  <!-- Slide: 감사합니다 -->
-  <div class="slide" data-index="21" style="justify-content:center;align-items:center;text-align:center;">
-    <h2 style="font-size:2.4rem;margin-bottom:32px">감사합니다</h2>
-    <img src="assets/cli-demo.png" alt="Robota CLI demo" style="max-width:680px;width:100%;border-radius:8px;border:1px solid var(--border);margin-bottom:24px">
     <div class="code-block" style="display:inline-block;font-size:1.1rem;padding:16px 32px;margin-bottom:24px;text-align:left"><span style="color:var(--text-dim)"># https://robota.io</span>
 
 $ npm install -g @robota-sdk/agent-cli
 $ robota</div>
+
+    <p style="margin-top:16px">궁금한 점이나 피드백이 있다면 <a href="https://github.com/woojubb/robota" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">GitHub</a>에 남겨주세요.</p>
   </div>
 
 </div>
