@@ -1,0 +1,256 @@
+:root {
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Noto Sans KR', sans-serif;
+}
+
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
+  --bg: #0a0e14;
+  --bg-surface: #111820;
+  --bg-elevated: #1a2130;
+  --green: #39ff85;
+  --green-dim: #1a6b3a;
+  --green-glow: rgba(57, 255, 133, 0.15);
+  --amber: #ffb454;
+  --red: #ff6b6b;
+  --cyan: #59c2ff;
+  --purple: #d2a6ff;
+  --text: #e6e6e6;
+  --text-dim: #8a919a;
+  --text-muted: #4a5060;
+  --border: #2a3040;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-surface: #f5f5f5;
+  --bg-elevated: #eaeaea;
+  --green: #0a8a3e;
+  --green-dim: #b2dfbe;
+  --green-glow: rgba(10, 138, 62, 0.08);
+  --amber: #b45309;
+  --red: #dc2626;
+  --cyan: #0369a1;
+  --purple: #7c3aed;
+  --text: #1a1a1a;
+  --text-dim: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.75;
+}
+
+a {
+  color: var(--cyan);
+  text-decoration: underline;
+}
+
+a:hover {
+  color: var(--green);
+}
+
+/* ── Typography ── */
+h1 {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 2.4rem;
+  line-height: 1.2;
+  color: var(--green);
+  margin-bottom: 16px;
+  text-shadow: 0 0 40px var(--green-glow);
+}
+
+h2 {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: var(--green);
+  margin-top: 64px;
+  margin-bottom: 16px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+  text-shadow: 0 0 30px var(--green-glow);
+}
+
+h2:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+h3 {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 1.15rem;
+  color: var(--amber);
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+p {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+/* ── Lists ── */
+ul, ol {
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+li {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  margin-bottom: 6px;
+}
+
+ul li::marker {
+  color: var(--green);
+  content: '› ';
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+/* ── Code ── */
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--green);
+}
+
+pre {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--text-dim) !important;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+pre code span {
+  color: inherit;
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
+/* ── Theme toggle button ── */
+.theme-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
+.theme-btn:hover {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+/* ── Table ── */
+table {
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+th {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--green);
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 2px solid var(--green-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  vertical-align: top;
+}
+
+td:first-child {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 500;
+}
+
+tr:last-child td { border-bottom: none; }
+
+/* ── Blockquote (used as section subtitle) ── */
+blockquote {
+  border-left: none;
+  padding-left: 0;
+  margin: -12px 0 24px 0;
+  color: var(--text-dim);
+  font-style: normal;
+  font-size: 1.05rem;
+}
+
+blockquote p {
+  color: var(--text-dim);
+}
+
+/* ── Horizontal rule ── */
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0;
+}
+
+/* ── Images ── */
+img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+/* ── Strong / Bold ── */
+strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  h1 { font-size: 1.8rem; }
+  h2 { font-size: 1.3rem; }
+  h3 { font-size: 1rem; }
+  p, li { font-size: 0.95rem; }
+  pre { font-size: 0.8rem; padding: 14px 16px; }
+  table { font-size: 0.85rem; }
+  td, th { padding: 8px 10px; }
+}

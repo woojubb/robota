@@ -5,10 +5,8 @@ import {
   createLogger,
   type ILogger,
   PluginError,
-  ConfigurationError,
   type IEventEmitterEventData,
   type TEventName,
-  EVENT_EMITTER_EVENTS,
 } from '@robota-sdk/agent-core';
 import {
   IPerformanceMetrics,
@@ -18,8 +16,13 @@ import {
   IPerformanceStorage,
   ISystemMetricsCollector,
 } from './types';
-import { MemoryPerformanceStorage } from './storages/index';
 import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
+import {
+  validatePerformanceOptions,
+  createPerformanceStorage,
+  extractPerformanceModuleData,
+  PERFORMANCE_MODULE_EVENT_MAP,
+} from './performance-helpers';
 
 const DEFAULT_MAX_ENTRIES = 5000;
 const DEFAULT_BATCH_SIZE = 100;
@@ -73,7 +76,7 @@ export class PerformancePlugin extends AbstractPlugin<
     this.priority = PluginPriority.NORMAL;
 
     // Validate options
-    this.validateOptions(options);
+    validatePerformanceOptions(options);
 
     // Set defaults
     this.pluginOptions = {
@@ -100,7 +103,10 @@ export class PerformancePlugin extends AbstractPlugin<
     };
 
     // Initialize storage and metrics collector
-    this.storage = this.createStorage();
+    this.storage = createPerformanceStorage(
+      this.pluginOptions.strategy,
+      this.pluginOptions.maxEntries,
+    );
     this.metricsCollector = new NodeSystemMetricsCollector();
 
     this.logger.info('PerformancePlugin initialized', {
@@ -111,37 +117,6 @@ export class PerformancePlugin extends AbstractPlugin<
     });
   }
 
-  /** Event name → metrics descriptor mapping. */
-  private static readonly MODULE_EVENT_MAP: ReadonlyMap<
-    string,
-    { operation: string; phase: string; isError: boolean }
-  > = new Map([
-    [
-      EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
-      { operation: 'module_initialization', phase: 'initialization', isError: false },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
-      { operation: 'module_initialization', phase: 'initialization', isError: true },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
-      { operation: 'module_execution', phase: 'execution', isError: false },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
-      { operation: 'module_execution', phase: 'execution', isError: true },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
-      { operation: 'module_disposal', phase: 'disposal', isError: false },
-    ],
-    [
-      EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR,
-      { operation: 'module_disposal', phase: 'disposal', isError: true },
-    ],
-  ]);
-
   /**
    * Records performance metrics from module lifecycle events
    * (initialization, execution, disposal) including duration and error counts.
@@ -151,10 +126,10 @@ export class PerformancePlugin extends AbstractPlugin<
     eventData: IEventEmitterEventData,
   ): Promise<void> {
     try {
-      const descriptor = PerformancePlugin.MODULE_EVENT_MAP.get(eventName);
+      const descriptor = PERFORMANCE_MODULE_EVENT_MAP.get(eventName);
       if (!descriptor) return;
 
-      const { moduleName, moduleType, duration, success } = PerformancePlugin.extractModuleData(
+      const { moduleName, moduleType, duration, success } = extractPerformanceModuleData(
         eventData.data,
       );
       if (duration === undefined) return;
@@ -175,23 +150,6 @@ export class PerformancePlugin extends AbstractPlugin<
     } catch (_error) {
       // Swallow to avoid breaking module event processing
     }
-  }
-
-  /** Safely extracts module data fields from untyped event data. */
-  private static extractModuleData(data: unknown): {
-    moduleName: string;
-    moduleType: string;
-    duration?: number;
-    success?: boolean;
-  } {
-    const record =
-      typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
-    return {
-      moduleName: typeof record['moduleName'] === 'string' ? record['moduleName'] : 'unknown',
-      moduleType: typeof record['moduleType'] === 'string' ? record['moduleType'] : 'unknown',
-      ...(typeof record['duration'] === 'number' && { duration: record['duration'] }),
-      ...(typeof record['success'] === 'boolean' && { success: record['success'] }),
-    };
   }
 
   /**
@@ -311,30 +269,6 @@ export class PerformancePlugin extends AbstractPlugin<
       this.logger.error('Error during plugin cleanup', {
         error: error instanceof Error ? error.message : String(error),
       });
-    }
-  }
-
-  private validateOptions(options: IPerformancePluginOptions): void {
-    if (!options.strategy) {
-      throw new ConfigurationError('Performance monitoring strategy is required');
-    }
-
-    if (!['memory', 'file', 'prometheus', 'remote', 'silent'].includes(options.strategy)) {
-      throw new ConfigurationError('Invalid performance monitoring strategy', {
-        validStrategies: ['memory', 'file', 'prometheus', 'remote', 'silent'],
-        provided: options.strategy,
-      });
-    }
-  }
-
-  private createStorage(): IPerformanceStorage {
-    switch (this.pluginOptions.strategy) {
-      case 'memory':
-        return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
-      default:
-        throw new ConfigurationError('Performance monitoring strategy is not implemented', {
-          provided: this.pluginOptions.strategy,
-        });
     }
   }
 }
