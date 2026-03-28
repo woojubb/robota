@@ -32,7 +32,8 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <link rel="stylesheet" href="/styles/global.css" />
   <script is:inline>
     (function() {
-      var t = localStorage.getItem('theme') || 'dark';
+      var saved = localStorage.getItem('theme');
+      var t = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
