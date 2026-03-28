@@ -9,9 +9,9 @@ date: '2026-03-28'
 
 > AI 에이전트 라이브러리를 만들어 배포했다. 이걸로 Claude Code 같은 CLI를 만들 수 있을까?
 
-10개월 전, AI 에이전트를 쉽게 개발할 수 있는 Robota SDK를 만들어 npm에 공개했다. 나는 Robota를 이용해서 멀티 AI 프로바이더, 도구, 플러그인, Team 에이전트 기능까지 테스트 했었다.
+10개월 전, AI 에이전트를 쉽게 개발할 수 있는 Robota SDK를 만들어 npm에 공개했다. 나는 Robota SDK를 이용해서 멀티 AI 프로바이더, 도구, 플러그인, Team 에이전트 기능까지 테스트 했었다.
 
-최근 매일 Claude Code를 쓰면서 `AGENTS.md`라는 것을 알게 됐고, 내 SDK 위에 코딩 에이전트 CLI를 만들어 보고 싶다는 생각이 들었다.
+최근 매일 Claude Code를 쓰면서 `AGENTS.md`라는 것을 알게 됐고, 내 SDK를 이용해 코딩 에이전트 CLI를 만들어 보고 싶다는 생각이 들었다.
 
 ### Robota SDK 구성
 
