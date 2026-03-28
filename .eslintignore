@@ -16,6 +16,9 @@ node_modules/
 *.config.js
 *.config.ts
 *.config.mjs
+
+# Blog plugins (not in tsconfig)
+apps/blog/src/plugins/
 vitest.config.ts
 tsup.config.ts
 
