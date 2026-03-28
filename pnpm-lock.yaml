@@ -262,6 +262,9 @@ importers:
       shiki:
         specifier: ^4.0.2
         version: 4.0.2
+      unist-util-visit:
+        specifier: ^5.1.0
+        version: 5.1.0
 
   apps/dag-orchestrator-server:
     dependencies:
@@ -19289,7 +19292,7 @@ packages:
       remark-parse: 11.0.0
       remark-rehype: 11.1.2
       unified: 11.0.5
-      unist-util-visit: 5.0.0
+      unist-util-visit: 5.1.0
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
@@ -21996,16 +21999,6 @@ packages:
       '@types/unist': 3.0.3
     dev: false
 
-  /unist-util-visit-parents@6.0.1:
-    resolution:
-      {
-        integrity: sha512-L/PqWzfTP9lzzEa6CKs0k2nARxTdZduw3zyh8d2NVBnsyvHjSX4TWse388YrrQKbvI8w20fGjGlhgT96WwKykw==,
-      }
-    dependencies:
-      '@types/unist': 3.0.3
-      unist-util-is: 6.0.0
-    dev: false
-
   /unist-util-visit-parents@6.0.2:
     resolution:
       {
@@ -22014,17 +22007,6 @@ packages:
     dependencies:
       '@types/unist': 3.0.3
       unist-util-is: 6.0.0
-
-  /unist-util-visit@5.0.0:
-    resolution:
-      {
-        integrity: sha512-MR04uvD+07cwl/yhVuVWAtw+3GOR/knlL55Nd/wAdblk27GCVt3lqpTivy/tkJcZoNPzTwS1Y+KMojlLDhoTzg==,
-      }
-    dependencies:
-      '@types/unist': 3.0.3
-      unist-util-is: 6.0.0
-      unist-util-visit-parents: 6.0.1
-    dev: false
 
   /unist-util-visit@5.1.0:
     resolution:
