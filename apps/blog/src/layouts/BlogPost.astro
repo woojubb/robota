@@ -16,9 +16,15 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-ZPV4BX97JF');</script>
   <title>{title} — Robota</title>
   <meta name="description" content={subtitle || title} />
+  <link rel="canonical" href={`https://blog.robota.io${Astro.url.pathname}`} />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={subtitle || title} />
   <meta property="og:type" content="article" />
+  <meta property="og:url" content={`https://blog.robota.io${Astro.url.pathname}`} />
+  <meta property="og:site_name" content="Robota" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={subtitle || title} />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles/global.css" />
