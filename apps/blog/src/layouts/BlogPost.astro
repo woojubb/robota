@@ -30,11 +30,18 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles/global.css" />
+  <script is:inline>
+    (function() {
+      var t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body>
   <header class="site-header">
     <a href="/" class="logo">Robota</a>
     <nav>
+      <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">☀</button>
       <a href="/">blog</a>
     </nav>
   </header>
@@ -58,6 +65,19 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
       <a href="https://robota.io">robota.io</a>
     </p>
   </footer>
+  <script is:inline>
+    var btn = document.getElementById('theme-toggle');
+    function updateBtn() {
+      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
+    }
+    updateBtn();
+    btn.addEventListener('click', function() {
+      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateBtn();
+    });
+  </script>
 </body>
 </html>
 
