@@ -1,6 +1,6 @@
 ---
 const { frontmatter } = Astro.props;
-const { title, subtitle, date } = frontmatter;
+const { title, subtitle, date, image } = frontmatter;
 const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   year: 'numeric',
   month: 'long',
@@ -22,9 +22,11 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <meta property="og:type" content="article" />
   <meta property="og:url" content={`https://blog.robota.io${Astro.url.pathname}`} />
   <meta property="og:site_name" content="Robota" />
-  <meta name="twitter:card" content="summary" />
+  {image && <meta property="og:image" content={image} />}
+  <meta name="twitter:card" content={image ? "summary_large_image" : "summary"} />
   <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={subtitle || title} />
+  {image && <meta name="twitter:image" content={image} />}
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles/global.css" />
