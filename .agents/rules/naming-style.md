@@ -20,7 +20,7 @@ When writing Korean content (blog posts, presentations, design documents):
 - No `것` nominalizer — use concrete nouns or rephrase
 - No `들` plural marker — Korean does not require explicit plurals
 - No `있다` sentence endings — rewrite in active voice
-- No passive `되다` — use active voice (e.g., "만들어졌다" → "만들었다", "추가되었다" → "추가했다"). Exception: established compound words where `되다` is idiomatic (e.g., "호환되는")
+- No passive `되다` — use active voice (e.g., "만들어졌다" → "만들었다", "추가되었다" → "추가했다"). This rule only applies when both `하다` and `되다` forms exist. If a word has no `하다` form and only `되다` is possible (e.g., "호환되다" — "호환하다" does not exist), use `되다` as-is.
 
 ### Agent Identity
 
