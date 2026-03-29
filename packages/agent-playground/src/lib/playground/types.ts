@@ -3,7 +3,7 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 /**
  * Playground WebSocket message types.
  *
- * Ownership: @robota-sdk/agent-remote-client (transport/types).
+ * Ownership: @robota-sdk/agent-playground.
  * Consumers: apps/agent-server (server), @robota-sdk/agent-playground (client).
  */
 /** Discriminant values for playground WebSocket message types. */
