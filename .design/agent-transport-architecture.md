@@ -68,14 +68,6 @@ message:abort      → session.abort()
 disconnect         → 세션 정리
 ```
 
-### Cloudflare Dynamic Worker RPC
-
-```
-Worker Loader binding → InteractiveSession 생성
-fetch handler         → submit/abort/command 라우팅
-globalOutbound        → provider API 키 주입
-```
-
 ### CLI (현재)
 
 ```
