@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-playground": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "@robota-sdk/agent-provider-bytedance": "workspace:*",
     "@robota-sdk/agent-provider-google": "workspace:*",
