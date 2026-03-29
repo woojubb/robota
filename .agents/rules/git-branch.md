@@ -42,6 +42,12 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 **Branch naming:** `<type>/<topic>` (e.g., `feat/blog-i18n`, `fix/header-switcher`, `chore/cleanup-tasks`).
 
+### Deployment
+
+- **Cloudflare Pages** (blog, docs) deploys automatically when `main` is updated.
+- Changes on release branches are NOT deployed until merged to `main`.
+- When deployment is needed, create a PR from the release branch to `main` and ask the user to merge it.
+
 ### Worktree Isolation
 
 - When performing a large, independent task that requires a different branch context, commit and push current work first, then switch branches. Return to the original branch when done.
