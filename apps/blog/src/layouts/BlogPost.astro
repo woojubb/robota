@@ -1,6 +1,6 @@
 ---
 const { frontmatter } = Astro.props;
-const { title, subtitle, date, image } = frontmatter;
+const { title, subtitle, date, image, author } = frontmatter;
 const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   year: 'numeric',
   month: 'long',
@@ -18,6 +18,7 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-ZPV4BX97JF');</script>
   <title>{title} — Robota</title>
   <meta name="description" content={subtitle || title} />
+  {author && <meta name="author" content={author} />}
   <link rel="canonical" href={`https://blog.robota.io${Astro.url.pathname}`} />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={subtitle || title} />
@@ -53,6 +54,7 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
     <article>
       <div class="post-meta">
         <time datetime={date}>{formattedDate}</time>
+        {author && <span class="author"> · {author}</span>}
       </div>
       <h1>{title}</h1>
       {subtitle && <p class="subtitle">{subtitle}</p>}
@@ -131,6 +133,10 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
     font-size: 0.85rem;
     color: var(--text-muted);
     margin-bottom: 8px;
+  }
+
+  .author {
+    color: var(--text-dim);
   }
 
   .subtitle {
