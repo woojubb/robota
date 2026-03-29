@@ -1,0 +1,30 @@
+---
+// apps/blog/src/pages/ko/[...slug].astro
+import { getCollection, render } from 'astro:content';
+import BlogPost from '../../layouts/BlogPost.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => data.lang === 'ko');
+  return posts.map((post) => ({
+    params: { slug: post.id.replace('ko/', '') },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+// Check if English translation exists
+const allPosts = await getCollection('blog', ({ data }) => data.lang === 'en');
+const enSlug = post.id.replace('ko/', '');
+const hasTranslation = allPosts.some((p) => p.id.replace('en/', '') === enSlug);
+const translationUrl = hasTranslation ? `/${enSlug}/` : '/';
+---
+
+<BlogPost
+  frontmatter={post.data}
+  lang="ko"
+  translationUrl={translationUrl}
+>
+  <Content />
+</BlogPost>
