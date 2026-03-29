@@ -4,6 +4,7 @@ title: '코딩 에이전트 CLI는 어떻게 만들까'
 subtitle: '직접 만들어본 코딩 에이전트 CLI'
 date: '2026-03-28'
 author: '황정연'
+authorUrl: 'https://github.com/woojubb'
 ---
 
 ## "나도 만들 수 있을까?"

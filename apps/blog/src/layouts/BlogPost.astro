@@ -1,6 +1,6 @@
 ---
 const { frontmatter } = Astro.props;
-const { title, subtitle, date, image, author } = frontmatter;
+const { title, subtitle, date, image, author, authorUrl } = frontmatter;
 const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   year: 'numeric',
   month: 'long',
@@ -54,7 +54,7 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
     <article>
       <div class="post-meta">
         <time datetime={date}>{formattedDate}</time>
-        {author && <span class="author"> · {author}</span>}
+        {author && <span class="author"> · {authorUrl ? <a href={authorUrl} target="_blank" rel="noopener">{author}</a> : author}</span>}
       </div>
       <h1>{title}</h1>
       {subtitle && <p class="subtitle">{subtitle}</p>}
@@ -137,6 +137,15 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
 
   .author {
     color: var(--text-dim);
+  }
+
+  .author a {
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+
+  .author a:hover {
+    color: var(--green);
   }
 
   .subtitle {
