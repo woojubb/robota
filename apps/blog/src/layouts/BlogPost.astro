@@ -1,14 +1,19 @@
 ---
-const { frontmatter } = Astro.props;
+const { frontmatter, lang = 'en', translationUrl = '' } = Astro.props;
 const { title, subtitle, date, image, author, authorUrl } = frontmatter;
-const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
+const dateLocale = lang === 'ko' ? 'ko-KR' : 'en-US';
+const formattedDate = new Date(date).toLocaleDateString(dateLocale, {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
+const enUrl = lang === 'en' ? '' : translationUrl;
+const koUrl = lang === 'ko' ? '' : translationUrl;
+const currentUrl = `https://blog.robota.io${Astro.url.pathname}`;
+const altLang = lang === 'en' ? 'ko' : 'en';
 ---
 
-<html lang="ko">
+<html lang={lang}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,6 +25,8 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <meta name="description" content={subtitle || title} />
   {author && <meta name="author" content={author} />}
   <link rel="canonical" href={`https://blog.robota.io${Astro.url.pathname}`} />
+  <link rel="alternate" hreflang={lang} href={currentUrl} />
+  {translationUrl && <link rel="alternate" hreflang={altLang} href={`https://blog.robota.io${translationUrl}`} />}
   <meta property="og:title" content={title} />
   <meta property="og:description" content={subtitle || title} />
   <meta property="og:type" content="article" />
@@ -43,10 +50,19 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
 </head>
 <body>
   <header class="site-header">
-    <a href="/" class="logo">Robota</a>
+    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">Robota</a>
     <nav>
-      <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">☀</button>
-      <a href="/">blog</a>
+      <span class="switcher">
+        {enUrl ? <a href={enUrl}>EN</a> : <span class="active">EN</span>}
+        <span class="sep">/</span>
+        {koUrl ? <a href={koUrl}>KO</a> : <span class="active">KO</span>}
+      </span>
+      <span class="switcher" id="theme-toggle">
+        <span data-theme-opt="light" class="theme-opt">☀</span>
+        <span class="sep">/</span>
+        <span data-theme-opt="dark" class="theme-opt">☾</span>
+      </span>
+      <a href={lang === 'en' ? '/' : '/ko/'}>{lang === 'en' ? 'blog' : '블로그'}</a>
     </nav>
   </header>
 
@@ -71,17 +87,24 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
     </p>
   </footer>
   <script is:inline>
-    var btn = document.getElementById('theme-toggle');
-    function updateBtn() {
-      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☾' : '☀';
-    }
-    updateBtn();
-    btn.addEventListener('click', function() {
-      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      updateBtn();
-    });
+    (function() {
+      var toggle = document.getElementById('theme-toggle');
+      function updateThemeUI() {
+        var current = document.documentElement.getAttribute('data-theme');
+        toggle.querySelectorAll('[data-theme-opt]').forEach(function(el) {
+          el.classList.toggle('active', el.getAttribute('data-theme-opt') === current);
+        });
+      }
+      updateThemeUI();
+      toggle.addEventListener('click', function(e) {
+        var opt = e.target.closest('[data-theme-opt]');
+        if (!opt) return;
+        var next = opt.getAttribute('data-theme-opt');
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        updateThemeUI();
+      });
+    })();
   </script>
   <script is:inline type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
@@ -180,5 +203,39 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
 
   .site-footer a:hover {
     color: var(--green);
+  }
+
+  .switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    margin-right: 12px;
+    cursor: pointer;
+  }
+
+  .switcher a,
+  .switcher .theme-opt {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  .switcher a:hover,
+  .switcher .theme-opt:hover {
+    color: var(--green);
+  }
+
+  .switcher .active {
+    color: var(--green);
+    font-weight: 700;
+    background: var(--green-bg, rgba(0, 200, 100, 0.12));
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  .switcher .sep {
+    color: var(--text-muted);
+    margin: 0 1px;
   }
 </style>
