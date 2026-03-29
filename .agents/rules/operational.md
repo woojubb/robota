@@ -20,6 +20,12 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
 - When the user asks to see the backlog ("할일 목록 보여줘"), list all recorded tasks from `.agents/tasks/`.
 
+### Option Proposal Rule
+
+- When presenting options to the user, always include a recommendation with rationale.
+- For each option, evaluate and state the impact: affected files/packages, risk level, migration effort.
+- Format: options → recommendation → impact assessment. Never present options without a clear recommendation.
+
 ### Prior Art Research Requirement
 
 - Before implementing any new feature or capability, research whether equivalent solutions already exist in established products (e.g., Claude Code, VS Code, Cursor, Warp, etc.).
