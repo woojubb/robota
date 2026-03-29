@@ -86,6 +86,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@robota-sdk/agent-playground':
+        specifier: workspace:*
+        version: link:../../packages/agent-playground
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../../packages/agent-provider-anthropic
