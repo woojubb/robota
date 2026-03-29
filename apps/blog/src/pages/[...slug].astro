@@ -1,7 +1,7 @@
 ---
-// apps/blog/src/pages/blog/[...slug].astro
+// apps/blog/src/pages/[...slug].astro
 import { getCollection, render } from 'astro:content';
-import BlogPost from '../../layouts/BlogPost.astro';
+import BlogPost from '../layouts/BlogPost.astro';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog', ({ data }) => data.lang === 'en');
@@ -18,7 +18,7 @@ const { Content } = await render(post);
 const allPosts = await getCollection('blog', ({ data }) => data.lang === 'ko');
 const koSlug = post.id.replace('en/', '');
 const hasTranslation = allPosts.some((p) => p.id.replace('ko/', '') === koSlug);
-const translationUrl = hasTranslation ? `/ko/blog/${koSlug}/` : '/ko/';
+const translationUrl = hasTranslation ? `/ko/${koSlug}/` : '/ko/';
 ---
 
 <BlogPost
