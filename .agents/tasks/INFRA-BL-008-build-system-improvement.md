@@ -1,5 +1,5 @@
 ---
-title: Build system improvement — resolve DTS race condition and evaluate tooling
+title: 'Phase 1: Fix DTS race condition — tsup 유지, 빌드 구조 개선'
 status: backlog
 created: 2026-03-30
 priority: high
@@ -10,32 +10,30 @@ packages:
 
 ## Problem
 
-`pnpm build` intermittently fails due to DTS (TypeScript declaration) race condition. tsup runs ESM/CJS bundling (~60ms) and DTS generation (~5-20s) as a single command. pnpm starts dependent packages based on topological order, but a dependency's DTS may not be ready when the dependent package's DTS build starts.
+`pnpm build` intermittently fails due to DTS race condition. tsup runs ESM/CJS bundling (~60ms) and DTS generation (~5-20s) as a single command. Dependent packages start DTS build before dependency's DTS is ready.
 
-Observed failure: `dag-adapters-local` fails because `dag-core` DTS isn't ready yet. Reproduces consistently in CI, intermittently locally.
+Observed: `dag-adapters-local` fails because `dag-core` DTS isn't ready. Consistent in CI, intermittent locally.
+
+## Approach
+
+tsup을 유지하면서 root 빌드 스크립트를 2-pass로 분리:
+
+1. **Phase 1 — JS 번들링** (병렬, DTS 없이, 빠름)
+2. **Phase 2 — DTS 생성** (topological 순서 보장)
 
 ## Scope
 
-This is a build system architecture decision affecting all 48 packages. Requires design spec before implementation.
-
-## Options to Evaluate
-
-1. **Two-pass build** — split root build into JS phase (parallel, no DTS) then DTS phase (topological order)
-2. **TypeScript project references** — `tsc --build` handles DTS in correct order, tsup handles JS only
-3. **tsdown migration** — tsup successor with built-in monorepo/workspace support and improved DTS
-4. **Hybrid** — minimal fix for the specific race condition without full rearchitecture
+- Root `package.json` build 스크립트 변경
+- 각 패키지에 `build:js`, `build:types` 스크립트 추가
+- 기존 `build` 스크립트는 개별 패키지 빌드용으로 유지
+- CI workflow 검증
 
 ## Constraints
 
-- 48 packages affected — change must be systematic, not ad-hoc
-- CI must pass reliably (current intermittent failure blocks deployments)
-- Individual package `pnpm --filter <pkg> build` must still work
-- Publishing workflow (`pnpm publish:beta`) must not break
-
-## Supersedes
-
-FIX-BL-002 (dag-adapters-local race condition) — that was the symptom, this is the root cause.
+- 개별 패키지 `pnpm --filter <pkg> build` 동작 유지
+- `pnpm publish:beta` 워크플로우 유지
+- tsup 설정 최소 변경
 
 ## Next Step
 
-Design spec via brainstorming, then implementation plan.
+Design spec → implementation plan
