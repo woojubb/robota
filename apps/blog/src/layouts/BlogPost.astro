@@ -1,14 +1,18 @@
 ---
-const { frontmatter } = Astro.props;
+const { frontmatter, lang = 'en', translationUrl = '' } = Astro.props;
 const { title, subtitle, date, image, author, authorUrl } = frontmatter;
-const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
+const dateLocale = lang === 'ko' ? 'ko-KR' : 'en-US';
+const formattedDate = new Date(date).toLocaleDateString(dateLocale, {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
+const switchLabel = lang === 'en' ? '한국어' : 'English';
+const currentUrl = `https://blog.robota.io${Astro.url.pathname}`;
+const altLang = lang === 'en' ? 'ko' : 'en';
 ---
 
-<html lang="ko">
+<html lang={lang}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,6 +24,8 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <meta name="description" content={subtitle || title} />
   {author && <meta name="author" content={author} />}
   <link rel="canonical" href={`https://blog.robota.io${Astro.url.pathname}`} />
+  <link rel="alternate" hreflang={lang} href={currentUrl} />
+  {translationUrl && <link rel="alternate" hreflang={altLang} href={`https://blog.robota.io${translationUrl}`} />}
   <meta property="og:title" content={title} />
   <meta property="og:description" content={subtitle || title} />
   <meta property="og:type" content="article" />
@@ -43,10 +49,11 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
 </head>
 <body>
   <header class="site-header">
-    <a href="/" class="logo">Robota</a>
+    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">Robota</a>
     <nav>
+      {translationUrl && <a href={translationUrl} class="lang-switch">{switchLabel}</a>}
       <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">☀</button>
-      <a href="/">blog</a>
+      <a href={lang === 'en' ? '/' : '/ko/'}>{lang === 'en' ? 'blog' : '블로그'}</a>
     </nav>
   </header>
 
@@ -179,6 +186,18 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   }
 
   .site-footer a:hover {
+    color: var(--green);
+  }
+
+  .lang-switch {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    margin-right: 10px;
+  }
+
+  .lang-switch:hover {
     color: var(--green);
   }
 </style>

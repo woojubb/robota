@@ -1,8 +1,9 @@
 ---
-const { title = 'Robota Blog', description = '' } = Astro.props;
+const { title = 'Robota Blog', description = '', lang = 'en', translationUrl = '' } = Astro.props;
+const switchLabel = lang === 'en' ? '한국어' : 'English';
 ---
 
-<html lang="ko">
+<html lang={lang}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -25,10 +26,11 @@ const { title = 'Robota Blog', description = '' } = Astro.props;
 </head>
 <body>
   <header class="site-header">
-    <a href="/" class="logo">Robota</a>
+    <a href={lang === 'en' ? '/' : '/ko/'} class="logo">Robota</a>
     <nav>
+      {translationUrl && <a href={translationUrl} class="lang-switch">{switchLabel}</a>}
       <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">☀</button>
-      <a href="/">blog</a>
+      <a href={lang === 'en' ? '/' : '/ko/'}>{lang === 'en' ? 'blog' : '블로그'}</a>
     </nav>
   </header>
   <script is:inline>
@@ -116,6 +118,18 @@ const { title = 'Robota Blog', description = '' } = Astro.props;
   }
 
   .site-footer a:hover {
+    color: var(--green);
+  }
+
+  .lang-switch {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    margin-right: 10px;
+  }
+
+  .lang-switch:hover {
     color: var(--green);
   }
 </style>
