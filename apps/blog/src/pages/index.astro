@@ -22,7 +22,7 @@ const sortedPosts = posts.sort(
       });
       return (
         <li>
-          <a href={`/blog/${slug}/`}>
+          <a href={`/${slug}/`}>
             <time>{date}</time>
             <span class="post-title">{post.data.title}</span>
             {post.data.subtitle && (
