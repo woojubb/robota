@@ -73,7 +73,7 @@ const formattedDate = new Date(date).toLocaleDateString('ko-KR', {
   <script is:inline>
     var btn = document.getElementById('theme-toggle');
     function updateBtn() {
-      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
+      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☾' : '☀';
     }
     updateBtn();
     btn.addEventListener('click', function() {
