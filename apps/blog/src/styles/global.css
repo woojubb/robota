@@ -206,6 +206,7 @@ pre.mermaid .cluster rect {
   cursor: pointer;
   color: var(--text-dim);
   line-height: 1;
+  margin-right: 10px;
 }
 
 .theme-btn:hover {
