@@ -7,7 +7,8 @@ const formattedDate = new Date(date).toLocaleDateString(dateLocale, {
   month: 'long',
   day: 'numeric',
 });
-const switchLabel = lang === 'en' ? '한국어' : 'English';
+const enUrl = lang === 'en' ? '' : translationUrl;
+const koUrl = lang === 'ko' ? '' : translationUrl;
 const currentUrl = `https://blog.robota.io${Astro.url.pathname}`;
 const altLang = lang === 'en' ? 'ko' : 'en';
 ---
@@ -51,8 +52,16 @@ const altLang = lang === 'en' ? 'ko' : 'en';
   <header class="site-header">
     <a href={lang === 'en' ? '/' : '/ko/'} class="logo">Robota</a>
     <nav>
-      {translationUrl && <a href={translationUrl} class="lang-switch">{switchLabel}</a>}
-      <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme">☀</button>
+      <span class="switcher">
+        {enUrl ? <a href={enUrl}>EN</a> : <span class="active">EN</span>}
+        <span class="sep">/</span>
+        {koUrl ? <a href={koUrl}>KO</a> : <span class="active">KO</span>}
+      </span>
+      <span class="switcher" id="theme-toggle">
+        <span data-theme-opt="light" class="theme-opt">☀</span>
+        <span class="sep">/</span>
+        <span data-theme-opt="dark" class="theme-opt">☾</span>
+      </span>
       <a href={lang === 'en' ? '/' : '/ko/'}>{lang === 'en' ? 'blog' : '블로그'}</a>
     </nav>
   </header>
@@ -78,17 +87,24 @@ const altLang = lang === 'en' ? 'ko' : 'en';
     </p>
   </footer>
   <script is:inline>
-    var btn = document.getElementById('theme-toggle');
-    function updateBtn() {
-      btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☾' : '☀';
-    }
-    updateBtn();
-    btn.addEventListener('click', function() {
-      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      updateBtn();
-    });
+    (function() {
+      var toggle = document.getElementById('theme-toggle');
+      function updateThemeUI() {
+        var current = document.documentElement.getAttribute('data-theme');
+        toggle.querySelectorAll('[data-theme-opt]').forEach(function(el) {
+          el.classList.toggle('active', el.getAttribute('data-theme-opt') === current);
+        });
+      }
+      updateThemeUI();
+      toggle.addEventListener('click', function(e) {
+        var opt = e.target.closest('[data-theme-opt]');
+        if (!opt) return;
+        var next = opt.getAttribute('data-theme-opt');
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        updateThemeUI();
+      });
+    })();
   </script>
   <script is:inline type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
@@ -189,15 +205,37 @@ const altLang = lang === 'en' ? 'ko' : 'en';
     color: var(--green);
   }
 
-  .lang-switch {
+  .switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     font-family: var(--mono);
     font-size: 0.85rem;
-    color: var(--text-dim);
-    text-decoration: none;
-    margin-right: 10px;
+    margin-right: 12px;
+    cursor: pointer;
   }
 
-  .lang-switch:hover {
+  .switcher a,
+  .switcher .theme-opt {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  .switcher a:hover,
+  .switcher .theme-opt:hover {
     color: var(--green);
+  }
+
+  .switcher .active {
+    color: var(--green);
+    font-weight: 700;
+    background: var(--green-bg, rgba(0, 200, 100, 0.12));
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  .switcher .sep {
+    color: var(--text-muted);
+    margin: 0 1px;
   }
 </style>
