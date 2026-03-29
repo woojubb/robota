@@ -7,14 +7,8 @@
 
 import { WebLogger } from '../web-logger';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type {
-  IPlaygroundWebSocketMessage,
-  TPlaygroundWebSocketMessageKind,
-} from '@robota-sdk/agent-remote-client';
-export type {
-  IPlaygroundWebSocketMessage,
-  TPlaygroundWebSocketMessageKind,
-} from '@robota-sdk/agent-remote-client';
+import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from './types';
+export type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from './types';
 
 export const PLAYGROUND_WS_MESSAGE_TYPES = {
   PLAYGROUND_UPDATE: 'playground_update',
