@@ -1,28 +1,28 @@
 ---
 import { getCollection } from 'astro:content';
-import Base from '../layouts/Base.astro';
+import Base from '../../layouts/Base.astro';
 
-const posts = await getCollection('blog', ({ data }) => data.lang === 'en');
+const posts = await getCollection('blog', ({ data }) => data.lang === 'ko');
 const sortedPosts = posts.sort(
   (a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime()
 );
 ---
 
-<Base title="Robota Blog" description="Coding agents, AI, and development" lang="en" translationUrl="/ko/">
-  <h1>blog</h1>
-  <p class="intro">Coding agents, AI, and development</p>
+<Base title="Robota Blog" description="코딩 에이전트, AI, 개발 이야기" lang="ko" translationUrl="/">
+  <h1>블로그</h1>
+  <p class="intro">코딩 에이전트, AI, 개발 이야기</p>
 
   <ul class="post-list">
     {sortedPosts.map((post) => {
-      const slug = post.id.replace('en/', '');
-      const date = new Date(post.data.date).toLocaleDateString('en-US', {
+      const slug = post.id.replace('ko/', '');
+      const date = new Date(post.data.date).toLocaleDateString('ko-KR', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
       });
       return (
         <li>
-          <a href={`/blog/${slug}/`}>
+          <a href={`/ko/blog/${slug}/`}>
             <time>{date}</time>
             <span class="post-title">{post.data.title}</span>
             {post.data.subtitle && (
