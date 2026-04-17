@@ -1,5 +1,11 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.54
+
+### Patch Changes
+
+- fix: resolve all typecheck errors across packages
+
 ## 3.0.0-beta.53
 
 ### Patch Changes

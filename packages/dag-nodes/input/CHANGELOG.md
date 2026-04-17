@@ -1,5 +1,12 @@
 # @robota-sdk/dag-node-input
 
+## 3.0.0-beta.54
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.54
+- @robota-sdk/dag-node@3.0.0-beta.54
+
 ## 3.0.0-beta.53
 
 ### Patch Changes
