@@ -59,6 +59,13 @@ async function runBash(args: TBashArgs): Promise<string> {
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGTERM');
+      // Resolve immediately on timeout — don't wait for close event.
+      // The child process cleanup happens in the background.
+      settle({
+        success: false,
+        output: Buffer.concat(stdoutChunks).toString('utf8'),
+        error: `Command timed out after ${timeout}ms`,
+      });
     }, timeout);
 
     function settle(result: TToolResult): void {
