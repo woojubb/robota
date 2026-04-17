@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-logging",
-  "version": "3.0.0-beta.54",
+  "version": "3.0.0-beta.55",
   "description": "Logging plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

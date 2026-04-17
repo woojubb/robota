@@ -61,6 +61,7 @@
   "changesets": [
     "add-package-metadata",
     "every-aliens-pump",
+    "fix-eslint-ci-reliability",
     "fix-package-metadata-order",
     "fix-typecheck-errors",
     "monolith-decomposition",

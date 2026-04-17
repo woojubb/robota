@@ -1,5 +1,22 @@
 # @robota-sdk/dag-api
 
+## 3.0.0-beta.55
+
+### Patch Changes
+
+- 38a72bf: fix: resolve ESLint tsconfig parsing errors and improve pnpm CI reliability
+  - Add tsconfig.eslint.json to all packages for per-package ESLint runs
+  - Migrate typecheck from pnpm -r exec tsc to per-package typecheck scripts
+  - Add --if-present to all recursive pnpm run scripts
+  - Fix React type imports, dynamic imports in tests, Express.Multer types
+
+- Updated dependencies [38a72bf]
+  - @robota-sdk/dag-core@3.0.0-beta.55
+  - @robota-sdk/dag-projection@3.0.0-beta.55
+  - @robota-sdk/dag-runtime@3.0.0-beta.55
+  - @robota-sdk/dag-scheduler@3.0.0-beta.55
+  - @robota-sdk/dag-worker@3.0.0-beta.55
+
 ## 3.0.0-beta.54
 
 ### Patch Changes

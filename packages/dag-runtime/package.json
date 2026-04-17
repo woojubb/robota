@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-runtime",
-  "version": "3.0.0-beta.54",
+  "version": "3.0.0-beta.55",
   "description": "Runtime orchestration layer for Robota DAG",
   "type": "module",
   "main": "dist/node/index.js",
