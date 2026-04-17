@@ -29,6 +29,7 @@
     "deploy:functions": "npm run build:functions && firebase deploy --only functions",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist lib"
   },
   "dependencies": {

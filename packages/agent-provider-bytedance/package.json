@@ -46,6 +46,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "scenario:verify": "pnpm --filter @robota-sdk/agent-core build && DRY_RUN=1 pnpm exec tsx examples/example-create-video.ts",
     "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/bytedance --output examples/scenarios/bytedance-video-dry-run.record.json -- pnpm scenario:verify",

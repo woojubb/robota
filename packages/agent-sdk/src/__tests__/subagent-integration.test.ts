@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
@@ -312,7 +312,6 @@ describe('Subagent transcript logger', () => {
 
     // Verify the subagent directory was created
     const expectedDir = join(tmpDir, 'session-123', 'subagents');
-    const { existsSync } = require('node:fs') as typeof import('node:fs');
     expect(existsSync(expectedDir)).toBe(true);
   });
 
@@ -321,7 +320,6 @@ describe('Subagent transcript logger', () => {
     expect(dir).toBe(join(tmpDir, 'session-456', 'subagents'));
 
     // Directory should NOT be created
-    const { existsSync } = require('node:fs') as typeof import('node:fs');
     expect(existsSync(dir)).toBe(false);
   });
 });
