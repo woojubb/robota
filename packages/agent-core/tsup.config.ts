@@ -6,7 +6,7 @@ const baseConfig = {
     resolve: true,
     compilerOptions: {
       composite: false,
-      stripInternal: true, // Remove @internal declarations and their comments
+      stripInternal: true,
     },
   },
   splitting: false,
