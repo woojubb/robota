@@ -540,7 +540,7 @@ importers:
         specifier: workspace:*
         version: link:../agent-sdk
       '@robota-sdk/agent-sessions':
-        specifier: workspace:3.0.0-beta.53
+        specifier: workspace:3.0.0-beta.55
         version: link:../agent-sessions
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
