@@ -23,22 +23,22 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 **Document tree:**
 
-```
-AGENTS.md                              ← routing + overview (this file)
-├── .agents/rules/                     ← mandatory rule details
-│   ├── index.md                       ← rule group listing
-│   ├── code-quality.md                ← type system, imports, dev patterns
-│   ├── process.md                     ← spec-first, TDD, no fallback, planning, build
-│   ├── api-boundary.md                ← API spec, runtime/orchestrator boundary
-│   ├── naming-style.md                ← language, identity, styling
-│   ├── git-branch.md                  ← git ops, branch policy, worktree
-│   └── common-mistakes.md             ← 29 observed failure patterns
-├── .agents/project-structure.md       ← package listing and dependency rules
-├── .agents/skills/*/SKILL.md          ← procedural workflows and domain rules
-├── .agents/tasks/                     ← active and completed task tracking
-├── packages/*/docs/SPEC.md            ← package-level contracts (SSOT)
-└── .design/                           ← design documents (Korean)
-```
+| Document                                                                 | Purpose                                                                            |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [.agents/rules/index.md](.agents/rules/index.md)                         | Rule group listing and routing                                                     |
+| [.agents/rules/code-quality.md](.agents/rules/code-quality.md)           | Type system, imports, dev patterns                                                 |
+| [.agents/rules/process.md](.agents/rules/process.md)                     | Routing file → spec-workflow, tdd-and-planning, verification, publish, operational |
+| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API spec, runtime/orchestrator boundary                                            |
+| [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                           |
+| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops, branch policy, worktree                                                   |
+| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | 29 observed failure patterns                                                       |
+| [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                               |
+| [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                     |
+| [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                              |
+| [.agents/templates/spec-template.md](.agents/templates/spec-template.md) | SPEC.md authoring template                                                         |
+| [.agents/specs/README.md](.agents/specs/README.md)                       | Cross-cutting specs that span multiple packages                                    |
+| [.agents/evals/README.md](.agents/evals/README.md)                       | Agent quality evaluation datasets and metrics                                      |
+| `packages/*/docs/SPEC.md`                                                | Package-level contracts (SSOT) — one per package                                   |
 
 ## Project Overview
 
@@ -95,7 +95,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 
 ## Skills Reference
 
-Procedural workflows and domain-specific rules live under `.agents/skills/`. Each skill has a `SKILL.md`. Consult relevant skills when working in their domain. Run `ls .agents/skills/` to discover all available skills.
+Procedural workflows and domain-specific rules. See [.agents/skills/index.md](.agents/skills/index.md) for the full list with descriptions and links to each skill file. Consult the relevant skill before starting work in its domain.
 
 ## Rules and Skills Boundary
 
