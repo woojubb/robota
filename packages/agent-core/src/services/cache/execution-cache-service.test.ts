@@ -9,7 +9,15 @@ describe('ExecutionCacheService', () => {
   let service: ExecutionCacheService;
   let storage: MemoryCacheStorage;
 
-  const messages: TUniversalMessage[] = [{ role: 'user', content: 'Hello', timestamp: new Date() }];
+  const messages: TUniversalMessage[] = [
+    {
+      id: 'msg-1',
+      role: 'user',
+      content: 'Hello',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    },
+  ];
 
   beforeEach(() => {
     storage = new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60000 });
@@ -61,7 +69,19 @@ describe('ExecutionCacheService', () => {
     it('should return storage stats', () => {
       service.store(messages, 'gpt-4', 'openai', 'Hello');
       service.lookup(messages, 'gpt-4', 'openai'); // hit
-      service.lookup([{ role: 'user', content: 'X', timestamp: new Date() }], 'gpt-4', 'openai'); // miss
+      service.lookup(
+        [
+          {
+            id: 'msg-x',
+            role: 'user',
+            content: 'X',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
+        'gpt-4',
+        'openai',
+      ); // miss
 
       const stats = service.getStats();
       expect(stats.hits).toBe(1);

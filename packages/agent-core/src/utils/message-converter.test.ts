@@ -9,22 +9,42 @@ import type {
 } from '../interfaces/messages';
 
 function makeUserMessage(content: string): IUserMessage {
-  return { role: 'user', content, timestamp: new Date() };
+  return { id: 'msg-1', role: 'user', content, state: 'complete' as const, timestamp: new Date() };
 }
 
 function makeAssistantMessage(
   content: string | null,
   toolCalls?: IAssistantMessage['toolCalls'],
 ): IAssistantMessage {
-  return { role: 'assistant', content, timestamp: new Date(), ...(toolCalls && { toolCalls }) };
+  return {
+    id: 'msg-1',
+    role: 'assistant',
+    content,
+    state: 'complete' as const,
+    timestamp: new Date(),
+    ...(toolCalls && { toolCalls }),
+  };
 }
 
 function makeSystemMessage(content: string): ISystemMessage {
-  return { role: 'system', content, timestamp: new Date() };
+  return {
+    id: 'msg-1',
+    role: 'system',
+    content,
+    state: 'complete' as const,
+    timestamp: new Date(),
+  };
 }
 
 function makeToolMessage(content: string, toolCallId: string): IToolMessage {
-  return { role: 'tool', content, toolCallId, timestamp: new Date() };
+  return {
+    id: 'msg-1',
+    role: 'tool',
+    content,
+    toolCallId,
+    state: 'complete' as const,
+    timestamp: new Date(),
+  };
 }
 
 describe('MessageConverter', () => {

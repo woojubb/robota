@@ -65,8 +65,10 @@ export function transformToAssistantMessage(
   response: ITransportResponse<IChatResponseData>,
 ): IAssistantMessage {
   return {
+    id: crypto.randomUUID(),
     role: 'assistant',
     content: response.data.content,
+    state: 'complete',
     timestamp: new Date(),
   };
 }

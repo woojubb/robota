@@ -16,8 +16,10 @@ function createMockProvider(name: string): IAIProvider {
       _messages: TUniversalMessage[],
       _options?: IChatOptions,
     ): Promise<TUniversalMessage> => ({
+      id: 'test-id',
       role: 'assistant',
       content: 'mock response',
+      state: 'complete' as const,
       timestamp: new Date(),
     }),
     generateResponse: async () => ({ content: '' }),

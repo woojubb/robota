@@ -22,8 +22,10 @@ class TrackingProvider extends AbstractAIProvider {
   async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
     this.chatCalls.push({ messages, options });
     return {
+      id: 'test-id',
       role: 'assistant',
       content: `Response to: ${messages[messages.length - 1]?.content ?? ''}`,
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -34,13 +36,17 @@ class TrackingProvider extends AbstractAIProvider {
   ): AsyncIterable<TUniversalMessage> {
     this.chatCalls.push({ messages, options });
     yield {
+      id: 'test-id',
       role: 'assistant',
       content: 'Streamed chunk 1',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
     yield {
+      id: 'test-id-2',
       role: 'assistant',
       content: 'Streamed chunk 2',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -53,14 +59,22 @@ class SecondProvider extends AbstractAIProvider {
 
   async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
     return {
+      id: 'test-id',
       role: 'assistant',
       content: `Provider-2: ${messages[messages.length - 1]?.content ?? ''}`,
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
 
   override async *chatStream(): AsyncIterable<TUniversalMessage> {
-    yield { role: 'assistant', content: 'chunk', timestamp: new Date() };
+    yield {
+      id: 'test-id',
+      role: 'assistant',
+      content: 'chunk',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
   }
 }
 
@@ -426,7 +440,9 @@ describe('Robota Core', () => {
       // Provider should receive the injected message + user message
       const lastCall = provider.chatCalls[provider.chatCalls.length - 1];
       const messages = lastCall?.messages ?? [];
-      expect(messages.some((m) => m.content === '[Context Summary] previous conversation')).toBe(true);
+      expect(messages.some((m) => m.content === '[Context Summary] previous conversation')).toBe(
+        true,
+      );
       expect(messages.some((m) => m.content === 'continue')).toBe(true);
     });
   });

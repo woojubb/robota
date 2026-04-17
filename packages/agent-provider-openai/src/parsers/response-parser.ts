@@ -52,6 +52,8 @@ export class OpenAIResponseParser {
         : undefined;
 
       const result: TUniversalMessage = {
+        id: crypto.randomUUID(),
+        state: 'complete' as const,
         role: 'assistant',
         content,
         timestamp: new Date(),
@@ -100,6 +102,8 @@ export class OpenAIResponseParser {
 
         // Return assistant message with tool calls
         return {
+          id: crypto.randomUUID(),
+          state: 'complete' as const,
           role: 'assistant',
           content: '',
           timestamp: new Date(),
@@ -115,6 +119,8 @@ export class OpenAIResponseParser {
       const content = delta.content || '';
 
       return {
+        id: crypto.randomUUID(),
+        state: 'complete' as const,
         role: 'assistant',
         content,
         timestamp: new Date(),

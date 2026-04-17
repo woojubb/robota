@@ -60,7 +60,13 @@ export async function callProviderWithCache(
       { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
     );
     if (cachedResponse) {
-      return { role: 'assistant', content: cachedResponse, timestamp: new Date() };
+      return {
+        role: 'assistant',
+        content: cachedResponse,
+        timestamp: new Date(),
+        id: crypto.randomUUID(),
+        state: 'complete' as const,
+      };
     }
     const response = await resolved.provider.chat(conversationMessages, chatOptions);
     if (typeof response.content === 'string') {

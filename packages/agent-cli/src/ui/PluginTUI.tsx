@@ -98,7 +98,18 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     setRefreshCounter((c) => c + 1);
   }, []);
 
-  const nav = { push, pop, popN, notify, setConfirm, refresh };
+  const setConfirmNav = useCallback(
+    (state: IConfirmState | undefined) => setConfirm(state),
+    [setConfirm],
+  );
+  // nav.push accepts a loose { screen: string } shape to satisfy plugin-tui-handlers types;
+  // we cast screen to TScreenId which is safe because handlers only push valid screen names.
+  const pushNav = useCallback(
+    (state: { screen: string; context?: IMenuContext }) =>
+      push({ screen: state.screen as TScreenId, context: state.context }),
+    [push],
+  );
+  const nav = { push: pushNav, pop, popN, notify, setConfirm: setConfirmNav, refresh };
 
   const { items, loading, error } = usePluginScreenData(
     current.screen,

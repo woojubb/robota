@@ -4,11 +4,23 @@ import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function createUserMessage(content: string): TUniversalMessage {
-  return { role: 'user', content, timestamp: new Date() };
+  return {
+    id: crypto.randomUUID(),
+    role: 'user',
+    content,
+    state: 'complete',
+    timestamp: new Date(),
+  };
 }
 
 function createAssistantMessage(content: string): TUniversalMessage {
-  return { role: 'assistant', content, timestamp: new Date() };
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    content,
+    state: 'complete',
+    timestamp: new Date(),
+  };
 }
 
 describe('ConversationHistoryPlugin', () => {

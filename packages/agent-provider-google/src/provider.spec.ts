@@ -92,6 +92,8 @@ describe('GoogleProvider image support', () => {
     const response = await provider.chat(
       [
         {
+          id: 'msg-1',
+          state: 'complete' as const,
           role: 'user',
           content: 'create an image',
           timestamp: new Date(),
@@ -132,6 +134,8 @@ describe('GoogleProvider image support', () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const messages: TUniversalMessage[] = [
       {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'user',
         content: '',
         parts: [
@@ -166,6 +170,8 @@ describe('GoogleProvider image support', () => {
       provider.chat(
         [
           {
+            id: 'msg-1',
+            state: 'complete' as const,
             role: 'user',
             content: 'generate image',
             timestamp: new Date(),
@@ -186,6 +192,8 @@ describe('GoogleProvider image support', () => {
       provider.chat(
         [
           {
+            id: 'msg-1',
+            state: 'complete' as const,
             role: 'user',
             content: '',
             parts: [

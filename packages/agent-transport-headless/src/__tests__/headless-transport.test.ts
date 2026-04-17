@@ -132,7 +132,7 @@ describe('createHeadlessTransport', () => {
 });
 
 describe('createHeadlessTransport (json adapter)', () => {
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: any; // allow-any: vi.spyOn process.stdout.write has incompatible MockInstance generic bounds
 
   beforeEach(() => {
     stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -166,7 +166,7 @@ describe('createHeadlessTransport (json adapter)', () => {
 });
 
 describe('createHeadlessTransport (stream-json adapter)', () => {
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: any; // allow-any: vi.spyOn process.stdout.write has incompatible MockInstance generic bounds
 
   beforeEach(() => {
     stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -191,13 +191,15 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
 
     expect(transport.getExitCode()).toBe(0);
 
-    const lines = stdoutWriteSpy.mock.calls.map((call) => (call as [string])[0].trim());
-    const parsed = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
+    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
 
     // 2 stream_event lines + 1 final result line
     expect(parsed).toHaveLength(3);
 
-    const streamEvents = parsed.filter((p) => p['type'] === 'stream_event');
+    const streamEvents = parsed.filter(
+      (p: Record<string, unknown>) => p['type'] === 'stream_event',
+    );
     expect(streamEvents).toHaveLength(2);
 
     for (const evt of streamEvents) {
@@ -220,7 +222,7 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
     expect(firstDelta['text']).toBe('Hello');
     expect(secondDelta['text']).toBe(' world');
 
-    const resultLine = parsed.find((p) => p['type'] === 'result');
+    const resultLine = parsed.find((p: Record<string, unknown>) => p['type'] === 'result');
     expect(resultLine).toEqual({
       type: 'result',
       result: 'Hello world',
@@ -231,7 +233,7 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
 });
 
 describe('createHeadlessTransport (error and interrupted)', () => {
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: any; // allow-any: vi.spyOn process.stdout.write has incompatible MockInstance generic bounds
 
   beforeEach(() => {
     stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);

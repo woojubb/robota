@@ -39,13 +39,9 @@ vi.mock('@robota-sdk/agent-sessions', () => ({
   },
 }));
 
-// Mock createProvider
 const mockProvider = {
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
-vi.mock('../assembly/create-provider.js', () => ({
-  createProvider: vi.fn(() => mockProvider),
-}));
 
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
@@ -114,6 +110,7 @@ describe('Subagent integration', () => {
       context,
       tools,
       terminal,
+      provider: mockProvider,
     };
     storeAgentToolDeps(depsKey, agentToolDeps);
 
@@ -130,6 +127,7 @@ describe('Subagent integration', () => {
       parentConfig: config,
       parentContext: context,
       parentTools: tools,
+      provider: mockProvider,
       terminal,
     });
 
@@ -158,6 +156,7 @@ describe('Subagent integration', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -193,6 +192,7 @@ describe('Subagent integration', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -219,6 +219,7 @@ describe('Subagent integration', () => {
         parentConfig: makeParentConfig(),
         parentContext: makeParentContext(),
         parentTools: tools,
+        provider: mockProvider,
         terminal: makeTerminal(),
       });
 

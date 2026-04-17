@@ -47,15 +47,37 @@ describe('callPluginHook', () => {
 
   it('calls beforeProviderCall with messages', async () => {
     const plugin = createMockPlugin();
-    const messages = [{ role: 'user' as const, content: 'test', timestamp: new Date() }];
+    const messages = [
+      {
+        id: 'msg-1',
+        role: 'user' as const,
+        content: 'test',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      },
+    ];
     await callPluginHook([plugin], 'beforeProviderCall', { messages }, logger);
     expect(plugin.beforeProviderCall).toHaveBeenCalledWith(messages);
   });
 
   it('calls afterProviderCall with messages and responseMessage', async () => {
     const plugin = createMockPlugin();
-    const messages = [{ role: 'user' as const, content: 'test', timestamp: new Date() }];
-    const responseMessage = { role: 'assistant' as const, content: 'reply', timestamp: new Date() };
+    const messages = [
+      {
+        id: 'msg-1',
+        role: 'user' as const,
+        content: 'test',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      },
+    ];
+    const responseMessage = {
+      id: 'msg-2',
+      role: 'assistant' as const,
+      content: 'reply',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
     await callPluginHook([plugin], 'afterProviderCall', { messages, responseMessage }, logger);
     expect(plugin.afterProviderCall).toHaveBeenCalledWith(messages, responseMessage);
   });
