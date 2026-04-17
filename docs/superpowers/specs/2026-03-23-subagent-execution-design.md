@@ -232,3 +232,9 @@ Each subagent gets a unique `agentId` (format: `agent_{timestamp}_{random}`).
 4. **context: fork wiring** — connect skill fork execution to Agent tool
 5. **Transcript storage** — save subagent logs
 6. **Tests** — unit + integration for each component
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

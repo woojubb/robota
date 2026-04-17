@@ -741,3 +741,9 @@ Test with `pnpm run cli:dev`:
 2. Press ESC during streaming → "Cancelled." with interrupted message in history
 3. Send another prompt → model sees interrupted message in context
 4. Verify `msg.id` used as React key (no duplicate key warnings)
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

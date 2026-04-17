@@ -27,3 +27,9 @@ packages:
 
 - Claude Code: auto memory, MEMORY.md, topic files
 - 현재 CLAUDE.md/AGENTS.md 정적 설정은 있으나 동적 학습 없음
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

@@ -56,9 +56,7 @@ const REQUIRED_ROOT_HARNESS_SCRIPTS = [
 ];
 
 function extractSections(content) {
-  return new Set(
-    [...content.matchAll(/^#{2,3}\s+(.+)$/gm)].map((match) => match[1].trim())
-  );
+  return new Set([...content.matchAll(/^#{2,3}\s+(.+)$/gm)].map((match) => match[1].trim()));
 }
 
 function extractAnchors(content) {
@@ -93,15 +91,34 @@ async function main() {
   const findings = [];
   const agentsContent = await fs.readFile(AGENTS_PATH, 'utf8');
   const sections = extractSections(agentsContent);
+
+  // Also collect sections from all rule files linked from AGENTS.md
+  const rulesDir = path.join(WORKSPACE_ROOT, '.agents', 'rules');
+  try {
+    const ruleEntries = await fs.readdir(rulesDir, { withFileTypes: true });
+    for (const entry of ruleEntries) {
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        const ruleContent = await fs.readFile(path.join(rulesDir, entry.name), 'utf8');
+        for (const section of extractSections(ruleContent)) {
+          sections.add(section);
+        }
+      }
+    }
+  } catch {
+    // rules directory missing — skip
+  }
   const skillFiles = await listSkillFiles();
   const rootPackageJson = await readJson(ROOT_PACKAGE_JSON_PATH);
-  const rootScripts = typeof rootPackageJson.scripts === 'object' && rootPackageJson.scripts !== null
-    ? rootPackageJson.scripts
-    : {};
+  const rootScripts =
+    typeof rootPackageJson.scripts === 'object' && rootPackageJson.scripts !== null
+      ? rootPackageJson.scripts
+      : {};
   const workspacePatterns = await readWorkspacePatterns();
   const scopes = await listWorkspaceScopes();
 
-  const rootWorkspaces = Array.isArray(rootPackageJson.workspaces) ? rootPackageJson.workspaces : [];
+  const rootWorkspaces = Array.isArray(rootPackageJson.workspaces)
+    ? rootPackageJson.workspaces
+    : [];
   if (rootWorkspaces.join('\n') !== workspacePatterns.join('\n')) {
     findings.push({
       file: 'package.json',
@@ -140,7 +157,10 @@ async function main() {
         if (!check.pattern.test(line)) {
           continue;
         }
-        if (check.ignoreLineIncludes && check.ignoreLineIncludes.some((value) => line.includes(value))) {
+        if (
+          check.ignoreLineIncludes &&
+          check.ignoreLineIncludes.some((value) => line.includes(value))
+        ) {
           continue;
         }
         findings.push({
@@ -163,7 +183,8 @@ async function main() {
       findings.push({
         file: path.join(scope.relativeDir, 'package.json'),
         type: 'missing-scenario-verify-script',
-        detail: 'Workspace owns examples/ but does not expose a package-level scenario:verify command.',
+        detail:
+          'Workspace owns examples/ but does not expose a package-level scenario:verify command.',
       });
     }
 
@@ -171,7 +192,8 @@ async function main() {
       findings.push({
         file: path.join(scope.relativeDir, 'package.json'),
         type: 'missing-scenario-record-script',
-        detail: 'Workspace owns examples/ but does not expose a package-level scenario:record command.',
+        detail:
+          'Workspace owns examples/ but does not expose a package-level scenario:record command.',
       });
     }
 
@@ -181,7 +203,8 @@ async function main() {
       findings.push({
         file: path.join(scope.relativeDir, 'examples'),
         type: 'missing-scenario-record-artifacts',
-        detail: 'Workspace owns examples/ but does not keep authoritative records under examples/scenarios/*.record.json.',
+        detail:
+          'Workspace owns examples/ but does not keep authoritative records under examples/scenarios/*.record.json.',
       });
       continue;
     }
@@ -190,7 +213,8 @@ async function main() {
       findings.push({
         file: path.join(scope.relativeDir, 'examples', 'scenarios'),
         type: 'missing-scenario-record-artifacts',
-        detail: 'Workspace owns examples/ but does not keep authoritative records under examples/scenarios/*.record.json.',
+        detail:
+          'Workspace owns examples/ but does not keep authoritative records under examples/scenarios/*.record.json.',
       });
       continue;
     }
@@ -226,7 +250,9 @@ async function main() {
       continue;
     }
 
-    const expectedCommands = scenarioVerification.commands.map((command) => renderCommand(command.command, command.args));
+    const expectedCommands = scenarioVerification.commands.map((command) =>
+      renderCommand(command.command, command.args),
+    );
     if (recordArtifacts.length !== expectedCommands.length) {
       findings.push({
         file: path.join(scope.relativeDir, 'examples', 'scenarios'),

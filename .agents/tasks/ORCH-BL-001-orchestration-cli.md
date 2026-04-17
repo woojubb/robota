@@ -39,3 +39,9 @@ created: 2026-03-15
 
 - `@robota-sdk/cli` 또는 apps/cli
 - 오케스트레이션 API 클라이언트 재사용 (dag-designer의 designer-api-client 참고)
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인
