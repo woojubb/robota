@@ -34,6 +34,7 @@
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

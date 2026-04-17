@@ -45,6 +45,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
