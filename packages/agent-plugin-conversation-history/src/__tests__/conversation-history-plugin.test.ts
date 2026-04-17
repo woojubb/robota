@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, afterEach } from 'vitest';
 import { ConversationHistoryPlugin } from '../conversation-history-plugin';
 import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
@@ -5,7 +6,7 @@ import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function createUserMessage(content: string): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'user',
     content,
     state: 'complete',
@@ -15,7 +16,7 @@ function createUserMessage(content: string): TUniversalMessage {
 
 function createAssistantMessage(content: string): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'assistant',
     content,
     state: 'complete',

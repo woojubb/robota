@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { TUniversalMessage, logger } from '@robota-sdk/agent-core';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { IAnthropicMessage } from '../types/api-types';
@@ -42,7 +43,7 @@ export class AnthropicResponseParser {
         : undefined;
 
       const result: TUniversalMessage = {
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         state: 'complete' as const,
         role: 'assistant',
         content: toolCalls.length > 0 ? null : content,
@@ -76,7 +77,7 @@ export class AnthropicResponseParser {
         case 'content_block_start':
           if (chunk.content_block?.type === 'text') {
             return {
-              id: crypto.randomUUID(),
+              id: randomUUID(),
               state: 'complete' as const,
               role: 'assistant',
               content: '',
@@ -89,7 +90,7 @@ export class AnthropicResponseParser {
           }
           if (chunk.content_block?.type === 'tool_use') {
             return {
-              id: crypto.randomUUID(),
+              id: randomUUID(),
               state: 'complete' as const,
               role: 'assistant',
               content: null,
@@ -115,7 +116,7 @@ export class AnthropicResponseParser {
         case 'content_block_delta':
           if (chunk.delta?.type === 'text_delta') {
             return {
-              id: crypto.randomUUID(),
+              id: randomUUID(),
               state: 'complete' as const,
               role: 'assistant',
               content: chunk.delta.text || '',
@@ -129,7 +130,7 @@ export class AnthropicResponseParser {
           if (chunk.delta?.type === 'input_json_delta') {
             // Handle tool call argument streaming
             return {
-              id: crypto.randomUUID(),
+              id: randomUUID(),
               state: 'complete' as const,
               role: 'assistant',
               content: null,
@@ -144,7 +145,7 @@ export class AnthropicResponseParser {
 
         case 'content_block_stop':
           return {
-            id: crypto.randomUUID(),
+            id: randomUUID(),
             state: 'complete' as const,
             role: 'assistant',
             content: '',
@@ -157,7 +158,7 @@ export class AnthropicResponseParser {
 
         case 'message_stop':
           return {
-            id: crypto.randomUUID(),
+            id: randomUUID(),
             state: 'complete' as const,
             role: 'assistant',
             content: '',

@@ -4,6 +4,7 @@
  * Extracted from conversation-service/index.ts to keep each file under 300 lines.
  * @internal
  */
+import { randomUUID } from 'node:crypto';
 import type {
   IAssistantMessage,
   ISystemMessage,
@@ -29,7 +30,7 @@ export function createUserMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): IUserMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'user',
     content,
     timestamp: new Date(),
@@ -44,7 +45,7 @@ export function createAssistantMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): IAssistantMessage {
   const message: IAssistantMessage = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'assistant',
     content: response.content,
     timestamp: new Date(),
@@ -66,7 +67,7 @@ export function createSystemMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): ISystemMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'system',
     content,
     timestamp: new Date(),
@@ -82,7 +83,7 @@ export function createToolMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): IToolMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'tool',
     content: typeof result === 'string' ? result : JSON.stringify(result),
     toolCallId,

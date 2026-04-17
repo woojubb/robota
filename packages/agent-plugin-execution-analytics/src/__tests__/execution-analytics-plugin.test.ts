@@ -1,10 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import { ExecutionAnalyticsPlugin } from '../execution-analytics-plugin';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function userMsg(content: string): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'user',
     content,
     state: 'complete',
@@ -14,7 +15,7 @@ function userMsg(content: string): TUniversalMessage {
 
 function assistantMsg(content: string): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'assistant',
     content,
     state: 'complete',

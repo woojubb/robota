@@ -3,6 +3,7 @@
  * Extracted from execution-round.ts for single-responsibility.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
@@ -64,7 +65,7 @@ export async function callProviderWithCache(
         role: 'assistant',
         content: cachedResponse,
         timestamp: new Date(),
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         state: 'complete' as const,
       };
     }
