@@ -23,6 +23,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "build:js": "tsup src/index.ts --format esm,cjs --out-dir dist/node --clean",
+    "build:types": "tsup src/index.ts --format esm,cjs --dts-only --out-dir dist/node",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
