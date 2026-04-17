@@ -19,6 +19,17 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - If the dev server is not running, start it and wait for it to be ready before checking.
 - This is non-negotiable — do NOT claim UI changes work without browser verification.
 
+### Pre-Push Local Verification Requirement
+
+- **NEVER push without first running CI checks locally.** Remote CI failure after a local-only fix is a preventable waste.
+- Before any `git push`, run locally in order:
+  1. `pnpm run typecheck` — zero type errors required
+  2. `pnpm run lint` — zero lint errors required (warnings allowed)
+  3. `pnpm run test` — all tests must pass
+- If any step fails, fix it locally before pushing.
+- The `.claude/hooks/pre-push-check.sh` hook enforces this automatically for Claude Code tool calls. Running `git push` directly in the terminal bypasses the hook — you are responsible for running the checks manually in that case.
+- This rule exists because repeated CI-only failures waste CI minutes and slow down the feedback loop.
+
 ### Harness Verification Requirement
 
 - After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.
