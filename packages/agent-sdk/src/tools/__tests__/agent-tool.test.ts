@@ -4,12 +4,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IToolResult } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ILoadedContext } from '../../context/context-loader.js';
+
+const mockProvider = {
+  generateResponse: vi.fn(),
+} as unknown as IAIProvider;
 
 // Mock createSubagentSession
 const mockRun = vi.fn().mockResolvedValue('task completed successfully');
@@ -101,6 +105,7 @@ function makeDeps(overrides?: Partial<IAgentToolDeps>): IAgentToolDeps {
     context: makeContext(),
     tools: [makeTool('Read')],
     terminal: makeTerminal(),
+    provider: mockProvider,
     ...overrides,
   };
 }
@@ -136,6 +141,7 @@ describe('Agent tool', () => {
       context,
       tools,
       terminal,
+      provider: mockProvider,
       permissionHandler,
     });
 
@@ -167,6 +173,7 @@ describe('Agent tool', () => {
       context,
       tools,
       terminal: makeTerminal(),
+      provider: mockProvider,
     });
 
     await tool.execute({ prompt: 'Do something' });

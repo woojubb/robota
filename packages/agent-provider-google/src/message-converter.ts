@@ -150,6 +150,8 @@ export function convertFromGeminiResponse(
   }
 
   const result: TUniversalMessage = {
+    id: crypto.randomUUID(),
+    state: 'complete' as const,
     role: 'assistant',
     content: textValues.length > 0 ? textValues.join('') : null,
     parts: messageParts,

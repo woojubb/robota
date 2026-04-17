@@ -12,7 +12,12 @@ function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
     response: 'test response',
     history: [],
     toolSummaries: [],
-    contextState: { usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 },
+    contextState: {
+      usedPercentage: 10,
+      remainingPercentage: 90,
+      usedTokens: 1000,
+      maxTokens: 200000,
+    },
     ...overrides,
   };
 }
@@ -110,7 +115,14 @@ describe('TuiStateManager', () => {
   it('updates context on complete', () => {
     const mgr = new TuiStateManager();
     mgr.onComplete(
-      makeResult({ contextState: { usedPercentage: 50, usedTokens: 5000, maxTokens: 10000 } }),
+      makeResult({
+        contextState: {
+          usedPercentage: 50,
+          remainingPercentage: 50,
+          usedTokens: 5000,
+          maxTokens: 10000,
+        },
+      }),
     );
     expect(mgr.contextState.percentage).toBe(50);
     expect(mgr.contextState.usedTokens).toBe(5000);
@@ -147,7 +159,7 @@ describe('TuiStateManager', () => {
       { role: 'assistant', content: 'new2' } as never,
     ]);
     expect(mgr.history).toHaveLength(2);
-    expect(mgr.history[0]!.content).toBe('new1');
+    expect((mgr.history[0]! as unknown as { content: string }).content).toBe('new1');
   });
 
   // ── onChange notification ──────────────────────────────────────

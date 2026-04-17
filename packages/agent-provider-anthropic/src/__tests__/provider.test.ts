@@ -256,7 +256,13 @@ describe('AnthropicProvider', () => {
 
     it('should throw when model is not specified', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hello', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hello',
+          timestamp: new Date(),
+        },
       ];
       await expect(provider.chat(messages, {})).rejects.toThrow(
         'Model is required in chat options',
@@ -280,7 +286,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const options: IChatOptions = { model: 'claude-3-opus-20240229', maxTokens: 1024 };
 
@@ -305,7 +317,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       // claude-sonnet-4-6 has maxOutput: 64000 in CLAUDE_MODELS
       await provider.chat(messages, { model: 'claude-sonnet-4-6' });
@@ -320,7 +338,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'unknown-model' });
 
@@ -335,7 +359,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229', temperature: 0.5 });
 
@@ -356,7 +386,13 @@ describe('AnthropicProvider', () => {
         },
       ];
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Weather?', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Weather?',
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229', tools });
 
@@ -375,7 +411,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Weather in Seoul', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Weather in Seoul',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -408,7 +450,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(emptyResponse));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
       expect(result.role).toBe('assistant');
@@ -430,7 +478,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(weirdResponse));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
       expect(result.role).toBe('assistant');
@@ -442,7 +496,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(response));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
       expect(result.metadata?.stopReason).toBe('end_turn');
@@ -454,7 +514,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(response));
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
       expect(result.metadata?.stopReason).toBeUndefined();
@@ -475,7 +541,13 @@ describe('AnthropicProvider', () => {
 
     it('should convert user messages', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hello', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hello',
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -485,8 +557,20 @@ describe('AnthropicProvider', () => {
 
     it('should extract system messages to system parameter', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'system', content: 'You are helpful', timestamp: new Date() },
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'system',
+          content: 'You are helpful',
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -497,8 +581,16 @@ describe('AnthropicProvider', () => {
 
     it('should convert assistant messages with toolCalls to content blocks', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
         {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'assistant',
           content: '',
           timestamp: new Date(),
@@ -532,9 +624,27 @@ describe('AnthropicProvider', () => {
 
     it('should convert regular assistant messages as string content', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
-        { role: 'assistant', content: 'Hello!', timestamp: new Date() },
-        { role: 'user', content: 'More', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-2',
+          state: 'complete' as const,
+          role: 'assistant',
+          content: 'Hello!',
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-3',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'More',
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -544,7 +654,13 @@ describe('AnthropicProvider', () => {
 
     it('should default content to empty string when undefined', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: undefined as unknown as string, timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: undefined as unknown as string,
+          timestamp: new Date(),
+        },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -558,6 +674,8 @@ describe('AnthropicProvider', () => {
   describe('chat — executor delegation', () => {
     it('should delegate to executor when configured', async () => {
       const expectedResponse: TUniversalMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: 'From executor',
         timestamp: new Date(),
@@ -573,7 +691,13 @@ describe('AnthropicProvider', () => {
 
       const provider = new AnthropicProvider({ executor });
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
@@ -598,7 +722,13 @@ describe('AnthropicProvider', () => {
 
       const provider = new AnthropicProvider({ executor });
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       await expect(provider.chat(messages, { model: 'claude-3-opus-20240229' })).rejects.toThrow(
@@ -627,7 +757,13 @@ describe('AnthropicProvider', () => {
 
     it('should throw when model is not specified', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const gen = provider.chatStream(messages, {});
       await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow(
@@ -656,7 +792,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(asyncChunks);
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const chunks: TUniversalMessage[] = [];
@@ -683,7 +825,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(asyncChunks);
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const chunks: TUniversalMessage[] = [];
@@ -711,7 +859,13 @@ describe('AnthropicProvider', () => {
         },
       ];
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       // Consume the stream
@@ -738,8 +892,20 @@ describe('AnthropicProvider', () => {
   describe('chatStream — executor delegation', () => {
     it('should delegate streaming to executor when configured', async () => {
       const streamChunks: TUniversalMessage[] = [
-        { role: 'assistant', content: 'chunk1', timestamp: new Date() },
-        { role: 'assistant', content: 'chunk2', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'assistant',
+          content: 'chunk1',
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-2',
+          state: 'complete' as const,
+          role: 'assistant',
+          content: 'chunk2',
+          timestamp: new Date(),
+        },
       ];
 
       const executor: IExecutor = {
@@ -757,7 +923,13 @@ describe('AnthropicProvider', () => {
 
       const provider = new AnthropicProvider({ executor });
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const collected: TUniversalMessage[] = [];
@@ -832,7 +1004,13 @@ describe('AnthropicProvider', () => {
       );
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'test' });
 
@@ -870,7 +1048,15 @@ describe('AnthropicProvider', () => {
       );
 
       const result = await provider.chat(
-        [{ role: 'user', content: 'list files', timestamp: new Date() }],
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'list files',
+            timestamp: new Date(),
+          },
+        ],
         { model: 'test' },
       );
 
@@ -935,7 +1121,15 @@ describe('AnthropicProvider', () => {
       provider.onServerToolUse = (name, input) => serverToolCalls.push({ name, input });
 
       const result = await provider.chat(
-        [{ role: 'user', content: 'search Next.js', timestamp: new Date() }],
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'search Next.js',
+            timestamp: new Date(),
+          },
+        ],
         { model: 'test' },
       );
 
@@ -1003,7 +1197,15 @@ describe('AnthropicProvider', () => {
       );
 
       const result = await provider.chat(
-        [{ role: 'user', content: 'search and read', timestamp: new Date() }],
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'search and read',
+            timestamp: new Date(),
+          },
+        ],
         { model: 'test' },
       );
 
@@ -1034,7 +1236,15 @@ describe('AnthropicProvider', () => {
       );
 
       const result = await provider.chat(
-        [{ role: 'user', content: 'empty', timestamp: new Date() }],
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'empty',
+            timestamp: new Date(),
+          },
+        ],
         { model: 'test' },
       );
 

@@ -1,7 +1,14 @@
 /**
  * Simple in-memory cache with TTL support
  */
-import type { TUniversalValue } from '@robota-sdk/agent-core';
+type TUniversalValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | TUniversalValue[]
+  | Record<string, unknown>;
 
 interface IWebCacheEntry<T> {
   data: T;

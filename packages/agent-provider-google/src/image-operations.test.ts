@@ -209,11 +209,15 @@ describe('mapImageInputSourceToPart', () => {
 
 describe('buildResponseModalities', () => {
   const textMessage: TUniversalMessage = {
+    id: 'msg-1',
+    state: 'complete' as const,
     role: 'user',
     content: 'hello',
     timestamp: new Date(),
   };
   const imageMessage: TUniversalMessage = {
+    id: 'msg-2',
+    state: 'complete' as const,
     role: 'user',
     content: '',
     parts: [{ type: 'image_inline', mimeType: 'image/png', data: 'data' }],
@@ -283,6 +287,8 @@ describe('isImageCapableModel', () => {
 
 describe('buildGenerationConfig', () => {
   const textMessage: TUniversalMessage = {
+    id: 'msg-1',
+    state: 'complete' as const,
     role: 'user',
     content: 'hello',
     timestamp: new Date(),
@@ -347,6 +353,8 @@ describe('buildGenerationConfig', () => {
 
   it('auto-detects IMAGE modality from image input', () => {
     const imageMessage: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: '',
       parts: [{ type: 'image_inline', mimeType: 'image/png', data: 'data' }],

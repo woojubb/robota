@@ -33,11 +33,17 @@ function createMockPayloadLogger(enabled = true): IPayloadLogger {
 }
 
 function createUserMessage(content: string): TUniversalMessage {
-  return { role: 'user', content, timestamp: new Date() };
+  return { id: 'msg-1', state: 'complete' as const, role: 'user', content, timestamp: new Date() };
 }
 
 function createSystemMessage(content: string): TUniversalMessage {
-  return { role: 'system', content, timestamp: new Date() };
+  return {
+    id: 'msg-1',
+    state: 'complete' as const,
+    role: 'system',
+    content,
+    timestamp: new Date(),
+  };
 }
 
 describe('OpenAIProvider', () => {
@@ -321,6 +327,8 @@ describe('OpenAIProvider', () => {
         createSystemMessage('System prompt'),
         createUserMessage('User question'),
         {
+          id: 'msg-3',
+          state: 'complete' as const,
           role: 'assistant',
           content: null,
           toolCalls: [
@@ -333,6 +341,8 @@ describe('OpenAIProvider', () => {
           timestamp: new Date(),
         },
         {
+          id: 'msg-4',
+          state: 'complete' as const,
           role: 'tool',
           content: '{"result":42}',
           toolCallId: 'call_1',
@@ -600,6 +610,8 @@ describe('OpenAIProvider', () => {
       const messages: TUniversalMessage[] = [
         createUserMessage('Calculate'),
         {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'assistant',
           content: '',
           toolCalls: [
@@ -612,6 +624,8 @@ describe('OpenAIProvider', () => {
           timestamp: new Date(),
         },
         {
+          id: 'msg-3',
+          state: 'complete' as const,
           role: 'tool',
           content: '42',
           toolCallId: 'call_1',
@@ -651,6 +665,8 @@ describe('OpenAIProvider', () => {
       const messages: TUniversalMessage[] = [
         createUserMessage('Hi'),
         {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'assistant',
           content: '',
           toolCalls: [
@@ -697,6 +713,8 @@ describe('OpenAIProvider', () => {
       const messages: TUniversalMessage[] = [
         createUserMessage('Hi'),
         {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'assistant',
           content: 'Hello!',
           timestamp: new Date(),

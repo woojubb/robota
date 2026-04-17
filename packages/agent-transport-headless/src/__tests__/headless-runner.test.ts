@@ -43,7 +43,7 @@ function createMockSession(behavior: 'complete' | 'interrupted' | 'error', respo
 }
 
 describe('createHeadlessRunner (text format)', () => {
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: any; // allow-any: vi.spyOn process.stdout.write has incompatible MockInstance generic bounds
 
   beforeEach(() => {
     stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -104,7 +104,7 @@ describe('createHeadlessRunner (text format)', () => {
 });
 
 describe('createHeadlessRunner (json format)', () => {
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: any; // allow-any: vi.spyOn process.stdout.write has incompatible MockInstance generic bounds
 
   beforeEach(() => {
     stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -170,7 +170,7 @@ describe('createHeadlessRunner (json format)', () => {
 });
 
 describe('createHeadlessRunner (stream-json format)', () => {
-  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutWriteSpy: any; // allow-any: vi.spyOn process.stdout.write has incompatible MockInstance generic bounds
 
   beforeEach(() => {
     stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -205,14 +205,16 @@ describe('createHeadlessRunner (stream-json format)', () => {
 
     expect(exitCode).toBe(0);
 
-    const lines = stdoutWriteSpy.mock.calls.map((call) => (call as [string])[0].trim());
-    const parsed = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
+    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
 
     // 2 stream_event lines + 1 final result line
     expect(parsed).toHaveLength(3);
 
     // First two are stream events with content_block_delta
-    const streamEvents = parsed.filter((p) => p['type'] === 'stream_event');
+    const streamEvents = parsed.filter(
+      (p: Record<string, unknown>) => p['type'] === 'stream_event',
+    );
     expect(streamEvents).toHaveLength(2);
 
     for (const evt of streamEvents) {
@@ -236,7 +238,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
     expect(secondDelta['text']).toBe(' world');
 
     // Final result line
-    const resultLine = parsed.find((p) => p['type'] === 'result');
+    const resultLine = parsed.find((p: Record<string, unknown>) => p['type'] === 'result');
     expect(resultLine).toEqual({
       type: 'result',
       result: 'Hello world',
@@ -266,8 +268,8 @@ describe('createHeadlessRunner (stream-json format)', () => {
 
     expect(exitCode).toBe(1);
 
-    const lines = stdoutWriteSpy.mock.calls.map((call) => (call as [string])[0].trim());
-    const parsed = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
+    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0]).toEqual({

@@ -11,10 +11,5 @@
     "noEmit": false
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["dist", "**/*.test.ts", "**/*.spec.ts"],
-  "references": [
-    {
-      "path": "../agent-core"
-    }
-  ]
+  "exclude": ["dist", "**/*.test.ts", "**/*.spec.ts"]
 }

@@ -30,7 +30,15 @@ function createContext(overrides: Partial<IPluginExecutionContext> = {}): IPlugi
     executionId: 'exec_1',
     sessionId: 'session_1',
     userId: 'user_1',
-    messages: [{ role: 'user', content: 'hello', timestamp: new Date() }],
+    messages: [
+      {
+        id: 'msg-1',
+        role: 'user',
+        content: 'hello',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      },
+    ],
     config: { model: 'gpt-3.5-turbo' },
     ...overrides,
   };

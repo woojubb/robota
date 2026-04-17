@@ -12,6 +12,8 @@ describe('OpenAIConversationAdapter', () => {
   describe('convertMessage', () => {
     it('should convert user message correctly', () => {
       const userMessage: IUserMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'user',
         content: 'Hello, how are you?',
         timestamp: new Date(),
@@ -27,6 +29,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert system message correctly', () => {
       const systemMessage: ISystemMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'system',
         content: 'You are a helpful assistant.',
         timestamp: new Date(),
@@ -42,6 +46,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert regular assistant message with content correctly', () => {
       const assistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: 'I can help you with that.',
         timestamp: new Date(),
@@ -57,6 +63,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert assistant message with null content correctly', () => {
       const assistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: null,
         timestamp: new Date(),
@@ -72,6 +80,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert assistant message with empty content correctly', () => {
       const assistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: '',
         timestamp: new Date(),
@@ -87,6 +97,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert assistant message with tool calls and null content correctly', () => {
       const assistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: null,
         toolCalls: [
@@ -122,6 +134,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert assistant message with tool calls and empty content correctly', () => {
       const assistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: '',
         toolCalls: [
@@ -157,6 +171,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert assistant message with tool calls and meaningful content correctly', () => {
       const assistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: 'Let me calculate that for you.',
         toolCalls: [
@@ -192,6 +208,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should convert tool message correctly', () => {
       const toolMessage: IToolMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'tool',
         content: '{"result":8,"operation":"5 + 3 = 8"}',
         toolCallId: 'call_123',
@@ -210,6 +228,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should throw error for tool message without toolCallId', () => {
       const toolMessage: IToolMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'tool',
         content: '{"result":8}',
         toolCallId: '',
@@ -226,16 +246,22 @@ describe('OpenAIConversationAdapter', () => {
     it('should convert a complete conversation with tool calls correctly', () => {
       const messages: TUniversalMessage[] = [
         {
+          id: 'msg-1',
+          state: 'complete' as const,
           role: 'system',
           content: 'You are a helpful assistant.',
           timestamp: new Date(),
         },
         {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'user',
           content: 'What is 5 plus 3?',
           timestamp: new Date(),
         },
         {
+          id: 'msg-3',
+          state: 'complete' as const,
           role: 'assistant',
           content: null,
           toolCalls: [
@@ -251,6 +277,8 @@ describe('OpenAIConversationAdapter', () => {
           timestamp: new Date(),
         },
         {
+          id: 'msg-4',
+          state: 'complete' as const,
           role: 'tool',
           content: '{"result":8,"operation":"5 + 3 = 8"}',
           toolCallId: 'call_123',
@@ -258,6 +286,8 @@ describe('OpenAIConversationAdapter', () => {
           timestamp: new Date(),
         },
         {
+          id: 'msg-5',
+          state: 'complete' as const,
           role: 'assistant',
           content: 'The result of 5 plus 3 is 8.',
           timestamp: new Date(),
@@ -304,23 +334,31 @@ describe('OpenAIConversationAdapter', () => {
     it('should filter out tool messages with invalid toolCallId', () => {
       const messages: TUniversalMessage[] = [
         {
+          id: 'msg-1',
+          state: 'complete' as const,
           role: 'user',
           content: 'Hello',
           timestamp: new Date(),
         },
         {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'tool',
           content: 'Invalid tool message',
           toolCallId: '',
           timestamp: new Date(),
         },
         {
+          id: 'msg-3',
+          state: 'complete' as const,
           role: 'tool',
           content: 'Another invalid tool message',
           toolCallId: 'unknown',
           timestamp: new Date(),
         },
         {
+          id: 'msg-4',
+          state: 'complete' as const,
           role: 'assistant',
           content: 'Hi there!',
           timestamp: new Date(),
@@ -344,16 +382,22 @@ describe('OpenAIConversationAdapter', () => {
     it('should handle the tool execution loop prevention scenario correctly', () => {
       const messages: TUniversalMessage[] = [
         {
+          id: 'msg-1',
+          state: 'complete' as const,
           role: 'system',
           content: 'You are a helpful assistant.',
           timestamp: new Date(),
         },
         {
+          id: 'msg-2',
+          state: 'complete' as const,
           role: 'user',
           content: 'What is 5 plus 3?',
           timestamp: new Date(),
         },
         {
+          id: 'msg-3',
+          state: 'complete' as const,
           role: 'assistant',
           content: null,
           toolCalls: [
@@ -369,6 +413,8 @@ describe('OpenAIConversationAdapter', () => {
           timestamp: new Date(),
         },
         {
+          id: 'msg-4',
+          state: 'complete' as const,
           role: 'tool',
           content: '{"result":8,"operation":"5 + 3 = 8"}',
           toolCallId: 'call_calculate_123',
@@ -403,6 +449,8 @@ describe('OpenAIConversationAdapter', () => {
 
     it('should demonstrate the difference between correct and incorrect content handling', () => {
       const correctAssistantMessage: IAssistantMessage = {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'assistant',
         content: null,
         toolCalls: [
@@ -419,6 +467,8 @@ describe('OpenAIConversationAdapter', () => {
       };
 
       const incorrectAssistantMessage: IAssistantMessage = {
+        id: 'msg-2',
+        state: 'complete' as const,
         role: 'assistant',
         content: '',
         toolCalls: [

@@ -1,5 +1,13 @@
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { ReactNode } from 'react';
+
+type TUniversalValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | TUniversalValue[]
+  | Record<string, unknown>;
 
 // Theme types
 export type TTheme = 'light' | 'dark' | 'system';

@@ -33,8 +33,10 @@ class MockAIProvider extends AbstractAIProvider {
 
   async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
     return {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -44,8 +46,10 @@ class MockAIProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     yield {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -163,8 +167,20 @@ describe('ExecutionService', () => {
       getMessagesSpy
         .mockReturnValueOnce([]) // first call (empty)
         .mockReturnValue([
-          { role: 'user', content: input, timestamp: new Date() },
-          { role: 'assistant', content: 'Mock response', timestamp: new Date() },
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: input,
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+          {
+            id: 'msg-2',
+            role: 'assistant',
+            content: 'Mock response',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
         ]);
 
       const result = await executionService.execute(input, messages, config, {
@@ -192,8 +208,10 @@ describe('ExecutionService', () => {
       mockProvider.chat = vi
         .fn()
         .mockResolvedValueOnce({
+          id: 'msg-tool-1',
           role: 'assistant',
           content: 'I need to use a tool',
+          state: 'complete' as const,
           toolCalls: [
             {
               id: 'tool-1',
@@ -209,8 +227,10 @@ describe('ExecutionService', () => {
           timestamp: new Date(),
         })
         .mockResolvedValueOnce({
+          id: 'msg-final',
           role: 'assistant',
           content: 'Task completed with tool result',
+          state: 'complete' as const,
           toolCalls: [],
           usage: { promptTokens: 15, completionTokens: 25, totalTokens: 40 },
           finishReason: 'stop',
@@ -266,10 +286,18 @@ describe('ExecutionService', () => {
         .mockReturnValueOnce([]) // first call (empty)
         .mockReturnValueOnce([
           // after first AI response
-          { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
           {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Use a tool to do something',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+          {
+            id: 'msg-2',
             role: 'assistant',
             content: 'I need to use a tool',
+            state: 'complete' as const,
             toolCalls: [
               {
                 id: 'tool-1',
@@ -282,10 +310,18 @@ describe('ExecutionService', () => {
         ])
         .mockReturnValue([
           // final messages
-          { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
           {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Use a tool to do something',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+          {
+            id: 'msg-2',
             role: 'assistant',
             content: 'I need to use a tool',
+            state: 'complete' as const,
             toolCalls: [
               {
                 id: 'tool-1',
@@ -296,15 +332,19 @@ describe('ExecutionService', () => {
             timestamp: new Date(),
           },
           {
+            id: 'msg-3',
             role: 'tool',
             content: JSON.stringify({ result: 'success' }),
             toolCallId: 'tool-1',
             name: 'testTool',
+            state: 'complete' as const,
             timestamp: new Date(),
           },
           {
+            id: 'msg-4',
             role: 'assistant',
             content: 'Task completed with tool result',
+            state: 'complete' as const,
             timestamp: new Date(),
           },
         ]);
@@ -360,8 +400,20 @@ describe('ExecutionService', () => {
     it('should initialize conversation history with existing messages', async () => {
       const inputMsg = 'Hello again';
       const messagesArray: TUniversalMessage[] = [
-        { role: 'user', content: 'Hello', timestamp: new Date() },
-        { role: 'assistant', content: 'Hi there!', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi there!',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
       ];
       const agentConfig: IAgentConfig = {
         name: 'test-agent',
@@ -394,8 +446,20 @@ describe('ExecutionService', () => {
     it('should handle messages with system role', async () => {
       const userInput = 'Hello';
       const messagesList: TUniversalMessage[] = [
-        { role: 'system', content: 'You are a helpful assistant', timestamp: new Date() },
-        { role: 'user', content: 'Previous question', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          role: 'system',
+          content: 'You are a helpful assistant',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-2',
+          role: 'user',
+          content: 'Previous question',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
       ];
       const testConfig: IAgentConfig = {
         name: 'test-agent',
@@ -455,8 +519,10 @@ describe('ExecutionService', () => {
 
     function makeToolCallResponse(round: number): TUniversalMessage {
       return {
+        id: `msg-round-${round}`,
         role: 'assistant',
         content: `Tool call round ${round}`,
+        state: 'complete' as const,
         toolCalls: [
           {
             id: `tool-${round}`,
@@ -543,8 +609,10 @@ describe('ExecutionService', () => {
         chatSpy.mockResolvedValueOnce(makeToolCallResponse(i + 1));
       }
       chatSpy.mockResolvedValueOnce({
+        id: 'msg-summary',
         role: 'assistant',
         content: 'Here is the summary of results.',
+        state: 'complete' as const,
         timestamp: new Date(),
       });
       mockProvider.chat = chatSpy;
@@ -580,8 +648,10 @@ describe('ExecutionService', () => {
           // Verify it says "Tool round limit reached"
           expect(SYNTHETIC_MSG).toContain('Tool round limit reached');
           return Promise.resolve({
+            id: 'msg-summary',
             role: 'assistant',
             content: 'Summary response.',
+            state: 'complete' as const,
             timestamp: new Date(),
           });
         },
@@ -602,8 +672,10 @@ describe('ExecutionService', () => {
         chatSpy.mockResolvedValueOnce(makeToolCallResponse(i + 1));
       }
       chatSpy.mockResolvedValueOnce({
+        id: 'msg-summary',
         role: 'assistant',
         content: 'Summary.',
+        state: 'complete' as const,
         timestamp: new Date(),
       });
       mockProvider.chat = chatSpy;
@@ -633,8 +705,10 @@ describe('ExecutionService', () => {
           expect(options).toBeDefined();
           expect(options!['tools']).toBeUndefined();
           return Promise.resolve({
+            id: 'msg-summary',
             role: 'assistant',
             content: 'Summary.',
+            state: 'complete' as const,
             timestamp: new Date(),
           });
         },
@@ -655,8 +729,10 @@ describe('ExecutionService', () => {
         chatSpy.mockResolvedValueOnce(makeToolCallResponse(i + 1));
       }
       chatSpy.mockResolvedValueOnce({
+        id: 'msg-empty',
         role: 'assistant',
         content: '',
+        state: 'complete' as const,
         timestamp: new Date(),
       });
       mockProvider.chat = chatSpy;

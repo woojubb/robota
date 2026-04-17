@@ -23,7 +23,15 @@ describe('ConversationService', () => {
 
   describe('prepareContext', () => {
     it('builds context from messages', () => {
-      const messages = [{ role: 'user' as const, content: 'hi', timestamp: new Date() }];
+      const messages = [
+        {
+          id: 'msg-1',
+          role: 'user' as const,
+          content: 'hi',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+      ];
       const ctx = service.prepareContext(messages, 'gpt-4', 'openai');
       expect(ctx.model).toBe('gpt-4');
       expect(ctx.provider).toBe('openai');
@@ -32,8 +40,10 @@ describe('ConversationService', () => {
 
     it('trims history to maxHistoryLength', () => {
       const messages = Array.from({ length: 150 }, (_, i) => ({
+        id: `msg-${i}`,
         role: 'user' as const,
         content: `msg-${i}`,
+        state: 'complete' as const,
         timestamp: new Date(),
       }));
       const ctx = service.prepareContext(messages, 'gpt-4', 'openai', {}, { maxHistoryLength: 50 });
@@ -42,10 +52,18 @@ describe('ConversationService', () => {
 
     it('preserves system messages during trimming', () => {
       const messages = [
-        { role: 'system' as const, content: 'sys', timestamp: new Date() },
+        {
+          id: 'sys-1',
+          role: 'system' as const,
+          content: 'sys',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
         ...Array.from({ length: 50 }, (_, i) => ({
+          id: `msg-${i}`,
           role: 'user' as const,
           content: `msg-${i}`,
+          state: 'complete' as const,
           timestamp: new Date(),
         })),
       ];
@@ -54,7 +72,15 @@ describe('ConversationService', () => {
     });
 
     it('includes context options', () => {
-      const messages = [{ role: 'user' as const, content: 'hi', timestamp: new Date() }];
+      const messages = [
+        {
+          id: 'msg-1',
+          role: 'user' as const,
+          content: 'hi',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+      ];
       const ctx = service.prepareContext(messages, 'gpt-4', 'openai', {
         systemMessage: 'You are helpful',
         temperature: 0.7,
@@ -69,7 +95,15 @@ describe('ConversationService', () => {
   describe('validateContext', () => {
     it('validates a correct context', () => {
       const result = service.validateContext({
-        messages: [{ role: 'user', content: 'hi', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'hi',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         model: 'gpt-4',
         provider: 'openai',
       });
@@ -88,7 +122,15 @@ describe('ConversationService', () => {
 
     it('rejects invalid temperature', () => {
       const result = service.validateContext({
-        messages: [{ role: 'user', content: 'hi', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'hi',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         model: 'gpt-4',
         provider: 'openai',
         temperature: 5,
@@ -98,7 +140,15 @@ describe('ConversationService', () => {
 
     it('rejects invalid maxTokens', () => {
       const result = service.validateContext({
-        messages: [{ role: 'user', content: 'hi', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'hi',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         model: 'gpt-4',
         provider: 'openai',
         maxTokens: -1,

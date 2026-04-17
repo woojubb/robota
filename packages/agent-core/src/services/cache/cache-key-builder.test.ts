@@ -6,7 +6,13 @@ describe('CacheKeyBuilder', () => {
   const builder = new CacheKeyBuilder();
 
   const messages: TUniversalMessage[] = [
-    { role: 'user', content: 'Hello', timestamp: new Date('2024-01-01') },
+    {
+      id: 'msg-1',
+      role: 'user',
+      content: 'Hello',
+      state: 'complete' as const,
+      timestamp: new Date('2024-01-01'),
+    },
   ];
 
   it('should produce consistent hash for identical inputs', () => {
@@ -20,7 +26,13 @@ describe('CacheKeyBuilder', () => {
 
   it('should produce different hashes for different messages', () => {
     const otherMessages: TUniversalMessage[] = [
-      { role: 'user', content: 'Goodbye', timestamp: new Date('2024-01-01') },
+      {
+        id: 'msg-1',
+        role: 'user',
+        content: 'Goodbye',
+        state: 'complete' as const,
+        timestamp: new Date('2024-01-01'),
+      },
     ];
 
     const key1 = builder.build(messages, 'gpt-4', 'openai');
@@ -45,10 +57,22 @@ describe('CacheKeyBuilder', () => {
 
   it('should exclude timestamps from hash computation', () => {
     const messages1: TUniversalMessage[] = [
-      { role: 'user', content: 'Hello', timestamp: new Date('2024-01-01') },
+      {
+        id: 'msg-1',
+        role: 'user',
+        content: 'Hello',
+        state: 'complete' as const,
+        timestamp: new Date('2024-01-01'),
+      },
     ];
     const messages2: TUniversalMessage[] = [
-      { role: 'user', content: 'Hello', timestamp: new Date('2025-06-15') },
+      {
+        id: 'msg-1',
+        role: 'user',
+        content: 'Hello',
+        state: 'complete' as const,
+        timestamp: new Date('2025-06-15'),
+      },
     ];
 
     const key1 = builder.build(messages1, 'gpt-4', 'openai');

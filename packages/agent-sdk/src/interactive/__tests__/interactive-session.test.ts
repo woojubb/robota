@@ -46,8 +46,6 @@ describe('InteractiveSession', () => {
   it('emits thinking and complete events on submit', async () => {
     const mockSession = createMockSession({ runResult: 'hello world' });
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -70,8 +68,6 @@ describe('InteractiveSession', () => {
   it('adds user message to messages on submit', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -95,8 +91,6 @@ describe('InteractiveSession', () => {
     );
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -132,8 +126,6 @@ describe('InteractiveSession', () => {
     );
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -163,8 +155,6 @@ describe('InteractiveSession', () => {
     );
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -195,8 +185,6 @@ describe('InteractiveSession', () => {
     });
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -217,8 +205,6 @@ describe('InteractiveSession', () => {
   it('off removes event listener', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -239,8 +225,6 @@ describe('InteractiveSession', () => {
   it('getSession returns underlying session', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -250,8 +234,6 @@ describe('InteractiveSession', () => {
   it('getContextState delegates to session', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -331,7 +313,7 @@ describe('InteractiveSession', () => {
       await session.submit('test input');
 
       expect(mockStore.save).toHaveBeenCalled();
-      const savedRecord = mockStore.save.mock.calls[0]![0] as { history: unknown[] };
+      const savedRecord = mockStore.save.mock.calls[0]![0] as unknown as { history: unknown[] };
       expect(savedRecord.history).toBeDefined();
       expect(savedRecord.history.length).toBeGreaterThan(0);
     });
