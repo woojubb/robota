@@ -1,5 +1,15 @@
 # @robota-sdk/dag-node-llm-text-openai
 
+## 3.0.0-beta.55
+
+### Patch Changes
+
+- Updated dependencies [38a72bf]
+  - @robota-sdk/agent-core@3.0.0-beta.55
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.55
+  - @robota-sdk/dag-core@3.0.0-beta.55
+  - @robota-sdk/dag-node@3.0.0-beta.55
+
 ## 3.0.0-beta.54
 
 ### Patch Changes
