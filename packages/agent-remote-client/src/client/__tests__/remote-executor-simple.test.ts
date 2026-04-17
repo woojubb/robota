@@ -122,7 +122,15 @@ describe('SimpleRemoteExecutor Facade', () => {
       executor = new SimpleRemoteExecutor(mockConfig);
 
       validRequest = {
-        messages: [{ role: 'user', content: 'Hello AI', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Hello AI',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: 'gpt-4',
       };
@@ -161,7 +169,15 @@ describe('SimpleRemoteExecutor Facade', () => {
 
     it('should validate provider field', async () => {
       const invalidRequest = {
-        messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: '',
         model: 'gpt-4',
       } as IChatExecutionRequest;
@@ -171,7 +187,15 @@ describe('SimpleRemoteExecutor Facade', () => {
 
     it('should validate model field', async () => {
       const invalidRequest = {
-        messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: '',
       } as IChatExecutionRequest;
@@ -182,7 +206,13 @@ describe('SimpleRemoteExecutor Facade', () => {
     it('should validate individual messages', async () => {
       const invalidRequest = {
         messages: [
-          { role: 'user', content: 'valid', timestamp: new Date() },
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
           { role: 123, content: 'invalid role' } as any,
         ],
         provider: 'openai',
@@ -295,7 +325,13 @@ describe('SimpleRemoteExecutor Facade', () => {
       executor = new SimpleRemoteExecutor(mockConfig);
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'What is TypeScript?', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'What is TypeScript?',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
       ];
 
       const mockResponse = {

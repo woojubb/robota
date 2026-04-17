@@ -49,8 +49,10 @@ describe('execution-round helpers', () => {
         toolsExecuted: ['search'],
         cumulativeInputTokens: 0,
         lastTrackedAssistantMessage: {
+          id: 'msg-1',
           role: 'assistant',
           content: '',
+          state: 'complete' as const,
           timestamp: new Date(),
           toolCalls: [
             { id: 'tc-1', type: 'function', function: { name: 'search', arguments: '{}' } },
@@ -67,8 +69,10 @@ describe('execution-round helpers', () => {
 
     it('extracts assistant response with content', () => {
       const response = {
+        id: 'msg-1',
         role: 'assistant' as const,
         content: 'hello',
+        state: 'complete' as const,
         timestamp: new Date(),
       };
       const result = validateAndExtractResponse(response, 'exec-1', 'conv-1', 1, logger);
@@ -81,8 +85,10 @@ describe('execution-round helpers', () => {
         { id: 'tc-1', type: 'function' as const, function: { name: 'fn', arguments: '{}' } },
       ];
       const response = {
+        id: 'msg-1',
         role: 'assistant' as const,
         content: null,
+        state: 'complete' as const,
         timestamp: new Date(),
         toolCalls,
       };
@@ -92,8 +98,10 @@ describe('execution-round helpers', () => {
 
     it('throws for non-assistant response', () => {
       const response = {
+        id: 'msg-1',
         role: 'user' as const,
         content: 'hello',
+        state: 'complete' as const,
         timestamp: new Date(),
       };
       expect(() => validateAndExtractResponse(response, 'exec-1', 'conv-1', 1, logger)).toThrow(
@@ -103,8 +111,10 @@ describe('execution-round helpers', () => {
 
     it('throws when response has no content and no tool calls', () => {
       const response = {
+        id: 'msg-1',
         role: 'assistant' as const,
         content: undefined as any,
+        state: 'complete' as const,
         timestamp: new Date(),
       };
       expect(() => validateAndExtractResponse(response, 'exec-1', 'conv-1', 1, logger)).toThrow(
@@ -140,13 +150,27 @@ describe('execution-round helpers', () => {
     });
 
     it('calls provider without cache', async () => {
-      const mockResponse = { role: 'assistant', content: 'hi', timestamp: new Date() };
+      const mockResponse = {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'hi',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      };
       const resolved = createResolvedProviderInfo({
         provider: { chat: vi.fn().mockResolvedValue(mockResponse) },
       });
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
       const result = await callProviderWithCache(
-        [{ role: 'user', content: 'hello', timestamp: new Date() }],
+        [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'hello',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         config as any,
         resolved,
       );

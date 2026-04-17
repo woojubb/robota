@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-headless
 
+## 3.0.0-beta.54
+
+### Patch Changes
+
+- fix: resolve all typecheck errors across packages
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.54
+
 ## 3.0.0-beta.53
 
 ### Patch Changes

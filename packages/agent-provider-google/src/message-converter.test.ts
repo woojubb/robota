@@ -11,6 +11,8 @@ import {
 describe('mapMessagePartsToGeminiParts', () => {
   it('converts text parts to Gemini text parts', () => {
     const message: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: '',
       parts: [{ type: 'text', text: 'hello' }],
@@ -22,6 +24,8 @@ describe('mapMessagePartsToGeminiParts', () => {
 
   it('converts inline image parts to Gemini inlineData parts', () => {
     const message: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: '',
       parts: [{ type: 'image_inline', mimeType: 'image/png', data: 'abc123' }],
@@ -33,6 +37,8 @@ describe('mapMessagePartsToGeminiParts', () => {
 
   it('throws on image_uri parts', () => {
     const message: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: '',
       parts: [{ type: 'image_uri', uri: 'https://example.com/img.png', mimeType: 'image/png' }],
@@ -45,6 +51,8 @@ describe('mapMessagePartsToGeminiParts', () => {
 
   it('falls back to content when no parts are present', () => {
     const message: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: 'plain text',
       timestamp: new Date(),
@@ -55,6 +63,8 @@ describe('mapMessagePartsToGeminiParts', () => {
 
   it('returns empty array when no parts and empty content', () => {
     const message: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: '',
       timestamp: new Date(),
@@ -65,6 +75,8 @@ describe('mapMessagePartsToGeminiParts', () => {
 
   it('converts mixed text and image parts', () => {
     const message: TUniversalMessage = {
+      id: 'msg-1',
+      state: 'complete' as const,
       role: 'user',
       content: '',
       parts: [
@@ -83,7 +95,13 @@ describe('mapMessagePartsToGeminiParts', () => {
 describe('convertToGeminiFormat', () => {
   it('converts user messages with role "user"', () => {
     const messages: TUniversalMessage[] = [
-      { role: 'user', content: 'hello', timestamp: new Date() },
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'user',
+        content: 'hello',
+        timestamp: new Date(),
+      },
     ];
     const result = convertToGeminiFormat(messages);
     expect(result).toHaveLength(1);
@@ -93,7 +111,13 @@ describe('convertToGeminiFormat', () => {
 
   it('converts assistant messages with role "model"', () => {
     const messages: TUniversalMessage[] = [
-      { role: 'assistant', content: 'hi there', timestamp: new Date() },
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'assistant',
+        content: 'hi there',
+        timestamp: new Date(),
+      },
     ];
     const result = convertToGeminiFormat(messages);
     expect(result).toHaveLength(1);
@@ -155,7 +179,14 @@ describe('convertToGeminiFormat', () => {
 
   it('converts tool messages with role "user"', () => {
     const messages: TUniversalMessage[] = [
-      { role: 'tool', content: 'tool result', toolCallId: 'call_1', timestamp: new Date() },
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'tool',
+        content: 'tool result',
+        toolCallId: 'call_1',
+        timestamp: new Date(),
+      },
     ];
     const result = convertToGeminiFormat(messages);
     expect(result[0]?.role).toBe('user');
@@ -164,7 +195,13 @@ describe('convertToGeminiFormat', () => {
 
   it('converts system messages with content as text part', () => {
     const messages: TUniversalMessage[] = [
-      { role: 'system', content: 'You are helpful', timestamp: new Date() },
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'system',
+        content: 'You are helpful',
+        timestamp: new Date(),
+      },
     ];
     const result = convertToGeminiFormat(messages);
     expect(result[0]?.role).toBe('user');
@@ -173,7 +210,15 @@ describe('convertToGeminiFormat', () => {
   });
 
   it('converts system messages with empty content to "System:" prefixed text', () => {
-    const messages: TUniversalMessage[] = [{ role: 'system', content: '', timestamp: new Date() }];
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'system',
+        content: '',
+        timestamp: new Date(),
+      },
+    ];
     const result = convertToGeminiFormat(messages);
     expect(result[0]?.role).toBe('user');
     // When mapMessagePartsToGeminiParts returns empty, the System: prefix is added
@@ -183,6 +228,8 @@ describe('convertToGeminiFormat', () => {
   it('converts system messages with parts directly', () => {
     const messages: TUniversalMessage[] = [
       {
+        id: 'msg-1',
+        state: 'complete' as const,
         role: 'system',
         content: '',
         parts: [{ type: 'text', text: 'System instruction' }],
@@ -196,9 +243,27 @@ describe('convertToGeminiFormat', () => {
 
   it('handles multiple messages in sequence', () => {
     const messages: TUniversalMessage[] = [
-      { role: 'system', content: 'Be helpful', timestamp: new Date() },
-      { role: 'user', content: 'Hello', timestamp: new Date() },
-      { role: 'assistant', content: 'Hi!', timestamp: new Date() },
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'system',
+        content: 'Be helpful',
+        timestamp: new Date(),
+      },
+      {
+        id: 'msg-2',
+        state: 'complete' as const,
+        role: 'user',
+        content: 'Hello',
+        timestamp: new Date(),
+      },
+      {
+        id: 'msg-3',
+        state: 'complete' as const,
+        role: 'assistant',
+        content: 'Hi!',
+        timestamp: new Date(),
+      },
     ];
     const result = convertToGeminiFormat(messages);
     expect(result).toHaveLength(3);

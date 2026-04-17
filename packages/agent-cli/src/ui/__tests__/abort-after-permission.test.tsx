@@ -84,7 +84,7 @@ function AbortAfterPermissionApp({
 describe('ESC abort after permission prompt', () => {
   it('ESC works when no permission prompt was shown', async () => {
     let abortCalled = false;
-    let grantFn: (() => void) | null = null;
+    const grantHolder: { fn: (() => void) | null } = { fn: null };
 
     const { stdin, lastFrame } = render(
       <AbortAfterPermissionApp
@@ -92,7 +92,7 @@ describe('ESC abort after permission prompt', () => {
           abortCalled = true;
         }}
         onPermissionReady={(fn) => {
-          grantFn = fn;
+          grantHolder.fn = fn;
         }}
       />,
     );
@@ -101,7 +101,7 @@ describe('ESC abort after permission prompt', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     // Grant permission immediately
-    grantFn?.();
+    grantHolder.fn?.();
     await new Promise((r) => setTimeout(r, 50));
 
     // Now ESC should work
@@ -114,7 +114,7 @@ describe('ESC abort after permission prompt', () => {
 
   it('ESC works AFTER permission prompt was shown and dismissed', async () => {
     let abortCalled = false;
-    let grantFn: (() => void) | null = null;
+    const grantHolder: { fn: (() => void) | null } = { fn: null };
 
     const { stdin, lastFrame } = render(
       <AbortAfterPermissionApp
@@ -122,7 +122,7 @@ describe('ESC abort after permission prompt', () => {
           abortCalled = true;
         }}
         onPermissionReady={(fn) => {
-          grantFn = fn;
+          grantHolder.fn = fn;
         }}
       />,
     );
@@ -132,7 +132,7 @@ describe('ESC abort after permission prompt', () => {
     expect(lastFrame()!).toContain('[Permission Required]');
 
     // Grant permission (dismiss prompt)
-    grantFn?.();
+    grantHolder.fn?.();
     await new Promise((r) => setTimeout(r, 50));
 
     // Permission dismissed, streaming should show

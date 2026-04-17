@@ -139,8 +139,13 @@ export function buildEventEmitterStats(
 ): IEventEmitterPluginStats {
   const { listenerCounts, totalListeners } = computeListenerStats(handlers);
   const metricsSnapshot = metrics.getSnapshot();
+  const enabled = base.enabled as boolean;
+  const calls = base.calls as number;
+  const errors = base.errors as number;
   return {
-    ...base,
+    enabled,
+    calls,
+    errors,
     eventTypes: Array.from(handlers.keys()),
     listenerCounts,
     totalListeners,

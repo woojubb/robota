@@ -111,7 +111,8 @@ describe('IHistoryEntry cross-package integration', () => {
     expect(mockSessionStore.save).toHaveBeenCalled();
     expect(savedRecord).not.toBeNull();
 
-    const persistedHistory = (savedRecord as Record<string, unknown>).history as IHistoryEntry[];
+    const persistedHistory = (savedRecord as unknown as Record<string, unknown>)
+      .history as IHistoryEntry[];
     expect(persistedHistory.length).toBeGreaterThan(0);
 
     // Simulate restore: load returns saved record

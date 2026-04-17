@@ -3,11 +3,23 @@ import { ExecutionAnalyticsPlugin } from '../execution-analytics-plugin';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function userMsg(content: string): TUniversalMessage {
-  return { role: 'user', content, timestamp: new Date() };
+  return {
+    id: crypto.randomUUID(),
+    role: 'user',
+    content,
+    state: 'complete',
+    timestamp: new Date(),
+  };
 }
 
 function assistantMsg(content: string): TUniversalMessage {
-  return { role: 'assistant', content, timestamp: new Date() };
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    content,
+    state: 'complete',
+    timestamp: new Date(),
+  };
 }
 
 describe('ExecutionAnalyticsPlugin', () => {

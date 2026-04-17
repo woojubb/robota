@@ -51,8 +51,10 @@ class MockAIProvider extends AbstractAIProvider {
 
   async chat(_messages: TUniversalMessage[], _options?: IChatOptions): Promise<TUniversalMessage> {
     return {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -71,8 +73,10 @@ class MockStreamingProvider extends MockAIProvider {
     _options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     yield {
+      id: 'test-id',
       role: 'assistant',
       content: 'Streaming chunk',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }

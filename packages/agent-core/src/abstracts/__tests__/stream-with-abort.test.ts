@@ -36,7 +36,7 @@ async function* fromArray<T>(items: T[]): AsyncGenerator<T> {
 }
 
 describe('BaseAIProvider.streamWithAbort', () => {
-  const provider = new TestProvider({});
+  const provider = new TestProvider();
 
   it('yields all items when no abort', async () => {
     const items = ['a', 'b', 'c', 'd', 'e'];

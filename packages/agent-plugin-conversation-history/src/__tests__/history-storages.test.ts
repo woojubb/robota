@@ -6,7 +6,15 @@ import type { IConversationHistoryEntry } from '../types';
 
 const entry: IConversationHistoryEntry = {
   conversationId: 'conv-1',
-  messages: [{ role: 'user', content: 'hello', timestamp: new Date() }],
+  messages: [
+    {
+      id: 'msg-1',
+      role: 'user',
+      content: 'hello',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    },
+  ],
   startTime: new Date(),
   lastUpdated: new Date(),
   metadata: {},

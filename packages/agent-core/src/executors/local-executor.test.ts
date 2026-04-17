@@ -15,8 +15,10 @@ describe('LocalExecutor', () => {
       name: 'test-provider',
       async chat(messages: TUniversalMessage[], options?: any): Promise<TUniversalMessage> {
         return {
+          id: 'test-id',
           role: 'assistant',
           content: `Mock response to: ${messages[messages.length - 1]?.content}`,
+          state: 'complete' as const,
           timestamp: new Date(),
         };
       },
@@ -25,18 +27,24 @@ describe('LocalExecutor', () => {
         options?: any,
       ): AsyncIterable<TUniversalMessage> {
         yield {
+          id: 'test-id-1',
           role: 'assistant',
           content: 'Mock',
+          state: 'complete' as const,
           timestamp: new Date(),
         };
         yield {
+          id: 'test-id-2',
           role: 'assistant',
           content: ' streaming',
+          state: 'complete' as const,
           timestamp: new Date(),
         };
         yield {
+          id: 'test-id-3',
           role: 'assistant',
           content: ' response',
+          state: 'complete' as const,
           timestamp: new Date(),
         };
       },
@@ -85,7 +93,15 @@ describe('LocalExecutor', () => {
 
     it('should execute chat requests successfully', async () => {
       const request = {
-        messages: [{ role: 'user' as const, content: 'Hello!', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user' as const,
+            content: 'Hello!',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'test',
         model: 'test-model',
         options: { temperature: 0.7 },
@@ -99,7 +115,15 @@ describe('LocalExecutor', () => {
 
     it('should throw error for unregistered provider', async () => {
       const request = {
-        messages: [{ role: 'user' as const, content: 'Hello!', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user' as const,
+            content: 'Hello!',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'unregistered',
         model: 'test-model',
       };
@@ -111,7 +135,15 @@ describe('LocalExecutor', () => {
 
     it('should execute streaming chat requests', async () => {
       const request = {
-        messages: [{ role: 'user' as const, content: 'Tell me a story', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user' as const,
+            content: 'Tell me a story',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'test',
         model: 'test-model',
         stream: true as const,
@@ -202,7 +234,15 @@ describe('LocalExecutor', () => {
       executor.registerProvider('incomplete', providerWithoutChat);
 
       const request = {
-        messages: [{ role: 'user' as const, content: 'Hello!', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user' as const,
+            content: 'Hello!',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'incomplete',
         model: 'test-model',
       };
@@ -223,7 +263,15 @@ describe('LocalExecutor', () => {
       executor.registerProvider('no-stream', providerWithoutStream);
 
       const request = {
-        messages: [{ role: 'user' as const, content: 'Hello!', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user' as const,
+            content: 'Hello!',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'no-stream',
         model: 'test-model',
         stream: true as const,

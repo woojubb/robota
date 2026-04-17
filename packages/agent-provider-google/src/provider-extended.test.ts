@@ -55,7 +55,15 @@ describe('GoogleProvider - chat error paths', () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat(
-        [{ role: 'user', content: 'hello', timestamp: new Date() }],
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'hello',
+            timestamp: new Date(),
+          },
+        ],
         {}, // no model
       ),
     ).rejects.toThrow('Google chat failed: Model is required');
@@ -64,7 +72,15 @@ describe('GoogleProvider - chat error paths', () => {
   it('throws when options are undefined (no model)', async () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     await expect(
-      provider.chat([{ role: 'user', content: 'hello', timestamp: new Date() }]),
+      provider.chat([
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ]),
     ).rejects.toThrow('Google chat failed:');
   });
 
@@ -72,9 +88,20 @@ describe('GoogleProvider - chat error paths', () => {
     generateContentMock.mockRejectedValue(new Error('API quota exceeded'));
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     await expect(
-      provider.chat([{ role: 'user', content: 'hello', timestamp: new Date() }], {
-        model: 'gemini-pro',
-      }),
+      provider.chat(
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'hello',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'gemini-pro',
+        },
+      ),
     ).rejects.toThrow('Google chat failed: API quota exceeded');
   });
 
@@ -82,25 +109,47 @@ describe('GoogleProvider - chat error paths', () => {
     generateContentMock.mockRejectedValue('string error');
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     await expect(
-      provider.chat([{ role: 'user', content: 'hello', timestamp: new Date() }], {
-        model: 'gemini-pro',
-      }),
+      provider.chat(
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'hello',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'gemini-pro',
+        },
+      ),
     ).rejects.toThrow('Google chat failed: Google API request failed');
   });
 
   it('passes tools as function declarations', async () => {
     generateContentMock.mockResolvedValue(makeTextResponse('done'));
     const provider = new GoogleProvider({ apiKey: 'test-key' });
-    await provider.chat([{ role: 'user', content: 'hello', timestamp: new Date() }], {
-      model: 'gemini-pro',
-      tools: [
+    await provider.chat(
+      [
         {
-          name: 'search',
-          description: 'Search the web',
-          parameters: { type: 'object', properties: { q: { type: 'string' } } },
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
         },
       ],
-    });
+      {
+        model: 'gemini-pro',
+        tools: [
+          {
+            name: 'search',
+            description: 'Search the web',
+            parameters: { type: 'object', properties: { q: { type: 'string' } } },
+          },
+        ],
+      },
+    );
     const payload = generateContentMock.mock.calls[0]?.[0];
     expect(payload.tools).toBeDefined();
     expect(payload.tools[0].functionDeclarations).toHaveLength(1);
@@ -111,10 +160,21 @@ describe('GoogleProvider - chat error paths', () => {
     generateContentMock.mockResolvedValue(makeTextResponse('no image here'));
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     await expect(
-      provider.chat([{ role: 'user', content: 'create image', timestamp: new Date() }], {
-        model: 'gemini-2.5-flash-image',
-        google: { responseModalities: ['TEXT', 'IMAGE'] },
-      }),
+      provider.chat(
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'create image',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'gemini-2.5-flash-image',
+          google: { responseModalities: ['TEXT', 'IMAGE'] },
+        },
+      ),
     ).rejects.toThrow('Gemini response did not include an image part');
   });
 });
@@ -136,7 +196,15 @@ describe('GoogleProvider - chatStream', () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
-      [{ role: 'user', content: 'hello', timestamp: new Date() }],
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
       { model: 'gemini-pro' },
     )) {
       chunks.push(chunk);
@@ -158,7 +226,15 @@ describe('GoogleProvider - chatStream', () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
-      [{ role: 'user', content: 'hello', timestamp: new Date() }],
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
       { model: 'gemini-pro' },
     )) {
       chunks.push(chunk);
@@ -169,10 +245,21 @@ describe('GoogleProvider - chatStream', () => {
 
   it('throws when IMAGE modality is requested in stream mode', async () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
-    const iter = provider.chatStream([{ role: 'user', content: 'hello', timestamp: new Date() }], {
-      model: 'gemini-2.5-flash-image',
-      google: { responseModalities: ['IMAGE'] },
-    });
+    const iter = provider.chatStream(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
+      {
+        model: 'gemini-2.5-flash-image',
+        google: { responseModalities: ['IMAGE'] },
+      },
+    );
     await expect(async () => {
       for await (const _chunk of iter) {
         // consume
@@ -183,7 +270,15 @@ describe('GoogleProvider - chatStream', () => {
   it('throws when model is not specified', async () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const iter = provider.chatStream(
-      [{ role: 'user', content: 'hello', timestamp: new Date() }],
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
       {}, // no model
     );
     await expect(async () => {
@@ -196,9 +291,20 @@ describe('GoogleProvider - chatStream', () => {
   it('wraps stream errors', async () => {
     generateContentStreamMock.mockRejectedValue(new Error('network timeout'));
     const provider = new GoogleProvider({ apiKey: 'test-key' });
-    const iter = provider.chatStream([{ role: 'user', content: 'hello', timestamp: new Date() }], {
-      model: 'gemini-pro',
-    });
+    const iter = provider.chatStream(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
+      {
+        model: 'gemini-pro',
+      },
+    );
     await expect(async () => {
       for await (const _chunk of iter) {
         // consume
@@ -215,7 +321,15 @@ describe('GoogleProvider - chatStream', () => {
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
-      [{ role: 'user', content: 'hello', timestamp: new Date() }],
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
       {
         model: 'gemini-pro',
         tools: [
@@ -275,7 +389,15 @@ describe('GoogleProvider - constructor with executor', () => {
       executor: mockExecutor,
     });
     const result = await provider.chat(
-      [{ role: 'user', content: 'hello', timestamp: new Date() }],
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
       { model: 'gemini-pro' },
     );
     expect(result.content).toBe('executor response');
@@ -295,9 +417,20 @@ describe('GoogleProvider - constructor with executor', () => {
       executor: mockExecutor,
     });
     await expect(
-      provider.chat([{ role: 'user', content: 'hello', timestamp: new Date() }], {
-        model: 'gemini-pro',
-      }),
+      provider.chat(
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'hello',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'gemini-pro',
+        },
+      ),
     ).rejects.toThrow('executor failed');
   });
 });

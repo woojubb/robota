@@ -20,16 +20,11 @@ vi.mock('@robota-sdk/agent-sessions', () => ({
   },
 }));
 
-// Mock createProvider
 const mockProvider = {
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
-vi.mock('../assembly/create-provider.js', () => ({
-  createProvider: vi.fn(() => mockProvider),
-}));
 
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
-import { createProvider } from '../assembly/create-provider.js';
 
 function makeTool(name: string): IToolWithEventService {
   return {
@@ -100,6 +95,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -119,6 +115,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -137,6 +134,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -155,6 +153,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -170,6 +169,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -185,6 +185,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -200,6 +201,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -217,6 +219,7 @@ describe('createSubagentSession', () => {
       }),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -232,6 +235,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext({ claudeMd: 'claude content', agentsMd: 'agents content' }),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -252,6 +256,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
       isForkWorker: true,
     });
@@ -269,6 +274,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -285,6 +291,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
       permissionHandler: handler,
     });
@@ -303,6 +310,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
       onTextDelta,
       onToolExecution,
@@ -343,6 +351,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -364,6 +373,7 @@ describe('createSubagentSession', () => {
       parentConfig: config,
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -382,6 +392,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -398,6 +409,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -414,6 +426,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: tools,
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -432,6 +445,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -448,6 +462,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
       // isForkWorker not specified
     });
@@ -459,7 +474,7 @@ describe('createSubagentSession', () => {
   });
 
   it('should pass defaultTrustLevel from parent config', () => {
-    const config = makeParentConfig({ defaultTrustLevel: 'trusted' });
+    const config = makeParentConfig({ defaultTrustLevel: 'full' });
     const agent = makeAgentDef();
 
     createSubagentSession({
@@ -467,11 +482,12 @@ describe('createSubagentSession', () => {
       parentConfig: config,
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
-    expect(passedOptions['defaultTrustLevel']).toBe('trusted');
+    expect(passedOptions['defaultTrustLevel']).toBe('full');
   });
 
   it('should handle no context (empty claudeMd and agentsMd)', () => {
@@ -482,6 +498,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext({ claudeMd: undefined, agentsMd: undefined }),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
@@ -499,6 +516,7 @@ describe('createSubagentSession', () => {
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 

@@ -15,6 +15,8 @@ describe('OpenAI Provider Executor Integration', () => {
       name: 'openai',
       async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
         return {
+          id: 'msg-1',
+          state: 'complete' as const,
           role: 'assistant' as const,
           content: `Mock response: ${messages[messages.length - 1]?.content}`,
           timestamp: new Date(),
@@ -24,6 +26,8 @@ describe('OpenAI Provider Executor Integration', () => {
         const chunks = ['Mock', ' streaming', ' response'];
         for (const chunk of chunks) {
           yield {
+            id: 'msg-1',
+            state: 'complete' as const,
             role: 'assistant' as const,
             content: chunk,
             timestamp: new Date(),
@@ -50,7 +54,13 @@ describe('OpenAI Provider Executor Integration', () => {
   describe('Provider with Executor', () => {
     it('should use executor for chat requests', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hello!', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hello!',
+          timestamp: new Date(),
+        },
       ];
 
       const options = {
@@ -66,7 +76,13 @@ describe('OpenAI Provider Executor Integration', () => {
 
     it('should use executor for streaming chat requests', async () => {
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Tell me a story', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Tell me a story',
+          timestamp: new Date(),
+        },
       ];
 
       const options = {
@@ -92,7 +108,13 @@ describe('OpenAI Provider Executor Integration', () => {
       });
 
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hello!', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hello!',
+          timestamp: new Date(),
+        },
       ];
 
       await expect(errorProvider.chat(messages, { model: 'gpt-4' })).rejects.toThrow(
@@ -156,7 +178,13 @@ describe('OpenAI Provider Executor Integration', () => {
 
       // Should use executor, not direct API
       const messages: TUniversalMessage[] = [
-        { role: 'user', content: 'Hello!', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hello!',
+          timestamp: new Date(),
+        },
       ];
 
       const response = await mixedProvider.chat(messages, { model: 'gpt-4' });

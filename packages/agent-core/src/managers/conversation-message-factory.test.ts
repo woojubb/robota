@@ -16,27 +16,47 @@ import type { TUniversalMessage } from '../interfaces/messages';
 describe('conversation-message-factory', () => {
   describe('type guards', () => {
     it('isUserMessage returns true for user messages', () => {
-      const msg: TUniversalMessage = { role: 'user', content: 'hello', timestamp: new Date() };
+      const msg: TUniversalMessage = {
+        id: 'msg-1',
+        role: 'user',
+        content: 'hello',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      };
       expect(isUserMessage(msg)).toBe(true);
       expect(isAssistantMessage(msg)).toBe(false);
     });
 
     it('isAssistantMessage returns true for assistant messages', () => {
-      const msg: TUniversalMessage = { role: 'assistant', content: 'hi', timestamp: new Date() };
+      const msg: TUniversalMessage = {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'hi',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      };
       expect(isAssistantMessage(msg)).toBe(true);
       expect(isUserMessage(msg)).toBe(false);
     });
 
     it('isSystemMessage returns true for system messages', () => {
-      const msg: TUniversalMessage = { role: 'system', content: 'sys', timestamp: new Date() };
+      const msg: TUniversalMessage = {
+        id: 'msg-1',
+        role: 'system',
+        content: 'sys',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      };
       expect(isSystemMessage(msg)).toBe(true);
     });
 
     it('isToolMessage returns true for tool messages', () => {
       const msg: TUniversalMessage = {
+        id: 'msg-1',
         role: 'tool',
         content: 'result',
         toolCallId: 'tc-1',
+        state: 'complete' as const,
         timestamp: new Date(),
       };
       expect(isToolMessage(msg)).toBe(true);

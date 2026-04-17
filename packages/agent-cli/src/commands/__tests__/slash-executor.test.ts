@@ -266,6 +266,7 @@ describe('Command routing completeness', () => {
   // Mock plugin callbacks for commands that need them
   const mockPluginCallbacks = {
     listInstalled: vi.fn().mockResolvedValue([]),
+    listAvailablePlugins: vi.fn().mockResolvedValue([]),
     install: vi.fn(),
     uninstall: vi.fn(),
     enable: vi.fn(),

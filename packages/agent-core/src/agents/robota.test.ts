@@ -23,8 +23,10 @@ class MockAIProvider extends AbstractAIProvider {
 
   async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
     return {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -34,8 +36,10 @@ class MockAIProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     yield {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -52,8 +56,10 @@ class MockAIProvider2 extends AbstractAIProvider {
 
   async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
     return {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response from provider 2',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }
@@ -63,8 +69,10 @@ class MockAIProvider2 extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     yield {
+      id: 'test-id',
       role: 'assistant',
       content: 'Mock response from provider 2',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
   }

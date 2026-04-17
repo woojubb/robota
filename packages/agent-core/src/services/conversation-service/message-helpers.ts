@@ -10,6 +10,7 @@ import type {
   IToolCall,
   IToolMessage,
   IUserMessage,
+  TMessageState,
 } from '../../interfaces/messages';
 import type { TUniversalValue } from '../../interfaces/types';
 import type { IRawProviderResponse } from '../../interfaces/provider';
@@ -28,9 +29,11 @@ export function createUserMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): IUserMessage {
   return {
+    id: crypto.randomUUID(),
     role: 'user',
     content,
     timestamp: new Date(),
+    state: 'complete' as TMessageState,
     metadata: { timestamp: new Date().toISOString(), ...metadata },
   };
 }
@@ -41,9 +44,11 @@ export function createAssistantMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): IAssistantMessage {
   const message: IAssistantMessage = {
+    id: crypto.randomUUID(),
     role: 'assistant',
     content: response.content,
     timestamp: new Date(),
+    state: 'complete' as TMessageState,
     metadata: {
       timestamp: new Date().toISOString(),
       ...(response.usage && { usage: JSON.stringify(response.usage) }),
@@ -61,9 +66,11 @@ export function createSystemMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): ISystemMessage {
   return {
+    id: crypto.randomUUID(),
     role: 'system',
     content,
     timestamp: new Date(),
+    state: 'complete' as TMessageState,
     metadata: { timestamp: new Date().toISOString(), ...metadata },
   };
 }
@@ -75,10 +82,12 @@ export function createToolMessageStatic(
   metadata?: Record<string, string | number | boolean>,
 ): IToolMessage {
   return {
+    id: crypto.randomUUID(),
     role: 'tool',
     content: typeof result === 'string' ? result : JSON.stringify(result),
     toolCallId,
     timestamp: new Date(),
+    state: 'complete' as TMessageState,
     metadata: { timestamp: new Date().toISOString(), ...metadata },
   };
 }

@@ -19,7 +19,15 @@ describe('Request Handler Simple', () => {
   describe('createChatTransportRequest', () => {
     it('should create a transport request from chat execution request', () => {
       const request: IChatExecutionRequest = {
-        messages: [{ role: 'user', content: 'Hello', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Hello',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: 'gpt-4',
       };
@@ -41,7 +49,13 @@ describe('Request Handler Simple', () => {
     it('should handle messages with null content', () => {
       const request: IChatExecutionRequest = {
         messages: [
-          { role: 'assistant', content: null as unknown as string, timestamp: new Date() },
+          {
+            id: 'msg-2',
+            role: 'assistant',
+            content: null as unknown as string,
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
         ],
         provider: 'openai',
         model: 'gpt-4',
@@ -55,8 +69,20 @@ describe('Request Handler Simple', () => {
     it('should map multiple messages', () => {
       const request: IChatExecutionRequest = {
         messages: [
-          { role: 'system', content: 'You are helpful', timestamp: new Date() },
-          { role: 'user', content: 'Hi', timestamp: new Date() },
+          {
+            id: 'msg-3',
+            role: 'system',
+            content: 'You are helpful',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Hi',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
         ],
         provider: 'anthropic',
         model: 'claude-3',
@@ -73,7 +99,15 @@ describe('Request Handler Simple', () => {
   describe('createStreamTransportRequest', () => {
     it('should create a stream transport request', () => {
       const request: IStreamExecutionRequest = {
-        messages: [{ role: 'user', content: 'Stream this', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'Stream this',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: 'gpt-4',
         stream: true,
@@ -109,7 +143,15 @@ describe('Request Handler Simple', () => {
   describe('validateChatRequest', () => {
     it('should validate a valid request', () => {
       const request: IChatExecutionRequest = {
-        messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: 'gpt-4',
       };
@@ -135,7 +177,15 @@ describe('Request Handler Simple', () => {
 
     it('should reject missing provider', () => {
       const request = {
-        messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: '',
         model: 'gpt-4',
       } as IChatExecutionRequest;
@@ -148,7 +198,15 @@ describe('Request Handler Simple', () => {
 
     it('should reject missing model', () => {
       const request = {
-        messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: '',
       } as IChatExecutionRequest;
@@ -176,7 +234,15 @@ describe('Request Handler Simple', () => {
   describe('validateStreamRequest', () => {
     it('should delegate to validateChatRequest', () => {
       const request: IStreamExecutionRequest = {
-        messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'test',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: 'gpt-4',
         stream: true,

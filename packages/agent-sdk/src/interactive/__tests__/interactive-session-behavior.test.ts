@@ -48,8 +48,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('user submits a prompt → user message + assistant message appear in history', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession({ runResult: 'Hello back!' }) as never,
     });
 
@@ -74,8 +72,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -101,8 +97,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     );
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -140,8 +134,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     );
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -188,8 +180,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -228,8 +218,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('non-abort errors produce error system message', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession({ runError: new Error('API rate limit exceeded') }) as never,
     });
 
@@ -252,8 +240,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('getActiveTools returns empty array after execution completes', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession() as never,
     });
 
@@ -270,8 +256,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('thinking transitions: false → true → false on submit', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession({ runResult: 'done' }) as never,
     });
 
@@ -289,8 +273,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('context_update event fires after completion with current state', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession() as never,
     });
 
@@ -307,8 +289,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('multiple prompts accumulate in message history', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession({ runResult: 'response' }) as never,
     });
 
@@ -331,8 +311,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('off() stops receiving events', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession() as never,
     });
 
@@ -360,8 +338,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('submit passes rawInput to session.run() for hook matching', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -376,8 +352,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('submit without rawInput passes undefined as second arg', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -390,8 +364,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('displayInput overrides user message (skill prompt not shown as You:)', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession() as never,
     });
 
@@ -405,8 +377,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('without displayInput, user message shows the actual input', async () => {
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: createMockSession() as never,
     });
 
@@ -433,8 +403,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -454,8 +422,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('activeTools not cleared when execution ends (cleared on next start)', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -497,8 +463,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     );
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 
@@ -546,8 +510,6 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
-      config: {} as never,
-      context: {} as never,
       session: mockSession as never,
     });
 

@@ -4,7 +4,11 @@
  * Extracted from abstracts/abstract-module.ts to keep that file under 300 lines.
  * Contains context data extraction, event payload conversion, and stats utilities.
  */
-import type { TEventDataValue, IEventEmitterPlugin } from '../plugins/event-emitter/types';
+import type {
+  TEventDataValue,
+  IEventEmitterPlugin,
+  TEventName,
+} from '../plugins/event-emitter/types';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 import type {
   IModuleInitializationEventData,
@@ -60,7 +64,7 @@ export function convertModuleEventData(
 /** Emit a module lifecycle event, converting data to the emitter's format. */
 export async function emitModuleEvent(
   eventEmitter: IEventEmitterPlugin,
-  eventName: string,
+  eventName: TEventName,
   data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData,
   error?: Error,
 ): Promise<void> {

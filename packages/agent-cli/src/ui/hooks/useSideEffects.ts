@@ -7,6 +7,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robota-sdk/agent-core';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
   updateModelInSettings,
@@ -20,7 +21,7 @@ const EXIT_DELAY_MS = 500;
 
 interface IUseSideEffectsOptions {
   interactiveSession: InteractiveSession;
-  addEntry: (entry: unknown) => void;
+  addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
 }
