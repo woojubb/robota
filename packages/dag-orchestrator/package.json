@@ -27,6 +27,7 @@
     "build:types": "tsup src/index.ts --format esm,cjs --dts-only --out-dir dist/node",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src/ --ext .ts,.tsx",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"

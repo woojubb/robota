@@ -21,6 +21,7 @@
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {

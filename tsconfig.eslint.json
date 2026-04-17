@@ -6,6 +6,8 @@
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.tsx",
+    "packages/dag-nodes/*/src/**/*.ts",
+    "packages/dag-nodes/*/src/**/*.tsx",
     "apps/*/src/**/*.ts",
     "apps/*/src/**/*.tsx"
   ],

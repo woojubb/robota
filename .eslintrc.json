@@ -182,7 +182,9 @@
         "complexity": "off",
         "max-lines": "off",
         "max-lines-per-function": "off",
-        "no-magic-numbers": "off"
+        "no-magic-numbers": "off",
+        "no-restricted-syntax": "off",
+        "@typescript-eslint/no-require-imports": "off"
         // ==========================================
       }
     },
