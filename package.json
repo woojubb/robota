@@ -13,7 +13,7 @@
     "url": "https://github.com/woojubb/robota/issues"
   },
   "scripts": {
-    "build": "pnpm --filter \"./packages/**\" build",
+    "build": "pnpm --filter \"./packages/**\" build:js && node scripts/build-types-ordered.mjs",
     "build:all": "pnpm run build && pnpm run docs:build",
     "build:deps": "pnpm run build",
     "test": "pnpm run -r test",
