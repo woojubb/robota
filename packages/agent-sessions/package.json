@@ -34,6 +34,8 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:js": "tsup --no-dts",
+    "build:types": "tsup --dts-only",
     "build:check": "pnpm run typecheck && pnpm run build",
     "dev": "tsup --watch",
     "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
