@@ -51,7 +51,12 @@ jobs:
         run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }}
 
       - name: Test with coverage
+        if: matrix.node-version != '18.x'
         run: pnpm run test -- --coverage --coverage.thresholds.lines=80
+
+      - name: Test with coverage (Node 18 - excludes packages requiring Node 20+)
+        if: matrix.node-version == '18.x'
+        run: pnpm --filter !@robota-sdk/agent-cli run test -- --coverage --coverage.thresholds.lines=80
 
       - name: Security audit
         if: matrix.node-version == '22.x'
