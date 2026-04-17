@@ -79,6 +79,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dist-artifacts
+          path: packages
 
       - name: Type check
         run: pnpm run typecheck
@@ -126,6 +127,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dist-artifacts
+          path: packages
 
       - name: Test with coverage (excludes packages requiring Node 20+)
         run: pnpm --filter !@robota-sdk/agent-cli run test -- --coverage --coverage.thresholds.lines=80
