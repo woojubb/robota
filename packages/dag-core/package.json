@@ -28,6 +28,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "build:js": "tsup src/index.ts --format esm,cjs --out-dir dist/node --clean",
+    "build:types": "tsup src/index.ts --format esm,cjs --dts-only --out-dir dist/node",
     "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",

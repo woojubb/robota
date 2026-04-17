@@ -28,6 +28,8 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:js": "tsup --no-dts",
+    "build:types": "tsup --dts-only",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
