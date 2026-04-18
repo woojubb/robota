@@ -87,6 +87,8 @@ export interface ICreateSessionOptions {
   sessionId?: string;
   /** Pre-approved tool names — added to permissions.allow as ToolName(*) patterns. */
   allowedTools?: string[];
+  /** Text to append to the generated system prompt. */
+  appendSystemPrompt?: string;
 }
 
 /**
@@ -157,6 +159,9 @@ export function createSession(options: ICreateSessionOptions): Session {
     cwd: process.cwd(),
     language: options.config.language,
   });
+  const finalSystemMessage = options.appendSystemPrompt
+    ? `${systemMessage}\n\n${options.appendSystemPrompt}`
+    : systemMessage;
 
   // Merge default allow patterns for config folders with user-configured permissions
   const defaultAllow = [
@@ -176,7 +181,7 @@ export function createSession(options: ICreateSessionOptions): Session {
   const session = new Session({
     tools,
     provider,
-    systemMessage,
+    systemMessage: finalSystemMessage,
     terminal: options.terminal,
     permissions: mergedPermissions,
     hooks: options.config.hooks,
