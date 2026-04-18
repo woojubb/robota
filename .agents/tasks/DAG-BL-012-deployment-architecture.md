@@ -1,5 +1,5 @@
 ---
-title: 배포 아키텍처 설계 (멀티 플랫폼)
+title: DAG 서비스 배포 아키텍처 (멀티 플랫폼)
 status: backlog
 created: 2026-03-15
 priority: medium
@@ -49,19 +49,7 @@ localhost:8188  → dag-runtime-server / ComfyUI (실행 엔진)
 
 **총 ~33개 엔드포인트**
 
-### 질문: 엔드포인트가 너무 많은가?
-
-아닙니다. 이건 정상적인 수준입니다:
-
-- Stripe API: 수백 개
-- GitHub API: 수백 개
-- ComfyUI 자체: 10개+
-
-다만 **배포 단위**가 문제:
-
-- 33개 엔드포인트가 1개 Express 서버에 → 정상
-- 이걸 Vercel serverless functions로 분해하면 각각 cold start → 느림
-- Express 서버 1개로 유지하되 Vercel이 아닌 서버에 배포하는 게 나음
+Express 서버 1개로 유지하되 Vercel이 아닌 서버에 배포하는 게 나음.
 
 ## 배포 타겟 결정
 
@@ -75,32 +63,7 @@ dag-studio의 Next.js에 API Routes를 추가하면 Vercel 하나로 가능:
 - 장점: 배포 단순화
 - 단점: WebSocket 불가 (Vercel), Express 미들웨어 재작성, Edge Runtime 제한
 
-## 서버리스 배포 타겟
-
-SDK 패키지(agent-core, agent-sessions, agent-sdk, agent-tools, providers)는 서버리스 환경에서도 실행 가능해야 함. INFRA-BL-003 번들 감사에서 이를 위한 사이즈/의존성 정리 완료.
-
-### AWS Lambda
-
-- **대상**: agent-server (AI provider proxy), orchestrator-server API 엔드포인트
-- **제약**: 50MB 배포 패키지 제한 (zip), 250MB unzipped, 15분 타임아웃
-- **구조**: Express → `@vendia/serverless-express` 또는 핸들러 직접 작성
-- **번들 전략**: tsup/esbuild로 단일 파일 번들. external로 aws-sdk만 제외
-- **WebSocket**: API Gateway WebSocket API로 분리 (Lambda 연결)
-- **cold start**: SDK 패키지 전체 ~300KB (ESM) — cold start 영향 미미
-
-### 패키지별 서버리스 호환성 (Lambda)
-
-| 패키지                   | Lambda | 비고                            |
-| ------------------------ | ------ | ------------------------------- |
-| agent-core               | O      | 순수 로직                       |
-| agent-sessions           | O      | `node:path` 사용                |
-| agent-sdk                | O      | config 로딩에 `node:fs` 사용    |
-| agent-tools              | O      | bash/read/write 정상 동작       |
-| agent-provider-anthropic | O      | HTTP only (@anthropic-ai/sdk)   |
-| agent-provider-google    | O      | Web Crypto API 사용             |
-| agent-cli                | N/A    | 터미널 전용, 서버리스 해당 없음 |
-
-### 다음 단계
+## 다음 단계
 
 1. dag-studio Next.js → Cloudflare Pages 배포 설정
 2. orchestrator-server 배포 타겟 결정 (Railway, Fly.io, AWS ECS 등)
