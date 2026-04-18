@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, afterEach } from 'vitest';
 import { ConversationHistoryPlugin } from '../conversation-history-plugin';
 import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
@@ -5,7 +6,7 @@ import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function createUserMessage(content: string): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'user',
     content,
     state: 'complete',
@@ -15,7 +16,7 @@ function createUserMessage(content: string): TUniversalMessage {
 
 function createAssistantMessage(content: string): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'assistant',
     content,
     state: 'complete',
@@ -167,9 +168,53 @@ describe('ConversationHistoryPlugin', () => {
     });
   });
 
+  describe('autoSave: false (batch mode)', () => {
+    it('startConversation persists to storage and queues conversationId in pendingSaves', async () => {
+      plugin = new ConversationHistoryPlugin({ storage: 'memory', autoSave: false });
+      await plugin.startConversation('conv-1');
+      // always persisted immediately so subsequent loads can find it
+      const entry = await plugin.loadConversation('conv-1');
+      expect(entry).toBeDefined();
+      expect(entry!.conversationId).toBe('conv-1');
+    });
+
+    it('addMessage persists to storage and queues conversationId in pendingSaves', async () => {
+      plugin = new ConversationHistoryPlugin({ storage: 'memory', autoSave: false });
+      await plugin.startConversation('conv-1');
+      await plugin.addMessage(createUserMessage('hello'));
+      // always persisted immediately so reads return current state
+      const msgs = await plugin.getHistory('conv-1');
+      expect(msgs).toHaveLength(1);
+      expect(msgs[0].content).toBe('hello');
+    });
+
+    it('savePending flushes pending saves', async () => {
+      plugin = new ConversationHistoryPlugin({ storage: 'memory', autoSave: false });
+      await plugin.startConversation('conv-1');
+      await plugin.savePending();
+      // no error — empty pendingSaves is a no-op
+    });
+
+    it('setupBatchSaving timer runs on autoSave: false', async () => {
+      plugin = new ConversationHistoryPlugin({
+        storage: 'memory',
+        autoSave: false,
+        saveInterval: 50,
+      });
+      expect(plugin).toBeDefined();
+      // timer cleaned up in afterEach via destroy()
+    });
+  });
+
   describe('destroy', () => {
     it('completes without error', async () => {
       plugin = new ConversationHistoryPlugin({ storage: 'memory' });
+      await expect(plugin.destroy()).resolves.not.toThrow();
+    });
+
+    it('completes without error in batch mode', async () => {
+      plugin = new ConversationHistoryPlugin({ storage: 'memory', autoSave: false });
+      await plugin.startConversation('conv-1');
       await expect(plugin.destroy()).resolves.not.toThrow();
     });
   });

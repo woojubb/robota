@@ -4,6 +4,7 @@
  * Handles request/response transformation with zero any/unknown types
  */
 
+import { randomUUID } from 'node:crypto';
 import type {
   IChatExecutionRequest,
   IStreamExecutionRequest,
@@ -65,7 +66,7 @@ export function transformToAssistantMessage(
   response: ITransportResponse<IChatResponseData>,
 ): IAssistantMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     role: 'assistant',
     content: response.data.content,
     state: 'complete',

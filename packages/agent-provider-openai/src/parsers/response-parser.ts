@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
@@ -52,7 +53,7 @@ export class OpenAIResponseParser {
         : undefined;
 
       const result: TUniversalMessage = {
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         state: 'complete' as const,
         role: 'assistant',
         content,
@@ -102,7 +103,7 @@ export class OpenAIResponseParser {
 
         // Return assistant message with tool calls
         return {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           state: 'complete' as const,
           role: 'assistant',
           content: '',
@@ -119,7 +120,7 @@ export class OpenAIResponseParser {
       const content = delta.content || '';
 
       return {
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         state: 'complete' as const,
         role: 'assistant',
         content,

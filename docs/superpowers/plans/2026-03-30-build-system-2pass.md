@@ -213,3 +213,9 @@ Check CI build passes.
 git mv .agents/tasks/INFRA-BL-008-build-system-improvement.md .agents/tasks/completed/INFRA-BL-008-build-system-improvement.md
 git commit -m "chore: archive INFRA-BL-008 build system improvement as completed"
 ```
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

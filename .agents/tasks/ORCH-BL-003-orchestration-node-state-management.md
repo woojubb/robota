@@ -36,3 +36,9 @@ urgency: later
 - 오케스트레이션 레벨에 `INodeStateMap` 같은 공통 상태 모델 정의
 - 각 노드의 상태를 통합 (pending operations + execution status + results)
 - dag-designer는 이 상태를 참조하여 UI 표시 및 액션 제어
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

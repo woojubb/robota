@@ -5,54 +5,136 @@ on:
     branches: [main, develop]
 
 jobs:
+  # ─── Build once, shared by quality and compat ─────────────────────────────
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 22.x]
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
+          node-version: '22.x'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Compute build cache key
+        id: cache-key
+        run: echo "key=build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/*/src/**', 'packages/dag-nodes/*/src/**', 'tsconfig*.json') }}" >> $GITHUB_OUTPUT
+
+      - name: Restore build cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/*/dist
+            packages/dag-nodes/*/dist
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: build-${{ runner.os }}-
 
       - name: Build packages
+        if: steps.build-cache.outputs.cache-hit != 'true'
         run: pnpm run build:deps
 
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-artifacts
+          path: |
+            packages/*/dist
+            packages/dag-nodes/*/dist
+          retention-days: 1
+
+  # ─── Quality checks (Node 22) ─────────────────────────────────────────────
+  quality:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-artifacts
+          path: packages
+
       - name: Type check
-        if: matrix.node-version == '22.x'
         run: pnpm run typecheck
 
       - name: Lint
-        if: matrix.node-version == '22.x'
         run: pnpm run lint
 
       - name: Harness scan
-        if: matrix.node-version == '22.x'
         run: pnpm run harness:scan
 
+      - name: Fetch base branch for harness diff
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
       - name: Harness verify changed scopes
-        if: matrix.node-version == '22.x'
-        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }}
+        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-record-check --skip-build --skip-tests --skip-lint --skip-typecheck
 
       - name: Test with coverage
         run: pnpm run test -- --coverage --coverage.thresholds.lines=80
 
       - name: Security audit
-        if: matrix.node-version == '22.x'
         run: pnpm audit --audit-level high
+
+  # ─── Node 18 compatibility check ──────────────────────────────────────────
+  compat-node18:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-artifacts
+          path: packages
+
+      - name: Test with coverage (excludes packages requiring Node 20+)
+        run: pnpm --filter !@robota-sdk/agent-cli run test -- --coverage --coverage.thresholds.lines=80

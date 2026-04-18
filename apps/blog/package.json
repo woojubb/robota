@@ -11,7 +11,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "astro sync && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.0",

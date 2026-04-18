@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "▶ dist freshness check (harness:scan:dist)..."
+pnpm harness:scan:dist
+
+echo "▶ harness verify changed scopes (with scenario record check)..."
+pnpm harness:verify -- --base-ref origin/main

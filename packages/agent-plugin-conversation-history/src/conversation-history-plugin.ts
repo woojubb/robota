@@ -127,9 +127,10 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
         metadata: {},
       };
 
-      if (this.pluginOptions.autoSave) {
-        await this.storage.save(conversationId, entry);
-      } else {
+      // Always persist the initial entry so subsequent loads can find it.
+      // autoSave=false only means we track the id for deferred external flush via savePending.
+      await this.storage.save(conversationId, entry);
+      if (!this.pluginOptions.autoSave) {
         this.pendingSaves.add(conversationId);
       }
 
@@ -168,9 +169,10 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
       }
       entry.lastUpdated = new Date();
 
-      if (this.pluginOptions.autoSave) {
-        await this.storage.save(this.currentConversationId, entry);
-      } else {
+      // Always persist the updated entry. autoSave=false tracks it as pending
+      // for deferred external flush via savePending.
+      await this.storage.save(this.currentConversationId, entry);
+      if (!this.pluginOptions.autoSave) {
         this.pendingSaves.add(this.currentConversationId);
       }
 

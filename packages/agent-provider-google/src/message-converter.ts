@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   Content,
   Part,
@@ -150,7 +151,7 @@ export function convertFromGeminiResponse(
   }
 
   const result: TUniversalMessage = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     state: 'complete' as const,
     role: 'assistant',
     content: textValues.length > 0 ? textValues.join('') : null,
