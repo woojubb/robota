@@ -63,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 50
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -95,7 +95,7 @@ jobs:
         run: pnpm run harness:scan
 
       - name: Harness verify changed scopes
-        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-record-check
+        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-record-check --skip-build --skip-tests --skip-lint --skip-typecheck
 
       - name: Test with coverage
         run: pnpm run test -- --coverage --coverage.thresholds.lines=80

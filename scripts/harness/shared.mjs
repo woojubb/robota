@@ -161,6 +161,7 @@ export function parseScopeArgs(argv) {
   const options = {
     scopeTokens: [],
     dryRun: false,
+    skipBuild: false,
     skipTests: false,
     skipLint: false,
     skipTypecheck: false,
@@ -187,6 +188,9 @@ export function parseScopeArgs(argv) {
       }
       case '--dry-run':
         options.dryRun = true;
+        break;
+      case '--skip-build':
+        options.skipBuild = true;
         break;
       case '--skip-tests':
         options.skipTests = true;

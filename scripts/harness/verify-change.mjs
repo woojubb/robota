@@ -82,7 +82,7 @@ async function main() {
       scenarios: 'not-applicable',
     };
 
-    if (classification.needsBuild && scope.scripts.build) {
+    if (!options.skipBuild && classification.needsBuild && scope.scripts.build) {
       try {
         runCommand('pnpm', ['build'], workdir, options.dryRun);
         stepResults.build = 'pass';
