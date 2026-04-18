@@ -5,7 +5,13 @@ import path from 'node:path';
 
 import { pathExists, readJson, WORKSPACE_ROOT } from './shared.mjs';
 
-const NOISE_PATTERNS = [/^>\s/, /^CLI\s/, /^(ESM|CJS|DTS)\s/];
+const NOISE_PATTERNS = [
+  /^>\s/,
+  /^CLI\s/,
+  /^(ESM|CJS|DTS)\s/,
+  /^\(node:\d+\)\s/, // Node.js process warnings (e.g. DeprecationWarning)
+  /^\(Use\s`node\s/, // Node.js "Use `node --trace-deprecation` ..." hint lines
+];
 
 export function renderCommand(command, args) {
   return [command, ...args].join(' ');

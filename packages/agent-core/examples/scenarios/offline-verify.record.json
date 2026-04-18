@@ -11,7 +11,7 @@
   "cwd": "<cwd>",
   "status": 0,
   "stdout": {
-    "raw": "\n> @robota-sdk/agent-core@2.0.9 scenario:verify /Users/jungyoun/Documents/dev/robota/packages/agents\n> pnpm exec tsx examples/verify-offline.ts\n\nagents offline verify passed.\n",
+    "raw": "\n> @robota-sdk/agent-core@3.0.0-beta.55 scenario:verify /Users/jungyoun/Documents/dev/robota/packages/agent-core\n> pnpm exec tsx examples/verify-offline.ts\n\nagents offline verify passed.\n",
     "normalized": "agents offline verify passed.",
     "sha256": "93f9f51ff91b06ef47ab76ee716f31e490e173a45de124336d50d58b77fadb3e"
   },
