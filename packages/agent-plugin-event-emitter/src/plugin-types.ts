@@ -107,7 +107,7 @@ export interface IEventEmitterPluginOptions extends IPluginOptions {
   maxListeners?: number;
   async?: boolean;
   catchErrors?: boolean;
-  filters?: Record<TEventName, (event: IEventEmitterEventData) => boolean>;
+  filters?: Partial<Record<TEventName, (event: IEventEmitterEventData) => boolean>>;
   buffer?: {
     enabled: boolean;
     maxSize: number;
