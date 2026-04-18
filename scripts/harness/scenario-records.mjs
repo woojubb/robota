@@ -5,21 +5,20 @@ import path from 'node:path';
 
 import { pathExists, readJson, WORKSPACE_ROOT } from './shared.mjs';
 
-const NOISE_PATTERNS = [
-  /^>\s/,
-  /^CLI\s/,
-  /^(ESM|CJS|DTS)\s/,
-];
+const NOISE_PATTERNS = [/^>\s/, /^CLI\s/, /^(ESM|CJS|DTS)\s/];
 
 export function renderCommand(command, args) {
   return [command, ...args].join(' ');
 }
 
+// Strip ANSI escape codes so hashes are stable across FORCE_COLOR environments (CI vs local)
+const ANSI_RE = /\x1B\[[0-9;]*m/g;
+
 export function normalizeScenarioStream(text, cwd) {
   const replaced = text.replaceAll(cwd, '<cwd>');
   const lines = replaced
     .split(/\r?\n/)
-    .map((line) => line.trimEnd())
+    .map((line) => line.replace(ANSI_RE, '').trimEnd())
     .filter((line) => !NOISE_PATTERNS.some((pattern) => pattern.test(line)));
 
   while (lines.length > 0 && lines[0] === '') {
@@ -199,7 +198,10 @@ export function validateScenarioRecordArtifact(record, expectedScope) {
     }
     if (typeof stdout.sha256 !== 'string') {
       findings.push('stdout.sha256 must be a string');
-    } else if (typeof stdout.normalized === 'string' && hashScenarioText(stdout.normalized) !== stdout.sha256) {
+    } else if (
+      typeof stdout.normalized === 'string' &&
+      hashScenarioText(stdout.normalized) !== stdout.sha256
+    ) {
       findings.push('stdout.sha256 does not match stdout.normalized');
     }
   }
@@ -213,7 +215,10 @@ export function validateScenarioRecordArtifact(record, expectedScope) {
     }
     if (typeof stderr.sha256 !== 'string') {
       findings.push('stderr.sha256 must be a string');
-    } else if (typeof stderr.normalized === 'string' && hashScenarioText(stderr.normalized) !== stderr.sha256) {
+    } else if (
+      typeof stderr.normalized === 'string' &&
+      hashScenarioText(stderr.normalized) !== stderr.sha256
+    ) {
       findings.push('stderr.sha256 does not match stderr.normalized');
     }
   }
@@ -228,19 +233,27 @@ export function compareScenarioRecordArtifact(record, execution) {
     differences.push(`scope mismatch (${record.scope} != ${execution.scope})`);
   }
   if (record.command?.rendered !== execution.command.rendered) {
-    differences.push(`command mismatch (${record.command?.rendered ?? 'missing'} != ${execution.command.rendered})`);
+    differences.push(
+      `command mismatch (${record.command?.rendered ?? 'missing'} != ${execution.command.rendered})`,
+    );
   }
   if (record.status !== execution.status) {
     differences.push(`status mismatch (${record.status} != ${execution.status})`);
   }
   if ((record.packageName ?? null) !== (execution.packageName ?? null)) {
-    differences.push(`packageName mismatch (${record.packageName ?? 'null'} != ${execution.packageName ?? 'null'})`);
+    differences.push(
+      `packageName mismatch (${record.packageName ?? 'null'} != ${execution.packageName ?? 'null'})`,
+    );
   }
   if (record.stdout?.sha256 !== execution.stdout.sha256) {
-    differences.push(`stdout hash mismatch (${record.stdout?.sha256 ?? 'missing'} != ${execution.stdout.sha256})`);
+    differences.push(
+      `stdout hash mismatch (${record.stdout?.sha256 ?? 'missing'} != ${execution.stdout.sha256})`,
+    );
   }
   if (record.stderr?.sha256 !== execution.stderr.sha256) {
-    differences.push(`stderr hash mismatch (${record.stderr?.sha256 ?? 'missing'} != ${execution.stderr.sha256})`);
+    differences.push(
+      `stderr hash mismatch (${record.stderr?.sha256 ?? 'missing'} != ${execution.stderr.sha256})`,
+    );
   }
 
   return differences;
