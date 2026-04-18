@@ -68,3 +68,9 @@ ComfyUI (외부, Docker)
 - runtime 코드 없이 ComfyUI를 순수 백엔드로 사용
 - 인증/크레딧/CLI/MCP 등 오케스트레이션 상위 기능 자유롭게 개발
 - agent SDK와 독립적으로 발전 가능
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

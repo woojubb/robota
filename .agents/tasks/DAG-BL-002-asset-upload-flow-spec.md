@@ -31,3 +31,9 @@ urgency: later
 - `packages/dag-designer/src/components/comfyui-field-renderers.tsx` (ComfyFileUploadField)
 - `apps/dag-orchestrator-server/src/routes/run-routes.ts` (uploadAssetsToRuntime)
 - `apps/dag-orchestrator-server/src/routes/asset-routes.ts` (asset CRUD)
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

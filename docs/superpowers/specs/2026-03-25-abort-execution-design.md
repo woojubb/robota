@@ -263,3 +263,9 @@ packages/agent-cli/
 - Bash tool process kill on abort (complex, separate backlog)
 - Abort during permission prompt (already blocked by useInput isActive guard)
 - Custom abort key (ESC is sufficient)
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

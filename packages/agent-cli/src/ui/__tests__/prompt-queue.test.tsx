@@ -120,11 +120,11 @@ describe('Prompt Queue', () => {
     const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} />);
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
     expect(lastFrame()!).toContain('thinking=true');
 
     stdin.write('s:second');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
     expect(lastFrame()!).toContain('pending=second');
 
     await new Promise((r) => setTimeout(r, 700));
@@ -138,12 +138,12 @@ describe('Prompt Queue', () => {
     const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} />);
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
 
     stdin.write('s:second');
     await new Promise((r) => setTimeout(r, 5));
     stdin.write('s:third');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
 
     expect(lastFrame()!).toContain('pending=third');
 
@@ -160,10 +160,10 @@ describe('Prompt Queue', () => {
     const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} onAbort={onAbort} />);
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
 
     stdin.write('s:queued');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
     expect(lastFrame()!).toContain('pending=queued');
 
     stdin.write('\x1B');
@@ -182,10 +182,10 @@ describe('Prompt Queue', () => {
     const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} onAbort={onAbort} />);
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
 
     stdin.write('s:queued');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 50));
     expect(lastFrame()!).toContain('pending=queued');
 
     stdin.write('\x7F'); // backspace

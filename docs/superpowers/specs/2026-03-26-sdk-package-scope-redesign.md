@@ -201,3 +201,9 @@ Owns:
 
 1. Remove commandExecutor from options
 2. Route command requests through session.executeCommand()
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

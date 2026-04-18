@@ -25,3 +25,9 @@ Anthropic 또는 OpenAI가 서드파티용 공식 OAuth를 제공하면 적용. 
 ## 트리거 조건
 
 Anthropic 또는 OpenAI가 서드파티 OAuth Provider 역할을 공식 발표하면 이 태스크를 active로 전환.
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

@@ -55,3 +55,9 @@ dag-designer에서 Publish 버튼을 누르면 해당 DAG에 대한 API endpoint
 - Rate limiting
 - 실행 결과 반환 (동기 vs 비동기/webhook)
 - 버전 관리 (published DAG의 버전)
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

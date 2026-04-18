@@ -23,3 +23,9 @@ urgency: later
 - 업로드 시작 시 `addPendingOperation(nodeId, 'uploading')`, 완료 시 `removePendingOperation(nodeId)`
 - `pendingOperations.size > 0`이면 Run 버튼 disabled
 - 사이드 패널에 해당 노드의 pending 상태 표시
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

@@ -91,14 +91,12 @@ export interface IEventEmitterHierarchicalEventData extends IEventEmitterEventDa
 }
 
 /** @internal */
-interface IEventEmitterHandlerRegistration {
+export interface IEventEmitterHandlerRegistration {
   id: string;
   listener: TEventEmitterListener;
   once: boolean;
   filter?: (event: IEventEmitterEventData) => boolean;
 }
-
-export type { IEventEmitterHandlerRegistration };
 
 /** Event emitter configuration */
 export interface IEventEmitterPluginOptions extends IPluginOptions {

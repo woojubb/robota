@@ -27,3 +27,9 @@ urgency: later
 - `dag-node-view.tsx` — port 표시를 objectInfo 기반으로
 - `dag-designer-context.tsx` — edge 연결 검증 시 objectInfo 참조
 - `definition-to-prompt-translator.ts` — DAG에 port 정의가 없어도 동작해야 함
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

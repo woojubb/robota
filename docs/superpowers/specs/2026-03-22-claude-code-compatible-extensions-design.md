@@ -502,3 +502,9 @@ The following 13 events are not in Phase 1 but can be added incrementally:
 ## Future Direction
 
 `.agents/` / `.robota/` is the primary Robota convention, with `.claude/` supported as a compatibility layer. At runtime, `.claude/` paths take higher precedence so that Claude Code settings override Robota defaults. A future `.agent/` singular standard may be adopted. The discovery layer supports multiple paths, so transitioning priority requires only path ordering changes.
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

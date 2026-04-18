@@ -29,6 +29,9 @@
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "files": [
     "dist"
   ],

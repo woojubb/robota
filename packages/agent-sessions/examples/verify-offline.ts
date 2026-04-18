@@ -1,6 +1,7 @@
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
-import { SessionManager } from '../src/session/session-manager';
+import { Session } from '../src/session.js';
+import type { ITerminalOutput, ISpinner } from '../src/permission-types.js';
 
 class MockAIProvider extends AbstractAIProvider {
   override readonly name = 'mock-provider';
@@ -32,53 +33,27 @@ class MockAIProvider extends AbstractAIProvider {
   }
 }
 
+const silentTerminal: ITerminalOutput = {
+  write(_text: string): void {},
+  writeLine(_text: string): void {},
+  writeMarkdown(_md: string): void {},
+  spinner(_message: string): ISpinner {
+    return { stop(): void {}, update(_msg: string): void {} };
+  },
+};
+
 async function main(): Promise<void> {
-  const sessionManager = new SessionManager({
-    maxSessions: 2,
-    maxChatsPerSession: 2,
+  const session = new Session({
+    tools: [],
+    provider: new MockAIProvider(),
+    systemMessage: 'You are a test assistant.',
+    terminal: silentTerminal,
+    defaultTrustLevel: 'full',
   });
 
-  const sessionId = sessionManager.createSession({
-    name: 'Offline Session',
-    workspaceId: 'workspace-offline',
-  });
-  const chatId = await sessionManager.createChat(sessionId, {
-    name: 'Offline Chat',
-    agentConfig: {
-      name: 'Offline Chat',
-      aiProviders: [new MockAIProvider()],
-      defaultModel: {
-        provider: 'mock-provider',
-        model: 'offline-model',
-      },
-      logging: {
-        enabled: false,
-        level: 'silent',
-      },
-    },
-  });
-
-  if (!sessionManager.switchChat(sessionId, chatId)) {
-    throw new Error('Failed to activate created chat.');
-  }
-
-  const chat = sessionManager.getChat(chatId);
-  if (!chat) {
-    throw new Error('Created chat was not found.');
-  }
-
-  const response = await chat.sendMessage('verify-session-run');
+  const response = await session.run('verify-session-run');
   if (response !== 'session:verify-session-run') {
     throw new Error(`Unexpected session response: ${response}`);
-  }
-
-  const chats = sessionManager.getSessionChats(sessionId);
-  if (chats.length !== 1 || chats[0]?.isActive !== true) {
-    throw new Error('Session chat state is inconsistent after activation.');
-  }
-
-  if (!sessionManager.deleteSession(sessionId)) {
-    throw new Error('Failed to delete verified session.');
   }
 
   process.stdout.write('sessions offline verify passed.\n');

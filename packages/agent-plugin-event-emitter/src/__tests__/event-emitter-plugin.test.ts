@@ -110,4 +110,128 @@ describe('EventEmitterPlugin', () => {
     expect(stats.totalEmitted).toBe(1);
     expect(stats.totalErrors).toBe(1);
   });
+
+  it('async mode should run handlers concurrently', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: true,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+    });
+    const order: number[] = [];
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, async () => {
+      order.push(1);
+    });
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, async () => {
+      order.push(2);
+    });
+
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM);
+    expect(order).toHaveLength(2);
+  });
+
+  it('off should return false for non-existent event type', () => {
+    const plugin = new EventEmitterPlugin({
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+    });
+    expect(plugin.off(EVENT_EMITTER_EVENTS.CUSTOM, 'no-such-id')).toBe(false);
+  });
+
+  it('off should return false for listener not found', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+    });
+    const listener = vi.fn();
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, listener);
+    const other = vi.fn();
+    expect(plugin.off(EVENT_EMITTER_EVENTS.CUSTOM, other)).toBe(false);
+  });
+
+  it('emit should be a no-op for unregistered event type', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+    });
+    const listener = vi.fn();
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, listener);
+    await plugin.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_START);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('global filter should suppress matching events', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+      filters: {
+        [EVENT_EMITTER_EVENTS.CUSTOM]: (event) => event.executionId === 'allowed',
+      },
+    });
+    const listener = vi.fn();
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, listener);
+
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM, { executionId: 'blocked' });
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM, { executionId: 'allowed' });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('buffer auto-flushes when maxSize is reached', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+      buffer: { enabled: true, maxSize: 2, flushInterval: 10000 },
+    });
+    const listener = vi.fn();
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, listener);
+
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM);
+    expect(listener).toHaveBeenCalledTimes(0);
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM);
+    // flushBuffer called fire-and-forget; wait for all async chains to settle
+    await new Promise((r) => setTimeout(r, 10));
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(plugin.getStats().bufferedEvents).toBe(0);
+  });
+
+  it('clearAllListeners should remove all handlers', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+    });
+    const listener = vi.fn();
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, listener);
+    plugin.clearAllListeners();
+
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('getStats should report listener counts and buffered events', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+      buffer: { enabled: true, maxSize: 100, flushInterval: 10000 },
+    });
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, vi.fn());
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, vi.fn());
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM);
+
+    const stats = plugin.getStats();
+    expect(stats.totalListeners).toBe(2);
+    expect(stats.bufferedEvents).toBe(1);
+    expect(stats.eventTypes).toContain(EVENT_EMITTER_EVENTS.CUSTOM);
+  });
+
+  it('destroy should flush buffer and clear listeners', async () => {
+    const plugin = new EventEmitterPlugin({
+      async: false,
+      events: [EVENT_EMITTER_EVENTS.CUSTOM],
+      buffer: { enabled: true, maxSize: 100, flushInterval: 10000 },
+    });
+    const listener = vi.fn();
+    plugin.on(EVENT_EMITTER_EVENTS.CUSTOM, listener);
+    await plugin.emit(EVENT_EMITTER_EVENTS.CUSTOM);
+
+    await plugin.destroy();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });

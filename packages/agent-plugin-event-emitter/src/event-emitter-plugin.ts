@@ -90,7 +90,8 @@ export class EventEmitterPlugin extends AbstractPlugin<
       async: options.async ?? true,
       catchErrors: options.catchErrors ?? true,
       filters:
-        options.filters ?? ({} as Record<TEventName, (event: IEventEmitterEventData) => boolean>),
+        options.filters ??
+        ({} as Partial<Record<TEventName, (event: IEventEmitterEventData) => boolean>>),
       buffer: options.buffer ?? { enabled: false, maxSize: 1000, flushInterval: 5000 },
       category: options.category ?? PluginCategory.EVENT_PROCESSING,
       priority: options.priority ?? PluginPriority.HIGH,

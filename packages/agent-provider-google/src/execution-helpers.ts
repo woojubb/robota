@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { IGoogleProviderOptions } from './types';
 import type {
@@ -17,8 +18,6 @@ import {
   buildResponseModalities,
   buildGenerationConfig,
 } from './image-operations';
-
-const randomUUID = (): string => crypto.randomUUID();
 
 /**
  * Execute a direct (non-streaming) chat request against the Gemini API.

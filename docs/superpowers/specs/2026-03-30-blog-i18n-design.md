@@ -157,3 +157,9 @@ Include all language versions. Astro sitemap integration handles this with i18n 
 - Automatic translation (manual only)
 - More than 2 languages (extensible but not implemented now)
 - Language detection / auto-redirect based on browser locale
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

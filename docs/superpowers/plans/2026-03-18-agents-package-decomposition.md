@@ -626,3 +626,9 @@ Add new packages to the Project Structure section.
 git add .agents/project-structure.md README.md
 git commit -m "docs: update project structure for agents decomposition"
 ```
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

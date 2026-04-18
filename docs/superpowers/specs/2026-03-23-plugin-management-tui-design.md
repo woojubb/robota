@@ -242,3 +242,9 @@ packages/agent-cli/src/ui/
 - Local scope (user+repo-specific, gitignored)
 - Plugin version management
 - MCP server configuration UI
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인

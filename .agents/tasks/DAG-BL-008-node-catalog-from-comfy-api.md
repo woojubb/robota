@@ -24,3 +24,9 @@ dag-designer 왼쪽 사이드바의 Node Catalog 목록을 ComfyUI `/object_info
 3. **현재 상태**
    - 현재 `BundledNodeCatalogService`가 서버에 등록된 노드만 반환
    - ComfyUI `/object_info`에서 `INodeObjectInfo.category` 필드 존재 (리서치에서 확인됨)
+
+## 검증
+
+- 구현 완료 후 관련 패키지 빌드 성공 확인
+- 연관 유닛 테스트 통과 확인
+- typecheck 및 lint 에러 없음 확인
