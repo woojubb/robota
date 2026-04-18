@@ -94,6 +94,9 @@ jobs:
       - name: Harness scan
         run: pnpm run harness:scan
 
+      - name: Fetch base branch for harness diff
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
       - name: Harness verify changed scopes
         run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-record-check --skip-build --skip-tests --skip-lint --skip-typecheck
 
