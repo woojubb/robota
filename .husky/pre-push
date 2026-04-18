@@ -3,3 +3,6 @@
 
 echo "▶ dist freshness check (harness:scan:dist)..."
 pnpm harness:scan:dist
+
+echo "▶ harness verify changed scopes (with scenario record check)..."
+pnpm harness:verify -- --base-ref origin/main

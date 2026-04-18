@@ -95,7 +95,7 @@ jobs:
         run: pnpm run harness:scan
 
       - name: Harness verify changed scopes
-        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }}
+        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-record-check
 
       - name: Test with coverage
         run: pnpm run test -- --coverage --coverage.thresholds.lines=80

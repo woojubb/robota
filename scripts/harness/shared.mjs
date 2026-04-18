@@ -36,7 +36,12 @@ export async function readWorkspacePatterns() {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.startsWith('- '))
-    .map((line) => line.slice(2).trim().replace(/^['"]|['"]$/g, ''));
+    .map((line) =>
+      line
+        .slice(2)
+        .trim()
+        .replace(/^['"]|['"]$/g, ''),
+    );
 }
 
 function parseGitStatusFiles(output) {
@@ -106,7 +111,10 @@ export async function listWorkspaceScopes() {
   }
 
   return scopes
-    .filter((scope, index, values) => values.findIndex((value) => value.relativeDir === scope.relativeDir) === index)
+    .filter(
+      (scope, index, values) =>
+        values.findIndex((value) => value.relativeDir === scope.relativeDir) === index,
+    )
     .sort((left, right) => left.relativeDir.localeCompare(right.relativeDir));
 }
 
@@ -119,14 +127,20 @@ async function collectScopes(relativeDir, kind, scopes, patterns) {
   const absoluteDir = path.join(WORKSPACE_ROOT, relativeDir);
   const packageJsonPath = path.join(absoluteDir, 'package.json');
 
-  if ((await pathExists(packageJsonPath)) && patterns.some((pattern) => matchesWorkspacePattern(relativeDir, pattern))) {
+  if (
+    (await pathExists(packageJsonPath)) &&
+    patterns.some((pattern) => matchesWorkspacePattern(relativeDir, pattern))
+  ) {
     const packageJson = await readJson(packageJsonPath);
     scopes.push({
       kind,
       relativeDir,
       shortName: path.posix.basename(relativeDir),
       workspaceName: typeof packageJson.name === 'string' ? packageJson.name : relativeDir,
-      scripts: typeof packageJson.scripts === 'object' && packageJson.scripts !== null ? packageJson.scripts : {},
+      scripts:
+        typeof packageJson.scripts === 'object' && packageJson.scripts !== null
+          ? packageJson.scripts
+          : {},
       hasTsconfig: await pathExists(path.join(absoluteDir, 'tsconfig.json')),
     });
   }
@@ -151,6 +165,7 @@ export function parseScopeArgs(argv) {
     skipLint: false,
     skipTypecheck: false,
     includeScenarios: false,
+    skipRecordCheck: false,
     reportFile: null,
     reportFormat: null,
     baseRef: null,
@@ -184,6 +199,9 @@ export function parseScopeArgs(argv) {
         break;
       case '--include-scenarios':
         options.includeScenarios = true;
+        break;
+      case '--skip-record-check':
+        options.skipRecordCheck = true;
         break;
       case '--report-file': {
         const value = argv[index + 1];
@@ -263,18 +281,23 @@ export function detectChangedFiles(baseRef = null) {
     return workingTreeFiles;
   }
 
-  const resolvedBaseRef = typeof baseRef === 'string' && baseRef.trim().length > 0
-    ? baseRef.trim()
-    : resolveDefaultBaseRef();
+  const resolvedBaseRef =
+    typeof baseRef === 'string' && baseRef.trim().length > 0
+      ? baseRef.trim()
+      : resolveDefaultBaseRef();
 
   if (!resolvedBaseRef) {
     return [];
   }
 
-  const diffResult = spawnSync('git', ['diff', '--name-only', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  const diffResult = spawnSync(
+    'git',
+    ['diff', '--name-only', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (diffResult.status !== 0) {
     throw new Error(`Unable to read changed files from git diff against ${resolvedBaseRef}.`);
@@ -289,9 +312,7 @@ export function resolveRequestedScopes(scopeTokens, scopes) {
   for (const token of scopeTokens) {
     const matches = scopes.filter((scope) => {
       return (
-        scope.relativeDir === token ||
-        scope.workspaceName === token ||
-        scope.shortName === token
+        scope.relativeDir === token || scope.workspaceName === token || scope.shortName === token
       );
     });
 
@@ -301,7 +322,7 @@ export function resolveRequestedScopes(scopeTokens, scopes) {
 
     if (matches.length > 1) {
       throw new Error(
-        `Ambiguous scope: ${token}. Use one of: ${matches.map((scope) => scope.relativeDir).join(', ')}`
+        `Ambiguous scope: ${token}. Use one of: ${matches.map((scope) => scope.relativeDir).join(', ')}`,
       );
     }
 
@@ -346,8 +367,7 @@ export function classifyScopeChanges(scope, files, forceFullVerification) {
   });
   const hasConfigChanges = files.some((file) => {
     return (
-      file === `${scope.relativeDir}/package.json` ||
-      file === `${scope.relativeDir}/tsconfig.json`
+      file === `${scope.relativeDir}/package.json` || file === `${scope.relativeDir}/tsconfig.json`
     );
   });
   const hasDocsChanges = files.some((file) => {
@@ -361,7 +381,9 @@ export function classifyScopeChanges(scope, files, forceFullVerification) {
     return file.includes('/examples/') || file.includes('/scenario');
   });
   const hasEntrypointChanges = files.some((file) => {
-    return file === `${scope.relativeDir}/src/index.ts` || file === `${scope.relativeDir}/src/index.tsx`;
+    return (
+      file === `${scope.relativeDir}/src/index.ts` || file === `${scope.relativeDir}/src/index.tsx`
+    );
   });
   const hasManifestChanges = files.some((file) => file === `${scope.relativeDir}/package.json`);
 
@@ -376,6 +398,7 @@ export function classifyScopeChanges(scope, files, forceFullVerification) {
     needsBuild: forceFullVerification || hasSourceChanges || hasConfigChanges,
     needsTest: forceFullVerification || hasSourceChanges || hasTestChanges || hasConfigChanges,
     needsLint: forceFullVerification || hasSourceChanges || hasTestChanges || hasConfigChanges,
-    needsTypecheck: scope.hasTsconfig && (forceFullVerification || hasSourceChanges || hasConfigChanges),
+    needsTypecheck:
+      scope.hasTsconfig && (forceFullVerification || hasSourceChanges || hasConfigChanges),
   };
 }

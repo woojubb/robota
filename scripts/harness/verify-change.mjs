@@ -45,9 +45,10 @@ async function main() {
   const scopes = await listWorkspaceScopes();
   const changedFiles = detectChangedFiles(options.baseRef);
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
-  const selectedScopes = options.scopeTokens.length > 0
-    ? resolveRequestedScopes(options.scopeTokens, scopes)
-    : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
+  const selectedScopes =
+    options.scopeTokens.length > 0
+      ? resolveRequestedScopes(options.scopeTokens, scopes)
+      : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
 
   if (selectedScopes.length === 0) {
     process.stdout.write('No package or app scope detected from changed files.\n');
@@ -63,19 +64,23 @@ async function main() {
     const classification = classifyScopeChanges(scope, files, options.scopeTokens.length > 0);
     const workdir = path.join(WORKSPACE_ROOT, scope.relativeDir);
     const scenarioVerification = resolveScenarioVerification(scope);
-    const shouldRunScenarios = options.includeScenarios || (
-      Boolean(scenarioVerification)
-      && (
-        classification.hasScenarioChanges
-        || classification.hasSourceChanges
-        || classification.hasConfigChanges
-      )
-    );
+    const shouldRunScenarios =
+      options.includeScenarios ||
+      (Boolean(scenarioVerification) &&
+        (classification.hasScenarioChanges ||
+          classification.hasSourceChanges ||
+          classification.hasConfigChanges));
 
     process.stdout.write(`\n[verify] ${scope.relativeDir}\n`);
     process.stdout.write(`files: ${renderFiles(files)}\n`);
 
-    const stepResults = { build: 'skip', test: 'skip', lint: 'skip', typecheck: 'skip', scenarios: 'not-applicable' };
+    const stepResults = {
+      build: 'skip',
+      test: 'skip',
+      lint: 'skip',
+      typecheck: 'skip',
+      scenarios: 'not-applicable',
+    };
 
     if (classification.needsBuild && scope.scripts.build) {
       try {
@@ -112,7 +117,12 @@ async function main() {
 
     if (!options.skipTypecheck && classification.needsTypecheck) {
       try {
-        runCommand('pnpm', ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'], workdir, options.dryRun);
+        runCommand(
+          'pnpm',
+          ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
+          workdir,
+          options.dryRun,
+        );
         stepResults.typecheck = 'pass';
       } catch (error) {
         stepResults.typecheck = 'fail';
@@ -131,15 +141,15 @@ async function main() {
         if (!options.dryRun && recordArtifacts.length === 0) {
           throw new Error(
             `Scenario verification for ${scope.relativeDir} requires authoritative records under examples/scenarios/*.record.json. ` +
-            `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\`.`
+              `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\`.`,
           );
         }
 
         if (!options.dryRun && recordArtifacts.length !== scenarioVerification.commands.length) {
           throw new Error(
             `Scenario record count mismatch for ${scope.relativeDir}: ` +
-            `${recordArtifacts.length} artifact(s) for ${scenarioVerification.commands.length} scenario command(s). ` +
-            `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` to refresh the canonical set.`
+              `${recordArtifacts.length} artifact(s) for ${scenarioVerification.commands.length} scenario command(s). ` +
+              `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` to refresh the canonical set.`,
           );
         }
 
@@ -149,7 +159,7 @@ async function main() {
             const validationFindings = validateScenarioRecordArtifact(record, scope.relativeDir);
             if (validationFindings.length > 0) {
               throw new Error(
-                `Invalid scenario record artifact at ${relativePathFromRoot(artifactPath)}: ${validationFindings.join('; ')}`
+                `Invalid scenario record artifact at ${relativePathFromRoot(artifactPath)}: ${validationFindings.join('; ')}`,
               );
             }
 
@@ -157,7 +167,7 @@ async function main() {
             if (recordByCommand.has(renderedCommand)) {
               throw new Error(
                 `Duplicate scenario record command mapping for ${scope.relativeDir}: ${renderedCommand} ` +
-                `appears more than once under examples/scenarios/*.record.json.`
+                  `appears more than once under examples/scenarios/*.record.json.`,
               );
             }
 
@@ -170,7 +180,13 @@ async function main() {
 
         for (let index = 0; index < scenarioVerification.commands.length; index += 1) {
           const command = scenarioVerification.commands[index];
-          const execution = executeCommandCapture(command.command, command.args, command.workdir, command.env, options.dryRun);
+          const execution = executeCommandCapture(
+            command.command,
+            command.args,
+            command.workdir,
+            command.env,
+            options.dryRun,
+          );
           scenarios.push(command.label);
 
           if (execution.status !== 0) {
@@ -188,7 +204,7 @@ async function main() {
           if (!artifactEntry) {
             throw new Error(
               `No scenario record artifact matched command ${renderedCommand} for ${scope.relativeDir}. ` +
-              `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` to regenerate authoritative records.`
+                `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` to regenerate authoritative records.`,
             );
           }
 
@@ -202,25 +218,37 @@ async function main() {
             stdout: execution.stdout,
             stderr: execution.stderr,
           });
-          const differences = compareScenarioRecordArtifact(artifactEntry.record, executionRecord);
-          if (differences.length > 0) {
-            stepResults.scenarios = 'fail';
-            allPassed = false;
-            throw new Error(
-              `Scenario record drift detected for ${scope.relativeDir} at ${relativePathFromRoot(artifactEntry.artifactPath)}: ${differences.join('; ')}. ` +
-              `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` if the change is intentional.`
+          if (!options.skipRecordCheck) {
+            const differences = compareScenarioRecordArtifact(
+              artifactEntry.record,
+              executionRecord,
             );
+            if (differences.length > 0) {
+              stepResults.scenarios = 'fail';
+              allPassed = false;
+              throw new Error(
+                `Scenario record drift detected for ${scope.relativeDir} at ${relativePathFromRoot(artifactEntry.artifactPath)}: ${differences.join('; ')}. ` +
+                  `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` if the change is intentional.`,
+              );
+            }
+            notes.push(
+              `scenario output matched ${relativePathFromRoot(artifactEntry.artifactPath)}`,
+            );
+          } else {
+            notes.push(`scenario ran successfully (record check skipped)`);
           }
-
-          notes.push(`scenario output matched ${relativePathFromRoot(artifactEntry.artifactPath)}`);
         }
 
         stepResults.scenarios = 'pass';
       } else {
-        notes.push('scenario-like verification was requested, but no owner scenario command is registered for this scope');
+        notes.push(
+          'scenario-like verification was requested, but no owner scenario command is registered for this scope',
+        );
       }
     } else if (scenarioVerification) {
-      notes.push('owner scenario verification exists; use --include-scenarios to run it explicitly');
+      notes.push(
+        'owner scenario verification exists; use --include-scenarios to run it explicitly',
+      );
     }
 
     summary.push({
@@ -273,7 +301,9 @@ async function main() {
     await fs.writeFile(targetPath, `${JSON.stringify(reportPayload, null, 2)}\n`, 'utf8');
 
     const relativePath = path.relative(WORKSPACE_ROOT, targetPath);
-    process.stdout.write(`\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`);
+    process.stdout.write(
+      `\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`,
+    );
   }
 }
 
