@@ -239,13 +239,32 @@ export async function startCli(): Promise<void> {
       process.exit(1);
     }
 
+    // Build appendSystemPrompt from --append-system-prompt and --json-schema
+    const appendParts: string[] = [];
+    if (args.appendSystemPrompt) appendParts.push(args.appendSystemPrompt);
+    if (args.jsonSchema)
+      appendParts.push(
+        `Respond with valid JSON only, matching this JSON schema:\n${args.jsonSchema}`,
+      );
+    const appendSystemPrompt = appendParts.length > 0 ? appendParts.join('\n\n') : undefined;
+
+    // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
+
     const session = new InteractiveSession({
       cwd,
       provider,
       permissionMode: args.permissionMode ?? 'bypassPermissions',
       maxTurns: args.maxTurns,
-      sessionStore,
+      sessionStore: args.noSessionPersistence ? undefined : sessionStore,
       sessionName: args.sessionName,
+      bare: args.bare || undefined,
+      allowedTools: args.allowedTools
+        ? args.allowedTools
+            .split(',')
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0)
+        : undefined,
+      appendSystemPrompt,
     });
 
     const transport = createHeadlessTransport({
