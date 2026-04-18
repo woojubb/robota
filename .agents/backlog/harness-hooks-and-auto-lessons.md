@@ -1,8 +1,11 @@
-# Harness Hooks Enforcement & Auto Lessons Pipeline
+# Harness Auto Lessons Pipeline (Phase C)
+
+> **Phase B completed** — PR #92 (`feat(harness): PreToolUse hook blocking any/console/try-catch-fallback`).
+> This backlog item now covers Phase C only: auto-lessons signal collection and aggregation.
 
 ## What
 
-Strengthen the harness by (1) enforcing rule violations at tool-call time via Claude Code PreToolUse hooks with hard-block semantics, and (2) automatically collecting lesson-learned signals into a curated pipeline that feeds a separate `auto-lessons.md` register, preserving the human-curated `common-mistakes.md` as a high-quality SSOT.
+Automatically collect lesson-learned signals from Phase B hook events into a curated pipeline that feeds a separate `auto-lessons.md` register, preserving the human-curated `common-mistakes.md` as a high-quality SSOT.
 
 ## Why
 
@@ -14,35 +17,11 @@ Current enforcement is reactive (CI scans, post-commit review). Recurring mistak
 
 ## Design Decisions (locked)
 
-| Topic          | Decision                                                                      | Rationale                                                                 |
-| -------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Merge policy   | Separate `auto-lessons.md`; `common-mistakes.md` remains human-curated        | Append-only memory degrades signal-to-noise; human SSOT must be protected |
-| Phase scope    | Phase B (Claude Code hooks) + Phase C (auto lessons) together                 | PreToolUse block events are the primary signal source for C               |
-| Block strength | Hard-block via `exit 2` + escape-comment allowance (`// allow-any: <reason>`) | `exit 1` provides zero enforcement; escapes prevent over-generalization   |
+| Topic        | Decision                                                               | Rationale                                                                 |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Merge policy | Separate `auto-lessons.md`; `common-mistakes.md` remains human-curated | Append-only memory degrades signal-to-noise; human SSOT must be protected |
 
-## Phase B — Claude Code Hooks (Enforcement)
-
-Add these hook scripts under `.claude/hooks/`:
-
-| Hook Event                                  | Script                        | Behavior                                                                       | Exit code on violation                     |
-| ------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------ |
-| `PreToolUse` (`Edit\|Write`)                | `check-forbidden-patterns.sh` | Detect `any`, `console.*`, `export * from '@robota-sdk/…'`, try/catch fallback | `2` (block), unless escape comment present |
-| `PreToolUse` (`Bash`)                       | extend `branch-guard.sh`      | Block direct `npm publish` / `pnpm publish` (not `publish:beta`)               | `2`                                        |
-| `UserPromptSubmit`                          | `context-warn.sh`             | Warn on protected branch, N+ uncommitted changes, stale worktree               | `0` (stdout → context)                     |
-| `PostToolUse` (`Write` targeting `SPEC.md`) | `spec-conformance-remind.sh`  | Inject reminder: "conformance loop required"                                   | `0`                                        |
-
-### Escape mechanism
-
-Forbidden-pattern checks must respect a per-line escape comment:
-
-```ts
-const x: any = something; // allow-any: third-party typing gap (ticket #123)
-console.log(msg); // allow-console: CLI user-facing stdout
-```
-
-No escape → `exit 2` + stderr message. With escape → pass.
-
-## Phase C — Auto Lessons Pipeline (Collection)
+## Signal Collection
 
 ### Signal collectors (fully automatic)
 
@@ -75,21 +54,7 @@ No escape → `exit 2` + stderr message. With escape → pass.
     └── auto-lessons.md           (auto-appended, separate from common-mistakes.md)
 ```
 
-## Deferred Phases
-
-- **Phase A (Husky pre-push)**: redundant with CI `pnpm audit`, `harness:scan`, coverage gate. Defer unless local feedback loop becomes a pain point.
-- **Phase D (Enforcement scans)**: `scan-forbidden-patterns.mjs`, `scan-sdk-react-free.mjs`, `scan-spec-english-only.mjs`. Largely overlapping with Phase B hooks + existing ESLint rules; reconsider after Phase B data collection shows residual gaps.
-
 ## Acceptance Criteria
-
-### Phase B
-
-- [ ] PreToolUse blocks `any` / `console.*` / pass-through re-export / publish bypass with `exit 2` and actionable stderr.
-- [ ] Escape comment (`// allow-<rule>: <reason>`) lets the edit through with an entry logged to `blocks.jsonl` (flag `escape_attempted: true`).
-- [ ] UserPromptSubmit warns on main branch and on large uncommitted working tree; warnings appear in Claude's context without blocking.
-- [ ] SPEC.md writes inject conformance-loop reminder into PostToolUse output.
-
-### Phase C
 
 - [ ] `blocks.jsonl`, `corrections.jsonl`, `reverts.jsonl` append-only files created and populated during real sessions.
 - [ ] `pnpm harness:lessons:digest` regenerates `weekly-digest.md` idempotently.
@@ -127,13 +92,7 @@ No escape → `exit 2` + stderr message. With escape → pass.
 - [I Ran 500 More Agent Memory Experiments — DEV](https://dev.to/marcosomma/i-ran-500-more-agent-memory-experiments-the-real-problem-wasnt-recall-it-was-binding-24kc)
 - [How Memory Management Impacts LLM Agents — arXiv 2505.16067](https://arxiv.org/html/2505.16067v2)
 
-### Git hooks (for deferred Phase A)
-
-- [Setting up Husky pre-push typecheck in monorepo — Medium](https://medium.com/@syedzainullahqazi/setting-up-husky-to-run-lint-and-typecheck-on-entire-monorepo-5ce0c5a37556)
-- [Husky official docs](https://typicode.github.io/husky/)
-
 ## Promotion Path
 
-1. Prioritize → move to `.agents/tasks/<ID>-harness-hooks-and-auto-lessons.md` with a backlog ID.
-2. Split into two task files if desired: Phase B (enforcement) and Phase C (auto lessons).
-3. Branch: `feat/harness-hooks-and-auto-lessons` (create at implementation time, not now).
+1. Assign backlog ID (e.g. HARNESS-BL-001) → move to `.agents/tasks/<ID>-harness-auto-lessons.md`.
+2. Branch: `feat/harness-auto-lessons` (create at implementation time).
