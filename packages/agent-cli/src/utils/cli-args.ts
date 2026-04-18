@@ -24,6 +24,10 @@ export interface IParsedCliArgs {
   appendSystemPrompt: string | undefined;
   version: boolean;
   reset: boolean;
+  bare: boolean;
+  allowedTools: string | undefined;
+  noSessionPersistence: boolean;
+  jsonSchema: string | undefined;
 }
 
 /** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
@@ -66,6 +70,10 @@ export function parseCliArgs(): IParsedCliArgs {
       'append-system-prompt': { type: 'string' },
       version: { type: 'boolean', default: false },
       reset: { type: 'boolean', default: false },
+      bare: { type: 'boolean', default: false },
+      'allowed-tools': { type: 'string' },
+      'no-session-persistence': { type: 'boolean', default: false },
+      'json-schema': { type: 'string' },
     },
   });
 
@@ -85,5 +93,9 @@ export function parseCliArgs(): IParsedCliArgs {
     appendSystemPrompt: values['append-system-prompt'],
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
+    bare: values['bare'] ?? false,
+    allowedTools: values['allowed-tools'],
+    noSessionPersistence: values['no-session-persistence'] ?? false,
+    jsonSchema: values['json-schema'],
   };
 }

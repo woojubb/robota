@@ -94,3 +94,55 @@ describe('parseCliArgs', () => {
     expect(args.outputFormat).toBeUndefined();
   });
 });
+
+describe('new non-interactive flags', () => {
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('parses --bare flag', () => {
+    process.argv = ['node', 'cli', '--bare'];
+    expect(parseCliArgs().bare).toBe(true);
+  });
+
+  it('defaults bare to false', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().bare).toBe(false);
+  });
+
+  it('parses --allowed-tools flag', () => {
+    process.argv = ['node', 'cli', '--allowed-tools', 'Bash,Read,Write'];
+    expect(parseCliArgs().allowedTools).toBe('Bash,Read,Write');
+  });
+
+  it('defaults allowedTools to undefined', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().allowedTools).toBeUndefined();
+  });
+
+  it('parses --no-session-persistence flag', () => {
+    process.argv = ['node', 'cli', '--no-session-persistence'];
+    expect(parseCliArgs().noSessionPersistence).toBe(true);
+  });
+
+  it('defaults noSessionPersistence to false', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().noSessionPersistence).toBe(false);
+  });
+
+  it('parses --json-schema flag', () => {
+    process.argv = ['node', 'cli', '--json-schema', '{"type":"object"}'];
+    expect(parseCliArgs().jsonSchema).toBe('{"type":"object"}');
+  });
+
+  it('defaults jsonSchema to undefined', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().jsonSchema).toBeUndefined();
+  });
+});
