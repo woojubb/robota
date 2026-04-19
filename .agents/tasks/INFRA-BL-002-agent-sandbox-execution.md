@@ -87,14 +87,32 @@ await sandbox.kill();
 - **TypeScript**: 지원
 - **문제**: 에이전트 샌드박스 전용이 아님, 장시간 실행 불가
 
+### 자체 서버 구축 (Self-hosted)
+
+표준 Docker 컨테이너는 호스트 커널을 공유하므로 에이전트 샌드박스로 부족함. VM 수준 격리 기술이 필요:
+
+| 기술                | 격리 방식                         | Kubernetes 통합              | 비고                              |
+| ------------------- | --------------------------------- | ---------------------------- | --------------------------------- |
+| **Firecracker**     | 전용 Linux 커널 microVM, KVM 기반 | 가능 (직접 구성)             | E2B/Fly.io 내부 기술, ~125ms 부팅 |
+| **gVisor**          | 사용자 공간 syscall 인터셉트      | RuntimeClass로 투명하게 적용 | Kubernetes와 가장 쉽게 통합       |
+| **Kata Containers** | VM + 컨테이너 경험 통합           | RuntimeClass 지원            | VM 수준 보안 + K8s 워크플로우     |
+
+**현실적인 자체 구축 스택**: Kubernetes + gVisor 또는 Kata Containers
+
+- CNCF 프로젝트 `kubernetes-sigs/agent-sandbox`: K8s 위에서 격리된 상태 저장 샌드박스를 declarative API로 관리
+- OpenSandbox (Alibaba, 2026년 3월): 로컬은 Docker, 프로덕션은 K8s+gVisor/Kata/Firecracker를 통합 API로 제공 (Apache 2.0)
+
+**자체 구축 비용**: 시니어 인프라 엔지니어 2~3명, 6~12개월 — 인터페이스 검증 후 필요 시 전환 권장
+
 ## 플랫폼 선택 가이드
 
-| 상황                      | 추천                    |
-| ------------------------- | ----------------------- |
-| 기본 통합 (TS, 빠른 시작) | **E2B**                 |
-| 장시간 실행, 세션 유지    | **Fly.io Sprites**      |
-| GPU 필요                  | **Modal** (Python only) |
-| 로컬 개발/테스트          | **Docker**              |
+| 상황                      | 추천                                           |
+| ------------------------- | ---------------------------------------------- |
+| 기본 통합 (TS, 빠른 시작) | **E2B**                                        |
+| 장시간 실행, 세션 유지    | **Fly.io Sprites**                             |
+| GPU 필요                  | **Modal** (Python only)                        |
+| 로컬 개발/테스트          | **Docker** (호스트 직접 실행 fallback)         |
+| 완전 자체 구축            | **K8s + gVisor/Kata** (ISandboxClient 검증 후) |
 
 ## SDK 패키지 호환성
 
@@ -139,3 +157,6 @@ await sandbox.kill();
 - [Top 5 Code Sandboxes for AI Agents in 2026 — DEV](https://dev.to/nebulagg/top-5-code-sandboxes-for-ai-agents-in-2026-58id)
 - [OpenAI Agents SDK Sandbox — TechCrunch](https://techcrunch.com/2026/04/15/openai-updates-its-agents-sdk-to-help-enterprises-build-safer-more-capable-agents/)
 - [OpenAI Agents SDK Sandbox Architecture — Help Net Security](https://www.helpnetsecurity.com/2026/04/16/openai-agents-sdk-harness-and-sandbox-update/)
+- [Self-hosted AI sandboxes guide — Northflank](https://northflank.com/blog/self-hosted-ai-sandboxes)
+- [How to sandbox AI agents 2026 — Northflank](https://northflank.com/blog/how-to-sandbox-ai-agents)
+- [kubernetes-sigs/agent-sandbox — GitHub](https://github.com/kubernetes-sigs/agent-sandbox)
