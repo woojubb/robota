@@ -125,3 +125,4 @@ scripts/audit/output/
 
 # Auto-generated API reference from docs:build (typedoc output)
 content/api-reference/
+.worktrees/
