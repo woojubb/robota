@@ -11,6 +11,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-| File                                                                   | Topic                                                                      |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md) | Real-time harness enforcement via PreToolUse hooks + auto-lessons pipeline |
+| File                                                                   | Topic                                                         |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md) | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |

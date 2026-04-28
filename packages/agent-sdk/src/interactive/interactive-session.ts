@@ -109,6 +109,9 @@ export class InteractiveSession {
       forkSession: this.forkSession,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
       onToolExecution: (event) => this.handleToolExecution(event),
+      bare: options.bare,
+      allowedTools: options.allowedTools,
+      appendSystemPrompt: options.appendSystemPrompt,
     });
 
     if (this.pendingRestoreMessages) {

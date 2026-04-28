@@ -34,6 +34,12 @@ export interface IInteractiveSessionStandardOptions {
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
+  bare?: boolean;
+  /** Pre-approved tool names passed to createSession. */
+  allowedTools?: string[];
+  /** Text to append to the system prompt. */
+  appendSystemPrompt?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -73,6 +79,12 @@ export interface IInitOptions {
     denied?: boolean;
     toolResultData?: string;
   }) => void;
+  /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
+  bare?: boolean;
+  /** Pre-approved tool names passed to createSession. */
+  allowedTools?: string[];
+  /** Text to append to the system prompt. */
+  appendSystemPrompt?: string;
 }
 
 /**
@@ -85,28 +97,32 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
   const cwd = options.cwd;
   const [config, context, projectInfo] = await Promise.all([
     loadConfig(cwd),
-    loadContext(cwd),
-    detectProject(cwd),
+    options.bare ? Promise.resolve({ agentsMd: '', claudeMd: '' }) : loadContext(cwd),
+    options.bare
+      ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
+      : detectProject(cwd),
   ]);
 
   // Load plugin hooks and merge into config
   const pluginsDir = join(homedir(), '.robota', 'plugins');
   const pluginLoader = new BundlePluginLoader(pluginsDir);
   let mergedConfig = config;
-  try {
-    const plugins = pluginLoader.loadPluginsSync();
-    if (plugins.length > 0) {
-      const pluginHooks = mergePluginHooks(plugins);
-      mergedConfig = {
-        ...config,
-        hooks: mergeHooksIntoConfig(
-          config.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
-          pluginHooks as Record<string, Array<Record<string, unknown>>>,
-        ),
-      };
+  if (!options.bare) {
+    try {
+      const plugins = pluginLoader.loadPluginsSync();
+      if (plugins.length > 0) {
+        const pluginHooks = mergePluginHooks(plugins);
+        mergedConfig = {
+          ...config,
+          hooks: mergeHooksIntoConfig(
+            config.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
+            pluginHooks as Record<string, Array<Record<string, unknown>>>,
+          ),
+        };
+      }
+    } catch {
+      // No plugins dir or load failed
     }
-  } catch {
-    // No plugins dir or load failed
   }
 
   const paths = projectPaths(cwd);
@@ -128,6 +144,8 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
     sessionId,
+    allowedTools: options.allowedTools,
+    appendSystemPrompt: options.appendSystemPrompt,
   });
 }
 
