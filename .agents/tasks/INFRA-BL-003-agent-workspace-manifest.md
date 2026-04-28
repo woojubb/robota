@@ -150,6 +150,12 @@ robota -p "$(cat task.md)" --manifest workspace.manifest.yaml
 1. `manifest` 옵션을 `createSession()`에 직접 추가할지, `SandboxOptions` 하위에 넣을지
 2. `gitRepo` entry의 인증 — SSH key vs GitHub token 주입 방법
 
+## Test Plan
+
+- Add parser and schema tests for each manifest entry type, including path traversal rejection for `..` segments.
+- Add adapter tests that verify manifest application order for files, directories, Git repositories, and ephemeral cloud mounts.
+- Run package-level build, targeted manifest tests, dependency-direction scan, and `pnpm harness:scan` before implementation promotion.
+
 ## Promotion Path
 
 1. INFRA-BL-002 완료 후 진행

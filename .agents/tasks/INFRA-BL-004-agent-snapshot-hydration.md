@@ -142,6 +142,12 @@ robota --resume my-session
 2. snapshotId를 SessionStore에 저장할지, 별도 SnapshotStore로 분리할지
 3. Temporal 통합은 별도 INFRA-BL-005로 분리할지
 
+## Test Plan
+
+- Add contract tests for snapshot creation, restore, missing snapshot IDs, and provider restore failures.
+- Add SessionStore integration tests that prove `snapshotId` persists and resume restores the sandbox before message history replay.
+- Run affected package builds, targeted snapshot/session tests, and `pnpm harness:scan` before promoting the feature.
+
 ## Promotion Path
 
 1. INFRA-BL-002, INFRA-BL-003 완료 후 진행
