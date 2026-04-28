@@ -144,6 +144,12 @@ await sandbox.kill();
 2. 샌드박스 없이 실행할 때 fallback 전략 — LocalSandboxClient (Docker) vs 호스트 직접 실행
 3. 파일시스템 권한 제어 API 설계 (read-only paths, write paths 명시)
 
+## Test Plan
+
+- Define contract tests for `ISandboxClient.run`, `readFile`, `writeFile`, `snapshot`, and `restore` before adding provider implementations.
+- Add provider adapter tests with mocked E2B/Fly.io clients so command results, file operations, and failure paths remain deterministic.
+- Run the affected package build, targeted tests, and `pnpm harness:scan` before promoting the sandbox implementation.
+
 ## Promotion Path
 
 1. Open design questions 답변 후 스펙 작성

@@ -536,3 +536,9 @@ git commit -m "chore: CLI-BL-017 non-interactive advanced flags complete"
 
 - Task 4 Step 2에서 `appendSystemPrompt`가 `InteractiveSession`에 없을 수 있음 → 조건부 구현 절차 명시함
 - `--allowed-tools` 툴 이름 대소문자: 현재 사용자가 정확한 이름(`Bash`, `Read`) 입력 가정. 정규화는 스코프 외로 명시.
+
+## Test Plan
+
+- Confirm CLI argument parsing with focused Vitest coverage for `--bare`, `--allowed-tools`, `--no-session-persistence`, and `--json-schema`.
+- Confirm SDK session assembly with tests for `allowedTools`, appended system prompts, and bare-mode initialization behavior.
+- Before merging the plan output, run the affected CLI/SDK tests, package builds, typechecks, and `pnpm harness:scan`.
