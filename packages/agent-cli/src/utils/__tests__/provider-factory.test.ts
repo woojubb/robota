@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createProviderFromSettings, readProviderSettings } from '../provider-factory.js';
@@ -45,6 +45,11 @@ describe('provider-factory', () => {
   it('reads active OpenAI-compatible provider profile', () => {
     writeJson(join(cwd, '.robota', 'settings.json'), {
       currentProvider: 'openai',
+      provider: {
+        name: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-legacy',
+      },
       providers: {
         openai: {
           type: 'openai',
@@ -62,6 +67,33 @@ describe('provider-factory', () => {
       apiKey: 'lm-studio',
       baseURL: 'http://localhost:1234/v1',
       timeout: 30000,
+    });
+  });
+
+  it('selects a provider override without changing settings', () => {
+    const settingsPath = join(cwd, '.robota', 'settings.json');
+    writeJson(settingsPath, {
+      currentProvider: 'openai',
+      providers: {
+        openai: {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+        },
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: 'sk-ant-test',
+        },
+      },
+    });
+
+    const settings = readProviderSettings(cwd, { providerOverride: 'anthropic' });
+
+    expect(settings.name).toBe('anthropic');
+    expect(settings.model).toBe('claude-sonnet-4-6');
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).toMatchObject({
+      currentProvider: 'openai',
     });
   });
 

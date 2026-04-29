@@ -15,11 +15,19 @@ import {
   readSettings,
   writeSettings,
 } from '../../utils/settings-io.js';
+import {
+  applyProviderConfiguration,
+  applyProviderSwitch,
+} from '../../utils/provider-configuration.js';
+import { readMergedProviderSettings } from '../../utils/provider-factory.js';
+import type { IProviderSetupInput } from '../../utils/provider-settings.js';
+import type { TProviderSetupType } from '../../utils/provider-setup-flow.js';
 import type { ISideEffects } from './useInteractiveSession.js';
 
 const EXIT_DELAY_MS = 500;
 
 interface IUseSideEffectsOptions {
+  cwd: string;
   interactiveSession: InteractiveSession;
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
@@ -29,15 +37,21 @@ interface IUseSideEffectsOptions {
 interface IUseSideEffectsResult {
   handleSubmit: (input: string) => Promise<void>;
   pendingModelId: string | null;
+  pendingProviderProfile: string | null;
+  pendingProviderSetupType: TProviderSetupType | null;
   showPluginTUI: boolean;
   showSessionPicker: boolean;
   setPendingModelId: (id: string | null) => void;
   setShowPluginTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
   handleModelConfirm: (index: number) => void;
+  handleProviderConfirm: (index: number) => void;
+  handleProviderSetupSubmit: (input: IProviderSetupInput) => void;
+  handleProviderSetupCancel: () => void;
 }
 
 export function useSideEffects({
+  cwd,
   interactiveSession,
   addEntry,
   baseHandleSubmit,
@@ -46,6 +60,10 @@ export function useSideEffects({
   const { exit } = useApp();
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
   const pendingModelChangeRef = useRef<string | null>(null);
+  const [pendingProviderProfile, setPendingProviderProfile] = useState<string | null>(null);
+  const pendingProviderProfileRef = useRef<string | null>(null);
+  const [pendingProviderSetupType, setPendingProviderSetupType] =
+    useState<TProviderSetupType | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(false);
 
@@ -74,6 +92,21 @@ export function useSideEffects({
           messageToHistoryEntry(createSystemMessage(`Language set to "${lang}". Restarting...`)),
         );
         setTimeout(() => exit(), EXIT_DELAY_MS);
+        return;
+      }
+
+      if (sideEffects._pendingProviderProfile) {
+        const profile = sideEffects._pendingProviderProfile as string;
+        delete sideEffects._pendingProviderProfile;
+        pendingProviderProfileRef.current = profile;
+        setPendingProviderProfile(profile);
+        return;
+      }
+
+      if (sideEffects._pendingProviderSetupType) {
+        const type = sideEffects._pendingProviderSetupType;
+        delete sideEffects._pendingProviderSetupType;
+        setPendingProviderSetupType(type);
         return;
       }
 
@@ -149,14 +182,78 @@ export function useSideEffects({
     [addEntry, exit],
   );
 
+  const handleProviderConfirm = useCallback(
+    (index: number) => {
+      const profile = pendingProviderProfileRef.current;
+      setPendingProviderProfile(null);
+      pendingProviderProfileRef.current = null;
+      if (index === 0 && profile) {
+        try {
+          const settingsPath = getUserSettingsPath();
+          applyProviderSwitch(settingsPath, profile, {
+            knownProviders: readMergedProviderSettings(cwd).providers,
+          });
+          addEntry(
+            messageToHistoryEntry(
+              createSystemMessage(`Provider changed to ${profile}. Restarting...`),
+            ),
+          );
+          setTimeout(() => exit(), EXIT_DELAY_MS);
+        } catch (err) {
+          addEntry(
+            messageToHistoryEntry(
+              createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
+            ),
+          );
+        }
+      } else {
+        addEntry(messageToHistoryEntry(createSystemMessage('Provider change cancelled.')));
+      }
+    },
+    [cwd, addEntry, exit],
+  );
+
+  const handleProviderSetupSubmit = useCallback(
+    (input: IProviderSetupInput) => {
+      setPendingProviderSetupType(null);
+      try {
+        const settingsPath = getUserSettingsPath();
+        applyProviderConfiguration(settingsPath, input);
+        addEntry(
+          messageToHistoryEntry(
+            createSystemMessage(`Provider ${input.profile} configured. Restarting...`),
+          ),
+        );
+        setTimeout(() => exit(), EXIT_DELAY_MS);
+      } catch (err) {
+        addEntry(
+          messageToHistoryEntry(
+            createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
+          ),
+        );
+      }
+    },
+    [addEntry, exit],
+  );
+
+  const handleProviderSetupCancel = useCallback(() => {
+    setPendingProviderSetupType(null);
+    addEntry(messageToHistoryEntry(createSystemMessage('Provider setup cancelled.')));
+  }, [addEntry]);
+
   return {
     handleSubmit,
     pendingModelId,
+    pendingProviderProfile,
+    pendingProviderSetupType,
     showPluginTUI,
     showSessionPicker,
     setPendingModelId,
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
+    handleProviderConfirm,
+    handleProviderSetupSubmit,
+    handleProviderSetupCancel,
   };
 }

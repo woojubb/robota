@@ -93,6 +93,33 @@ describe('parseCliArgs', () => {
     const args = parseCliArgs();
     expect(args.outputFormat).toBeUndefined();
   });
+
+  it('parses provider configuration flags', () => {
+    process.argv = [
+      'node',
+      'cli',
+      '--configure-provider',
+      'openai',
+      '--provider',
+      'openai',
+      '--type',
+      'openai',
+      '--base-url',
+      'http://localhost:1234/v1',
+      '--api-key-env',
+      'LM_STUDIO_API_KEY',
+      '--set-current',
+    ];
+
+    const args = parseCliArgs();
+
+    expect(args.configureProvider).toBe('openai');
+    expect(args.provider).toBe('openai');
+    expect(args.providerType).toBe('openai');
+    expect(args.baseURL).toBe('http://localhost:1234/v1');
+    expect(args.apiKeyEnv).toBe('LM_STUDIO_API_KEY');
+    expect(args.setCurrent).toBe(true);
+  });
 });
 
 describe('new non-interactive flags', () => {
