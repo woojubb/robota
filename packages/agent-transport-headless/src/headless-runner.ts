@@ -31,10 +31,16 @@ function writeJsonResult(sessionId: string, result: string, subtype: 'success' |
   process.stdout.write(output + '\n');
 }
 
+function getSessionId(session: InteractiveSession): string {
+  try {
+    return session.getSession().getSessionId();
+  } catch {
+    return '';
+  }
+}
+
 function runJsonFormat(session: InteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
-    const sessionId = session.getSession().getSessionId();
-
     const cleanup = (): void => {
       session.off('complete', onComplete);
       session.off('interrupted', onInterrupted);
@@ -43,19 +49,19 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
 
     const onComplete = (result: IExecutionResult): void => {
       cleanup();
-      writeJsonResult(sessionId, result.response, 'success');
+      writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
 
     const onInterrupted = (result: IExecutionResult): void => {
       cleanup();
-      writeJsonResult(sessionId, result.response, 'success');
+      writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
 
     const onError = (_error: Error): void => {
       cleanup();
-      writeJsonResult(sessionId, '', 'error');
+      writeJsonResult(getSessionId(session), '', 'error');
       resolve(1);
     };
 
@@ -69,8 +75,6 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
 
 function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
-    const sessionId = session.getSession().getSessionId();
-
     const cleanup = (): void => {
       session.off('text_delta', onTextDelta);
       session.off('complete', onComplete);
@@ -85,7 +89,7 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
           type: 'content_block_delta',
           delta: { type: 'text_delta', text },
         },
-        session_id: sessionId,
+        session_id: getSessionId(session),
         uuid: randomUUID(),
       });
       process.stdout.write(output + '\n');
@@ -93,19 +97,19 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
 
     const onComplete = (result: IExecutionResult): void => {
       cleanup();
-      writeJsonResult(sessionId, result.response, 'success');
+      writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
 
     const onInterrupted = (result: IExecutionResult): void => {
       cleanup();
-      writeJsonResult(sessionId, result.response, 'success');
+      writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
 
     const onError = (_error: Error): void => {
       cleanup();
-      writeJsonResult(sessionId, '', 'error');
+      writeJsonResult(getSessionId(session), '', 'error');
       resolve(1);
     };
 

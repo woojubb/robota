@@ -8,6 +8,16 @@ const ProviderSchema = z.object({
   name: z.string().optional(),
   model: z.string().optional(),
   apiKey: z.string().optional(),
+  baseURL: z.string().optional(),
+  timeout: z.number().optional(),
+});
+
+const ProviderProfileSchema = z.object({
+  type: z.string().optional(),
+  model: z.string().optional(),
+  apiKey: z.string().optional(),
+  baseURL: z.string().optional(),
+  timeout: z.number().optional(),
 });
 
 const PermissionsSchema = z.object({
@@ -89,13 +99,18 @@ const MarketplaceSourceSchema = z.object({
     ref: z.string().optional(),
   }),
 });
-const ExtraKnownMarketplacesSchema = z.record(MarketplaceSourceSchema).optional();
+const ExtraKnownMarketplacesSchema = z.record(MarketplaceSourceSchema).optional().catch(undefined);
 
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
   defaultTrustLevel: z.enum(['safe', 'moderate', 'full']).optional(),
   /** Response language (e.g., "ko", "en", "ja"). Injected into system prompt. */
   language: z.string().optional(),
+  /** Active provider profile key from providers. */
+  currentProvider: z.string().optional(),
+  /** Provider profiles keyed by user-facing profile name. */
+  providers: z.record(ProviderProfileSchema).optional(),
+  /** Legacy single-provider settings. Prefer currentProvider + providers for new config. */
   provider: ProviderSchema.optional(),
   permissions: PermissionsSchema.optional(),
   env: EnvSchema,
@@ -117,10 +132,14 @@ export interface IResolvedConfig {
   defaultTrustLevel: 'safe' | 'moderate' | 'full';
   /** Response language code (e.g., "ko", "en"). Undefined = no language constraint. */
   language?: string;
+  /** Active provider profile key when providers/currentProvider are used. */
+  currentProvider?: string;
   provider: {
     name: string;
     model: string;
     apiKey: string | undefined;
+    baseURL?: string;
+    timeout?: number;
   };
   permissions: {
     allow: string[];

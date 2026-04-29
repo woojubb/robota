@@ -2,11 +2,17 @@ import OpenAI from 'openai';
 import type { IOpenAIProviderOptions } from './types';
 import type { IOpenAIError } from './types/api-types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
-import type { TUniversalMessage, IChatOptions, IAssistantMessage } from '@robota-sdk/agent-core';
+import type {
+  TUniversalMessage,
+  IChatOptions,
+  IAssistantMessage,
+  TTextDeltaCallback,
+} from '@robota-sdk/agent-core';
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { SilentLogger } from '@robota-sdk/agent-core';
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
+import { assembleOpenAIStream } from './streaming/stream-assembler';
 
 /**
  * OpenAI provider implementation for Robota
@@ -25,18 +31,23 @@ export class OpenAIProvider extends AbstractAIProvider {
   private readonly payloadLogger: IPayloadLogger | undefined;
   private readonly responseParser: OpenAIResponseParser;
 
+  /**
+   * Optional callback for text deltas during streaming.
+   * Set by the consumer (e.g., Session) to receive real-time text chunks.
+   * When set, chat() uses streaming internally while still returning
+   * the complete assembled message.
+   */
+  onTextDelta?: TTextDeltaCallback;
+
   constructor(options: IOpenAIProviderOptions) {
     super(options.logger || SilentLogger);
     this.options = options;
 
-    // Set executor if provided
     if (options.executor) {
       this.executor = options.executor;
     }
 
-    // Only create client if not using executor
     if (!this.executor) {
-      // Create client from apiKey if not provided
       if (options.client) {
         this.client = options.client;
       } else if (options.apiKey) {
@@ -52,21 +63,15 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     this.responseParser = new OpenAIResponseParser(this.logger);
-
-    // Initialize payload logger
     this.payloadLogger = options.payloadLogger;
   }
 
-  /**
-   * Generate response using TUniversalMessage
-   */
   override async chat(
     messages: TUniversalMessage[],
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
 
-    // Use executor when configured; otherwise use direct execution
     if (this.executor) {
       try {
         return await this.executeViaExecutorOrDirect(messages, options);
@@ -79,7 +84,6 @@ export class OpenAIProvider extends AbstractAIProvider {
       }
     }
 
-    // Direct execution with OpenAI client
     if (!this.client) {
       throw new Error(
         'OpenAI client not available. Either provide a client/apiKey or use an executor.',
@@ -87,29 +91,40 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     try {
-      // 1. Convert TUniversalMessage → OpenAI format
       const openaiMessages = convertToOpenAIMessages(messages);
 
-      // 2. Validate required model parameter
-      if (!options?.model) {
+      const chatOptions = options;
+      if (!chatOptions?.model) {
         throw new Error(
           'Model is required in chat options. Please specify a model in defaultModel configuration.',
         );
       }
 
-      // 3. Call OpenAI API (native SDK types)
       const requestParams: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
-        model: options.model,
+        model: chatOptions.model,
         messages: openaiMessages,
-        ...(options?.temperature !== undefined && { temperature: options.temperature }),
-        ...(options?.maxTokens && { max_tokens: options.maxTokens }),
-        ...(options?.tools && {
-          tools: convertToOpenAITools(options.tools),
+        ...(chatOptions.temperature !== undefined && { temperature: chatOptions.temperature }),
+        ...(chatOptions.maxTokens && { max_tokens: chatOptions.maxTokens }),
+        ...(chatOptions.tools && {
+          tools: convertToOpenAITools(chatOptions.tools),
           tool_choice: 'auto',
         }),
       };
 
-      // Log payload for debugging if logger is available
+      const textDeltaCb = chatOptions.onTextDelta ?? this.onTextDelta;
+      if (textDeltaCb) {
+        return await this.chatWithStreamingAssembly(
+          {
+            ...requestParams,
+            stream: true,
+          },
+          {
+            ...chatOptions,
+            onTextDelta: textDeltaCb,
+          },
+        );
+      }
+
       if (this.payloadLogger?.isEnabled()) {
         const logData = {
           model: requestParams.model,
@@ -124,7 +139,6 @@ export class OpenAIProvider extends AbstractAIProvider {
 
       const response = await this.client.chat.completions.create(requestParams);
 
-      // 4. Convert OpenAI response → TUniversalMessage
       return this.responseParser.parseResponse(response);
     } catch (error) {
       const openaiError = error as IOpenAIError;
@@ -133,9 +147,46 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
   }
 
-  /**
-   * Generate streaming response using TUniversalMessage
-   */
+  private async chatWithStreamingAssembly(
+    requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+    options: IChatOptions,
+  ): Promise<TUniversalMessage> {
+    if (!this.client) {
+      throw new Error(
+        'OpenAI client not available. Either provide a client/apiKey or use an executor.',
+      );
+    }
+
+    try {
+      if (this.payloadLogger?.isEnabled()) {
+        const logData = {
+          model: requestParams.model,
+          messagesCount: requestParams.messages.length,
+          hasTools: !!requestParams.tools,
+          temperature: requestParams.temperature ?? undefined,
+          maxTokens: requestParams.max_tokens ?? undefined,
+          timestamp: new Date().toISOString(),
+        };
+        await this.payloadLogger.logPayload(logData, 'stream');
+      }
+
+      const stream = await this.client.chat.completions.create(
+        requestParams,
+        options.signal ? { signal: options.signal } : undefined,
+      );
+
+      return assembleOpenAIStream({
+        stream,
+        onTextDelta: options.onTextDelta,
+        signal: options.signal,
+      });
+    } catch (error) {
+      const openaiError = error as IOpenAIError;
+      const errorMessage = openaiError.message || 'OpenAI streaming request failed';
+      throw new Error(`OpenAI stream failed: ${errorMessage}`);
+    }
+  }
+
   override async *chatStream(
     messages: TUniversalMessage[],
     options?: IChatOptions,
@@ -153,7 +204,6 @@ export class OpenAIProvider extends AbstractAIProvider {
       }
     }
 
-    // Direct execution with OpenAI client
     if (!this.client) {
       throw new Error(
         'OpenAI client not available. Either provide a client/apiKey or use an executor.',
@@ -161,17 +211,14 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     try {
-      // 1. Convert TUniversalMessage → OpenAI format
       const openaiMessages = convertToOpenAIMessages(messages);
 
-      // 2. Validate required model parameter
       if (!options?.model) {
         throw new Error(
           'Model is required in chat options. Please specify a model in defaultModel configuration.',
         );
       }
 
-      // 3. Call OpenAI streaming API
       const requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
         model: options.model,
         messages: openaiMessages,
@@ -184,7 +231,6 @@ export class OpenAIProvider extends AbstractAIProvider {
         }),
       };
 
-      // Log payload for debugging if logger is available
       if (this.payloadLogger?.isEnabled()) {
         const logData = {
           model: requestParams.model,
@@ -199,7 +245,6 @@ export class OpenAIProvider extends AbstractAIProvider {
 
       const stream = await this.client.chat.completions.create(requestParams);
 
-      // 4. Stream conversion: OpenAI chunks → TUniversalMessage
       for await (const chunk of stream) {
         const universalMessage = this.responseParser.parseStreamingChunk(chunk);
         if (universalMessage) {
@@ -225,35 +270,9 @@ export class OpenAIProvider extends AbstractAIProvider {
     // OpenAI client doesn't need explicit cleanup
   }
 
-  /**
-   * Validate messages before sending to API.
-   *
-   * IMPORTANT: OpenAI API Content Handling Policy
-   * =============================================
-   *
-   * Based on OpenAI API documentation and community feedback:
-   *
-   * 1. When sending TO OpenAI API:
-   *    - Assistant messages with tool_calls: content MUST be null (not empty string)
-   *    - Regular assistant messages: content can be string or null
-   *    - This prevents "400 Bad Request" errors
-   *
-   * 2. When receiving FROM our API (TUniversalMessage):
-   *    - All messages must have content as string (TypeScript requirement)
-   *    - Convert null to empty string for type compatibility
-   *
-   * 3. This dual handling ensures:
-   *    - OpenAI API compatibility (null for tool calls)
-   *    - TypeScript type safety (string content in TUniversalMessage)
-   *    - No infinite loops in tool execution
-   *
-   * Reference: OpenAI Community discussions confirm that tool_calls
-   * require content to be null, not empty string.
-   */
   protected override validateMessages(messages: TUniversalMessage[]): void {
     super.validateMessages(messages);
 
-    // Additional OpenAI-specific validation
     for (const message of messages) {
       if (message.role === 'assistant') {
         const assistantMsg = message as IAssistantMessage;
@@ -262,7 +281,6 @@ export class OpenAIProvider extends AbstractAIProvider {
           assistantMsg.toolCalls.length > 0 &&
           assistantMsg.content === ''
         ) {
-          // This is valid - we'll convert to null when sending to OpenAI
           continue;
         }
       }
