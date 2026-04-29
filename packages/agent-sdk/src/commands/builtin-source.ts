@@ -17,6 +17,15 @@ function buildModelSubcommands(): ICommand[] {
   return commands;
 }
 
+function buildProviderSubcommands(): ICommand[] {
+  return [
+    { name: 'current', description: 'Show current provider', source: 'builtin' },
+    { name: 'list', description: 'List provider profiles', source: 'builtin' },
+    { name: 'use', description: 'Switch provider profile', source: 'builtin' },
+    { name: 'test', description: 'Test provider profile', source: 'builtin' },
+  ];
+}
+
 /** Built-in commands. Execute callbacks are wired externally by clients. */
 function createBuiltinCommands(): ICommand[] {
   return [
@@ -54,6 +63,12 @@ function createBuiltinCommands(): ICommand[] {
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
+    {
+      name: 'provider',
+      description: 'Manage provider profiles',
+      source: 'builtin',
+      subcommands: buildProviderSubcommands(),
+    },
     { name: 'resume', description: 'Resume a previous session', source: 'builtin' },
     { name: 'rename', description: 'Rename the current session', source: 'builtin' },
     { name: 'plugin', description: 'Manage plugins', source: 'builtin' },
