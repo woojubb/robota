@@ -314,17 +314,18 @@ Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events in
 
 ## First-Run Setup
 
-When no settings file exists, the CLI prompts for an Anthropic API key (input is masked with asterisks) and creates `~/.robota/settings.json` with a minimal config. Use `robota --reset` to delete the settings file and return to the first-run state.
+When no usable settings file exists, the CLI prompts for an Anthropic API key (input is masked with asterisks) and creates `~/.robota/settings.json` with a minimal config. Use `robota --reset` to delete the settings file and return to the first-run state. OpenAI-compatible local profiles can be configured manually without using the first-run Anthropic prompt.
 
 ## Configuration
 
 The CLI uses a layered configuration system. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
 
 1. `~/.robota/settings.json` (user global)
-2. `.robota/settings.json` (project, primary)
-3. `.robota/settings.local.json` (local override, gitignored)
-4. `.claude/settings.json` (project, Claude Code compatible)
-5. `.claude/settings.local.json` (local override, gitignored, Claude Code compatible)
+2. `~/.claude/settings.json` (user global, Claude Code compatible)
+3. `.robota/settings.json` (project, primary)
+4. `.robota/settings.local.json` (local override, gitignored)
+5. `.claude/settings.json` (project, Claude Code compatible)
+6. `.claude/settings.local.json` (local override, gitignored, Claude Code compatible)
 
 The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
 

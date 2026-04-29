@@ -558,6 +558,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-openai':
+        specifier: workspace:*
+        version: link:../agent-provider-openai
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk

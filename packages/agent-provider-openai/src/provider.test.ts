@@ -64,6 +64,11 @@ describe('OpenAIProvider', () => {
       expect(provider.version).toBe('1.0.0');
     });
 
+    it('exposes onTextDelta so Session can wire streaming callbacks', () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      expect('onTextDelta' in provider).toBe(true);
+    });
+
     it('should create provider with client', () => {
       const mockClient = { chat: { completions: { create: vi.fn() } } };
       const provider = new OpenAIProvider({ client: mockClient as never });
@@ -569,6 +574,192 @@ describe('OpenAIProvider', () => {
           ]),
           tool_choice: 'auto',
         }),
+      );
+    });
+  });
+
+  describe('chat streaming assembly', () => {
+    async function* createTextStream() {
+      yield {
+        id: 'chunk-1',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [{ index: 0, delta: { content: 'Hello' }, finish_reason: null, logprobs: null }],
+      };
+      yield {
+        id: 'chunk-2',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [{ index: 0, delta: { content: ' world' }, finish_reason: null, logprobs: null }],
+      };
+      yield {
+        id: 'chunk-3',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop', logprobs: null }],
+      };
+    }
+
+    async function* createToolCallStream() {
+      yield {
+        id: 'chunk-1',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_weather',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"city"' },
+                },
+              ],
+            },
+            finish_reason: null,
+            logprobs: null,
+          },
+        ],
+      };
+      yield {
+        id: 'chunk-2',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  function: { arguments: ':"Seoul"}' },
+                },
+              ],
+            },
+            finish_reason: null,
+            logprobs: null,
+          },
+        ],
+      };
+      yield {
+        id: 'chunk-3',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls', logprobs: null }],
+      };
+    }
+
+    it('streams text through onTextDelta and returns an assembled message', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue(createTextStream());
+      const deltas: string[] = [];
+
+      const result = await provider.chat(messages, {
+        model: 'gpt-4',
+        onTextDelta: (delta) => deltas.push(delta),
+      });
+
+      expect(deltas).toEqual(['Hello', ' world']);
+      expect(result.content).toBe('Hello world');
+      expect(client.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-4', stream: true }),
+        undefined,
+      );
+    });
+
+    it('streams through the provider-level onTextDelta callback when configured by Session', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue(createTextStream());
+      const deltas: string[] = [];
+      provider.onTextDelta = (delta) => deltas.push(delta);
+
+      const result = await provider.chat(messages, {
+        model: 'gpt-4',
+      });
+
+      expect(deltas).toEqual(['Hello', ' world']);
+      expect(result.content).toBe('Hello world');
+      expect(client.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-4', stream: true }),
+        undefined,
+      );
+    });
+
+    it('assembles streaming tool-call deltas before returning', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const messages: TUniversalMessage[] = [createUserMessage('Weather in Seoul')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue(createToolCallStream());
+
+      const result = await provider.chat(messages, {
+        model: 'gpt-4',
+        tools: [
+          {
+            name: 'get_weather',
+            description: 'Get weather',
+            parameters: { type: 'object' as const, properties: { city: { type: 'string' } } },
+          },
+        ],
+        onTextDelta: vi.fn(),
+      });
+
+      const assistant = result as TUniversalMessage & {
+        toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>;
+      };
+      expect(assistant.content).toBe('');
+      expect(assistant.toolCalls).toEqual([
+        {
+          id: 'call_weather',
+          type: 'function',
+          function: { name: 'get_weather', arguments: '{"city":"Seoul"}' },
+        },
+      ]);
+    });
+
+    it('passes AbortSignal to the streaming request used by chat', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue(createTextStream());
+      const controller = new AbortController();
+
+      await provider.chat(messages, {
+        model: 'gpt-4',
+        onTextDelta: vi.fn(),
+        signal: controller.signal,
+      });
+
+      expect(client.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stream: true }),
+        { signal: controller.signal },
       );
     });
   });

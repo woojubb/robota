@@ -22,23 +22,56 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Import Rules
 
-| Source             | Allowed                       | Examples                                                                         |
-| ------------------ | ----------------------------- | -------------------------------------------------------------------------------- |
-| `agent-sdk`        | SDK-owned APIs                | `InteractiveSession`, `TInteractivePermissionHandler`                            |
-| `agent-core`       | Public types + utilities only | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`    |
-| `agent-core`       | ❌ Internal engine            | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                    |
-| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session and permission types                                |
-| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                   |
-| `agent-provider-*` | ✅ Provider creation only     | `AnthropicProvider` (CLI picks which to use; currently only anthropic supported) |
+| Source             | Allowed                       | Examples                                                                      |
+| ------------------ | ----------------------------- | ----------------------------------------------------------------------------- |
+| `agent-sdk`        | SDK-owned APIs                | `InteractiveSession`, `TInteractivePermissionHandler`                         |
+| `agent-core`       | Public types + utilities only | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName` |
+| `agent-core`       | ❌ Internal engine            | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                 |
+| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session and permission types                             |
+| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                |
+| `agent-provider-*` | ✅ Provider creation only     | `AnthropicProvider`, `OpenAIProvider` (CLI picks which to use from settings)  |
 
 ## Architecture
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
 
-1. Reads config to determine which provider to use.
-2. Creates the provider instance (e.g., `new AnthropicProvider(options)`).
+1. Reads config to determine which provider profile to use.
+2. Creates the provider instance (e.g., `new AnthropicProvider(options)` or `new OpenAIProvider(options)`).
 3. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
 4. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+
+### Provider Profile Creation
+
+The CLI owns concrete provider construction. Settings may define an active provider profile:
+
+```json
+{
+  "currentProvider": "openai",
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    }
+  }
+}
+```
+
+Provider resolution order:
+
+1. `currentProvider` plus `providers[currentProvider]`
+2. Legacy `provider`
+3. Provider-specific field defaults for omitted profile fields
+
+Supported provider profile types:
+
+| Type        | Provider class      | Required settings                     | Notes                                           |
+| ----------- | ------------------- | ------------------------------------- | ----------------------------------------------- |
+| `anthropic` | `AnthropicProvider` | `apiKey`, `model`                     | Existing Claude-compatible CLI path             |
+| `openai`    | `OpenAIProvider`    | `apiKey`, `model`, optional `baseURL` | Used for OpenAI and OpenAI-compatible endpoints |
+
+LM Studio is represented as `type: "openai"` with `baseURL: "http://localhost:1234/v1"`. The CLI must not use LM Studio native `/api/v1/*` APIs or Anthropic-compatible endpoints for this path.
 
 ```
 bin.ts → cli.ts (arg parsing + provider creation)
@@ -856,17 +889,18 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 ## Dependencies
 
-| Package                                | Purpose                                                                     |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)    |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)            |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                             |
-| `ink`, `react`                         | TUI rendering                                                               |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                     |
-| `ink-spinner`                          | Loading spinner                                                             |
-| `chalk`                                | Terminal colors                                                             |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                  |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                     |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                         |
-| `string-width`                         | Unicode-aware string width calculation                                      |
+| Package                                | Purpose                                                                      |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management  |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)     |
+| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)             |
+| `@robota-sdk/agent-provider-openai`    | OpenAI/OpenAI-compatible provider creation (including LM Studio via baseURL) |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                              |
+| `ink`, `react`                         | TUI rendering                                                                |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                      |
+| `ink-spinner`                          | Loading spinner                                                              |
+| `chalk`                                | Terminal colors                                                              |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                   |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                      |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                          |
+| `string-width`                         | Unicode-aware string width calculation                                       |

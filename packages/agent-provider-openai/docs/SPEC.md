@@ -6,6 +6,7 @@
 - Owns bidirectional message conversion between `TUniversalMessage` and OpenAI SDK native types.
 - Owns payload logging infrastructure with environment-specific implementations (Node.js file-based, browser console-based).
 - Owns OpenAI-specific API type definitions for request parameters, streaming chunks, tool calls, and error structures.
+- Supports OpenAI-compatible Chat Completions endpoints through `baseURL`, including local endpoints such as LM Studio.
 
 ## Boundaries
 
@@ -33,6 +34,7 @@ src/
     response-parser.ts              # OpenAIResponseParser (completion + streaming chunk parsing)
   streaming/
     stream-handler.ts               # OpenAIStreamHandler (modular streaming logic)
+    stream-assembler.ts             # Assembles Chat Completions stream chunks into one TUniversalMessage
   loggers/
     index.ts                        # Logger barrel exports
     console.ts                      # Subpath entry: ConsolePayloadLogger
@@ -110,11 +112,12 @@ Types imported from `@robota-sdk/agent-core` (not owned here):
 
 ### Internal (not exported from main entry)
 
-| Class                   | File                                  | Description                                                      |
-| ----------------------- | ------------------------------------- | ---------------------------------------------------------------- |
-| `OpenAIResponseParser`  | `parsers/response-parser.ts`          | Parses completions and streaming chunks into `TUniversalMessage` |
-| `OpenAIStreamHandler`   | `streaming/stream-handler.ts`         | Modular streaming handler (used internally by provider)          |
-| `sanitizeOpenAILogData` | `loggers/sanitize-openai-log-data.ts` | Deep-copy sanitization for log payloads                          |
+| Class                   | File                                  | Description                                                            |
+| ----------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
+| `OpenAIResponseParser`  | `parsers/response-parser.ts`          | Parses completions and streaming chunks into `TUniversalMessage`       |
+| `OpenAIStreamHandler`   | `streaming/stream-handler.ts`         | Modular streaming generator for raw streaming APIs                     |
+| `assembleOpenAIStream`  | `streaming/stream-assembler.ts`       | Assembles streamed Chat Completions chunks for `OpenAIProvider.chat()` |
+| `sanitizeOpenAILogData` | `loggers/sanitize-openai-log-data.ts` | Deep-copy sanitization for log payloads                                |
 
 ## Extension Points
 
@@ -143,6 +146,20 @@ Consumers can pass a pre-configured `OpenAI` client instance via `IOpenAIProvide
 
 The `baseURL` option in `IOpenAIProviderOptions` allows consumers to point the provider at OpenAI-compatible APIs (e.g., Azure OpenAI, local proxies).
 
+### Streaming Assembly for CLI
+
+`OpenAIProvider.chat()` must honor `IChatOptions.onTextDelta`. When the callback is provided, `chat()` uses Chat Completions streaming internally while still returning one complete `TUniversalMessage`.
+
+Streaming assembly responsibilities:
+
+- Accumulate `delta.content` into the final assistant content.
+- Call `onTextDelta` for every text delta.
+- Accumulate streamed `tool_calls` by `index`, preserving `id`, function `name`, and partial `arguments`.
+- Return final `toolCalls` only after streamed arguments have been assembled.
+- Pass `AbortSignal` through to the OpenAI SDK request where supported.
+
+The non-streaming Chat Completions path remains supported for callers that do not provide `onTextDelta`.
+
 ## Error Taxonomy
 
 This package does not define a custom error class hierarchy. It uses standard `Error` instances with descriptive messages. Error scenarios:
@@ -153,7 +170,7 @@ This package does not define a custom error class hierarchy. It uses standard `E
 | Missing model in chat options        | `"Model is required in chat options..."`                  | `provider.ts` chat/chatStream |
 | Client unavailable (no executor)     | `"OpenAI client not available..."`                        | `provider.ts` chat/chatStream |
 | API call failure                     | `"OpenAI chat failed: <message>"`                         | `provider.ts` chat            |
-| Streaming failure                    | `"OpenAI stream failed: <message>"`                       | `provider.ts` chatStream      |
+| Streaming failure                    | `"OpenAI stream failed: <message>"`                       | `provider.ts` chat/chatStream |
 | Response parsing failure             | `"OpenAI response parsing failed: <message>"`             | `parsers/response-parser.ts`  |
 | Chunk parsing failure                | `"OpenAI chunk parsing failed: <message>"`                | `parsers/response-parser.ts`  |
 | Stream handler failure               | `"OpenAI streaming failed: <message>"`                    | `streaming/stream-handler.ts` |
@@ -191,13 +208,8 @@ Payload loggers (`FilePayloadLogger`, `ConsolePayloadLogger`) catch and log thei
 | ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------- |
 | `adapter.test.ts`              | Unit        | `OpenAIConversationAdapter` -- all message types, tool call content handling, filtering, complete conversation flow |
 | `executor-integration.test.ts` | Integration | `OpenAIProvider` with `LocalExecutor` -- chat, streaming, error handling, mixed mode, initialization                |
+| `provider.test.ts`             | Unit        | Direct client path, baseURL construction, non-streaming chat, streaming text/tool-call assembly                     |
 
 ### Test Gaps
 
-- No unit tests for `OpenAIResponseParser` (completion parsing, streaming chunk parsing, error cases).
-- No unit tests for `OpenAIStreamHandler` (stream handling, payload logging during streams).
 - No unit tests for `FilePayloadLogger` or `ConsolePayloadLogger`.
-- No unit tests for `sanitizeOpenAILogData`.
-- No direct unit tests for `OpenAIProvider.chat` and `OpenAIProvider.chatStream` with a mocked OpenAI client (non-executor path).
-- No tests for `OpenAIProvider.validateConfig` or `OpenAIProvider.validateMessages` specific behavior.
-- No tests verifying payload logger integration within the provider (logging is called with correct data).
