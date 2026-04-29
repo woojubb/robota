@@ -2,12 +2,17 @@ import React from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { IPermissionRequest } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
+import {
+  applyPermissionPromptInput,
+  getPermissionPromptInputAction,
+  PERMISSION_PROMPT_OPTIONS,
+  type TPermissionPromptInputAction,
+} from './flows/permission-prompt-flow.js';
+import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
 
 interface IProps {
   request: IPermissionRequest;
 }
-
-const OPTIONS = ['Allow', 'Allow always (this session)', 'Deny'] as const;
 
 function formatArgs(args: TToolArgs): string {
   const entries = Object.entries(args);
@@ -18,42 +23,33 @@ function formatArgs(args: TToolArgs): string {
 }
 
 export default function PermissionPrompt({ request }: IProps): React.ReactElement {
-  const [selected, setSelected] = React.useState(0);
-  const resolvedRef = React.useRef(false);
+  const [state, setState] = React.useState<ISelectionFlowState>(() => createSelectionFlowState());
+  const stateRef = React.useRef(state);
   const prevRequestRef = React.useRef(request);
 
-  // Reset state when a new permission request comes in
   if (prevRequestRef.current !== request) {
     prevRequestRef.current = request;
-    resolvedRef.current = false;
-    setSelected(0);
+    const nextState = createSelectionFlowState();
+    stateRef.current = nextState;
+    setState(nextState);
   }
 
-  const doResolve = React.useCallback(
-    (index: number) => {
-      if (resolvedRef.current) return;
-      resolvedRef.current = true;
-      if (index === 0) request.resolve(true);
-      else if (index === 1) request.resolve('allow-session');
-      else request.resolve(false);
+  const applyAction = React.useCallback(
+    (action: TPermissionPromptInputAction): void => {
+      const result = applyPermissionPromptInput(stateRef.current, action);
+      stateRef.current = result.state;
+      setState(result.state);
+      if (result.effect.type === 'resolve') {
+        request.resolve(result.effect.decision);
+      }
     },
     [request],
   );
 
   useInput((input, key) => {
-    if (resolvedRef.current) return;
-    if (key.upArrow || key.leftArrow) {
-      setSelected((prev) => (prev > 0 ? prev - 1 : prev));
-    } else if (key.downArrow || key.rightArrow) {
-      setSelected((prev) => (prev < OPTIONS.length - 1 ? prev + 1 : prev));
-    } else if (key.return) {
-      doResolve(selected);
-    } else if (input === 'y' || input === '1') {
-      doResolve(0);
-    } else if (input === 'a' || input === '2') {
-      doResolve(1);
-    } else if (input === 'n' || input === 'd' || input === '3') {
-      doResolve(2);
+    const action = getPermissionPromptInputAction(input, key);
+    if (action !== undefined) {
+      applyAction(action);
     }
   });
 
@@ -70,10 +66,13 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
       </Text>
       <Text dimColor> {formatArgs(request.toolArgs)}</Text>
       <Box marginTop={1}>
-        {OPTIONS.map((opt, i) => (
+        {PERMISSION_PROMPT_OPTIONS.map((opt, i) => (
           <Box key={opt} marginRight={2}>
-            <Text color={i === selected ? 'cyan' : undefined} bold={i === selected}>
-              {i === selected ? '> ' : '  '}
+            <Text
+              color={i === state.selectedIndex ? 'cyan' : undefined}
+              bold={i === state.selectedIndex}
+            >
+              {i === state.selectedIndex ? '> ' : '  '}
               {opt}
             </Text>
           </Box>

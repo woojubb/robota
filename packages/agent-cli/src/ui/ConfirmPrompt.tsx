@@ -3,8 +3,14 @@
  * Used by model change, permission prompts, and other yes/no confirmations.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import {
+  applyConfirmPromptInput,
+  getConfirmPromptInputAction,
+  type TConfirmPromptInputAction,
+} from './flows/confirm-prompt-flow.js';
+import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
 
 interface IProps {
   /** Message to display above the options */
@@ -20,30 +26,24 @@ export default function ConfirmPrompt({
   options = ['Yes', 'No'],
   onSelect,
 }: IProps): React.ReactElement {
-  const [selected, setSelected] = useState(0);
-  const resolvedRef = useRef(false);
-
-  const doSelect = useCallback(
-    (index: number) => {
-      if (resolvedRef.current) return;
-      resolvedRef.current = true;
-      onSelect(index);
+  const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
+  const stateRef = useRef(state);
+  const applyAction = useCallback(
+    (action: TConfirmPromptInputAction): void => {
+      const result = applyConfirmPromptInput(stateRef.current, action, options.length);
+      stateRef.current = result.state;
+      setState(result.state);
+      if (result.effect.type === 'select') {
+        onSelect(result.effect.index);
+      }
     },
-    [onSelect],
+    [onSelect, options.length],
   );
 
   useInput((input, key) => {
-    if (resolvedRef.current) return;
-    if (key.leftArrow || key.upArrow) {
-      setSelected((prev) => (prev > 0 ? prev - 1 : prev));
-    } else if (key.rightArrow || key.downArrow) {
-      setSelected((prev) => (prev < options.length - 1 ? prev + 1 : prev));
-    } else if (key.return) {
-      doSelect(selected);
-    } else if (input === 'y' && options.length === 2) {
-      doSelect(0);
-    } else if (input === 'n' && options.length === 2) {
-      doSelect(1);
+    const action = getConfirmPromptInputAction(input, key, options.length);
+    if (action !== undefined) {
+      applyAction(action);
     }
   });
 
@@ -53,8 +53,11 @@ export default function ConfirmPrompt({
       <Box marginTop={1}>
         {options.map((opt, i) => (
           <Box key={opt} marginRight={2}>
-            <Text color={i === selected ? 'cyan' : undefined} bold={i === selected}>
-              {i === selected ? '> ' : '  '}
+            <Text
+              color={i === state.selectedIndex ? 'cyan' : undefined}
+              bold={i === state.selectedIndex}
+            >
+              {i === state.selectedIndex ? '> ' : '  '}
               {opt}
             </Text>
           </Box>
