@@ -28,6 +28,15 @@ export interface IParsedCliArgs {
   allowedTools: string | undefined;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
+  configure: boolean;
+  configureProvider: string | undefined;
+  provider: string | undefined;
+  providerType: string | undefined;
+  baseURL: string | undefined;
+  apiKey: string | undefined;
+  apiKeyEnv: string | undefined;
+  setCurrent: boolean;
+  settingsScope: string | undefined;
 }
 
 /** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
@@ -74,6 +83,15 @@ export function parseCliArgs(): IParsedCliArgs {
       'allowed-tools': { type: 'string' },
       'no-session-persistence': { type: 'boolean', default: false },
       'json-schema': { type: 'string' },
+      configure: { type: 'boolean', default: false },
+      'configure-provider': { type: 'string' },
+      provider: { type: 'string' },
+      type: { type: 'string' },
+      'base-url': { type: 'string' },
+      'api-key': { type: 'string' },
+      'api-key-env': { type: 'string' },
+      'set-current': { type: 'boolean', default: false },
+      'settings-scope': { type: 'string' },
     },
   });
 
@@ -97,5 +115,14 @@ export function parseCliArgs(): IParsedCliArgs {
     allowedTools: values['allowed-tools'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
     jsonSchema: values['json-schema'],
+    configure: values['configure'] ?? false,
+    configureProvider: values['configure-provider'],
+    provider: values['provider'],
+    providerType: values['type'],
+    baseURL: values['base-url'],
+    apiKey: values['api-key'],
+    apiKeyEnv: values['api-key-env'],
+    setCurrent: values['set-current'] ?? false,
+    settingsScope: values['settings-scope'],
   };
 }

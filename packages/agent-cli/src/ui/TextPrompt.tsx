@@ -7,6 +7,8 @@ interface IProps {
   onSubmit: (value: string) => void;
   onCancel: () => void;
   validate?: (value: string) => string | undefined;
+  allowEmpty?: boolean;
+  masked?: boolean;
 }
 
 export default function TextPrompt({
@@ -15,6 +17,8 @@ export default function TextPrompt({
   onSubmit,
   onCancel,
   validate,
+  allowEmpty = false,
+  masked = false,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -23,7 +27,13 @@ export default function TextPrompt({
   const handleSubmit = useCallback(() => {
     if (resolvedRef.current) return;
     const trimmed = valueRef.current.trim();
-    if (!trimmed) return;
+    if (!trimmed && !allowEmpty) {
+      const emptyError = validate?.(trimmed);
+      if (emptyError) {
+        setError(emptyError);
+      }
+      return;
+    }
     if (validate) {
       const err = validate(trimmed);
       if (err) {
@@ -33,7 +43,7 @@ export default function TextPrompt({
     }
     resolvedRef.current = true;
     onSubmit(trimmed);
-  }, [validate, onSubmit]);
+  }, [allowEmpty, validate, onSubmit]);
 
   useInput((input, key) => {
     if (resolvedRef.current) return;
@@ -66,7 +76,11 @@ export default function TextPrompt({
       </Text>
       <Box marginTop={1}>
         <Text color="cyan">&gt; </Text>
-        {value ? <Text>{value}</Text> : placeholder ? <Text dimColor>{placeholder}</Text> : null}
+        {value ? (
+          <Text>{masked ? '*'.repeat(value.length) : value}</Text>
+        ) : placeholder ? (
+          <Text dimColor>{placeholder}</Text>
+        ) : null}
         <Text color="cyan">█</Text>
       </Box>
       {error && <Text color="red">{error}</Text>}

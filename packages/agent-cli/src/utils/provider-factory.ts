@@ -11,8 +11,14 @@ import { homedir } from 'node:os';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import {
+  DEFAULT_OPENAI_COMPATIBLE_API_KEY,
+  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+  DEFAULT_PROVIDER_MODELS,
+  type TProviderSettingsDocument,
+} from './provider-settings.js';
 
-interface IProviderConfig {
+export interface IProviderConfig {
   name: string;
   model: string;
   apiKey?: string;
@@ -20,38 +26,25 @@ interface IProviderConfig {
   timeout?: number;
 }
 
-interface IProviderProfileSettings {
-  type?: string;
-  model?: string;
-  apiKey?: string;
-  baseURL?: string;
-  timeout?: number;
+export interface IReadProviderSettingsOptions {
+  providerOverride?: string;
 }
-
-interface ILegacyProviderSettings {
-  name?: string;
-  model?: string;
-  apiKey?: string;
-  baseURL?: string;
-  timeout?: number;
-}
-
-interface IProviderSettingsFile {
-  currentProvider?: string;
-  providers?: Record<string, IProviderProfileSettings>;
-  provider?: ILegacyProviderSettings;
-}
-
-const DEFAULT_MODELS: Record<string, string> = {
-  anthropic: 'claude-sonnet-4-6',
-  openai: 'supergemma4-26b-uncensored-v2',
-};
-
-const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = 'http://localhost:1234/v1';
-const DEFAULT_OPENAI_COMPATIBLE_API_KEY = 'lm-studio';
 
 /** Read provider settings from the settings file chain. */
-export function readProviderSettings(cwd: string): IProviderConfig {
+export function readProviderSettings(
+  cwd: string,
+  options: IReadProviderSettingsOptions = {},
+): IProviderConfig {
+  const merged = readMergedProviderSettings(cwd);
+  const providerConfig = resolveActiveProvider(merged, options.providerOverride);
+  if (providerConfig !== undefined) {
+    return providerConfig;
+  }
+
+  throw new Error('No provider configuration found. Run `robota` to set up.');
+}
+
+export function readMergedProviderSettings(cwd: string): TProviderSettingsDocument {
   const paths = [
     join(homedir(), '.robota', 'settings.json'),
     join(homedir(), '.claude', 'settings.json'),
@@ -61,38 +54,31 @@ export function readProviderSettings(cwd: string): IProviderConfig {
     join(cwd, '.claude', 'settings.local.json'),
   ];
 
-  const merged = paths.reduce<IProviderSettingsFile>((settings, filePath) => {
+  return paths.reduce<TProviderSettingsDocument>((settings, filePath) => {
     const parsed = readSettingsFile(filePath);
     if (parsed === undefined) {
       return settings;
     }
     return mergeSettings(settings, parsed);
   }, {});
-
-  const providerConfig = resolveActiveProvider(merged);
-  if (providerConfig !== undefined) {
-    return providerConfig;
-  }
-
-  throw new Error('No provider configuration found. Run `robota` to set up.');
 }
 
-function readSettingsFile(filePath: string): IProviderSettingsFile | undefined {
+function readSettingsFile(filePath: string): TProviderSettingsDocument | undefined {
   if (!existsSync(filePath)) {
     return undefined;
   }
   try {
     const raw = readFileSync(filePath, 'utf8');
-    return JSON.parse(raw) as IProviderSettingsFile;
+    return JSON.parse(raw) as TProviderSettingsDocument;
   } catch {
     return undefined;
   }
 }
 
 function mergeSettings(
-  base: IProviderSettingsFile,
-  override: IProviderSettingsFile,
-): IProviderSettingsFile {
+  base: TProviderSettingsDocument,
+  override: TProviderSettingsDocument,
+): TProviderSettingsDocument {
   return {
     ...base,
     ...override,
@@ -108,24 +94,28 @@ function mergeSettings(
 }
 
 function mergeProviders(
-  base: IProviderSettingsFile['providers'],
-  override: IProviderSettingsFile['providers'],
-): IProviderSettingsFile['providers'] {
-  const result: NonNullable<IProviderSettingsFile['providers']> = { ...(base ?? {}) };
+  base: TProviderSettingsDocument['providers'],
+  override: TProviderSettingsDocument['providers'],
+): TProviderSettingsDocument['providers'] {
+  const result: NonNullable<TProviderSettingsDocument['providers']> = { ...(base ?? {}) };
   for (const [name, profile] of Object.entries(override ?? {})) {
     result[name] = { ...result[name], ...profile };
   }
   return result;
 }
 
-function resolveActiveProvider(settings: IProviderSettingsFile): IProviderConfig | undefined {
-  if (settings.currentProvider !== undefined) {
-    const profile = settings.providers?.[settings.currentProvider];
+function resolveActiveProvider(
+  settings: TProviderSettingsDocument,
+  providerOverride?: string,
+): IProviderConfig | undefined {
+  const activeProvider = providerOverride ?? settings.currentProvider;
+  if (activeProvider !== undefined) {
+    const profile = settings.providers?.[activeProvider];
     if (profile === undefined) {
-      throw new Error(`currentProvider "${settings.currentProvider}" was not found in providers`);
+      throw new Error(`Provider profile "${activeProvider}" was not found in providers`);
     }
     if (!profile.type) {
-      throw new Error(`Provider profile "${settings.currentProvider}" is missing type`);
+      throw new Error(`Provider profile "${activeProvider}" is missing type`);
     }
     return normalizeProviderConfig({
       name: profile.type,
@@ -179,13 +169,14 @@ function resolveEnvRef(value: string): string {
 function getProviderDefaults(name: string): { model: string; apiKey?: string; baseURL?: string } {
   if (name === 'openai') {
     return {
-      model: DEFAULT_MODELS['openai'] ?? 'supergemma4-26b-uncensored-v2',
+      model: DEFAULT_PROVIDER_MODELS['openai'] ?? 'supergemma4-26b-uncensored-v2',
       apiKey: DEFAULT_OPENAI_COMPATIBLE_API_KEY,
       baseURL: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
     };
   }
   return {
-    model: DEFAULT_MODELS[name] ?? DEFAULT_MODELS['anthropic'] ?? 'claude-sonnet-4-6',
+    model:
+      DEFAULT_PROVIDER_MODELS[name] ?? DEFAULT_PROVIDER_MODELS['anthropic'] ?? 'claude-sonnet-4-6',
   };
 }
 
@@ -197,8 +188,12 @@ function requireApiKey(settings: IProviderConfig): string {
 }
 
 /** Create a provider instance from settings. */
-export function createProviderFromSettings(cwd: string, modelOverride?: string): IAIProvider {
-  const settings = readProviderSettings(cwd);
+export function createProviderFromSettings(
+  cwd: string,
+  modelOverride?: string,
+  options: IReadProviderSettingsOptions = {},
+): IAIProvider {
+  const settings = readProviderSettings(cwd, options);
   const model = modelOverride ?? settings.model;
 
   switch (settings.name) {

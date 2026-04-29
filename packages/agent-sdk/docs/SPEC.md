@@ -683,6 +683,18 @@ Provider resolution order:
 2. Legacy `provider`
 3. Existing defaults
 
+Provider profile schema:
+
+| Field     | Description                                                  |
+| --------- | ------------------------------------------------------------ |
+| `type`    | Provider implementation type such as `anthropic` or `openai` |
+| `model`   | Default model ID for the profile                             |
+| `apiKey`  | Literal key or `$ENV:<name>` reference                       |
+| `baseURL` | Optional OpenAI-compatible or provider-specific endpoint     |
+| `timeout` | Optional request timeout                                     |
+
+`currentProvider` must point to an existing profile. Missing profiles and profiles without `type` are configuration errors. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
+
 The SDK remains provider-neutral: it resolves provider metadata for session assembly, but consumers such as `agent-cli` still construct concrete provider instances.
 
 ## Bundle Plugin System

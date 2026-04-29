@@ -46,6 +46,7 @@ export function createSystemCommands(): ISystemCommand[] {
           '  cost              — Show session info',
           '  context           — Context window info',
           '  permissions       — Permission rules',
+          '  provider          — Provider profile status and switching',
           '  resume            — Resume a previous session',
           '  rename <name>     — Rename the current session',
           '  reset             — Delete settings and exit',

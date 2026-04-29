@@ -5,28 +5,22 @@
  * (config, context, session, tools).
  */
 
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
-import { checkSettingsFile } from './utils/settings-check.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import {
+  ensureConfig,
+  handleProviderConfigurationArgs,
+  runInteractiveProviderSetup,
+} from './utils/provider-setup.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
-
-interface IFirstRunSettings {
-  provider: {
-    name: 'anthropic';
-    model: string;
-    apiKey: string;
-  };
-  language?: string;
-}
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -89,77 +83,6 @@ function promptInput(label: string, masked = false): Promise<string> {
   });
 }
 
-/**
- * Check if any settings file exists. If not, prompt for setup and create one.
- */
-async function ensureConfig(cwd: string): Promise<void> {
-  const userPath = getUserSettingsPath();
-  const projectPath = join(cwd, '.robota', 'settings.json');
-  const localPath = join(cwd, '.robota', 'settings.local.json');
-
-  const paths = [
-    userPath,
-    join(homedir(), '.claude', 'settings.json'),
-    projectPath,
-    localPath,
-    join(cwd, '.claude', 'settings.json'),
-    join(cwd, '.claude', 'settings.local.json'),
-  ];
-  const checks = paths.map((p) => ({ path: p, status: checkSettingsFile(p) }));
-
-  if (checks.some((c) => c.status === 'valid')) {
-    return;
-  }
-
-  const corrupt = checks.filter((c) => c.status === 'corrupt');
-  const incomplete = checks.filter((c) => c.status === 'incomplete');
-
-  process.stdout.write('\n');
-  if (corrupt.length > 0) {
-    for (const c of corrupt) {
-      process.stderr.write(`  ERROR: Settings file is corrupt (invalid JSON): ${c.path}\n`);
-    }
-    process.stdout.write('\n');
-  }
-  if (incomplete.length > 0) {
-    for (const c of incomplete) {
-      process.stderr.write(`  WARNING: Settings file is missing provider.apiKey: ${c.path}\n`);
-    }
-    process.stdout.write('\n');
-  }
-
-  if (corrupt.length === 0 && incomplete.length === 0) {
-    process.stdout.write('  Welcome to Robota CLI!\n');
-    process.stdout.write("  No configuration found. Let's set up.\n");
-  } else {
-    process.stdout.write('  Reconfiguring...\n');
-  }
-  process.stdout.write('\n');
-
-  const apiKey = await promptInput('  Anthropic API key: ', true);
-  if (!apiKey) {
-    process.stderr.write('\n  No API key provided. Exiting.\n');
-    process.exit(1);
-  }
-
-  const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
-
-  const settingsDir = dirname(userPath);
-  mkdirSync(settingsDir, { recursive: true });
-  const settings: IFirstRunSettings = {
-    provider: {
-      name: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      apiKey,
-    },
-  };
-  if (language) {
-    settings.language = language;
-  }
-  writeFileSync(userPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
-  process.stdout.write(`\n  Config saved to ${userPath}\n\n`);
-}
-
 /** Delete user settings and exit. */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
@@ -188,13 +111,27 @@ export async function startCli(): Promise<void> {
 
   const cwd = process.cwd();
 
-  // First-run setup: prompt for API key if no config exists
-  await ensureConfig(cwd);
+  if (args.configure) {
+    await runInteractiveProviderSetup(cwd, args, promptInput);
+    return;
+  }
+
+  if (handleProviderConfigurationArgs(cwd, args)) {
+    return;
+  }
+
+  try {
+    await ensureConfig(cwd, args, promptInput);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
 
   // CLI owns provider creation
-  const providerSettings = readProviderSettings(cwd);
+  const providerOptions = args.provider ? { providerOverride: args.provider } : {};
+  const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
-  const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
+  const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
 
   // Session management
   const sessionStore = new SessionStore();

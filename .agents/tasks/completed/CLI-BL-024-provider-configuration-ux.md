@@ -1,8 +1,8 @@
 # CLI Provider Configuration UX
 
-- **Status**: todo
+- **Status**: completed
 - **Created**: 2026-04-29
-- **Branch**: feat/openai-compatible-lm-studio
+- **Branch**: feat/provider-configuration-ux
 - **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-transport-headless
 
 ## Objective
@@ -244,15 +244,15 @@ pnpm harness:scan
 
 ## Implementation Plan
 
-- [ ] Update package SPEC documents.
-- [ ] Write the unit tests above first, grouped by pure helpers, CLI args/setup, headless behavior, TUI side effects, and provider probing.
-- [ ] Extract provider settings pure helpers and settings write helpers.
-- [ ] Add CLI args for setup and provider selection.
-- [ ] Implement first-run provider setup and scriptable `--configure-provider`.
-- [ ] Implement headless missing-config behavior.
-- [ ] Add provider slash commands and TUI side effects.
-- [ ] Add optional provider probing with non-blocking failures.
-- [ ] Update docs and run verification.
+- [x] Update package SPEC documents.
+- [x] Write the unit tests above first, grouped by pure helpers, CLI args/setup, headless behavior, TUI side effects, and provider probing.
+- [x] Extract provider settings pure helpers and settings write helpers.
+- [x] Add CLI args for setup and provider selection.
+- [x] Implement first-run provider setup and scriptable `--configure-provider`.
+- [x] Implement headless missing-config behavior.
+- [x] Add provider slash commands and TUI side effects.
+- [x] Add optional provider probing with non-blocking failures.
+- [x] Update docs and run verification.
 
 ## Risks
 
@@ -274,6 +274,18 @@ pnpm harness:scan
 
 - Created this spec from the provider configuration UX plan.
 
+### 2026-04-30
+
+- Started implementation on `feat/provider-configuration-ux` from the merged `develop` branch.
+- Implemented provider profile settings helpers, scriptable configuration writes, invocation provider override, and first-run provider setup.
+- Added `/provider` slash command handling with confirm-before-persist behavior for provider switches.
+- Added `/provider add openai|anthropic` guided TUI setup prompts with defaults, masking, validation, and restart behavior.
+- Split provider setup prompt semantics into a pure `provider-setup-flow` module so Ink components remain thin adapters.
+- Added SDK built-in command metadata for provider commands and headless provider configuration contract docs.
+- Added unit coverage for CLI arg parsing, provider settings, settings writes, provider command handling, first-run setup, and provider factory resolution.
+- Verified LM Studio `supergemma4-26b-uncensored-v2` text and `stream-json` smoke through the OpenAI-compatible provider.
+- Re-ran affected package tests, build, typecheck, lint, and `pnpm harness:scan`.
+
 ## Decisions
 
 - Provider profiles remain the canonical settings contract.
@@ -283,9 +295,8 @@ pnpm harness:scan
 
 ## Blockers
 
-- None for spec writing.
-- Implementation should not begin until package SPEC updates are made.
+- None.
 
 ## Result
 
-Not implemented yet.
+Completed provider configuration UX for LM Studio/OpenAI-compatible and Anthropic profiles across CLI flags, first-run setup, TUI provider commands, and headless missing-config behavior. Existing legacy `provider` settings remain supported, while new `providers` profiles and `currentProvider` are preferred.
