@@ -110,22 +110,32 @@ const response = await query('Refactor this function');
 
 ## Configuration
 
-Config is loaded from 5 layers. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
+Config is loaded from 6 settings-file layers. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
 
 1. **User global**: `~/.robota/settings.json` (lowest priority)
-2. **Project (primary)**: `.robota/settings.json`
-3. **Project local**: `.robota/settings.local.json` (gitignored)
-4. **Project (Claude Code compatible)**: `.claude/settings.json`
-5. **Project local (Claude Code compatible)**: `.claude/settings.local.json` (gitignored, highest priority)
+2. **User global (Claude Code compatible)**: `~/.claude/settings.json`
+3. **Project (primary)**: `.robota/settings.json`
+4. **Project local**: `.robota/settings.local.json` (gitignored)
+5. **Project (Claude Code compatible)**: `.claude/settings.json`
+6. **Project local (Claude Code compatible)**: `.claude/settings.local.json` (gitignored, highest priority)
 
 The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
 
 ```json
 {
-  "provider": {
-    "name": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "apiKey": "$ENV:ANTHROPIC_API_KEY"
+  "currentProvider": "openai",
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKey": "$ENV:ANTHROPIC_API_KEY"
+    }
   },
   "defaultTrustLevel": "moderate",
   "permissions": {
@@ -142,6 +152,8 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
   }
 }
 ```
+
+`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. LM Studio and other OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`; the legacy single `provider` object remains supported when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 

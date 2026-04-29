@@ -5,34 +5,27 @@
  * (config, context, session, tools).
  */
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
+import { checkSettingsFile } from './utils/settings-check.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 
-/** Result of checking a settings file. */
-type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
-
-/** Check a settings file's state. */
-function checkSettingsFile(filePath: string): TSettingsCheck {
-  if (!existsSync(filePath)) return 'missing';
-  try {
-    const raw = readFileSync(filePath, 'utf8').trim();
-    if (raw.length === 0) return 'incomplete';
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const provider = parsed.provider as Record<string, unknown> | undefined;
-    if (!provider?.apiKey) return 'incomplete';
-    return 'valid';
-  } catch {
-    return 'corrupt';
-  }
+interface IFirstRunSettings {
+  provider: {
+    name: 'anthropic';
+    model: string;
+    apiKey: string;
+  };
+  language?: string;
 }
 
 /** Read version from package.json at runtime. */
@@ -104,7 +97,14 @@ async function ensureConfig(cwd: string): Promise<void> {
   const projectPath = join(cwd, '.robota', 'settings.json');
   const localPath = join(cwd, '.robota', 'settings.local.json');
 
-  const paths = [userPath, projectPath, localPath];
+  const paths = [
+    userPath,
+    join(homedir(), '.claude', 'settings.json'),
+    projectPath,
+    localPath,
+    join(cwd, '.claude', 'settings.json'),
+    join(cwd, '.claude', 'settings.local.json'),
+  ];
   const checks = paths.map((p) => ({ path: p, status: checkSettingsFile(p) }));
 
   if (checks.some((c) => c.status === 'valid')) {
@@ -146,7 +146,7 @@ async function ensureConfig(cwd: string): Promise<void> {
 
   const settingsDir = dirname(userPath);
   mkdirSync(settingsDir, { recursive: true });
-  const settings: Record<string, unknown> = {
+  const settings: IFirstRunSettings = {
     provider: {
       name: 'anthropic',
       model: 'claude-sonnet-4-6',
