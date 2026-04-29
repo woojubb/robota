@@ -66,6 +66,7 @@
     "string-width": "^8.2.0"
   },
   "devDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "@types/marked": "^6.0.0",
     "@types/react": "^19.2.14",
     "ink-testing-library": "^4.0.0",

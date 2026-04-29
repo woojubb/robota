@@ -11,7 +11,7 @@ import {
   insertAtCursor,
   displayOffset,
   charIndexAtDisplayOffset,
-} from '../CjkTextInput.js';
+} from '../flows/cjk-text-input-flow.js';
 
 describe('filterPrintable', () => {
   it('returns empty string for null input', () => {

@@ -106,6 +106,19 @@ Provider changes must follow the existing `/model` restart pattern: command retu
 
 Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns setup steps, defaults, required-field validation, masked-field metadata, and final `IProviderSetupInput` construction. TUI components may only render the current prompt step and pass submitted values back to the flow module.
 
+TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
+
+Flow ownership:
+
+| Flow module                 | Owns                                                                        | Thin shell consumers                                     |
+| --------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                | `TextPrompt`, `ProviderSetupPrompt` through `TextPrompt` |
+| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling       | `ListPicker`, `MenuSelect`, choice prompt flows          |
+| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                 | `ConfirmPrompt`                                          |
+| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions           | `PermissionPrompt`                                       |
+| `input-area-flow.ts`        | slash autocomplete movement, command completion, queue cancel, paste labels | `InputArea`                                              |
+| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                           |
+
 ```
 bin.ts → cli.ts (arg parsing + provider creation)
               └── ui/render.tsx → App.tsx (Ink TUI)
@@ -546,6 +559,13 @@ src/
     │   ├── TuiStateManager.ts       ← Holds history: IHistoryEntry[]; syncs from getFullHistory();
     │   │                              manages windowing (MAX_RENDERED_MESSAGES) and local event entries
     │   └── usePluginCallbacks.ts    ← Plugin TUI callback wiring
+    ├── flows/
+    │   ├── text-prompt-flow.ts      ← Text prompt editing, validation, submit/cancel effects
+    │   ├── selection-flow.ts        ← Shared bounded/wrapping selection state machine
+    │   ├── confirm-prompt-flow.ts   ← Confirmation shortcuts and option selection
+    │   ├── permission-prompt-flow.ts← Permission shortcuts and decision mapping
+    │   ├── input-area-flow.ts       ← Slash autocomplete and paste-label input flow
+    │   └── cjk-text-input-flow.ts   ← CJK-aware text editing and paste flow
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
@@ -802,13 +822,13 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 
 **Architecture:**
 
-- Cursor-only manipulation — text is never modified, only `cursorRef` position changes
+- Cursor-only manipulation — text is never modified, only flow `cursor` position changes
 - External value sync with `cursorHint` — when parent sets value, cursor position is determined by `cursorHint` prop: `null` (default) moves cursor to end (tab completion, clear), a number moves cursor to that position (paste). `cursorHint` is consumed once and reset to `null` after use.
-- Two private helpers in `CjkTextInput.tsx` (no separate module):
+- Helpers in `cjk-text-input-flow.ts`:
   - `displayOffset(chars, charIndex, width)` → cumulative display column offset, accounting for CJK line-end gaps
   - `charIndexAtDisplayOffset(chars, targetOffset, width)` → char index closest to target offset
-- Up arrow: `cursorRef = charIndexAtDisplayOffset(chars, offset - availableWidth, width)`
-- Down arrow: `cursorRef = charIndexAtDisplayOffset(chars, offset + availableWidth, width)`
+- Up arrow: `cursor = charIndexAtDisplayOffset(chars, offset - availableWidth, width)`
+- Down arrow: `cursor = charIndexAtDisplayOffset(chars, offset + availableWidth, width)`
 - Uses `string-width` for CJK character support (2 columns per CJK character)
 
 **Available width calculation:**
@@ -834,7 +854,7 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 - Only enabled when `process.stdin.isTTY && process.stdout.isTTY`
 - Terminal wraps pasted content with `\x1b[200~` (start) and `\x1b[201~` (end) markers
 - Ink's CSI parser strips the ESC prefix, so `useInput` receives `[200~` and `[201~`
-- `CjkTextInput` detects these markers and buffers all input between them
+- `cjk-text-input-flow` detects these markers and buffers all input between them
 - On paste-end marker, the complete buffer is flushed with `\r\n`/`\r` normalized to `\n`
 - Deterministic boundary detection — no debounce or timing heuristics
 

@@ -1,5 +1,13 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
+import {
+  applySelectionInput,
+  createSelectionFlowState,
+  getVerticalSelectionInputAction,
+  normalizeSelectionState,
+  type ISelectionFlowState,
+  type TSelectionInputAction,
+} from './flows/selection-flow.js';
 
 export interface IMenuSelectItem {
   label: string;
@@ -24,40 +32,41 @@ export default function MenuSelect({
   loading,
   error,
 }: IProps): React.ReactElement {
-  const [selected, setSelected] = useState(0);
-  const selectedRef = useRef(0);
-  const resolvedRef = useRef(false);
-
-  const doSelect = useCallback(
-    (index: number) => {
-      if (resolvedRef.current || items.length === 0) return;
-      resolvedRef.current = true;
-      onSelect(items[index].value);
+  const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
+  const stateRef = useRef(state);
+  const isEnabled = !loading && !error;
+  const applyAction = useCallback(
+    (action: TSelectionInputAction): void => {
+      const result = applySelectionInput(stateRef.current, action, {
+        itemCount: items.length,
+        enabled: isEnabled,
+      });
+      stateRef.current = result.state;
+      setState(result.state);
+      if (result.effect.type === 'cancel') {
+        onBack();
+      } else if (result.effect.type === 'select') {
+        const item = items[result.effect.index];
+        if (item !== undefined) {
+          onSelect(item.value);
+        }
+      }
     },
-    [items, onSelect],
+    [isEnabled, items, onBack, onSelect],
   );
 
   useInput((input, key) => {
-    if (resolvedRef.current) return;
-    if (key.escape) {
-      resolvedRef.current = true;
-      onBack();
-      return;
-    }
-    if (loading || error || items.length === 0) return;
-    if (key.upArrow) {
-      const next = selectedRef.current > 0 ? selectedRef.current - 1 : selectedRef.current;
-      selectedRef.current = next;
-      setSelected(next);
-    } else if (key.downArrow) {
-      const next =
-        selectedRef.current < items.length - 1 ? selectedRef.current + 1 : selectedRef.current;
-      selectedRef.current = next;
-      setSelected(next);
-    } else if (key.return) {
-      doSelect(selectedRef.current);
+    const action = getVerticalSelectionInputAction(key);
+    if (action !== undefined) {
+      applyAction(action);
     }
   });
+
+  const normalizedState = normalizeSelectionState(state, { itemCount: items.length });
+  if (normalizedState !== state) {
+    stateRef.current = normalizedState;
+  }
+  const selected = normalizedState.selectedIndex;
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
