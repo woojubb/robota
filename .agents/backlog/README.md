@@ -11,6 +11,7 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-| File                                                                   | Topic                                                         |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md) | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |
+| File                                                                           | Topic                                                         |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |
+| [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |
