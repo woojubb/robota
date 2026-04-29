@@ -8,7 +8,7 @@ Headless transport adapter for non-interactive `InteractiveSession` execution. P
 
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own CLI argument parsing — handled by `@robota-sdk/agent-cli`
-- Does NOT own provider creation — provider is created upstream and injected via session
+- Does NOT own provider creation or provider configuration prompting — provider is created upstream and injected via session
 - OWNS: output format rendering (text, json, stream-json) and exit code determination
 
 ## Public API Surface
@@ -72,6 +72,16 @@ Writes newline-delimited JSON events to stdout during execution:
 ## Claude Code Field Name Compatibility
 
 JSON and stream-json output formats use field names that match Claude Code's `--output-format json` and `--output-format stream-json` (e.g., `type: 'result'`, `session_id`, `subtype`, `content_block_delta`). This is a **reference-only alignment** for user convenience — it allows reuse of `jq` pipelines and parsing scripts. Robota does NOT depend on Claude Code and will NOT track Claude Code's field name changes. The output format is independently owned and versioned by this package.
+
+## Non-Interactive Provider Configuration Contract
+
+Headless transport assumes the upstream CLI has already resolved provider configuration. It must not prompt for provider setup, API keys, or model selection.
+
+When the CLI cannot create a provider for headless execution, the CLI must fail before creating the transport and print an actionable setup message. This package preserves output contracts once a valid `InteractiveSession` is attached:
+
+- `json` writes exactly one result object.
+- `stream-json` writes zero or more `stream_event` objects before one final result object.
+- Provider selection failures are upstream CLI errors, not transport events.
 
 ## Exit Codes
 

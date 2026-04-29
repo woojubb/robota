@@ -10,6 +10,7 @@ import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
+import ProviderSetupPrompt from './ProviderSetupPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
@@ -83,12 +84,18 @@ function AppInner(
   const {
     handleSubmit,
     pendingModelId,
+    pendingProviderProfile,
+    pendingProviderSetupType,
     showPluginTUI,
     showSessionPicker,
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
+    handleProviderConfirm,
+    handleProviderSetupSubmit,
+    handleProviderSetupCancel,
   } = useSideEffects({
+    cwd,
     interactiveSession,
     addEntry,
     baseHandleSubmit,
@@ -153,6 +160,19 @@ function AppInner(
           onSelect={handleModelConfirm}
         />
       )}
+      {pendingProviderProfile && (
+        <ConfirmPrompt
+          message={`Change provider to ${pendingProviderProfile}? This will restart the session.`}
+          onSelect={handleProviderConfirm}
+        />
+      )}
+      {pendingProviderSetupType && (
+        <ProviderSetupPrompt
+          type={pendingProviderSetupType}
+          onSubmit={handleProviderSetupSubmit}
+          onCancel={handleProviderSetupCancel}
+        />
+      )}
       {showPluginTUI && (
         <PluginTUI
           callbacks={pluginCallbacks}
@@ -192,6 +212,7 @@ function AppInner(
           !!permissionRequest ||
           showPluginTUI ||
           showSessionPicker ||
+          !!pendingProviderSetupType ||
           (isThinking && !!pendingPrompt)
         }
         isAborting={isAborting}

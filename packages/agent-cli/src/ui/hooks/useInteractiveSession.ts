@@ -32,6 +32,8 @@ export interface ISideEffects {
   _triggerPluginTUI?: boolean;
   _triggerResumePicker?: boolean;
   _sessionName?: string;
+  _pendingProviderProfile?: string;
+  _pendingProviderSetupType?: 'openai' | 'anthropic';
 }
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
@@ -221,7 +223,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, [manager.isThinking, interactiveSession, manager]);
 
   // Slash command routing (delegated to useSlashRouting)
-  const handleSubmit = useSlashRouting(interactiveSession, registry, manager);
+  const handleSubmit = useSlashRouting(props.cwd, interactiveSession, registry, manager);
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);

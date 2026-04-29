@@ -224,6 +224,8 @@ export async function executeSlashCommand(
       return handleContext(session, addMessage);
     case 'reset':
       return handleReset(addMessage);
+    case 'provider':
+      return { handled: false }; // TUI routes provider commands with settings side effects
     case 'exit':
       return { handled: true, exitRequested: true };
     case 'plugin':

@@ -73,6 +73,39 @@ Supported provider profile types:
 
 LM Studio is represented as `type: "openai"` with `baseURL: "http://localhost:1234/v1"`. The CLI must not use LM Studio native `/api/v1/*` APIs or Anthropic-compatible endpoints for this path.
 
+### Provider Configuration UX
+
+The CLI owns provider setup and provider profile writes. Default writes go to `~/.robota/settings.json`; `.claude/settings.json` compatibility is read-only for Robota-specific provider profile creation.
+
+Supported setup flags:
+
+| Flag                             | Behavior                                                            |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `--configure`                    | Run interactive provider setup and exit                             |
+| `--configure-provider <profile>` | Upsert a provider profile and exit unless a prompt is also provided |
+| `--provider <profile>`           | Select an existing provider profile for this invocation             |
+| `--set-current`                  | Persist the selected or configured profile as `currentProvider`     |
+| `--type <type>`                  | Provider implementation type used by `--configure-provider`         |
+| `--base-url <url>`               | Provider API base URL                                               |
+| `--api-key <value>`              | Store a literal API key                                             |
+| `--api-key-env <name>`           | Store `$ENV:<name>`, not the current environment value              |
+
+First-run setup must offer Anthropic and LM Studio/OpenAI-compatible choices when stdin/stdout are TTYs. Non-interactive print/headless execution must not prompt; missing provider config must produce an actionable error that points to `robota --configure` and `robota --configure-provider`.
+
+Provider slash commands are TUI side effects:
+
+| Command                    | Behavior                                                    |
+| -------------------------- | ----------------------------------------------------------- |
+| `/provider`                | Show current provider and subcommands                       |
+| `/provider current`        | Show active profile, type, model, and baseURL               |
+| `/provider list`           | Show provider profiles from merged settings                 |
+| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session |
+| `/provider test [profile]` | Validate fields and optionally probe the endpoint           |
+
+Provider changes must follow the existing `/model` restart pattern: command returns structured data, TUI confirms, settings are written after confirmation, and the App remounts with a new provider instance.
+
+Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns setup steps, defaults, required-field validation, masked-field metadata, and final `IProviderSetupInput` construction. TUI components may only render the current prompt step and pass submitted values back to the flow module.
+
 ```
 bin.ts → cli.ts (arg parsing + provider creation)
               └── ui/render.tsx → App.tsx (Ink TUI)
