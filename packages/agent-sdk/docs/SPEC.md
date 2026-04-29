@@ -223,7 +223,35 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Package**: `agent-sdk/config/`
 - **Rationale**: `.robota/settings.json` file-based configuration is for local development environments only (servers use environment variables/DB)
-- **Implementation**: 3-layer merge (user global → project → local), `$ENV:VAR` substitution, Zod validation
+- **Implementation**: settings file merge, `$ENV:VAR` substitution for provider API keys, Zod validation, provider profile resolution
+- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`.
+- **Legacy compatibility**: legacy `provider` settings remain supported and are used when no active provider profile is configured.
+
+Provider profile shape:
+
+```json
+{
+  "currentProvider": "openai",
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    }
+  }
+}
+```
+
+Resolved provider fields:
+
+| Field     | Description                                                        |
+| --------- | ------------------------------------------------------------------ |
+| `name`    | Provider type used by session model config (`anthropic`, `openai`) |
+| `model`   | Active model id                                                    |
+| `apiKey`  | API key or local placeholder token                                 |
+| `baseURL` | Optional OpenAI-compatible endpoint override                       |
+| `timeout` | Optional provider request timeout in milliseconds                  |
 
 ### Context Loading (SDK-Specific)
 
@@ -636,18 +664,26 @@ These executors are registered with `runHooks` via the `executors` map during se
 
 ## Settings Configuration
 
-Settings are loaded with a 6-layer precedence model (highest priority first). `.robota/` is the primary configuration convention; `.claude/` paths are supported for Claude Code compatibility.
+Settings are loaded with a 6-file precedence model (lowest priority first). `.robota/` is the primary configuration convention; `.claude/` paths are supported for Claude Code compatibility.
 
-| Layer | Path                              | Scope                                |
-| ----- | --------------------------------- | ------------------------------------ |
-| 1     | CLI flags / environment variables | Invocation                           |
-| 2     | `.robota/settings.local.json`     | Project (local)                      |
-| 3     | `.robota/settings.json`           | Project                              |
-| 4     | `.claude/settings.json`           | Project (Claude Code compatible)     |
-| 5     | `~/.robota/settings.json`         | User global                          |
-| 6     | `~/.claude/settings.json`         | User global (Claude Code compatible) |
+| Layer | Path                          | Scope                                   |
+| ----- | ----------------------------- | --------------------------------------- |
+| 1     | `~/.robota/settings.json`     | User global                             |
+| 2     | `~/.claude/settings.json`     | User global (Claude Code compatible)    |
+| 3     | `.robota/settings.json`       | Project                                 |
+| 4     | `.robota/settings.local.json` | Project (local)                         |
+| 5     | `.claude/settings.json`       | Project (Claude Code compatible)        |
+| 6     | `.claude/settings.local.json` | Project (local, Claude Code compatible) |
 
-The `.claude/settings.json` layers (4 and 6) provide Claude Code compatibility — settings written by Claude Code are automatically picked up by Robota. Higher layers override lower layers via deep merge. `$ENV:VAR` substitution is applied after merge.
+The `.claude/settings.json` layers provide Claude Code compatibility — settings written by Claude Code are automatically picked up by Robota. Higher layers override lower layers via deep merge. `$ENV:VAR` substitution is applied after merge for provider API keys.
+
+Provider resolution order:
+
+1. `currentProvider` plus `providers[currentProvider]`
+2. Legacy `provider`
+3. Existing defaults
+
+The SDK remains provider-neutral: it resolves provider metadata for session assembly, but consumers such as `agent-cli` still construct concrete provider instances.
 
 ## Bundle Plugin System
 

@@ -206,7 +206,9 @@ describe('createHeadlessRunner (stream-json format)', () => {
     expect(exitCode).toBe(0);
 
     const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
-    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
 
     // 2 stream_event lines + 1 final result line
     expect(parsed).toHaveLength(3);
@@ -269,7 +271,9 @@ describe('createHeadlessRunner (stream-json format)', () => {
     expect(exitCode).toBe(1);
 
     const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
-    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0]).toEqual({

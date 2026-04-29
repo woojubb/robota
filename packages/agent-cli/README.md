@@ -26,9 +26,9 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 
 ### Environment Variables
 
-| Variable            | Description       | Required |
-| ------------------- | ----------------- | -------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key | Yes      |
+| Variable            | Description                                    | Required       |
+| ------------------- | ---------------------------------------------- | -------------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
 
 Set your key before running:
 
@@ -107,12 +107,12 @@ git diff | robota -p "Summarize changes" --output-format stream-json
 
 ## First-Run Setup
 
-When no settings file exists, the CLI prompts for:
+When no usable settings file exists, the CLI prompts for:
 
 1. **Anthropic API key** (input masked with asterisks)
 2. **Response language** (ko/en/ja/zh, default: en)
 
-Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
+Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state. OpenAI-compatible local profiles, such as LM Studio, can be configured manually without using the first-run Anthropic prompt.
 
 ## Built-in Tools
 
@@ -267,26 +267,48 @@ The `/plugin` command opens an interactive TUI for managing bundle plugins:
 
 ## Configuration
 
-Settings are loaded from (highest priority first):
+Settings are merged in this order, from lowest to highest priority:
 
-1. `.robota/settings.local.json` (local, gitignored)
-2. `.robota/settings.json` (project, shared)
-3. `.claude/settings.json` (project, Claude Code compatible)
-4. `~/.robota/settings.json` (user global)
-5. `~/.claude/settings.json` (user global, Claude Code compatible)
+1. `~/.robota/settings.json` (user global)
+2. `~/.claude/settings.json` (user global, Claude Code compatible)
+3. `.robota/settings.json` (project, shared)
+4. `.robota/settings.local.json` (local, gitignored)
+5. `.claude/settings.json` (project, Claude Code compatible)
+6. `.claude/settings.local.json` (local, gitignored, Claude Code compatible)
 
 ```json
 {
   "defaultMode": "default",
   "language": "en",
-  "provider": {
-    "name": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "apiKey": "$ENV:ANTHROPIC_API_KEY"
+  "currentProvider": "openai",
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKey": "$ENV:ANTHROPIC_API_KEY"
+    }
   },
   "permissions": {
     "allow": ["Bash(pnpm *)"],
     "deny": ["Bash(rm -rf *)"]
+  }
+}
+```
+
+`currentProvider` selects a profile from `providers`. LM Studio uses `type: "openai"` because the CLI talks to its OpenAI-compatible `/v1/chat/completions` API through `baseURL`. The legacy single-provider shape remains supported:
+
+```json
+{
+  "provider": {
+    "name": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "apiKey": "$ENV:ANTHROPIC_API_KEY"
   }
 }
 ```
