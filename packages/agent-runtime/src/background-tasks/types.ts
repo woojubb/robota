@@ -2,6 +2,8 @@ export type TBackgroundTaskKind = 'agent' | 'process';
 
 export type TBackgroundTaskMode = 'foreground' | 'background';
 
+export type TBackgroundTaskIsolation = 'none' | 'worktree';
+
 export type TBackgroundTaskStatus =
   | 'queued'
   | 'running'
@@ -68,6 +70,7 @@ export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest 
   agentType: string;
   prompt: string;
   model?: string;
+  isolation?: TBackgroundTaskIsolation;
   allowedTools?: string[];
   disallowedTools?: string[];
   permissionPolicy: TBackgroundPermissionPolicy;
@@ -111,6 +114,7 @@ export interface IBackgroundTaskState {
   completedAt?: string;
   promptPreview?: string;
   commandPreview?: string;
+  isolation?: TBackgroundTaskIsolation;
   currentAction?: string;
   unread: boolean;
   result?: IBackgroundTaskResult;

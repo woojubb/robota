@@ -12,7 +12,15 @@ import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
-import type { ISubagentJobHandle, ISubagentJobStart, ISubagentRunner } from './types.js';
+import type {
+  ISubagentJobHandle,
+  ISubagentJobStart,
+  ISubagentRunner,
+} from '@robota-sdk/agent-runtime';
+
+type TSubagentToolExecutionEvent = Parameters<
+  NonNullable<IInProcessSubagentRunnerDeps['onToolExecution']>
+>[0];
 
 export interface IInProcessSubagentRunnerDeps {
   config: IResolvedConfig;
@@ -66,9 +74,33 @@ function extractFirstArg(toolArgs?: TToolArgs): string | undefined {
   return typeof firstValue === 'object' ? JSON.stringify(firstValue) : String(firstValue);
 }
 
+function assertSupportedIsolation(job: ISubagentJobStart): void {
+  if (job.request.isolation === 'worktree') {
+    throw new Error('Worktree isolation requires a runtime shell subagent runner');
+  }
+}
+
+function emitToolExecutionEvent(job: ISubagentJobStart, event: TSubagentToolExecutionEvent): void {
+  if (event.type === 'start') {
+    job.emit?.({
+      type: 'background_task_tool_start',
+      toolName: event.toolName,
+      firstArg: extractFirstArg(event.toolArgs),
+    });
+    return;
+  }
+
+  job.emit?.({
+    type: 'background_task_tool_end',
+    toolName: event.toolName,
+    success: event.success ?? true,
+  });
+}
+
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
+      assertSupportedIsolation(job);
       const definition = resolveAgentDefinition(job.request.type, deps.customAgentRegistry);
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
@@ -86,19 +118,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           deps.onTextDelta?.(delta);
         },
         onToolExecution: (event) => {
-          if (event.type === 'start') {
-            job.emit?.({
-              type: 'background_task_tool_start',
-              toolName: event.toolName,
-              firstArg: extractFirstArg(event.toolArgs),
-            });
-          } else {
-            job.emit?.({
-              type: 'background_task_tool_end',
-              toolName: event.toolName,
-              success: event.success ?? true,
-            });
-          }
+          emitToolExecutionEvent(job, event);
           deps.onToolExecution?.(event);
         },
       });

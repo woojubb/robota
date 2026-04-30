@@ -6,8 +6,13 @@ export { createManagedShellProcessRunner } from './background/managed-shell-proc
 export {
   ChildProcessSubagentRunner,
   createChildProcessSubagentRunnerFactory,
+  GitWorktreeIsolationAdapter,
+  createGitWorktreeIsolationAdapter,
 } from './subagents/index.js';
-export type { IChildProcessSubagentRunnerOptions } from './subagents/index.js';
+export type {
+  IChildProcessSubagentRunnerOptions,
+  IGitWorktreeIsolationAdapterOptions,
+} from './subagents/index.js';
 export type { IManagedShellProcessRunnerOptions } from './background/managed-shell-process-runner.js';
 
 // Local CLI types

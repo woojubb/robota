@@ -39,7 +39,7 @@ Robota (Facade)
   │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
   │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
   │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
-  │     └── types.ts                — THookEvent (8 events), IHookDefinition (discriminated union), IHookTypeExecutor
+  │     └── types.ts                — THookEvent (9 events), IHookDefinition (discriminated union), IHookTypeExecutor
   └── Plugin Layer (1 built-in + 8 external @robota-sdk/agent-plugin-* packages)
         ├── EventEmitterPlugin           (built-in — event coordination)
         └── External plugins (per @robota-sdk/agent-plugin-*):
@@ -91,7 +91,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `TToolArgs`                 | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                                                                                                                                                         |
 | `IPermissionLists`          | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                                                                                                                                                        |
 | `TKnownToolName`            | `permissions/permission-mode.ts` | Known tool names in the permission system                                                                                                                                                                             |
-| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events (7 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit                                                                                              |
+| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events (9 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, WorktreeCreate, WorktreeRemove                                                              |
 | `THooksConfig`              | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                                                                                                                                                    |
 | `IHookGroup`                | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                                                                                                                                                        |
 | `IHookDefinition`           | `hooks/types.ts`                 | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                              |
@@ -154,18 +154,18 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 
 ### Hooks
 
-| Export              | Kind      | Description                                                                                      |
-| ------------------- | --------- | ------------------------------------------------------------------------------------------------ |
-| `runHooks`          | function  | Execute hooks for lifecycle events using pluggable type executors                                |
-| `THookEvent`        | type      | 7 events: PreToolUse, PostToolUse, SessionStart, Stop, PreCompact, PostCompact, UserPromptSubmit |
-| `THooksConfig`      | type      | Event to hook group array mapping                                                                |
-| `IHookGroup`        | type      | Matcher pattern + hook definitions                                                               |
-| `IHookDefinition`   | type      | Discriminated union: command, http, prompt, agent hook types                                     |
-| `IHookTypeExecutor` | interface | Strategy interface for executing a specific hook type                                            |
-| `CommandExecutor`   | class     | Built-in executor for `command` type hooks (shell execution)                                     |
-| `HttpExecutor`      | class     | Built-in executor for `http` type hooks (HTTP request)                                           |
-| `IHookInput`        | type      | JSON input passed to hooks via stdin                                                             |
-| `IHookResult`       | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                         |
+| Export              | Kind      | Description                                                                                                                      |
+| ------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `runHooks`          | function  | Execute hooks for lifecycle events using pluggable type executors                                                                |
+| `THookEvent`        | type      | 9 events: PreToolUse, PostToolUse, SessionStart, Stop, PreCompact, PostCompact, UserPromptSubmit, WorktreeCreate, WorktreeRemove |
+| `THooksConfig`      | type      | Event to hook group array mapping                                                                                                |
+| `IHookGroup`        | type      | Matcher pattern + hook definitions                                                                                               |
+| `IHookDefinition`   | type      | Discriminated union: command, http, prompt, agent hook types                                                                     |
+| `IHookTypeExecutor` | interface | Strategy interface for executing a specific hook type                                                                            |
+| `CommandExecutor`   | class     | Built-in executor for `command` type hooks (shell execution)                                                                     |
+| `HttpExecutor`      | class     | Built-in executor for `http` type hooks (HTTP request)                                                                           |
+| `IHookInput`        | type      | JSON input passed to hooks via stdin                                                                                             |
+| `IHookResult`       | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                                         |
 
 ### Streaming
 

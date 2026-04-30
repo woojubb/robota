@@ -19,6 +19,7 @@ The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQue
 
 ```
 agent-core           ← types, abstractions, utilities (unchanged)
+agent-runtime        ← background task + subagent lifecycle primitives (unchanged)
 agent-sessions       ← Session, permissions, compaction (unchanged)
 agent-tools          ← tool infrastructure + 8 built-in tools (unchanged)
 agent-provider-*     ← provider implementations (unchanged)
@@ -27,6 +28,7 @@ agent-sdk            ← InteractiveSession (single entry point)
   ├── embedded: SystemCommandExecutor (session.executeCommand())
   ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
   ├── embedded: Agent tool + AgentDefinitionLoader for model-requested delegation
+  ├── composed: agent-runtime BackgroundTaskManager, SubagentManager, runner ports
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
@@ -74,6 +76,7 @@ The SDK layer has **no React dependency** and **no provider dependency**. The CL
 | Package               | Role                                                                                                       | General/Specialized |
 | --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------- |
 | **agent-core**        | Robota engine, execution loop, provider abstraction, permissions, hooks                                    | General             |
+| **agent-runtime**     | Background task and subagent lifecycle primitives, runner ports, worktree runner decorator                 | General             |
 | **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                            | General             |
 | **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                          | General             |
 | **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), embedded commands, createQuery(), config, context | SDK-specific        |
@@ -87,6 +90,10 @@ agent-core
 ├── src/permissions/          ← permission-gate, permission-mode, types
 ├── src/hooks/                ← hook-runner, hook types
 └── (existing) Robota, execution, providers, plugins
+
+agent-runtime (reusable runtime primitives — depends only on agent-core)
+├── src/background-tasks/     ← BackgroundTaskManager, state machine, task runner ports
+└── src/subagents/            ← SubagentManager, subagent runner port, worktree runner decorator
 
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
@@ -117,7 +124,8 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
-├── src/subagents/              ← SubagentManager + runner ports/adapters for managed subagent jobs
+├── src/subagents/              ← SDK in-process runner + explicit compatibility exports from agent-runtime
+├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
 ├── src/permissions/            ← permission-prompt.ts (terminal approval prompt)
 ├── src/paths.ts                ← projectPaths / userPaths helpers
 ├── src/types.ts                ← re-exports shared types from agent-sessions
@@ -398,7 +406,7 @@ Common interface for all transport adapters. Defined in `src/interactive/types.t
 
 ### Background and Subagent Runtime Exports
 
-`BackgroundTaskManager` is exported as the generic SDK-owned runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, terminal close/dismiss, optional send/log controls, and immutable state snapshots.
+`BackgroundTaskManager` is re-exported from `agent-runtime` as the generic runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, terminal close/dismiss, optional send/log controls, and immutable state snapshots.
 
 Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reporting. The manager stamps task IDs onto runner events, updates `currentAction` for tool start/end events, and forwards the resulting `TBackgroundTaskEvent` to subscribers.
 
@@ -414,7 +422,7 @@ Background task runtime exports:
 | `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task               |
 | `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests |
 | `IBackgroundTaskResult`          | interface | Completed background task output                              |
-| `TBackgroundTaskEvent`           | type      | SDK-owned lifecycle/progress event union                      |
+| `TBackgroundTaskEvent`           | type      | Runtime-owned lifecycle/progress event union                  |
 | `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs            |
 | `TBackgroundTaskMode`            | type      | `foreground` or `background`                                  |
 | `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                            |
@@ -442,6 +450,8 @@ const job = await manager.spawn({
 const result = await manager.wait(job.id);
 ```
 
+Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `Agent` tool arguments, `ISubagentSpawnRequest`, and background task metadata. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath` and `branchName` are projected onto `IBackgroundTaskState.worktreePath` and `branchName`.
+
 `createBackgroundProcessTool(deps)` is exported for SDK composition. The tool is registered only when a runtime shell injects a `process` background runner through `createSession({ backgroundTaskRunners })`; default `Bash` foreground behavior remains unchanged.
 
 `createSession()` also accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. When omitted, SDK composition uses `createInProcessSubagentRunner`. Runtime shells such as `agent-cli` may inject a factory that receives the same assembled dependency bundle and returns a process-backed `ISubagentRunner`.
@@ -450,19 +460,23 @@ Exported subagent runtime types:
 
 | Export                          | Kind      | Description                                                               |
 | ------------------------------- | --------- | ------------------------------------------------------------------------- |
-| `SubagentManager`               | class     | In-memory subagent job registry and scheduler                             |
+| `SubagentManager`               | class     | Re-export from `agent-runtime`; in-memory subagent job facade             |
 | `createInProcessSubagentRunner` | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
+| `WorktreeSubagentRunner`        | class     | Re-export from `agent-runtime`; worktree isolation runner decorator       |
+| `createWorktreeSubagentRunner`  | function  | Factory for `WorktreeSubagentRunner`                                      |
 | `createDefaultTools`            | function  | Default tool assembly helper exported for CLI fork-worker composition     |
-| `ISubagentManager`              | interface | Manager API for spawn/wait/list/get/cancel/close/send                     |
-| `ISubagentRunner`               | interface | Port implemented by in-process or process runner                          |
+| `ISubagentManager`              | interface | Re-export from `agent-runtime`; manager API                               |
+| `ISubagentRunner`               | interface | Re-export from `agent-runtime`; single-job runner port                    |
+| `ISubagentWorktreeAdapter`      | interface | Re-export from `agent-runtime`; concrete worktree I/O port                |
+| `IPreparedSubagentWorktree`     | interface | Re-export from `agent-runtime`; prepared worktree handoff                 |
 | `IInProcessSubagentRunnerDeps`  | interface | Dependencies captured by the in-process runner adapter                    |
 | `TSubagentRunnerFactory`        | type      | Factory seam for runtime shells to replace the default subagent runner    |
-| `ISubagentJobHandle`            | interface | Targeted job cancellation/result handle                                   |
-| `ISubagentJobState`             | interface | Runtime lifecycle state for one subagent job                              |
-| `ISubagentSpawnRequest`         | interface | Input for spawning a managed subagent job                                 |
-| `ISubagentJobResult`            | interface | Completed subagent output                                                 |
-| `TSubagentJobMode`              | type      | `foreground` or `background`                                              |
-| `TSubagentJobStatus`            | type      | Job lifecycle status union                                                |
+| `ISubagentJobHandle`            | interface | Re-export from `agent-runtime`; targeted job handle                       |
+| `ISubagentJobState`             | interface | Re-export from `agent-runtime`; subagent job projection                   |
+| `ISubagentSpawnRequest`         | interface | Re-export from `agent-runtime`; spawn request                             |
+| `ISubagentJobResult`            | interface | Re-export from `agent-runtime`; completion output and metadata            |
+| `TSubagentJobMode`              | type      | Re-export from `agent-runtime`; `foreground` or `background`              |
+| `TSubagentJobStatus`            | type      | Re-export from `agent-runtime`; lifecycle status union                    |
 
 ### History Entry Types
 
@@ -669,7 +683,8 @@ These rules define which packages each layer is allowed to import from. Violatio
 
 | Source             | Allowed                       | Notes                                                                     |
 | ------------------ | ----------------------------- | ------------------------------------------------------------------------- |
-| `agent-sdk`        | All SDK-owned public APIs     | InteractiveSession, createQuery, TInteractivePermissionHandler, etc.      |
+| `agent-sdk`        | All SDK-owned public APIs     | InteractiveSession, createQuery, runtime contracts re-exported by SDK     |
+| `agent-runtime`    | ❌ Direct import discouraged  | CLI should receive runtime ports through SDK composition/re-exports       |
 | `agent-core`       | Public types + utilities only | TUniversalMessage, TPermissionMode, createSystemMessage, getModelName     |
 | `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                 |
 | `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly |
@@ -681,6 +696,7 @@ These rules define which packages each layer is allowed to import from. Violatio
 | Source             | Allowed      | Notes                                                 |
 | ------------------ | ------------ | ----------------------------------------------------- |
 | `agent-core`       | Full access  |                                                       |
+| `agent-runtime`    | Full access  | Background task/subagent lifecycle primitives         |
 | `agent-sessions`   | Full access  |                                                       |
 | `agent-tools`      | Full access  |                                                       |
 | `agent-provider-*` | ❌ Forbidden | SDK is provider-neutral; provider comes from consumer |
@@ -843,7 +859,7 @@ During `createSession()`, hooks from the merged settings configuration are wired
 
 ## Background Task Execution
 
-`BackgroundTaskManager` is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
+`BackgroundTaskManager` is owned by `agent-runtime` and re-exported by `agent-sdk` for compatibility. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
 
 Responsibilities:
 
@@ -854,7 +870,7 @@ Responsibilities:
 - emit a single `TBackgroundTaskEvent` union for lifecycle/progress projection
 - keep runner implementation details out of TUI, transports, and tool code
 
-The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers.
+The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. SDK code composes the manager with SDK-owned tools and `InteractiveSession`; it does not own the lifecycle state machine.
 
 `InteractiveSession` exposes background task controls:
 
@@ -898,7 +914,7 @@ The built-in `/background` system command maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is the SDK-owned compatibility facade for managed subagent jobs. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
+`SubagentManager` is owned by `agent-runtime` and re-exported by `agent-sdk` for compatibility. It is the managed subagent compatibility facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
 
 Responsibilities:
 
@@ -908,11 +924,11 @@ Responsibilities:
 - expose `spawn`, `wait`, `list`, `get`, `cancel`, `close`, and `send` operations
 - keep runner implementation details out of TUI and Agent tool code
 
-`SubagentManager` does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. It exposes `getBackgroundTaskManager()` so `InteractiveSession` can forward generic background task events and controls without depending on subagent-specific types.
+`SubagentManager` does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. It exposes `getBackgroundTaskManager()` so SDK `InteractiveSession` can forward generic background task events and controls without depending on subagent-specific types.
 
 ### SubagentRunner Port
 
-`ISubagentRunner` is the execution boundary for one subagent job. Implementations can run jobs in-process for tests or in a child process for CLI runtime.
+`ISubagentRunner` is owned by `agent-runtime` and is the execution boundary for one subagent job. Implementations can run jobs in-process for tests or in a child process for CLI runtime.
 
 ```typescript
 interface ISubagentRunner {
@@ -937,6 +953,28 @@ interface ISubagentJobHandle {
 The runner reports completion through its `result` promise and supports targeted cancellation through `cancel()`. Follow-up routing via `send()` is optional until a runner supports it.
 
 `createInProcessSubagentRunner(deps)` is the default SDK adapter for foreground compatibility. It resolves the requested agent definition, creates an isolated child `Session` with `createSubagentSession()`, runs the prompt, and maps the response to `ISubagentJobResult`.
+
+### WorktreeSubagentRunner
+
+`WorktreeSubagentRunner` is owned by `agent-runtime`. It keeps worktree isolation behavior reusable across CLI, headless, or future runtime shells while keeping concrete Git commands outside the reusable runtime layer.
+
+The decorator depends on:
+
+- an inner `ISubagentRunner` that performs the actual agent execution
+- an `ISubagentWorktreeAdapter` port that can prepare, inspect, and remove worktrees
+- optional `THooksConfig` and hook executors for worktree lifecycle notifications
+
+When `job.request.isolation !== 'worktree'`, the decorator delegates to the inner runner without changing the request.
+
+When `job.request.isolation === 'worktree'`, the decorator must:
+
+- call `ISubagentWorktreeAdapter.prepare({ jobId, cwd })`
+- invoke the inner runner with `cwd`, `worktreePath`, and `branchName` set to the prepared worktree
+- emit `WorktreeCreate` hook notification after preparation
+- remove clean worktrees on success, delegated failure, or synchronous delegated start failure
+- preserve dirty worktrees and return `worktreePath` plus `branchName` in `ISubagentJobResult.metadata`
+- preserve existing result metadata while adding worktree metadata
+- emit `WorktreeRemove` hook notification when a clean worktree is removed
 
 ### createSubagentSession(options)
 
@@ -976,14 +1014,17 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 The parent session exposes an `Agent` function tool with parameters:
 
-| Parameter       | Type      | Required | Description                                              |
-| --------------- | --------- | -------- | -------------------------------------------------------- |
-| `prompt`        | `string`  | Yes      | Task prompt for the isolated agent session               |
-| `subagent_type` | `string`  | No       | Agent name. Defaults to `general-purpose` when omitted   |
-| `model`         | `string`  | No       | Optional model override for this invocation              |
-| `background`    | `boolean` | No       | Start as background task and return metadata immediately |
+| Parameter       | Type                   | Required | Description                                              |
+| --------------- | ---------------------- | -------- | -------------------------------------------------------- |
+| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session               |
+| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted   |
+| `model`         | `string`               | No       | Optional model override for this invocation              |
+| `background`    | `boolean`              | No       | Start as background task and return metadata immediately |
+| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree  |
 
 The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
+
+When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O.
 
 ### AgentDefinitionLoader (Internal)
 

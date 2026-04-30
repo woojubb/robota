@@ -906,13 +906,29 @@ Child-process subagent runner responsibilities:
 - forward worker text/tool IPC messages to `BackgroundTaskManager` progress events
 - forward cancellation to the worker and terminate it after a grace period
 - forward follow-up prompts to workers that support input
-- keep SDK-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter
+- keep runtime-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter
+
+When an agent request sets `isolation: 'worktree'`, the CLI composes the runtime-owned `WorktreeSubagentRunner` exposed through SDK contracts around the child-process runner and injects a CLI-owned `GitWorktreeIsolationAdapter`.
+
+The runtime worktree runner owns worktree lifecycle orchestration:
+
+- delegate non-worktree requests unchanged
+- run isolated workers with `cwd` set to the prepared worktree path
+- remove clean worktrees on success or worker failure
+- preserve dirty worktrees and return `worktreePath` plus `branchName` in result metadata
+- fire SDK hook notifications for `WorktreeCreate` and `WorktreeRemove` when configured
+
+The CLI-owned Git adapter implements only local Git/filesystem I/O:
+
+- create a temporary branch and worktree before the worker starts
+- remove the worktree and branch when the worktree remains clean
+- report whether the worktree has local edits
 
 When a user invokes a skill slash command with `context: fork`, the CLI must call `interactiveSession.executeSkillCommand(...)`. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection. This keeps fork execution deterministic and preserves the CLI as a thin TUI shell.
 
 When a user asks in normal conversation to call or delegate to an agent, the request is handled by the model through the SDK-owned `Agent` tool. The CLI only displays the resulting tool execution events and final assistant response.
 
-Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the SDK-owned `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
+Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the runtime-owned event union exposed as the SDK `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
 
 `BackgroundTaskPanel` renders active and recently completed background tasks with status, kind, label, task ID, unread marker, and a short preview. User controls are routed through SDK system commands:
 
@@ -923,7 +939,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 | `/background cancel <task-id>`        | Cancel one queued/running task |
 | `/background close <task-id>`         | Dismiss one terminal task      |
 
-For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk SPEC.
+For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
 
 ## Memory Management
 
@@ -973,18 +989,18 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 `@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
 
-| Package                                | Purpose                                                                      |
-| -------------------------------------- | ---------------------------------------------------------------------------- |
-| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management  |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)     |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)             |
-| `@robota-sdk/agent-provider-openai`    | OpenAI/OpenAI-compatible provider creation (including LM Studio via baseURL) |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                              |
-| `ink` 7, `react` 19.2+                 | TUI rendering                                                                |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                      |
-| `ink-spinner`                          | Loading spinner                                                              |
-| `chalk`                                | Terminal colors                                                              |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                   |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                      |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                          |
-| `string-width`                         | Unicode-aware string width calculation                                       |
+| Package                                | Purpose                                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management, re-exported runtime contracts |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                   |
+| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)                                           |
+| `@robota-sdk/agent-provider-openai`    | OpenAI/OpenAI-compatible provider creation (including LM Studio via baseURL)                               |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                            |
+| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                              |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                    |
+| `ink-spinner`                          | Loading spinner                                                                                            |
+| `chalk`                                | Terminal colors                                                                                            |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                 |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                    |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                                                        |
+| `string-width`                         | Unicode-aware string width calculation                                                                     |

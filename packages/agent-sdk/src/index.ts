@@ -146,6 +146,7 @@ export type {
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,
   TBackgroundTaskKind,
+  TBackgroundTaskIsolation,
   TBackgroundTaskMode,
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskStatus,
@@ -153,16 +154,25 @@ export type {
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
-export { SubagentManager } from './subagents/index.js';
+export {
+  SubagentManager,
+  WorktreeSubagentRunner,
+  createWorktreeSubagentRunner,
+} from './subagents/index.js';
 export type {
   IInProcessSubagentRunnerDeps,
+  IPreparedSubagentWorktree,
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobStart,
   ISubagentJobState,
+  ISubagentManager,
   ISubagentManagerOptions,
   ISubagentRunner,
   ISubagentSpawnRequest,
+  ISubagentWorktreeAdapter,
+  ISubagentWorktreePrepareRequest,
+  IWorktreeSubagentRunnerOptions,
   TSubagentRunnerFactory,
   TSubagentJobMode,
   TSubagentJobStatus,

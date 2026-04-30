@@ -51,6 +51,7 @@ import { createAgentTool } from '../agent-tool.js';
 import type { IAgentToolDeps } from '../agent-tool.js';
 import { createSubagentSession } from '../../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../../agents/built-in-agents.js';
+import type { ISubagentManager } from '../../subagents/index.js';
 
 /** Extract the JSON-parsed data from an IToolResult */
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
@@ -128,6 +129,7 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
     expect(props).toHaveProperty('background');
+    expect(props).toHaveProperty('isolation');
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -250,6 +252,71 @@ describe('Agent tool', () => {
       success: true,
       output: 'managed output',
       agentId: 'agent_managed_1',
+    });
+  });
+
+  it('should forward worktree isolation and return handoff metadata', async () => {
+    const subagentManager: ISubagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_worktree_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'foreground',
+        depth: 1,
+        cwd: '/workspace',
+        isolation: 'worktree',
+        promptPreview: 'Change files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_worktree_1',
+        output: 'changed files',
+        metadata: {
+          worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+          branchName: 'robota/agent_worktree_1',
+        },
+      }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Change files',
+      subagent_type: 'Explore',
+      isolation: 'worktree',
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        prompt: 'Change files',
+        isolation: 'worktree',
+      }),
+    );
+    expect(result).toEqual({
+      success: true,
+      output: 'changed files',
+      agentId: 'agent_worktree_1',
+      metadata: {
+        worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+        branchName: 'robota/agent_worktree_1',
+      },
+      worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+      branchName: 'robota/agent_worktree_1',
     });
   });
 

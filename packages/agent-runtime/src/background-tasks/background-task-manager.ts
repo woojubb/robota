@@ -18,6 +18,7 @@ import {
 import { isTerminalBackgroundTaskStatus, transitionBackgroundTaskStatus } from './state-machine.js';
 import {
   cloneBackgroundTaskState,
+  applyBackgroundTaskResultMetadataToState,
   createDeferred,
   createQueuedBackgroundTaskState,
   createRunnerError,
@@ -202,6 +203,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     task.state.status = transitionBackgroundTaskStatus(task.state.status, 'COMPLETE');
     task.state.result = result;
+    applyBackgroundTaskResultMetadataToState(task.state, result);
     task.state.unread = task.state.mode === 'background';
     task.state.completedAt = this.now();
     task.state.updatedAt = task.state.completedAt;

@@ -70,7 +70,7 @@ Implement the first production slices of Robota's shared background task layer s
 
 ## Decisions
 
-- Start with the SDK-owned generic manager and in-process agent integration before child-process/process runners. This gives TUI and transport layers one lifecycle contract before Node-specific runner adapters are added.
+- Start with the reusable runtime-owned generic manager and SDK in-process agent integration before child-process/process runners. This gives TUI and transport layers one lifecycle contract before Node-specific runner adapters are added.
 - Keep child-process agent isolation as the next slice. The current change establishes the shared lifecycle, TUI/API surface, and managed shell process runner first.
 - The child-process runner will live in `agent-cli`, not `agent-sdk`, because it depends on Node process management and provider reconstruction from CLI-owned settings.
 - The SDK will expose a runner-factory seam that receives the same dependency bundle as the in-process runner. This keeps SDK defaults unchanged while allowing CLI production runtime to supply a process-backed runner.

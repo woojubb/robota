@@ -31,7 +31,7 @@ import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
-import { SubagentManager } from '../subagents/subagent-manager.js';
+import { SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';

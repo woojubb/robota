@@ -2,7 +2,9 @@ import type {
   IBackgroundTaskManager,
   IBackgroundTaskRunner,
   IBackgroundTaskRequest,
+  TBackgroundPrimitive,
   TBackgroundTaskRunnerEvent,
+  TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
 
 export type TSubagentJobStatus =
@@ -22,8 +24,11 @@ export interface ISubagentSpawnRequest {
   mode: TSubagentJobMode;
   depth: number;
   cwd: string;
+  worktreePath?: string;
+  branchName?: string;
   prompt: string;
   model?: string;
+  isolation?: TBackgroundTaskIsolation;
   allowedTools?: string[];
   disallowedTools?: string[];
   timeoutMs?: number;
@@ -39,6 +44,7 @@ export interface ISubagentJobState {
   depth: number;
   pid?: number;
   cwd: string;
+  isolation?: TBackgroundTaskIsolation;
   worktreePath?: string;
   branchName?: string;
   promptPreview: string;
@@ -53,6 +59,7 @@ export interface ISubagentJobState {
 export interface ISubagentJobResult {
   jobId: string;
   output: string;
+  metadata?: Record<string, TBackgroundPrimitive>;
 }
 
 export interface ISubagentJobStart {

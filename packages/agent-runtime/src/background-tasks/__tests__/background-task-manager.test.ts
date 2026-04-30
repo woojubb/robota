@@ -108,6 +108,39 @@ describe('BackgroundTaskManager', () => {
     );
   });
 
+  it('projects runner worktree metadata onto completed task state', async () => {
+    const runner: IBackgroundTaskRunner = {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        return {
+          taskId: task.taskId,
+          result: Promise.resolve({
+            taskId: task.taskId,
+            kind: 'agent',
+            output: 'done',
+            metadata: {
+              worktreePath: '/tmp/robota-worktree',
+              branchName: 'robota/agent_1',
+            },
+          }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+
+    const created = await manager.spawn({
+      ...createAgentRequest('Run in a worktree'),
+      isolation: 'worktree',
+    });
+    await manager.wait(created.id);
+    const completed = manager.get(created.id);
+
+    expect(completed?.isolation).toBe('worktree');
+    expect(completed?.worktreePath).toBe('/tmp/robota-worktree');
+    expect(completed?.branchName).toBe('robota/agent_1');
+  });
+
   it('queues tasks when maxConcurrent capacity is full', async () => {
     const controlled = createControllableRunner();
     const manager = new BackgroundTaskManager({

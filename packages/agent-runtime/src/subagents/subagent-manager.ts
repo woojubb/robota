@@ -36,7 +36,7 @@ export class SubagentManager implements ISubagentManager {
 
   async wait(jobId: string): Promise<ISubagentJobResult> {
     const result = await this.backgroundTaskManager.wait(jobId);
-    return { jobId: result.taskId, output: result.output };
+    return { jobId: result.taskId, output: result.output, metadata: result.metadata };
   }
 
   list(): ISubagentJobState[] {
@@ -106,6 +106,7 @@ export class SubagentManager implements ISubagentManager {
       cwd: request.cwd,
       prompt: request.prompt,
       model: request.model,
+      isolation: request.isolation,
       allowedTools: request.allowedTools,
       disallowedTools: request.disallowedTools,
       timeoutMs: request.timeoutMs,
@@ -124,6 +125,7 @@ export class SubagentManager implements ISubagentManager {
       depth: state.depth,
       pid: state.pid,
       cwd: state.cwd,
+      isolation: state.isolation,
       worktreePath: state.worktreePath,
       branchName: state.branchName,
       promptPreview: state.promptPreview ?? '',
@@ -180,6 +182,7 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
     allowedTools: request.allowedTools,
     disallowedTools: request.disallowedTools,
     timeoutMs: request.timeoutMs,
+    isolation: request.isolation,
   };
 }
 
@@ -188,5 +191,6 @@ function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult {
     taskId: result.jobId,
     kind: 'agent',
     output: result.output,
+    metadata: result.metadata,
   };
 }

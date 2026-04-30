@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import {
   BackgroundTaskError,
   getBuiltInAgent,
+  createWorktreeSubagentRunner,
   type IAgentDefinition,
   type IInProcessSubagentRunnerDeps,
   type ISerializableProviderProfile,
@@ -11,6 +12,7 @@ import {
   type ISubagentJobResult,
   type ISubagentJobStart,
   type ISubagentRunner,
+  type ISubagentWorktreeAdapter,
   type TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
 import type { IProviderConfig } from '../utils/provider-factory.js';
@@ -25,6 +27,7 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+import { createGitWorktreeIsolationAdapter } from './git-worktree-isolation-adapter.js';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
 
@@ -34,6 +37,8 @@ export interface IChildProcessSubagentRunnerOptions {
   execArgv?: string[];
   killGraceMs?: number;
   env?: NodeJS.ProcessEnv;
+  worktreeIsolation?: boolean;
+  worktreeAdapter?: ISubagentWorktreeAdapter;
 }
 
 interface ICancellationResult {
@@ -44,7 +49,16 @@ interface ICancellationResult {
 export function createChildProcessSubagentRunnerFactory(
   options: IChildProcessSubagentRunnerOptions = {},
 ): TSubagentRunnerFactory {
-  return (deps) => new ChildProcessSubagentRunner(deps, options);
+  return (deps) => {
+    const runner = new ChildProcessSubagentRunner(deps, options);
+    if (options.worktreeIsolation === false) return runner;
+    return createWorktreeSubagentRunner({
+      runner,
+      worktreeAdapter: options.worktreeAdapter ?? createGitWorktreeIsolationAdapter(),
+      hooks: deps.config.hooks,
+      hookTypeExecutors: deps.hookTypeExecutors,
+    });
+  };
 }
 
 export class ChildProcessSubagentRunner implements ISubagentRunner {

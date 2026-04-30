@@ -16,11 +16,12 @@ import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
-import { SubagentManager } from '../subagents/subagent-manager.js';
+import { SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type {
   IInProcessSubagentRunnerDeps,
   ISubagentManager,
+  ISubagentJobResult,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
@@ -41,6 +42,10 @@ const AgentSchema = z.object({
     .boolean()
     .optional()
     .describe('When true, start the subagent as a background task and return immediately'),
+  isolation: z
+    .enum(['none', 'worktree'])
+    .optional()
+    .describe('Optional runtime isolation mode. Use "worktree" to run in a Git worktree.'),
 });
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
@@ -116,6 +121,7 @@ function createSpawnRequest(
     cwd: deps.cwd ?? process.cwd(),
     prompt: args.prompt,
     model: args.model,
+    isolation: args.isolation,
   };
 }
 
@@ -127,11 +133,16 @@ function stringifyUnknownAgentType(agentType: string): string {
   });
 }
 
-function stringifyAgentSuccess(output: string, agentId: string): string {
+function stringifyAgentSuccess(result: ISubagentJobResult): string {
+  const worktreePath = result.metadata?.['worktreePath'];
+  const branchName = result.metadata?.['branchName'];
   return JSON.stringify({
     success: true,
-    output,
-    agentId,
+    output: result.output,
+    agentId: result.jobId,
+    metadata: result.metadata,
+    ...(typeof worktreePath === 'string' ? { worktreePath } : {}),
+    ...(typeof branchName === 'string' ? { branchName } : {}),
   });
 }
 
@@ -173,7 +184,7 @@ async function runManagedAgent(
       return stringifyBackgroundAgentStarted(state.id, state.status);
     }
     const response = await manager.wait(state.id);
-    return stringifyAgentSuccess(response.output, state.id);
+    return stringifyAgentSuccess(response);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return stringifyAgentError(message, agentId);
