@@ -47,10 +47,10 @@ export function createCommandExecutionTool(
 ): ReturnType<typeof createZodFunctionTool> {
   return createZodFunctionTool(
     'ExecuteCommand',
-    'Execute a registered Robota command that has been marked model-invocable by its command module.',
+    'Execute a registered Robota command that has been marked model-invocable by its command module. Use this tool when command execution is required; writing command syntax or pseudo-tags as assistant text does not execute anything.',
     asZodSchema(CommandExecutionSchema),
     async (params) => {
-      const args = params as unknown as ICommandExecutionArgs;
+      const args: ICommandExecutionArgs = CommandExecutionSchema.parse(params);
       const command = normalizeCommand(args.command);
       if (!deps.isModelInvocable(command)) {
         return JSON.stringify({

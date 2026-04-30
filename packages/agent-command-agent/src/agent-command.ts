@@ -1,121 +1,41 @@
-import type {
-  ICommandResult,
-  InteractiveSession,
-  TBackgroundTaskIsolation,
-} from '@robota-sdk/agent-sdk';
-
-type TAgentMode = 'foreground' | 'background';
-
-interface IAgentRunRequest {
-  readonly agentType: string;
-  readonly label: string;
-  readonly mode: TAgentMode;
-  readonly prompt: string;
-  readonly model?: string;
-  readonly isolation?: TBackgroundTaskIsolation;
-}
-
-interface IParsedAgentOptions {
-  readonly background: boolean;
-  readonly model?: string;
-  readonly isolation?: TBackgroundTaskIsolation;
-  readonly positional: string[];
-}
+import type { ICommandResult, InteractiveSession } from '@robota-sdk/agent-sdk';
+import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
+import type { IAgentRunRequest } from './agent-command-parser.js';
 
 const USAGE =
-  'Usage: agent list | agent run <agent> [--background] <prompt> | agent parallel <label>=<agent>:"<prompt>" --background | agent read <agent-id> [offset] | agent send <agent-id> <prompt> | agent stop <agent-id> [reason] | agent close <agent-id>';
+  'Usage: agent list | agent run [<agent>] [--agent <agent>] [--background] <prompt> | agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background | agent read <agent-id> [offset] | agent send <agent-id> <prompt> | agent stop <agent-id> [reason] | agent close <agent-id>';
 
-function tokenizeArgs(args: string): string[] {
-  const tokens: string[] = [];
-  let current = '';
-  let quote: '"' | "'" | undefined;
-  let escaped = false;
-
-  for (const char of args) {
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-    if (quote && char === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (char === quote) quote = undefined;
-      else current += char;
-      continue;
-    }
-    if (char === '"' || char === "'") {
-      quote = char;
-      continue;
-    }
-    if (/\s/.test(char)) {
-      if (current.length > 0) {
-        tokens.push(current);
-        current = '';
-      }
-      continue;
-    }
-    current += char;
-  }
-
-  if (current.length > 0) tokens.push(current);
-  return tokens;
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-function parseOptions(tokens: readonly string[]): IParsedAgentOptions {
-  const positional: string[] = [];
-  let background = false;
-  let model: string | undefined;
-  let isolation: TBackgroundTaskIsolation | undefined;
+function getAvailableAgentNames(session: InteractiveSession): ReadonlySet<string> {
+  return new Set(session.listAgentDefinitions().map((agent) => agent.name));
+}
 
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (token === '--background') {
-      background = true;
-      continue;
-    }
-    if (token === '--model') {
-      model = tokens[index + 1];
-      index += 1;
-      continue;
-    }
-    if (token === '--isolation') {
-      const value = tokens[index + 1];
-      if (value === 'none' || value === 'worktree') isolation = value;
-      index += 1;
-      continue;
-    }
-    if (token !== undefined) positional.push(token);
-  }
-
+function validateAgentType(
+  session: InteractiveSession,
+  agentType: string,
+): ICommandResult | undefined {
+  const agents = session.listAgentDefinitions();
+  if (agents.some((agent) => agent.name === agentType)) return undefined;
   return {
-    background,
-    positional,
-    ...(model ? { model } : {}),
-    ...(isolation ? { isolation } : {}),
+    message: `Unknown agent type: ${agentType}\nAvailable agents: ${agents.map((agent) => agent.name).join(', ')}`,
+    success: false,
   };
 }
 
-function parseAgentJobToken(
-  token: string,
-  options: IParsedAgentOptions,
-): IAgentRunRequest | undefined {
-  const equalsIndex = token.indexOf('=');
-  const colonIndex = token.indexOf(':', equalsIndex + 1);
-  if (equalsIndex <= 0 || colonIndex <= equalsIndex + 1 || colonIndex === token.length - 1) {
-    return undefined;
+async function spawnAgentJob(
+  session: InteractiveSession,
+  request: IAgentRunRequest,
+): Promise<ICommandResult | { state: Awaited<ReturnType<InteractiveSession['spawnAgentJob']>> }> {
+  const invalid = validateAgentType(session, request.agentType);
+  if (invalid) return invalid;
+  try {
+    return { state: await session.spawnAgentJob(request) };
+  } catch (error) {
+    return { message: formatError(error), success: false };
   }
-
-  return {
-    label: token.slice(0, equalsIndex),
-    agentType: token.slice(equalsIndex + 1, colonIndex),
-    prompt: token.slice(colonIndex + 1),
-    mode: options.background ? 'background' : 'foreground',
-    ...(options.model ? { model: options.model } : {}),
-    ...(options.isolation ? { isolation: options.isolation } : {}),
-  };
 }
 
 async function executeList(session: InteractiveSession): Promise<ICommandResult> {
@@ -139,23 +59,19 @@ async function executeRun(
   session: InteractiveSession,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
-  const options = parseOptions(tokens);
-  const [agentType, ...promptParts] = options.positional;
-  const prompt = promptParts.join(' ').trim();
-  if (!agentType || !prompt) {
-    return { message: 'Usage: agent run <agent> [--background] <prompt>', success: false };
+  const request = parseRunRequest(tokens, getAvailableAgentNames(session));
+  if (!request) {
+    return {
+      message: 'Usage: agent run [<agent>] [--agent <agent>] [--background] <prompt>',
+      success: false,
+    };
   }
 
-  const state = await session.spawnAgentJob({
-    agentType,
-    label: agentType,
-    mode: options.background ? 'background' : 'foreground',
-    prompt,
-    ...(options.model ? { model: options.model } : {}),
-    ...(options.isolation ? { isolation: options.isolation } : {}),
-  });
+  const spawned = await spawnAgentJob(session, request);
+  if ('success' in spawned) return spawned;
+  const { state } = spawned;
 
-  if (options.background) {
+  if (request.mode === 'background') {
     return {
       message: `Started agent job: ${state.id}`,
       success: true,
@@ -163,32 +79,44 @@ async function executeRun(
     };
   }
 
-  const result = await session.waitAgentJob(state.id);
-  return {
-    message: result.output,
-    success: true,
-    data: { agentId: state.id, output: result.output },
-  };
+  try {
+    const result = await session.waitAgentJob(state.id);
+    return {
+      message: result.output,
+      success: true,
+      data: { agentId: state.id, output: result.output },
+    };
+  } catch (error) {
+    return { message: formatError(error), success: false, data: { agentId: state.id } };
+  }
 }
 
 async function executeParallel(
   session: InteractiveSession,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
-  const options = parseOptions(tokens);
-  const jobs = options.positional
-    .map((token) => parseAgentJobToken(token, options))
-    .filter((job): job is IAgentRunRequest => job !== undefined);
+  const jobs = parseParallelRequests(tokens, getAvailableAgentNames(session));
 
   if (jobs.length === 0) {
     return {
-      message: 'Usage: agent parallel <label>=<agent>:"<prompt>" [more...] --background',
+      message: 'Usage: agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background',
       success: false,
     };
   }
 
-  const states = await Promise.all(jobs.map((job) => session.spawnAgentJob(job)));
-  if (options.background) {
+  const invalid = jobs
+    .map((job) => validateAgentType(session, job.agentType))
+    .find((result): result is ICommandResult => result !== undefined);
+  if (invalid) return invalid;
+
+  let states: Array<Awaited<ReturnType<InteractiveSession['spawnAgentJob']>>>;
+  try {
+    states = await Promise.all(jobs.map((job) => session.spawnAgentJob(job)));
+  } catch (error) {
+    return { message: formatError(error), success: false };
+  }
+
+  if (jobs.every((job) => job.mode === 'background')) {
     return {
       message: [
         'Started agent jobs:',
@@ -199,12 +127,16 @@ async function executeParallel(
     };
   }
 
-  const results = await Promise.all(states.map((state) => session.waitAgentJob(state.id)));
-  return {
-    message: results.map((result) => result.output).join('\n\n'),
-    success: true,
-    data: { agentIds: states.map((state) => state.id) },
-  };
+  try {
+    const results = await Promise.all(states.map((state) => session.waitAgentJob(state.id)));
+    return {
+      message: results.map((result) => result.output).join('\n\n'),
+      success: true,
+      data: { agentIds: states.map((state) => state.id) },
+    };
+  } catch (error) {
+    return { message: formatError(error), success: false };
+  }
 }
 
 async function executeRead(
@@ -260,13 +192,17 @@ export async function executeAgentCommand(
   session: InteractiveSession,
   args: string,
 ): Promise<ICommandResult> {
-  const [action = 'list', ...tokens] = tokenizeArgs(args);
-  if (action === 'list') return executeList(session);
-  if (action === 'run') return executeRun(session, tokens);
-  if (action === 'parallel') return executeParallel(session, tokens);
-  if (action === 'read' || action === 'open') return executeRead(session, tokens);
-  if (action === 'send') return executeSend(session, tokens);
-  if (action === 'stop' || action === 'cancel') return executeStop(session, tokens);
-  if (action === 'close') return executeClose(session, tokens);
-  return { message: USAGE, success: false };
+  try {
+    const [action = 'list', ...tokens] = tokenizeArgs(args);
+    if (action === 'list') return executeList(session);
+    if (action === 'run') return executeRun(session, tokens);
+    if (action === 'parallel') return executeParallel(session, tokens);
+    if (action === 'read' || action === 'open') return executeRead(session, tokens);
+    if (action === 'send') return executeSend(session, tokens);
+    if (action === 'stop' || action === 'cancel') return executeStop(session, tokens);
+    if (action === 'close') return executeClose(session, tokens);
+    return { message: USAGE, success: false };
+  } catch (error) {
+    return { message: formatError(error), success: false };
+  }
 }

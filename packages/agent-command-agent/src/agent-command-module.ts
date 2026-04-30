@@ -23,11 +23,11 @@ export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
     description:
-      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents, especially for parallel or background work.',
+      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents, especially for parallel or background work. Model-routed execution must call ExecuteCommand with command "agent" and args such as `parallel developer:"..." designer:"..." --background`; do not print XML/HTML-like <agent> tags as assistant text.',
     source: 'agent',
     modelInvocable: true,
     argumentHint:
-      'list | run <agent> [--background] <prompt> | parallel <label>=<agent>:"<prompt>" --background',
+      'list | run [<agent>] [--background] <prompt> | parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background',
     safety: 'background-agent',
     subcommands: createAgentSubcommands(),
   };

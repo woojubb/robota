@@ -49,19 +49,21 @@ If this module is not composed, the host must not expose `/agent`, model-visible
 
 ## Command Behavior
 
-| Command                                    | Behavior                                                                                             |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `/agent list`                              | List available agent definitions and active/terminal agent jobs.                                     |
-| `/agent run <agent> <prompt>`              | Run one agent in foreground mode and return its result.                                              |
-| `/agent run <agent> --background <prompt>` | Spawn one background agent and return `agentId` immediately.                                         |
-| `/agent parallel <spec>`                   | Spawn multiple background agents from a structured spec and return all `agentId` values immediately. |
-| `/agent read <agentId> [offset]`           | Read retained transcript/log output for an agent job.                                                |
-| `/agent send <agentId> <prompt>`           | Send follow-up input to a running/open agent when supported.                                         |
-| `/agent stop <agentId> [reason]`           | Cancel a running/queued agent job.                                                                   |
-| `/agent close <agentId>`                   | Close a terminal agent job.                                                                          |
-| `/agent open <agentId>`                    | Read/focus an agent job detail view when supported by the host.                                      |
+| Command                                      | Behavior                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `/agent list`                                | List available agent definitions and active/terminal agent jobs.                                         |
+| `/agent run [<agent>] <prompt>`              | Run one agent in foreground mode. Defaults to `general-purpose` when `<agent>` is omitted.               |
+| `/agent run [<agent>] --background <prompt>` | Spawn one background agent and return `agentId` immediately. Defaults to `general-purpose` when omitted. |
+| `/agent parallel <spec>`                     | Spawn multiple background agents from a structured spec and return all `agentId` values immediately.     |
+| `/agent read <agentId> [offset]`             | Read retained transcript/log output for an agent job.                                                    |
+| `/agent send <agentId> <prompt>`             | Send follow-up input to a running/open agent when supported.                                             |
+| `/agent stop <agentId> [reason]`             | Cancel a running/queued agent job.                                                                       |
+| `/agent close <agentId>`                     | Close a terminal agent job.                                                                              |
+| `/agent open <agentId>`                      | Read/focus an agent job detail view when supported by the host.                                          |
 
-`parallel` spawns all valid jobs before waiting for any foreground result. With `--background`, it returns created job IDs immediately.
+`parallel` accepts both `label=agent:"prompt"` and simpler `label:"prompt"` tokens. The simpler form defaults to `general-purpose`. `parallel` spawns all valid jobs before waiting for any foreground result. With `--background`, it returns created job IDs immediately.
+
+Model-routed command execution must call the generic `ExecuteCommand` tool with `command: "agent"` and command arguments. Assistant text such as `<agent ... />` is not command execution and must not be emitted as a substitute for the tool call.
 
 ## Class Contract Registry
 

@@ -72,8 +72,11 @@ The implementation must prove command handler behavior without a real model firs
 - Given Robota product composition injects the agent command module, when commands/tools/system prompt are assembled, then `/agent`, `Agent`, and agent descriptors are present.
 - Given an unrelated command module such as `/diagnose` is injected, when registry and executor are assembled, then it is visible/executable without adding command-specific SDK code.
 - Given `/agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `/agent` and rejects non-model-invocable commands.
+- Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it defaults to `general-purpose` instead of treating the first prompt word as an agent type.
 - Given the model command execution tool receives `/agent run Plan --background "draft architecture"`, when executed, then a background agent is spawned and an `agentId` returns without awaiting completion.
 - Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y" --background`, when executed, then both jobs are spawned before any wait path.
+- Given `/agent parallel developer:"x" designer:"y" --background`, when executed, then labels are preserved and both jobs use the default `general-purpose` agent type.
+- Given an explicit unknown agent type is requested, when executed, then the command returns a structured failure instead of throwing an unhandled rejection.
 - Given natural-language input asks for parallel agents and a test model calls the command execution tool, when executed, then it becomes a deterministic `/agent parallel` execution.
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then no background job is started.
 - Given no runtime evidence exists, when Robota-owned execution state is projected, then it reports no started agent jobs.
