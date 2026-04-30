@@ -17,6 +17,7 @@ import type { SessionStore, ISessionRecord } from './session-store.js';
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
+import type { IToolSchema } from '@robota-sdk/agent-core';
 
 /** Dependencies for compact() */
 export interface ICompactContext {
@@ -91,6 +92,8 @@ export async function compact(
 export interface IPersistContext {
   sessionId: string;
   cwd: string;
+  systemPrompt: string;
+  toolSchemas: IToolSchema[];
   sessionStore: SessionStore;
   robota: Robota;
   getFullHistory: () => Array<{
@@ -117,6 +120,8 @@ export function persistSession(ctx: IPersistContext): void {
     updatedAt: now,
     messages: history,
     history: ctx.getFullHistory(),
+    systemPrompt: ctx.systemPrompt,
+    toolSchemas: ctx.toolSchemas,
   };
 
   ctx.sessionStore.save(record);

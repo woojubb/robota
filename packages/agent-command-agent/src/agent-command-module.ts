@@ -9,7 +9,7 @@ import { executeAgentCommand } from './agent-command.js';
 function createAgentSubcommands(): ICommand[] {
   return [
     { name: 'list', description: 'List available agents and active jobs', source: 'agent' },
-    { name: 'run', description: 'Run one agent foreground or background', source: 'agent' },
+    { name: 'run', description: 'Start one background agent job', source: 'agent' },
     { name: 'parallel', description: 'Run multiple agents in parallel', source: 'agent' },
     { name: 'read', description: 'Read an agent job log page', source: 'agent' },
     { name: 'send', description: 'Send follow-up input to an agent job', source: 'agent' },
@@ -23,11 +23,11 @@ export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
     description:
-      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents, especially for parallel or background work. Model-routed execution must call ExecuteCommand with command "agent" and args such as `parallel developer:"..." designer:"..." --background`; do not print XML/HTML-like <agent> tags as assistant text.',
+      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents. To run an agent, pass the natural-language task directly as args; Robota starts agent jobs in the background by default. Model-routed execution must call ExecuteCommand with command "agent" and args such as `analyze the auth changes with a code-review agent`; do not print XML/HTML-like <agent> tags as assistant text.',
     source: 'agent',
     modelInvocable: true,
     argumentHint:
-      'list | run [<agent>] [--background] <prompt> | parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background',
+      '<prompt> | <agent> <prompt> | list | parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] | read <agent-id> [offset] | send <agent-id> <prompt> | stop <agent-id> | close <agent-id>',
     safety: 'background-agent',
     subcommands: createAgentSubcommands(),
   };

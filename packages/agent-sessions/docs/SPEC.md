@@ -123,15 +123,17 @@ Types consumed from other packages (not owned here):
 
 ### ISessionRecord Fields
 
-| Field       | Type        | Required | Description                                                                                                                                              |
-| ----------- | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`        | `string`    | Yes      | Unique session identifier                                                                                                                                |
-| `cwd`       | `string`    | Yes      | Working directory where the session was created                                                                                                          |
-| `name`      | `string`    | No       | User-assigned session name for easy identification                                                                                                       |
-| `createdAt` | `string`    | Yes      | ISO timestamp of session creation                                                                                                                        |
-| `updatedAt` | `string`    | Yes      | ISO timestamp of last update                                                                                                                             |
-| `messages`  | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume. |
-| `history`   | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                       |
+| Field          | Type        | Required | Description                                                                                                                                                       |
+| -------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | `string`    | Yes      | Unique session identifier                                                                                                                                         |
+| `cwd`          | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
+| `name`         | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
+| `createdAt`    | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
+| `updatedAt`    | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
+| `messages`     | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
+| `history`      | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
+| `systemPrompt` | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
+| `toolSchemas`  | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
 
 ### Session Data Migration
 
@@ -148,11 +150,12 @@ Types consumed from other packages (not owned here):
 
 ## Session Logging
 
-The session log records structured events to a JSONL file for diagnostics and replay:
+The session log records structured events to a JSONL file for diagnostics and replay. Logs must preserve enough raw data to reconstruct what was sent to the model and what came back:
 
+- **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
-- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name and `webToolsEnabled` flag.
-- **`assistant` event** -- Recorded after each assistant response. Includes `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
+- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, `webToolsEnabled` flag, full enriched input, and current message history before the model call.
+- **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
 - **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
 
 ## Extension Points

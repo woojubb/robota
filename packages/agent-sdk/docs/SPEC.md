@@ -157,7 +157,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sessions` (generic, depends only on agent-core)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-sdk/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from config/context. Consumers use `InteractiveSession({ cwd, provider })` instead.
-- **Persistence**: SessionStore saves/loads/lists/deletes JSON at `~/.robota/sessions/{id}.json`
+- **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic consumers. CLI composition injects a project-local `.robota/sessions` directory so project runs keep resumable session JSON beside project logs.
 
 ### Permission System
 
@@ -209,7 +209,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
-- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`.
+- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
 - **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
