@@ -1,7 +1,14 @@
-import type { IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
+import type {
+  IToolExecutionResult,
+  IToolExecutionContext,
+  TToolParameters,
+} from '../interfaces/tool';
 import type { ILogger } from '../utils/logger';
 import { ValidationError } from '../utils/errors';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
+import type { IToolExecutionRequest } from '../interfaces/service';
+
+const MIN_PARALLEL_CONCURRENCY = 1;
 
 /**
  * Shared interface for the minimal ToolExecutionService surface needed by batch helpers.
@@ -9,9 +16,15 @@ import type { IToolExecutionBatchContext } from './tool-execution-service';
 export interface IToolExecutor {
   executeTool(
     toolName: string,
-    parameters: Record<string, unknown>,
+    parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<IToolExecutionResult>;
+}
+
+interface IParallelExecutionState {
+  resultsByIndex: Array<IToolExecutionResult | undefined>;
+  errorsByIndex: Array<Error | undefined>;
+  nextRequestIndex: number;
 }
 
 function requireExecutionRequestFields(request: {
@@ -41,73 +54,138 @@ function requireExecutionRequestFields(request: {
   };
 }
 
+function createExecutionContext(request: IToolExecutionRequest): IToolExecutionContext {
+  const required = requireExecutionRequestFields(request);
+  return {
+    toolName: request.toolName,
+    parameters: request.parameters,
+    executionId: required.executionId,
+    ownerType: required.ownerType,
+    ownerId: required.ownerId,
+    ownerPath: request.ownerPath,
+    metadata: request.metadata,
+    eventService: request.eventService,
+    baseEventService: request.baseEventService,
+  };
+}
+
+function createInterruptedResult(request: IToolExecutionRequest): IToolExecutionResult {
+  return {
+    toolName: request.toolName,
+    executionId: request.executionId ?? '',
+    success: false,
+    error: 'Execution interrupted by user',
+    result: null,
+  };
+}
+
+function createErrorResult(request: IToolExecutionRequest, error: Error): IToolExecutionResult {
+  return {
+    toolName: request.toolName,
+    result: null,
+    success: false,
+    error: error.message,
+    executionId: request.executionId,
+  };
+}
+
+function createToolFailureError(result: IToolExecutionResult): Error {
+  return new Error(
+    `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`,
+  );
+}
+
+function isDefinedResult(result: IToolExecutionResult | undefined): result is IToolExecutionResult {
+  return result !== undefined;
+}
+
+function isDefinedError(error: Error | undefined): error is Error {
+  return error !== undefined;
+}
+
+function resolveMaxConcurrency(requestCount: number, maxConcurrency?: number): number {
+  if (requestCount === 0) {
+    return 0;
+  }
+  if (maxConcurrency === undefined || !Number.isFinite(maxConcurrency)) {
+    return requestCount;
+  }
+
+  const normalized = Math.floor(maxConcurrency);
+  if (normalized < MIN_PARALLEL_CONCURRENCY) {
+    return MIN_PARALLEL_CONCURRENCY;
+  }
+
+  return Math.min(normalized, requestCount);
+}
+
+async function executeParallelRequest(
+  batchContext: IToolExecutionBatchContext,
+  executor: IToolExecutor,
+  state: IParallelExecutionState,
+  index: number,
+): Promise<void> {
+  const request = batchContext.requests[index];
+  if (!request) {
+    return;
+  }
+
+  try {
+    const result = batchContext.signal?.aborted
+      ? createInterruptedResult(request)
+      : await executor.executeTool(
+          request.toolName,
+          request.parameters,
+          createExecutionContext(request),
+        );
+    state.resultsByIndex[index] = result;
+    if (!result.success) {
+      state.errorsByIndex[index] = createToolFailureError(result);
+    }
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    state.errorsByIndex[index] = err;
+    state.resultsByIndex[index] = createErrorResult(request, err);
+  }
+}
+
+async function runParallelWorker(
+  batchContext: IToolExecutionBatchContext,
+  executor: IToolExecutor,
+  state: IParallelExecutionState,
+): Promise<void> {
+  while (state.nextRequestIndex < batchContext.requests.length) {
+    const currentIndex = state.nextRequestIndex;
+    state.nextRequestIndex += 1;
+    await executeParallelRequest(batchContext, executor, state, currentIndex);
+  }
+}
+
 /**
- * Execute tool requests in parallel with Promise.allSettled.
+ * Execute tool requests in parallel with a bounded worker pool.
  * Preserves a result entry for every request (SSOT for toolCallId → result mapping).
  */
 async function executeParallel(
   batchContext: IToolExecutionBatchContext,
   executor: IToolExecutor,
 ): Promise<{ results: IToolExecutionResult[]; errors: Error[] }> {
-  const results: IToolExecutionResult[] = [];
-  const errors: Error[] = [];
-
-  const promises = batchContext.requests.map((request) =>
-    (() => {
-      if (batchContext.signal?.aborted) {
-        return Promise.resolve({
-          toolName: request.toolName,
-          executionId: request.executionId ?? '',
-          success: false,
-          error: 'Execution interrupted by user',
-          result: null,
-        } as IToolExecutionResult);
-      }
-      const required = requireExecutionRequestFields(request);
-      return executor.executeTool(request.toolName, request.parameters, {
-        toolName: request.toolName,
-        parameters: request.parameters,
-        executionId: required.executionId,
-        ownerType: required.ownerType,
-        ownerId: required.ownerId,
-        ownerPath: request.ownerPath,
-        metadata: request.metadata,
-        eventService: request.eventService,
-        baseEventService: request.baseEventService,
-      });
-    })(),
+  const state: IParallelExecutionState = {
+    resultsByIndex: new Array(batchContext.requests.length),
+    errorsByIndex: new Array(batchContext.requests.length),
+    nextRequestIndex: 0,
+  };
+  const concurrency = resolveMaxConcurrency(
+    batchContext.requests.length,
+    batchContext.maxConcurrency,
   );
 
-  const allResults = await Promise.allSettled(promises);
+  const workers = Array.from({ length: concurrency }, () =>
+    runParallelWorker(batchContext, executor, state),
+  );
+  await Promise.all(workers);
 
-  allResults.forEach((settledResult, index) => {
-    const request = batchContext.requests[index];
-    if (!request) return;
-    if (settledResult.status === 'fulfilled') {
-      const result = settledResult.value;
-      results.push(result);
-      if (!result.success) {
-        errors.push(
-          new Error(
-            `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`,
-          ),
-        );
-      }
-      return;
-    }
-    const err =
-      settledResult.reason instanceof Error
-        ? settledResult.reason
-        : new Error(String(settledResult.reason));
-    errors.push(err);
-    results.push({
-      toolName: request.toolName,
-      result: null,
-      success: false,
-      error: err.message,
-      executionId: request.executionId,
-    });
-  });
+  const results = state.resultsByIndex.filter(isDefinedResult);
+  const errors = state.errorsByIndex.filter(isDefinedError);
 
   if (errors.length > 0 && !batchContext.continueOnError) {
     throw errors[0];
@@ -128,25 +206,14 @@ async function executeSequential(
 
   for (const request of batchContext.requests) {
     try {
-      const required = requireExecutionRequestFields(request);
-      const result = await executor.executeTool(request.toolName, request.parameters, {
-        toolName: request.toolName,
-        parameters: request.parameters,
-        executionId: required.executionId,
-        ownerType: required.ownerType,
-        ownerId: required.ownerId,
-        ownerPath: request.ownerPath,
-        metadata: request.metadata,
-        eventService: request.eventService,
-        baseEventService: request.baseEventService,
-      });
+      const result = await executor.executeTool(
+        request.toolName,
+        request.parameters,
+        createExecutionContext(request),
+      );
       results.push(result);
       if (!result.success) {
-        errors.push(
-          new Error(
-            `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`,
-          ),
-        );
+        errors.push(createToolFailureError(result));
       }
       if (!result.success && !batchContext.continueOnError) {
         break;

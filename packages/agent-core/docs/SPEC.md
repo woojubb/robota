@@ -361,13 +361,14 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                   | Description                                                       |
-| ---------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`  | Allows callers to cancel execution of `Robota.run()`              |
-| `IChatOptions`               | `signal?: AbortSignal`  | Passed to provider `chat()` / `chatStream()` for cancelling calls |
-| `IExecutionContext`          | `signal?: AbortSignal`  | Threaded through the execution context for round-level checks     |
-| `IExecutionResult`           | `interrupted?: boolean` | Indicates the execution was aborted before natural completion     |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`  | Allows skipping queued tool executions when abort is signalled    |
+| Interface                    | Field                     | Description                                                       |
+| ---------------------------- | ------------------------- | ----------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`    | Allows callers to cancel execution of `Robota.run()`              |
+| `IChatOptions`               | `signal?: AbortSignal`    | Passed to provider `chat()` / `chatStream()` for cancelling calls |
+| `IExecutionContext`          | `signal?: AbortSignal`    | Threaded through the execution context for round-level checks     |
+| `IExecutionResult`           | `interrupted?: boolean`   | Indicates the execution was aborted before natural completion     |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`    | Allows skipping queued tool executions when abort is signalled    |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number` | Bounds active tool executions when batch mode is `parallel`       |
 
 ### Signal Propagation
 
@@ -378,6 +379,10 @@ AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `cal
 - **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
 - **streamWithAbort**: Checks `signal.aborted` after each yielded event, breaking out of the stream iteration loop.
 - **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
+
+### Tool Batch Concurrency
+
+When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enforces `maxConcurrency` with bounded worker execution. The batch result preserves one result slot per request in request order, while errors are aggregated after all started or skipped work settles. If `maxConcurrency` is omitted, all requests may run concurrently; if it is less than 1, execution is clamped to one active tool.
 
 ### Partial Content Preservation on Abort
 

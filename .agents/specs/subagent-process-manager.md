@@ -28,7 +28,7 @@ Robota currently supports subagents as in-process awaited executions:
 - `Agent` tool waits for `session.run(prompt)` and returns JSON containing `success`, `output`, and `agentId`.
 - `InteractiveSession` fork skill execution also awaits an in-process subagent session.
 - TUI state has no subagent-specific state model.
-- Core tool execution uses parallel dispatch but currently does not enforce the configured `maxConcurrency`.
+- Core tool execution supports bounded parallel dispatch and enforces the configured `maxConcurrency`.
 
 This baseline is not sufficient for managed parallel subagent work because it has no durable job registry, no cancellation handle per child, no process isolation, no provider callback isolation, and no TUI thread visibility.
 
@@ -356,7 +356,7 @@ Persistence format is not mandated in this spec, but it MUST be structured enoug
 
 ## Concurrency Requirements
 
-`agent-core` MUST enforce `maxConcurrency` for parallel tool execution. The current behavior of mapping all tool calls into `Promise.allSettled()` without limiting concurrency is not acceptable for subagent fan-out.
+`agent-core` MUST enforce `maxConcurrency` for parallel tool execution. Parallel tool dispatch MUST use a bounded worker pool or equivalent limiter rather than mapping all tool calls into unbounded `Promise.allSettled()` execution.
 
 `SubagentManager` MUST enforce its own `maxConcurrent` independently of core tool batch concurrency.
 
@@ -431,7 +431,7 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 1. Add types and unit tests for `SubagentManager`, `SubagentRunner`, and job state transitions.
 2. Implement manager with fake/in-process runner.
 3. Route existing `Agent` tool through manager in foreground mode.
-4. Enforce `maxConcurrency` in core parallel tool execution.
+4. Enforce `maxConcurrency` in core parallel tool execution. (Completed in `agent-core`; keep regression coverage.)
 5. Fix provider callback isolation.
 6. Add background mode and manager events to `InteractiveSession`.
 7. Add TUI state manager and rendering for subagent rows.
