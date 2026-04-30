@@ -173,7 +173,7 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 | -------------------- | ---- | --------------------------------------------------- |
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
-This callback is declared in `IChatOptions.onTextDelta` and used by providers to emit text chunks during streaming responses.
+This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. Higher-level callers should prefer `IRunOptions.onTextDelta` for per-run streaming output so multiple sessions can share a provider instance without overwriting mutable provider callback state.
 
 ### Context Window Tracking
 
@@ -361,13 +361,16 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                   | Description                                                       |
-| ---------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`  | Allows callers to cancel execution of `Robota.run()`              |
-| `IChatOptions`               | `signal?: AbortSignal`  | Passed to provider `chat()` / `chatStream()` for cancelling calls |
-| `IExecutionContext`          | `signal?: AbortSignal`  | Threaded through the execution context for round-level checks     |
-| `IExecutionResult`           | `interrupted?: boolean` | Indicates the execution was aborted before natural completion     |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`  | Allows skipping queued tool executions when abort is signalled    |
+| Interface                    | Field                              | Description                                                       |
+| ---------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`             | Allows callers to cancel execution of `Robota.run()`              |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback` | Per-run streaming callback forwarded through execution context    |
+| `IChatOptions`               | `signal?: AbortSignal`             | Passed to provider `chat()` / `chatStream()` for cancelling calls |
+| `IExecutionContext`          | `signal?: AbortSignal`             | Threaded through the execution context for round-level checks     |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback` | Run-scoped callback used before provider-level callback fallback  |
+| `IExecutionResult`           | `interrupted?: boolean`            | Indicates the execution was aborted before natural completion     |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`             | Allows skipping queued tool executions when abort is signalled    |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`          | Bounds active tool executions when batch mode is `parallel`       |
 
 ### Signal Propagation
 
@@ -378,6 +381,10 @@ AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `cal
 - **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
 - **streamWithAbort**: Checks `signal.aborted` after each yielded event, breaking out of the stream iteration loop.
 - **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
+
+### Tool Batch Concurrency
+
+When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enforces `maxConcurrency` with bounded worker execution. The batch result preserves one result slot per request in request order, while errors are aggregated after all started or skipped work settles. If `maxConcurrency` is omitted, all requests may run concurrently; if it is less than 1, execution is clamped to one active tool.
 
 ### Partial Content Preservation on Abort
 
@@ -455,7 +462,7 @@ All message factory functions auto-generate `id` via `randomUUID()` and set `sta
 The `executeRound` function manages streaming through `ConversationStore`:
 
 1. `beginAssistant()` initializes pending state before the provider call.
-2. Provider's `onTextDelta` callback is wrapped to call `appendStreaming(delta)` on each delta.
+2. The run-scoped `onTextDelta` callback is preferred over provider-level callback state, then wrapped to call `appendStreaming(delta)` on each delta.
 3. After the provider returns: tool calls are added via `appendToolCall(toolCall)`.
 4. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
 5. Single commit path — no branching between normal and abort flows.
@@ -562,7 +569,7 @@ Error: Context window near capacity. Tool execution result skipped.
 
 ### Streaming Round Separator
 
-When the execution loop starts round 2+ (after tool execution), `execution-round.ts` emits `'\n\n'` through `provider.onTextDelta` before calling `provider.chat()`. This separates streaming text from different rounds in the CLI, which would otherwise concatenate without line breaks.
+When the execution loop starts round 2+ (after tool execution), `execution-round.ts` emits `'\n\n'` through the run-scoped `onTextDelta` callback before calling `provider.chat()`, falling back to `provider.onTextDelta` only when no run callback is present. This separates streaming text from different rounds in the CLI, which would otherwise concatenate without line breaks.
 
 ## Class Contract Registry
 

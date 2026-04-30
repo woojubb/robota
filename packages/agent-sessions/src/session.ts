@@ -54,6 +54,7 @@ export class Session {
   private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
+  private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly sessionLogger?: ISessionLogger;
   private readonly permissionEnforcer: PermissionEnforcer;
@@ -74,6 +75,7 @@ export class Session {
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;
+    this.onTextDeltaCallback = options.onTextDelta;
     this.onCompactCallback = options.onCompact;
     this.model = options.model ?? 'claude-sonnet-4-5';
     this.sessionId =
@@ -168,6 +170,7 @@ export class Session {
           clearSessionStartStdout: () => {
             this.sessionStartStdout = '';
           },
+          onTextDelta: this.onTextDeltaCallback,
         },
         signal,
       );
