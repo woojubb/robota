@@ -156,19 +156,20 @@ export async function executeRound(
     return true;
   }
 
+  const runTextDelta =
+    fullContext.onTextDelta ??
+    (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
+
   // Round separator for streaming UI
-  if (currentRound > 1 && 'onTextDelta' in resolved.provider) {
-    const cb = (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
-    if (cb) cb('\n\n');
+  if (currentRound > 1) {
+    runTextDelta?.('\n\n');
   }
 
   conversationStore.beginAssistant();
 
-  const originalOnTextDelta = (resolved.provider as { onTextDelta?: (delta: string) => void })
-    .onTextDelta;
   const wrappedOnTextDelta = (delta: string): void => {
     conversationStore.appendStreaming(delta);
-    originalOnTextDelta?.call(resolved.provider, delta);
+    runTextDelta?.(delta);
   };
 
   let response: TUniversalMessage;

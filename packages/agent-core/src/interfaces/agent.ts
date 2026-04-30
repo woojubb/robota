@@ -1,4 +1,4 @@
-import type { TProviderConfigValue, IAIProvider } from './provider';
+import type { TProviderConfigValue, IAIProvider, TTextDeltaCallback } from './provider';
 import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
 import type { IModule } from '../abstracts/abstract-module';
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
@@ -164,6 +164,8 @@ export interface IRunOptions {
   metadata?: TMetadata;
   /** AbortSignal for cancelling execution */
   signal?: AbortSignal;
+  /** Per-run streaming text callback. Prefer this over mutating provider callback state. */
+  onTextDelta?: TTextDeltaCallback;
 }
 
 /**
