@@ -90,15 +90,18 @@ export function retrieveAgentToolDeps(key: object): IAgentToolDeps | undefined {
 
 /**
  * Resolve an agent type name to an IAgentDefinition.
- * Checks built-in agents first, then falls back to custom registry.
+ * Checks custom registry first so project/user definitions can override built-ins.
  */
 function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
 ): IAgentDefinition | undefined {
+  if (customRegistry) {
+    const custom = customRegistry(agentType);
+    if (custom) return custom;
+  }
   const builtIn = getBuiltInAgent(agentType);
   if (builtIn) return builtIn;
-  if (customRegistry) return customRegistry(agentType);
   return undefined;
 }
 

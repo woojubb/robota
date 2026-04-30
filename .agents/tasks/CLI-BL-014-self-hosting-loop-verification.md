@@ -20,6 +20,12 @@ Define the mechanism to safely execute the "Edit -> Build -> Verify" loop where 
 - [ ] A verification protocol that ensures `pnpm build` can succeed even when parts of the codebase are in flux.
 - [ ] Integration with our CI/CD-like local environment to prevent "suicide" (the agent accidentally deleting its own ability to run).
 
+## Test Plan
+
+- Add unit tests for any atomic write planner or handoff state machine introduced by the implementation.
+- Add integration tests that simulate edit/build/verify sequencing without replacing the running process.
+- Run affected package `test`, `typecheck`, and `build`, then run `pnpm harness:scan`.
+
 ## Notes
 
 This task is a prerequisite for all recursive development tasks.

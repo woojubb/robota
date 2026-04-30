@@ -3,7 +3,7 @@
  * Handles both fork-based (subagent) and inject-based (user message) execution.
  */
 
-import { substituteVariables } from '@robota-sdk/agent-sdk';
+import { preprocessShellCommands, substituteVariables } from '@robota-sdk/agent-sdk';
 import type { SkillPromptContext } from '@robota-sdk/agent-sdk';
 import type { ISlashCommand } from './types.js';
 
@@ -39,25 +39,26 @@ export interface ISkillExecutionResult {
  * Build the processed skill content with variable substitution.
  * Returns the raw content after substitution (no XML wrapping).
  */
-function buildProcessedContent(
+async function buildProcessedContent(
   skill: ISlashCommand,
   args: string,
   context?: SkillPromptContext,
-): string | null {
+): Promise<string | null> {
   if (!skill.skillContent) return null;
-  return substituteVariables(skill.skillContent, args, context);
+  const preprocessed = await preprocessShellCommands(skill.skillContent);
+  return substituteVariables(preprocessed, args, context);
 }
 
 /**
  * Build an inject-mode prompt from a skill command.
  * Wraps content in skill XML tags for the model.
  */
-function buildInjectPrompt(
+async function buildInjectPrompt(
   skill: ISlashCommand,
   args: string,
   context?: SkillPromptContext,
-): string {
-  const processed = buildProcessedContent(skill, args, context);
+): Promise<string> {
+  const processed = await buildProcessedContent(skill, args, context);
   if (processed) {
     const userInstruction = args || skill.description;
     return `<skill name="${skill.name}">\n${processed}\n</skill>\n\nExecute the "${skill.name}" skill: ${userInstruction}`;
@@ -85,7 +86,7 @@ export async function executeSkill(
       throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
     }
 
-    const content = buildProcessedContent(skill, args, context);
+    const content = await buildProcessedContent(skill, args, context);
     const prompt = content ?? `Use the "${skill.name}" skill: ${args || skill.description}`;
 
     const options: IForkExecutionOptions = {};
@@ -97,6 +98,6 @@ export async function executeSkill(
   }
 
   // Inject execution: return prompt for current session
-  const prompt = buildInjectPrompt(skill, args, context);
+  const prompt = await buildInjectPrompt(skill, args, context);
   return { mode: 'inject', prompt };
 }

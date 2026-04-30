@@ -23,6 +23,8 @@ export interface ISystemPromptParams {
   language?: string;
   /** Discovered skills to expose in the system prompt */
   skills?: Array<{ name: string; description: string; disableModelInvocation?: boolean }>;
+  /** Discovered agents to expose in the system prompt */
+  agents?: Array<{ name: string; description: string }>;
 }
 
 const TRUST_LEVEL_DESCRIPTIONS: Record<TTrustLevel, string> = {
@@ -73,6 +75,40 @@ function buildSkillsSection(
     ...invocable.map((s) => `- ${s.name}: ${s.description}`),
   ];
   return lines.join('\n');
+}
+
+function buildAgentsSection(agents: Array<{ name: string; description: string }>): string {
+  if (agents.length === 0) {
+    return '';
+  }
+  const lines = [
+    '## Subagents',
+    'You can launch isolated agents with the Agent tool.',
+    'Use the Agent tool when the user explicitly asks to call an agent, asks you to delegate work, or a task should run in an isolated context.',
+    'Pass the selected agent name as subagent_type and summarize the returned result for the user.',
+    '',
+    'Available agents:',
+    ...agents.map((agent) => `- ${agent.name}: ${agent.description}`),
+  ];
+  return lines.join('\n');
+}
+
+function appendSection(sections: string[], section: string): void {
+  if (section.length > 0) {
+    sections.push(section);
+  }
+}
+
+function appendModelVisibleMetadataSections(
+  sections: string[],
+  params: Pick<ISystemPromptParams, 'skills' | 'agents'>,
+): void {
+  if (params.skills !== undefined && params.skills.length > 0) {
+    appendSection(sections, buildSkillsSection(params.skills));
+  }
+  if (params.agents !== undefined && params.agents.length > 0) {
+    appendSection(sections, buildAgentsSection(params.agents));
+  }
 }
 
 export function buildSystemPrompt(params: ISystemPromptParams): string {
@@ -137,12 +173,7 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
   }
 
   // Skills list
-  if (params.skills !== undefined && params.skills.length > 0) {
-    const skillsSection = buildSkillsSection(params.skills);
-    if (skillsSection.length > 0) {
-      sections.push(skillsSection);
-    }
-  }
+  appendModelVisibleMetadataSections(sections, params);
 
   return sections.join('\n\n');
 }
