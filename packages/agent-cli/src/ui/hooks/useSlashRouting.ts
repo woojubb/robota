@@ -6,7 +6,6 @@
 import { useCallback } from 'react';
 import { randomUUID } from 'node:crypto';
 import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robota-sdk/agent-sdk';
-import { buildSkillPrompt } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ISideEffects } from './useInteractiveSession.js';
@@ -146,13 +145,10 @@ async function routeSkillCommand(
     },
   });
 
-  const prompt = await buildSkillPrompt(input, registry);
-  if (!prompt) {
-    return true;
-  }
+  const args = input.slice(1 + cmd.length).trimStart();
   const qualifiedName = registry.resolveQualifiedName(cmd);
   const hookInput = qualifiedName ? `/${qualifiedName}${input.slice(1 + cmd.length)}` : input;
-  await interactiveSession.submit(prompt, input, hookInput);
+  await interactiveSession.executeSkillCommand(skillCmd, args, input, hookInput);
   manager.setPendingPrompt(interactiveSession.getPendingPrompt());
   return true;
 }

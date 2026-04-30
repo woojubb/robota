@@ -20,6 +20,12 @@ Develop a standardized method for injecting relevant task-level metadata (status
 - [ ] Implementation of an automated 'Status Update' mechanism that updates the task file when an agent completes an action.
 - [ ] Definition of how context-injected data interacts with existing `system-reminder` mechanisms.
 
+## Test Plan
+
+- Add unit tests for task file discovery, task selection, and structured prompt formatting.
+- Add unit tests for status update behavior using temporary task files and deterministic timestamps.
+- Run affected package `test`, `typecheck`, and `build`, then run `pnpm harness:scan`.
+
 ## Notes
 
 This is critical for maintaining "Focus" in a recursive development environment.

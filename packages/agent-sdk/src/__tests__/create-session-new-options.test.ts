@@ -7,6 +7,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -213,5 +216,40 @@ describe('createSession — appendSystemPrompt option', () => {
     const systemMessage = opts.systemMessage as string;
     expect(systemMessage).toContain('\n\n' + extraText);
     expect(systemMessage.endsWith(extraText)).toBe(true);
+  });
+
+  it('includes Agent tool and discovered agent metadata in the system prompt', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-agents-'));
+    const agentsDir = join(cwd, '.robota', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(
+      join(agentsDir, 'reviewer.md'),
+      [
+        '---',
+        'name: reviewer',
+        'description: Reviews code for risks and missing tests',
+        '---',
+        'Review code like an owner.',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', claudeMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+      });
+
+      const opts = sessionCtorCalls[0]!;
+      const systemMessage = opts.systemMessage as string;
+      expect(systemMessage).toContain('Agent — launch an isolated agent');
+      expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

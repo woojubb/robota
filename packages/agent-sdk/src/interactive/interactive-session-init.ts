@@ -133,6 +133,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
 
   return createSession({
     config: mergedConfig,
+    cwd,
     context,
     projectInfo,
     permissionMode: options.permissionMode,

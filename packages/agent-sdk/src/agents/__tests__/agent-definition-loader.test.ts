@@ -82,53 +82,100 @@ System prompt body here.`,
     expect(agent!.description).toBe('An agent without an explicit name');
   });
 
-  it('should load from .claude/agents/ and ~/.robota/agents/', () => {
+  it('should load from Robota and Claude-compatible project/user agent paths', () => {
     const cwd = makeTempDir();
     const home = makeTempDir();
 
     writeAgentFile(
-      join(cwd, '.claude', 'agents'),
-      'project-agent.md',
+      join(cwd, '.robota', 'agents'),
+      'robota-project-agent.md',
       `---
-name: project-agent
-description: Project-level agent
+name: robota-project-agent
+description: Robota project-level agent
 ---
 
-Project agent prompt.`,
+Robota project agent prompt.`,
+    );
+
+    writeAgentFile(
+      join(cwd, '.agents', 'agents'),
+      'agents-project-agent.md',
+      `---
+name: agents-project-agent
+description: Agents project-level agent
+---
+
+Agents project agent prompt.`,
+    );
+
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'claude-project-agent.md',
+      `---
+name: claude-project-agent
+description: Claude project-level agent
+---
+
+Claude project agent prompt.`,
     );
 
     writeAgentFile(
       join(home, '.robota', 'agents'),
-      'user-agent.md',
+      'robota-user-agent.md',
       `---
-name: user-agent
-description: User-level agent
+name: robota-user-agent
+description: Robota user-level agent
 ---
 
-User agent prompt.`,
+Robota user agent prompt.`,
+    );
+
+    writeAgentFile(
+      join(home, '.claude', 'agents'),
+      'claude-user-agent.md',
+      `---
+name: claude-user-agent
+description: Claude user-level agent
+---
+
+Claude user agent prompt.`,
     );
 
     const loader = new AgentDefinitionLoader(cwd, home);
     const all = loader.loadAll();
     const names = all.map((a) => a.name);
 
-    expect(names).toContain('project-agent');
-    expect(names).toContain('user-agent');
+    expect(names).toContain('robota-project-agent');
+    expect(names).toContain('agents-project-agent');
+    expect(names).toContain('claude-project-agent');
+    expect(names).toContain('robota-user-agent');
+    expect(names).toContain('claude-user-agent');
   });
 
-  it('should prioritize .claude/agents/ over ~/.robota/agents/', () => {
+  it('should prioritize project Robota agents over project Claude and user agents', () => {
     const cwd = makeTempDir();
     const home = makeTempDir();
+
+    writeAgentFile(
+      join(cwd, '.robota', 'agents'),
+      'shared.md',
+      `---
+name: shared
+description: Robota project version
+---
+
+Robota project prompt.`,
+    );
 
     writeAgentFile(
       join(cwd, '.claude', 'agents'),
       'shared.md',
       `---
 name: shared
-description: Project version
+description: Claude project version
 ---
 
-Project prompt.`,
+Claude project prompt.`,
     );
 
     writeAgentFile(
@@ -146,7 +193,7 @@ User prompt.`,
     const agent = loader.getAgent('shared');
 
     expect(agent).toBeDefined();
-    expect(agent!.description).toBe('Project version');
+    expect(agent!.description).toBe('Robota project version');
   });
 
   it('should merge with built-in agents', () => {
@@ -218,6 +265,29 @@ Prompt.`,
 
     const loader = new AgentDefinitionLoader(cwd);
     const agent = loader.getAgent('tools-test');
+
+    expect(agent).toBeDefined();
+    expect(agent!.tools).toEqual(['Read', 'Grep', 'Glob']);
+    expect(agent!.disallowedTools).toEqual(['Bash', 'Write']);
+  });
+
+  it('should parse whitespace-separated tools fields', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'tools-space-test.md',
+      `---
+name: tools-space-test
+description: Agent with space separated tools
+tools: Read Grep Glob
+disallowedTools: Bash Write
+---
+
+Prompt.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('tools-space-test');
 
     expect(agent).toBeDefined();
     expect(agent!.tools).toEqual(['Read', 'Grep', 'Glob']);

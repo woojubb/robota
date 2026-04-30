@@ -345,7 +345,7 @@ describe('Agent tool', () => {
     );
   });
 
-  it('should prefer built-in over custom registry when both match', async () => {
+  it('should prefer custom registry over built-in when both match', async () => {
     const customAgent: IAgentDefinition = {
       name: 'Explore',
       description: 'Custom explore',
@@ -360,13 +360,12 @@ describe('Agent tool', () => {
       subagent_type: 'Explore',
     });
 
-    // Built-in should be found first, custom registry should NOT be called
-    expect(customRegistry).not.toHaveBeenCalled();
+    expect(customRegistry).toHaveBeenCalledWith('Explore');
     expect(createSubagentSession).toHaveBeenCalledWith(
       expect.objectContaining({
         agentDefinition: expect.objectContaining({
           name: 'Explore',
-          description: 'Exploration agent', // built-in description
+          description: 'Custom explore',
         }),
       }),
     );
