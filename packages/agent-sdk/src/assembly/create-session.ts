@@ -28,6 +28,9 @@ import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 
 import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
+import type { IAgentToolDeps } from '../tools/agent-tool.js';
+import { SubagentManager } from '../subagents/subagent-manager.js';
+import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 
@@ -137,20 +140,25 @@ export function createSession(options: ICreateSessionOptions): Session {
     hookTypeExecutors.push(...options.additionalHookExecutors);
   }
 
-  const agentToolDeps = {
+  const agentToolDeps: IAgentToolDeps = {
     config: options.config,
     context: options.context,
     tools,
     terminal: options.terminal,
     provider,
+    cwd,
+    parentSessionId: options.sessionId ?? 'pending-session',
     permissionMode: options.permissionMode,
     permissionHandler: options.permissionHandler,
-    hooks: options.config.hooks as Record<string, unknown> | undefined,
+    hooks: options.config.hooks,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
     customAgentRegistry: (name: string) => agentLoader.getAgent(name),
   };
+  agentToolDeps.subagentManager = new SubagentManager({
+    runner: createInProcessSubagentRunner(agentToolDeps),
+  });
   tools.push(createAgentTool(agentToolDeps));
 
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
@@ -216,6 +224,7 @@ export function createSession(options: ICreateSessionOptions): Session {
 
   // Store deps keyed by session so consumers (e.g. fork runner) can retrieve
   // per-session deps without relying on global mutable state.
+  agentToolDeps.parentSessionId = session.getSessionId();
   storeAgentToolDeps(session, agentToolDeps);
 
   return session;

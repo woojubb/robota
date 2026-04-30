@@ -117,7 +117,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
-├── src/subagents/              ← SubagentManager + runner port for managed subagent jobs
+├── src/subagents/              ← SubagentManager + runner ports/adapters for managed subagent jobs
 ├── src/permissions/            ← permission-prompt.ts (terminal approval prompt)
 ├── src/paths.ts                ← projectPaths / userPaths helpers
 ├── src/types.ts                ← re-exports shared types from agent-sessions
@@ -422,16 +422,19 @@ const result = await manager.wait(job.id);
 
 Exported subagent runtime types:
 
-| Export                  | Kind      | Description                                      |
-| ----------------------- | --------- | ------------------------------------------------ |
-| `SubagentManager`       | class     | In-memory subagent job registry and scheduler    |
-| `ISubagentRunner`       | interface | Port implemented by in-process or process runner |
-| `ISubagentJobHandle`    | interface | Targeted job cancellation/result handle          |
-| `ISubagentJobState`     | interface | Runtime lifecycle state for one subagent job     |
-| `ISubagentSpawnRequest` | interface | Input for spawning a managed subagent job        |
-| `ISubagentJobResult`    | interface | Completed subagent output                        |
-| `TSubagentJobMode`      | type      | `foreground` or `background`                     |
-| `TSubagentJobStatus`    | type      | Job lifecycle status union                       |
+| Export                          | Kind      | Description                                                               |
+| ------------------------------- | --------- | ------------------------------------------------------------------------- |
+| `SubagentManager`               | class     | In-memory subagent job registry and scheduler                             |
+| `createInProcessSubagentRunner` | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
+| `ISubagentManager`              | interface | Manager API for spawn/wait/list/get/cancel/close/send                     |
+| `ISubagentRunner`               | interface | Port implemented by in-process or process runner                          |
+| `IInProcessSubagentRunnerDeps`  | interface | Dependencies captured by the in-process runner adapter                    |
+| `ISubagentJobHandle`            | interface | Targeted job cancellation/result handle                                   |
+| `ISubagentJobState`             | interface | Runtime lifecycle state for one subagent job                              |
+| `ISubagentSpawnRequest`         | interface | Input for spawning a managed subagent job                                 |
+| `ISubagentJobResult`            | interface | Completed subagent output                                                 |
+| `TSubagentJobMode`              | type      | `foreground` or `background`                                              |
+| `TSubagentJobStatus`            | type      | Job lifecycle status union                                                |
 
 ### History Entry Types
 
@@ -781,6 +784,8 @@ Agent definitions are also exposed to the system prompt by metadata only: name a
 
 The `Agent` tool must be part of the available tool set and must be described in `DEFAULT_TOOL_DESCRIPTIONS`.
 
+The `Agent` tool routes execution through a per-session `SubagentManager` in foreground mode. It resolves unknown agent types before spawning so existing error results remain compatible, then calls `spawn()` and `wait()` and returns the existing JSON shape: `{ success, output, agentId }`.
+
 ### Skill Execution Semantics
 
 `InteractiveSession.executeSkillCommand(skill, args, displayInput?, rawInput?)` is the SDK-owned skill execution path.
@@ -841,6 +846,8 @@ interface ISubagentJobHandle {
 ```
 
 The runner reports completion through its `result` promise and supports targeted cancellation through `cancel()`. Follow-up routing via `send()` is optional until a runner supports it.
+
+`createInProcessSubagentRunner(deps)` is the default SDK adapter for foreground compatibility. It resolves the requested agent definition, creates an isolated child `Session` with `createSubagentSession()`, runs the prompt, and maps the response to `ISubagentJobResult`.
 
 ### createSubagentSession(options)
 

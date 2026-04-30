@@ -2,6 +2,7 @@ import type {
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobState,
+  ISubagentManager,
   ISubagentManagerOptions,
   ISubagentSpawnRequest,
 } from './types.js';
@@ -38,7 +39,7 @@ function toErrorMessage(error: Error | string): string {
   return error instanceof Error ? error.message : error;
 }
 
-export class SubagentManager {
+export class SubagentManager implements ISubagentManager {
   private readonly runner: ISubagentManagerOptions['runner'];
   private readonly maxConcurrent: number;
   private readonly maxDepth: number;
