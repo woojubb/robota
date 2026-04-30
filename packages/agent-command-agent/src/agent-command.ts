@@ -5,7 +5,7 @@ import type { IAgentRunRequest } from './agent-command-parser.js';
 const USAGE =
   'Usage: agent list | agent run [<agent>] [--agent <agent>] [--background] <prompt> | agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background | agent read <agent-id> [offset] | agent send <agent-id> <prompt> | agent stop <agent-id> [reason] | agent close <agent-id>';
 
-function formatError(error: unknown): string {
+function formatError<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error);
 }
 
