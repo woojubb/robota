@@ -3,10 +3,11 @@
 Status: Proposed
 Created: 2026-04-30
 Source research: `.agents/tasks/completed/CLI-BL-019-subagent-process-manager-research.md`
+Common runtime layer: `.agents/specs/background-task-layer.md`
 
 ## Scope
 
-This specification defines Robota CLI subagent process management, parallel execution, lifecycle events, and TUI visibility. It spans `agent-sdk`, `agent-cli`, `agent-sessions`, and `agent-core` because the feature crosses model-callable tools, interactive session orchestration, provider/session isolation, process supervision, and terminal rendering.
+This specification defines Robota CLI subagent process management, parallel execution, lifecycle events, and TUI visibility. It is the agent-specific specialization of the shared background task runtime defined in `.agents/specs/background-task-layer.md`. It spans `agent-sdk`, `agent-cli`, `agent-sessions`, and `agent-core` because the feature crosses model-callable tools, interactive session orchestration, provider/session isolation, process supervision, and terminal rendering.
 
 The goal is to turn subagents from awaited in-process tool calls into managed agent jobs that can run in foreground or background, be observed in the TUI, be cancelled safely, and later run in isolated worktrees.
 
@@ -51,7 +52,7 @@ Robota MUST support managed subagent jobs with these capabilities:
 
 ### Layered Design
 
-The implementation MUST use a manager/runner split.
+The implementation MUST use the common background task manager/runner split. Subagent-specific APIs may remain as compatibility facades, but new lifecycle, event, queueing, and TUI projection behavior should be expressed through the generic background task layer first.
 
 | Layer                        | Owner                                     | Responsibility                                                                                                   |
 | ---------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
