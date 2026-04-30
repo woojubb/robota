@@ -6,6 +6,8 @@ AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for proje
 
 ## Installation
 
+Requires Node.js 22+.
+
 ```bash
 # Global install
 npm install -g @robota-sdk/agent-cli
@@ -367,7 +369,7 @@ bin.ts → cli.ts (arg parsing)
 | `@robota-sdk/agent-sdk`                | Session factory, query, config, context    |
 | `@robota-sdk/agent-core`               | Types (TPermissionMode, TToolArgs)         |
 | `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`)      |
-| `ink`, `react`                         | TUI rendering                              |
+| `ink` 7, `react` 19.2+                 | TUI rendering                              |
 | `ink-select-input`                     | Arrow-key selection (permission prompt)    |
 | `ink-spinner`                          | Loading spinner                            |
 | `chalk`                                | Terminal colors                            |

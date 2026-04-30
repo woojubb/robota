@@ -577,17 +577,17 @@ importers:
         specifier: ^2.1.0
         version: 2.1.11
       ink:
-        specifier: ^6.8.0
-        version: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+        specifier: ^7.0.1
+        version: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       ink-select-input:
         specifier: ^6.2.0
-        version: 6.2.0(ink@6.8.0)(react@19.2.4)
+        version: 6.2.0(ink@7.0.1)(react@19.2.4)
       ink-spinner:
         specifier: ^5.0.0
-        version: 5.0.0(ink@6.8.0)(react@19.2.4)
+        version: 5.0.0(ink@7.0.1)(react@19.2.4)
       ink-text-input:
         specifier: ^6.0.0
-        version: 6.0.0(ink@6.8.0)(react@19.2.4)
+        version: 6.0.0(ink@7.0.1)(react@19.2.4)
       marked:
         specifier: ^9.1.5
         version: 9.1.6
@@ -2019,15 +2019,15 @@ packages:
       }
     dev: true
 
-  /@alcalzone/ansi-tokenize@0.2.5:
+  /@alcalzone/ansi-tokenize@0.3.0:
     resolution:
       {
-        integrity: sha512-3NX/MpTdroi0aKz134A6RC2Gb2iXVECN4QaAXnvCIxxIm3C3AVB1mkUe8NaaiyvOpDfsrqWhYtj+Q6a62RrTsw==,
+        integrity: sha512-p+CMKJ93HFmLkjXKlXiVGlMQEuRb6H0MokBSwUsX+S6BRX8eV5naFZpQJFfJHjRZY0Hmnqy1/r6UWl3x+19zYA==,
       }
     engines: { node: '>=18' }
     dependencies:
-      ansi-styles: 6.2.1
-      is-fullwidth-code-point: 5.0.0
+      ansi-styles: 6.2.3
+      is-fullwidth-code-point: 5.1.0
     dev: false
 
   /@algolia/autocomplete-core@1.17.7(@algolia/client-search@5.34.0)(algoliasearch@5.34.0)(search-insights@2.17.3):
@@ -9828,6 +9828,7 @@ packages:
         integrity: sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==,
       }
     engines: { node: '>=12' }
+    dev: true
 
   /ansi-styles@6.2.3:
     resolution:
@@ -10815,12 +10816,12 @@ packages:
       }
     dev: false
 
-  /cli-boxes@3.0.0:
+  /cli-boxes@4.0.1:
     resolution:
       {
-        integrity: sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g==,
+        integrity: sha512-5IOn+jcCEHEraYolBPs/sT4BxYCe2nHg374OPiItB1O96KZFseS2gthU4twyYzeDcFew4DaUM/xwc5BQf08JJw==,
       }
-    engines: { node: '>=10' }
+    engines: { node: '>=18.20 <19 || >=20.10' }
     dev: false
 
   /cli-cursor@4.0.0:
@@ -10890,14 +10891,14 @@ packages:
       string-width: 7.2.0
     dev: true
 
-  /cli-truncate@5.2.0:
+  /cli-truncate@6.0.0:
     resolution:
       {
-        integrity: sha512-xRwvIOMGrfOAnM1JYtqQImuaNtDEv9v6oIYAs4LIHwTiKee8uwvIi363igssOC0O5U04i4AlENs79LQLu9tEMw==,
+        integrity: sha512-3+YKIUFsohD9MIoOFPFBldjAlnfCmCDcqe6aYGFqlDTRKg80p4wg35L+j83QQ63iOlKRccEkbn8IuM++HsgEjA==,
       }
-    engines: { node: '>=20' }
+    engines: { node: '>=22' }
     dependencies:
-      slice-ansi: 8.0.0
+      slice-ansi: 9.0.0
       string-width: 8.2.0
     dev: false
 
@@ -11999,6 +12000,7 @@ packages:
       {
         integrity: sha512-EC+0oUMY1Rqm4O6LLrgjtYDvcVYTy7chDnM4Q7030tP4Kwj3u/pR6gP9ygnp2CJMK5Gq+9Q2oqmrFJAz01DXjw==,
       }
+    dev: true
 
   /emoji-regex@8.0.0:
     resolution:
@@ -14913,7 +14915,7 @@ packages:
     engines: { node: ^14.17.0 || ^16.13.0 || >=18.0.0 }
     dev: true
 
-  /ink-select-input@6.2.0(ink@6.8.0)(react@19.2.4):
+  /ink-select-input@6.2.0(ink@7.0.1)(react@19.2.4):
     resolution:
       {
         integrity: sha512-304fZXxkpYxJ9si5lxRCaX01GNlmPBgOZumXXRnPYbHW/iI31cgQynqk2tRypGLOF1cMIwPUzL2LSm6q4I5rQQ==,
@@ -14924,12 +14926,12 @@ packages:
       react: '>=18.0.0'
     dependencies:
       figures: 6.1.0
-      ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
       to-rotated: 1.0.0
     dev: false
 
-  /ink-spinner@5.0.0(ink@6.8.0)(react@19.2.4):
+  /ink-spinner@5.0.0(ink@7.0.1)(react@19.2.4):
     resolution:
       {
         integrity: sha512-EYEasbEjkqLGyPOUc8hBJZNuC5GvXGMLu0w5gdTNskPc7Izc5vO3tdQEYnzvshucyGCBXc86ig0ujXPMWaQCdA==,
@@ -14940,7 +14942,7 @@ packages:
       react: '>=18.0.0'
     dependencies:
       cli-spinners: 2.9.2
-      ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
     dev: false
 
@@ -14959,7 +14961,7 @@ packages:
       '@types/react': 19.2.14
     dev: true
 
-  /ink-text-input@6.0.0(ink@6.8.0)(react@19.2.4):
+  /ink-text-input@6.0.0(ink@7.0.1)(react@19.2.4):
     resolution:
       {
         integrity: sha512-Fw64n7Yha5deb1rHY137zHTAbSTNelUKuB5Kkk2HACXEtwIHBCf9OH2tP/LQ9fRYTl1F0dZgbW0zPnZk6FA9Lw==,
@@ -14970,20 +14972,20 @@ packages:
       react: '>=18'
     dependencies:
       chalk: 5.6.2
-      ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
       type-fest: 4.41.0
     dev: false
 
-  /ink@6.8.0(@types/react@19.2.14)(react@19.2.4):
+  /ink@7.0.1(@types/react@19.2.14)(react@19.2.4):
     resolution:
       {
-        integrity: sha512-sbl1RdLOgkO9isK42WCZlJCFN9hb++sX9dsklOvfd1YQ3bQ2AiFu12Q6tFlr0HvEUvzraJntQCCpfEoUe9DSzA==,
+        integrity: sha512-o6LAC268PLawlGVYrXTyaTfke4VtJftEheuwbgkQf7yvSXyWp1nRwBbAyKEkWXFZZsW/la5wrMuNbuBvZK2C1w==,
       }
-    engines: { node: '>=20' }
+    engines: { node: '>=22' }
     peerDependencies:
-      '@types/react': '>=19.0.0'
-      react: '>=19.0.0'
+      '@types/react': '>=19.2.0'
+      react: '>=19.2.0'
       react-devtools-core: '>=6.1.2'
     peerDependenciesMeta:
       '@types/react':
@@ -14991,15 +14993,15 @@ packages:
       react-devtools-core:
         optional: true
     dependencies:
-      '@alcalzone/ansi-tokenize': 0.2.5
+      '@alcalzone/ansi-tokenize': 0.3.0
       '@types/react': 19.2.14
       ansi-escapes: 7.3.0
-      ansi-styles: 6.2.1
+      ansi-styles: 6.2.3
       auto-bind: 5.0.1
       chalk: 5.6.2
-      cli-boxes: 3.0.0
+      cli-boxes: 4.0.1
       cli-cursor: 4.0.0
-      cli-truncate: 5.2.0
+      cli-truncate: 6.0.0
       code-excerpt: 4.0.0
       es-toolkit: 1.45.1
       indent-string: 5.0.0
@@ -15009,14 +15011,14 @@ packages:
       react-reconciler: 0.33.0(react@19.2.4)
       scheduler: 0.27.0
       signal-exit: 3.0.7
-      slice-ansi: 8.0.0
+      slice-ansi: 9.0.0
       stack-utils: 2.0.6
       string-width: 8.2.0
       terminal-size: 4.0.1
-      type-fest: 5.4.4
+      type-fest: 5.6.0
       widest-line: 6.0.0
-      wrap-ansi: 9.0.0
-      ws: 8.18.3
+      wrap-ansi: 10.0.0
+      ws: 8.20.0
       yoga-layout: 3.2.1
     transitivePeerDependencies:
       - bufferutil
@@ -15257,6 +15259,7 @@ packages:
     engines: { node: '>=18' }
     dependencies:
       get-east-asian-width: 1.5.0
+    dev: true
 
   /is-fullwidth-code-point@5.1.0:
     resolution:
@@ -20846,12 +20849,12 @@ packages:
       is-fullwidth-code-point: 5.0.0
     dev: true
 
-  /slice-ansi@8.0.0:
+  /slice-ansi@9.0.0:
     resolution:
       {
-        integrity: sha512-stxByr12oeeOyY2BlviTNQlYV5xOj47GirPr4yA1hE9JCtxfQN0+tVbkxwCtYDQWhEKWFHsEK48ORg5jrouCAg==,
+        integrity: sha512-SO/3iYL5S3W57LLEniscOGPZgOqZUPCx6d3dB+52B80yJ0XstzsC/eV8gnA4tM3MHDrKz+OCFSLNjswdSC+/bA==,
       }
-    engines: { node: '>=20' }
+    engines: { node: '>=22' }
     dependencies:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
@@ -21099,6 +21102,7 @@ packages:
       emoji-regex: 10.4.0
       get-east-asian-width: 1.5.0
       strip-ansi: 7.2.0
+    dev: true
 
   /string-width@8.2.0:
     resolution:
@@ -21231,6 +21235,7 @@ packages:
     engines: { node: '>=12' }
     dependencies:
       ansi-regex: 6.2.2
+    dev: true
 
   /strip-ansi@7.2.0:
     resolution:
@@ -22083,10 +22088,10 @@ packages:
     engines: { node: '>=16' }
     dev: false
 
-  /type-fest@5.4.4:
+  /type-fest@5.6.0:
     resolution:
       {
-        integrity: sha512-JnTrzGu+zPV3aXIUhnyWJj4z/wigMsdYajGLIYakqyOW1nPllzXEJee0QQbHj+CTIQtXGlAjuK0UY+2xTyjVAw==,
+        integrity: sha512-8ZiHFm91orbSAe2PSAiSVBVko18pbhbiB3U9GglSzF/zCGkR+rxpHx6sEMCUm4kxY4LjDIUGgCfUMtwfZfjfUA==,
       }
     engines: { node: '>=20' }
     dependencies:
@@ -23352,6 +23357,18 @@ packages:
       }
     dev: true
 
+  /wrap-ansi@10.0.0:
+    resolution:
+      {
+        integrity: sha512-SGcvg80f0wUy2/fXES19feHMz8E0JoXv2uNgHOu4Dgi2OrCy1lqwFYEJz1BLbDI0exjPMe/ZdzZ/YpGECBG/aQ==,
+      }
+    engines: { node: '>=20' }
+    dependencies:
+      ansi-styles: 6.2.3
+      string-width: 8.2.0
+      strip-ansi: 7.2.0
+    dev: false
+
   /wrap-ansi@7.0.0:
     resolution:
       {
@@ -23385,6 +23402,7 @@ packages:
       ansi-styles: 6.2.1
       string-width: 7.2.0
       strip-ansi: 7.1.0
+    dev: true
 
   /wrappy@1.0.2:
     resolution:
@@ -23433,6 +23451,22 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  /ws@8.20.0:
+    resolution:
+      {
+        integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==,
+      }
+    engines: { node: '>=10.0.0' }
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
 
   /xml-name-validator@5.0.0:
     resolution:

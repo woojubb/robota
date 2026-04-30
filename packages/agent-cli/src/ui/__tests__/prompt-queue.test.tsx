@@ -8,15 +8,39 @@ import { render } from 'ink-testing-library';
 import { Box, Text, useInput } from 'ink';
 import { describe, it, expect, vi } from 'vitest';
 
+interface IQueueTestController {
+  completeCurrent?: () => void;
+}
+
+async function waitForAssertion(assertion: () => void, timeoutMs = 1500): Promise<void> {
+  const startedAt = Date.now();
+  let lastError: Error | undefined;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
+  if (lastError) throw lastError;
+  throw new Error('Timed out waiting for assertion');
+}
+
 /**
  * Minimal App that simulates the prompt queue behavior.
  */
 function QueueTestApp({
   onExecute,
   onAbort,
+  controller,
 }: {
   onExecute: (prompt: string) => void;
   onAbort?: () => void;
+  controller?: IQueueTestController;
 }): React.ReactElement {
   const [isThinking, setIsThinking] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
@@ -29,10 +53,19 @@ function QueueTestApp({
       setIsThinking(true);
       setLog((prev) => [...prev, `exec:${input}`]);
       onExecute(input);
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise<void>((resolve) => {
+        if (controller) {
+          controller.completeCurrent = () => {
+            controller.completeCurrent = undefined;
+            resolve();
+          };
+          return;
+        }
+        setTimeout(resolve, 300);
+      });
       setIsThinking(false);
     },
-    [onExecute],
+    [controller, onExecute],
   );
 
   const handleSubmit = useCallback(
@@ -117,17 +150,19 @@ describe('Prompt Queue', () => {
 
   it('queues prompt when thinking, auto-executes after completion', async () => {
     const onExecute = vi.fn();
-    const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} />);
+    const controller: IQueueTestController = {};
+    const { stdin, lastFrame } = render(
+      <QueueTestApp onExecute={onExecute} controller={controller} />,
+    );
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 50));
-    expect(lastFrame()!).toContain('thinking=true');
+    await waitForAssertion(() => expect(lastFrame()!).toContain('thinking=true'));
 
     stdin.write('s:second');
-    await new Promise((r) => setTimeout(r, 50));
-    expect(lastFrame()!).toContain('pending=second');
+    await waitForAssertion(() => expect(lastFrame()!).toContain('pending=second'));
 
-    await new Promise((r) => setTimeout(r, 700));
+    controller.completeCurrent?.();
+    await waitForAssertion(() => expect(onExecute).toHaveBeenCalledWith('second'));
 
     expect(onExecute).toHaveBeenCalledWith('first');
     expect(onExecute).toHaveBeenCalledWith('second');
@@ -135,19 +170,21 @@ describe('Prompt Queue', () => {
 
   it('only queues 1 prompt — last one wins', async () => {
     const onExecute = vi.fn();
-    const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} />);
+    const controller: IQueueTestController = {};
+    const { stdin, lastFrame } = render(
+      <QueueTestApp onExecute={onExecute} controller={controller} />,
+    );
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForAssertion(() => expect(lastFrame()!).toContain('thinking=true'));
 
     stdin.write('s:second');
     await new Promise((r) => setTimeout(r, 5));
     stdin.write('s:third');
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForAssertion(() => expect(lastFrame()!).toContain('pending=third'));
 
-    expect(lastFrame()!).toContain('pending=third');
-
-    await new Promise((r) => setTimeout(r, 700));
+    controller.completeCurrent?.();
+    await waitForAssertion(() => expect(onExecute).toHaveBeenCalledWith('third'));
 
     expect(onExecute).toHaveBeenCalledWith('first');
     expect(onExecute).toHaveBeenCalledWith('third');
@@ -157,46 +194,50 @@ describe('Prompt Queue', () => {
   it('ESC aborts execution and clears queue', async () => {
     const onExecute = vi.fn();
     const onAbort = vi.fn();
-    const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} onAbort={onAbort} />);
+    const controller: IQueueTestController = {};
+    const { stdin, lastFrame } = render(
+      <QueueTestApp onExecute={onExecute} onAbort={onAbort} controller={controller} />,
+    );
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForAssertion(() => expect(lastFrame()!).toContain('thinking=true'));
 
     stdin.write('s:queued');
-    await new Promise((r) => setTimeout(r, 50));
-    expect(lastFrame()!).toContain('pending=queued');
+    await waitForAssertion(() => expect(lastFrame()!).toContain('pending=queued'));
 
     stdin.write('\x1B');
-    await new Promise((r) => setTimeout(r, 100));
+    await waitForAssertion(() => expect(lastFrame()!).toContain('pending=none'));
 
-    expect(lastFrame()!).toContain('pending=none');
     expect(onAbort).toHaveBeenCalled();
 
-    await new Promise((r) => setTimeout(r, 700));
+    controller.completeCurrent?.();
+    await new Promise((r) => setTimeout(r, 50));
     expect(onExecute).not.toHaveBeenCalledWith('queued');
   });
 
   it('Backspace cancels queue without aborting', async () => {
     const onExecute = vi.fn();
     const onAbort = vi.fn();
-    const { stdin, lastFrame } = render(<QueueTestApp onExecute={onExecute} onAbort={onAbort} />);
+    const controller: IQueueTestController = {};
+    const { stdin, lastFrame } = render(
+      <QueueTestApp onExecute={onExecute} onAbort={onAbort} controller={controller} />,
+    );
 
     stdin.write('s:first');
-    await new Promise((r) => setTimeout(r, 50));
+    await waitForAssertion(() => expect(lastFrame()!).toContain('thinking=true'));
 
     stdin.write('s:queued');
-    await new Promise((r) => setTimeout(r, 50));
-    expect(lastFrame()!).toContain('pending=queued');
+    await waitForAssertion(() => expect(lastFrame()!).toContain('pending=queued'));
 
     stdin.write('\x7F'); // backspace
-    await new Promise((r) => setTimeout(r, 100));
+    await waitForAssertion(() => expect(lastFrame()!).toContain('pending=none'));
 
-    expect(lastFrame()!).toContain('pending=none');
     expect(lastFrame()!).toContain('queue-cleared');
     expect(onAbort).not.toHaveBeenCalled();
 
     // Execution continues normally
-    await new Promise((r) => setTimeout(r, 700));
+    controller.completeCurrent?.();
+    await new Promise((r) => setTimeout(r, 50));
     expect(onExecute).toHaveBeenCalledWith('first');
     expect(onExecute).not.toHaveBeenCalledWith('queued');
   });
