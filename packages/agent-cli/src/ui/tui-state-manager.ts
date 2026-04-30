@@ -14,35 +14,25 @@ import type {
   IExecutionResult,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-  TBackgroundTaskKind,
-  TBackgroundTaskMode,
-  TBackgroundTaskStatus,
 } from '@robota-sdk/agent-sdk';
+import {
+  shouldHideAtNextUserTurn,
+  toBackgroundTaskViewModel,
+  trimBackgroundPreview,
+  type IBackgroundTaskViewModel,
+} from './background-task-view-model.js';
+
+export type { IBackgroundTaskViewModel } from './background-task-view-model.js';
 
 /** Max messages kept in rendering state */
 const MAX_RENDERED_MESSAGES = 100;
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
 const STREAMING_DEBOUNCE_MS = 300;
-const BACKGROUND_PREVIEW_LENGTH = 120;
-
 export interface IContextState {
   percentage: number;
   usedTokens: number;
   maxTokens: number;
-}
-
-export interface IBackgroundTaskViewModel {
-  id: string;
-  kind: TBackgroundTaskKind;
-  label: string;
-  status: TBackgroundTaskStatus;
-  mode: TBackgroundTaskMode;
-  currentAction?: string;
-  unread: boolean;
-  preview: string;
-  resultPreview?: string;
-  errorPreview?: string;
 }
 
 /** Create a debounced notify — schedules at most one call per interval. */
@@ -86,6 +76,7 @@ export class TuiStateManager {
   // ── Internal ──────────────────────────────────────────────────
   private streamBuf = '';
   private backgroundTextBuffers = new Map<string, string>();
+  private backgroundTasksHiddenOnNextTurn = new Set<string>();
   private debouncedStreamNotify = createDebouncedNotify(() => this.notify(), STREAMING_DEBOUNCE_MS);
 
   private notify(): void {
@@ -170,6 +161,7 @@ export class TuiStateManager {
 
     if (event.type === 'background_task_closed') {
       this.backgroundTextBuffers.delete(event.taskId);
+      this.backgroundTasksHiddenOnNextTurn.delete(event.taskId);
       this.backgroundTasks = this.backgroundTasks.filter((task) => task.id !== event.taskId);
       this.notify();
       return;
@@ -226,6 +218,17 @@ export class TuiStateManager {
     this.notify();
   }
 
+  onUserTurnAccepted(): void {
+    if (this.backgroundTasksHiddenOnNextTurn.size === 0) return;
+    const visible = this.backgroundTasks.filter(
+      (task) => !this.backgroundTasksHiddenOnNextTurn.has(task.id),
+    );
+    this.backgroundTasksHiddenOnNextTurn.clear();
+    if (visible.length === this.backgroundTasks.length) return;
+    this.backgroundTasks = visible;
+    this.notify();
+  }
+
   private upsertBackgroundTask(state: IBackgroundTaskState): void {
     const partialText = state.result ? undefined : this.backgroundTextBuffers.get(state.id);
     const viewModel = toBackgroundTaskViewModel(state, partialText);
@@ -239,6 +242,11 @@ export class TuiStateManager {
     }
     if (state.status === 'completed' || state.status === 'failed' || state.status === 'cancelled') {
       this.backgroundTextBuffers.delete(state.id);
+    }
+    if (shouldHideAtNextUserTurn(state)) {
+      this.backgroundTasksHiddenOnNextTurn.add(state.id);
+    } else {
+      this.backgroundTasksHiddenOnNextTurn.delete(state.id);
     }
     this.notify();
   }
@@ -258,29 +266,4 @@ export class TuiStateManager {
     );
     this.notify();
   }
-}
-
-function trimBackgroundPreview(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  return value.length > BACKGROUND_PREVIEW_LENGTH
-    ? `${value.slice(0, BACKGROUND_PREVIEW_LENGTH)}...`
-    : value;
-}
-
-function toBackgroundTaskViewModel(
-  state: IBackgroundTaskState,
-  partialText?: string,
-): IBackgroundTaskViewModel {
-  return {
-    id: state.id,
-    kind: state.kind,
-    label: state.label,
-    status: state.status,
-    mode: state.mode,
-    currentAction: state.currentAction,
-    unread: state.unread,
-    preview: trimBackgroundPreview(state.promptPreview ?? state.commandPreview) ?? '',
-    resultPreview: trimBackgroundPreview(state.result?.output ?? partialText),
-    errorPreview: trimBackgroundPreview(state.error?.message),
-  };
 }
