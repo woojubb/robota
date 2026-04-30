@@ -197,4 +197,52 @@ describe('BackgroundTaskManager', () => {
     );
     await expect(manager.readLog(created.id)).rejects.toThrow('does not support log reads');
   });
+
+  it('projects runner text and tool events into task state and subscribers', async () => {
+    const eventSink = vi.fn();
+    const runner: IBackgroundTaskRunner = {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        task.emit?.({
+          type: 'background_task_tool_start',
+          toolName: 'Read',
+          firstArg: 'file.ts',
+        });
+        task.emit?.({ type: 'background_task_text_delta', delta: 'partial' });
+        task.emit?.({
+          type: 'background_task_tool_end',
+          toolName: 'Read',
+          success: true,
+        });
+        return {
+          taskId: task.taskId,
+          result: Promise.resolve({ taskId: task.taskId, kind: 'agent', output: 'done' }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+    const manager = new BackgroundTaskManager({ runners: [runner], eventSink });
+
+    const created = await manager.spawn(createAgentRequest('Report progress'));
+    await manager.wait(created.id);
+
+    expect(eventSink).toHaveBeenCalledWith({
+      type: 'background_task_tool_start',
+      taskId: created.id,
+      toolName: 'Read',
+      firstArg: 'file.ts',
+    });
+    expect(eventSink).toHaveBeenCalledWith({
+      type: 'background_task_text_delta',
+      taskId: created.id,
+      delta: 'partial',
+    });
+    expect(eventSink).toHaveBeenCalledWith({
+      type: 'background_task_tool_end',
+      taskId: created.id,
+      toolName: 'Read',
+      success: true,
+    });
+    expect(manager.get(created.id)?.currentAction).toBeUndefined();
+  });
 });

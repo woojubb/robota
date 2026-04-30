@@ -355,10 +355,28 @@ describe('Agent tool', () => {
 
     expect(createSubagentSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        onTextDelta,
-        onToolExecution,
+        onTextDelta: expect.any(Function),
+        onToolExecution: expect.any(Function),
       }),
     );
+
+    const sessionOptions = vi.mocked(createSubagentSession).mock.calls[0]?.[0];
+    expect(sessionOptions).toBeDefined();
+    if (!sessionOptions) throw new Error('Expected subagent session options');
+
+    sessionOptions.onTextDelta?.('streamed chunk');
+    sessionOptions.onToolExecution?.({
+      type: 'start',
+      toolName: 'Read',
+      toolArgs: { file_path: 'README.md' },
+    });
+
+    expect(onTextDelta).toHaveBeenCalledWith('streamed chunk');
+    expect(onToolExecution).toHaveBeenCalledWith({
+      type: 'start',
+      toolName: 'Read',
+      toolArgs: { file_path: 'README.md' },
+    });
   });
 
   it('should handle session.run error gracefully', async () => {

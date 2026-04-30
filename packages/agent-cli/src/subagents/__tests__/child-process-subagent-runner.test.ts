@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import type { IInProcessSubagentRunnerDeps, ISubagentJobStart } from '@robota-sdk/agent-sdk';
+import type {
+  IInProcessSubagentRunnerDeps,
+  ISubagentJobStart,
+  TBackgroundTaskRunnerEvent,
+} from '@robota-sdk/agent-sdk';
 import { ChildProcessSubagentRunner } from '../child-process-subagent-runner.js';
 import {
   isSubagentWorkerChildMessage,
@@ -68,6 +72,13 @@ function createJob(): ISubagentJobStart {
   };
 }
 
+function createJobWithEvents(events: TBackgroundTaskRunnerEvent[]): ISubagentJobStart {
+  return {
+    ...createJob(),
+    emit: (event) => events.push(event),
+  };
+}
+
 describe('ChildProcessSubagentRunner', () => {
   it(
     'resolves with the child worker result and exposes the child pid',
@@ -82,6 +93,34 @@ describe('ChildProcessSubagentRunner', () => {
 
       expect(handle.pid).toBeGreaterThan(0);
       expect(result).toEqual({ jobId: 'agent_1', output: 'completed:agent_1' });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'emits text and tool progress messages from the child worker',
+    async () => {
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerPath: FIXTURE_WORKER,
+        execArgv: [],
+        env: { ROBOTA_FIXTURE_MODE: 'progress' },
+      });
+
+      const handle = runner.start(createJobWithEvents(events));
+      await handle.result;
+
+      expect(events).toContainEqual({
+        type: 'background_task_tool_start',
+        toolName: 'Read',
+        firstArg: 'file.ts',
+      });
+      expect(events).toContainEqual({ type: 'background_task_text_delta', delta: 'partial ' });
+      expect(events).toContainEqual({
+        type: 'background_task_tool_end',
+        toolName: 'Read',
+        success: true,
+      });
     },
     TEST_TIMEOUT_MS,
   );

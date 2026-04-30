@@ -11,6 +11,11 @@ process.on('message', (message) => {
     if (process.env.ROBOTA_FIXTURE_MODE === 'wait') {
       return;
     }
+    if (process.env.ROBOTA_FIXTURE_MODE === 'progress') {
+      process.send?.({ type: 'tool_start', toolName: 'Read', toolArgs: { file_path: 'file.ts' } });
+      process.send?.({ type: 'text_delta', delta: 'partial ' });
+      process.send?.({ type: 'tool_end', toolName: 'Read', success: true });
+    }
     process.send?.({ type: 'result', output: `completed:${jobId}` });
     setTimeout(() => process.exit(0), 0);
     return;

@@ -1,5 +1,10 @@
 import type { ChildProcess } from 'node:child_process';
-import { BackgroundTaskError, type ISubagentJobStart } from '@robota-sdk/agent-sdk';
+import {
+  BackgroundTaskError,
+  type ISubagentJobStart,
+  type TBackgroundTaskRunnerEvent,
+} from '@robota-sdk/agent-sdk';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
@@ -17,6 +22,7 @@ export function handleWorkerMessage(
   startWorker: () => void,
   resolveOnce: (output: string) => void,
   rejectOnce: (error: Error) => void,
+  emit?: (event: TBackgroundTaskRunnerEvent) => void,
 ): void {
   switch (message.type) {
     case 'ready':
@@ -32,12 +38,32 @@ export function handleWorkerMessage(
       rejectOnce(new BackgroundTaskError('runner', message.reason ?? 'Subagent worker cancelled'));
       break;
     case 'text_delta':
+      emit?.({ type: 'background_task_text_delta', delta: message.delta });
+      break;
     case 'tool_start':
+      emit?.({
+        type: 'background_task_tool_start',
+        toolName: message.toolName,
+        firstArg: extractFirstArg(message.toolArgs),
+      });
+      break;
     case 'tool_end':
+      emit?.({
+        type: 'background_task_tool_end',
+        toolName: message.toolName,
+        success: message.success,
+      });
       break;
     default:
       rejectOnce(new BackgroundTaskError('runner', 'Unhandled subagent worker message'));
   }
+}
+
+function extractFirstArg(toolArgs?: TToolArgs): string | undefined {
+  if (!toolArgs) return undefined;
+  const firstValue = Object.values(toolArgs)[0];
+  if (firstValue === undefined) return undefined;
+  return typeof firstValue === 'object' ? JSON.stringify(firstValue) : String(firstValue);
 }
 
 export function sendWorkerMessage(

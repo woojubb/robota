@@ -25,6 +25,7 @@ Implement the first production slices of Robota's shared background task layer s
 - [x] Add a CLI worker entrypoint that reconstructs provider/session state inside the child process instead of sharing live objects.
 - [x] Wire CLI print/TUI modes to use child-process subagents while keeping tests able to inject fake runners.
 - [x] Add focused unit tests for runner injection, IPC validation, child-process completion, cancellation, and follow-up send.
+- [x] Project child-process subagent text/tool IPC messages into `BackgroundTaskManager` progress events and TUI previews.
 
 ## Progress
 
@@ -55,6 +56,13 @@ Implement the first production slices of Robota's shared background task layer s
 - Added unit tests for runner factory injection, child-process completion, cancellation, follow-up prompt forwarding, IPC validation, and provider reconstruction from serialized profiles.
 - Verified targeted SDK/CLI tests, SDK/CLI typecheck, CLI build, package lint with warnings only, package harness verification for `agent-sdk`/`agent-cli`, full `harness:scan`, and `git diff --check`.
 
+### 2026-05-01 continued
+
+- Started the progress-event projection slice. The child worker already emits text/tool IPC messages; the missing layer is a runner-to-manager emit port plus TUI preview accumulation.
+- Added `TBackgroundTaskRunnerEvent` as the runner emit port, projected runner text/tool events through `BackgroundTaskManager`, and accumulated background text deltas/current tool action in `TuiStateManager`.
+- Extended child-process subagent IPC tests, background manager tests, TUI projection tests, and Agent tool callback tests for the new progress event behavior.
+- Verified targeted SDK/CLI builds and tests, SDK/CLI package harness verification, full `harness:scan`, and `git diff --check`.
+
 ## Decisions
 
 - Start with the SDK-owned generic manager and in-process agent integration before child-process/process runners. This gives TUI and transport layers one lifecycle contract before Node-specific runner adapters are added.
@@ -84,4 +92,4 @@ Implement the first production slices of Robota's shared background task layer s
 
 Implemented the background agent/process jobs foundation on `feat/background-agent-jobs`. The shared SDK background task manager, subagent facade migration, Agent tool background mode, `BackgroundProcess` tool composition, CLI shell process runner, session APIs/events, `/background` controls, and thin TUI projection are in place with focused unit tests and package spec updates.
 
-Child-process subagent isolation is now also connected for CLI runtime: SDK consumers can inject a `TSubagentRunnerFactory`, and Robota CLI uses a worker-process runner that reconstructs provider/session state inside the child process. Worker text/tool progress is currently captured at the IPC boundary but is not yet projected into `BackgroundTaskManager` progress events.
+Child-process subagent isolation is now also connected for CLI runtime: SDK consumers can inject a `TSubagentRunnerFactory`, and Robota CLI uses a worker-process runner that reconstructs provider/session state inside the child process. Worker text/tool progress is projected into `BackgroundTaskManager` progress events, and the TUI accumulates partial output previews plus current tool action from those events.

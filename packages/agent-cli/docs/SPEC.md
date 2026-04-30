@@ -903,6 +903,7 @@ Child-process subagent runner responsibilities:
 - fork one worker process per subagent job
 - pass `ISubagentSpawnRequest`, agent definition, parent config/context, permission mode, and serialized provider profile over IPC
 - expose child `pid` on the background task state
+- forward worker text/tool IPC messages to `BackgroundTaskManager` progress events
 - forward cancellation to the worker and terminate it after a grace period
 - forward follow-up prompts to workers that support input
 - keep SDK-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter
@@ -911,7 +912,7 @@ When a user invokes a skill slash command with `context: fork`, the CLI must cal
 
 When a user asks in normal conversation to call or delegate to an agent, the request is handled by the model through the SDK-owned `Agent` tool. The CLI only displays the resulting tool execution events and final assistant response.
 
-Background agent task lifecycle is projected into `TuiStateManager.backgroundTasks` through the SDK-owned `background_task_event` event. React components must render this state only; they must not own task transition or cancellation logic.
+Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the SDK-owned `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
 
 `BackgroundTaskPanel` renders active and recently completed background tasks with status, kind, label, task ID, unread marker, and a short preview. User controls are routed through SDK system commands:
 

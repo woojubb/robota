@@ -148,6 +148,7 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
       const subagentHandle = runner.start({
         jobId: task.taskId,
         request: toSubagentStartRequest(task.request),
+        emit: task.emit,
       });
       const handle: IBackgroundTaskHandle = {
         taskId: task.taskId,

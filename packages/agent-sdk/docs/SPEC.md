@@ -400,6 +400,8 @@ Common interface for all transport adapters. Defined in `src/interactive/types.t
 
 `BackgroundTaskManager` is exported as the generic SDK-owned runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, terminal close/dismiss, optional send/log controls, and immutable state snapshots.
 
+Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reporting. The manager stamps task IDs onto runner events, updates `currentAction` for tool start/end events, and forwards the resulting `TBackgroundTaskEvent` to subscribers.
+
 Background task runtime exports:
 
 | Export                           | Kind      | Description                                                   |
@@ -413,6 +415,7 @@ Background task runtime exports:
 | `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests |
 | `IBackgroundTaskResult`          | interface | Completed background task output                              |
 | `TBackgroundTaskEvent`           | type      | SDK-owned lifecycle/progress event union                      |
+| `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs            |
 | `TBackgroundTaskMode`            | type      | `foreground` or `background`                                  |
 | `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                            |
 | `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                            |
@@ -875,6 +878,13 @@ The manager does not create providers, sessions, child processes, worktrees, or 
 
 `createSession()` accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. The SDK default remains `createInProcessSubagentRunner(agentToolDeps)`. A runtime shell may supply a factory to run `Agent` tool jobs through a process-backed runner while reusing the same config/context/tool dependency bundle assembled by the SDK.
 
+Runner progress semantics:
+
+- `background_task_text_delta` forwards partial output for preview surfaces
+- `background_task_tool_start` sets `IBackgroundTaskState.currentAction`
+- `background_task_tool_end` clears `currentAction` on success or stores the error/action on failure
+- progress events do not complete, fail, cancel, or close tasks; lifecycle remains manager-owned
+
 The built-in `/background` system command maps to these APIs:
 
 | Command                               | Behavior                       |
@@ -907,6 +917,12 @@ Responsibilities:
 ```typescript
 interface ISubagentRunner {
   start(job: ISubagentJobStart): ISubagentJobHandle;
+}
+
+interface ISubagentJobStart {
+  jobId: string;
+  request: ISubagentSpawnRequest;
+  emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
 interface ISubagentJobHandle {
