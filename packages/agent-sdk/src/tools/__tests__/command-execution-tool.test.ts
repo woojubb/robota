@@ -2,6 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { createCommandExecutionTool } from '../command-execution-tool.js';
 
 describe('command execution tool', () => {
+  it('describes tool execution as the required path instead of assistant text', () => {
+    const tool = createCommandExecutionTool({
+      isModelInvocable: () => true,
+      execute: vi.fn(),
+    });
+
+    expect(tool.schema.description).toContain('Use this tool when command execution is required');
+    expect(tool.schema.description).toContain('pseudo-tags');
+  });
+
   it('executes only model-invocable commands through the injected command handler', async () => {
     const execute = vi.fn().mockResolvedValue({
       message: 'Started agent_1',

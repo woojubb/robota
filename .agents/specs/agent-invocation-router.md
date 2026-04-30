@@ -167,17 +167,17 @@ Recommended descriptor:
 
 ### Required Subcommands
 
-| Command                                    | Behavior                                                                                             |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `/agent list`                              | List available agent definitions and active/terminal agent jobs.                                     |
-| `/agent run <agent> <prompt>`              | Run one agent in foreground mode and return its result.                                              |
-| `/agent run <agent> --background <prompt>` | Spawn one background agent and return `agentId` immediately.                                         |
-| `/agent parallel <spec>`                   | Spawn multiple background agents from a structured spec and return all `agentId` values immediately. |
-| `/agent read <agentId> [offset]`           | Read retained transcript/log output for an agent job.                                                |
-| `/agent send <agentId> <prompt>`           | Send follow-up input to a running/open agent when supported.                                         |
-| `/agent stop <agentId> [reason]`           | Cancel a running/queued agent job.                                                                   |
-| `/agent close <agentId>`                   | Close a terminal agent job.                                                                          |
-| `/agent open <agentId>`                    | Switch or focus the TUI agent thread/detail view when the TUI supports it.                           |
+| Command                                      | Behavior                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `/agent list`                                | List available agent definitions and active/terminal agent jobs.                                         |
+| `/agent run [<agent>] <prompt>`              | Run one agent in foreground mode and return its result. Defaults to `general-purpose` when omitted.      |
+| `/agent run [<agent>] --background <prompt>` | Spawn one background agent and return `agentId` immediately. Defaults to `general-purpose` when omitted. |
+| `/agent parallel <spec>`                     | Spawn multiple background agents from a structured spec and return all `agentId` values immediately.     |
+| `/agent read <agentId> [offset]`             | Read retained transcript/log output for an agent job.                                                    |
+| `/agent send <agentId> <prompt>`             | Send follow-up input to a running/open agent when supported.                                             |
+| `/agent stop <agentId> [reason]`             | Cancel a running/queued agent job.                                                                       |
+| `/agent close <agentId>`                     | Close a terminal agent job.                                                                              |
+| `/agent open <agentId>`                      | Switch or focus the TUI agent thread/detail view when the TUI supports it.                               |
 
 `/background` remains the generic task manager command. `/agent` is the agent-specific control surface and may delegate task reads/cancel/close to the shared background task registry.
 
@@ -214,6 +214,8 @@ The command parser may later support JSON input for headless clients:
 
 `parallel` MUST spawn all valid jobs before waiting for any result. It MUST return created job IDs immediately when `--background` is present.
 
+The first implementation MUST also support a simpler `label:"prompt"` parallel token. In that form, the label is used for display and the agent type defaults to `general-purpose`, unless the label itself matches an available agent definition.
+
 ## Model-Routed Command Invocation
 
 Robota MUST NOT add a natural-language pre-router that decides whether prose should become an agent command before the model sees it.
@@ -238,6 +240,7 @@ Rules:
 - The command execution tool must call the same command handler used by user-entered slash commands.
 - The command execution tool must return structured command results, including `agentId` values for created background agents.
 - Prompt text alone is not command execution. If the model writes `/agent ...` as assistant text instead of calling the command tool, no agent job has started.
+- XML/HTML-like assistant text such as `<agent ... />` is not command execution. Owner-provided command descriptors should explicitly point model-routed execution at the `ExecuteCommand` tool.
 - If the model does not call the command tool, Robota must not synthesize an agent job from natural language after the fact.
 - User-entered prompts that begin with `/agent` may bypass the model and execute the slash command handler directly.
 
@@ -400,8 +403,11 @@ Rules:
 - Given an unrelated command module such as `/diagnose` is injected, when the command registry and system executor are assembled, then `/diagnose` is visible/executable without adding any command-specific code to `agent-sdk`.
 - Given the composer source is scanned, then it contains no hardcoded instructions for role behavior, web search, permissions, tools, skills, slash commands, or agents.
 - Given `/agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `/agent` and rejects non-model-invocable commands.
+- Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it defaults to `general-purpose` instead of treating the first prompt word as an agent type.
 - Given a model calls the command execution tool with `/agent run Plan --background "draft architecture"`, when the command executes, then `SubagentManager.spawn()` receives `mode: "background"` and the command returns an `agentId` without awaiting completion.
 - Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y" --background`, when the command executes, then two background jobs are spawned before any wait path is called.
+- Given `/agent parallel developer:"x" designer:"y" --background`, when the command executes, then two background jobs are spawned with labels `developer` and `designer` and default agent type `general-purpose`.
+- Given an explicit unknown agent type is requested, when the command executes, then it returns a structured command failure listing available agents instead of throwing an unhandled rejection.
 - Given natural-language input asks for two named agents in parallel, when the model calls the command execution tool, then Robota executes `/agent parallel` through the command handler.
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then Robota starts no background jobs.
 - Given no `agentId` or `background_task_created` event exists, when runtime execution state is projected, then it reports no started agent jobs.

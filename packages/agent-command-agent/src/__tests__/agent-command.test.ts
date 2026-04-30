@@ -77,6 +77,9 @@ describe('agent command module', () => {
       safety: 'background-agent',
     });
     expect(agent?.description).toContain('subagent jobs');
+    expect(agent?.description).toContain('ExecuteCommand');
+    expect(agent?.description).toContain('<agent>');
+    expect(agent?.argumentHint).toContain('run [<agent>]');
   });
 
   it('spawns a background agent and returns the agentId', async () => {
@@ -103,6 +106,49 @@ describe('agent command module', () => {
       mode: 'background',
       prompt: 'draft architecture',
     });
+  });
+
+  it('defaults /agent run prompt-only syntax to general-purpose', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'run --background "이걸로 분석해"');
+
+    expect(result?.success).toBe(true);
+    expect(result?.data?.agentId).toBe('agent_1');
+    expect(
+      (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
+    ).toHaveBeenCalledWith({
+      agentType: 'general-purpose',
+      label: 'general-purpose',
+      mode: 'background',
+      prompt: '이걸로 분석해',
+    });
+  });
+
+  it('returns a command failure for explicit unknown agent types instead of throwing', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'run --agent missing --background "draft architecture"',
+    );
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('Unknown agent type: missing');
+    expect(
+      (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
+    ).not.toHaveBeenCalled();
   });
 
   it('spawns every parallel background job before any wait path', async () => {
@@ -143,5 +189,36 @@ describe('agent command module', () => {
     expect(result?.success).toBe(true);
     expect(result?.data?.agentIds).toEqual(['agent_1', 'agent_2']);
     expect(callOrder).toEqual(['spawn:developer', 'spawn:designer']);
+  });
+
+  it('supports simple parallel label prompt syntax with default agent type', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'parallel developer:"implementation risks" designer:"architecture boundaries" --background',
+    );
+
+    expect(result?.success).toBe(true);
+    const spawnAgentJob = (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> })
+      .spawnAgentJob;
+    expect(spawnAgentJob).toHaveBeenNthCalledWith(1, {
+      agentType: 'general-purpose',
+      label: 'developer',
+      mode: 'background',
+      prompt: 'implementation risks',
+    });
+    expect(spawnAgentJob).toHaveBeenNthCalledWith(2, {
+      agentType: 'general-purpose',
+      label: 'designer',
+      mode: 'background',
+      prompt: 'architecture boundaries',
+    });
   });
 });
