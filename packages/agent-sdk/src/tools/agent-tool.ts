@@ -59,6 +59,8 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   backgroundTaskManager?: IBackgroundTaskManager;
   /** Optional custom agent registry for resolving non-built-in agent types. */
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
+  /** Model-visible and command-visible agent definitions available to this session. */
+  agentDefinitions?: IAgentDefinition[];
 }
 
 /**

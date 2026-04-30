@@ -84,7 +84,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
 
     const prompt = buildSystemPrompt(params);
 
-    expect(prompt).toContain('## Skills');
+    expect(prompt).toContain('## Capabilities');
     expect(prompt).toContain('my-skill');
     expect(prompt).toContain('A custom development skill');
   });
@@ -301,7 +301,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
       skills,
     });
 
-    expect(prompt).toContain('## Skills');
+    expect(prompt).toContain('## Capabilities');
     expect(prompt).toContain('summarize');
     expect(prompt).toContain('(ai-tools) Summarize text');
   });

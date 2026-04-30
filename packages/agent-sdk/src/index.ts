@@ -26,17 +26,26 @@ export {
   BuiltinCommandSource,
   SkillCommandSource,
   PluginCommandSource,
+  SystemCommandExecutor,
+  createSystemCommands,
   parseFrontmatter,
   executeSkill,
 } from './commands/index.js';
 export type {
+  ICapabilityDescriptor,
+  TCapabilityKind,
+  TCapabilitySafety,
+} from './capabilities/types.js';
+export type {
   ICommand,
+  ICommandModule,
   ICommandSource,
   ISystemCommand,
   ICommandResult,
   IForkExecutionOptions,
   ISkillExecutionCallbacks,
   ISkillExecutionResult,
+  TCommandModuleSessionRequirement,
 } from './commands/index.js';
 
 // ── Skill prompt utilities ───────────────────────────────────
@@ -110,6 +119,8 @@ export {
 export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
+export { createCommandExecutionTool } from './tools/command-execution-tool.js';
+export type { ICommandExecutionToolDeps } from './tools/command-execution-tool.js';
 export { createBackgroundProcessTool } from './tools/background-process-tool.js';
 export type { IBackgroundProcessToolDeps } from './tools/background-process-tool.js';
 
@@ -197,6 +208,4 @@ export { runHooks } from '@robota-sdk/agent-core';
 //   createProvider()       — REMOVED (provider comes from consumer)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)
-//   SystemCommandExecutor  — embedded in InteractiveSession
-//   createSystemCommands() — embedded in InteractiveSession
 // ──────────────────────────────────────────────────────────────

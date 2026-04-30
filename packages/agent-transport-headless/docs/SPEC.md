@@ -25,6 +25,8 @@ Returns `{ run: (prompt: string) => Promise<number> }`.
 
 The `run` function submits the prompt to the session, writes output to `process.stdout`, and resolves with an exit code.
 
+If the prompt begins with `/`, the runner treats it as a slash command and calls `session.executeCommand(name, args)` instead of submitting the text to the model. Unknown slash commands return an explicit command error. Command availability depends on the command modules composed into the upstream `InteractiveSession`.
+
 ### IHeadlessRunnerOptions
 
 | Field          | Type                                | Description              |
@@ -91,6 +93,8 @@ When `InteractiveSession` emits `background_task_event`, `stream-json` writes it
 
 Headless transport does not expose interactive background controls. Non-interactive callers should use the emitted events plus SDK/transport-specific control surfaces outside this one-shot runner.
 
+For slash commands that start background tasks, `stream-json` subscribes to `background_task_event` before command execution so created/started events can be emitted before the final command result.
+
 ## Claude Code Field Name Compatibility
 
 JSON and stream-json output formats use field names that match Claude Code's `--output-format json` and `--output-format stream-json` (e.g., `type: 'result'`, `session_id`, `subtype`, `content_block_delta`). This is a **reference-only alignment** for user convenience — it allows reuse of `jq` pipelines and parsing scripts. Robota does NOT depend on Claude Code and will NOT track Claude Code's field name changes. The output format is independently owned and versioned by this package.
@@ -120,6 +124,7 @@ Interrupted executions (e.g., abort signal) are treated as success (exit code 0)
 createHeadlessRunner(options)
   └── run(prompt)
         ├── subscribes to InteractiveSession events
+        ├── executes leading slash commands through session.executeCommand()
         ├── writes formatted output to process.stdout
         └── resolves with exit code (0 or 1)
 ```

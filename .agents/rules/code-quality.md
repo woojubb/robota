@@ -54,7 +54,9 @@ agent-plugins     ← cross-cutting concerns (logging, usage, etc.)
   ↑
 agent-sdk         ← assembly layer: composes core + sessions + tools + providers
   ↑
-agent-cli         ← UI layer: consumes SDK, adds terminal UI
+agent-command-*   ← optional command modules that consume SDK command interfaces
+  ↑
+agent-cli         ← product/UI layer: consumes SDK and selected command modules
 ```
 
 **Rules:**
@@ -68,3 +70,4 @@ agent-cli         ← UI layer: consumes SDK, adds terminal UI
 - **Composable material first.** Reusable capabilities must be shaped as small composable packages, ports, adapters, classes, and pure functions before they are wired into SDK or UI flows. The SDK should assemble reusable materials; CLI/TUI should render and inject runtime adapters. Do not let a feature become a CLI-only or SDK-only monolith when it has its own lifecycle, state model, adapters, or non-UI consumers.
 - **Package extraction trigger.** Before adding a substantial capability to an existing package, ask whether it is reusable outside that package's primary role. If the answer is yes, prefer a dedicated lower-level package or a clearly isolated module with public ports. A runtime capability with multiple adapters, transport projections, or independent tests is a strong candidate for package extraction.
 - **Orchestrator/adapter split.** Lifecycle orchestration, state transitions, and handoff metadata belong in reusable lower layers. Concrete I/O such as `child_process`, local files, Git commands, HTTP servers, and React/Ink rendering belongs in injected adapters or shell packages.
+- **Command module isolation.** Optional command packages (`agent-command-*`) consume SDK command interfaces and are selected by composition roots. `agent-sdk` must not import or special-case optional command packages. Product shells such as `agent-cli` may import selected command modules to assemble a default product experience.

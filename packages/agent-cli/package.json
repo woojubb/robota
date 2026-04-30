@@ -48,6 +48,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-command-agent": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",

@@ -14,6 +14,8 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { ICommandModule, ICommandResult } from '../commands/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
 import { loadContext } from '../context/context-loader.js';
@@ -46,6 +48,14 @@ export interface IInteractiveSessionStandardOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** Optional command modules composed into this session. */
+  commandModules?: readonly ICommandModule[];
+  /** Model-visible command descriptors derived from the composed command executor. */
+  commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Model command execution bridge. */
+  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Predicate for commands allowed through the model command execution bridge. */
+  isModelCommandInvocable?: (command: string) => boolean;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -60,6 +70,8 @@ export interface IInteractiveSessionInjectedOptions {
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /** Optional command modules composed into this injected session. */
+  commandModules?: readonly ICommandModule[];
 }
 
 /** Union of standard and injected construction options. */
@@ -95,6 +107,14 @@ export interface IInitOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** Optional command modules composed into this session. */
+  commandModules?: readonly ICommandModule[];
+  /** Model-visible command descriptors derived from the composed command executor. */
+  commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Model command execution bridge. */
+  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Predicate for commands allowed through the model command execution bridge. */
+  isModelCommandInvocable?: (command: string) => boolean;
 }
 
 /**
@@ -159,6 +179,21 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     appendSystemPrompt: options.appendSystemPrompt,
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
+    ...(options.commandModules?.some((module) =>
+      module.sessionRequirements?.includes('agent-runtime'),
+    )
+      ? { enableAgentRuntime: true }
+      : {}),
+    ...(options.commandModules || options.commandDescriptors
+      ? {
+          commandDescriptors: [
+            ...(options.commandDescriptors ?? []),
+            ...(options.commandModules?.flatMap((module) => module.commandDescriptors ?? []) ?? []),
+          ],
+        }
+      : {}),
+    modelCommandExecutor: options.modelCommandExecutor,
+    isModelCommandInvocable: options.isModelCommandInvocable,
   });
 }
 
