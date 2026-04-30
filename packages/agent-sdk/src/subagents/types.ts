@@ -16,6 +16,8 @@ export interface ISubagentSpawnRequest {
   depth: number;
   cwd: string;
   prompt: string;
+  model?: string;
+  allowedTools?: string[];
   timeoutMs?: number;
 }
 
@@ -60,6 +62,16 @@ export interface ISubagentJobHandle {
 
 export interface ISubagentRunner {
   start(job: ISubagentJobStart): ISubagentJobHandle;
+}
+
+export interface ISubagentManager {
+  spawn(request: ISubagentSpawnRequest): Promise<ISubagentJobState>;
+  wait(jobId: string): Promise<ISubagentJobResult>;
+  list(): ISubagentJobState[];
+  get(jobId: string): ISubagentJobState | undefined;
+  cancel(jobId: string, reason?: string): Promise<void>;
+  close(jobId: string): Promise<void>;
+  send(jobId: string, prompt: string): Promise<void>;
 }
 
 export interface ISubagentManagerOptions {

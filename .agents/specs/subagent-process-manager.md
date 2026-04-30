@@ -428,9 +428,9 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 
 ## Implementation Order
 
-1. Add types and unit tests for `SubagentManager`, `SubagentRunner`, and job state transitions.
-2. Implement manager with fake/in-process runner.
-3. Route existing `Agent` tool through manager in foreground mode.
+1. Add types and unit tests for `SubagentManager`, `SubagentRunner`, and job state transitions. (Completed in `agent-sdk`; keep regression coverage.)
+2. Implement manager with fake/in-process runner. (Completed in `agent-sdk`; keep regression coverage.)
+3. Route existing `Agent` tool through manager in foreground mode. (Completed in `agent-sdk`; keep regression coverage.)
 4. Enforce `maxConcurrency` in core parallel tool execution. (Completed in `agent-core`; keep regression coverage.)
 5. Fix provider callback isolation.
 6. Add background mode and manager events to `InteractiveSession`.
