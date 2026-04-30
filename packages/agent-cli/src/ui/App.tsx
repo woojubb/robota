@@ -115,12 +115,11 @@ function AppInner(
   }, [sessionName]);
 
   // ESC abort
-  useInput(
-    (_input: string, key: { escape: boolean }) => {
-      if (key.escape && isThinking) handleAbort();
-    },
-    { isActive: !permissionRequest && !showPluginTUI && !showSessionPicker },
-  );
+  useInput((_input: string, key: { escape: boolean }) => {
+    if (!key.escape || !isThinking) return;
+    if (permissionRequest || showPluginTUI || showSessionPicker) return;
+    handleAbort();
+  });
 
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';

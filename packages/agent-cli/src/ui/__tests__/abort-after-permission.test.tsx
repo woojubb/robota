@@ -1,6 +1,6 @@
 /**
  * Test: ESC abort after permission prompt was shown and dismissed.
- * Verifies that useInput re-registers properly after isActive toggles.
+ * Verifies that the global ESC handler remains available after overlays close.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -9,10 +9,10 @@ import { Box, Text, useInput } from 'ink';
 import { describe, it, expect } from 'vitest';
 
 /**
- * Simulates App's useInput pattern with permission prompt toggle.
+ * Simulates App's global ESC handler with permission prompt overlay guard.
  * 1. Start with "thinking" active
- * 2. Permission prompt appears (useInput disabled)
- * 3. Permission resolved (useInput re-enabled)
+ * 2. Permission prompt appears (App-level ESC ignores while overlay is active)
+ * 3. Permission resolved (App-level ESC handles abort again)
  * 4. ESC should trigger abort
  */
 function AbortAfterPermissionApp({
@@ -48,15 +48,12 @@ function AbortAfterPermissionApp({
   }, [onPermissionReady]);
 
   // App's ESC handler — same pattern as real App.tsx
-  useInput(
-    (_input: string, key: { escape: boolean }) => {
-      if (key.escape && isThinking) {
-        setAborted(true);
-        onAbort();
-      }
-    },
-    { isActive: !permissionRequest },
-  );
+  useInput((_input: string, key: { escape: boolean }) => {
+    if (!key.escape || !isThinking) return;
+    if (permissionRequest) return;
+    setAborted(true);
+    onAbort();
+  });
 
   // Permission prompt's own useInput (when active)
   useInput(
