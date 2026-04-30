@@ -54,10 +54,11 @@ References:
 4. Keep the SDK core command set free of `/agent` unless the command module is injected.
 5. Add a model-callable command execution tool that exposes only `modelInvocable` command descriptors and calls the same handlers as slash input.
 6. Add `InteractiveSession` agent job APIs backed by the existing `SubagentManager` and `BackgroundTaskManager`.
-7. Implement `/agent run --background` and `/agent parallel --background` as deterministic background spawn paths.
+7. Implement `/agent <prompt>`, `/agent run`, and `/agent parallel` as deterministic background spawn paths.
 8. Add runtime evidence reporting checks so Robota-owned execution state cannot report agents running without `agentId` or background task events.
 9. Wire TUI slash input, headless slash input, structured transports, and model command tool calls through the same command handler path.
-10. Update package SPEC files and run package/harness verification.
+10. Ensure project-local `.robota/sessions` and `.robota/logs` contain the full prompt/tool/command context needed for resume and debugging.
+11. Update package SPEC files and run package/harness verification.
 
 ## Test Plan
 
@@ -72,19 +73,22 @@ The implementation must prove command handler behavior without a real model firs
 - Given Robota product composition injects the agent command module, when commands/tools/system prompt are assembled, then `/agent`, `Agent`, and agent descriptors are present.
 - Given an unrelated command module such as `/diagnose` is injected, when registry and executor are assembled, then it is visible/executable without adding command-specific SDK code.
 - Given `/agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `/agent` and rejects non-model-invocable commands.
-- Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it defaults to `general-purpose` instead of treating the first prompt word as an agent type.
-- Given the model command execution tool receives `/agent run Plan --background "draft architecture"`, when executed, then a background agent is spawned and an `agentId` returns without awaiting completion.
-- Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y" --background`, when executed, then both jobs are spawned before any wait path.
-- Given `/agent parallel developer:"x" designer:"y" --background`, when executed, then labels are preserved and both jobs use the default `general-purpose` agent type.
+- Given `/agent "analyze this"` is submitted, when the command executes, then it defaults to `general-purpose` and starts a background job without awaiting completion.
+- Given the model command execution tool receives `/agent Plan "draft architecture"`, when executed, then a background agent is spawned and an `agentId` returns without awaiting completion.
+- Given `/agent run "analyze this"` is submitted without an agent type, when executed, then it remains a compatibility alias for default background execution.
+- Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y"`, when executed, then both jobs are spawned before any wait path.
+- Given `/agent parallel developer:"x" designer:"y"`, when executed, then labels are preserved and both jobs use the default `general-purpose` agent type.
 - Given an explicit unknown agent type is requested, when executed, then the command returns a structured failure instead of throwing an unhandled rejection.
 - Given natural-language input asks for parallel agents and a test model calls the command execution tool, when executed, then it becomes a deterministic `/agent parallel` execution.
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then no background job is started.
 - Given no runtime evidence exists, when Robota-owned execution state is projected, then it reports no started agent jobs.
+- Given a session starts with model-visible `/agent` descriptors, when session data is saved, then the exact system prompt and registered tool schemas are persisted in `.robota/sessions`.
+- Given a session run completes, when diagnostic JSONL is inspected, then session initialization, pre-run, and assistant events include full system/input/history/response data rather than length-only or truncated data.
 
 ### Integration Tests
 
-- TUI `/agent parallel ... --background` shows background task rows and keeps the prompt usable.
-- Headless `/agent run ... --background` returns an `agentId` immediately.
+- TUI `/agent parallel ...` shows background task rows and keeps the prompt usable.
+- Headless `/agent ...` returns an `agentId` immediately.
 - `stream-json` emits background task events for `/agent parallel`.
 
 ### Verification Commands

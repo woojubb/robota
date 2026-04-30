@@ -2,7 +2,7 @@ import type { TBackgroundTaskIsolation } from '@robota-sdk/agent-sdk';
 
 export const DEFAULT_AGENT_TYPE = 'general-purpose';
 
-export type TAgentMode = 'foreground' | 'background';
+export type TAgentMode = 'background';
 
 export interface IAgentRunRequest {
   readonly agentType: string;
@@ -14,7 +14,6 @@ export interface IAgentRunRequest {
 }
 
 interface IParsedAgentOptions {
-  readonly background: boolean;
   readonly agentType?: string;
   readonly model?: string;
   readonly isolation?: TBackgroundTaskIsolation;
@@ -62,7 +61,6 @@ export function tokenizeArgs(args: string): string[] {
 
 function parseOptions(tokens: readonly string[]): IParsedAgentOptions {
   const positional: string[] = [];
-  let background = false;
   let agentType: string | undefined;
   let model: string | undefined;
   let isolation: TBackgroundTaskIsolation | undefined;
@@ -70,7 +68,6 @@ function parseOptions(tokens: readonly string[]): IParsedAgentOptions {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token === '--background') {
-      background = true;
       continue;
     }
     if (token === '--agent' || token === '--type' || token === '-a') {
@@ -93,7 +90,6 @@ function parseOptions(tokens: readonly string[]): IParsedAgentOptions {
   }
 
   return {
-    background,
     positional,
     ...(agentType ? { agentType } : {}),
     ...(model ? { model } : {}),
@@ -110,7 +106,7 @@ function createRequest(
   return {
     agentType,
     label,
-    mode: options.background ? 'background' : 'foreground',
+    mode: 'background',
     prompt,
     ...(options.model ? { model: options.model } : {}),
     ...(options.isolation ? { isolation: options.isolation } : {}),

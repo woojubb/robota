@@ -107,6 +107,8 @@ export function persistSession(
       updatedAt: new Date().toISOString(),
       messages: session.getHistory(),
       history,
+      systemPrompt: session.getSystemMessage(),
+      toolSchemas: session.getToolSchemas(),
     });
   } catch {
     // Persist failure should not break execution

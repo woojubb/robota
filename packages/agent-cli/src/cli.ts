@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type { ICommandModule } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
@@ -145,7 +145,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   });
 
   // Session management
-  const sessionStore = new SessionStore();
+  const sessionStore = new SessionStore(projectPaths(cwd).sessions);
   let resumeSessionId: string | undefined;
 
   if (args.continueMode) {

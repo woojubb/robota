@@ -79,10 +79,10 @@ describe('agent command module', () => {
     expect(agent?.description).toContain('subagent jobs');
     expect(agent?.description).toContain('ExecuteCommand');
     expect(agent?.description).toContain('<agent>');
-    expect(agent?.argumentHint).toContain('run [<agent>]');
+    expect(agent?.argumentHint).toContain('<prompt>');
   });
 
-  it('spawns a background agent and returns the agentId', async () => {
+  it('spawns a background agent from direct natural-language /agent input', async () => {
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
@@ -90,11 +90,32 @@ describe('agent command module', () => {
     ]);
     const session = createMockSession();
 
-    const result = await executor.execute(
-      'agent',
-      session,
-      'run Plan --background "draft architecture"',
-    );
+    const result = await executor.execute('agent', session, '이 백로그를 분석해');
+
+    expect(result?.success).toBe(true);
+    expect(result?.data?.agentId).toBe('agent_1');
+    expect(
+      (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
+    ).toHaveBeenCalledWith({
+      agentType: 'general-purpose',
+      label: 'general-purpose',
+      mode: 'background',
+      prompt: '이 백로그를 분석해',
+    });
+    expect(
+      (session as unknown as { waitAgentJob: ReturnType<typeof vi.fn> }).waitAgentJob,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('spawns a named background agent from direct /agent input', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'Plan "draft architecture"');
 
     expect(result?.success).toBe(true);
     expect(result?.data?.agentId).toBe('agent_1');
@@ -106,9 +127,12 @@ describe('agent command module', () => {
       mode: 'background',
       prompt: 'draft architecture',
     });
+    expect(
+      (session as unknown as { waitAgentJob: ReturnType<typeof vi.fn> }).waitAgentJob,
+    ).not.toHaveBeenCalled();
   });
 
-  it('defaults /agent run prompt-only syntax to general-purpose', async () => {
+  it('keeps /agent run as a compatibility alias that defaults to background general-purpose', async () => {
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
@@ -116,7 +140,7 @@ describe('agent command module', () => {
     ]);
     const session = createMockSession();
 
-    const result = await executor.execute('agent', session, 'run --background "이걸로 분석해"');
+    const result = await executor.execute('agent', session, 'run "이걸로 분석해"');
 
     expect(result?.success).toBe(true);
     expect(result?.data?.agentId).toBe('agent_1');
@@ -183,7 +207,7 @@ describe('agent command module', () => {
     const result = await executor.execute(
       'agent',
       session,
-      'parallel developer=general-purpose:"implementation risks" designer=Plan:"architecture boundaries" --background',
+      'parallel developer=general-purpose:"implementation risks" designer=Plan:"architecture boundaries"',
     );
 
     expect(result?.success).toBe(true);
@@ -202,7 +226,7 @@ describe('agent command module', () => {
     const result = await executor.execute(
       'agent',
       session,
-      'parallel developer:"implementation risks" designer:"architecture boundaries" --background',
+      'parallel developer:"implementation risks" designer:"architecture boundaries"',
     );
 
     expect(result?.success).toBe(true);

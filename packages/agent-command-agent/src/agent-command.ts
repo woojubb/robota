@@ -2,9 +2,6 @@ import type { ICommandResult, InteractiveSession } from '@robota-sdk/agent-sdk';
 import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
 import type { IAgentRunRequest } from './agent-command-parser.js';
 
-const USAGE =
-  'Usage: agent list | agent run [<agent>] [--agent <agent>] [--background] <prompt> | agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background | agent read <agent-id> [offset] | agent send <agent-id> <prompt> | agent stop <agent-id> [reason] | agent close <agent-id>';
-
 function formatError<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -62,7 +59,7 @@ async function executeRun(
   const request = parseRunRequest(tokens, getAvailableAgentNames(session));
   if (!request) {
     return {
-      message: 'Usage: agent run [<agent>] [--agent <agent>] [--background] <prompt>',
+      message: 'Usage: agent run [<agent>] [--agent <agent>] <prompt>',
       success: false,
     };
   }
@@ -71,24 +68,11 @@ async function executeRun(
   if ('success' in spawned) return spawned;
   const { state } = spawned;
 
-  if (request.mode === 'background') {
-    return {
-      message: `Started agent job: ${state.id}`,
-      success: true,
-      data: { agentId: state.id, status: state.status },
-    };
-  }
-
-  try {
-    const result = await session.waitAgentJob(state.id);
-    return {
-      message: result.output,
-      success: true,
-      data: { agentId: state.id, output: result.output },
-    };
-  } catch (error) {
-    return { message: formatError(error), success: false, data: { agentId: state.id } };
-  }
+  return {
+    message: `Started agent job: ${state.id}`,
+    success: true,
+    data: { agentId: state.id, status: state.status },
+  };
 }
 
 async function executeParallel(
@@ -99,7 +83,7 @@ async function executeParallel(
 
   if (jobs.length === 0) {
     return {
-      message: 'Usage: agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"] --background',
+      message: 'Usage: agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"]',
       success: false,
     };
   }
@@ -116,27 +100,13 @@ async function executeParallel(
     return { message: formatError(error), success: false };
   }
 
-  if (jobs.every((job) => job.mode === 'background')) {
-    return {
-      message: [
-        'Started agent jobs:',
-        ...states.map((state) => `${state.label}: ${state.id}`),
-      ].join('\n'),
-      success: true,
-      data: { agentIds: states.map((state) => state.id) },
-    };
-  }
-
-  try {
-    const results = await Promise.all(states.map((state) => session.waitAgentJob(state.id)));
-    return {
-      message: results.map((result) => result.output).join('\n\n'),
-      success: true,
-      data: { agentIds: states.map((state) => state.id) },
-    };
-  } catch (error) {
-    return { message: formatError(error), success: false };
-  }
+  return {
+    message: ['Started agent jobs:', ...states.map((state) => `${state.label}: ${state.id}`)].join(
+      '\n',
+    ),
+    success: true,
+    data: { agentIds: states.map((state) => state.id) },
+  };
 }
 
 async function executeRead(
@@ -194,14 +164,14 @@ export async function executeAgentCommand(
 ): Promise<ICommandResult> {
   try {
     const [action = 'list', ...tokens] = tokenizeArgs(args);
-    if (action === 'list') return executeList(session);
+    if (action === 'list' && tokens.length === 0) return executeList(session);
     if (action === 'run') return executeRun(session, tokens);
     if (action === 'parallel') return executeParallel(session, tokens);
     if (action === 'read' || action === 'open') return executeRead(session, tokens);
     if (action === 'send') return executeSend(session, tokens);
     if (action === 'stop' || action === 'cancel') return executeStop(session, tokens);
     if (action === 'close') return executeClose(session, tokens);
-    return { message: USAGE, success: false };
+    return executeRun(session, [action, ...tokens]);
   } catch (error) {
     return { message: formatError(error), success: false };
   }

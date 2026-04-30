@@ -659,6 +659,10 @@ If both stdin and a positional argument are provided, stdin content is prepended
 
 When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
 
+### Session Storage
+
+The CLI constructs `SessionStore` with the current project path `.robota/sessions`, not the generic user-level default. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
+
 ## Tool Output Limits
 
 - **Universal cap**: Tool output is capped at 30,000 characters. Outputs exceeding this limit are middle-truncated (first and last portions are kept, with a truncation marker in the middle).

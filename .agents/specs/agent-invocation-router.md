@@ -167,19 +167,22 @@ Recommended descriptor:
 
 ### Required Subcommands
 
-| Command                                      | Behavior                                                                                                 |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `/agent list`                                | List available agent definitions and active/terminal agent jobs.                                         |
-| `/agent run [<agent>] <prompt>`              | Run one agent in foreground mode and return its result. Defaults to `general-purpose` when omitted.      |
-| `/agent run [<agent>] --background <prompt>` | Spawn one background agent and return `agentId` immediately. Defaults to `general-purpose` when omitted. |
-| `/agent parallel <spec>`                     | Spawn multiple background agents from a structured spec and return all `agentId` values immediately.     |
-| `/agent read <agentId> [offset]`             | Read retained transcript/log output for an agent job.                                                    |
-| `/agent send <agentId> <prompt>`             | Send follow-up input to a running/open agent when supported.                                             |
-| `/agent stop <agentId> [reason]`             | Cancel a running/queued agent job.                                                                       |
-| `/agent close <agentId>`                     | Close a terminal agent job.                                                                              |
-| `/agent open <agentId>`                      | Switch or focus the TUI agent thread/detail view when the TUI supports it.                               |
+| Command                          | Behavior                                                                                                        |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `/agent`                         | List available agent definitions and active/terminal agent jobs, or open a picker when the host supports it.    |
+| `/agent <prompt>`                | Spawn one `general-purpose` background agent with the natural-language prompt and return `agentId` immediately. |
+| `/agent <agent> <prompt>`        | Spawn the named background agent when `<agent>` matches an available agent definition.                          |
+| `/agent run [<agent>] <prompt>`  | Compatibility alias for background agent spawn. Defaults to `general-purpose` when omitted.                     |
+| `/agent parallel <spec>`         | Spawn multiple background agents from a structured spec and return all `agentId` values immediately.            |
+| `/agent read <agentId> [offset]` | Read retained transcript/log output for an agent job.                                                           |
+| `/agent send <agentId> <prompt>` | Send follow-up input to a running/open agent when supported.                                                    |
+| `/agent stop <agentId> [reason]` | Cancel a running/queued agent job.                                                                              |
+| `/agent close <agentId>`         | Close a terminal agent job.                                                                                     |
+| `/agent open <agentId>`          | Switch or focus the TUI agent thread/detail view when the TUI supports it.                                      |
 
 `/background` remains the generic task manager command. `/agent` is the agent-specific control surface and may delegate task reads/cancel/close to the shared background task registry.
+
+Agent spawn commands are background-first. The user-facing syntax does not require `--background`; the flag is accepted only as a compatibility no-op.
 
 ### Parallel Invocation Syntax
 
@@ -188,8 +191,7 @@ The first implementation should support a simple deterministic syntax:
 ```text
 /agent parallel \
   developer=general-purpose:"Analyze implementation risks for DAG-BL-011" \
-  designer=Plan:"Analyze architecture boundaries for DAG-BL-011" \
-  --background
+  designer=Plan:"Analyze architecture boundaries for DAG-BL-011"
 ```
 
 The command parser may later support JSON input for headless clients:
@@ -212,7 +214,7 @@ The command parser may later support JSON input for headless clients:
 }
 ```
 
-`parallel` MUST spawn all valid jobs before waiting for any result. It MUST return created job IDs immediately when `--background` is present.
+`parallel` MUST spawn all valid jobs before waiting for any result. It MUST return created job IDs immediately.
 
 The first implementation MUST also support a simpler `label:"prompt"` parallel token. In that form, the label is used for display and the agent type defaults to `general-purpose`, unless the label itself matches an available agent definition.
 
@@ -220,7 +222,7 @@ The first implementation MUST also support a simpler `label:"prompt"` parallel t
 
 Robota MUST NOT add a natural-language pre-router that decides whether prose should become an agent command before the model sees it.
 
-Instead, Robota exposes model-invocable command descriptors and a command execution tool generated from the command registry. The model receives concise descriptions of commands such as `/agent` in startup context. When the user asks for agent work in natural language, the model can choose the command execution tool and pass the selected command plus arguments.
+Instead, Robota exposes model-invocable command descriptors and a command execution tool generated from the command registry. The model receives concise descriptions of commands such as `/agent` in startup context. When the user asks for agent work in natural language, the model can choose the command execution tool and pass the selected command plus natural-language arguments.
 
 The model-callable command execution tool is a generic bridge over registered commands, not a second implementation of command behavior.
 
@@ -332,7 +334,7 @@ Robota MUST use runtime evidence as the only authoritative source for agent exec
 Robota-owned UI, transport, logs, and command results may report that agents are running only when one of these is true:
 
 - an `Agent` tool call completed with `background: true` and returned an `agentId`;
-- `/agent run --background` or `/agent parallel --background` returned one or more `agentId` values;
+- `/agent <prompt>`, `/agent run`, or `/agent parallel` returned one or more `agentId` values;
 - a `background_task_created` event was observed for each claimed job.
 
 Rules:
@@ -385,10 +387,11 @@ Rules:
 4. Keep core SDK system commands free of agent-specific behavior unless the agent command module is injected.
 5. Add a model-callable command execution tool that projects `modelInvocable` command registry entries and calls the same command handlers.
 6. Add `InteractiveSession` APIs that let command handlers spawn/list/read/send/stop/close agent jobs through the existing runtime manager.
-7. Add `/agent run` and `/agent parallel` parsers with deterministic background spawn behavior.
+7. Add `/agent <prompt>`, `/agent run`, and `/agent parallel` parsers with deterministic background spawn behavior.
 8. Wire CLI/TUI slash input, headless slash input, and model command tool calls through the same command handler path.
 9. Add runtime evidence tests that fail when Robota-owned execution state reports agent execution without a runtime event or returned `agentId`.
-10. Update package SPEC files after code matches this cross-cutting spec.
+10. Persist the exact composed system prompt, registered tool schemas, provider messages, UI history, and diagnostic run data under the project `.robota` tree so resume and debugging inspect the same source of truth.
+11. Update package SPEC files after code matches this cross-cutting spec.
 
 ## Test Plan
 
@@ -403,21 +406,24 @@ Rules:
 - Given an unrelated command module such as `/diagnose` is injected, when the command registry and system executor are assembled, then `/diagnose` is visible/executable without adding any command-specific code to `agent-sdk`.
 - Given the composer source is scanned, then it contains no hardcoded instructions for role behavior, web search, permissions, tools, skills, slash commands, or agents.
 - Given `/agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `/agent` and rejects non-model-invocable commands.
-- Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it defaults to `general-purpose` instead of treating the first prompt word as an agent type.
-- Given a model calls the command execution tool with `/agent run Plan --background "draft architecture"`, when the command executes, then `SubagentManager.spawn()` receives `mode: "background"` and the command returns an `agentId` without awaiting completion.
-- Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y" --background`, when the command executes, then two background jobs are spawned before any wait path is called.
-- Given `/agent parallel developer:"x" designer:"y" --background`, when the command executes, then two background jobs are spawned with labels `developer` and `designer` and default agent type `general-purpose`.
+- Given `/agent "analyze this"` is submitted, when the command executes, then it defaults to `general-purpose` and starts a background job without waiting for completion.
+- Given `/agent Plan "draft architecture"` is submitted, when the command executes, then `SubagentManager.spawn()` receives `mode: "background"` and the command returns an `agentId` without awaiting completion.
+- Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it remains a compatibility alias for the same background behavior.
+- Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y"`, when the command executes, then two background jobs are spawned before any wait path is called.
+- Given `/agent parallel developer:"x" designer:"y"`, when the command executes, then two background jobs are spawned with labels `developer` and `designer` and default agent type `general-purpose`.
 - Given an explicit unknown agent type is requested, when the command executes, then it returns a structured command failure listing available agents instead of throwing an unhandled rejection.
 - Given natural-language input asks for two named agents in parallel, when the model calls the command execution tool, then Robota executes `/agent parallel` through the command handler.
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then Robota starts no background jobs.
 - Given no `agentId` or `background_task_created` event exists, when runtime execution state is projected, then it reports no started agent jobs.
 - Given a real `background_task_created` event for each created job, when runtime execution state is projected, then it reports those jobs as started.
 - Given a model emits the `Agent` tool with `background: true`, when the tool executes, then existing background runtime behavior remains unchanged.
+- Given a CLI session is created, when it is persisted, then the record is written under project `.robota/sessions` and includes provider messages, UI history, the exact system prompt, and registered tool schemas.
+- Given diagnostic logs are inspected, when the session has run, then `session_init`, `pre_run`, and `assistant` events contain full prompt/input/history/response data instead of only lengths or truncated assistant text.
 
 ### Integration Tests
 
-- In TUI flow, submit `/agent parallel ... --background` and verify visible background rows appear while the prompt remains usable.
-- In headless text mode, submit `/agent run general-purpose --background "..."` and verify the command returns an agent ID immediately.
+- In TUI flow, submit `/agent parallel ...` and verify visible background rows appear while the prompt remains usable.
+- In headless text mode, submit `/agent general-purpose "..."` and verify the command returns an agent ID immediately.
 - In `stream-json`, submit `/agent parallel` and verify background task events are emitted.
 - Submit a natural-language explicit parallel-agent request with a test model that calls the command execution tool and verify jobs start before runtime-owned status reports execution.
 
@@ -440,8 +446,9 @@ pnpm harness:verify -- --scope packages/agent-cli --base-ref origin/develop
 - Startup prompt context includes model-visible capability descriptors sourced from registries.
 - `/agent` exists as an injected CLI default command with user-visible and model-visible metadata.
 - SDK core can be assembled without the agent command module.
-- `/agent run --background` starts an actual background agent and returns an `agentId`.
-- `/agent parallel --background` starts multiple background agents before waiting for any result.
+- `/agent <prompt>` starts an actual background agent and returns an `agentId`.
+- `/agent parallel` starts multiple background agents before waiting for any result.
 - Natural-language requests for agent execution can succeed when the model selects the command execution tool from registered descriptors.
 - Robota-owned execution state cannot report background agents as running unless runtime evidence exists.
 - Existing `Agent` tool behavior remains compatible for model-initiated delegation.
+- Project-local `.robota/sessions` and `.robota/logs` contain enough raw data to debug prompt composition and restore session context, including command descriptors such as `/agent` and the `ExecuteCommand` tool schema when injected.

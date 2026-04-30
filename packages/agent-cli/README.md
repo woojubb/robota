@@ -333,7 +333,7 @@ All context is assembled into the system prompt.
 
 ## Session Logging
 
-Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by default, capturing structured events for diagnostics and replay.
+Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by default, capturing structured events for diagnostics and replay. Resumable session JSON is written to `.robota/sessions/{sessionId}.json` for the current project and includes messages, UI history, the exact system prompt, and registered tool schemas.
 
 ## Architecture
 
