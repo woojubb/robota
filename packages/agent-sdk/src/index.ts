@@ -109,6 +109,46 @@ export {
 export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
+export { createBackgroundProcessTool } from './tools/background-process-tool.js';
+export type { IBackgroundProcessToolDeps } from './tools/background-process-tool.js';
+
+// ── Background task runtime contracts ──────────────────────
+export {
+  BackgroundTaskError,
+  BackgroundTaskManager,
+  getBackgroundTaskTransitions,
+  isTerminalBackgroundTaskStatus,
+  transitionBackgroundTaskStatus,
+} from './background-tasks/index.js';
+export type {
+  IAgentBackgroundTaskRequest,
+  IBaseBackgroundTaskRequest,
+  IBackgroundTaskError,
+  IBackgroundTaskHandle,
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskManager,
+  IBackgroundTaskManagerOptions,
+  IBackgroundTaskRequest,
+  IBackgroundTaskResult,
+  IBackgroundTaskRunner,
+  IBackgroundTaskStart,
+  IBackgroundTaskState,
+  IProcessBackgroundTaskRequest,
+  ISerializableProviderProfile,
+  TBackgroundTaskIdFactory,
+  TBackgroundPermissionPolicy,
+  TBackgroundPrimitive,
+  TBackgroundTaskErrorCategory,
+  TBackgroundTaskEvent,
+  TBackgroundTaskEventListener,
+  TBackgroundTaskKind,
+  TBackgroundTaskMode,
+  TBackgroundTaskStatus,
+  TBackgroundTaskTransitionEvent,
+} from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
 export { SubagentManager } from './subagents/index.js';

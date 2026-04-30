@@ -201,6 +201,77 @@ describe('TuiStateManager', () => {
     expect(() => mgr.onTextDelta('hi')).not.toThrow();
   });
 
+  it('projects background task lifecycle events into view models', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_created',
+      task: {
+        id: 'agent_1',
+        kind: 'agent',
+        label: 'Explore',
+        status: 'queued',
+        mode: 'background',
+        parentSessionId: 'session_parent',
+        depth: 1,
+        cwd: '/workspace',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+        unread: false,
+        promptPreview: 'Find files',
+      },
+    });
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_started',
+      task: {
+        id: 'agent_1',
+        kind: 'agent',
+        label: 'Explore',
+        status: 'running',
+        mode: 'background',
+        parentSessionId: 'session_parent',
+        depth: 1,
+        cwd: '/workspace',
+        updatedAt: '2026-04-30T00:00:01.000Z',
+        unread: false,
+        promptPreview: 'Find files',
+      },
+    });
+
+    expect(mgr.backgroundTasks).toHaveLength(1);
+    expect(mgr.backgroundTasks[0]!.id).toBe('agent_1');
+    expect(mgr.backgroundTasks[0]!.status).toBe('running');
+    expect(mgr.backgroundTasks[0]!.preview).toBe('Find files');
+  });
+
+  it('updates and closes background task projections', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_completed',
+      task: {
+        id: 'agent_1',
+        kind: 'agent',
+        label: 'Explore',
+        status: 'completed',
+        mode: 'background',
+        parentSessionId: 'session_parent',
+        depth: 1,
+        cwd: '/workspace',
+        updatedAt: '2026-04-30T00:00:01.000Z',
+        unread: true,
+        result: { taskId: 'agent_1', kind: 'agent', output: 'Done' },
+      },
+    });
+
+    expect(mgr.backgroundTasks[0]!.status).toBe('completed');
+    expect(mgr.backgroundTasks[0]!.unread).toBe(true);
+    expect(mgr.backgroundTasks[0]!.resultPreview).toBe('Done');
+
+    mgr.onBackgroundTaskEvent({ type: 'background_task_closed', taskId: 'agent_1' });
+
+    expect(mgr.backgroundTasks).toEqual([]);
+  });
+
   // ── Display order: Tool → Robota ──────────────────────────────
 
   it('streaming state is cleared on complete (tools moved to messages)', () => {

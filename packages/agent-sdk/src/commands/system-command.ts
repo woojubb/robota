@@ -8,6 +8,7 @@
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
+import { executeBackgroundCommand } from './background-command.js';
 
 /** Result of a system command execution. */
 export interface ICommandResult {
@@ -48,6 +49,7 @@ export function createSystemCommands(): ISystemCommand[] {
           '  permissions       — Permission rules',
           '  provider          — Provider profile status and switching',
           '  resume            — Resume a previous session',
+          '  background        — List/cancel/close background tasks',
           '  rename <name>     — Rename the current session',
           '  reset             — Delete settings and exit',
         ].join('\n'),
@@ -195,6 +197,11 @@ export function createSystemCommands(): ISystemCommand[] {
         success: true,
         data: { triggerResumePicker: true },
       }),
+    },
+    {
+      name: 'background',
+      description: 'List and control background tasks',
+      execute: executeBackgroundCommand,
     },
     {
       name: 'rename',

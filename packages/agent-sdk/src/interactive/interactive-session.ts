@@ -30,6 +30,14 @@ import type {
   IInteractiveSessionEvents,
   ITransportAdapter,
 } from './types.js';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskManager,
+  IBackgroundTaskState,
+} from '../background-tasks/index.js';
 import {
   isAbortError,
   buildResult,
@@ -74,6 +82,7 @@ export class InteractiveSession {
   private pendingRestoreMessages: unknown[] | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
+  private backgroundTaskUnsubscribe: (() => void) | null = null;
 
   constructor(options: IInteractiveSessionOptions) {
     this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
@@ -102,6 +111,8 @@ export class InteractiveSession {
       if (restored.sessionName) this.sessionName = restored.sessionName;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
+
+    if (this.initialized) this.subscribeBackgroundTaskEvents();
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -118,6 +129,7 @@ export class InteractiveSession {
       bare: options.bare,
       allowedTools: options.allowedTools,
       appendSystemPrompt: options.appendSystemPrompt,
+      backgroundTaskRunners: options.backgroundTaskRunners,
     });
 
     if (this.pendingRestoreMessages) {
@@ -125,6 +137,7 @@ export class InteractiveSession {
       this.pendingRestoreMessages = null;
     }
     this.initialized = true;
+    this.subscribeBackgroundTaskEvents();
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -256,6 +269,37 @@ export class InteractiveSession {
     return this.getSessionOrThrow();
   }
 
+  listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[] {
+    return this.getBackgroundTaskManagerOrThrow().list(filter);
+  }
+
+  getBackgroundTask(taskId: string): IBackgroundTaskState | undefined {
+    return this.getBackgroundTaskManagerOrThrow().get(taskId);
+  }
+
+  async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.getBackgroundTaskManagerOrThrow().cancel(taskId, reason);
+  }
+
+  async closeBackgroundTask(taskId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.getBackgroundTaskManagerOrThrow().close(taskId);
+  }
+
+  async sendBackgroundTask(taskId: string, input: IBackgroundTaskInput): Promise<void> {
+    await this.ensureInitialized();
+    await this.getBackgroundTaskManagerOrThrow().send(taskId, input);
+  }
+
+  async readBackgroundTaskLog(
+    taskId: string,
+    cursor?: IBackgroundTaskLogCursor,
+  ): Promise<IBackgroundTaskLogPage> {
+    await this.ensureInitialized();
+    return this.getBackgroundTaskManagerOrThrow().readLog(taskId, cursor);
+  }
+
   setName(name: string): void {
     this.sessionName = name;
     if (this.sessionStore && this.session) {
@@ -303,6 +347,23 @@ export class InteractiveSession {
     } finally {
       this.finishForkSkillExecution();
     }
+  }
+
+  private getBackgroundTaskManagerOrThrow(): IBackgroundTaskManager {
+    const deps = retrieveAgentToolDeps(this.getSessionOrThrow());
+    if (!deps?.backgroundTaskManager) {
+      throw new Error('Background task manager is not available for this session.');
+    }
+    return deps.backgroundTaskManager;
+  }
+
+  private subscribeBackgroundTaskEvents(): void {
+    if (this.backgroundTaskUnsubscribe || !this.session) return;
+    const deps = retrieveAgentToolDeps(this.session);
+    if (!deps?.backgroundTaskManager) return;
+    this.backgroundTaskUnsubscribe = deps.backgroundTaskManager.subscribe((event) => {
+      this.emit('background_task_event', event);
+    });
   }
 
   private startForkSkillExecution(displayInput: string): void {

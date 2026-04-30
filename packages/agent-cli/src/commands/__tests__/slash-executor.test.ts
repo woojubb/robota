@@ -307,6 +307,7 @@ describe('Command routing completeness', () => {
       'permissions',
       'context',
       'resume',
+      'background',
       'rename',
       'provider',
       'reset',

@@ -12,6 +12,7 @@ import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
 import { loadContext } from '../context/context-loader.js';
@@ -40,6 +41,8 @@ export interface IInteractiveSessionStandardOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Runtime-composed background task runners. */
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -85,6 +88,8 @@ export interface IInitOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Runtime-composed background task runners. */
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
 }
 
 /**
@@ -147,6 +152,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     sessionId,
     allowedTools: options.allowedTools,
     appendSystemPrompt: options.appendSystemPrompt,
+    backgroundTaskRunners: options.backgroundTaskRunners,
   });
 }
 

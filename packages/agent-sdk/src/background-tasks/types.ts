@@ -1,0 +1,214 @@
+export type TBackgroundTaskKind = 'agent' | 'process';
+
+export type TBackgroundTaskMode = 'foreground' | 'background';
+
+export type TBackgroundTaskStatus =
+  | 'queued'
+  | 'running'
+  | 'waiting_permission'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
+
+export type TBackgroundTaskErrorCategory =
+  | 'validation'
+  | 'capacity'
+  | 'permission'
+  | 'timeout'
+  | 'runner'
+  | 'crash'
+  | 'provider'
+  | 'process';
+
+export type TBackgroundPrimitive = string | number | boolean;
+
+export interface IBackgroundTaskError {
+  category: TBackgroundTaskErrorCategory;
+  message: string;
+  recoverable: boolean;
+}
+
+export class BackgroundTaskError extends Error implements IBackgroundTaskError {
+  readonly category: TBackgroundTaskErrorCategory;
+  readonly recoverable: boolean;
+
+  constructor(category: TBackgroundTaskErrorCategory, message: string, recoverable = true) {
+    super(message);
+    this.name = 'BackgroundTaskError';
+    this.category = category;
+    this.recoverable = recoverable;
+  }
+}
+
+export interface ISerializableProviderProfile {
+  profileName?: string;
+  type: string;
+  model: string;
+  apiKey?: string;
+  apiKeyEnv?: string;
+  baseURL?: string;
+  timeout?: number;
+}
+
+export interface IBaseBackgroundTaskRequest {
+  kind: TBackgroundTaskKind;
+  label: string;
+  mode: TBackgroundTaskMode;
+  parentSessionId: string;
+  parentTaskId?: string;
+  depth: number;
+  cwd: string;
+  timeoutMs?: number;
+}
+
+export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
+  kind: 'agent';
+  agentType: string;
+  prompt: string;
+  model?: string;
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  permissionPolicy: TBackgroundPermissionPolicy;
+  providerProfile?: ISerializableProviderProfile;
+}
+
+export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
+  kind: 'process';
+  command: string;
+  shell?: string;
+  env?: Record<string, string>;
+  stdin?: string;
+  outputLimitBytes?: number;
+}
+
+export type IBackgroundTaskRequest = IAgentBackgroundTaskRequest | IProcessBackgroundTaskRequest;
+
+export interface IBackgroundTaskResult {
+  taskId: string;
+  kind: TBackgroundTaskKind;
+  output: string;
+  exitCode?: number;
+  signalCode?: string;
+  metadata?: Record<string, TBackgroundPrimitive>;
+}
+
+export interface IBackgroundTaskState {
+  id: string;
+  kind: TBackgroundTaskKind;
+  label: string;
+  agentType?: string;
+  status: TBackgroundTaskStatus;
+  mode: TBackgroundTaskMode;
+  parentSessionId: string;
+  parentTaskId?: string;
+  depth: number;
+  cwd: string;
+  pid?: number;
+  startedAt?: string;
+  updatedAt: string;
+  completedAt?: string;
+  promptPreview?: string;
+  commandPreview?: string;
+  currentAction?: string;
+  unread: boolean;
+  result?: IBackgroundTaskResult;
+  error?: IBackgroundTaskError;
+  logPath?: string;
+  transcriptPath?: string;
+  worktreePath?: string;
+  branchName?: string;
+}
+
+export interface IBackgroundTaskInput {
+  prompt?: string;
+  stdin?: string;
+}
+
+export interface IBackgroundTaskLogCursor {
+  offset: number;
+}
+
+export interface IBackgroundTaskLogPage {
+  taskId: string;
+  cursor?: IBackgroundTaskLogCursor;
+  nextCursor?: IBackgroundTaskLogCursor;
+  lines: string[];
+}
+
+export interface IBackgroundTaskListFilter {
+  kind?: TBackgroundTaskKind;
+  status?: TBackgroundTaskStatus;
+  mode?: TBackgroundTaskMode;
+  includeClosed?: boolean;
+}
+
+export interface IBackgroundTaskStart {
+  taskId: string;
+  request: IBackgroundTaskRequest;
+}
+
+export interface IBackgroundTaskHandle {
+  readonly taskId: string;
+  readonly pid?: number;
+  result: Promise<IBackgroundTaskResult>;
+  cancel(reason?: string): Promise<void>;
+  send?(input: IBackgroundTaskInput): Promise<void>;
+  readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
+}
+
+export interface IBackgroundTaskRunner {
+  readonly kind: TBackgroundTaskKind;
+  start(task: IBackgroundTaskStart): IBackgroundTaskHandle;
+}
+
+export type TBackgroundTaskIdFactory = (request: IBackgroundTaskRequest) => string;
+
+export type TBackgroundTaskEvent =
+  | { type: 'background_task_created'; task: IBackgroundTaskState }
+  | { type: 'background_task_started'; task: IBackgroundTaskState }
+  | { type: 'background_task_updated'; task: IBackgroundTaskState }
+  | { type: 'background_task_text_delta'; taskId: string; delta: string }
+  | { type: 'background_task_tool_start'; taskId: string; toolName: string; firstArg?: string }
+  | {
+      type: 'background_task_tool_end';
+      taskId: string;
+      toolName: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: 'background_task_permission_request';
+      taskId: string;
+      requestId: string;
+      toolName: string;
+      toolArgs: Record<string, TBackgroundPrimitive>;
+    }
+  | { type: 'background_task_completed'; task: IBackgroundTaskState }
+  | { type: 'background_task_failed'; task: IBackgroundTaskState }
+  | { type: 'background_task_cancelled'; task: IBackgroundTaskState }
+  | { type: 'background_task_closed'; taskId: string };
+
+export type TBackgroundTaskEventListener = (event: TBackgroundTaskEvent) => void;
+
+export interface IBackgroundTaskManager {
+  spawn(request: IBackgroundTaskRequest): Promise<IBackgroundTaskState>;
+  wait(taskId: string): Promise<IBackgroundTaskResult>;
+  list(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
+  get(taskId: string): IBackgroundTaskState | undefined;
+  cancel(taskId: string, reason?: string): Promise<void>;
+  close(taskId: string): Promise<void>;
+  send(taskId: string, input: IBackgroundTaskInput): Promise<void>;
+  readLog(taskId: string, cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
+  subscribe(listener: TBackgroundTaskEventListener): () => void;
+}
+
+export interface IBackgroundTaskManagerOptions {
+  runners: IBackgroundTaskRunner[];
+  maxConcurrent?: number;
+  maxDepth?: number;
+  now?: () => string;
+  idFactory?: TBackgroundTaskIdFactory;
+  eventSink?: TBackgroundTaskEventListener;
+}
