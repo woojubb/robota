@@ -10,6 +10,8 @@ describe('command execution tool', () => {
 
     expect(tool.schema.description).toContain('Use this tool when command execution is required');
     expect(tool.schema.description).toContain('pseudo-tags');
+    expect(tool.schema.description).toContain('JSON arguments');
+    expect(tool.schema.description).toContain('"command":"agent"');
   });
 
   it('executes only model-invocable commands through the injected command handler', async () => {

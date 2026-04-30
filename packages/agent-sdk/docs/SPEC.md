@@ -179,7 +179,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific)
+- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background execution, and pseudo-tags such as `<agent ... />` are not execution.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
 ### Web Search

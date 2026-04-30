@@ -264,6 +264,11 @@ describe('createSession — appendSystemPrompt option', () => {
       const opts = sessionCtorCalls[0]!;
       const systemMessage = opts.systemMessage as string;
       expect(systemMessage).toContain('Agent — launch an isolated agent');
+      expect(systemMessage).toContain('one Agent tool call per role');
+      expect(systemMessage).toContain('choose one backlog');
+      expect(systemMessage).toContain('Korean example');
+      expect(systemMessage).toContain('백로그 중에 하나');
+      expect(systemMessage).toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {
       rmSync(cwd, { recursive: true, force: true });

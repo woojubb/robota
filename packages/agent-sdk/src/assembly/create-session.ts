@@ -27,7 +27,11 @@ import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 
-import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
+import {
+  createAgentTool,
+  createAgentToolPromptDescription,
+  storeAgentToolDeps,
+} from '../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
@@ -223,7 +227,7 @@ export function createSession(options: ICreateSessionOptions): Session {
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const defaultToolDescriptions = [
     ...DEFAULT_TOOL_DESCRIPTIONS,
-    ...(agentToolDeps ? ['Agent — launch an isolated agent for delegated work'] : []),
+    ...(agentToolDeps ? [createAgentToolPromptDescription(agentDefinitions)] : []),
     ...(options.modelCommandExecutor
       ? ['ExecuteCommand — execute model-invocable Robota commands']
       : []),
