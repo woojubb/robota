@@ -659,7 +659,7 @@ Errors returned to the model must be concise and structured. Detailed logs belon
 7. Add managed process runner and SDK-composed background process tool/wrapper. (Completed for CLI shell processes via `BackgroundProcess` + `ManagedShellProcessRunner`; keep regression coverage.)
 8. Add TUI background task panel and pure input flow controls. (Panel and `/background` slash controls completed; dedicated key-flow modules remain future work.)
 9. Add CLI child process agent runner and worker IPC protocol.
-10. Extend WebSocket/headless transports with background task events and controls.
+10. Extend WebSocket/headless transports with background task events and controls. (Completed for WebSocket event forwarding/control messages and headless `stream-json` event output.)
 11. Update `.agents/specs/subagent-process-manager.md` to reference this spec as the common runtime layer.
 
 ## Acceptance Criteria
