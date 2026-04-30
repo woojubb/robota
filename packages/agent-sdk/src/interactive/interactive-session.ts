@@ -130,6 +130,7 @@ export class InteractiveSession {
       allowedTools: options.allowedTools,
       appendSystemPrompt: options.appendSystemPrompt,
       backgroundTaskRunners: options.backgroundTaskRunners,
+      subagentRunnerFactory: options.subagentRunnerFactory,
     });
 
     if (this.pendingRestoreMessages) {

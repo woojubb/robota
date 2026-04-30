@@ -36,9 +36,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/bin.ts --format esm,cjs --dts --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
-    "build:js": "tsup src/index.ts src/bin.ts --format esm,cjs --out-dir dist/node --clean && rm -f dist/node/bin.cjs",
-    "build:types": "tsup src/index.ts src/bin.ts --format esm,cjs --dts-only --out-dir dist/node && rm -f dist/node/bin.d.cts",
+    "build": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --dts --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/bin.d.cts dist/node/subagents/child-process-subagent-worker.cjs dist/node/subagents/child-process-subagent-worker.d.cts",
+    "build:js": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/subagents/child-process-subagent-worker.cjs",
+    "build:types": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --dts-only --out-dir dist/node && rm -f dist/node/bin.d.cts dist/node/subagents/child-process-subagent-worker.d.cts",
     "dev": "tsx --env-file=.env src/bin.ts",
     "start": "node --env-file=.env dist/node/bin.js",
     "test": "vitest run --passWithNoTests",

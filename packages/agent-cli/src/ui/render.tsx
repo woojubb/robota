@@ -8,7 +8,7 @@ import App from './App.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
-import type { IBackgroundTaskRunner } from '@robota-sdk/agent-sdk';
+import type { IBackgroundTaskRunner, TSubagentRunnerFactory } from '@robota-sdk/agent-sdk';
 
 export interface IRenderOptions {
   cwd: string;
@@ -23,6 +23,7 @@ export interface IRenderOptions {
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
 }
 
 export function renderApp(options: IRenderOptions): void {

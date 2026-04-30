@@ -1,6 +1,9 @@
 export { SubagentManager } from './subagent-manager.js';
 export { createInProcessSubagentRunner } from './in-process-subagent-runner.js';
-export type { IInProcessSubagentRunnerDeps } from './in-process-subagent-runner.js';
+export type {
+  IInProcessSubagentRunnerDeps,
+  TSubagentRunnerFactory,
+} from './in-process-subagent-runner.js';
 export type {
   ISubagentJobHandle,
   ISubagentJobResult,

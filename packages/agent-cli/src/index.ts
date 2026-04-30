@@ -3,6 +3,11 @@
 // CLI entry point
 export { startCli } from './cli.js';
 export { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
+export {
+  ChildProcessSubagentRunner,
+  createChildProcessSubagentRunnerFactory,
+} from './subagents/index.js';
+export type { IChildProcessSubagentRunnerOptions } from './subagents/index.js';
 export type { IManagedShellProcessRunnerOptions } from './background/managed-shell-process-runner.js';
 
 // Local CLI types

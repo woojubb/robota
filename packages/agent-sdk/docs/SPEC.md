@@ -441,15 +441,19 @@ const result = await manager.wait(job.id);
 
 `createBackgroundProcessTool(deps)` is exported for SDK composition. The tool is registered only when a runtime shell injects a `process` background runner through `createSession({ backgroundTaskRunners })`; default `Bash` foreground behavior remains unchanged.
 
+`createSession()` also accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. When omitted, SDK composition uses `createInProcessSubagentRunner`. Runtime shells such as `agent-cli` may inject a factory that receives the same assembled dependency bundle and returns a process-backed `ISubagentRunner`.
+
 Exported subagent runtime types:
 
 | Export                          | Kind      | Description                                                               |
 | ------------------------------- | --------- | ------------------------------------------------------------------------- |
 | `SubagentManager`               | class     | In-memory subagent job registry and scheduler                             |
 | `createInProcessSubagentRunner` | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
+| `createDefaultTools`            | function  | Default tool assembly helper exported for CLI fork-worker composition     |
 | `ISubagentManager`              | interface | Manager API for spawn/wait/list/get/cancel/close/send                     |
 | `ISubagentRunner`               | interface | Port implemented by in-process or process runner                          |
 | `IInProcessSubagentRunnerDeps`  | interface | Dependencies captured by the in-process runner adapter                    |
+| `TSubagentRunnerFactory`        | type      | Factory seam for runtime shells to replace the default subagent runner    |
 | `ISubagentJobHandle`            | interface | Targeted job cancellation/result handle                                   |
 | `ISubagentJobState`             | interface | Runtime lifecycle state for one subagent job                              |
 | `ISubagentSpawnRequest`         | interface | Input for spawning a managed subagent job                                 |
@@ -868,6 +872,8 @@ The manager does not create providers, sessions, child processes, worktrees, or 
 - it returns `{ success, background: true, output: '', taskId, status, command }` immediately
 - stdout/stderr inspection and cancellation are routed through the shared manager APIs
 - existing `Bash` tool behavior is not changed
+
+`createSession()` accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. The SDK default remains `createInProcessSubagentRunner(agentToolDeps)`. A runtime shell may supply a factory to run `Agent` tool jobs through a process-backed runner while reusing the same config/context/tool dependency bundle assembled by the SDK.
 
 The built-in `/background` system command maps to these APIs:
 

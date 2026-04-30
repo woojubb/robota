@@ -33,6 +33,7 @@ import { createBackgroundProcessTool } from '../tools/background-process-tool.js
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import { SubagentManager } from '../subagents/subagent-manager.js';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
@@ -71,6 +72,8 @@ export interface ICreateSessionOptions {
   additionalTools?: IToolWithEventService[];
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Runtime shell override for subagent execution. Defaults to the SDK in-process runner. */
+  subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -162,7 +165,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     customAgentRegistry: (name: string) => agentLoader.getAgent(name),
   };
   const subagentManager = new SubagentManager({
-    runner: createInProcessSubagentRunner(agentToolDeps),
+    runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
     backgroundTaskRunners: options.backgroundTaskRunners,
   });
   agentToolDeps.subagentManager = subagentManager;

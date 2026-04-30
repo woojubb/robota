@@ -20,6 +20,7 @@ import {
 import type {
   IAIProvider,
   IBackgroundTaskRunner,
+  TSubagentRunnerFactory,
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
@@ -52,6 +53,7 @@ export interface IInteractiveSessionProps {
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
 }
 
 export interface IInteractiveSessionState {
@@ -93,6 +95,7 @@ function initializeSession(
     forkSession: props.forkSession,
     sessionName: props.sessionName,
     backgroundTaskRunners: props.backgroundTaskRunners,
+    subagentRunnerFactory: props.subagentRunnerFactory,
   });
 
   const registry = new CommandRegistry();
