@@ -5,7 +5,33 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-handler.js';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type {
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  InteractiveSession,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-sdk';
+
+const backgroundTask: IBackgroundTaskState = {
+  id: 'task_1',
+  kind: 'agent',
+  label: 'Explore',
+  agentType: 'Explore',
+  status: 'running',
+  mode: 'background',
+  parentSessionId: 'session_1',
+  depth: 0,
+  cwd: '/repo',
+  updatedAt: '2026-05-01T00:00:00.000Z',
+  unread: false,
+  promptPreview: 'inspect code',
+};
+
+const backgroundTaskLogPage: IBackgroundTaskLogPage = {
+  taskId: 'task_1',
+  cursor: { offset: 0 },
+  lines: ['line one'],
+};
 
 function createMockSession() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -19,6 +45,12 @@ function createMockSession() {
       .mockReturnValue({ usedTokens: 500, maxTokens: 100000, usedPercentage: 0.5 }),
     isExecuting: vi.fn().mockReturnValue(false),
     getPendingPrompt: vi.fn().mockReturnValue(null),
+    listBackgroundTasks: vi.fn().mockReturnValue([backgroundTask]),
+    getBackgroundTask: vi.fn().mockReturnValue(backgroundTask),
+    cancelBackgroundTask: vi.fn().mockResolvedValue(undefined),
+    closeBackgroundTask: vi.fn().mockResolvedValue(undefined),
+    sendBackgroundTask: vi.fn().mockResolvedValue(undefined),
+    readBackgroundTaskLog: vi.fn().mockResolvedValue(backgroundTaskLogPage),
     executeCommand: vi.fn().mockResolvedValue({ message: 'done', success: true, data: {} }),
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
@@ -93,6 +125,94 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]).toEqual({ type: 'pending', pending: null });
   });
 
+  it('get-background-tasks sends current background task list', () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'get-background-tasks', filter: { kind: 'agent' } }));
+
+    expect(sent[0]).toEqual({ type: 'background_tasks', tasks: [backgroundTask] });
+    expect(
+      (session as unknown as { listBackgroundTasks: ReturnType<typeof vi.fn> }).listBackgroundTasks,
+    ).toHaveBeenCalledWith({ kind: 'agent' });
+  });
+
+  it('get-background-task sends one background task snapshot', () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'get-background-task', taskId: 'task_1' }));
+
+    expect(sent[0]).toEqual({
+      type: 'background_task',
+      taskId: 'task_1',
+      task: backgroundTask,
+    });
+    expect(
+      (session as unknown as { getBackgroundTask: ReturnType<typeof vi.fn> }).getBackgroundTask,
+    ).toHaveBeenCalledWith('task_1');
+  });
+
+  it('cancel-background-task maps to session control and emits control result', async () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'cancel-background-task', taskId: 'task_1', reason: 'stop' }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(
+      (session as unknown as { cancelBackgroundTask: ReturnType<typeof vi.fn> })
+        .cancelBackgroundTask,
+    ).toHaveBeenCalledWith('task_1', 'stop');
+    expect(sent[0]).toEqual({
+      type: 'background_task_control_result',
+      action: 'cancel',
+      taskId: 'task_1',
+      success: true,
+    });
+  });
+
+  it('send-background-task maps prompt input to session control', async () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(
+      JSON.stringify({
+        type: 'send-background-task',
+        taskId: 'task_1',
+        input: { prompt: 'continue' },
+      }),
+    );
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(
+      (session as unknown as { sendBackgroundTask: ReturnType<typeof vi.fn> }).sendBackgroundTask,
+    ).toHaveBeenCalledWith('task_1', { prompt: 'continue' });
+    expect(sent[0]).toEqual({
+      type: 'background_task_control_result',
+      action: 'send',
+      taskId: 'task_1',
+      success: true,
+    });
+  });
+
+  it('read-background-task-log sends log page', async () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(
+      JSON.stringify({
+        type: 'read-background-task-log',
+        taskId: 'task_1',
+        cursor: { offset: 0 },
+      }),
+    );
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(
+      (session as unknown as { readBackgroundTaskLog: ReturnType<typeof vi.fn> })
+        .readBackgroundTaskLog,
+    ).toHaveBeenCalledWith('task_1', { offset: 0 });
+    expect(sent[0]).toEqual({
+      type: 'background_task_log',
+      taskId: 'task_1',
+      page: backgroundTaskLogPage,
+    });
+  });
+
   it('command executes via session.executeCommand()', async () => {
     const { onMessage, sent, session } = setup();
     onMessage(JSON.stringify({ type: 'command', name: 'clear' }));
@@ -141,9 +261,24 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]).toEqual({ type: 'thinking', isThinking: true });
   });
 
+  it('forwards background task events to the client', () => {
+    const { session, sent } = setup();
+    const event: TBackgroundTaskEvent = {
+      type: 'background_task_text_delta',
+      taskId: 'task_1',
+      delta: 'partial',
+    };
+    (session as unknown as { _emit: (e: string, ...args: unknown[]) => void })._emit(
+      'background_task_event',
+      event,
+    );
+
+    expect(sent[0]).toEqual({ type: 'background_task_event', event });
+  });
+
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(7);
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(8);
   });
 });

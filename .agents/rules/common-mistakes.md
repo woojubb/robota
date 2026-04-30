@@ -34,3 +34,4 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 | 27  | Using `pnpm publish` or `npm publish` directly                   | Always use `pnpm publish:beta`; see `publish.md` Publish Command                |
 | 28  | Publishing only some packages (cherry-picking)                   | ALL non-private packages must be published together; see `publish.md`           |
 | 29  | Modifying SPEC during verification to match code                 | NEVER. Fix code to match SPEC. SPEC is source of truth during verification.     |
+| 30  | Accumulating reusable runtime features inside SDK or CLI         | Extract reusable lifecycle/state/ports into composable packages or modules      |

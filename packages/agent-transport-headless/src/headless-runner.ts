@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { InteractiveSession, IExecutionResult } from '@robota-sdk/agent-sdk';
+import type {
+  InteractiveSession,
+  IExecutionResult,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-sdk';
 
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 
@@ -7,6 +11,16 @@ export interface IHeadlessRunnerOptions {
   session: InteractiveSession;
   outputFormat: TOutputFormat;
 }
+
+type TStreamJsonEvent =
+  | {
+      type: 'content_block_delta';
+      delta: { type: 'text_delta'; text: string };
+    }
+  | {
+      type: 'background_task_event';
+      background_task_event: TBackgroundTaskEvent;
+    };
 
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
@@ -37,6 +51,16 @@ function getSessionId(session: InteractiveSession): string {
   } catch {
     return '';
   }
+}
+
+function writeStreamJsonEvent(session: InteractiveSession, event: TStreamJsonEvent): void {
+  const output = JSON.stringify({
+    type: 'stream_event',
+    event,
+    session_id: getSessionId(session),
+    uuid: randomUUID(),
+  });
+  process.stdout.write(output + '\n');
 }
 
 function runJsonFormat(session: InteractiveSession, prompt: string): Promise<number> {
@@ -77,22 +101,24 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
   return new Promise<number>((resolve) => {
     const cleanup = (): void => {
       session.off('text_delta', onTextDelta);
+      session.off('background_task_event', onBackgroundTaskEvent);
       session.off('complete', onComplete);
       session.off('interrupted', onInterrupted);
       session.off('error', onError);
     };
 
     const onTextDelta = (text: string): void => {
-      const output = JSON.stringify({
-        type: 'stream_event',
-        event: {
-          type: 'content_block_delta',
-          delta: { type: 'text_delta', text },
-        },
-        session_id: getSessionId(session),
-        uuid: randomUUID(),
+      writeStreamJsonEvent(session, {
+        type: 'content_block_delta',
+        delta: { type: 'text_delta', text },
       });
-      process.stdout.write(output + '\n');
+    };
+
+    const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void => {
+      writeStreamJsonEvent(session, {
+        type: 'background_task_event',
+        background_task_event: event,
+      });
     };
 
     const onComplete = (result: IExecutionResult): void => {
@@ -114,6 +140,7 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
     };
 
     session.on('text_delta', onTextDelta);
+    session.on('background_task_event', onBackgroundTaskEvent);
     session.on('complete', onComplete);
     session.on('interrupted', onInterrupted);
     session.on('error', onError);

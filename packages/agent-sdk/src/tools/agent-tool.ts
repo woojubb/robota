@@ -16,13 +16,15 @@ import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
-import { SubagentManager } from '../subagents/subagent-manager.js';
+import { SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type {
   IInProcessSubagentRunnerDeps,
   ISubagentManager,
+  ISubagentJobResult,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 
 /** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
 function asZodSchema(schema: z.ZodType): IZodSchema {
@@ -36,6 +38,14 @@ const AgentSchema = z.object({
     .optional()
     .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
   model: z.string().optional().describe('Optional model override'),
+  background: z
+    .boolean()
+    .optional()
+    .describe('When true, start the subagent as a background task and return immediately'),
+  isolation: z
+    .enum(['none', 'worktree'])
+    .optional()
+    .describe('Optional runtime isolation mode. Use "worktree" to run in a Git worktree.'),
 });
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
@@ -46,6 +56,7 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   parentSessionId?: string;
   subagentDepth?: number;
   subagentManager?: ISubagentManager;
+  backgroundTaskManager?: IBackgroundTaskManager;
   /** Optional custom agent registry for resolving non-built-in agent types. */
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }
@@ -105,11 +116,12 @@ function createSpawnRequest(
     type: agentType,
     label: agentDef.name,
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
-    mode: 'foreground',
+    mode: args.background ? 'background' : 'foreground',
     depth: deps.subagentDepth ?? 1,
     cwd: deps.cwd ?? process.cwd(),
     prompt: args.prompt,
     model: args.model,
+    isolation: args.isolation,
   };
 }
 
@@ -121,11 +133,26 @@ function stringifyUnknownAgentType(agentType: string): string {
   });
 }
 
-function stringifyAgentSuccess(output: string, agentId: string): string {
+function stringifyAgentSuccess(result: ISubagentJobResult): string {
+  const worktreePath = result.metadata?.['worktreePath'];
+  const branchName = result.metadata?.['branchName'];
   return JSON.stringify({
     success: true,
-    output,
+    output: result.output,
+    agentId: result.jobId,
+    metadata: result.metadata,
+    ...(typeof worktreePath === 'string' ? { worktreePath } : {}),
+    ...(typeof branchName === 'string' ? { branchName } : {}),
+  });
+}
+
+function stringifyBackgroundAgentStarted(agentId: string, status: string): string {
+  return JSON.stringify({
+    success: true,
+    background: true,
+    output: '',
     agentId,
+    status,
   });
 }
 
@@ -153,8 +180,11 @@ async function runManagedAgent(
   try {
     const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
     agentId = state.id;
+    if (args.background) {
+      return stringifyBackgroundAgentStarted(state.id, state.status);
+    }
     const response = await manager.wait(state.id);
-    return stringifyAgentSuccess(response.output, state.id);
+    return stringifyAgentSuccess(response);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return stringifyAgentError(message, agentId);

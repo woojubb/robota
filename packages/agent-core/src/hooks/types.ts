@@ -10,7 +10,9 @@ export type THookEvent =
   | 'Stop'
   | 'PreCompact'
   | 'PostCompact'
-  | 'UserPromptSubmit';
+  | 'UserPromptSubmit'
+  | 'WorktreeCreate'
+  | 'WorktreeRemove';
 
 /** Command hook — executes a shell command */
 export interface ICommandHookDefinition {

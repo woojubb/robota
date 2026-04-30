@@ -45,6 +45,8 @@ The monorepo follows a strict bottom-up assembly model. Each layer builds on the
 ```
 agent-core        ← foundation: interfaces, abstractions, DI, events, plugins
   ↑
+agent-runtime     ← reusable runtime lifecycle/state/ports for background tasks and subagents
+  ↑
 agent-sessions    ← session lifecycle, wraps core with permissions/hooks
 agent-tools       ← tool implementations (FunctionTool, builtins)
 agent-providers   ← AI provider implementations
@@ -63,3 +65,6 @@ agent-cli         ← UI layer: consumes SDK, adds terminal UI
 - **Interface-first extension.** When adding a capability (e.g., session logging), define the interface in agent-core, implement in a plugin or session package, and wire in agent-sdk. Never implement directly in the consuming layer.
 - **Side concerns are injectable.** Any behavior that could vary by deployment (logging destination, storage path, analytics) must be injected, not imported directly.
 - **Factory context auto-forwarding.** When a factory function receives a config/context object, optional parameters derivable from that object must use it as the default value (`options.x ?? context.x`). Callers must not be required to manually extract and forward values that the factory already has access to. Explicit overrides take precedence.
+- **Composable material first.** Reusable capabilities must be shaped as small composable packages, ports, adapters, classes, and pure functions before they are wired into SDK or UI flows. The SDK should assemble reusable materials; CLI/TUI should render and inject runtime adapters. Do not let a feature become a CLI-only or SDK-only monolith when it has its own lifecycle, state model, adapters, or non-UI consumers.
+- **Package extraction trigger.** Before adding a substantial capability to an existing package, ask whether it is reusable outside that package's primary role. If the answer is yes, prefer a dedicated lower-level package or a clearly isolated module with public ports. A runtime capability with multiple adapters, transport projections, or independent tests is a strong candidate for package extraction.
+- **Orchestrator/adapter split.** Lifecycle orchestration, state transitions, and handoff metadata belong in reusable lower layers. Concrete I/O such as `child_process`, local files, Git commands, HTTP servers, and React/Ink rendering belongs in injected adapters or shell packages.

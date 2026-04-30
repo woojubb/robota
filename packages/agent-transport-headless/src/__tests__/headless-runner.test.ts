@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IExecutionResult } from '@robota-sdk/agent-sdk';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-sdk';
 import { createHeadlessRunner } from '../headless-runner.js';
 
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {
@@ -281,6 +282,57 @@ describe('createHeadlessRunner (stream-json format)', () => {
       result: '',
       session_id: 'stream-session',
       subtype: 'error',
+    });
+  });
+
+  it('stream-json emits background task events before the final result', async () => {
+    const backgroundEvent: TBackgroundTaskEvent = {
+      type: 'background_task_text_delta',
+      taskId: 'task_1',
+      delta: 'partial output',
+    };
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const session = {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event)!.push(handler);
+      }),
+      off: vi.fn(),
+      submit: vi.fn(async () => {
+        for (const h of listeners.get('background_task_event') ?? []) {
+          h(backgroundEvent);
+        }
+        for (const h of listeners.get('complete') ?? []) {
+          h({ response: 'done', history: [], toolSummaries: [], contextState: {} });
+        }
+      }),
+      getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
+    } as unknown as InteractiveSession;
+
+    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const exitCode = await runner.run('test prompt');
+
+    expect(exitCode).toBe(0);
+
+    const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
+
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]).toMatchObject({
+      type: 'stream_event',
+      session_id: 'stream-session',
+      event: {
+        type: 'background_task_event',
+        background_task_event: backgroundEvent,
+      },
+    });
+    expect(parsed[1]).toEqual({
+      type: 'result',
+      result: 'done',
+      session_id: 'stream-session',
+      subtype: 'success',
     });
   });
 });

@@ -29,10 +29,14 @@ import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js
 
 import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
-import { SubagentManager } from '../subagents/subagent-manager.js';
+import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
+import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
+import { SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
+import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -66,6 +70,10 @@ export interface ICreateSessionOptions {
   ) => Promise<boolean>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
+  /** Additional background task runners composed by the runtime shell. */
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Runtime shell override for subagent execution. Defaults to the SDK in-process runner. */
+  subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -156,16 +164,35 @@ export function createSession(options: ICreateSessionOptions): Session {
     onToolExecution: options.onToolExecution,
     customAgentRegistry: (name: string) => agentLoader.getAgent(name),
   };
-  agentToolDeps.subagentManager = new SubagentManager({
-    runner: createInProcessSubagentRunner(agentToolDeps),
+  const subagentManager = new SubagentManager({
+    runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
+    backgroundTaskRunners: options.backgroundTaskRunners,
   });
+  agentToolDeps.subagentManager = subagentManager;
+  agentToolDeps.backgroundTaskManager = subagentManager.getBackgroundTaskManager();
+  let backgroundProcessToolDeps: IBackgroundProcessToolDeps | undefined;
+  if (options.backgroundTaskRunners?.some((runner) => runner.kind === 'process')) {
+    backgroundProcessToolDeps = {
+      backgroundTaskManager: subagentManager.getBackgroundTaskManager(),
+      cwd,
+      parentSessionId: options.sessionId ?? 'pending-session',
+    };
+    tools.push(createBackgroundProcessTool(backgroundProcessToolDeps));
+  }
   tools.push(createAgentTool(agentToolDeps));
 
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const systemMessage = buildPrompt({
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
-    toolDescriptions: options.toolDescriptions ?? DEFAULT_TOOL_DESCRIPTIONS,
+    toolDescriptions:
+      options.toolDescriptions ??
+      (backgroundProcessToolDeps
+        ? [
+            ...DEFAULT_TOOL_DESCRIPTIONS,
+            'BackgroundProcess — start long-running shell commands as managed background tasks',
+          ]
+        : DEFAULT_TOOL_DESCRIPTIONS),
     trustLevel: options.config.defaultTrustLevel,
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
@@ -225,6 +252,7 @@ export function createSession(options: ICreateSessionOptions): Session {
   // Store deps keyed by session so consumers (e.g. fork runner) can retrieve
   // per-session deps without relying on global mutable state.
   agentToolDeps.parentSessionId = session.getSessionId();
+  if (backgroundProcessToolDeps) backgroundProcessToolDeps.parentSessionId = session.getSessionId();
   storeAgentToolDeps(session, agentToolDeps);
 
   return session;

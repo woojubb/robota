@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IBackgroundTaskRunner, TSubagentRunnerFactory } from '@robota-sdk/agent-sdk';
 import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
@@ -15,6 +16,7 @@ import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
+import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
@@ -29,6 +31,8 @@ interface IProps {
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
 }
 
 /**
@@ -62,6 +66,7 @@ function AppInner(
     isThinking,
     isAborting,
     pendingPrompt,
+    backgroundTasks,
     permissionRequest,
     contextState,
     handleSubmit: baseHandleSubmit,
@@ -76,6 +81,8 @@ function AppInner(
     resumeSessionId: props.resumeSessionId,
     forkSession: props.forkSession,
     sessionName: props.sessionName,
+    backgroundTaskRunners: props.backgroundTaskRunners,
+    subagentRunnerFactory: props.subagentRunnerFactory,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);
@@ -151,6 +158,7 @@ function AppInner(
             <StreamingIndicator text={streamingText} activeTools={activeTools} />
           </Box>
         )}
+        <BackgroundTaskPanel tasks={backgroundTasks} />
       </Box>
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
       {pendingModelId && (

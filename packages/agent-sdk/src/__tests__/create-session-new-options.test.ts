@@ -253,3 +253,30 @@ describe('createSession — appendSystemPrompt option', () => {
     }
   });
 });
+
+describe('createSession — subagent runner factory option', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('uses an injected subagent runner factory with the assembled agent tool dependencies', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const subagentRunnerFactory = vi.fn().mockReturnValue({
+      start: vi.fn(),
+    });
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: 'agent context', claudeMd: 'claude context' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      subagentRunnerFactory,
+    });
+
+    expect(subagentRunnerFactory).toHaveBeenCalledTimes(1);
+    const deps = subagentRunnerFactory.mock.calls[0]![0];
+    expect(deps.config.provider.model).toBe('test-model');
+    expect(deps.context.agentsMd).toBe('agent context');
+    expect(deps.tools.map((tool: { getName: () => string }) => tool.getName())).toContain('Bash');
+  });
+});

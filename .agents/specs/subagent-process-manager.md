@@ -7,7 +7,7 @@ Common runtime layer: `.agents/specs/background-task-layer.md`
 
 ## Scope
 
-This specification defines Robota CLI subagent process management, parallel execution, lifecycle events, and TUI visibility. It is the agent-specific specialization of the shared background task runtime defined in `.agents/specs/background-task-layer.md`. It spans `agent-sdk`, `agent-cli`, `agent-sessions`, and `agent-core` because the feature crosses model-callable tools, interactive session orchestration, provider/session isolation, process supervision, and terminal rendering.
+This specification defines Robota CLI subagent process management, parallel execution, lifecycle events, and TUI visibility. It is the agent-specific specialization of the shared background task runtime defined in `.agents/specs/background-task-layer.md`. It spans `agent-runtime`, `agent-sdk`, `agent-cli`, `agent-sessions`, and `agent-core` because the feature crosses reusable lifecycle state, model-callable tools, interactive session orchestration, provider/session isolation, process supervision, and terminal rendering.
 
 The goal is to turn subagents from awaited in-process tool calls into managed agent jobs that can run in foreground or background, be observed in the TUI, be cancelled safely, and later run in isolated worktrees.
 
@@ -54,20 +54,22 @@ Robota MUST support managed subagent jobs with these capabilities:
 
 The implementation MUST use the common background task manager/runner split. Subagent-specific APIs may remain as compatibility facades, but new lifecycle, event, queueing, and TUI projection behavior should be expressed through the generic background task layer first.
 
-| Layer                        | Owner                                     | Responsibility                                                                                                   |
-| ---------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `SubagentManager`            | `agent-sdk`                               | Job registry, lifecycle state transitions, queueing, bounded concurrency, wait/cancel/close APIs, event emission |
-| `SubagentRunner` port        | `agent-sdk`                               | Abstract execution boundary for a single subagent job                                                            |
-| `InProcessSubagentRunner`    | `agent-sdk`                               | Testable runner and migration bridge using `Session` directly                                                    |
-| `ChildProcessSubagentRunner` | `agent-cli`                               | Production runner that supervises Node child processes and IPC                                                   |
-| Subagent worker entrypoint   | `agent-cli`                               | Creates provider/session in child process and streams structured events to parent                                |
-| Session/provider isolation   | `agent-sessions` and provider composition | Ensures child streaming and callbacks are isolated from the parent                                               |
-| Tool batch concurrency       | `agent-core`                              | Enforces `maxConcurrency` when model emits parallel tool calls                                                   |
-| TUI state/rendering          | `agent-cli`                               | Converts subagent lifecycle events into visible terminal state                                                   |
+| Layer                        | Owner                                     | Responsibility                                                                                 |
+| ---------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `SubagentManager`            | `agent-runtime`                           | Job registry facade over `BackgroundTaskManager`, lifecycle projection, wait/cancel/close APIs |
+| `SubagentRunner` port        | `agent-runtime`                           | Abstract execution boundary for a single subagent job                                          |
+| `WorktreeSubagentRunner`     | `agent-runtime`                           | Runner decorator for worktree handoff, cleanup metadata, and lifecycle hooks                   |
+| `InProcessSubagentRunner`    | `agent-sdk`                               | Testable runner and migration bridge using `Session` directly                                  |
+| `ChildProcessSubagentRunner` | `agent-cli`                               | Production runner that supervises Node child processes and IPC                                 |
+| Subagent worker entrypoint   | `agent-cli`                               | Creates provider/session in child process and streams structured events to parent              |
+| Git worktree adapter         | `agent-cli`                               | Concrete local Git/filesystem implementation of `ISubagentWorktreeAdapter`                     |
+| Session/provider isolation   | `agent-sessions` and provider composition | Ensures child streaming and callbacks are isolated from the parent                             |
+| Tool batch concurrency       | `agent-core`                              | Enforces `maxConcurrency` when model emits parallel tool calls                                 |
+| TUI state/rendering          | `agent-cli`                               | Converts subagent lifecycle events into visible terminal state                                 |
 
 ### SubagentManager
 
-`SubagentManager` MUST be the canonical owner of subagent runtime state.
+`SubagentManager` MUST be the canonical subagent facade over `agent-runtime` background task state.
 
 It MUST provide APIs equivalent to:
 
@@ -85,7 +87,7 @@ interface ISubagentManager {
 
 `send()` MAY initially reject for completed jobs or unsupported runners. The API exists so the lifecycle model can evolve toward follow-up routing without redesign.
 
-`SubagentManager` MUST enforce:
+Through `BackgroundTaskManager`, `SubagentManager` MUST enforce:
 
 - `maxConcurrent` active jobs.
 - `maxDepth` spawn nesting.
@@ -200,6 +202,7 @@ interface ISubagentJobState {
   depth: number;
   pid?: number;
   cwd: string;
+  isolation?: 'none' | 'worktree';
   worktreePath?: string;
   branchName?: string;
   promptPreview: string;
@@ -372,11 +375,12 @@ Cancellation MUST propagate:
 
 ## Worktree Integration Contract
 
-This spec does not implement worktree isolation, but every job state and runner request MUST be compatible with it.
+This spec defines the process-manager compatibility contract for worktree isolation. `agent-runtime` owns reusable worktree runner orchestration, and runtime shells own concrete worktree adapters such as local Git.
 
-Future worktree integration requires:
+Worktree integration requires:
 
 - `cwd` can differ per job.
+- job state can include `isolation: 'worktree'`.
 - job metadata can include `worktreePath` and `branchName`.
 - completion can return handoff metadata.
 - cleanup can distinguish unchanged worktrees from worktrees with edits.
@@ -431,8 +435,8 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 
 ## Implementation Order
 
-1. Add types and unit tests for `SubagentManager`, `SubagentRunner`, and job state transitions. (Completed in `agent-sdk`; keep regression coverage.)
-2. Implement manager with fake/in-process runner. (Completed in `agent-sdk`; keep regression coverage.)
+1. Add types and unit tests for `SubagentManager`, `SubagentRunner`, and job state transitions. (Completed in `agent-runtime`; keep regression coverage.)
+2. Implement manager with fake runner coverage in `agent-runtime` and in-process adapter coverage in `agent-sdk`.
 3. Route existing `Agent` tool through manager in foreground mode. (Completed in `agent-sdk`; keep regression coverage.)
 4. Enforce `maxConcurrency` in core parallel tool execution. (Completed in `agent-core`; keep regression coverage.)
 5. Fix provider callback isolation. (Completed in `agent-core` and `agent-sessions`; keep regression coverage.)
@@ -440,7 +444,7 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 7. Add TUI state manager and rendering for subagent rows.
 8. Add child process runner and worker IPC protocol.
 9. Add CLI controls for list/open/cancel/dismiss/follow-up.
-10. Connect worktree metadata once `CLI-BL-013` is implemented.
+10. Connect worktree metadata and CLI worktree isolation adapter. (Completed by `CLI-BL-013` on `feat/background-agent-jobs`.)
 
 ## Acceptance Criteria
 
