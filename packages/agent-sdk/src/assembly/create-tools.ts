@@ -23,6 +23,7 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
   'WebSearch — search the internet (Anthropic built-in)',
+  'Agent — launch an isolated agent for delegated work',
 ];
 
 /**

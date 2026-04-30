@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import type { IAgentDefinition } from './agent-definition-types.js';
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
 
-/** Known frontmatter keys that should be parsed as comma-separated lists. */
+/** Known frontmatter keys that should be parsed as comma-separated or whitespace-separated lists. */
 const LIST_KEYS = new Set(['tools', 'disallowedTools']);
 
 /** Known frontmatter keys that should be parsed as numbers. */
@@ -17,6 +17,14 @@ interface IRawFrontmatter {
   maxTurns?: number;
   tools?: string[];
   disallowedTools?: string[];
+}
+
+function parseListValue(rawValue: string): string[] {
+  const separator = rawValue.includes(',') ? /\s*,\s*/ : /\s+/;
+  return rawValue
+    .split(separator)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
 }
 
 /**
@@ -52,7 +60,7 @@ function parseFrontmatter(content: string): { frontmatter: IRawFrontmatter | nul
     const rawValue = match[2]!.trim();
 
     if (LIST_KEYS.has(key)) {
-      result[key] = rawValue.split(',').map((s) => s.trim());
+      result[key] = parseListValue(rawValue);
     } else if (NUMBER_KEYS.has(key)) {
       result[key] = parseInt(rawValue, 10);
     } else {
@@ -115,8 +123,11 @@ function scanAgentsDir(dir: string): IAgentDefinition[] {
  * them with built-in agents.
  *
  * Scan directories (highest priority first):
- * 1. `<cwd>/.claude/agents/` — project-level
- * 2. `<home>/.robota/agents/` — user-level
+ * 1. `<cwd>/.robota/agents/` — project-level Robota native
+ * 2. `<cwd>/.agents/agents/` — project-level Robota repository convention
+ * 3. `<cwd>/.claude/agents/` — project-level Claude Code compatible
+ * 4. `<home>/.robota/agents/` — user-level Robota native
+ * 5. `<home>/.claude/agents/` — user-level Claude Code compatible
  *
  * Custom agents override built-in agents on name collision.
  */
@@ -132,8 +143,11 @@ export class AgentDefinitionLoader {
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
   loadAll(): IAgentDefinition[] {
     const sources: IAgentDefinition[][] = [
+      scanAgentsDir(join(this.cwd, '.robota', 'agents')),
+      scanAgentsDir(join(this.cwd, '.agents', 'agents')),
       scanAgentsDir(join(this.cwd, '.claude', 'agents')),
       scanAgentsDir(join(this.home, '.robota', 'agents')),
+      scanAgentsDir(join(this.home, '.claude', 'agents')),
     ];
 
     // Deduplicate custom agents: higher-priority source wins

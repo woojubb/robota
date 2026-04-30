@@ -17,6 +17,12 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import type { ICommand, ISkillExecutionResult, IForkExecutionOptions } from '../commands/index.js';
+import { executeSkill } from '../commands/index.js';
+import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { getBuiltInAgent } from '../agents/built-in-agents.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
 import type {
   IToolState,
@@ -167,6 +173,38 @@ export class InteractiveSession {
     return this.commandExecutor.execute(name, this, args);
   }
 
+  async executeSkillCommand(
+    skill: ICommand,
+    args: string,
+    displayInput?: string,
+    rawInput?: string,
+  ): Promise<ISkillExecutionResult> {
+    await this.ensureInitialized();
+
+    if (skill.context === 'fork') {
+      return this.executeForkSkillCommand(skill, args, displayInput);
+    }
+
+    const result = await executeSkill(
+      skill,
+      args,
+      {
+        runInFork: (content, options) => this.runSkillInFork(content, options),
+      },
+      { sessionId: this.getSessionOrThrow().getSessionId() },
+    );
+
+    if (result.mode === 'inject') {
+      if (result.prompt) {
+        await this.submit(result.prompt, displayInput, rawInput);
+      }
+      return result;
+    }
+
+    await this.applyForkSkillResult(result.result ?? '(empty response)');
+    return result;
+  }
+
   listCommands(): Array<{ name: string; description: string }> {
     return this.commandExecutor.listCommands().map((cmd) => ({
       name: cmd.name,
@@ -237,6 +275,123 @@ export class InteractiveSession {
 
   attachTransport(transport: ITransportAdapter): void {
     transport.attach(this);
+  }
+
+  private async executeForkSkillCommand(
+    skill: ICommand,
+    args: string,
+    displayInput?: string,
+  ): Promise<ISkillExecutionResult> {
+    if (this.executing) {
+      throw new Error('Cannot execute fork skill while another prompt is running.');
+    }
+
+    this.startForkSkillExecution(displayInput ?? `/${skill.name}`);
+
+    try {
+      const result = await executeSkill(
+        skill,
+        args,
+        { runInFork: (content, options) => this.runSkillInFork(content, options) },
+        { sessionId: this.getSessionOrThrow().getSessionId() },
+      );
+      await this.applyForkSkillResult(result.result ?? '(empty response)');
+      return result;
+    } catch (err) {
+      this.recordForkSkillError(err instanceof Error ? err : new Error(String(err)));
+      return { mode: 'fork', result: '' };
+    } finally {
+      this.finishForkSkillExecution();
+    }
+  }
+
+  private startForkSkillExecution(displayInput: string): void {
+    this.executing = true;
+    this.clearStreaming();
+    this.emit('thinking', true);
+    this.history.push(messageToHistoryEntry(createUserMessage(displayInput)));
+  }
+
+  private finishForkSkillExecution(): void {
+    this.executing = false;
+    this.emit('thinking', false);
+    if (this.sessionStore && this.session) {
+      persistSession(
+        this.sessionStore,
+        this.session,
+        this.sessionName,
+        this.cwd ?? '',
+        this.history,
+      );
+    }
+    if (this.pendingPrompt) {
+      const queued = this.pendingPrompt;
+      const queuedDisplay = this.pendingDisplayInput;
+      const queuedRaw = this.pendingRawInput;
+      this.clearPendingQueue();
+      setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+    }
+  }
+
+  private recordForkSkillError(err: Error): void {
+    this.history.push(messageToHistoryEntry(createSystemMessage(`Error: ${err.message}`)));
+    this.emit('error', err);
+  }
+
+  private resolveForkAgentDefinition(
+    agentType: string,
+    options: IForkExecutionOptions,
+  ): IAgentDefinition {
+    const deps = retrieveAgentToolDeps(this.getSessionOrThrow());
+    const definition = deps?.customAgentRegistry?.(agentType) ?? getBuiltInAgent(agentType);
+    if (!definition) {
+      throw new Error(`Unknown agent type: ${agentType}`);
+    }
+    if (options.allowedTools) {
+      return { ...definition, tools: options.allowedTools };
+    }
+    return definition;
+  }
+
+  private async runSkillInFork(content: string, options: IForkExecutionOptions): Promise<string> {
+    const parentSession = this.getSessionOrThrow();
+    const deps = retrieveAgentToolDeps(parentSession);
+    if (!deps) {
+      throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
+    }
+    const agentType = options.agent ?? 'general-purpose';
+    const agentDefinition = this.resolveForkAgentDefinition(agentType, options);
+    const forkSession = createSubagentSession({
+      agentDefinition,
+      parentConfig: deps.config,
+      parentContext: deps.context,
+      parentTools: deps.tools,
+      provider: deps.provider,
+      terminal: deps.terminal,
+      isForkWorker: true,
+      permissionMode: deps.permissionMode,
+      permissionHandler: deps.permissionHandler,
+      hooks: deps.hooks,
+      hookTypeExecutors: deps.hookTypeExecutors,
+      onTextDelta: deps.onTextDelta,
+      onToolExecution: deps.onToolExecution,
+    });
+    return forkSession.run(content);
+  }
+
+  private async applyForkSkillResult(result: string): Promise<void> {
+    this.flushStreaming();
+    pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
+    this.clearStreaming();
+    const executionResult = {
+      response: result,
+      history: this.history,
+      toolSummaries: [],
+      contextState: this.getContextState(),
+    };
+    this.history.push(messageToHistoryEntry(createAssistantMessage(result)));
+    this.emit('complete', executionResult);
+    this.emit('context_update', this.getContextState());
   }
 
   private async executePrompt(

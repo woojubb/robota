@@ -29,11 +29,14 @@ import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js
 
 import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
   /** Resolved CLI configuration (model, API key, permissions) */
   config: IResolvedConfig;
+  /** Working directory used for project context, skills, and agent definitions. */
+  cwd?: string;
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */
@@ -104,13 +107,14 @@ export function createSession(options: ICreateSessionOptions): Session {
     );
   }
   const provider = options.provider;
+  const cwd = options.cwd ?? process.cwd();
 
   const defaultTools = createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
 
   // Wire agent tool — create a fresh instance with deps captured in closure.
   // Must happen after default tools are assembled so sub-agents inherit the full set.
-  const agentLoader = new AgentDefinitionLoader(process.cwd());
+  const agentLoader = new AgentDefinitionLoader(cwd);
 
   // Build hook type executors early so they can be forwarded to subagents.
   const hookTypeExecutors: IHookTypeExecutor[] = [];
@@ -156,8 +160,17 @@ export function createSession(options: ICreateSessionOptions): Session {
     toolDescriptions: options.toolDescriptions ?? DEFAULT_TOOL_DESCRIPTIONS,
     trustLevel: options.config.defaultTrustLevel,
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
-    cwd: process.cwd(),
+    cwd,
     language: options.config.language,
+    skills: new SkillCommandSource(cwd).getModelInvocableSkills().map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      disableModelInvocation: skill.disableModelInvocation,
+    })),
+    agents: agentLoader.loadAll().map((agent) => ({
+      name: agent.name,
+      description: agent.description,
+    })),
   });
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`

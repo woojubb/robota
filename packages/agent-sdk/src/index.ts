@@ -27,8 +27,17 @@ export {
   SkillCommandSource,
   PluginCommandSource,
   parseFrontmatter,
+  executeSkill,
 } from './commands/index.js';
-export type { ICommand, ICommandSource, ISystemCommand, ICommandResult } from './commands/index.js';
+export type {
+  ICommand,
+  ICommandSource,
+  ISystemCommand,
+  ICommandResult,
+  IForkExecutionOptions,
+  ISkillExecutionCallbacks,
+  ISkillExecutionResult,
+} from './commands/index.js';
 
 // ── Skill prompt utilities ───────────────────────────────────
 export {
