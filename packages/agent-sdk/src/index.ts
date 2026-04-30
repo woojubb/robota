@@ -110,6 +110,20 @@ export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 
+// ── Subagent process manager contracts ─────────────────────
+export { SubagentManager } from './subagents/index.js';
+export type {
+  ISubagentJobHandle,
+  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentJobState,
+  ISubagentManagerOptions,
+  ISubagentRunner,
+  ISubagentSpawnRequest,
+  TSubagentJobMode,
+  TSubagentJobStatus,
+} from './subagents/index.js';
+
 // ── Hook executors ──────────────────────────────────────────
 export { PromptExecutor, AgentExecutor } from './hooks/index.js';
 export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
