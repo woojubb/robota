@@ -780,7 +780,7 @@ Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtr
 
 ESC aborts the current execution gracefully (unlike Ctrl+C which kills the process):
 
-1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useInteractiveSession`)
+1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useInteractiveSession`). The App-level ESC listener remains mounted and guards permission, plugin, and session-picker overlays inside the handler instead of toggling `useInput({ isActive })`.
 2. `handleAbort` sets `isAborting: true` and calls `interactiveSession.abort()`
 3. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
 4. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
@@ -946,6 +946,8 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 ## Dependencies
 
+`@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
+
 | Package                                | Purpose                                                                      |
 | -------------------------------------- | ---------------------------------------------------------------------------- |
 | `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management  |
@@ -953,7 +955,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)             |
 | `@robota-sdk/agent-provider-openai`    | OpenAI/OpenAI-compatible provider creation (including LM Studio via baseURL) |
 | `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                              |
-| `ink`, `react`                         | TUI rendering                                                                |
+| `ink` 7, `react` 19.2+                 | TUI rendering                                                                |
 | `ink-select-input`                     | Arrow-key selection (permission prompt)                                      |
 | `ink-spinner`                          | Loading spinner                                                              |
 | `chalk`                                | Terminal colors                                                              |
