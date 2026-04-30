@@ -6,7 +6,12 @@
  */
 
 import { runHooks } from '@robota-sdk/agent-core';
-import type { IAIProvider, THooksConfig, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  THooksConfig,
+  IHookTypeExecutor,
+  TTextDeltaCallback,
+} from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
@@ -27,6 +32,7 @@ export interface IRunContext {
   persistSession: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
+  onTextDelta?: TTextDeltaCallback;
 }
 
 /**
@@ -103,7 +109,10 @@ export async function executeRun(
 
   let response: string;
   try {
-    response = await ctx.robota.run(enrichedMessage, { signal: abortSignal });
+    response = await ctx.robota.run(enrichedMessage, {
+      signal: abortSignal,
+      ...(ctx.onTextDelta && { onTextDelta: ctx.onTextDelta }),
+    });
 
     // If execution was interrupted (abort fired during execution),
     // throw AbortError so the caller (useSubmitHandler) shows "Cancelled."

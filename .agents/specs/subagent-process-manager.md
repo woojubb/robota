@@ -30,7 +30,7 @@ Robota currently supports subagents as in-process awaited executions:
 - TUI state has no subagent-specific state model.
 - Core tool execution supports bounded parallel dispatch and enforces the configured `maxConcurrency`.
 
-This baseline is not sufficient for managed parallel subagent work because it has no durable job registry, no cancellation handle per child, no process isolation, no provider callback isolation, and no TUI thread visibility.
+This baseline is not sufficient for managed parallel subagent work because it has no durable job registry, no cancellation handle per child, no process isolation, and no TUI thread visibility. Provider callback isolation has been added with per-run streaming callback context while child process provider construction remains future work.
 
 ## Target Behavior
 
@@ -314,6 +314,8 @@ Acceptable implementations:
 - create a new provider instance per subagent job; or
 - refactor provider streaming callbacks to be per request/session rather than mutable properties on a shared provider object.
 
+Current implementation uses the second approach for in-process sessions: `ISessionOptions.onTextDelta` is stored on the `Session` and passed to `Robota.run()` as `IRunOptions.onTextDelta`, which is threaded through `IExecutionContext` and preferred over provider-level callback fallback.
+
 The child process runner MUST create providers inside the child process from serializable provider profile data.
 
 ## TUI Requirements
@@ -432,7 +434,7 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 2. Implement manager with fake/in-process runner. (Completed in `agent-sdk`; keep regression coverage.)
 3. Route existing `Agent` tool through manager in foreground mode. (Completed in `agent-sdk`; keep regression coverage.)
 4. Enforce `maxConcurrency` in core parallel tool execution. (Completed in `agent-core`; keep regression coverage.)
-5. Fix provider callback isolation.
+5. Fix provider callback isolation. (Completed in `agent-core` and `agent-sessions`; keep regression coverage.)
 6. Add background mode and manager events to `InteractiveSession`.
 7. Add TUI state manager and rendering for subagent rows.
 8. Add child process runner and worker IPC protocol.
