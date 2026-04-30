@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { TuiStateManager } from '../tui-state-manager.js';
-import type { IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
+import type { IToolState, IExecutionResult, IBackgroundTaskState } from '@robota-sdk/agent-sdk';
 
 function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
   return {
@@ -18,6 +18,23 @@ function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
       usedTokens: 1000,
       maxTokens: 200000,
     },
+    ...overrides,
+  };
+}
+
+function makeBackgroundTask(
+  overrides: Partial<IBackgroundTaskState> & Pick<IBackgroundTaskState, 'id' | 'status'>,
+): IBackgroundTaskState {
+  return {
+    kind: 'agent',
+    label: 'Explore',
+    mode: 'background',
+    parentSessionId: 'session_parent',
+    depth: 1,
+    cwd: '/workspace',
+    updatedAt: '2026-05-01T00:00:00.000Z',
+    unread: false,
+    promptPreview: 'Find files',
     ...overrides,
   };
 }
@@ -310,6 +327,104 @@ describe('TuiStateManager', () => {
 
     expect(mgr.backgroundTasks[0]!.currentAction).toBe('file.ts');
     expect(mgr.backgroundTasks[0]!.resultPreview).toBe('partial answer');
+  });
+
+  it('hides clean completed background tasks at the next user turn boundary', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_completed',
+      task: makeBackgroundTask({
+        id: 'agent_1',
+        status: 'completed',
+        unread: true,
+        result: { taskId: 'agent_1', kind: 'agent', output: 'Done' },
+      }),
+    });
+
+    expect(mgr.backgroundTasks).toHaveLength(1);
+
+    mgr.onUserTurnAccepted();
+
+    expect(mgr.backgroundTasks).toEqual([]);
+  });
+
+  it('keeps active and actionable terminal background tasks visible at turn boundaries', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_started',
+      task: makeBackgroundTask({ id: 'agent_running', status: 'running' }),
+    });
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_failed',
+      task: makeBackgroundTask({
+        id: 'agent_failed',
+        status: 'failed',
+        unread: true,
+        error: { category: 'runner', message: 'failed', recoverable: true },
+      }),
+    });
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_cancelled',
+      task: makeBackgroundTask({
+        id: 'agent_cancelled',
+        status: 'cancelled',
+        unread: true,
+        error: { category: 'runner', message: 'cancelled', recoverable: true },
+      }),
+    });
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_completed',
+      task: makeBackgroundTask({
+        id: 'agent_worktree',
+        status: 'completed',
+        unread: true,
+        worktreePath: '/workspace/.robota/worktrees/agent_worktree',
+        branchName: 'robota/agent_worktree',
+        result: { taskId: 'agent_worktree', kind: 'agent', output: 'Dirty worktree' },
+      }),
+    });
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_completed',
+      task: makeBackgroundTask({
+        id: 'process_nonzero',
+        kind: 'process',
+        status: 'completed',
+        unread: true,
+        commandPreview: 'pnpm test',
+        result: { taskId: 'process_nonzero', kind: 'process', output: 'failed', exitCode: 1 },
+      }),
+    });
+
+    mgr.onUserTurnAccepted();
+
+    expect(mgr.backgroundTasks.map((task) => task.id)).toEqual([
+      'agent_running',
+      'agent_failed',
+      'agent_cancelled',
+      'agent_worktree',
+      'process_nonzero',
+    ]);
+  });
+
+  it('clears hidden completed task presentation state when the runtime closes it', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_completed',
+      task: makeBackgroundTask({
+        id: 'agent_1',
+        status: 'completed',
+        unread: true,
+        result: { taskId: 'agent_1', kind: 'agent', output: 'Done' },
+      }),
+    });
+    mgr.onUserTurnAccepted();
+
+    mgr.onBackgroundTaskEvent({ type: 'background_task_closed', taskId: 'agent_1' });
+
+    expect(mgr.backgroundTasks).toEqual([]);
   });
 
   // ── Display order: Tool → Robota ──────────────────────────────
