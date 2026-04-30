@@ -161,7 +161,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
           );
           return;
         }
-        handleWorkerMessage(message, startWorker, resolveOnce, rejectOnce);
+        handleWorkerMessage(message, startWorker, resolveOnce, rejectOnce, runtime.job.emit);
       };
 
       const onError = (error: Error): void => {

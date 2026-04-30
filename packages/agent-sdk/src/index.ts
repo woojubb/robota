@@ -147,6 +147,7 @@ export type {
   TBackgroundTaskEventListener,
   TBackgroundTaskKind,
   TBackgroundTaskMode,
+  TBackgroundTaskRunnerEvent,
   TBackgroundTaskStatus,
   TBackgroundTaskTransitionEvent,
 } from './background-tasks/index.js';

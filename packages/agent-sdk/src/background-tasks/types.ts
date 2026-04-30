@@ -144,9 +144,26 @@ export interface IBackgroundTaskListFilter {
   includeClosed?: boolean;
 }
 
+export type TBackgroundTaskRunnerEvent =
+  | { type: 'background_task_text_delta'; delta: string }
+  | { type: 'background_task_tool_start'; toolName: string; firstArg?: string }
+  | {
+      type: 'background_task_tool_end';
+      toolName: string;
+      success: boolean;
+      error?: string;
+    }
+  | {
+      type: 'background_task_permission_request';
+      requestId: string;
+      toolName: string;
+      toolArgs: Record<string, TBackgroundPrimitive>;
+    };
+
 export interface IBackgroundTaskStart {
   taskId: string;
   request: IBackgroundTaskRequest;
+  emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
 export interface IBackgroundTaskHandle {

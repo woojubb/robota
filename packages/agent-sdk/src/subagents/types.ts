@@ -2,6 +2,7 @@ import type {
   IBackgroundTaskManager,
   IBackgroundTaskRunner,
   IBackgroundTaskRequest,
+  TBackgroundTaskRunnerEvent,
 } from '../background-tasks/index.js';
 
 export type TSubagentJobStatus =
@@ -57,6 +58,7 @@ export interface ISubagentJobResult {
 export interface ISubagentJobStart {
   jobId: string;
   request: ISubagentSpawnRequest;
+  emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
 export interface ISubagentJobHandle {

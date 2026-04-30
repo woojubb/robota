@@ -32,5 +32,6 @@ export {
   type TBackgroundTaskIdFactory,
   type TBackgroundTaskKind,
   type TBackgroundTaskMode,
+  type TBackgroundTaskRunnerEvent,
   type TBackgroundTaskStatus,
 } from './types.js';

@@ -85,6 +85,7 @@ export class TuiStateManager {
 
   // ── Internal ──────────────────────────────────────────────────
   private streamBuf = '';
+  private backgroundTextBuffers = new Map<string, string>();
   private debouncedStreamNotify = createDebouncedNotify(() => this.notify(), STREAMING_DEBOUNCE_MS);
 
   private notify(): void {
@@ -168,8 +169,14 @@ export class TuiStateManager {
     }
 
     if (event.type === 'background_task_closed') {
+      this.backgroundTextBuffers.delete(event.taskId);
       this.backgroundTasks = this.backgroundTasks.filter((task) => task.id !== event.taskId);
       this.notify();
+      return;
+    }
+
+    if (event.type === 'background_task_text_delta') {
+      this.appendBackgroundTaskText(event.taskId, event.delta);
       return;
     }
 
@@ -220,7 +227,8 @@ export class TuiStateManager {
   }
 
   private upsertBackgroundTask(state: IBackgroundTaskState): void {
-    const viewModel = toBackgroundTaskViewModel(state);
+    const partialText = state.result ? undefined : this.backgroundTextBuffers.get(state.id);
+    const viewModel = toBackgroundTaskViewModel(state, partialText);
     const index = this.backgroundTasks.findIndex((task) => task.id === state.id);
     if (index === -1) {
       this.backgroundTasks = [...this.backgroundTasks, viewModel];
@@ -229,6 +237,18 @@ export class TuiStateManager {
       updated[index] = viewModel;
       this.backgroundTasks = updated;
     }
+    if (state.status === 'completed' || state.status === 'failed' || state.status === 'cancelled') {
+      this.backgroundTextBuffers.delete(state.id);
+    }
+    this.notify();
+  }
+
+  private appendBackgroundTaskText(taskId: string, delta: string): void {
+    const nextText = `${this.backgroundTextBuffers.get(taskId) ?? ''}${delta}`;
+    this.backgroundTextBuffers.set(taskId, nextText);
+    this.backgroundTasks = this.backgroundTasks.map((task) =>
+      task.id === taskId ? { ...task, resultPreview: trimBackgroundPreview(nextText) } : task,
+    );
     this.notify();
   }
 
@@ -247,7 +267,10 @@ function trimBackgroundPreview(value: string | undefined): string | undefined {
     : value;
 }
 
-function toBackgroundTaskViewModel(state: IBackgroundTaskState): IBackgroundTaskViewModel {
+function toBackgroundTaskViewModel(
+  state: IBackgroundTaskState,
+  partialText?: string,
+): IBackgroundTaskViewModel {
   return {
     id: state.id,
     kind: state.kind,
@@ -257,7 +280,7 @@ function toBackgroundTaskViewModel(state: IBackgroundTaskState): IBackgroundTask
     currentAction: state.currentAction,
     unread: state.unread,
     preview: trimBackgroundPreview(state.promptPreview ?? state.commandPreview) ?? '',
-    resultPreview: trimBackgroundPreview(state.result?.output),
+    resultPreview: trimBackgroundPreview(state.result?.output ?? partialText),
     errorPreview: trimBackgroundPreview(state.error?.message),
   };
 }

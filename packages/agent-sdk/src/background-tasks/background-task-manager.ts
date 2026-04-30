@@ -13,6 +13,7 @@ import {
   type TBackgroundTaskIdFactory,
   type TBackgroundTaskEvent,
   type TBackgroundTaskEventListener,
+  type TBackgroundTaskRunnerEvent,
 } from './types.js';
 import { isTerminalBackgroundTaskStatus, transitionBackgroundTaskStatus } from './state-machine.js';
 import {
@@ -181,7 +182,11 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.emit({ type: 'background_task_started', task: cloneBackgroundTaskState(task.state) });
 
     try {
-      const handle = runner.start({ taskId: task.state.id, request: task.request });
+      const handle = runner.start({
+        taskId: task.state.id,
+        request: task.request,
+        emit: (event) => this.handleRunnerEvent(task, event),
+      });
       task.handle = handle;
       if (handle.pid) task.state.pid = handle.pid;
       handle.result.then(
@@ -233,6 +238,37 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     task.reject(createRunnerError(task.state.error.message));
     this.emit({ type: 'background_task_cancelled', task: cloneBackgroundTaskState(task.state) });
     this.drainQueue();
+  }
+
+  private handleRunnerEvent(task: ITrackedBackgroundTask, event: TBackgroundTaskRunnerEvent): void {
+    if (isTerminalBackgroundTaskStatus(task.state.status)) return;
+    const emitted = this.toBackgroundTaskEvent(task, event);
+    this.applyRunnerEventToState(task, event);
+    this.emit(emitted);
+  }
+
+  private applyRunnerEventToState(
+    task: ITrackedBackgroundTask,
+    event: TBackgroundTaskRunnerEvent,
+  ): void {
+    if (event.type === 'background_task_tool_start') {
+      task.state.currentAction = event.firstArg ?? event.toolName;
+      task.state.updatedAt = this.now();
+      this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
+      return;
+    }
+    if (event.type === 'background_task_tool_end') {
+      task.state.currentAction = event.success ? undefined : (event.error ?? event.toolName);
+      task.state.updatedAt = this.now();
+      this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
+    }
+  }
+
+  private toBackgroundTaskEvent(
+    task: ITrackedBackgroundTask,
+    event: TBackgroundTaskRunnerEvent,
+  ): TBackgroundTaskEvent {
+    return { ...event, taskId: task.state.id };
   }
 
   private removeFromQueue(taskId: string): void {
