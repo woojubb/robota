@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   InteractiveSession,
   IExecutionResult,
+  ICommandResult,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-sdk';
 
@@ -21,6 +22,11 @@ type TStreamJsonEvent =
       type: 'background_task_event';
       background_task_event: TBackgroundTaskEvent;
     };
+
+interface ISlashCommandExecution {
+  readonly isSlashCommand: boolean;
+  readonly result: ICommandResult | null;
+}
 
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
@@ -43,6 +49,33 @@ export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
 function writeJsonResult(sessionId: string, result: string, subtype: 'success' | 'error'): void {
   const output = JSON.stringify({ type: 'result', result, session_id: sessionId, subtype });
   process.stdout.write(output + '\n');
+}
+
+function parseSlashCommand(prompt: string): { name: string; args: string } | null {
+  const trimmed = prompt.trimStart();
+  if (!trimmed.startsWith('/')) return null;
+  const withoutSlash = trimmed.slice(1);
+  const [name = '', ...args] = withoutSlash.split(/\s+/);
+  if (name.length === 0) return null;
+  return { name, args: args.join(' ') };
+}
+
+async function executeSlashCommandIfPresent(
+  session: InteractiveSession,
+  prompt: string,
+): Promise<ISlashCommandExecution> {
+  const command = parseSlashCommand(prompt);
+  if (!command) return { isSlashCommand: false, result: null };
+  const result = await session.executeCommand(command.name, command.args);
+  return {
+    isSlashCommand: true,
+    result:
+      result ??
+      ({
+        message: `Unknown command "/${command.name}".`,
+        success: false,
+      } satisfies ICommandResult),
+  };
 }
 
 function getSessionId(session: InteractiveSession): string {
@@ -93,7 +126,19 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
     session.on('interrupted', onInterrupted);
     session.on('error', onError);
 
-    void session.submit(prompt);
+    void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
+      if (commandExecution.isSlashCommand && commandExecution.result) {
+        cleanup();
+        writeJsonResult(
+          getSessionId(session),
+          commandExecution.result.message,
+          commandExecution.result.success ? 'success' : 'error',
+        );
+        resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      void session.submit(prompt);
+    });
   });
 }
 
@@ -145,7 +190,19 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
     session.on('interrupted', onInterrupted);
     session.on('error', onError);
 
-    void session.submit(prompt);
+    void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
+      if (commandExecution.isSlashCommand && commandExecution.result) {
+        cleanup();
+        writeJsonResult(
+          getSessionId(session),
+          commandExecution.result.message,
+          commandExecution.result.success ? 'success' : 'error',
+        );
+        resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      void session.submit(prompt);
+    });
   });
 }
 
@@ -180,6 +237,14 @@ function runTextFormat(session: InteractiveSession, prompt: string): Promise<num
     session.on('interrupted', onInterrupted);
     session.on('error', onError);
 
-    void session.submit(prompt);
+    void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
+      if (commandExecution.isSlashCommand && commandExecution.result) {
+        cleanup();
+        process.stdout.write(commandExecution.result.message + '\n');
+        resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      void session.submit(prompt);
+    });
   });
 }

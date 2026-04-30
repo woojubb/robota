@@ -20,6 +20,7 @@ import {
 import type {
   IAIProvider,
   IBackgroundTaskRunner,
+  ICommandModule,
   TSubagentRunnerFactory,
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
@@ -54,6 +55,7 @@ export interface IInteractiveSessionProps {
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  commandModules?: readonly ICommandModule[];
 }
 
 export interface IInteractiveSessionState {
@@ -96,10 +98,14 @@ function initializeSession(
     sessionName: props.sessionName,
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
+    commandModules: props.commandModules,
   });
 
   const registry = new CommandRegistry();
   registry.addSource(new BuiltinCommandSource());
+  for (const module of props.commandModules ?? []) {
+    registry.addModule(module);
+  }
   registry.addSource(new SkillCommandSource(props.cwd));
 
   const pluginsDir = join(homedir(), '.robota', 'plugins');

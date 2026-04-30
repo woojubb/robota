@@ -10,6 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { ICommandModule } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
@@ -98,7 +99,11 @@ function resetConfig(): void {
 /**
  * Main CLI orchestration function.
  */
-export async function startCli(): Promise<void> {
+export interface IStartCliOptions {
+  commandModules?: readonly ICommandModule[];
+}
+
+export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
 
   if (args.version) {
@@ -210,6 +215,7 @@ export async function startCli(): Promise<void> {
       appendSystemPrompt,
       backgroundTaskRunners,
       subagentRunnerFactory,
+      commandModules: options.commandModules,
     });
 
     const transport = createHeadlessTransport({
@@ -236,5 +242,6 @@ export async function startCli(): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
+    commandModules: options.commandModules,
   });
 }

@@ -31,12 +31,17 @@ import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
-import { SubagentManager } from '@robota-sdk/agent-runtime';
+import { createCommandExecutionTool } from '../tools/command-execution-tool.js';
+import type { ICommandResult } from '../commands/system-command.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type { IBackgroundTaskManager, IBackgroundTaskRunner } from '../background-tasks/index.js';
+import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -74,6 +79,8 @@ export interface ICreateSessionOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. Defaults to the SDK in-process runner. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */
+  enableAgentRuntime?: boolean;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -103,6 +110,12 @@ export interface ICreateSessionOptions {
   allowedTools?: string[];
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
+  /** Model command execution bridge. */
+  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Predicate for commands allowed through the model command execution bridge. */
+  isModelCommandInvocable?: (command: string) => boolean;
+  /** Model-visible command descriptors. */
+  commandDescriptors?: ICapabilityDescriptor[];
 }
 
 /**
@@ -122,10 +135,14 @@ export function createSession(options: ICreateSessionOptions): Session {
 
   const defaultTools = createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
-
-  // Wire agent tool — create a fresh instance with deps captured in closure.
-  // Must happen after default tools are assembled so sub-agents inherit the full set.
-  const agentLoader = new AgentDefinitionLoader(cwd);
+  if (options.modelCommandExecutor && options.isModelCommandInvocable) {
+    tools.push(
+      createCommandExecutionTool({
+        execute: options.modelCommandExecutor,
+        isModelInvocable: options.isModelCommandInvocable,
+      }),
+    );
+  }
 
   // Build hook type executors early so they can be forwarded to subagents.
   const hookTypeExecutors: IHookTypeExecutor[] = [];
@@ -148,40 +165,69 @@ export function createSession(options: ICreateSessionOptions): Session {
     hookTypeExecutors.push(...options.additionalHookExecutors);
   }
 
-  const agentToolDeps: IAgentToolDeps = {
-    config: options.config,
-    context: options.context,
-    tools,
-    terminal: options.terminal,
-    provider,
-    cwd,
-    parentSessionId: options.sessionId ?? 'pending-session',
-    permissionMode: options.permissionMode,
-    permissionHandler: options.permissionHandler,
-    hooks: options.config.hooks,
-    hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
-    onTextDelta: options.onTextDelta,
-    onToolExecution: options.onToolExecution,
-    customAgentRegistry: (name: string) => agentLoader.getAgent(name),
-  };
-  const subagentManager = new SubagentManager({
-    runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
-    backgroundTaskRunners: options.backgroundTaskRunners,
-  });
-  agentToolDeps.subagentManager = subagentManager;
-  agentToolDeps.backgroundTaskManager = subagentManager.getBackgroundTaskManager();
+  let agentToolDeps: IAgentToolDeps | undefined;
+  let agentDefinitions: IAgentDefinition[] = [];
+  let backgroundTaskManager: IBackgroundTaskManager | undefined;
+
+  if (options.enableAgentRuntime) {
+    // Wire agent tool only when the caller composes the agent capability module.
+    // Must happen after default tools are assembled so sub-agents inherit the full set.
+    const agentLoader = new AgentDefinitionLoader(cwd);
+    agentDefinitions = agentLoader.loadAll();
+    agentToolDeps = {
+      config: options.config,
+      context: options.context,
+      tools,
+      terminal: options.terminal,
+      provider,
+      cwd,
+      parentSessionId: options.sessionId ?? 'pending-session',
+      permissionMode: options.permissionMode,
+      permissionHandler: options.permissionHandler,
+      hooks: options.config.hooks,
+      hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
+      onTextDelta: options.onTextDelta,
+      onToolExecution: options.onToolExecution,
+      customAgentRegistry: (name: string) => agentLoader.getAgent(name),
+      agentDefinitions,
+    };
+    const subagentManager = new SubagentManager({
+      runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
+      backgroundTaskRunners: options.backgroundTaskRunners,
+    });
+    agentToolDeps.subagentManager = subagentManager;
+    backgroundTaskManager = subagentManager.getBackgroundTaskManager();
+    agentToolDeps.backgroundTaskManager = backgroundTaskManager;
+  } else {
+    backgroundTaskManager = new BackgroundTaskManager({
+      runners: options.backgroundTaskRunners ?? [],
+    });
+  }
+
   let backgroundProcessToolDeps: IBackgroundProcessToolDeps | undefined;
-  if (options.backgroundTaskRunners?.some((runner) => runner.kind === 'process')) {
+  if (
+    backgroundTaskManager &&
+    options.backgroundTaskRunners?.some((runner) => runner.kind === 'process')
+  ) {
     backgroundProcessToolDeps = {
-      backgroundTaskManager: subagentManager.getBackgroundTaskManager(),
+      backgroundTaskManager,
       cwd,
       parentSessionId: options.sessionId ?? 'pending-session',
     };
     tools.push(createBackgroundProcessTool(backgroundProcessToolDeps));
   }
-  tools.push(createAgentTool(agentToolDeps));
+  if (agentToolDeps) {
+    tools.push(createAgentTool(agentToolDeps));
+  }
 
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
+  const defaultToolDescriptions = [
+    ...DEFAULT_TOOL_DESCRIPTIONS,
+    ...(agentToolDeps ? ['Agent — launch an isolated agent for delegated work'] : []),
+    ...(options.modelCommandExecutor
+      ? ['ExecuteCommand — execute model-invocable Robota commands']
+      : []),
+  ];
   const systemMessage = buildPrompt({
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
@@ -189,10 +235,10 @@ export function createSession(options: ICreateSessionOptions): Session {
       options.toolDescriptions ??
       (backgroundProcessToolDeps
         ? [
-            ...DEFAULT_TOOL_DESCRIPTIONS,
+            ...defaultToolDescriptions,
             'BackgroundProcess — start long-running shell commands as managed background tasks',
           ]
-        : DEFAULT_TOOL_DESCRIPTIONS),
+        : defaultToolDescriptions),
     trustLevel: options.config.defaultTrustLevel,
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
@@ -202,10 +248,15 @@ export function createSession(options: ICreateSessionOptions): Session {
       description: skill.description,
       disableModelInvocation: skill.disableModelInvocation,
     })),
-    agents: agentLoader.loadAll().map((agent) => ({
-      name: agent.name,
-      description: agent.description,
-    })),
+    ...(agentDefinitions.length > 0
+      ? {
+          agents: agentDefinitions.map((agent) => ({
+            name: agent.name,
+            description: agent.description,
+          })),
+        }
+      : {}),
+    commandDescriptors: options.commandDescriptors ?? [],
   });
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
@@ -251,9 +302,10 @@ export function createSession(options: ICreateSessionOptions): Session {
 
   // Store deps keyed by session so consumers (e.g. fork runner) can retrieve
   // per-session deps without relying on global mutable state.
-  agentToolDeps.parentSessionId = session.getSessionId();
+  if (agentToolDeps) agentToolDeps.parentSessionId = session.getSessionId();
   if (backgroundProcessToolDeps) backgroundProcessToolDeps.parentSessionId = session.getSessionId();
-  storeAgentToolDeps(session, agentToolDeps);
+  if (backgroundTaskManager) storeSessionBackgroundTaskManager(session, backgroundTaskManager);
+  if (agentToolDeps) storeAgentToolDeps(session, agentToolDeps);
 
   return session;
 }

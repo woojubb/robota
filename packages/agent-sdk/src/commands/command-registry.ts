@@ -1,4 +1,7 @@
 import type { ICommandSource, ICommand } from './types.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import { commandToCapabilityDescriptor } from './capability-descriptors.js';
+import type { ICommandModule } from './command-module.js';
 
 /** Aggregates commands from multiple sources */
 export class CommandRegistry {
@@ -6,6 +9,12 @@ export class CommandRegistry {
 
   addSource(source: ICommandSource): void {
     this.sources.push(source);
+  }
+
+  addModule(module: ICommandModule): void {
+    for (const source of module.commandSources ?? []) {
+      this.addSource(source);
+    }
   }
 
   /** Get all commands, optionally filtered by prefix */
@@ -39,5 +48,9 @@ export class CommandRegistry {
       }
     }
     return [];
+  }
+
+  getCapabilityDescriptors(): ICapabilityDescriptor[] {
+    return this.getCommands().map((command) => commandToCapabilityDescriptor(command));
   }
 }
