@@ -5,6 +5,7 @@
  */
 import type { TUniversalMessage, IAgentConfig, IRunOptions } from '../interfaces/agent';
 import type { ExecutionService } from '../services/execution-service';
+import type { IExecutionContext } from '../services/execution-types';
 import type { ILogger } from '../utils/logger';
 import type { IAgentEventData } from '../interfaces/event-service';
 import { AGENT_EVENTS } from '../agents/constants';
@@ -17,6 +18,20 @@ export interface IRobotaExecutionDeps {
   getHistory(): TUniversalMessage[];
   getExecutionService(): ExecutionService;
   emitAgentEvent(eventType: string, data: Omit<IAgentEventData, 'timestamp'>): void;
+}
+
+function buildRunContext(
+  deps: IRobotaExecutionDeps,
+  options: IRunOptions,
+): Partial<IExecutionContext> {
+  return {
+    conversationId: deps.conversationId,
+    ...(options.sessionId && { sessionId: options.sessionId }),
+    ...(options.userId && { userId: options.userId }),
+    ...(options.metadata && { metadata: options.metadata }),
+    ...(options.signal && { signal: options.signal }),
+    ...(options.onTextDelta && { onTextDelta: options.onTextDelta }),
+  };
 }
 
 /** Execute a single conversation turn. @internal */
@@ -39,13 +54,9 @@ export async function robotaRun(
     const messages = deps.getHistory();
     const executionConfig: IAgentConfig = { ...deps.config };
 
-    const result = await deps.getExecutionService().execute(input, messages, executionConfig, {
-      conversationId: deps.conversationId,
-      ...(options.sessionId && { sessionId: options.sessionId }),
-      ...(options.userId && { userId: options.userId }),
-      ...(options.metadata && { metadata: options.metadata }),
-      ...(options.signal && { signal: options.signal }),
-    });
+    const result = await deps
+      .getExecutionService()
+      .execute(input, messages, executionConfig, buildRunContext(deps, options));
 
     deps.logger.debug('Robota execution completed', {
       success: result.success,

@@ -82,6 +82,7 @@ export async function runExecutionLoop(
       executionId,
       roundState,
       conversationId,
+      fullContext,
       deps.logger,
     );
   }
@@ -98,6 +99,7 @@ export async function forceSummaryCall(
   executionId: string,
   roundState: IExecutionRoundState,
   conversationId: string,
+  fullContext: IExecutionContext,
   logger: ILogger,
 ): Promise<void> {
   const maxRounds = 10;
@@ -133,8 +135,11 @@ export async function forceSummaryCall(
     const chatOptions: { model: string; onTextDelta?: (delta: string) => void } = {
       model: resolved.aiProviderInfo.model,
     };
-    if ('onTextDelta' in resolved.provider && typeof resolved.provider.onTextDelta === 'function') {
-      chatOptions.onTextDelta = resolved.provider.onTextDelta as (delta: string) => void;
+    const runTextDelta =
+      fullContext.onTextDelta ??
+      (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
+    if (runTextDelta) {
+      chatOptions.onTextDelta = runTextDelta;
     }
 
     const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);

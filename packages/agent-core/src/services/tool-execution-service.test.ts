@@ -296,6 +296,61 @@ describe('ToolExecutionService', () => {
         expect(errors).toHaveLength(0);
       });
 
+      it('should limit active parallel tools by maxConcurrency', async () => {
+        const startedToolNames: string[] = [];
+        const resolvers = new Map<string, (value: string) => void>();
+        const tools = createMockToolManager({
+          executeTool: vi.fn().mockImplementation((toolName: string) => {
+            startedToolNames.push(toolName);
+            return new Promise<string>((resolve) => {
+              resolvers.set(toolName, resolve);
+            });
+          }),
+        });
+        const service = new ToolExecutionService(tools, createMockLogger());
+
+        const execution = service.executeTools({
+          requests: [
+            createRequest({ toolName: 'tool_1', executionId: 'p1', ownerId: 'p1' }),
+            createRequest({ toolName: 'tool_2', executionId: 'p2', ownerId: 'p2' }),
+            createRequest({ toolName: 'tool_3', executionId: 'p3', ownerId: 'p3' }),
+            createRequest({ toolName: 'tool_4', executionId: 'p4', ownerId: 'p4' }),
+          ],
+          mode: 'parallel',
+          continueOnError: true,
+          maxConcurrency: 2,
+        });
+
+        await Promise.resolve();
+
+        expect(startedToolNames).toEqual(['tool_1', 'tool_2']);
+
+        resolvers.get('tool_1')?.('result_tool_1');
+
+        await vi.waitFor(() => {
+          expect(startedToolNames).toEqual(['tool_1', 'tool_2', 'tool_3']);
+        });
+
+        resolvers.get('tool_2')?.('result_tool_2');
+
+        await vi.waitFor(() => {
+          expect(startedToolNames).toEqual(['tool_1', 'tool_2', 'tool_3', 'tool_4']);
+        });
+
+        resolvers.get('tool_3')?.('result_tool_3');
+        resolvers.get('tool_4')?.('result_tool_4');
+
+        const { results, errors } = await execution;
+
+        expect(results.map((result) => result.toolName)).toEqual([
+          'tool_1',
+          'tool_2',
+          'tool_3',
+          'tool_4',
+        ]);
+        expect(errors).toHaveLength(0);
+      });
+
       it('should throw on first error when continueOnError is false', async () => {
         const tools = createMockToolManager({
           executeTool: vi.fn().mockResolvedValueOnce('ok').mockRejectedValueOnce(new Error('fail')),

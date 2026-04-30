@@ -21,16 +21,12 @@ import type { TSessionLogData } from './session-logger.js';
  */
 export function configureProvider(
   provider: IAIProvider,
-  options: ISessionOptions,
+  _options: ISessionOptions,
   log: (event: string, data: TSessionLogData) => void,
 ): void {
   // Enable Anthropic server web tools (web_search)
   if (provider.name === 'anthropic' && 'enableWebTools' in provider) {
     (provider as { enableWebTools: boolean }).enableWebTools = true;
-  }
-
-  if (options.onTextDelta && 'onTextDelta' in provider) {
-    (provider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
   }
 
   // Wire server tool logging

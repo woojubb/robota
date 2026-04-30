@@ -169,7 +169,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 6. **`ISessionOptions.promptForApproval`** -- Alternative approval function that receives the terminal handle.
 
-7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI.
+7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI. `Session` stores this callback and passes it to `Robota.run()` as a per-run option; it MUST NOT mutate provider-level `onTextDelta` state because parent/subagent sessions may share the same provider instance.
 
 8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName }` when a tool begins and `{ type: 'end', toolName, success }` when it completes. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
 
@@ -268,10 +268,11 @@ None. Classes are standalone.
 ### Current Test Coverage
 
 - **Session system prompt delivery** -- 6 tests verifying system prompt is passed to Robota at both top-level and defaultModel.
+- **Session provider callback isolation** -- 1 regression test verifying two sessions sharing one provider keep `onTextDelta` output isolated per run.
 
 ### Gaps
 
-- **Session** -- `run()`, permission mode switching, hook integration, streaming callback wiring, and session persistence are untested.
+- **Session** -- permission mode switching, hook integration, and session persistence are untested.
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.

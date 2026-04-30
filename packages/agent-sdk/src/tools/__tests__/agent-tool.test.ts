@@ -190,7 +190,66 @@ describe('Agent tool', () => {
     expect(result['success']).toBe(true);
     expect(result['output']).toBe('task completed successfully');
     expect(result['agentId']).toBeDefined();
-    expect(result['agentId']).toMatch(/^agent_\d+_[a-z0-9]+$/);
+    expect(result['agentId']).toMatch(/^agent_/);
+  });
+
+  it('should route foreground execution through injected SubagentManager', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_managed_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'foreground',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Find files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_managed_1',
+        output: 'managed output',
+      }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Find files',
+      subagent_type: 'Explore',
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        mode: 'foreground',
+        depth: 1,
+        cwd: '/workspace',
+        prompt: 'Find files',
+      }),
+    );
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_managed_1');
+    expect(createSubagentSession).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      output: 'managed output',
+      agentId: 'agent_managed_1',
+    });
   });
 
   it('should return error for unknown agent type', async () => {
