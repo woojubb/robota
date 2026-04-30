@@ -51,6 +51,7 @@ import { createAgentTool } from '../agent-tool.js';
 import type { IAgentToolDeps } from '../agent-tool.js';
 import { createSubagentSession } from '../../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../../agents/built-in-agents.js';
+import type { ISubagentManager } from '../../subagents/index.js';
 
 /** Extract the JSON-parsed data from an IToolResult */
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
@@ -127,6 +128,8 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('prompt');
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
+    expect(props).toHaveProperty('background');
+    expect(props).toHaveProperty('isolation');
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -252,6 +255,125 @@ describe('Agent tool', () => {
     });
   });
 
+  it('should forward worktree isolation and return handoff metadata', async () => {
+    const subagentManager: ISubagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_worktree_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'foreground',
+        depth: 1,
+        cwd: '/workspace',
+        isolation: 'worktree',
+        promptPreview: 'Change files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_worktree_1',
+        output: 'changed files',
+        metadata: {
+          worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+          branchName: 'robota/agent_worktree_1',
+        },
+      }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Change files',
+      subagent_type: 'Explore',
+      isolation: 'worktree',
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        prompt: 'Change files',
+        isolation: 'worktree',
+      }),
+    );
+    expect(result).toEqual({
+      success: true,
+      output: 'changed files',
+      agentId: 'agent_worktree_1',
+      metadata: {
+        worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+        branchName: 'robota/agent_worktree_1',
+      },
+      worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+      branchName: 'robota/agent_worktree_1',
+    });
+  });
+
+  it('should return immediately when background mode is requested', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_background_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Find files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn(),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Find files',
+      subagent_type: 'Explore',
+      background: true,
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        mode: 'background',
+        prompt: 'Find files',
+      }),
+    );
+    expect(subagentManager.wait).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      background: true,
+      output: '',
+      agentId: 'agent_background_1',
+      status: 'running',
+    });
+  });
+
   it('should return error for unknown agent type', async () => {
     const tool = createAgentTool(makeDeps());
 
@@ -300,10 +422,28 @@ describe('Agent tool', () => {
 
     expect(createSubagentSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        onTextDelta,
-        onToolExecution,
+        onTextDelta: expect.any(Function),
+        onToolExecution: expect.any(Function),
       }),
     );
+
+    const sessionOptions = vi.mocked(createSubagentSession).mock.calls[0]?.[0];
+    expect(sessionOptions).toBeDefined();
+    if (!sessionOptions) throw new Error('Expected subagent session options');
+
+    sessionOptions.onTextDelta?.('streamed chunk');
+    sessionOptions.onToolExecution?.({
+      type: 'start',
+      toolName: 'Read',
+      toolArgs: { file_path: 'README.md' },
+    });
+
+    expect(onTextDelta).toHaveBeenCalledWith('streamed chunk');
+    expect(onToolExecution).toHaveBeenCalledWith({
+      type: 'start',
+      toolName: 'Read',
+      toolArgs: { file_path: 'README.md' },
+    });
   });
 
   it('should handle session.run error gracefully', async () => {

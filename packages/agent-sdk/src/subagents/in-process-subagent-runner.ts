@@ -12,7 +12,15 @@ import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
-import type { ISubagentJobHandle, ISubagentJobStart, ISubagentRunner } from './types.js';
+import type {
+  ISubagentJobHandle,
+  ISubagentJobStart,
+  ISubagentRunner,
+} from '@robota-sdk/agent-runtime';
+
+type TSubagentToolExecutionEvent = Parameters<
+  NonNullable<IInProcessSubagentRunnerDeps['onToolExecution']>
+>[0];
 
 export interface IInProcessSubagentRunnerDeps {
   config: IResolvedConfig;
@@ -34,6 +42,8 @@ export interface IInProcessSubagentRunnerDeps {
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }
 
+export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
+
 function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
@@ -53,12 +63,44 @@ function applyRequestOverrides(
     ...definition,
     ...(job.request.model ? { model: job.request.model } : {}),
     ...(job.request.allowedTools ? { tools: job.request.allowedTools } : {}),
+    ...(job.request.disallowedTools ? { disallowedTools: job.request.disallowedTools } : {}),
   };
+}
+
+function extractFirstArg(toolArgs?: TToolArgs): string | undefined {
+  if (!toolArgs) return undefined;
+  const firstValue = Object.values(toolArgs)[0];
+  if (firstValue === undefined) return undefined;
+  return typeof firstValue === 'object' ? JSON.stringify(firstValue) : String(firstValue);
+}
+
+function assertSupportedIsolation(job: ISubagentJobStart): void {
+  if (job.request.isolation === 'worktree') {
+    throw new Error('Worktree isolation requires a runtime shell subagent runner');
+  }
+}
+
+function emitToolExecutionEvent(job: ISubagentJobStart, event: TSubagentToolExecutionEvent): void {
+  if (event.type === 'start') {
+    job.emit?.({
+      type: 'background_task_tool_start',
+      toolName: event.toolName,
+      firstArg: extractFirstArg(event.toolArgs),
+    });
+    return;
+  }
+
+  job.emit?.({
+    type: 'background_task_tool_end',
+    toolName: event.toolName,
+    success: event.success ?? true,
+  });
 }
 
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
+      assertSupportedIsolation(job);
       const definition = resolveAgentDefinition(job.request.type, deps.customAgentRegistry);
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
@@ -71,8 +113,14 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         permissionHandler: deps.permissionHandler,
         hooks: deps.hooks,
         hookTypeExecutors: deps.hookTypeExecutors,
-        onTextDelta: deps.onTextDelta,
-        onToolExecution: deps.onToolExecution,
+        onTextDelta: (delta) => {
+          job.emit?.({ type: 'background_task_text_delta', delta });
+          deps.onTextDelta?.(delta);
+        },
+        onToolExecution: (event) => {
+          emitToolExecutionEvent(job, event);
+          deps.onToolExecution?.(event);
+        },
       });
 
       return {

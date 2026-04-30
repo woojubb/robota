@@ -99,6 +99,7 @@ export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
 // ── Subagent (SDK-internal, exported for CLI fork execution) ─
 export {
+  createDefaultTools,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -109,17 +110,70 @@ export {
 export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
+export { createBackgroundProcessTool } from './tools/background-process-tool.js';
+export type { IBackgroundProcessToolDeps } from './tools/background-process-tool.js';
+
+// ── Background task runtime contracts ──────────────────────
+export {
+  BackgroundTaskError,
+  BackgroundTaskManager,
+  getBackgroundTaskTransitions,
+  isTerminalBackgroundTaskStatus,
+  transitionBackgroundTaskStatus,
+} from './background-tasks/index.js';
+export type {
+  IAgentBackgroundTaskRequest,
+  IBaseBackgroundTaskRequest,
+  IBackgroundTaskError,
+  IBackgroundTaskHandle,
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskManager,
+  IBackgroundTaskManagerOptions,
+  IBackgroundTaskRequest,
+  IBackgroundTaskResult,
+  IBackgroundTaskRunner,
+  IBackgroundTaskStart,
+  IBackgroundTaskState,
+  IProcessBackgroundTaskRequest,
+  ISerializableProviderProfile,
+  TBackgroundTaskIdFactory,
+  TBackgroundPermissionPolicy,
+  TBackgroundPrimitive,
+  TBackgroundTaskErrorCategory,
+  TBackgroundTaskEvent,
+  TBackgroundTaskEventListener,
+  TBackgroundTaskKind,
+  TBackgroundTaskIsolation,
+  TBackgroundTaskMode,
+  TBackgroundTaskRunnerEvent,
+  TBackgroundTaskStatus,
+  TBackgroundTaskTransitionEvent,
+} from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
-export { SubagentManager } from './subagents/index.js';
+export {
+  SubagentManager,
+  WorktreeSubagentRunner,
+  createWorktreeSubagentRunner,
+} from './subagents/index.js';
 export type {
+  IInProcessSubagentRunnerDeps,
+  IPreparedSubagentWorktree,
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobStart,
   ISubagentJobState,
+  ISubagentManager,
   ISubagentManagerOptions,
   ISubagentRunner,
   ISubagentSpawnRequest,
+  ISubagentWorktreeAdapter,
+  ISubagentWorktreePrepareRequest,
+  IWorktreeSubagentRunnerOptions,
+  TSubagentRunnerFactory,
   TSubagentJobMode,
   TSubagentJobStatus,
 } from './subagents/index.js';
@@ -140,7 +194,6 @@ export { runHooks } from '@robota-sdk/agent-core';
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createSession()        — assembly factory
-//   createDefaultTools()   — tool assembly
 //   createProvider()       — REMOVED (provider comes from consumer)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)

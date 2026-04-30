@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createProviderFromSettings, readProviderSettings } from '../provider-factory.js';
+import {
+  createProviderFromProfile,
+  createProviderFromSettings,
+  readProviderSettings,
+} from '../provider-factory.js';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
@@ -153,6 +157,23 @@ describe('provider-factory', () => {
     expect(AnthropicProvider).toHaveBeenCalledWith({
       apiKey: 'sk-ant-from-env',
       defaultModel: 'claude-sonnet-4-6',
+    });
+  });
+
+  it('creates a provider from a serialized worker profile', () => {
+    createProviderFromProfile({
+      type: 'openai',
+      model: 'worker-model',
+      apiKey: 'worker-key',
+      baseURL: 'http://localhost:1234/v1',
+      timeout: 12_000,
+    });
+
+    expect(OpenAIProvider).toHaveBeenCalledWith({
+      apiKey: 'worker-key',
+      baseURL: 'http://localhost:1234/v1',
+      timeout: 12_000,
+      defaultModel: 'worker-model',
     });
   });
 });

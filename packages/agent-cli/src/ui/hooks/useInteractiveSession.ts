@@ -17,7 +17,12 @@ import {
   PluginCommandSource,
   BundlePluginLoader,
 } from '@robota-sdk/agent-sdk';
-import type { IAIProvider, TPermissionResultValue } from '@robota-sdk/agent-sdk';
+import type {
+  IAIProvider,
+  IBackgroundTaskRunner,
+  TSubagentRunnerFactory,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
@@ -47,6 +52,8 @@ export interface IInteractiveSessionProps {
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
 }
 
 export interface IInteractiveSessionState {
@@ -59,6 +66,7 @@ export interface IInteractiveSessionState {
   isThinking: boolean;
   isAborting: boolean;
   pendingPrompt: string | null;
+  backgroundTasks: import('../tui-state-manager.js').IBackgroundTaskViewModel[];
   permissionRequest: IPermissionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   handleSubmit: (input: string) => Promise<void>;
@@ -86,6 +94,8 @@ function initializeSession(
     resumeSessionId: props.resumeSessionId,
     forkSession: props.forkSession,
     sessionName: props.sessionName,
+    backgroundTaskRunners: props.backgroundTaskRunners,
+    subagentRunnerFactory: props.subagentRunnerFactory,
   });
 
   const registry = new CommandRegistry();
@@ -179,6 +189,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('complete', manager.onComplete);
     interactiveSession.on('interrupted', manager.onInterrupted);
     interactiveSession.on('error', manager.onError);
+    interactiveSession.on('background_task_event', manager.onBackgroundTaskEvent);
 
     // Sync context state and restored history after async initialization
     const initCheck = setInterval(() => {
@@ -209,6 +220,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       interactiveSession.off('complete', manager.onComplete);
       interactiveSession.off('interrupted', manager.onInterrupted);
       interactiveSession.off('error', manager.onError);
+      interactiveSession.off('background_task_event', manager.onBackgroundTaskEvent);
     };
   }, [interactiveSession, manager]);
 
@@ -245,6 +257,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     isThinking: manager.isThinking,
     isAborting: manager.isAborting,
     pendingPrompt: manager.pendingPrompt,
+    backgroundTasks: manager.backgroundTasks,
     permissionRequest,
     contextState: manager.contextState,
     handleSubmit,

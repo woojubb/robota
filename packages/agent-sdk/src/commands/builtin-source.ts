@@ -26,6 +26,15 @@ function buildProviderSubcommands(): ICommand[] {
   ];
 }
 
+function buildBackgroundSubcommands(): ICommand[] {
+  return [
+    { name: 'list', description: 'List background tasks', source: 'builtin' },
+    { name: 'read', description: 'Read a background task log page', source: 'builtin' },
+    { name: 'cancel', description: 'Cancel a running background task', source: 'builtin' },
+    { name: 'close', description: 'Dismiss a terminal background task', source: 'builtin' },
+  ];
+}
+
 /** Built-in commands. Execute callbacks are wired externally by clients. */
 function createBuiltinCommands(): ICommand[] {
   return [
@@ -70,6 +79,12 @@ function createBuiltinCommands(): ICommand[] {
       subcommands: buildProviderSubcommands(),
     },
     { name: 'resume', description: 'Resume a previous session', source: 'builtin' },
+    {
+      name: 'background',
+      description: 'List and control background tasks',
+      source: 'builtin',
+      subcommands: buildBackgroundSubcommands(),
+    },
     { name: 'rename', description: 'Rename the current session', source: 'builtin' },
     { name: 'plugin', description: 'Manage plugins', source: 'builtin' },
     { name: 'reload-plugins', description: 'Reload all plugin resources', source: 'builtin' },

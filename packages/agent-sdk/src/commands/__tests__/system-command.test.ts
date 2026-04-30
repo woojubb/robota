@@ -16,12 +16,20 @@ function createMockSession(overrides?: Record<string, unknown>) {
       usedPercentage: 2.5,
     }),
     compact: vi.fn(),
+    listBackgroundTasks: vi.fn().mockReturnValue([]),
+    cancelBackgroundTask: vi.fn(),
+    closeBackgroundTask: vi.fn(),
+    readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'agent_1', lines: [] }),
     ...overrides,
   };
 
   return {
     getSession: () => underlying,
     getContextState: underlying.getContextState,
+    listBackgroundTasks: underlying.listBackgroundTasks,
+    cancelBackgroundTask: underlying.cancelBackgroundTask,
+    closeBackgroundTask: underlying.closeBackgroundTask,
+    readBackgroundTaskLog: underlying.readBackgroundTaskLog,
     _underlying: underlying,
   } as unknown as InteractiveSession;
 }
@@ -126,6 +134,66 @@ describe('SystemCommandExecutor', () => {
     expect(result).not.toBeNull();
     expect(result!.success).toBe(true);
     expect(result!.data?.triggerResumePicker).toBe(true);
+  });
+
+  it('background list returns task summaries', async () => {
+    const executor = new SystemCommandExecutor();
+    const session = createMockSession({
+      listBackgroundTasks: vi.fn().mockReturnValue([
+        {
+          id: 'agent_1',
+          kind: 'agent',
+          label: 'Explore',
+          status: 'running',
+          mode: 'background',
+          parentSessionId: 'session_parent',
+          depth: 1,
+          cwd: '/workspace',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+          unread: false,
+          promptPreview: 'Find files',
+        },
+      ]),
+    });
+
+    const result = await executor.execute('background', session, 'list');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('agent_1 [running] agent:Explore');
+    expect(result!.data?.count).toBe(1);
+  });
+
+  it('background cancel targets one task', async () => {
+    const executor = new SystemCommandExecutor();
+    const session = createMockSession();
+
+    const result = await executor.execute('background', session, 'cancel agent_1 no longer needed');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(
+      (session as unknown as { _underlying: { cancelBackgroundTask: ReturnType<typeof vi.fn> } })
+        ._underlying.cancelBackgroundTask,
+    ).toHaveBeenCalledWith('agent_1', 'no longer needed');
+  });
+
+  it('background read returns a log page', async () => {
+    const executor = new SystemCommandExecutor();
+    const session = createMockSession({
+      readBackgroundTaskLog: vi.fn().mockResolvedValue({
+        taskId: 'process_1',
+        nextCursor: { offset: 200 },
+        lines: ['[stdout] hello'],
+      }),
+    });
+
+    const result = await executor.execute('background', session, 'read process_1 0');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('[stdout] hello');
+    expect(result!.message).toContain('Next offset: 200');
   });
 
   it('rename returns name in data', async () => {

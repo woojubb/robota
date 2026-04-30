@@ -11,6 +11,7 @@ import { homedir } from 'node:os';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import type { ISerializableProviderProfile } from '@robota-sdk/agent-sdk';
 import {
   DEFAULT_OPENAI_COMPATIBLE_API_KEY,
   DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
@@ -187,6 +188,37 @@ function requireApiKey(settings: IProviderConfig): string {
   return settings.apiKey;
 }
 
+function resolveProfileApiKey(profile: ISerializableProviderProfile): string | undefined {
+  if (profile.apiKey !== undefined) {
+    return profile.apiKey;
+  }
+  if (profile.apiKeyEnv !== undefined) {
+    return process.env[profile.apiKeyEnv];
+  }
+  return undefined;
+}
+
+function createProviderFromConfig(settings: IProviderConfig): IAIProvider {
+  switch (settings.name) {
+    case 'anthropic':
+      return new AnthropicProvider({
+        apiKey: requireApiKey(settings),
+        ...(settings.baseURL !== undefined && { baseURL: settings.baseURL }),
+        ...(settings.timeout !== undefined && { timeout: settings.timeout }),
+        defaultModel: settings.model,
+      });
+    case 'openai':
+      return new OpenAIProvider({
+        apiKey: requireApiKey(settings),
+        ...(settings.baseURL !== undefined && { baseURL: settings.baseURL }),
+        ...(settings.timeout !== undefined && { timeout: settings.timeout }),
+        defaultModel: settings.model,
+      });
+    default:
+      throw new Error(`Unknown provider: ${settings.name}. Currently supported: anthropic, openai`);
+  }
+}
+
 /** Create a provider instance from settings. */
 export function createProviderFromSettings(
   cwd: string,
@@ -196,22 +228,19 @@ export function createProviderFromSettings(
   const settings = readProviderSettings(cwd, options);
   const model = modelOverride ?? settings.model;
 
-  switch (settings.name) {
-    case 'anthropic':
-      return new AnthropicProvider({
-        apiKey: requireApiKey(settings),
-        ...(settings.baseURL !== undefined && { baseURL: settings.baseURL }),
-        ...(settings.timeout !== undefined && { timeout: settings.timeout }),
-        defaultModel: model,
-      });
-    case 'openai':
-      return new OpenAIProvider({
-        apiKey: requireApiKey(settings),
-        ...(settings.baseURL !== undefined && { baseURL: settings.baseURL }),
-        ...(settings.timeout !== undefined && { timeout: settings.timeout }),
-        defaultModel: model,
-      });
-    default:
-      throw new Error(`Unknown provider: ${settings.name}. Currently supported: anthropic, openai`);
-  }
+  return createProviderFromConfig({ ...settings, model });
+}
+
+/** Create a provider instance from a serialized background worker profile. */
+export function createProviderFromProfile(
+  profile: ISerializableProviderProfile,
+  modelOverride?: string,
+): IAIProvider {
+  return createProviderFromConfig({
+    name: profile.type,
+    model: modelOverride ?? profile.model,
+    apiKey: resolveProfileApiKey(profile),
+    baseURL: profile.baseURL,
+    timeout: profile.timeout,
+  });
 }

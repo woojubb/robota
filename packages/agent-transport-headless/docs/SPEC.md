@@ -69,6 +69,28 @@ Writes newline-delimited JSON events to stdout during execution:
 { "type": "result", "result": "<full response>", "session_id": "<uuid>", "subtype": "success" }
 ```
 
+**Background task events:**
+
+When `InteractiveSession` emits `background_task_event`, `stream-json` writes it as a normal stream event:
+
+```json
+{
+  "type": "stream_event",
+  "event": {
+    "type": "background_task_event",
+    "background_task_event": {
+      "type": "background_task_text_delta",
+      "taskId": "task_1",
+      "delta": "..."
+    }
+  },
+  "session_id": "<uuid>",
+  "uuid": "<uuid>"
+}
+```
+
+Headless transport does not expose interactive background controls. Non-interactive callers should use the emitted events plus SDK/transport-specific control surfaces outside this one-shot runner.
+
 ## Claude Code Field Name Compatibility
 
 JSON and stream-json output formats use field names that match Claude Code's `--output-format json` and `--output-format stream-json` (e.g., `type: 'result'`, `session_id`, `subtype`, `content_block_delta`). This is a **reference-only alignment** for user convenience — it allows reuse of `jq` pipelines and parsing scripts. Robota does NOT depend on Claude Code and will NOT track Claude Code's field name changes. The output format is independently owned and versioned by this package.
@@ -102,7 +124,7 @@ createHeadlessRunner(options)
         └── resolves with exit code (0 or 1)
 ```
 
-The runner subscribes to `InteractiveSession` events (`text_delta`, `complete`, `interrupted`, `error`) and cleans up all listeners after the execution completes.
+The runner subscribes to `InteractiveSession` events (`text_delta`, `background_task_event`, `complete`, `interrupted`, `error`) and cleans up all listeners after the execution completes.
 
 ## ITransportAdapter
 

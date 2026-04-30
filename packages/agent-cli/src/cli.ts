@@ -21,6 +21,8 @@ import {
 } from './utils/provider-setup.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
+import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
+import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -132,6 +134,10 @@ export async function startCli(): Promise<void> {
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
+  const backgroundTaskRunners = [createManagedShellProcessRunner()];
+  const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
+    providerConfig: { ...providerSettings, model: modelId },
+  });
 
   // Session management
   const sessionStore = new SessionStore();
@@ -202,6 +208,8 @@ export async function startCli(): Promise<void> {
             .filter((t) => t.length > 0)
         : undefined,
       appendSystemPrompt,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
     });
 
     const transport = createHeadlessTransport({
@@ -226,5 +234,7 @@ export async function startCli(): Promise<void> {
     resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
+    backgroundTaskRunners,
+    subagentRunnerFactory,
   });
 }
