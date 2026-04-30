@@ -154,4 +154,27 @@ describe('buildSystemPrompt', () => {
       expect(skillsIdx).toBeGreaterThan(toolsIdx);
     });
   });
+
+  describe('System prompt agent injection', () => {
+    it('should include available agents and Agent tool guidance', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        agents: [
+          { name: 'general-purpose', description: 'General task execution' },
+          { name: 'Explore', description: 'Read-only exploration' },
+        ],
+      });
+
+      expect(result).toContain('## Subagents');
+      expect(result).toContain('Agent tool');
+      expect(result).toContain('subagent_type');
+      expect(result).toContain('- general-purpose: General task execution');
+      expect(result).toContain('- Explore: Read-only exploration');
+    });
+
+    it('should not include agents section when no agents are provided', () => {
+      const result = buildSystemPrompt({ ...BASE_PARAMS, agents: [] });
+      expect(result).not.toContain('## Subagents');
+    });
+  });
 });

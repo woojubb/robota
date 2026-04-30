@@ -26,6 +26,7 @@ agent-provider-*     ← provider implementations (unchanged)
 agent-sdk            ← InteractiveSession (single entry point)
   ├── embedded: SystemCommandExecutor (session.executeCommand())
   ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
+  ├── embedded: Agent tool + AgentDefinitionLoader for model-requested delegation
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
@@ -50,6 +51,7 @@ Any client (CLI, web, API server, worker)
     ↓
 InteractiveSession  (agent-sdk — pure TypeScript, no React)
     │  submit(input, displayInput?, rawInput?)
+    │  executeSkillCommand(skill, args, displayInput?, rawInput?)
     │  executeCommand(name, args)
     │  abort() / cancelQueue()
     │  getMessages() / getContextState() / getActiveTools()
@@ -304,6 +306,10 @@ session.on('interrupted', (result: IExecutionResult) => { /* abort completed */ 
 // displayInput: shown in UI (e.g., "/audit") instead of full built prompt
 // rawInput: passed to Session.run() for hook matching
 await session.submit(input, displayInput?, rawInput?);
+
+// Execute a discovered skill command. Non-fork skills submit into the current session.
+// `context: fork` skills run through an isolated subagent session.
+await session.executeSkillCommand(skillCommand, args, displayInput?, rawInput?);
 
 // Execute a named system command (embedded SystemCommandExecutor)
 const result = await session.executeCommand('context', '');
@@ -729,9 +735,27 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 - **Search**: Query available plugins by name, keyword, or category
 - **Install**: Download and install plugins via `BundlePluginInstaller`
 
-## System Prompt Skill Injection
+## System Prompt Skill and Agent Injection
 
-Skills discovered from `.agents/skills/` directories are injected into the system prompt during `buildSystemPrompt()`. Each skill's content is included as a reference the model can consult when relevant tasks are requested.
+Skills discovered from skill directories are exposed to the system prompt by metadata only: name and description. Full `SKILL.md` content is loaded only when a skill is invoked. Skills with `disable-model-invocation: true` are omitted from model-visible metadata.
+
+Agent definitions are also exposed to the system prompt by metadata only: name and description. The system prompt instructs the model to use the `Agent` tool when the user explicitly requests delegation, asks to call an agent, or when a task should be isolated into a separate context. The model must pass the selected agent name through `subagent_type`.
+
+The `Agent` tool must be part of the available tool set and must be described in `DEFAULT_TOOL_DESCRIPTIONS`.
+
+### Skill Execution Semantics
+
+`InteractiveSession.executeSkillCommand(skill, args, displayInput?, rawInput?)` is the SDK-owned skill execution path.
+
+| Skill metadata             | Behavior                                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| no `context`               | Render skill content and submit it into the current session                                           |
+| `context: fork`            | Run rendered skill content in an isolated subagent session using `skill.agent` or `general-purpose`   |
+| `allowed-tools`            | Restrict fork-session tools to the listed names, after the selected agent definition denylist applies |
+| `disable-model-invocation` | Hide from model-visible skill metadata; user slash invocation still works                             |
+| `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
+
+Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
 
 ## Hook Wiring into Session Lifecycle
 
@@ -780,15 +804,29 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 | `Explore`         | `claude-haiku-4-5` | Denies Write, Edit  | Read-only code exploration  |
 | `Plan`            | (parent)           | Denies Write, Edit  | Read-only planning/research |
 
+### Model-Requested Agent Invocation
+
+The parent session exposes an `Agent` function tool with parameters:
+
+| Parameter       | Type     | Required | Description                                            |
+| --------------- | -------- | -------- | ------------------------------------------------------ |
+| `prompt`        | `string` | Yes      | Task prompt for the isolated agent session             |
+| `subagent_type` | `string` | No       | Agent name. Defaults to `general-purpose` when omitted |
+| `model`         | `string` | No       | Optional model override for this invocation            |
+
+The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
+
 ### AgentDefinitionLoader (Internal)
 
 `AgentDefinitionLoader` is an internal class — it is not exported from `src/index.ts`. It scans directories for custom `.md` agent definitions with YAML frontmatter, merged with built-in agents. Custom agents override built-in agents on name collision.
 
 **Scan directories (highest priority first):**
 
-1. `<cwd>/.robota/agents/` — project-level (primary)
-2. `<cwd>/.claude/agents/` — project-level (Claude Code compatible)
-3. `<home>/.robota/agents/` — user-level
+1. `<cwd>/.robota/agents/` — project-level (Robota native)
+2. `<cwd>/.agents/agents/` — project-level (Robota repository convention)
+3. `<cwd>/.claude/agents/` — project-level (Claude Code compatible)
+4. `<home>/.robota/agents/` — user-level (Robota native)
+5. `<home>/.claude/agents/` — user-level (Claude Code compatible)
 
 ### Framework System Prompt Suffixes
 

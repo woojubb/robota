@@ -114,6 +114,29 @@ describe('SkillCommandSource multi-path', () => {
     expect(cmd!.agent).toBe('researcher');
   });
 
+  it('should parse whitespace-separated allowed-tools', () => {
+    const claudeSkills = join(projectDir, '.claude', 'skills');
+    mkdirSync(claudeSkills, { recursive: true });
+    createSkillDir(
+      claudeSkills,
+      'space-tools',
+      [
+        '---',
+        'name: space-tools',
+        'description: Skill with space-separated tools',
+        'allowed-tools: Read Grep Glob',
+        '---',
+        '# Space Tools Skill',
+      ].join('\n'),
+    );
+
+    const source = new SkillCommandSource(projectDir, homeDir);
+    const cmd = source.getCommands().find((c) => c.name === 'space-tools');
+
+    expect(cmd).toBeDefined();
+    expect(cmd!.allowedTools).toEqual(['Read', 'Grep', 'Glob']);
+  });
+
   it('should filter model-invocable skills', () => {
     const claudeSkills = join(projectDir, '.claude', 'skills');
     mkdirSync(claudeSkills, { recursive: true });
