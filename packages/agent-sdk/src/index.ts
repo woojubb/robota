@@ -99,6 +99,7 @@ export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
 // ── Subagent (SDK-internal, exported for CLI fork execution) ─
 export {
+  createDefaultTools,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -153,6 +154,7 @@ export type {
 // ── Subagent process manager contracts ─────────────────────
 export { SubagentManager } from './subagents/index.js';
 export type {
+  IInProcessSubagentRunnerDeps,
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobStart,
@@ -160,6 +162,7 @@ export type {
   ISubagentManagerOptions,
   ISubagentRunner,
   ISubagentSpawnRequest,
+  TSubagentRunnerFactory,
   TSubagentJobMode,
   TSubagentJobStatus,
 } from './subagents/index.js';
@@ -180,7 +183,6 @@ export { runHooks } from '@robota-sdk/agent-core';
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createSession()        — assembly factory
-//   createDefaultTools()   — tool assembly
 //   createProvider()       — REMOVED (provider comes from consumer)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)

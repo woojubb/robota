@@ -34,6 +34,8 @@ export interface IInProcessSubagentRunnerDeps {
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }
 
+export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
+
 function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
@@ -53,6 +55,7 @@ function applyRequestOverrides(
     ...definition,
     ...(job.request.model ? { model: job.request.model } : {}),
     ...(job.request.allowedTools ? { tools: job.request.allowedTools } : {}),
+    ...(job.request.disallowedTools ? { disallowedTools: job.request.disallowedTools } : {}),
   };
 }
 
