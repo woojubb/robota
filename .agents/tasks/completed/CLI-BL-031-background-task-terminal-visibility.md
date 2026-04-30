@@ -1,6 +1,6 @@
 ---
 title: CLI-BL-031 Background Task Terminal Visibility
-status: backlog
+status: completed
 priority: high
 urgency: next
 created: 2026-05-01
@@ -8,6 +8,8 @@ packages:
   - agent-cli
   - agent-sdk
   - agent-runtime
+branch: fix/background-task-terminal-visibility
+completed: 2026-05-01
 ---
 
 ## Summary
@@ -139,11 +141,29 @@ Recommended later command:
 
 ## Implementation Plan
 
-1. Add characterization tests for the current TUI projection so the existing completed-task persistence is explicit.
-2. Add a pure TUI visibility policy helper that classifies clean completed vs actionable terminal tasks.
-3. Add a turn-boundary method to `TuiStateManager` or the prompt flow bridge that hides clean completed tasks from the main panel.
-4. Keep `/background list/read/close` backed by `InteractiveSession`, not by the TUI visible projection.
-5. Update package SPEC files after implementation so `agent-cli`, `agent-sdk`, and `agent-runtime` reflect the final code behavior.
+1. [x] Add characterization tests for the current TUI projection so the existing completed-task persistence is explicit.
+2. [x] Add a pure TUI visibility policy helper that classifies clean completed vs actionable terminal tasks.
+3. [x] Add a turn-boundary method to `TuiStateManager` or the prompt flow bridge that hides clean completed tasks from the main panel.
+4. [x] Keep `/background list/read/close` backed by `InteractiveSession`, not by the TUI visible projection.
+5. [x] Update package SPEC files after implementation so `agent-cli`, `agent-sdk`, and `agent-runtime` reflect the final code behavior.
+
+## Progress
+
+### 2026-05-01
+
+- Started implementation on `fix/background-task-terminal-visibility` after PR #103 merged to `develop`.
+- Confirmed `agent-runtime` and `agent-sdk` already retain terminal-state task records; the missing behavior is TUI-only presentation auto-hide.
+- Added TUI state tests for clean completed auto-hide, actionable terminal visibility, preserved worktree visibility, non-zero process exit visibility, and hidden task close cleanup.
+- Implemented `TuiStateManager.onUserTurnAccepted()` and wired slash/normal prompt submission to trigger the turn-boundary visibility policy.
+- Extracted background task view-model and visibility classification helpers to keep `tui-state-manager.ts` below the production file-size guard.
+- Updated background task and CLI package specs with the runtime-retention vs TUI-visibility contract.
+- Added process rules requiring structural architecture documentation updates when package responsibilities or cross-package architecture change.
+
+## Result
+
+Implemented deterministic TUI-only auto-hide for clean completed background tasks at the next accepted user turn.
+Runtime background task records remain retained for `/background list`, `/background read`, and explicit close flows.
+Actionable terminal tasks remain visible when they failed, were cancelled, exited non-zero, ended by signal, or preserved worktree/branch artifacts.
 
 ## Test Plan
 

@@ -521,6 +521,8 @@ Required TUI behavior:
 - allow stop/cancel for running tasks
 - allow dismiss/close for terminal tasks
 - allow open/follow to inspect transcript or logs
+- hide clean completed tasks from the always-visible panel at the next accepted user turn while keeping the runtime record available through background task APIs
+- keep failed, cancelled, non-zero exit, signal-terminated, and artifact-bearing terminal tasks visible until explicit close or acknowledge
 
 TUI components MUST remain thin renderers. Keyboard/input behavior should live in flow modules that can be unit-tested without Ink.
 
