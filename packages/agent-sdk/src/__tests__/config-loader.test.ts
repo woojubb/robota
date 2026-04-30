@@ -304,7 +304,7 @@ describe('loadConfig', () => {
     expect(config.hooks?.PreToolUse?.[0]?.matcher).toBe('Bash');
   });
 
-  it('hooks support all Phase 1 event types', async () => {
+  it('hooks support all configured lifecycle event types', async () => {
     const allEvents = {
       PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo pre' }] }],
       PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo post' }] }],
@@ -313,12 +313,13 @@ describe('loadConfig', () => {
       PreCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prec' }] }],
       PostCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo postc' }] }],
       UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prompt' }] }],
-      Notification: [{ matcher: '', hooks: [{ type: 'command', command: 'echo notify' }] }],
+      WorktreeCreate: [{ matcher: '', hooks: [{ type: 'command', command: 'echo wt-create' }] }],
+      WorktreeRemove: [{ matcher: '', hooks: [{ type: 'command', command: 'echo wt-remove' }] }],
     };
     writeJson(join(claudeProjectDir, 'settings.json'), { hooks: allEvents });
     const config = await loadConfig(cwd);
     expect(config.hooks).toBeDefined();
-    expect(Object.keys(config.hooks ?? {})).toHaveLength(8);
+    expect(Object.keys(config.hooks ?? {})).toHaveLength(9);
   });
 
   it('hooks support http hook type', async () => {

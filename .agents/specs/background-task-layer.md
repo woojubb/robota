@@ -26,27 +26,30 @@ Robota's background task architecture MUST follow the existing package compositi
 
 - Lower packages own generic contracts and pure execution semantics.
 - Upper packages compose concrete dependencies and UI/runtime adapters.
-- Business rules live in SDK/application services, not React components.
+- Lifecycle rules live in reusable runtime/application services, not React components.
 - Side effects are behind ports and runner adapters.
 - TUI state is a projection of SDK events.
 - Provider instances and child process handles never cross package boundaries where they cannot be represented safely.
 
 ## Layer Stack
 
-| Layer               | Owner                   | Background responsibility                                                                           | Must not own                                                      |
-| ------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `agent-core`        | Core contracts          | Generic value types, event/history primitives already used by execution                             | Background task manager, child processes, TUI state               |
-| `agent-tools`       | Tool implementations    | Foreground tool behavior and reusable tool factories                                                | SDK background registry or TUI controls                           |
-| `agent-sessions`    | Session runtime         | `Session.run()`, `Session.abort()`, permissions, per-run streaming callbacks                        | Background job registry or child worker orchestration             |
-| `agent-sdk`         | Application composition | `BackgroundTaskManager`, state machine, runner ports, task events, `InteractiveSession` integration | Ink components, provider package selection, direct CLI process UI |
-| `agent-transport-*` | Protocol adapters       | Forward background task events and expose control messages                                          | Task state transitions or runner implementations                  |
-| `agent-cli`         | Runtime shell and TUI   | Provider creation, child process runner wiring, worker entrypoints, Ink rendering from state        | SDK lifecycle logic                                               |
+| Layer               | Owner                   | Background responsibility                                                                    | Must not own                                                                                       |
+| ------------------- | ----------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `agent-core`        | Core contracts          | Generic value types, event/history primitives already used by execution                      | Background task manager, child processes, TUI state                                                |
+| `agent-runtime`     | Runtime primitives      | `BackgroundTaskManager`, state machine, runner ports, task events, subagent facade           | Providers, sessions, child processes, Git worktrees, TUI state                                     |
+| `agent-tools`       | Tool implementations    | Foreground tool behavior and reusable tool factories                                         | SDK background registry or TUI controls                                                            |
+| `agent-sessions`    | Session runtime         | `Session.run()`, `Session.abort()`, permissions, per-run streaming callbacks                 | Background job registry or child worker orchestration                                              |
+| `agent-sdk`         | Application composition | Compose runtime primitives with tools, config/context, `InteractiveSession` integration      | Runtime lifecycle state machine, Ink components, provider package selection, direct CLI process UI |
+| `agent-transport-*` | Protocol adapters       | Forward background task events and expose control messages                                   | Task state transitions or runner implementations                                                   |
+| `agent-cli`         | Runtime shell and TUI   | Provider creation, child process runner wiring, worker entrypoints, Ink rendering from state | SDK/runtime lifecycle logic                                                                        |
 
 Dependency direction remains:
 
 ```text
 agent-cli / transports
   -> agent-sdk
+    -> agent-runtime
+      -> agent-core
     -> agent-sessions
       -> agent-core
 
@@ -143,7 +146,7 @@ Adapters implement runner ports:
 - `ManagedShellProcessRunner` for addressable background shell/process jobs.
 - `FakeBackgroundTaskRunner` for deterministic tests.
 
-CLI composition wires concrete runners into the SDK manager. SDK code owns the ports, not the Node-specific implementations.
+CLI composition wires concrete runners into the SDK-created manager. `agent-runtime` owns the ports and lifecycle services; SDK code composes those ports with SDK tools/config/session dependencies. Node-specific implementations remain outside both packages.
 
 ## Type Model
 
@@ -353,7 +356,7 @@ Manager behavior:
 
 ## Events
 
-The SDK owns background task events. They are emitted by `InteractiveSession` and forwarded by transports and TUI bridges.
+`agent-runtime` owns the background task event union and manager subscription contract. The SDK exposes those events through `InteractiveSession`; transports and TUI bridges forward or render them without owning lifecycle transitions.
 
 ```ts
 type TBackgroundTaskEventListener = (event: TBackgroundTaskEvent) => void;
@@ -523,7 +526,7 @@ TUI components MUST remain thin renderers. Keyboard/input behavior should live i
 
 ## Transport Projection
 
-Transport packages should forward SDK-owned task events and expose control messages.
+Transport packages should forward runtime-owned task events exposed by the SDK and provide control messages through SDK session APIs.
 
 Minimum WebSocket additions:
 
@@ -650,11 +653,11 @@ Errors returned to the model must be concise and structured. Detailed logs belon
 
 ## Implementation Order
 
-1. Add `background-tasks` types, pure state machine, and unit tests in `agent-sdk`.
-2. Implement `BackgroundTaskManager` with fake runner tests.
-3. Add `InteractiveSession` background task APIs and a single `background_task_event` event.
+1. Add `background-tasks` types, pure state machine, and unit tests in `agent-runtime`.
+2. Implement `BackgroundTaskManager` with fake runner tests in `agent-runtime`.
+3. Add `InteractiveSession` background task APIs and a single `background_task_event` event in `agent-sdk`.
 4. Add `TuiStateManager` background task projection and unit tests.
-5. Migrate `SubagentManager` to delegate to `BackgroundTaskManager` for `kind: 'agent'` while preserving public compatibility.
+5. Migrate `SubagentManager` to `agent-runtime` and delegate to `BackgroundTaskManager` for `kind: 'agent'` while preserving SDK public compatibility.
 6. Add background mode to the `Agent` tool with foreground compatibility tests.
 7. Add managed process runner and SDK-composed background process tool/wrapper. (Completed for CLI shell processes via `BackgroundProcess` + `ManagedShellProcessRunner`; keep regression coverage.)
 8. Add TUI background task panel and pure input flow controls. (Panel and `/background` slash controls completed; dedicated key-flow modules remain future work.)

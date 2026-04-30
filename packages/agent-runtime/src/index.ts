@@ -1,10 +1,10 @@
-export { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
 export {
+  BackgroundTaskError,
+  BackgroundTaskManager,
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
-} from '@robota-sdk/agent-runtime';
-export { BackgroundTaskError } from '@robota-sdk/agent-runtime';
+} from './background-tasks/index.js';
 export type {
   IAgentBackgroundTaskRequest,
   IBaseBackgroundTaskRequest,
@@ -35,4 +35,25 @@ export type {
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskStatus,
   TBackgroundTaskTransitionEvent,
-} from '@robota-sdk/agent-runtime';
+} from './background-tasks/index.js';
+export {
+  SubagentManager,
+  WorktreeSubagentRunner,
+  createWorktreeSubagentRunner,
+} from './subagents/index.js';
+export type {
+  IPreparedSubagentWorktree,
+  ISubagentJobHandle,
+  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentJobState,
+  ISubagentManager,
+  ISubagentManagerOptions,
+  ISubagentRunner,
+  ISubagentSpawnRequest,
+  ISubagentWorktreeAdapter,
+  ISubagentWorktreePrepareRequest,
+  IWorktreeSubagentRunnerOptions,
+  TSubagentJobMode,
+  TSubagentJobStatus,
+} from './subagents/index.js';

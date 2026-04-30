@@ -52,6 +52,16 @@ export function toBackgroundTaskErrorMessage(error: Error | string): string {
   return error instanceof Error ? error.message : error;
 }
 
+export function applyBackgroundTaskResultMetadataToState(
+  state: IBackgroundTaskState,
+  result: IBackgroundTaskResult,
+): void {
+  const worktreePath = result.metadata?.['worktreePath'];
+  if (typeof worktreePath === 'string') state.worktreePath = worktreePath;
+  const branchName = result.metadata?.['branchName'];
+  if (typeof branchName === 'string') state.branchName = branchName;
+}
+
 export function createQueuedBackgroundTaskState(
   id: string,
   request: IBackgroundTaskRequest,
@@ -76,6 +86,7 @@ export function createQueuedBackgroundTaskState(
     cwd: request.cwd,
     updatedAt: now,
     unread: false,
+    isolation: request.kind === 'agent' ? request.isolation : undefined,
     ...preview,
   };
 }

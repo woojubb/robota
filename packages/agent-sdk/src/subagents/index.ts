@@ -1,9 +1,16 @@
-export { SubagentManager } from './subagent-manager.js';
+export { SubagentManager } from '@robota-sdk/agent-runtime';
 export { createInProcessSubagentRunner } from './in-process-subagent-runner.js';
+export { WorktreeSubagentRunner, createWorktreeSubagentRunner } from '@robota-sdk/agent-runtime';
 export type {
   IInProcessSubagentRunnerDeps,
   TSubagentRunnerFactory,
 } from './in-process-subagent-runner.js';
+export type {
+  IPreparedSubagentWorktree,
+  ISubagentWorktreeAdapter,
+  ISubagentWorktreePrepareRequest,
+  IWorktreeSubagentRunnerOptions,
+} from '@robota-sdk/agent-runtime';
 export type {
   ISubagentJobHandle,
   ISubagentJobResult,
@@ -15,4 +22,4 @@ export type {
   ISubagentSpawnRequest,
   TSubagentJobMode,
   TSubagentJobStatus,
-} from './types.js';
+} from '@robota-sdk/agent-runtime';

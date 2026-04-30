@@ -72,7 +72,7 @@ const HookGroupSchema = z.object({
   hooks: z.array(HookDefinitionSchema),
 });
 
-/** All Phase 1 hook events */
+/** Supported hook events */
 const HooksSchema = z
   .object({
     PreToolUse: z.array(HookGroupSchema).optional(),
@@ -82,7 +82,8 @@ const HooksSchema = z
     PreCompact: z.array(HookGroupSchema).optional(),
     PostCompact: z.array(HookGroupSchema).optional(),
     UserPromptSubmit: z.array(HookGroupSchema).optional(),
-    Notification: z.array(HookGroupSchema).optional(),
+    WorktreeCreate: z.array(HookGroupSchema).optional(),
+    WorktreeRemove: z.array(HookGroupSchema).optional(),
   })
   .optional();
 
