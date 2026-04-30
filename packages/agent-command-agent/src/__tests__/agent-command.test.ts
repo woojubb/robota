@@ -78,6 +78,9 @@ describe('agent command module', () => {
     });
     expect(agent?.description).toContain('subagent jobs');
     expect(agent?.description).toContain('ExecuteCommand');
+    expect(agent?.description).toContain('choose one backlog');
+    expect(agent?.description).toContain('Korean example');
+    expect(agent?.description).toContain('백로그 중에 하나');
     expect(agent?.description).toContain('<agent>');
     expect(agent?.argumentHint).toContain('<prompt>');
   });
@@ -144,6 +147,27 @@ describe('agent command module', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.data?.agentId).toBe('agent_1');
+    expect(
+      (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
+    ).toHaveBeenCalledWith({
+      agentType: 'general-purpose',
+      label: 'general-purpose',
+      mode: 'background',
+      prompt: '이걸로 분석해',
+    });
+  });
+
+  it('does not treat the first natural-language token as an agent type for /agent run', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'run 이걸로 분석해');
+
+    expect(result?.success).toBe(true);
     expect(
       (session as unknown as { spawnAgentJob: ReturnType<typeof vi.fn> }).spawnAgentJob,
     ).toHaveBeenCalledWith({

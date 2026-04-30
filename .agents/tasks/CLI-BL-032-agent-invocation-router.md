@@ -21,6 +21,8 @@ Implement deterministic, composable agent command invocation so injected slash c
 
 Robota can already run background agent jobs when the `Agent` tool is called with `background: true`, but natural-language user prompts may produce assistant text that claims agents are running without any command/tool call or background task event.
 
+LM Studio replay shows that the provider and model can emit tool calls in simple cases, but the full Robota prompt can still lead the model to print prose or `<agent ... />` pseudo-tags instead of calling `Agent` or `ExecuteCommand`. The fix must make the model-visible command/tool contracts explicit enough that real execution is the easy path, while keeping Robota free of natural-language pre-routing.
+
 The current startup prompt contains hardcoded operational guidance in `system-prompt-builder`. Startup prompt content should instead be assembled from owner-provided framework instructions, project instructions, runtime metadata, permission descriptors, provider capabilities, command descriptors, skill descriptors, tool descriptors, and agent descriptors.
 
 The agent command must not be treated as an unconditional SDK core command. `/agent`, the `Agent` tool, and agent descriptors are contributed by an optional `@robota-sdk/agent-command-agent` command module. Robota's product entrypoint may inject that module as a default capability, but SDK consumers must be able to omit it.
@@ -55,10 +57,12 @@ References:
 5. Add a model-callable command execution tool that exposes only `modelInvocable` command descriptors and calls the same handlers as slash input.
 6. Add `InteractiveSession` agent job APIs backed by the existing `SubagentManager` and `BackgroundTaskManager`.
 7. Implement `/agent <prompt>`, `/agent run`, and `/agent parallel` as deterministic background spawn paths.
-8. Add runtime evidence reporting checks so Robota-owned execution state cannot report agents running without `agentId` or background task events.
-9. Wire TUI slash input, headless slash input, structured transports, and model command tool calls through the same command handler path.
-10. Ensure project-local `.robota/sessions` and `.robota/logs` contain the full prompt/tool/command context needed for resume and debugging.
-11. Update package SPEC files and run package/harness verification.
+8. Make the `Agent` tool description and `/agent` command descriptor state the standardized execution protocol: call the tool/command bridge, spawn background jobs by default, use one same-turn tool call per parallel role, include backlog/task target selection inside the delegated prompt when needed, include a short Korean example for the observed local-model phrasing, and never print pseudo-tags as execution.
+9. Default omitted `Agent.background` to background execution while keeping explicit `background: false` as a foreground compatibility path.
+10. Add runtime evidence reporting checks so Robota-owned execution state cannot report agents running without `agentId` or background task events.
+11. Wire TUI slash input, headless slash input, structured transports, and model command tool calls through the same command handler path.
+12. Ensure project-local `.robota/sessions` and `.robota/logs` contain the full prompt/tool/command context needed for resume and debugging.
+13. Update package SPEC files and run package/harness verification.
 
 ## Test Plan
 
@@ -81,6 +85,9 @@ The implementation must prove command handler behavior without a real model firs
 - Given an explicit unknown agent type is requested, when executed, then the command returns a structured failure instead of throwing an unhandled rejection.
 - Given natural-language input asks for parallel agents and a test model calls the command execution tool, when executed, then it becomes a deterministic `/agent parallel` execution.
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then no background job is started.
+- Given the `Agent` tool is exposed, when its schema description is inspected, then it tells the model to call the tool in the same assistant turn for explicit subagent requests, emit one call per parallel role, default to background work, and avoid `<agent ... />` pseudo-tags.
+- Given the `Agent` tool is executed without `background`, when the run starts, then `SubagentManager.spawn()` receives `mode: "background"` and `wait()` is not called.
+- Given the `Agent` tool is executed with `background: false`, when the run starts, then `SubagentManager.spawn()` receives `mode: "foreground"` and `wait()` is called.
 - Given no runtime evidence exists, when Robota-owned execution state is projected, then it reports no started agent jobs.
 - Given a session starts with model-visible `/agent` descriptors, when session data is saved, then the exact system prompt and registered tool schemas are persisted in `.robota/sessions`.
 - Given a session run completes, when diagnostic JSONL is inspected, then session initialization, pre-run, and assistant events include full system/input/history/response data rather than length-only or truncated data.

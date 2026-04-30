@@ -123,6 +123,13 @@ describe('Agent tool', () => {
     const schema = tool.schema;
     expect(schema.name).toBe('Agent');
     expect(schema.description).toContain('subagent');
+    expect(schema.description).toContain('same assistant turn');
+    expect(schema.description).toContain('one Agent tool call per role');
+    expect(schema.description).toContain('background: true');
+    expect(schema.description).toContain('<agent');
+    expect(schema.description).toContain('choose one backlog');
+    expect(schema.description).toContain('Korean example');
+    expect(schema.description).toContain('백로그 중에 하나');
     // Verify parameters include prompt, subagent_type, model
     const props = schema.parameters.properties;
     expect(props).toHaveProperty('prompt');
@@ -130,6 +137,9 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('model');
     expect(props).toHaveProperty('background');
     expect(props).toHaveProperty('isolation');
+    expect((props.background as { description?: string }).description).toContain(
+      'Defaults to true',
+    );
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -187,7 +197,7 @@ describe('Agent tool', () => {
   it('should return response with agentId', async () => {
     const tool = createAgentTool(makeDeps());
 
-    const toolResult = await tool.execute({ prompt: 'Do task' });
+    const toolResult = await tool.execute({ prompt: 'Do task', background: false });
     const result = parseToolResult(toolResult);
 
     expect(result['success']).toBe(true);
@@ -232,6 +242,7 @@ describe('Agent tool', () => {
     const toolResult = await tool.execute({
       prompt: 'Find files',
       subagent_type: 'Explore',
+      background: false,
     });
     const result = parseToolResult(toolResult);
 
@@ -297,6 +308,7 @@ describe('Agent tool', () => {
       prompt: 'Change files',
       subagent_type: 'Explore',
       isolation: 'worktree',
+      background: false,
     });
     const result = parseToolResult(toolResult);
 
@@ -320,10 +332,63 @@ describe('Agent tool', () => {
     });
   });
 
-  it('should return immediately when background mode is requested', async () => {
+  it('should default to background mode and return immediately when background is omitted', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_background_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Find files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn(),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Find files',
+      subagent_type: 'Explore',
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        mode: 'background',
+        prompt: 'Find files',
+      }),
+    );
+    expect(subagentManager.wait).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      background: true,
+      output: '',
+      agentId: 'agent_background_1',
+      status: 'running',
+    });
+  });
+
+  it('should return immediately when background mode is explicitly requested', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_background_2',
         type: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
@@ -369,7 +434,7 @@ describe('Agent tool', () => {
       success: true,
       background: true,
       output: '',
-      agentId: 'agent_background_1',
+      agentId: 'agent_background_2',
       status: 'running',
     });
   });
@@ -395,6 +460,7 @@ describe('Agent tool', () => {
       prompt: 'Do task',
       subagent_type: 'general-purpose',
       model: 'haiku',
+      background: false,
     });
 
     expect(createSubagentSession).toHaveBeenCalledWith(
@@ -418,7 +484,7 @@ describe('Agent tool', () => {
       }),
     );
 
-    await tool.execute({ prompt: 'Do task' });
+    await tool.execute({ prompt: 'Do task', background: false });
 
     expect(createSubagentSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -451,7 +517,7 @@ describe('Agent tool', () => {
 
     const tool = createAgentTool(makeDeps());
 
-    const toolResult = await tool.execute({ prompt: 'Do task' });
+    const toolResult = await tool.execute({ prompt: 'Do task', background: false });
     const result = parseToolResult(toolResult);
 
     expect(result['success']).toBe(false);
@@ -472,6 +538,7 @@ describe('Agent tool', () => {
     await tool.execute({
       prompt: 'Custom task',
       subagent_type: 'CustomWorker',
+      background: false,
     });
 
     expect(customRegistry).toHaveBeenCalledWith('CustomWorker');
@@ -501,7 +568,7 @@ describe('Agent tool', () => {
 
     const tool = createAgentTool(makeDeps());
 
-    const toolResult = await tool.execute({ prompt: 'Do task' });
+    const toolResult = await tool.execute({ prompt: 'Do task', background: false });
     const result = parseToolResult(toolResult);
 
     expect(result['success']).toBe(false);
@@ -531,6 +598,7 @@ describe('Agent tool', () => {
     await tool.execute({
       prompt: 'Do task',
       subagent_type: 'Explore',
+      background: false,
       // no model arg
     });
 
@@ -557,6 +625,7 @@ describe('Agent tool', () => {
     await tool.execute({
       prompt: 'Explore task',
       subagent_type: 'Explore',
+      background: false,
     });
 
     expect(customRegistry).toHaveBeenCalledWith('Explore');
@@ -595,7 +664,7 @@ describe('Agent tool', () => {
   it('should pass isForkWorker as undefined (not fork) to createSubagentSession', async () => {
     const tool = createAgentTool(makeDeps());
 
-    await tool.execute({ prompt: 'Do task' });
+    await tool.execute({ prompt: 'Do task', background: false });
 
     // Agent tool never sets isForkWorker (only useSubmitHandler fork runner does)
     expect(createSubagentSession).toHaveBeenCalledWith(

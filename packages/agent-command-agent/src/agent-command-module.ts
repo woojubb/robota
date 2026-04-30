@@ -23,7 +23,7 @@ export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
     description:
-      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents. To run an agent, pass the natural-language task directly as args; Robota starts agent jobs in the background by default. Model-routed execution must call ExecuteCommand with command "agent" and args such as `analyze the auth changes with a code-review agent`; do not print XML/HTML-like <agent> tags as assistant text.',
+      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents. To run an agent, pass the natural-language task directly as args; Robota starts agent jobs in the background by default. If the user asks to choose one backlog, task, or item, include that target-selection instruction in the agent prompt instead of delaying execution. Korean example: "백로그 중에 하나를 분석할건데..." means start the requested agents now. For model-routed command execution, call ExecuteCommand in the same assistant turn with command "agent" and args such as `analyze the auth changes with a code-review agent` or `parallel developer=general-purpose:"analyze implementation" designer=Plan:"analyze architecture"`; do not print XML/HTML-like <agent> tags as assistant text.',
     source: 'agent',
     modelInvocable: true,
     argumentHint:

@@ -68,6 +68,8 @@ Agent spawn commands are background-first. The user-facing syntax does not requi
 
 Model-routed command execution must call the generic `ExecuteCommand` tool with `command: "agent"` and natural command arguments. Assistant text such as `<agent ... />` is not command execution and must not be emitted as a substitute for the tool call.
 
+When the user enters `/agent run <natural-language prompt>`, the first unflagged token is treated as an agent type only if it matches an available agent definition or was supplied through `--agent`/`--type`. Otherwise the whole phrase remains the prompt and the command defaults to `general-purpose`. This keeps Korean or other natural-language prompts such as `/agent run 이걸로 분석해` from being misread as unknown agent names.
+
 ## Class Contract Registry
 
 | Class/Function             | Implements/Uses                     | Notes                                     |

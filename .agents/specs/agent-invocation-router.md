@@ -258,7 +258,18 @@ The `Agent` tool remains necessary for model-initiated delegation. It must conti
 
 But the `Agent` tool is no longer the only model path for user-requested agent execution. Explicit slash commands and model-callable command tool invocations may call runtime APIs directly.
 
-The model-visible `Agent` tool description should stay concise and tool-local. Broader instructions about `/agent` command usage must come from command descriptors.
+The model-visible `Agent` tool description should stay tool-local, but it must be explicit enough for smaller OpenAI-compatible local models to understand that subagent work starts only through a real tool call.
+
+Rules:
+
+- If the user explicitly asks to create, spawn, run, delegate to, or use subagents/agents, the assistant should call the `Agent` tool in the same assistant turn instead of replying with a plan.
+- For multiple or parallel subagents, the assistant should emit one `Agent` tool call per requested role in the same assistant turn.
+- Agent tool calls are background-first. `background` defaults to `true`; `background: false` is only for an explicit foreground/wait request.
+- The assistant must not print XML/HTML-like `<agent ... />` text as a substitute for a tool call.
+- The assistant must not say an agent is running unless the tool result returned an `agentId` or an equivalent runtime event exists.
+- Role naming should prefer available agent definitions. Developer, implementation, and engineering requests map to `general-purpose` when no more specific agent exists. Designer, planning, and architecture requests map to `Plan` when available.
+- If the user asks to analyze one backlog/task/item, the assistant may choose a reasonable target when visible context lists candidates. If no candidate is currently visible, it should include target selection/discovery inside each subagent prompt instead of first replying with an inspection plan.
+- Tool and command descriptors may include short multilingual examples for common local usage patterns when they materially improve model reliability. For Korean, phrases such as "백로그 중에 하나를 분석할건데..." must be interpreted as an immediate execution request when the sentence also asks to create/run subagents.
 
 The `Agent` tool MUST be registered only when an injected command module requests the `agent-runtime` session requirement.
 
@@ -416,7 +427,9 @@ Rules:
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then Robota starts no background jobs.
 - Given no `agentId` or `background_task_created` event exists, when runtime execution state is projected, then it reports no started agent jobs.
 - Given a real `background_task_created` event for each created job, when runtime execution state is projected, then it reports those jobs as started.
-- Given a model emits the `Agent` tool with `background: true`, when the tool executes, then existing background runtime behavior remains unchanged.
+- Given a model emits the `Agent` tool without a `background` argument, when the tool executes, then it starts a background job and returns immediately with an `agentId`.
+- Given a model emits the `Agent` tool with `background: false`, when the tool executes, then it uses the explicit foreground/wait path.
+- Given the `Agent` tool schema is exposed, when its description is inspected, then it states that real subagent execution requires calling the tool, parallel roles require multiple same-turn tool calls, and `<agent ... />` assistant text is invalid.
 - Given a CLI session is created, when it is persisted, then the record is written under project `.robota/sessions` and includes provider messages, UI history, the exact system prompt, and registered tool schemas.
 - Given diagnostic logs are inspected, when the session has run, then `session_init`, `pre_run`, and `assistant` events contain full prompt/input/history/response data instead of only lengths or truncated assistant text.
 
