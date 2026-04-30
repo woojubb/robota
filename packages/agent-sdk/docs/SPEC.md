@@ -396,9 +396,28 @@ interface ITransportAdapter {
 
 Common interface for all transport adapters. Defined in `src/interactive/types.ts` and exported from `@robota-sdk/agent-sdk`. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
 
-### SubagentManager — Managed Subagent Job Registry
+### Background and Subagent Runtime Exports
 
-`SubagentManager` and its associated types are exported for clients that need to compose managed subagent execution.
+`BackgroundTaskManager` is exported as the generic SDK-owned runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, terminal close/dismiss, optional send/log controls, and immutable state snapshots.
+
+Background task runtime exports:
+
+| Export                           | Kind      | Description                                                   |
+| -------------------------------- | --------- | ------------------------------------------------------------- |
+| `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler      |
+| `BackgroundTaskError`            | class     | Typed background task error with category and recoverability  |
+| `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/send |
+| `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters             |
+| `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers       |
+| `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task               |
+| `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests |
+| `IBackgroundTaskResult`          | interface | Completed background task output                              |
+| `TBackgroundTaskEvent`           | type      | SDK-owned lifecycle/progress event union                      |
+| `TBackgroundTaskMode`            | type      | `foreground` or `background`                                  |
+| `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                            |
+| `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                            |
+
+`SubagentManager` and its associated types are exported for clients that need to compose managed subagent execution. It is now a compatibility facade over `BackgroundTaskManager` for `kind: 'agent'` tasks, preserving the existing subagent API while moving lifecycle semantics to the shared background layer.
 
 ```typescript
 import { SubagentManager } from '@robota-sdk/agent-sdk';
@@ -419,6 +438,8 @@ const job = await manager.spawn({
 
 const result = await manager.wait(job.id);
 ```
+
+`createBackgroundProcessTool(deps)` is exported for SDK composition. The tool is registered only when a runtime shell injects a `process` background runner through `createSession({ backgroundTaskRunners })`; default `Bash` foreground behavior remains unchanged.
 
 Exported subagent runtime types:
 
@@ -784,7 +805,9 @@ Agent definitions are also exposed to the system prompt by metadata only: name a
 
 The `Agent` tool must be part of the available tool set and must be described in `DEFAULT_TOOL_DESCRIPTIONS`.
 
-The `Agent` tool routes execution through a per-session `SubagentManager` in foreground mode. It resolves unknown agent types before spawning so existing error results remain compatible, then calls `spawn()` and `wait()` and returns the existing JSON shape: `{ success, output, agentId }`.
+The `Agent` tool routes execution through a per-session `SubagentManager`, which delegates to the shared `BackgroundTaskManager` for `kind: 'agent'` tasks. It resolves unknown agent types before spawning so existing error results remain compatible.
+
+Foreground mode calls `spawn()` and `wait()` and returns the existing JSON shape: `{ success, output, agentId }`. Background mode sets `mode: 'background'`, returns immediately with `{ success, background: true, output: '', agentId, status }`, and emits lifecycle updates through `background_task_event`.
 
 ### Skill Execution Semantics
 
@@ -811,11 +834,55 @@ During `createSession()`, hooks from the merged settings configuration are wired
 5. `UserPromptSubmit` hooks fire before each user message is processed
 6. `Stop` hooks fire on session termination
 
+## Background Task Execution
+
+`BackgroundTaskManager` is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
+
+Responsibilities:
+
+- create addressable background task records
+- enforce bounded concurrency across registered task kinds
+- track lifecycle state: `queued`, `running`, `waiting_permission`, `completed`, `failed`, `cancelled`
+- expose `spawn`, `wait`, `list`, `get`, `cancel`, `close`, `send`, `readLog`, and `subscribe`
+- emit a single `TBackgroundTaskEvent` union for lifecycle/progress projection
+- keep runner implementation details out of TUI, transports, and tool code
+
+The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers.
+
+`InteractiveSession` exposes background task controls:
+
+| Method                         | Behavior                                      |
+| ------------------------------ | --------------------------------------------- |
+| `listBackgroundTasks(filter?)` | Return cloned background task state snapshots |
+| `getBackgroundTask(taskId)`    | Return one cloned task snapshot               |
+| `cancelBackgroundTask(...)`    | Targeted task cancellation                    |
+| `closeBackgroundTask(taskId)`  | Remove a terminal task from the registry      |
+| `sendBackgroundTask(...)`      | Forward optional input to a supporting runner |
+| `readBackgroundTaskLog(...)`   | Read optional runner logs                     |
+
+`InteractiveSession` emits `background_task_event` with `TBackgroundTaskEvent`.
+
+`createSession()` accepts `backgroundTaskRunners?: IBackgroundTaskRunner[]`. When a runner with `kind: 'process'` is present, SDK composition registers the model-callable `BackgroundProcess` tool:
+
+- `BackgroundProcess` starts a command as `kind: 'process'`, `mode: 'background'`
+- it returns `{ success, background: true, output: '', taskId, status, command }` immediately
+- stdout/stderr inspection and cancellation are routed through the shared manager APIs
+- existing `Bash` tool behavior is not changed
+
+The built-in `/background` system command maps to these APIs:
+
+| Command                               | Behavior                       |
+| ------------------------------------- | ------------------------------ |
+| `/background` or `/background list`   | List current background tasks  |
+| `/background read <task-id> [offset]` | Read a task log page           |
+| `/background cancel <task-id>`        | Cancel one running/queued task |
+| `/background close <task-id>`         | Dismiss one terminal task      |
+
 ## Subagent Execution
 
 ### SubagentManager
 
-`SubagentManager` is the SDK-owned runtime registry for managed subagent jobs. It is a provider-neutral application service that depends on an injected `ISubagentRunner` port.
+`SubagentManager` is the SDK-owned compatibility facade for managed subagent jobs. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
 
 Responsibilities:
 
@@ -825,7 +892,7 @@ Responsibilities:
 - expose `spawn`, `wait`, `list`, `get`, `cancel`, `close`, and `send` operations
 - keep runner implementation details out of TUI and Agent tool code
 
-`SubagentManager` does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers.
+`SubagentManager` does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. It exposes `getBackgroundTaskManager()` so `InteractiveSession` can forward generic background task events and controls without depending on subagent-specific types.
 
 ### SubagentRunner Port
 
@@ -887,11 +954,12 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 The parent session exposes an `Agent` function tool with parameters:
 
-| Parameter       | Type     | Required | Description                                            |
-| --------------- | -------- | -------- | ------------------------------------------------------ |
-| `prompt`        | `string` | Yes      | Task prompt for the isolated agent session             |
-| `subagent_type` | `string` | No       | Agent name. Defaults to `general-purpose` when omitted |
-| `model`         | `string` | No       | Optional model override for this invocation            |
+| Parameter       | Type      | Required | Description                                              |
+| --------------- | --------- | -------- | -------------------------------------------------------- |
+| `prompt`        | `string`  | Yes      | Task prompt for the isolated agent session               |
+| `subagent_type` | `string`  | No       | Agent name. Defaults to `general-purpose` when omitted   |
+| `model`         | `string`  | No       | Optional model override for this invocation              |
+| `background`    | `boolean` | No       | Start as background task and return metadata immediately |
 
 The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
 

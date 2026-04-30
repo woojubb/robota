@@ -892,13 +892,26 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ## Subagent Execution
 
-Subagent execution (Agent tool, fork sessions, agent definition loading) is managed entirely by `@robota-sdk/agent-sdk` internally. The CLI does not wire these components directly — `InteractiveSession` handles all subagent lifecycle.
+Subagent execution (Agent tool, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-sdk` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
+
+The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
 
 When a user invokes a skill slash command with `context: fork`, the CLI must call `interactiveSession.executeSkillCommand(...)`. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection. This keeps fork execution deterministic and preserves the CLI as a thin TUI shell.
 
 When a user asks in normal conversation to call or delegate to an agent, the request is handled by the model through the SDK-owned `Agent` tool. The CLI only displays the resulting tool execution events and final assistant response.
 
-For implementation details of subagent execution (Agent tool, `context: fork` skills, agent definition scanning), see the agent-sdk SPEC.
+Background agent task lifecycle is projected into `TuiStateManager.backgroundTasks` through the SDK-owned `background_task_event` event. React components must render this state only; they must not own task transition or cancellation logic.
+
+`BackgroundTaskPanel` renders active and recently completed background tasks with status, kind, label, task ID, unread marker, and a short preview. User controls are routed through SDK system commands:
+
+| Command                               | Behavior                       |
+| ------------------------------------- | ------------------------------ |
+| `/background` or `/background list`   | List current background tasks  |
+| `/background read <task-id> [offset]` | Read stdout/stderr log lines   |
+| `/background cancel <task-id>`        | Cancel one queued/running task |
+| `/background close <task-id>`         | Dismiss one terminal task      |
+
+For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk SPEC.
 
 ## Memory Management
 

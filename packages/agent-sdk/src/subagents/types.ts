@@ -1,3 +1,9 @@
+import type {
+  IBackgroundTaskManager,
+  IBackgroundTaskRunner,
+  IBackgroundTaskRequest,
+} from '../background-tasks/index.js';
+
 export type TSubagentJobStatus =
   | 'queued'
   | 'running'
@@ -18,6 +24,7 @@ export interface ISubagentSpawnRequest {
   prompt: string;
   model?: string;
   allowedTools?: string[];
+  disallowedTools?: string[];
   timeoutMs?: number;
 }
 
@@ -75,9 +82,11 @@ export interface ISubagentManager {
 }
 
 export interface ISubagentManagerOptions {
-  runner: ISubagentRunner;
+  runner?: ISubagentRunner;
+  backgroundTaskManager?: IBackgroundTaskManager;
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
   maxConcurrent?: number;
   maxDepth?: number;
   now?: () => string;
-  idFactory?: () => string;
+  idFactory?: (request: IBackgroundTaskRequest) => string;
 }

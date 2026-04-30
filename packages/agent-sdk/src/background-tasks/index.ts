@@ -1,0 +1,36 @@
+export { BackgroundTaskManager } from './background-task-manager.js';
+export {
+  getBackgroundTaskTransitions,
+  isTerminalBackgroundTaskStatus,
+  transitionBackgroundTaskStatus,
+} from './state-machine.js';
+export type { TBackgroundTaskTransitionEvent } from './state-machine.js';
+export {
+  BackgroundTaskError,
+  type IAgentBackgroundTaskRequest,
+  type IBaseBackgroundTaskRequest,
+  type IBackgroundTaskError,
+  type IBackgroundTaskHandle,
+  type IBackgroundTaskInput,
+  type IBackgroundTaskListFilter,
+  type IBackgroundTaskLogCursor,
+  type IBackgroundTaskLogPage,
+  type IBackgroundTaskManager,
+  type IBackgroundTaskManagerOptions,
+  type IBackgroundTaskRequest,
+  type IBackgroundTaskResult,
+  type IBackgroundTaskRunner,
+  type IBackgroundTaskStart,
+  type IBackgroundTaskState,
+  type IProcessBackgroundTaskRequest,
+  type ISerializableProviderProfile,
+  type TBackgroundPermissionPolicy,
+  type TBackgroundPrimitive,
+  type TBackgroundTaskErrorCategory,
+  type TBackgroundTaskEvent,
+  type TBackgroundTaskEventListener,
+  type TBackgroundTaskIdFactory,
+  type TBackgroundTaskKind,
+  type TBackgroundTaskMode,
+  type TBackgroundTaskStatus,
+} from './types.js';

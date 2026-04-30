@@ -23,6 +23,7 @@ import type {
   ISubagentManager,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 
 /** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
 function asZodSchema(schema: z.ZodType): IZodSchema {
@@ -36,6 +37,10 @@ const AgentSchema = z.object({
     .optional()
     .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
   model: z.string().optional().describe('Optional model override'),
+  background: z
+    .boolean()
+    .optional()
+    .describe('When true, start the subagent as a background task and return immediately'),
 });
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
@@ -46,6 +51,7 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   parentSessionId?: string;
   subagentDepth?: number;
   subagentManager?: ISubagentManager;
+  backgroundTaskManager?: IBackgroundTaskManager;
   /** Optional custom agent registry for resolving non-built-in agent types. */
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }
@@ -105,7 +111,7 @@ function createSpawnRequest(
     type: agentType,
     label: agentDef.name,
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
-    mode: 'foreground',
+    mode: args.background ? 'background' : 'foreground',
     depth: deps.subagentDepth ?? 1,
     cwd: deps.cwd ?? process.cwd(),
     prompt: args.prompt,
@@ -126,6 +132,16 @@ function stringifyAgentSuccess(output: string, agentId: string): string {
     success: true,
     output,
     agentId,
+  });
+}
+
+function stringifyBackgroundAgentStarted(agentId: string, status: string): string {
+  return JSON.stringify({
+    success: true,
+    background: true,
+    output: '',
+    agentId,
+    status,
   });
 }
 
@@ -153,6 +169,9 @@ async function runManagedAgent(
   try {
     const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
     agentId = state.id;
+    if (args.background) {
+      return stringifyBackgroundAgentStarted(state.id, state.status);
+    }
     const response = await manager.wait(state.id);
     return stringifyAgentSuccess(response.output, state.id);
   } catch (err) {

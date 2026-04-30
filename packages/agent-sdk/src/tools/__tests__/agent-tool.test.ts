@@ -127,6 +127,7 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('prompt');
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
+    expect(props).toHaveProperty('background');
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -249,6 +250,60 @@ describe('Agent tool', () => {
       success: true,
       output: 'managed output',
       agentId: 'agent_managed_1',
+    });
+  });
+
+  it('should return immediately when background mode is requested', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_background_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Find files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn(),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Find files',
+      subagent_type: 'Explore',
+      background: true,
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        mode: 'background',
+        prompt: 'Find files',
+      }),
+    );
+    expect(subagentManager.wait).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      background: true,
+      output: '',
+      agentId: 'agent_background_1',
+      status: 'running',
     });
   });
 
