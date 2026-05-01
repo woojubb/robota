@@ -42,6 +42,7 @@
     "dev": "tsx --env-file=.env src/bin.ts",
     "start": "node --env-file=.env dist/node/bin.js",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "clean": "rimraf dist",

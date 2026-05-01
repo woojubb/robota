@@ -33,6 +33,7 @@
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
