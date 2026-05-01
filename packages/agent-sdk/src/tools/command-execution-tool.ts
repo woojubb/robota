@@ -47,7 +47,7 @@ export function createCommandExecutionTool(
 ): ReturnType<typeof createZodFunctionTool> {
   return createZodFunctionTool(
     'ExecuteCommand',
-    'Execute a registered Robota command that has been marked model-invocable by its command module. Use this tool when command execution is required; assistant text does not execute commands. Pass valid JSON arguments such as {"command":"agent","args":"parallel developer=general-purpose:\\"analyze implementation\\" designer=Plan:\\"analyze architecture\\""} when running model-routed agent commands.',
+    'Executes a registered model-invocable Robota command through the command registry. Accepted command names and argument grammar come from registered command descriptors.',
     asZodSchema(CommandExecutionSchema),
     async (params) => {
       const args: ICommandExecutionArgs = CommandExecutionSchema.parse(params);

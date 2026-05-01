@@ -24,7 +24,7 @@ export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
     description:
-      'Start, inspect, steer, stop, and close subagent jobs. Use this when the user explicitly asks to create, spawn, delegate to, run, or manage agents. To run an agent, pass the natural-language task directly as args; Robota starts agent jobs in the background by default. If the user asks to choose one backlog, task, or item, include that target-selection instruction in the agent prompt instead of delaying execution. For parallel roles, use `parallel`, give each agent a self-contained prompt, and ask each agent to return a concise final summary; Robota creates a wait_all background job group and returns the consolidated SDK group summary by default. Use `parallel --detach` only when the user wants detached background work that will be collected later with `wait GROUP_ID`. For model-routed command execution, call the ExecuteCommand tool in the same assistant turn with command "agent" and args such as `analyze the auth changes with a code-review agent` or `parallel developer=general-purpose:"analyze implementation and return a concise summary" designer=Plan:"analyze architecture and return a concise summary"`; assistant text does not start agent jobs.',
+      'Subagent jobs command. Natural-language arguments start one background agent job. The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present. list, wait, read, send, stop, close, and open manage existing agent jobs.',
     source: 'agent',
     modelInvocable: true,
     argumentHint:

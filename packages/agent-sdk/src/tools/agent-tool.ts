@@ -27,14 +27,11 @@ import type {
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 
 export const AGENT_TOOL_DESCRIPTION = [
-  'Launch a real subagent job for delegated work in an isolated context.',
-  'Use this tool in the same assistant turn when the user explicitly asks to create, spawn, run, delegate to, or use agents/subagents.',
-  'For multiple or parallel roles, emit one Agent tool call per role in the same assistant turn.',
-  'If the user asks to choose one backlog, task, or item, include that target-selection instruction inside each subagent prompt and start the agents instead of first replying with an inspection plan.',
-  'Subagent jobs run as background tasks by default, and the tool waits for each terminal result so the parent conversation can continue with completed, failed, or timed-out outcomes.',
-  'Use detach only when the user explicitly asks to leave work running for later collection.',
-  'Execution requires the tool-call channel; assistant text does not start a subagent job.',
-  'The result returned by the agent is not directly visible to the user, so summarize terminal results for the user when needed.',
+  'Creates one subagent job for delegated work in an isolated context.',
+  'One tool call creates one subagent job.',
+  'Subagent jobs run as background tasks by default.',
+  'The tool waits for a terminal result and returns completed, failed, or timed-out outcome data to the parent conversation.',
+  'Execution is represented by a real tool call and runtime background task event.',
 ].join(' ');
 
 export function createAgentToolPromptDescription(
@@ -47,12 +44,10 @@ export function createAgentToolPromptDescription(
           .join(', ')}.`
       : '';
   return [
-    'Agent — launch an isolated agent for delegated work.',
-    'Call the Agent tool in the same assistant turn for explicit subagent requests.',
-    'For parallel work, emit one Agent tool call per role and let each call wait for a terminal result.',
-    'If needed, choose one backlog/task/item inside the agent prompt instead of delaying launch.',
-    'background defaults to true as the runtime mode; use detach only for explicit fire-and-return work.',
-    'Execution requires the tool-call channel; assistant text alone does not start a subagent job.',
+    'Agent — creates one isolated subagent job.',
+    'One Agent tool call corresponds to one subagent job.',
+    'The tool returns terminal result data.',
+    'Runtime mode is background.',
     availableAgents,
   ]
     .join(' ')
@@ -65,36 +60,20 @@ function asZodSchema(schema: z.ZodType): IZodSchema {
   return schema as IZodSchema;
 }
 
-const AgentSchema = z.object({
-  prompt: z.string().describe('The task for the subagent to perform'),
-  subagent_type: z
-    .string()
-    .optional()
-    .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
-  model: z.string().optional().describe('Optional model override'),
-  parallel: z
-    .boolean()
-    .optional()
-    .describe(
-      'Optional model hint for parallel delegation. Parallel execution is achieved by emitting multiple Agent tool calls in the same assistant turn; this flag does not change a single call result shape.',
-    ),
-  background: z
-    .boolean()
-    .optional()
-    .describe(
-      'Defaults to true as the runtime mode. The tool still waits for a terminal result unless detach is true. Use false only when the user explicitly asks for foreground runtime mode.',
-    ),
-  detach: z
-    .boolean()
-    .optional()
-    .describe(
-      'Defaults to false. When true, start the subagent and return immediately for later collection.',
-    ),
-  isolation: z
-    .enum(['none', 'worktree'])
-    .optional()
-    .describe('Optional runtime isolation mode. Use "worktree" to run in a Git worktree.'),
-});
+const AgentSchema = z
+  .object({
+    prompt: z.string().describe('The task for the subagent to perform'),
+    subagent_type: z
+      .string()
+      .optional()
+      .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
+    model: z.string().optional().describe('Optional model override'),
+    isolation: z
+      .enum(['none', 'worktree'])
+      .optional()
+      .describe('Optional runtime isolation mode. "worktree" runs in a Git worktree.'),
+  })
+  .passthrough();
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
 
@@ -166,7 +145,7 @@ function createSpawnRequest(
     type: agentType,
     label: agentDef.name,
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
-    mode: args.background === false ? 'foreground' : 'background',
+    mode: 'background',
     depth: deps.subagentDepth ?? 1,
     cwd: deps.cwd ?? process.cwd(),
     prompt: args.prompt,
@@ -196,16 +175,6 @@ function stringifyAgentSuccess(result: ISubagentJobResult): string {
   });
 }
 
-function stringifyBackgroundAgentStarted(agentId: string, status: string): string {
-  return JSON.stringify({
-    success: true,
-    background: true,
-    output: '',
-    agentId,
-    status,
-  });
-}
-
 function stringifyAgentError(message: string, agentId?: string): string {
   return JSON.stringify({
     success: false,
@@ -230,9 +199,6 @@ async function runManagedAgent(
   try {
     const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
     agentId = state.id;
-    if (args.detach === true) {
-      return stringifyBackgroundAgentStarted(state.id, state.status);
-    }
     const response = await manager.wait(state.id);
     return stringifyAgentSuccess(response);
   } catch (err) {
@@ -254,7 +220,17 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
     AGENT_TOOL_DESCRIPTION,
     asZodSchema(AgentSchema),
     async (params) => {
-      return runManagedAgent(params as TAgentArgs, deps, manager);
+      const args = params as TAgentArgs;
+      return runManagedAgent(
+        {
+          prompt: args.prompt,
+          ...(args.subagent_type !== undefined ? { subagent_type: args.subagent_type } : {}),
+          ...(args.model !== undefined ? { model: args.model } : {}),
+          ...(args.isolation !== undefined ? { isolation: args.isolation } : {}),
+        },
+        deps,
+        manager,
+      );
     },
   );
 }

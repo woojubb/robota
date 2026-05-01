@@ -122,31 +122,23 @@ describe('Agent tool', () => {
     const schema = tool.schema;
     expect(schema.name).toBe('Agent');
     expect(schema.description).toContain('subagent');
-    expect(schema.description).toContain('same assistant turn');
-    expect(schema.description).toContain('one Agent tool call per role');
+    expect(schema.description).toContain('one subagent job');
     expect(schema.description).toContain('terminal result');
-    expect(schema.description).toContain('timed-out outcomes');
-    expect(schema.description).toContain('detach');
-    expect(schema.description).toContain('tool-call channel');
+    expect(schema.description).toContain('terminal result');
+    expect(schema.description).toContain('tool call');
     expect(schema.description).not.toContain('<agent');
     expect(schema.description).not.toContain('pseudo-tags');
-    expect(schema.description).toContain('choose one backlog');
+    expect(schema.description).not.toContain('Use this');
+    expect(schema.description).not.toContain('same assistant turn');
     // Verify parameters include prompt, subagent_type, model
     const props = schema.parameters.properties;
     expect(props).toHaveProperty('prompt');
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
-    expect(props).toHaveProperty('parallel');
-    expect(props).toHaveProperty('background');
-    expect(props).toHaveProperty('detach');
+    expect(props).not.toHaveProperty('parallel');
+    expect(props).not.toHaveProperty('background');
+    expect(props).not.toHaveProperty('detach');
     expect(props).toHaveProperty('isolation');
-    expect((props.parallel as { description?: string }).description).toContain(
-      'multiple Agent tool calls',
-    );
-    expect((props.background as { description?: string }).description).toContain(
-      'Defaults to true',
-    );
-    expect((props.detach as { description?: string }).description).toContain('return immediately');
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -204,7 +196,7 @@ describe('Agent tool', () => {
   it('should return response with agentId', async () => {
     const tool = createAgentTool(makeDeps());
 
-    const toolResult = await tool.execute({ prompt: 'Do task', background: false });
+    const toolResult = await tool.execute({ prompt: 'Do task' });
     const result = parseToolResult(toolResult);
 
     expect(result['success']).toBe(true);
@@ -213,7 +205,7 @@ describe('Agent tool', () => {
     expect(result['agentId']).toMatch(/^agent_/);
   });
 
-  it('should route foreground execution through injected SubagentManager', async () => {
+  it('should route execution through injected SubagentManager in background mode', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_managed_1',
@@ -221,7 +213,7 @@ describe('Agent tool', () => {
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
-        mode: 'foreground',
+        mode: 'background',
         depth: 1,
         cwd: '/workspace',
         promptPreview: 'Find files',
@@ -250,7 +242,6 @@ describe('Agent tool', () => {
     const toolResult = await tool.execute({
       prompt: 'Find files',
       subagent_type: 'Explore',
-      background: false,
     });
     const result = parseToolResult(toolResult);
 
@@ -259,7 +250,7 @@ describe('Agent tool', () => {
         type: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
-        mode: 'foreground',
+        mode: 'background',
         depth: 1,
         cwd: '/workspace',
         prompt: 'Find files',
@@ -282,7 +273,7 @@ describe('Agent tool', () => {
         label: 'Explore',
         parentSessionId: 'session_parent',
         status: 'running',
-        mode: 'foreground',
+        mode: 'background',
         depth: 1,
         cwd: '/workspace',
         isolation: 'worktree',
@@ -317,7 +308,6 @@ describe('Agent tool', () => {
       prompt: 'Change files',
       subagent_type: 'Explore',
       isolation: 'worktree',
-      background: false,
     });
     const result = parseToolResult(toolResult);
 
@@ -396,7 +386,7 @@ describe('Agent tool', () => {
     });
   });
 
-  it('should wait for terminal result when background mode is explicitly requested', async () => {
+  it('should ignore undeclared background mode input and wait for terminal result', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_background_2',
@@ -452,7 +442,7 @@ describe('Agent tool', () => {
     });
   });
 
-  it('should return immediately only when detach is explicitly requested', async () => {
+  it('should ignore undeclared detach input and wait for terminal result', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_detached_1',
@@ -466,7 +456,10 @@ describe('Agent tool', () => {
         promptPreview: 'Find files',
         updatedAt: '2026-04-30T00:00:00.000Z',
       }),
-      wait: vi.fn(),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_detached_1',
+        output: 'detached input still waited',
+      }),
       list: vi.fn(),
       get: vi.fn(),
       cancel: vi.fn(),
@@ -497,13 +490,11 @@ describe('Agent tool', () => {
         prompt: 'Find files',
       }),
     );
-    expect(subagentManager.wait).not.toHaveBeenCalled();
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_detached_1');
     expect(result).toEqual({
       success: true,
-      background: true,
-      output: '',
+      output: 'detached input still waited',
       agentId: 'agent_detached_1',
-      status: 'running',
     });
   });
 
@@ -654,7 +645,7 @@ describe('Agent tool', () => {
     expect(timedOut['error']).toContain('Background agent produced no activity');
   });
 
-  it('should accept a model-emitted parallel hint without changing single-call execution', async () => {
+  it('should ignore undeclared model-emitted orchestration hints without changing single-call execution', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_parallel_hint_1',
@@ -692,6 +683,8 @@ describe('Agent tool', () => {
       prompt: 'Explore in parallel',
       subagent_type: 'Explore',
       parallel: true,
+      background: true,
+      detach: true,
     });
 
     expect(subagentManager.spawn).toHaveBeenCalledWith(
@@ -730,7 +723,6 @@ describe('Agent tool', () => {
       prompt: 'Do task',
       subagent_type: 'general-purpose',
       model: 'haiku',
-      background: false,
     });
 
     expect(createSubagentSession).toHaveBeenCalledWith(
@@ -754,7 +746,7 @@ describe('Agent tool', () => {
       }),
     );
 
-    await tool.execute({ prompt: 'Do task', background: false });
+    await tool.execute({ prompt: 'Do task' });
 
     expect(createSubagentSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -787,7 +779,7 @@ describe('Agent tool', () => {
 
     const tool = createAgentTool(makeDeps());
 
-    const toolResult = await tool.execute({ prompt: 'Do task', background: false });
+    const toolResult = await tool.execute({ prompt: 'Do task' });
     const result = parseToolResult(toolResult);
 
     expect(result['success']).toBe(false);
@@ -808,7 +800,6 @@ describe('Agent tool', () => {
     await tool.execute({
       prompt: 'Custom task',
       subagent_type: 'CustomWorker',
-      background: false,
     });
 
     expect(customRegistry).toHaveBeenCalledWith('CustomWorker');
@@ -838,7 +829,7 @@ describe('Agent tool', () => {
 
     const tool = createAgentTool(makeDeps());
 
-    const toolResult = await tool.execute({ prompt: 'Do task', background: false });
+    const toolResult = await tool.execute({ prompt: 'Do task' });
     const result = parseToolResult(toolResult);
 
     expect(result['success']).toBe(false);
@@ -868,7 +859,6 @@ describe('Agent tool', () => {
     await tool.execute({
       prompt: 'Do task',
       subagent_type: 'Explore',
-      background: false,
       // no model arg
     });
 
@@ -901,7 +891,6 @@ describe('Agent tool', () => {
     await tool.execute({
       prompt: 'Explore task',
       subagent_type: 'Explore',
-      background: false,
     });
 
     expect(customRegistry).toHaveBeenCalledWith('Explore');
@@ -940,7 +929,7 @@ describe('Agent tool', () => {
   it('should pass isForkWorker as undefined (not fork) to createSubagentSession', async () => {
     const tool = createAgentTool(makeDeps());
 
-    await tool.execute({ prompt: 'Do task', background: false });
+    await tool.execute({ prompt: 'Do task' });
 
     // Agent tool never sets isForkWorker (only useSubmitHandler fork runner does)
     expect(createSubagentSession).toHaveBeenCalledWith(
