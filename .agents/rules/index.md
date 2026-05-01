@@ -23,3 +23,4 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | [verification.md](verification.md)         | Build, browser, harness, and pre-push verification gates          |
 | [publish.md](publish.md)                   | Package publish safety gate and scope approval                    |
 | [operational.md](operational.md)           | No fallback policy, idea capture, feature documentation           |
+| [learning-loop.md](learning-loop.md)       | Lesson capture and mechanical enforcement preference              |
