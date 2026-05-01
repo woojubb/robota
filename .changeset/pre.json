@@ -56,10 +56,15 @@
     "@robota-sdk/dag-scheduler": "3.0.0-beta.43",
     "@robota-sdk/dag-worker": "3.0.0-beta.43",
     "@robota-sdk/agent-transport-headless": "3.0.0-beta.46",
-    "robota-blog": "0.0.1"
+    "robota-blog": "0.0.1",
+    "@robota-sdk/agent-command-agent": "3.0.0-beta.55",
+    "@robota-sdk/agent-provider-gemma": "3.0.0-beta.55",
+    "@robota-sdk/agent-provider-openai-compatible": "3.0.0-beta.55",
+    "@robota-sdk/agent-runtime": "3.0.0-beta.55"
   },
   "changesets": [
     "add-package-metadata",
+    "batch-beta-56",
     "every-aliens-pump",
     "fix-eslint-ci-reliability",
     "fix-package-metadata-order",
