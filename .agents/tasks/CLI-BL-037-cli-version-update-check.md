@@ -72,6 +72,8 @@ Robota should start with a conservative, universal update notice:
 - Updated package README and CLI guide documentation with the npm global install update path.
 - Verified `pnpm cli:dev --check-update` reaches the update-check path; current npm latest matched local `3.0.0-beta.56`.
 - Ran targeted package verification: agent-cli tests, typecheck, lint, build, docs structure validation, docs build, and harness verification.
+- Opened PR #112 against `develop`.
+- Fixed scoped verification in the harness so clean CI builds workspace dependencies before package-local build/test/lint/typecheck commands.
 
 ## Non-Goals
 
@@ -121,4 +123,4 @@ None.
 
 ## Result
 
-Implementation is complete and verified on branch `feat/cli-version-update-check`; commit and PR are pending. The CLI now checks npm metadata for newer `@robota-sdk/agent-cli` versions, stores only operational cache in `~/.robota/update-check.json`, avoids writing update policy into `settings.json`, and uses npm global install as the update path.
+Implementation is complete and verified on branch `feat/cli-version-update-check`; PR #112 is open. The CLI now checks npm metadata for newer `@robota-sdk/agent-cli` versions, stores only operational cache in `~/.robota/update-check.json`, avoids writing update policy into `settings.json`, and uses npm global install as the update path.
