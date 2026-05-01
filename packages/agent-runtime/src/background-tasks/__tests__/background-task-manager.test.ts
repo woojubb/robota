@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BackgroundTaskManager } from '../background-task-manager.js';
 import type {
   IBackgroundTaskHandle,
@@ -17,6 +17,7 @@ interface IStartedTask {
   taskId: string;
   deferred: ITestDeferred;
   cancelReason?: string;
+  emit?: IBackgroundTaskStart['emit'];
 }
 
 function createTestDeferred(): ITestDeferred {
@@ -37,13 +38,40 @@ function createControllableRunner(): { runner: IBackgroundTaskRunner; started: I
       kind: 'agent',
       start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
         const deferred = createTestDeferred();
-        const startedTask: IStartedTask = { taskId: task.taskId, deferred };
+        const startedTask: IStartedTask = { taskId: task.taskId, deferred, emit: task.emit };
         started.push(startedTask);
         return {
           taskId: task.taskId,
           result: deferred.promise,
           cancel: (reason?: string) => {
             startedTask.cancelReason = reason;
+            return Promise.resolve();
+          },
+        };
+      },
+    },
+  };
+}
+
+function createRejectingCancelRunner(): {
+  runner: IBackgroundTaskRunner;
+  started: IStartedTask[];
+} {
+  const started: IStartedTask[] = [];
+  return {
+    started,
+    runner: {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        const deferred = createTestDeferred();
+        const startedTask: IStartedTask = { taskId: task.taskId, deferred, emit: task.emit };
+        started.push(startedTask);
+        return {
+          taskId: task.taskId,
+          result: deferred.promise,
+          cancel: (reason?: string) => {
+            startedTask.cancelReason = reason;
+            deferred.reject(new Error(`runner observed cancel: ${reason ?? 'cancelled'}`));
             return Promise.resolve();
           },
         };
@@ -84,6 +112,10 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 describe('BackgroundTaskManager', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('moves a spawned task from running to completed and emits lifecycle events', async () => {
     const eventSink = vi.fn();
     const manager = new BackgroundTaskManager({
@@ -211,6 +243,21 @@ describe('BackgroundTaskManager', () => {
     expect(controlled.started[0]?.cancelReason).toBe('stop first');
   });
 
+  it('keeps manual cancellation terminal when runner result rejects during cancel', async () => {
+    const controlled = createRejectingCancelRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+    });
+
+    const created = await manager.spawn(createAgentRequest('Cancel race'));
+    await manager.cancel(created.id, 'user stop');
+    await flushMicrotasks();
+
+    await expect(manager.wait(created.id)).rejects.toThrow('user stop');
+    expect(manager.get(created.id)?.status).toBe('cancelled');
+    expect(manager.get(created.id)?.error?.message).toBe('user stop');
+  });
+
   it('closes terminal tasks from the registry', async () => {
     const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
     const created = await manager.spawn(createAgentRequest('Close this job'));
@@ -277,5 +324,154 @@ describe('BackgroundTaskManager', () => {
       success: true,
     });
     expect(manager.get(created.id)?.currentAction).toBeUndefined();
+  });
+
+  it('records last activity when background agent streams text', async () => {
+    let callCount = 0;
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      now: () => {
+        callCount += 1;
+        return `2026-04-30T00:00:0${callCount}.000Z`;
+      },
+    });
+
+    const created = await manager.spawn(createAgentRequest('Stream progress'));
+    const started = controlled.started[0];
+
+    started?.emit?.({ type: 'background_task_text_delta', delta: 'partial' });
+
+    const current = manager.get(created.id);
+    expect(current?.status).toBe('running');
+    expect(current?.lastActivityAt).toBe('2026-04-30T00:00:03.000Z');
+  });
+
+  it('fails an inactive agent after idle timeout and cancels its runner', async () => {
+    vi.useFakeTimers();
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      agentIdleTimeoutMs: 100,
+    });
+
+    const created = await manager.spawn(createAgentRequest('Wait too long'));
+    await vi.advanceTimersByTimeAsync(101);
+
+    await expect(manager.wait(created.id)).rejects.toThrow('produced no activity');
+    expect(manager.get(created.id)?.status).toBe('failed');
+    expect(manager.get(created.id)?.timeoutReason).toBe('idle');
+    expect(controlled.started[0]?.cancelReason).toContain('produced no activity');
+  });
+
+  it('keeps timeout failure terminal when runner result rejects during watchdog cancel', async () => {
+    vi.useFakeTimers();
+    const controlled = createRejectingCancelRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      agentIdleTimeoutMs: 100,
+    });
+
+    const created = await manager.spawn(createAgentRequest('Timeout race'));
+    await vi.advanceTimersByTimeAsync(101);
+    await flushMicrotasks();
+
+    await expect(manager.wait(created.id)).rejects.toThrow('produced no activity');
+    expect(manager.get(created.id)?.status).toBe('failed');
+    expect(manager.get(created.id)?.error?.category).toBe('timeout');
+    expect(manager.get(created.id)?.timeoutReason).toBe('idle');
+  });
+
+  it('treats legacy agent timeoutMs as an idle timeout', async () => {
+    vi.useFakeTimers();
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      agentIdleTimeoutMs: 1_000,
+    });
+
+    const created = await manager.spawn({
+      ...createAgentRequest('Legacy timeout'),
+      timeoutMs: 25,
+    });
+    await vi.advanceTimersByTimeAsync(26);
+
+    await expect(manager.wait(created.id)).rejects.toThrow('produced no activity');
+    expect(manager.get(created.id)?.timeoutReason).toBe('idle');
+  });
+
+  it('keeps idle timer alive on text activity but fails on max runtime', async () => {
+    vi.useFakeTimers();
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      agentIdleTimeoutMs: 50,
+      agentMaxRuntimeMs: 120,
+    });
+
+    const created = await manager.spawn(createAgentRequest('Never finish'));
+    await vi.advanceTimersByTimeAsync(40);
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: 'still working' });
+    await vi.advanceTimersByTimeAsync(40);
+    expect(manager.get(created.id)?.status).toBe('running');
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: 'still working' });
+    await vi.advanceTimersByTimeAsync(41);
+
+    await expect(manager.wait(created.id)).rejects.toThrow('exceeded max runtime');
+    expect(manager.get(created.id)?.timeoutReason).toBe('max_runtime');
+  });
+
+  it('fails a streaming agent that exceeds output limits', async () => {
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      agentOutputLimitBytes: 8,
+    });
+
+    const created = await manager.spawn(createAgentRequest('Write too much'));
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: '12345' });
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: '6789' });
+
+    await expect(manager.wait(created.id)).rejects.toThrow('exceeded output limit');
+    expect(manager.get(created.id)?.status).toBe('failed');
+    expect(manager.get(created.id)?.timeoutReason).toBe('output_limit');
+  });
+
+  it('fails a streaming agent that repeats the same delta', async () => {
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      repetitionThreshold: 3,
+    });
+
+    const created = await manager.spawn(createAgentRequest('Loop forever'));
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: 'same sentence.' });
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: 'same sentence.' });
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: 'same sentence.' });
+
+    await expect(manager.wait(created.id)).rejects.toThrow('repetitive output');
+    expect(manager.get(created.id)?.status).toBe('failed');
+    expect(manager.get(created.id)?.timeoutReason).toBe('repetition');
+  });
+
+  it('shutdown cancels queued and running tasks exactly once', async () => {
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      maxConcurrent: 1,
+    });
+
+    const first = await manager.spawn(createAgentRequest('First'));
+    const second = await manager.spawn(createAgentRequest('Second'));
+
+    await manager.shutdown('session shutdown');
+    await manager.shutdown('session shutdown again');
+
+    expect(manager.get(first.id)?.status).toBe('cancelled');
+    expect(manager.get(second.id)?.status).toBe('cancelled');
+    expect(controlled.started).toHaveLength(1);
+    expect(controlled.started[0]?.cancelReason).toBe('session shutdown');
+    await expect(manager.wait(first.id)).rejects.toThrow('session shutdown');
+    await expect(manager.wait(second.id)).rejects.toThrow('session shutdown');
   });
 });

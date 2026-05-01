@@ -6,6 +6,8 @@ import {
   type IBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskState,
+  type TBackgroundPrimitive,
+  type TBackgroundTaskTimeoutReason,
 } from './types.js';
 
 export interface ITrackedBackgroundTask {
@@ -15,7 +17,23 @@ export interface ITrackedBackgroundTask {
   resolve: (result: IBackgroundTaskResult) => void;
   reject: (error: BackgroundTaskError) => void;
   handle?: IBackgroundTaskHandle;
+  idleTimer?: ReturnType<typeof setTimeout>;
+  maxRuntimeTimer?: ReturnType<typeof setTimeout>;
+  recentText: string;
+  outputBytes: number;
+  textDeltas: number;
+  lastNormalizedDelta?: string;
+  repeatedDeltaCount: number;
 }
+
+const TIMEOUT_REASONS = new Set<TBackgroundTaskTimeoutReason>([
+  'idle',
+  'max_runtime',
+  'output_limit',
+  'repetition',
+  'stale_worker',
+]);
+const MIN_REPEATED_SENTENCE_LENGTH = 12;
 
 export function createDeferred(): {
   promise: Promise<IBackgroundTaskResult>;
@@ -64,6 +82,51 @@ export function applyBackgroundTaskResultMetadataToState(
   if (typeof logPath === 'string') state.logPath = logPath;
   const transcriptPath = result.metadata?.['transcriptPath'];
   if (typeof transcriptPath === 'string') state.transcriptPath = transcriptPath;
+  const timeoutReason = result.metadata?.['timeoutReason'];
+  if (isBackgroundTaskTimeoutReason(timeoutReason)) state.timeoutReason = timeoutReason;
+}
+
+export function isBackgroundTaskTimeoutReason(
+  value: TBackgroundPrimitive | undefined,
+): value is TBackgroundTaskTimeoutReason {
+  return typeof value === 'string' && TIMEOUT_REASONS.has(value as TBackgroundTaskTimeoutReason);
+}
+
+export function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
+  (timer as { unref?: () => void }).unref?.();
+}
+
+export function normalizeRepeatedText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+export function trimRecentText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return text.slice(text.length - maxChars);
+}
+
+export function hasRepeatedSentence(text: string, threshold: number): boolean {
+  if (threshold <= 1) return false;
+  const normalized = normalizeRepeatedText(text);
+  if (!normalized) return false;
+  const sentences = normalized
+    .split(/(?<=[.!?。！？])\s+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length >= MIN_REPEATED_SENTENCE_LENGTH);
+  if (sentences.length < threshold) return false;
+
+  let previous = '';
+  let count = 0;
+  for (const sentence of sentences) {
+    if (sentence === previous) {
+      count += 1;
+    } else {
+      previous = sentence;
+      count = 1;
+    }
+    if (count >= threshold) return true;
+  }
+  return false;
 }
 
 export function createQueuedBackgroundTaskState(

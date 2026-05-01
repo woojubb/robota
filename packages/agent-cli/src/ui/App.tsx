@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import { Box, Text, useApp, useInput } from 'ink';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -21,6 +21,7 @@ import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
@@ -38,6 +39,7 @@ interface IProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 /**
@@ -60,6 +62,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
+  const providerDefinitions = props.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
 
   const {
     interactiveSession,
@@ -70,6 +73,7 @@ function AppInner(
     activeTools,
     isThinking,
     isAborting,
+    isShuttingDown,
     pendingPrompt,
     backgroundTasks,
     permissionRequest,
@@ -77,6 +81,7 @@ function AppInner(
     handleSubmit: baseHandleSubmit,
     handleAbort,
     handleCancelQueue,
+    handleShutdown,
   } = useInteractiveSession({
     cwd,
     provider: props.provider,
@@ -89,9 +94,11 @@ function AppInner(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
+    providerDefinitions,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);
+  const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
 
   const {
@@ -113,6 +120,7 @@ function AppInner(
     addEntry,
     baseHandleSubmit,
     setSessionName,
+    providerDefinitions,
   });
 
   // Sync session name from InteractiveSession when resuming
@@ -133,6 +141,25 @@ function AppInner(
     if (permissionRequest || showPluginTUI || showSessionPicker) return;
     handleAbort();
   });
+
+  // Ctrl+C graceful shutdown
+  useInput((input: string, key: { ctrl?: boolean }) => {
+    if (!key.ctrl || input !== 'c' || isShuttingDown) return;
+    void handleShutdown('prompt_input_exit').finally(() => exit());
+  });
+
+  useEffect(() => {
+    const onSigterm = (): void => {
+      if (isShuttingDown) return;
+      void handleShutdown('other').finally(() => exit());
+    };
+    process.once('SIGINT', onSigterm);
+    process.once('SIGTERM', onSigterm);
+    return () => {
+      process.off('SIGINT', onSigterm);
+      process.off('SIGTERM', onSigterm);
+    };
+  }, [handleShutdown, exit, isShuttingDown]);
 
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
@@ -159,6 +186,11 @@ function AppInner(
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList history={history} />
+        {isShuttingDown && (
+          <Box marginBottom={1}>
+            <Text color="yellow">Shutting down...</Text>
+          </Box>
+        )}
         {(isThinking || activeTools.length > 0) && (
           <Box flexDirection="column" marginBottom={1}>
             <StreamingIndicator text={streamingText} activeTools={activeTools} />
@@ -182,6 +214,7 @@ function AppInner(
       {pendingProviderSetupType && (
         <ProviderSetupPrompt
           type={pendingProviderSetupType}
+          providerDefinitions={providerDefinitions}
           onSubmit={handleProviderSetupSubmit}
           onCancel={handleProviderSetupCancel}
         />
@@ -225,6 +258,7 @@ function AppInner(
           !!permissionRequest ||
           showPluginTUI ||
           showSessionPicker ||
+          isShuttingDown ||
           !!pendingProviderSetupType ||
           (isThinking && !!pendingPrompt)
         }

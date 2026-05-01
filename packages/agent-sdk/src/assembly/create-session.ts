@@ -44,6 +44,7 @@ import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-ru
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
+import { fireSubagentLifecycleHook } from './background-task-hooks.js';
 import type {
   IBackgroundTaskManager,
   IBackgroundTaskRunner,
@@ -219,6 +220,16 @@ export function createSession(options: ICreateSessionOptions): Session {
   if (backgroundTaskManager && sessionLogger) {
     backgroundTaskManager.subscribe((event) =>
       logBackgroundTaskEvent(sessionLogger, sessionId, event),
+    );
+  }
+  if (backgroundTaskManager) {
+    backgroundTaskManager.subscribe((event) =>
+      fireSubagentLifecycleHook(
+        event,
+        cwd,
+        options.config.hooks,
+        hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
+      ),
     );
   }
 

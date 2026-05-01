@@ -62,6 +62,10 @@ export class SubagentManager implements ISubagentManager {
     await this.backgroundTaskManager.send(jobId, { prompt });
   }
 
+  async shutdown(reason?: string): Promise<void> {
+    await this.backgroundTaskManager.shutdown(reason);
+  }
+
   getBackgroundTaskManager(): IBackgroundTaskManager {
     return this.backgroundTaskManager;
   }
@@ -83,6 +87,12 @@ export class SubagentManager implements ISubagentManager {
       maxDepth: options.maxDepth,
       now: options.now,
       idFactory: options.idFactory ?? ((request) => this.nextTaskId(request)),
+      agentIdleTimeoutMs: options.agentIdleTimeoutMs,
+      agentMaxRuntimeMs: options.agentMaxRuntimeMs,
+      agentOutputLimitBytes: options.agentOutputLimitBytes,
+      agentMaxTextDeltas: options.agentMaxTextDeltas,
+      repetitionWindow: options.repetitionWindow,
+      repetitionThreshold: options.repetitionThreshold,
     });
   }
 
@@ -110,6 +120,12 @@ export class SubagentManager implements ISubagentManager {
       allowedTools: request.allowedTools,
       disallowedTools: request.disallowedTools,
       timeoutMs: request.timeoutMs,
+      idleTimeoutMs: request.idleTimeoutMs,
+      maxRuntimeMs: request.maxRuntimeMs,
+      outputLimitBytes: request.outputLimitBytes,
+      maxTextDeltas: request.maxTextDeltas,
+      repetitionWindow: request.repetitionWindow,
+      repetitionThreshold: request.repetitionThreshold,
       permissionPolicy: 'inherit-allowlist',
     };
   }
@@ -135,6 +151,7 @@ export class SubagentManager implements ISubagentManager {
       startedAt: state.startedAt,
       updatedAt: state.updatedAt,
       completedAt: state.completedAt,
+      timeoutReason: state.timeoutReason,
       result: state.result?.output,
       error: state.error?.message,
     };
@@ -190,6 +207,12 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
     allowedTools: request.allowedTools,
     disallowedTools: request.disallowedTools,
     timeoutMs: request.timeoutMs,
+    idleTimeoutMs: request.idleTimeoutMs,
+    maxRuntimeMs: request.maxRuntimeMs,
+    outputLimitBytes: request.outputLimitBytes,
+    maxTextDeltas: request.maxTextDeltas,
+    repetitionWindow: request.repetitionWindow,
+    repetitionThreshold: request.repetitionThreshold,
     isolation: request.isolation,
   };
 }

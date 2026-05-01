@@ -51,6 +51,7 @@
     "@robota-sdk/agent-command-agent": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
+    "@robota-sdk/agent-provider-gemma": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-sdk": "workspace:*",
     "@robota-sdk/agent-sessions": "workspace:3.0.0-beta.55",

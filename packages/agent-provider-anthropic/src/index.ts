@@ -7,6 +7,7 @@
 // Main exports
 export * from './provider';
 export * from './types';
+export * from './provider-definition';
 
 import type { IAnthropicProviderOptions } from './types';
 

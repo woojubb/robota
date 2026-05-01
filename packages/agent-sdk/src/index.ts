@@ -5,6 +5,7 @@
 export { InteractiveSession } from './interactive/index.js';
 export type {
   IInteractiveSessionOptions,
+  IInteractiveSessionShutdownOptions,
   IToolState,
   IDiffLine,
   IExecutionResult,
@@ -127,6 +128,7 @@ export type { IBackgroundProcessToolDeps } from './tools/background-process-tool
 // ── Background task runtime contracts ──────────────────────
 export {
   BackgroundTaskError,
+  BackgroundJobOrchestrator,
   BackgroundTaskManager,
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
@@ -148,6 +150,10 @@ export type {
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   IBackgroundTaskState,
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
+  IBackgroundJobOrchestratorOptions,
+  IBackgroundJobResultEnvelope,
   IProcessBackgroundTaskRequest,
   ISerializableProviderProfile,
   TBackgroundTaskIdFactory,
@@ -161,7 +167,13 @@ export type {
   TBackgroundTaskMode,
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskStatus,
+  TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
+  TBackgroundJobGroupEvent,
+  TBackgroundJobGroupEventListener,
+  TBackgroundJobGroupIdFactory,
+  TBackgroundJobGroupStatus,
+  TBackgroundJobWaitPolicy,
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────

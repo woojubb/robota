@@ -14,19 +14,31 @@ import {
   type TBackgroundTaskEvent,
   type TBackgroundTaskEventListener,
   type TBackgroundTaskRunnerEvent,
+  type TBackgroundTaskTimeoutReason,
 } from './types.js';
-import { isTerminalBackgroundTaskStatus, transitionBackgroundTaskStatus } from './state-machine.js';
+import { isTerminalBackgroundTaskStatus } from './state-machine.js';
 import {
   cloneBackgroundTaskState,
-  applyBackgroundTaskResultMetadataToState,
   createDeferred,
   createQueuedBackgroundTaskState,
   createRunnerError,
   matchesBackgroundTaskFilter,
-  normalizeBackgroundTaskError,
   toBackgroundTaskErrorMessage,
   type ITrackedBackgroundTask,
 } from './background-task-manager-helpers.js';
+import {
+  BackgroundTaskWatchdogController,
+  createBackgroundTaskWatchdogs,
+} from './background-task-watchdogs.js';
+import {
+  applyBackgroundTaskRunnerStateEvent,
+  markBackgroundTaskCancelled,
+  markBackgroundTaskCompleted,
+  markBackgroundTaskFailed,
+  markBackgroundTaskStarted,
+  startBackgroundTaskRunner,
+  validateBackgroundTaskRequest,
+} from './background-task-manager-state.js';
 
 const DEFAULT_MAX_CONCURRENT = 4;
 const DEFAULT_MAX_DEPTH = 1;
@@ -38,12 +50,15 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly maxDepth: number;
   private readonly now: () => string;
   private readonly idFactory: TBackgroundTaskIdFactory;
+  private readonly watchdogs: BackgroundTaskWatchdogController;
   private readonly listeners = new Set<TBackgroundTaskEventListener>();
   private readonly eventSink?: TBackgroundTaskEventListener;
   private readonly tasks = new Map<string, ITrackedBackgroundTask>();
   private readonly queue: string[] = [];
   private activeCount = 0;
   private sequence = 0;
+  private shuttingDown = false;
+  private shutdownPromise?: Promise<void>;
 
   constructor(options: IBackgroundTaskManagerOptions) {
     for (const runner of options.runners) this.runners.set(runner.kind, runner);
@@ -51,6 +66,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     this.eventSink = options.eventSink;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.watchdogs = createBackgroundTaskWatchdogs(options, (task, reason, message) => {
+      void this.failForTimeout(task, reason, message);
+    });
     this.idFactory =
       options.idFactory ??
       (() => {
@@ -60,7 +78,10 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   async spawn(request: IBackgroundTaskRequest): Promise<IBackgroundTaskState> {
-    this.validateRequest(request);
+    if (this.shuttingDown) {
+      throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
+    }
+    validateBackgroundTaskRequest(request, this.runners, this.maxDepth);
     const id = this.idFactory(request);
     const deferred = createDeferred();
     void deferred.promise.catch(() => undefined);
@@ -72,6 +93,10 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       completion: deferred.promise,
       resolve: deferred.resolve,
       reject: deferred.reject,
+      recentText: '',
+      outputBytes: 0,
+      textDeltas: 0,
+      repeatedDeltaCount: 0,
     });
     this.queue.push(id);
     this.emit({ type: 'background_task_created', task: cloneBackgroundTaskState(state) });
@@ -105,11 +130,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       return;
     }
 
-    try {
-      await task.handle?.cancel(reason);
-    } finally {
-      this.cancelTask(task, reason);
-    }
+    const handle = task.handle;
+    this.cancelTask(task, reason);
+    await handle?.cancel(reason).catch(() => undefined);
   }
 
   async close(taskId: string): Promise<void> {
@@ -119,6 +142,17 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     }
     this.tasks.delete(taskId);
     this.emit({ type: 'background_task_closed', taskId });
+  }
+
+  shutdown(reason = 'Background task manager shutdown'): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.shuttingDown = true;
+    this.shutdownPromise = Promise.all(
+      [...this.tasks.values()]
+        .filter((task) => !isTerminalBackgroundTaskStatus(task.state.status))
+        .map((task) => this.cancel(task.state.id, reason)),
+    ).then(() => undefined);
+    return this.shutdownPromise;
   }
 
   async send(taskId: string, input: IBackgroundTaskInput): Promise<void> {
@@ -147,18 +181,6 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     };
   }
 
-  private validateRequest(request: IBackgroundTaskRequest): void {
-    if (request.depth > this.maxDepth) {
-      throw new BackgroundTaskError(
-        'validation',
-        `Background task depth limit exceeded: depth=${request.depth} maxDepth=${this.maxDepth}`,
-      );
-    }
-    if (!this.runners.has(request.kind)) {
-      throw createRunnerError(`No background task runner registered for kind: ${request.kind}`);
-    }
-  }
-
   private drainQueue(): void {
     while (this.activeCount < this.maxConcurrent) {
       const taskId = this.queue.shift();
@@ -176,107 +198,85 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       return;
     }
 
-    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'START');
-    task.state.startedAt = this.now();
-    task.state.updatedAt = task.state.startedAt;
+    const started = markBackgroundTaskStarted(task, this.now());
     this.activeCount += 1;
-    this.emit({ type: 'background_task_started', task: cloneBackgroundTaskState(task.state) });
+    this.emit({ type: 'background_task_started', task: started });
 
-    try {
-      const handle = runner.start({
-        taskId: task.state.id,
-        request: task.request,
-        emit: (event) => this.handleRunnerEvent(task, event),
-      });
-      task.handle = handle;
-      if (handle.pid) task.state.pid = handle.pid;
-      if (handle.logPath) task.state.logPath = handle.logPath;
-      if (handle.transcriptPath) task.state.transcriptPath = handle.transcriptPath;
-      if (handle.pid || handle.logPath || handle.transcriptPath) {
-        task.state.updatedAt = this.now();
-        this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
-      }
-      handle.result.then(
-        (result) => this.completeTask(task, result),
-        (error) => this.failTask(task, error instanceof Error ? error : String(error)),
-      );
-    } catch (error) {
-      this.failTask(task, error instanceof Error ? error : String(error));
-    }
+    startBackgroundTaskRunner({
+      task,
+      runner,
+      now: this.now,
+      onEvent: (event) => this.handleRunnerEvent(task, event),
+      onStarted: () => this.watchdogs.start(task),
+      onUpdated: (updated) => this.emit({ type: 'background_task_updated', task: updated }),
+      onCompleted: (result) => this.completeTask(task, result),
+      onFailed: (error) => this.failTask(task, error),
+    });
   }
 
   private completeTask(task: ITrackedBackgroundTask, result: IBackgroundTaskResult): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
-    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'COMPLETE');
-    task.state.result = result;
-    applyBackgroundTaskResultMetadataToState(task.state, result);
-    task.state.unread = task.state.mode === 'background';
-    task.state.completedAt = this.now();
-    task.state.updatedAt = task.state.completedAt;
+    this.watchdogs.clear(task);
+    const completed = markBackgroundTaskCompleted(task, result, this.now());
     this.activeCount -= 1;
     task.resolve(result);
-    this.emit({ type: 'background_task_completed', task: cloneBackgroundTaskState(task.state) });
-    this.drainQueue();
+    this.emit({ type: 'background_task_completed', task: completed });
+    if (!this.shuttingDown) this.drainQueue();
   }
 
   private failTask(task: ITrackedBackgroundTask, error: Error | string): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
-    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'FAIL');
-    task.state.error = normalizeBackgroundTaskError(error);
-    task.state.completedAt = this.now();
-    task.state.updatedAt = task.state.completedAt;
+    this.watchdogs.clear(task);
+    const failed = markBackgroundTaskFailed(task, error, this.now());
     this.activeCount -= 1;
     task.reject(createRunnerError(toBackgroundTaskErrorMessage(error)));
-    this.emit({ type: 'background_task_failed', task: cloneBackgroundTaskState(task.state) });
-    this.drainQueue();
+    this.emit({ type: 'background_task_failed', task: failed });
+    if (!this.shuttingDown) this.drainQueue();
   }
 
   private cancelTask(task: ITrackedBackgroundTask, reason?: string): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
-    const wasActive = task.state.status !== 'queued';
-    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'CANCEL');
-    task.state.error = {
-      category: 'runner',
-      message: reason ?? 'Background task cancelled',
-      recoverable: true,
-    };
-    task.state.completedAt = this.now();
-    task.state.updatedAt = task.state.completedAt;
-    if (wasActive) this.activeCount -= 1;
-    task.reject(createRunnerError(task.state.error.message));
-    this.emit({ type: 'background_task_cancelled', task: cloneBackgroundTaskState(task.state) });
-    this.drainQueue();
+    this.watchdogs.clear(task);
+    const cancelled = markBackgroundTaskCancelled(task, reason, this.now());
+    if (cancelled.wasActive) this.activeCount -= 1;
+    task.reject(createRunnerError(task.state.error?.message ?? 'Background task cancelled'));
+    this.emit({ type: 'background_task_cancelled', task: cancelled.task });
+    if (!this.shuttingDown) this.drainQueue();
   }
 
   private handleRunnerEvent(task: ITrackedBackgroundTask, event: TBackgroundTaskRunnerEvent): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
-    const emitted = this.toBackgroundTaskEvent(task, event);
     this.applyRunnerEventToState(task, event);
-    this.emit(emitted);
+    this.emit({ ...event, taskId: task.state.id });
+    if (event.type === 'background_task_text_delta') {
+      this.watchdogs.applyTextGuards(task, event.delta);
+    }
   }
 
   private applyRunnerEventToState(
     task: ITrackedBackgroundTask,
     event: TBackgroundTaskRunnerEvent,
   ): void {
-    if (event.type === 'background_task_tool_start') {
-      task.state.currentAction = event.firstArg ?? event.toolName;
-      task.state.updatedAt = this.now();
-      this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
-      return;
-    }
-    if (event.type === 'background_task_tool_end') {
-      task.state.currentAction = event.success ? undefined : (event.error ?? event.toolName);
-      task.state.updatedAt = this.now();
-      this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
-    }
+    const now = this.now();
+    this.watchdogs.recordActivity(task, now);
+    const updated = applyBackgroundTaskRunnerStateEvent(task, event, now);
+    if (updated) this.emit({ type: 'background_task_updated', task: updated });
   }
 
-  private toBackgroundTaskEvent(
+  private async failForTimeout(
     task: ITrackedBackgroundTask,
-    event: TBackgroundTaskRunnerEvent,
-  ): TBackgroundTaskEvent {
-    return { ...event, taskId: task.state.id };
+    reason: TBackgroundTaskTimeoutReason,
+    message: string,
+  ): Promise<void> {
+    if (isTerminalBackgroundTaskStatus(task.state.status)) return;
+    task.state.timeoutReason = reason;
+    const handle = task.handle;
+    this.failTask(task, new BackgroundTaskError('timeout', message));
+    try {
+      await handle?.cancel(message);
+    } catch {
+      // The timeout failure is authoritative; runner cancellation errors are secondary.
+    }
   }
 
   private removeFromQueue(taskId: string): void {

@@ -188,6 +188,7 @@ describe('SystemCommandExecutor', () => {
           depth: 1,
           cwd: '/workspace',
           updatedAt: '2026-04-30T00:00:00.000Z',
+          lastActivityAt: '2026-04-30T00:00:01.000Z',
           unread: false,
           promptPreview: 'Find files',
         },
@@ -198,7 +199,9 @@ describe('SystemCommandExecutor', () => {
 
     expect(result).not.toBeNull();
     expect(result!.success).toBe(true);
-    expect(result!.message).toContain('agent_1 [running] agent:Explore');
+    expect(result!.message).toContain(
+      'agent_1 [running lastActivityAt=2026-04-30T00:00:01.000Z] agent:Explore',
+    );
     expect(result!.data?.count).toBe(1);
   });
 

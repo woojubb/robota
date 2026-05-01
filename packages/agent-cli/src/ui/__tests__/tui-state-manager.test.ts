@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { TuiStateManager } from '../tui-state-manager.js';
+import { trimBackgroundPreview } from '../background-task-view-model.js';
 import type { IToolState, IExecutionResult, IBackgroundTaskState } from '@robota-sdk/agent-sdk';
 
 function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
@@ -289,6 +290,35 @@ describe('TuiStateManager', () => {
     expect(mgr.backgroundTasks).toEqual([]);
   });
 
+  it('projects timeout reason and last activity for background tasks', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_failed',
+      task: makeBackgroundTask({
+        id: 'agent_timeout',
+        status: 'failed',
+        lastActivityAt: '2026-05-01T00:00:10.000Z',
+        timeoutReason: 'idle',
+        error: {
+          category: 'timeout',
+          message: 'Background agent idle timeout',
+          recoverable: true,
+        },
+      }),
+    });
+
+    expect(mgr.backgroundTasks[0]!.statusLabel).toBe('timed out');
+    expect(mgr.backgroundTasks[0]!.timeoutReason).toBe('idle');
+    expect(mgr.backgroundTasks[0]!.lastActivityAt).toBe('2026-05-01T00:00:10.000Z');
+  });
+
+  it('normalizes background task previews into one trimmed line', () => {
+    expect(trimBackgroundPreview('\n\n  The analysis\n\n reveals   details  ')).toBe(
+      'The analysis reveals details',
+    );
+  });
+
   it('accumulates background text deltas and tool action previews', () => {
     const mgr = new TuiStateManager();
 
@@ -317,12 +347,12 @@ describe('TuiStateManager', () => {
     mgr.onBackgroundTaskEvent({
       type: 'background_task_text_delta',
       taskId: 'agent_1',
-      delta: 'partial ',
+      delta: '\n\npartial ',
     });
     mgr.onBackgroundTaskEvent({
       type: 'background_task_text_delta',
       taskId: 'agent_1',
-      delta: 'answer',
+      delta: 'answer\n\n',
     });
 
     expect(mgr.backgroundTasks[0]!.currentAction).toBe('file.ts');

@@ -24,7 +24,14 @@ import type {
   TSubagentRunnerFactory,
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
-import type { TPermissionMode, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  IProviderDefinition,
+  TPermissionMode,
+  TToolArgs,
+  IHistoryEntry,
+  TSessionEndReason,
+} from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
@@ -39,7 +46,7 @@ export interface ISideEffects {
   _triggerResumePicker?: boolean;
   _sessionName?: string;
   _pendingProviderProfile?: string;
-  _pendingProviderSetupType?: 'openai' | 'anthropic';
+  _pendingProviderSetupType?: string;
 }
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
@@ -56,6 +63,7 @@ export interface IInteractiveSessionProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 export interface IInteractiveSessionState {
@@ -67,6 +75,7 @@ export interface IInteractiveSessionState {
   activeTools: import('@robota-sdk/agent-sdk').IToolState[];
   isThinking: boolean;
   isAborting: boolean;
+  isShuttingDown: boolean;
   pendingPrompt: string | null;
   backgroundTasks: import('../tui-state-manager.js').IBackgroundTaskViewModel[];
   permissionRequest: IPermissionRequest | null;
@@ -74,6 +83,7 @@ export interface IInteractiveSessionState {
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
+  handleShutdown: (reason?: TSessionEndReason) => Promise<void>;
 }
 
 interface IInitState {
@@ -127,6 +137,7 @@ function initializeSession(
 export function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState {
   const [, forceRender] = useState(0);
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
 
   // Permission queue (TUI-specific — needs React state for UI)
   const permissionQueueRef = useRef<
@@ -241,7 +252,13 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, [manager.isThinking, interactiveSession, manager]);
 
   // Slash command routing (delegated to useSlashRouting)
-  const handleSubmit = useSlashRouting(props.cwd, interactiveSession, registry, manager);
+  const handleSubmit = useSlashRouting(
+    props.cwd,
+    interactiveSession,
+    registry,
+    manager,
+    props.providerDefinitions ?? [],
+  );
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);
@@ -253,6 +270,16 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     manager.setPendingPrompt(null);
   }, [interactiveSession, manager]);
 
+  const handleShutdown = useCallback(
+    async (reason: TSessionEndReason = 'prompt_input_exit'): Promise<void> => {
+      if (isShuttingDown) return;
+      setIsShuttingDown(true);
+      manager.addEntry(messageToHistoryEntry(createSystemMessage('Shutting down...')));
+      await interactiveSession.shutdown({ reason, message: 'CLI shutdown' });
+    },
+    [interactiveSession, manager, isShuttingDown],
+  );
+
   return {
     interactiveSession,
     registry,
@@ -262,6 +289,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     activeTools: manager.activeTools,
     isThinking: manager.isThinking,
     isAborting: manager.isAborting,
+    isShuttingDown,
     pendingPrompt: manager.pendingPrompt,
     backgroundTasks: manager.backgroundTasks,
     permissionRequest,
@@ -269,5 +297,6 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     handleSubmit,
     handleAbort,
     handleCancelQueue,
+    handleShutdown,
   };
 }

@@ -348,13 +348,18 @@ Settings are merged from lowest to highest priority:
 ```json
 {
   "defaultMode": "default",
-  "currentProvider": "openai",
+  "currentProvider": "gemma",
   "providers": {
-    "openai": {
-      "type": "openai",
+    "gemma": {
+      "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
     },
     "anthropic": {
       "type": "anthropic",
@@ -369,7 +374,7 @@ Settings are merged from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects the active entry from `providers`. The resolved SDK config normalizes that profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
+`currentProvider` selects the active entry from `providers`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
 
 ## Permission Modes
 

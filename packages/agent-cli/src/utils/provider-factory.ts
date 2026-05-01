@@ -1,34 +1,29 @@
 /**
- * Provider factory — creates AI provider instance from settings.
+ * Provider factory — creates AI provider instances from injected definitions.
  *
- * CLI owns provider creation. Reads settings to determine which
- * provider package to use, creates the instance, passes to SDK.
+ * CLI owns provider profile resolution. Provider packages own their
+ * defaults, validation metadata, probes, and concrete construction.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-sdk';
+import { type TProviderSettingsDocument } from './provider-settings.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import {
-  DEFAULT_OPENAI_COMPATIBLE_API_KEY,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  DEFAULT_PROVIDER_MODELS,
-  type TProviderSettingsDocument,
-} from './provider-settings.js';
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  type IProviderConfig,
+  type IProviderDefinition,
+} from './provider-definition.js';
 
-export interface IProviderConfig {
-  name: string;
-  model: string;
-  apiKey?: string;
-  baseURL?: string;
-  timeout?: number;
-}
+export type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
 
 export interface IReadProviderSettingsOptions {
   providerOverride?: string;
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 /** Read provider settings from the settings file chain. */
@@ -37,7 +32,11 @@ export function readProviderSettings(
   options: IReadProviderSettingsOptions = {},
 ): IProviderConfig {
   const merged = readMergedProviderSettings(cwd);
-  const providerConfig = resolveActiveProvider(merged, options.providerOverride);
+  const providerConfig = resolveActiveProvider(
+    merged,
+    options.providerOverride,
+    getProviderDefinitions(options),
+  );
   if (providerConfig !== undefined) {
     return providerConfig;
   }
@@ -108,6 +107,7 @@ function mergeProviders(
 function resolveActiveProvider(
   settings: TProviderSettingsDocument,
   providerOverride?: string,
+  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): IProviderConfig | undefined {
   const activeProvider = providerOverride ?? settings.currentProvider;
   if (activeProvider !== undefined) {
@@ -118,40 +118,53 @@ function resolveActiveProvider(
     if (!profile.type) {
       throw new Error(`Provider profile "${activeProvider}" is missing type`);
     }
-    return normalizeProviderConfig({
-      name: profile.type,
-      model: profile.model,
-      apiKey: profile.apiKey,
-      baseURL: profile.baseURL,
-      timeout: profile.timeout,
-    });
+    return normalizeProviderConfig(
+      {
+        name: profile.type,
+        model: profile.model,
+        apiKey: profile.apiKey,
+        baseURL: profile.baseURL,
+        timeout: profile.timeout,
+      },
+      providerDefinitions,
+    );
   }
 
   const provider = settings.provider;
   if (provider?.name) {
-    return normalizeProviderConfig({
-      name: provider.name,
-      model: provider.model,
-      apiKey: provider.apiKey,
-      baseURL: provider.baseURL,
-      timeout: provider.timeout,
-    });
+    return normalizeProviderConfig(
+      {
+        name: provider.name,
+        model: provider.model,
+        apiKey: provider.apiKey,
+        baseURL: provider.baseURL,
+        timeout: provider.timeout,
+      },
+      providerDefinitions,
+    );
   }
 
   return undefined;
 }
 
-function normalizeProviderConfig(settings: {
-  name: string;
-  model?: string;
-  apiKey?: string;
-  baseURL?: string;
-  timeout?: number;
-}): IProviderConfig {
-  const defaults = getProviderDefaults(settings.name);
+function normalizeProviderConfig(
+  settings: {
+    name: string;
+    model?: string;
+    apiKey?: string;
+    baseURL?: string;
+    timeout?: number;
+  },
+  providerDefinitions: readonly IProviderDefinition[],
+): IProviderConfig {
+  const defaults = findProviderDefinition(providerDefinitions, settings.name)?.defaults ?? {};
+  const model = settings.model ?? defaults.model;
+  if (!model) {
+    throw new Error(`Provider ${settings.name} requires model`);
+  }
   return {
     name: settings.name,
-    model: settings.model ?? defaults.model,
+    model,
     apiKey: settings.apiKey !== undefined ? resolveEnvRef(settings.apiKey) : defaults.apiKey,
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
@@ -167,27 +180,6 @@ function resolveEnvRef(value: string): string {
   return process.env[envName] ?? value;
 }
 
-function getProviderDefaults(name: string): { model: string; apiKey?: string; baseURL?: string } {
-  if (name === 'openai') {
-    return {
-      model: DEFAULT_PROVIDER_MODELS['openai'] ?? 'supergemma4-26b-uncensored-v2',
-      apiKey: DEFAULT_OPENAI_COMPATIBLE_API_KEY,
-      baseURL: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-    };
-  }
-  return {
-    model:
-      DEFAULT_PROVIDER_MODELS[name] ?? DEFAULT_PROVIDER_MODELS['anthropic'] ?? 'claude-sonnet-4-6',
-  };
-}
-
-function requireApiKey(settings: IProviderConfig): string {
-  if (!settings.apiKey) {
-    throw new Error(`Provider ${settings.name} requires apiKey`);
-  }
-  return settings.apiKey;
-}
-
 function resolveProfileApiKey(profile: ISerializableProviderProfile): string | undefined {
   if (profile.apiKey !== undefined) {
     return profile.apiKey;
@@ -198,25 +190,20 @@ function resolveProfileApiKey(profile: ISerializableProviderProfile): string | u
   return undefined;
 }
 
-function createProviderFromConfig(settings: IProviderConfig): IAIProvider {
-  switch (settings.name) {
-    case 'anthropic':
-      return new AnthropicProvider({
-        apiKey: requireApiKey(settings),
-        ...(settings.baseURL !== undefined && { baseURL: settings.baseURL }),
-        ...(settings.timeout !== undefined && { timeout: settings.timeout }),
-        defaultModel: settings.model,
-      });
-    case 'openai':
-      return new OpenAIProvider({
-        apiKey: requireApiKey(settings),
-        ...(settings.baseURL !== undefined && { baseURL: settings.baseURL }),
-        ...(settings.timeout !== undefined && { timeout: settings.timeout }),
-        defaultModel: settings.model,
-      });
-    default:
-      throw new Error(`Unknown provider: ${settings.name}. Currently supported: anthropic, openai`);
+function createProviderFromConfig(
+  settings: IProviderConfig,
+  providerDefinitions: readonly IProviderDefinition[],
+): IAIProvider {
+  const definition = findProviderDefinition(providerDefinitions, settings.name);
+  if (definition === undefined) {
+    throw new Error(
+      `Unknown provider: ${settings.name}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
+    );
   }
+  if (definition.requiresApiKey === true && !settings.apiKey) {
+    throw new Error(`Provider ${settings.name} requires apiKey`);
+  }
+  return definition.createProvider(settings);
 }
 
 /** Create a provider instance from settings. */
@@ -225,22 +212,36 @@ export function createProviderFromSettings(
   modelOverride?: string,
   options: IReadProviderSettingsOptions = {},
 ): IAIProvider {
-  const settings = readProviderSettings(cwd, options);
+  const providerDefinitions = getProviderDefinitions(options);
+  const settings = readProviderSettings(cwd, { ...options, providerDefinitions });
   const model = modelOverride ?? settings.model;
 
-  return createProviderFromConfig({ ...settings, model });
+  return createProviderFromConfig({ ...settings, model }, providerDefinitions);
 }
 
 /** Create a provider instance from a serialized background worker profile. */
 export function createProviderFromProfile(
   profile: ISerializableProviderProfile,
   modelOverride?: string,
+  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): IAIProvider {
-  return createProviderFromConfig({
-    name: profile.type,
-    model: modelOverride ?? profile.model,
-    apiKey: resolveProfileApiKey(profile),
-    baseURL: profile.baseURL,
-    timeout: profile.timeout,
-  });
+  return createProviderFromConfig(
+    normalizeProviderConfig(
+      {
+        name: profile.type,
+        model: modelOverride ?? profile.model,
+        apiKey: resolveProfileApiKey(profile),
+        baseURL: profile.baseURL,
+        timeout: profile.timeout,
+      },
+      providerDefinitions,
+    ),
+    providerDefinitions,
+  );
+}
+
+function getProviderDefinitions(
+  options: IReadProviderSettingsOptions,
+): readonly IProviderDefinition[] {
+  return options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
 }

@@ -282,13 +282,18 @@ Settings are merged in this order, from lowest to highest priority:
 {
   "defaultMode": "default",
   "language": "en",
-  "currentProvider": "openai",
+  "currentProvider": "gemma",
   "providers": {
-    "openai": {
-      "type": "openai",
+    "gemma": {
+      "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
     },
     "anthropic": {
       "type": "anthropic",
@@ -303,7 +308,7 @@ Settings are merged in this order, from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects a profile from `providers`. LM Studio uses `type: "openai"` because the CLI talks to its OpenAI-compatible `/v1/chat/completions` API through `baseURL`. The legacy single-provider shape remains supported:
+`currentProvider` selects a profile from `providers`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply Gemma filtering. The legacy single-provider shape remains supported:
 
 ```json
 {

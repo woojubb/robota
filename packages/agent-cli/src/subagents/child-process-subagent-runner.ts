@@ -11,21 +11,19 @@ import {
   type IBackgroundTaskLogCursor,
   type IBackgroundTaskLogPage,
   type ISubagentJobHandle,
-  type ISubagentJobResult,
   type ISubagentJobStart,
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
   type TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
 import type { IProviderConfig } from '../utils/provider-factory.js';
+import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import {
-  isSubagentWorkerChildMessage,
-  type ISubagentWorkerStartPayload,
-  type TSubagentWorkerWireValue,
-} from './child-process-subagent-ipc.js';
+  createCancellationResult,
+  createChildProcessSubagentResult,
+} from './child-process-subagent-runner-result.js';
 import {
   cancelChildProcess,
-  handleWorkerMessage,
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
@@ -43,11 +41,6 @@ export interface IChildProcessSubagentRunnerOptions {
   worktreeIsolation?: boolean;
   worktreeAdapter?: ISubagentWorktreeAdapter;
   logsDir?: string;
-}
-
-interface ICancellationResult {
-  promise: Promise<ISubagentJobResult>;
-  reject(reason?: string): void;
 }
 
 export function createChildProcessSubagentRunnerFactory(
@@ -98,7 +91,11 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       killGraceMs: this.killGraceMs,
     };
     const payload = this.createStartPayload(job);
-    const workerResult = this.createResult(runtime, payload);
+    const workerResult = createChildProcessSubagentResult({
+      runtime,
+      payload,
+      resolveTranscriptPath: (request) => this.resolveTranscriptPath(request),
+    });
     const cancellation = createCancellationResult(job.jobId);
     void workerResult.catch(() => undefined);
     const result = Promise.race([workerResult, cancellation.promise]);
@@ -141,109 +138,6 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     if (!this.logsDir) return undefined;
     return join(this.logsDir, job.request.parentSessionId, 'subagents', `${job.jobId}.jsonl`);
   }
-
-  private createResult(
-    runtime: IChildProcessRuntime,
-    payload: ISubagentWorkerStartPayload,
-  ): Promise<ISubagentJobResult> {
-    let settled = false;
-    let started = false;
-
-    return new Promise<ISubagentJobResult>((resolve, reject) => {
-      const timeoutTimer = runtime.job.request.timeoutMs
-        ? setTimeout(() => {
-            void cancelChildProcess(runtime, 'Subagent worker timed out');
-            rejectOnce(new BackgroundTaskError('timeout', 'Subagent worker timed out'));
-          }, runtime.job.request.timeoutMs)
-        : undefined;
-
-      const clearTimers = (): void => {
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        if (runtime.killTimer) clearTimeout(runtime.killTimer);
-      };
-
-      const resolveOnce = (output: string): void => {
-        if (settled) return;
-        settled = true;
-        clearTimers();
-        cleanup();
-        const transcriptPath = this.resolveTranscriptPath(runtime.job);
-        resolve({
-          jobId: runtime.job.jobId,
-          output,
-          ...(transcriptPath ? { metadata: { transcriptPath, logPath: transcriptPath } } : {}),
-        });
-      };
-
-      const rejectOnce = (error: Error): void => {
-        if (settled) return;
-        settled = true;
-        clearTimers();
-        cleanup();
-        reject(error);
-      };
-
-      const startWorker = (): void => {
-        if (started) return;
-        started = true;
-        void sendWorkerMessage(runtime.child, { type: 'start', payload }).catch((error) => {
-          rejectOnce(error instanceof Error ? error : new Error(String(error)));
-        });
-      };
-
-      const onMessage = (message: TSubagentWorkerWireValue): void => {
-        if (!isSubagentWorkerChildMessage(message)) {
-          rejectOnce(
-            new BackgroundTaskError('runner', 'Received malformed subagent worker message'),
-          );
-          return;
-        }
-        handleWorkerMessage(message, startWorker, resolveOnce, rejectOnce, runtime.job.emit);
-      };
-
-      const onError = (error: Error): void => {
-        rejectOnce(new BackgroundTaskError('crash', error.message));
-      };
-
-      const onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
-        if (settled) return;
-        const detail =
-          signal !== null ? `signal ${signal}` : `exit code ${code === null ? 'unknown' : code}`;
-        rejectOnce(
-          new BackgroundTaskError('crash', `Subagent worker exited before result: ${detail}`),
-        );
-      };
-
-      const cleanup = (): void => {
-        runtime.child.off('message', onMessage);
-        runtime.child.off('error', onError);
-        runtime.child.off('exit', onExit);
-      };
-
-      runtime.child.on('message', onMessage);
-      runtime.child.on('error', onError);
-      runtime.child.on('exit', onExit);
-      runtime.child.once('spawn', () => {
-        setImmediate(startWorker);
-      });
-    });
-  }
-}
-
-function createCancellationResult(jobId: string): ICancellationResult {
-  let settled = false;
-  let rejectFn: (error: Error) => void = () => {};
-  const promise = new Promise<ISubagentJobResult>((_resolve, reject) => {
-    rejectFn = reject;
-  });
-  return {
-    promise,
-    reject(reason?: string): void {
-      if (settled) return;
-      settled = true;
-      rejectFn(new BackgroundTaskError('runner', reason ?? `Subagent job cancelled: ${jobId}`));
-    },
-  };
 }
 
 function resolveAgentDefinition(

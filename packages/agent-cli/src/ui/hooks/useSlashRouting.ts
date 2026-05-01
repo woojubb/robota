@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import { randomUUID } from 'node:crypto';
 import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ISideEffects } from './useInteractiveSession.js';
 import { handleProviderCommand } from '../../utils/provider-command.js';
@@ -18,6 +19,7 @@ export function useSlashRouting(
   interactiveSession: InteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
+  providerDefinitions: readonly IProviderDefinition[],
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -34,7 +36,7 @@ export function useSlashRouting(
       const args = parts.slice(1).join(' ');
 
       if (cmd === 'provider') {
-        await routeProviderCommand(cwd, args, interactiveSession, manager);
+        await routeProviderCommand(cwd, args, interactiveSession, manager, providerDefinitions);
         return;
       }
 
@@ -61,7 +63,7 @@ export function useSlashRouting(
         ),
       );
     },
-    [cwd, interactiveSession, registry, manager],
+    [cwd, interactiveSession, registry, manager, providerDefinitions],
   );
 }
 
@@ -70,8 +72,9 @@ async function routeProviderCommand(
   args: string,
   interactiveSession: InteractiveSession,
   manager: TuiStateManager,
+  providerDefinitions: readonly IProviderDefinition[],
 ): Promise<void> {
-  const result = await handleProviderCommand(cwd, args);
+  const result = await handleProviderCommand(cwd, args, { providerDefinitions });
   manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
   const providerSwitch = result.data?.providerSwitch;
   if (providerSwitch?.profile) {

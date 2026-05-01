@@ -309,17 +309,21 @@ describe('loadConfig', () => {
       PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo pre' }] }],
       PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo post' }] }],
       SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo start' }] }],
+      SessionEnd: [{ matcher: '', hooks: [{ type: 'command', command: 'echo end' }] }],
       Stop: [{ matcher: '', hooks: [{ type: 'command', command: 'echo stop' }] }],
+      StopFailure: [{ matcher: '', hooks: [{ type: 'command', command: 'echo stop-fail' }] }],
       PreCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prec' }] }],
       PostCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo postc' }] }],
       UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prompt' }] }],
+      SubagentStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo agent-start' }] }],
+      SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: 'echo agent-stop' }] }],
       WorktreeCreate: [{ matcher: '', hooks: [{ type: 'command', command: 'echo wt-create' }] }],
       WorktreeRemove: [{ matcher: '', hooks: [{ type: 'command', command: 'echo wt-remove' }] }],
     };
     writeJson(join(claudeProjectDir, 'settings.json'), { hooks: allEvents });
     const config = await loadConfig(cwd);
     expect(config.hooks).toBeDefined();
-    expect(Object.keys(config.hooks ?? {})).toHaveLength(9);
+    expect(Object.keys(config.hooks ?? {})).toHaveLength(13);
   });
 
   it('hooks support http hook type', async () => {

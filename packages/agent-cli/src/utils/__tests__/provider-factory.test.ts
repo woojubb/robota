@@ -9,22 +9,99 @@ import {
 } from '../provider-factory.js';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
 
-vi.mock('@robota-sdk/agent-provider-anthropic', () => ({
-  AnthropicProvider: vi.fn().mockImplementation((options: unknown) => ({
+vi.mock('@robota-sdk/agent-provider-anthropic', () => {
+  const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
     name: 'anthropic',
     version: 'test',
     options,
-  })),
-}));
+  }));
+  return {
+    AnthropicProvider: MockAnthropicProvider,
+    createAnthropicProviderDefinition: () => ({
+      type: 'anthropic',
+      defaults: { model: 'claude-sonnet-4-6' },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+      }) =>
+        new MockAnthropicProvider({
+          apiKey: config.apiKey,
+          ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+          ...(config.timeout !== undefined && { timeout: config.timeout }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
 
-vi.mock('@robota-sdk/agent-provider-openai', () => ({
-  OpenAIProvider: vi.fn().mockImplementation((options: unknown) => ({
+vi.mock('@robota-sdk/agent-provider-openai', () => {
+  const MockOpenAIProvider = vi.fn().mockImplementation((options: unknown) => ({
     name: 'openai',
     version: 'test',
     options,
-  })),
-}));
+  }));
+  return {
+    OpenAIProvider: MockOpenAIProvider,
+    createOpenAIProviderDefinition: () => ({
+      type: 'openai',
+      defaults: {
+        model: 'supergemma4-26b-uncensored-v2',
+        apiKey: 'lm-studio',
+        baseURL: 'http://localhost:1234/v1',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+      }) =>
+        new MockOpenAIProvider({
+          apiKey: config.apiKey,
+          ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+          ...(config.timeout !== undefined && { timeout: config.timeout }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
+
+vi.mock('@robota-sdk/agent-provider-gemma', () => {
+  const MockGemmaProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'gemma',
+    version: 'test',
+    options,
+  }));
+  return {
+    GemmaProvider: MockGemmaProvider,
+    createGemmaProviderDefinition: () => ({
+      type: 'gemma',
+      defaults: {
+        model: 'supergemma4-26b-uncensored-v2',
+        apiKey: 'lm-studio',
+        baseURL: 'http://localhost:1234/v1',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+      }) =>
+        new MockGemmaProvider({
+          apiKey: config.apiKey,
+          ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+          ...(config.timeout !== undefined && { timeout: config.timeout }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
 
 const TMP_BASE = join(tmpdir(), `robota-provider-factory-test-${process.pid}`);
 
@@ -124,6 +201,29 @@ describe('provider-factory', () => {
     });
   });
 
+  it('creates GemmaProvider for a Gemma OpenAI-compatible profile', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'gemma',
+      providers: {
+        gemma: {
+          type: 'gemma',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+          baseURL: 'http://localhost:1234/v1',
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd);
+
+    expect(provider.name).toBe('gemma');
+    expect(GemmaProvider).toHaveBeenCalledWith({
+      apiKey: 'lm-studio',
+      baseURL: 'http://localhost:1234/v1',
+      defaultModel: 'supergemma4-26b-uncensored-v2',
+    });
+  });
+
   it('keeps legacy Anthropic provider creation working', () => {
     writeJson(join(cwd, '.robota', 'settings.json'), {
       provider: {
@@ -174,6 +274,62 @@ describe('provider-factory', () => {
       baseURL: 'http://localhost:1234/v1',
       timeout: 12_000,
       defaultModel: 'worker-model',
+    });
+  });
+
+  it('creates GemmaProvider from a serialized worker profile', () => {
+    createProviderFromProfile({
+      type: 'gemma',
+      model: 'worker-gemma',
+      apiKey: 'worker-key',
+      baseURL: 'http://localhost:1234/v1',
+      timeout: 12_000,
+    });
+
+    expect(GemmaProvider).toHaveBeenCalledWith({
+      apiKey: 'worker-key',
+      baseURL: 'http://localhost:1234/v1',
+      timeout: 12_000,
+      defaultModel: 'worker-gemma',
+    });
+  });
+
+  it('creates providers from injected definitions without adding factory branches', () => {
+    const createProvider = vi.fn((config: { name: string; model: string }) => ({
+      name: config.name,
+      version: 'test',
+      config,
+      chat: vi.fn(),
+      generateResponse: vi.fn(),
+      supportsTools: () => true,
+      validateConfig: () => true,
+    }));
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'custom',
+      providers: {
+        custom: {
+          type: 'custom',
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: [
+        {
+          type: 'custom',
+          defaults: { model: 'custom-model' },
+          createProvider,
+        },
+      ],
+    });
+
+    expect(provider.name).toBe('custom');
+    expect(createProvider).toHaveBeenCalledWith({
+      name: 'custom',
+      model: 'custom-model',
+      apiKey: undefined,
+      baseURL: undefined,
+      timeout: undefined,
     });
   });
 });

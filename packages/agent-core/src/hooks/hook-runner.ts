@@ -26,15 +26,24 @@ function createDefaultExecutors(): IHookTypeExecutor[] {
 }
 
 /** Check if a tool name matches a hook group's matcher pattern. */
-function matchesGroup(group: IHookGroup, toolName: string | undefined): boolean {
+function matchesGroup(group: IHookGroup, matcherTarget: string | undefined): boolean {
   // Empty matcher = match everything
   if (!group.matcher) return true;
-  if (!toolName) return false;
+  if (!matcherTarget) return false;
   try {
-    return new RegExp(group.matcher).test(toolName);
+    return new RegExp(group.matcher).test(matcherTarget);
   } catch {
-    return group.matcher === toolName;
+    return group.matcher === matcherTarget;
   }
+}
+
+function getMatcherTarget(input: IHookInput): string | undefined {
+  if (input.tool_name) return input.tool_name;
+  if (input.hook_event_name === 'SubagentStart' || input.hook_event_name === 'SubagentStop') {
+    return input.agent_type ?? input.agent_id;
+  }
+  if (input.hook_event_name === 'SessionEnd') return input.reason;
+  return undefined;
 }
 
 /**
@@ -74,9 +83,10 @@ export async function runHooks(
   }
 
   const stdoutParts: string[] = [];
+  const matcherTarget = getMatcherTarget(input);
 
   for (const group of groups) {
-    if (!matchesGroup(group, input.tool_name)) continue;
+    if (!matchesGroup(group, matcherTarget)) continue;
 
     // Merge group-level env vars into hook input
     const groupInput = group.env ? { ...input, env: { ...input.env, ...group.env } } : input;

@@ -8,6 +8,7 @@
 import { runHooks } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
+  TSessionEndReason,
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
@@ -66,4 +67,25 @@ export function fireSessionStartHook(
       }
     })
     .catch(() => {});
+}
+
+/** Fire SessionEnd hook and wait for hook completion before process exit. */
+export async function fireSessionEndHook(
+  sessionId: string,
+  cwd: string,
+  reason: TSessionEndReason,
+  hooks: Record<string, unknown> | undefined,
+  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+): Promise<void> {
+  const hookInput: IHookInput = {
+    session_id: sessionId,
+    cwd,
+    hook_event_name: 'SessionEnd',
+    reason,
+    env: {
+      CLAUDE_PROJECT_DIR: cwd,
+      CLAUDE_SESSION_ID: sessionId,
+    },
+  };
+  await runHooks(hooks as THooksConfig | undefined, 'SessionEnd', hookInput, hookTypeExecutors);
 }

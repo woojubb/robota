@@ -27,12 +27,23 @@ import type {
 } from './permission-types.js';
 import { ContextWindowTracker } from './context-window-tracker.js';
 import { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type { ISessionOptions } from './session-types.js';
+import type { ISessionOptions, ISessionShutdownOptions } from './session-types.js';
 import { executeRun } from './session-run.js';
 import { compact, persistSession } from './session-history-ops.js';
-import { configureProvider, fireSessionStartHook } from './session-lifecycle.js';
+import {
+  configureProvider,
+  fireSessionEndHook,
+  fireSessionStartHook,
+} from './session-lifecycle.js';
 
-export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner, ISessionOptions };
+export type {
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+  ISessionOptions,
+  ISessionShutdownOptions,
+};
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -64,6 +75,7 @@ export class Session {
   private readonly compactionOrchestrator: CompactionOrchestrator;
   private messageCount = 0;
   private abortController: AbortController | null = null;
+  private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
 
@@ -254,6 +266,25 @@ export class Session {
       this.abortController.abort();
       this.abortController = null;
     }
+  }
+
+  /** Gracefully end the session and fire SessionEnd hooks once. */
+  shutdown(options: ISessionShutdownOptions = {}): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    const reason = options.reason ?? 'other';
+    this.shutdownPromise = (async () => {
+      this.abort();
+      this.log('session_shutdown', { reason });
+      this.persistSessionInternal();
+      await fireSessionEndHook(
+        this.sessionId,
+        this.cwd,
+        reason,
+        this.hooks,
+        this.hookTypeExecutors,
+      );
+    })();
+    return this.shutdownPromise;
   }
 
   /** Whether a run() call is currently in progress. */

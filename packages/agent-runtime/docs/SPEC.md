@@ -42,21 +42,22 @@ Design rules:
 
 ## Type Ownership
 
-| Type                        | Location                                    | Purpose                                 |
-| --------------------------- | ------------------------------------------- | --------------------------------------- |
-| `IBackgroundTaskManager`    | `src/background-tasks/types.ts`             | Generic background task registry API    |
-| `IBackgroundTaskRunner`     | `src/background-tasks/types.ts`             | Port for executing one task kind        |
-| `IBackgroundTaskState`      | `src/background-tasks/types.ts`             | Immutable task state snapshot shape     |
-| `IBackgroundTaskRequest`    | `src/background-tasks/types.ts`             | Agent/process task request union        |
-| `IBackgroundTaskResult`     | `src/background-tasks/types.ts`             | Completed task output and metadata      |
-| `TBackgroundTaskEvent`      | `src/background-tasks/types.ts`             | Lifecycle/progress event union          |
-| `ISubagentManager`          | `src/subagents/types.ts`                    | Subagent job compatibility facade       |
-| `ISubagentRunner`           | `src/subagents/types.ts`                    | Port for executing one subagent job     |
-| `ISubagentSpawnRequest`     | `src/subagents/types.ts`                    | Subagent spawn request                  |
-| `ISubagentJobState`         | `src/subagents/types.ts`                    | Subagent job state projection           |
-| `ISubagentJobResult`        | `src/subagents/types.ts`                    | Subagent completion output and metadata |
-| `ISubagentWorktreeAdapter`  | `src/subagents/worktree-subagent-runner.ts` | Port for concrete worktree I/O          |
-| `IPreparedSubagentWorktree` | `src/subagents/worktree-subagent-runner.ts` | Prepared worktree handoff data          |
+| Type                           | Location                                    | Purpose                                 |
+| ------------------------------ | ------------------------------------------- | --------------------------------------- |
+| `IBackgroundTaskManager`       | `src/background-tasks/types.ts`             | Generic background task registry API    |
+| `IBackgroundTaskRunner`        | `src/background-tasks/types.ts`             | Port for executing one task kind        |
+| `IBackgroundTaskState`         | `src/background-tasks/types.ts`             | Immutable task state snapshot shape     |
+| `IBackgroundTaskRequest`       | `src/background-tasks/types.ts`             | Agent/process task request union        |
+| `IBackgroundTaskResult`        | `src/background-tasks/types.ts`             | Completed task output and metadata      |
+| `TBackgroundTaskEvent`         | `src/background-tasks/types.ts`             | Lifecycle/progress event union          |
+| `TBackgroundTaskTimeoutReason` | `src/background-tasks/types.ts`             | Watchdog terminal reason union          |
+| `ISubagentManager`             | `src/subagents/types.ts`                    | Subagent job compatibility facade       |
+| `ISubagentRunner`              | `src/subagents/types.ts`                    | Port for executing one subagent job     |
+| `ISubagentSpawnRequest`        | `src/subagents/types.ts`                    | Subagent spawn request                  |
+| `ISubagentJobState`            | `src/subagents/types.ts`                    | Subagent job state projection           |
+| `ISubagentJobResult`           | `src/subagents/types.ts`                    | Subagent completion output and metadata |
+| `ISubagentWorktreeAdapter`     | `src/subagents/worktree-subagent-runner.ts` | Port for concrete worktree I/O          |
+| `IPreparedSubagentWorktree`    | `src/subagents/worktree-subagent-runner.ts` | Prepared worktree handoff data          |
 
 Hook event types and hook execution are owned by `agent-core`.
 
@@ -101,16 +102,16 @@ Runner handles may expose `logPath` and `transcriptPath` for append-only diagnos
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.
 
-| Category     | Recoverable | Typical source                                               |
-| ------------ | ----------- | ------------------------------------------------------------ |
-| `validation` | yes         | Invalid depth, unknown runner kind, invalid state transition |
-| `capacity`   | yes         | Future queue/capacity enforcement                            |
-| `permission` | yes         | Future permission flow denial or timeout                     |
-| `timeout`    | yes         | Future task timeout handling                                 |
-| `runner`     | yes         | Runner start, cancellation, unsupported send/log operations  |
-| `crash`      | no          | Future process crash projection from adapters                |
-| `provider`   | yes         | Provider failure projected by a runner                       |
-| `process`    | yes         | Shell/process task failure projected by a runner             |
+| Category     | Recoverable | Typical source                                                        |
+| ------------ | ----------- | --------------------------------------------------------------------- |
+| `validation` | yes         | Invalid depth, unknown runner kind, invalid state transition          |
+| `capacity`   | yes         | Future queue/capacity enforcement                                     |
+| `permission` | yes         | Future permission flow denial or timeout                              |
+| `timeout`    | yes         | Idle, max runtime, output limit, repetition, or stale worker watchdog |
+| `runner`     | yes         | Runner start, cancellation, unsupported send/log operations           |
+| `crash`      | no          | Future process crash projection from adapters                         |
+| `provider`   | yes         | Provider failure projected by a runner                                |
+| `process`    | yes         | Shell/process task failure projected by a runner                      |
 
 Adapters may map external failures into `BackgroundTaskError` categories, but they must not expose vendor-specific error objects through public runtime state.
 
@@ -122,6 +123,18 @@ Adapters may map external failures into `BackgroundTaskError` categories, but th
 - zero or more `subscribe(listener)` registrations
 
 Events contain cloned task snapshots or primitive progress data. Consumers may project these events into TUI rows, transport messages, or logs, but event listeners must not mutate manager state directly.
+
+## Watchdog and Shutdown Contract
+
+`BackgroundTaskManager` owns provider-neutral watchdog semantics for long-running agent tasks:
+
+- `idleTimeoutMs` means no new runner progress event has arrived within the configured window. Text deltas, tool start/end events, and permission requests all refresh `lastActivityAt`.
+- `maxRuntimeMs` is a separate wall-clock cap. Legacy agent `timeoutMs` maps to `idleTimeoutMs`; process `timeoutMs` remains the runner-owned wall-clock process timeout.
+- Agent requests may set `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold` to stop runaway streams.
+- Watchdog failures set `IBackgroundTaskState.timeoutReason` to `idle`, `max_runtime`, `output_limit`, `repetition`, or `stale_worker`, cancel the runner handle when possible, and fail the task with `BackgroundTaskError` category `timeout`.
+- Terminal task records, logs, and transcript paths remain in the registry until `close()` is called.
+
+`IBackgroundTaskManager.shutdown(reason?)` is the runtime-owned graceful shutdown API. It is idempotent, rejects new spawns after shutdown starts, cancels all queued/running tasks through their handles, emits terminal events before resolving when possible, and never deletes terminal records.
 
 ## Worktree Runner Contract
 
@@ -152,7 +165,7 @@ For non-worktree requests it delegates unchanged. For `isolation: 'worktree'` it
 Unit tests cover:
 
 - background state-machine transitions
-- background task manager lifecycle, queueing, cancellation, progress, and metadata projection
+- background task manager lifecycle, queueing, cancellation, progress, metadata projection, watchdogs, and shutdown
 - subagent manager lifecycle facade behavior
 - worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
 
