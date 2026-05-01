@@ -74,10 +74,23 @@ function gitRefExists(ref) {
   return result.status === 0;
 }
 
-function resolveDefaultBaseRef() {
+export function resolveGitBaseRef(explicitBaseRef = null) {
+  return resolveBaseRef({
+    explicitBaseRef,
+    env: process.env,
+    refExists: gitRefExists,
+  });
+}
+
+export function resolveBaseRef({ explicitBaseRef = null, env = process.env, refExists }) {
+  const trimmedExplicitBaseRef = typeof explicitBaseRef === 'string' ? explicitBaseRef.trim() : '';
+  if (trimmedExplicitBaseRef) {
+    return trimmedExplicitBaseRef;
+  }
+
   const candidates = [];
-  const envBaseRef = process.env.HARNESS_BASE_REF?.trim();
-  const githubBaseRef = process.env.GITHUB_BASE_REF?.trim();
+  const envBaseRef = env.HARNESS_BASE_REF?.trim();
+  const githubBaseRef = env.GITHUB_BASE_REF?.trim();
 
   if (envBaseRef) {
     candidates.push(envBaseRef);
@@ -89,7 +102,7 @@ function resolveDefaultBaseRef() {
   candidates.push('origin/develop', 'develop', 'origin/main', 'main');
 
   for (const candidate of candidates) {
-    if (candidate && gitRefExists(candidate)) {
+    if (candidate && refExists(candidate)) {
       return candidate;
     }
   }
@@ -115,6 +128,13 @@ export async function listWorkspaceScopes() {
       (scope, index, values) =>
         values.findIndex((value) => value.relativeDir === scope.relativeDir) === index,
     )
+    .map((scope, _index, values) => {
+      const workspaceNames = new Set(values.map((value) => value.workspaceName));
+      return {
+        ...scope,
+        workspaceDependencies: scope.dependencyNames.filter((name) => workspaceNames.has(name)),
+      };
+    })
     .sort((left, right) => left.relativeDir.localeCompare(right.relativeDir));
 }
 
@@ -132,11 +152,13 @@ async function collectScopes(relativeDir, kind, scopes, patterns) {
     patterns.some((pattern) => matchesWorkspacePattern(relativeDir, pattern))
   ) {
     const packageJson = await readJson(packageJsonPath);
+    const dependencyNames = listPackageDependencyNames(packageJson);
     scopes.push({
       kind,
       relativeDir,
       shortName: path.posix.basename(relativeDir),
       workspaceName: typeof packageJson.name === 'string' ? packageJson.name : relativeDir,
+      dependencyNames,
       scripts:
         typeof packageJson.scripts === 'object' && packageJson.scripts !== null
           ? packageJson.scripts
@@ -157,6 +179,15 @@ async function collectScopes(relativeDir, kind, scopes, patterns) {
   }
 }
 
+function listPackageDependencyNames(packageJson) {
+  return [
+    ...Object.keys(packageJson.dependencies ?? {}),
+    ...Object.keys(packageJson.devDependencies ?? {}),
+    ...Object.keys(packageJson.peerDependencies ?? {}),
+    ...Object.keys(packageJson.optionalDependencies ?? {}),
+  ];
+}
+
 export function parseScopeArgs(argv) {
   const options = {
     scopeTokens: [],
@@ -167,6 +198,7 @@ export function parseScopeArgs(argv) {
     skipTypecheck: false,
     includeScenarios: false,
     skipRecordCheck: false,
+    skipRepositoryChecks: false,
     reportFile: null,
     reportFormat: null,
     baseRef: null,
@@ -206,6 +238,9 @@ export function parseScopeArgs(argv) {
         break;
       case '--skip-record-check':
         options.skipRecordCheck = true;
+        break;
+      case '--skip-repository-checks':
+        options.skipRepositoryChecks = true;
         break;
       case '--report-file': {
         const value = argv[index + 1];
@@ -285,10 +320,7 @@ export function detectChangedFiles(baseRef = null) {
     return workingTreeFiles;
   }
 
-  const resolvedBaseRef =
-    typeof baseRef === 'string' && baseRef.trim().length > 0
-      ? baseRef.trim()
-      : resolveDefaultBaseRef();
+  const resolvedBaseRef = resolveGitBaseRef(baseRef);
 
   if (!resolvedBaseRef) {
     return [];
@@ -358,22 +390,194 @@ export function mapFilesToScopes(files, scopes) {
   return byScope;
 }
 
-export function classifyScopeChanges(scope, files, forceFullVerification) {
-  const hasSourceChanges = files.some((file) => file.startsWith(`${scope.relativeDir}/src/`));
+const PACKAGE_DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+];
+const PACKAGE_PUBLIC_SURFACE_FIELDS = ['exports', 'main', 'module', 'types', 'typings', 'bin'];
+const PACKAGE_SCRIPT_OR_BUILD_FIELDS = [
+  'scripts',
+  'engines',
+  'type',
+  'files',
+  'sideEffects',
+  'tsup',
+  'tsupConfig',
+];
+const PACKAGE_PUBLISH_METADATA_FIELDS = [
+  'name',
+  'version',
+  'description',
+  'license',
+  'author',
+  'contributors',
+  'homepage',
+  'repository',
+  'bugs',
+  'keywords',
+  'private',
+  'publishConfig',
+];
+
+function stableJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function valuesEqual(left, right) {
+  return stableJson(left) === stableJson(right);
+}
+
+function changedManifestKeys(before, after) {
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  return Array.from(keys).filter((key) => !valuesEqual(before?.[key], after?.[key]));
+}
+
+export function classifyPackageManifestChange({ before, after }) {
+  const changedKeys = changedManifestKeys(before, after);
+  const hasVersionOnlyChanges = changedKeys.length === 1 && changedKeys[0] === 'version';
+  const hasDependencyChanges = changedKeys.some((key) => PACKAGE_DEPENDENCY_FIELDS.includes(key));
+  const hasPublicSurfaceChanges = changedKeys.some((key) =>
+    PACKAGE_PUBLIC_SURFACE_FIELDS.includes(key),
+  );
+  const hasScriptOrBuildChanges = changedKeys.some((key) =>
+    PACKAGE_SCRIPT_OR_BUILD_FIELDS.includes(key),
+  );
+  const hasPublishMetadataChanges =
+    changedKeys.length > 0 &&
+    changedKeys.every((key) => PACKAGE_PUBLISH_METADATA_FIELDS.includes(key)) &&
+    !hasVersionOnlyChanges;
+  const hasUnknownManifestChanges = changedKeys.some((key) => {
+    return ![
+      ...PACKAGE_DEPENDENCY_FIELDS,
+      ...PACKAGE_PUBLIC_SURFACE_FIELDS,
+      ...PACKAGE_SCRIPT_OR_BUILD_FIELDS,
+      ...PACKAGE_PUBLISH_METADATA_FIELDS,
+    ].includes(key);
+  });
+  const needsSourceHeavyChecks =
+    hasDependencyChanges ||
+    hasPublicSurfaceChanges ||
+    hasScriptOrBuildChanges ||
+    hasUnknownManifestChanges;
+
+  let kind = 'none';
+  if (hasVersionOnlyChanges) {
+    kind = 'version-only';
+  } else if (hasDependencyChanges) {
+    kind = 'dependency';
+  } else if (hasPublicSurfaceChanges) {
+    kind = 'public-surface';
+  } else if (hasScriptOrBuildChanges) {
+    kind = 'script-or-build';
+  } else if (hasPublishMetadataChanges) {
+    kind = 'publish-metadata';
+  } else if (hasUnknownManifestChanges) {
+    kind = 'unknown';
+  }
+
+  return {
+    kind,
+    changedKeys,
+    hasVersionOnlyChanges,
+    hasDependencyChanges,
+    hasPublicSurfaceChanges,
+    hasScriptOrBuildChanges,
+    hasPublishMetadataChanges,
+    hasUnknownManifestChanges,
+    needsSourceHeavyChecks,
+  };
+}
+
+function readGitFile(ref, file) {
+  const result = spawnSync('git', ['show', `${ref}:${file}`], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+
+  if (result.status !== 0) {
+    return null;
+  }
+
+  return result.stdout;
+}
+
+export async function collectPackageManifestChanges({ scopes, changedFiles, baseRef }) {
+  const resolvedBaseRef = resolveGitBaseRef(baseRef);
+  const manifestChangesByScope = new Map();
+
+  if (!resolvedBaseRef) {
+    return manifestChangesByScope;
+  }
+
+  for (const scope of scopes) {
+    const manifestFile = `${scope.relativeDir}/package.json`;
+    if (!changedFiles.includes(manifestFile)) {
+      continue;
+    }
+
+    const beforeText = readGitFile(resolvedBaseRef, manifestFile);
+    if (!beforeText) {
+      continue;
+    }
+
+    const afterPath = path.join(WORKSPACE_ROOT, manifestFile);
+    const after = (await pathExists(afterPath)) ? await readJson(afterPath) : {};
+    const before = JSON.parse(beforeText);
+    manifestChangesByScope.set(scope.relativeDir, classifyPackageManifestChange({ before, after }));
+  }
+
+  return manifestChangesByScope;
+}
+
+function isTestFile(file) {
+  return (
+    file.includes('/__tests__/') ||
+    file.endsWith('.test.ts') ||
+    file.endsWith('.test.tsx') ||
+    file.endsWith('.spec.ts') ||
+    file.endsWith('.spec.tsx')
+  );
+}
+
+export function classifyScopeChanges(scope, files, forceFullVerification, options = {}) {
   const hasTestChanges = files.some((file) => {
     return (
-      file.includes('/__tests__/') ||
-      file.endsWith('.test.ts') ||
-      file.endsWith('.test.tsx') ||
-      file.endsWith('.spec.ts') ||
-      file.endsWith('.spec.tsx')
+      fileBelongsToScopePath(file, scope.relativeDir) &&
+      (isTestFile(file) || file.includes('/test/'))
     );
   });
-  const hasConfigChanges = files.some((file) => {
-    return (
-      file === `${scope.relativeDir}/package.json` || file === `${scope.relativeDir}/tsconfig.json`
-    );
+  const hasSourceChanges = files.some((file) => {
+    return file.startsWith(`${scope.relativeDir}/src/`) && !isTestFile(file);
   });
+  const manifestChange = options.manifestChange ?? null;
+  const hasPackageManifestChanges = files.some(
+    (file) => file === `${scope.relativeDir}/package.json`,
+  );
+  const unknownPackageManifestChange = hasPackageManifestChanges && !manifestChange;
+  const hasDependencyManifestChanges = Boolean(manifestChange?.hasDependencyChanges);
+  const hasPublicSurfaceManifestChanges = Boolean(manifestChange?.hasPublicSurfaceChanges);
+  const hasScriptOrBuildManifestChanges = Boolean(manifestChange?.hasScriptOrBuildChanges);
+  const hasVersionOnlyManifestChanges = Boolean(manifestChange?.hasVersionOnlyChanges);
+  const hasPublishMetadataManifestChanges = Boolean(manifestChange?.hasPublishMetadataChanges);
+  const hasSourceHeavyManifestChanges =
+    unknownPackageManifestChange || Boolean(manifestChange?.needsSourceHeavyChecks);
+  const hasConfigChanges =
+    unknownPackageManifestChange ||
+    hasScriptOrBuildManifestChanges ||
+    files.some((file) => {
+      return file === `${scope.relativeDir}/tsconfig.json`;
+    });
   const hasDocsChanges = files.some((file) => {
     return (
       file.startsWith(`${scope.relativeDir}/docs/`) ||
@@ -389,7 +593,16 @@ export function classifyScopeChanges(scope, files, forceFullVerification) {
       file === `${scope.relativeDir}/src/index.ts` || file === `${scope.relativeDir}/src/index.tsx`
     );
   });
-  const hasManifestChanges = files.some((file) => file === `${scope.relativeDir}/package.json`);
+  const hasManifestChanges = hasPackageManifestChanges;
+  const needsBuild =
+    forceFullVerification || hasSourceChanges || hasConfigChanges || hasSourceHeavyManifestChanges;
+  const needsTypecheck =
+    scope.hasTsconfig &&
+    (forceFullVerification ||
+      hasSourceChanges ||
+      hasTestChanges ||
+      hasConfigChanges ||
+      hasSourceHeavyManifestChanges);
 
   return {
     hasSourceChanges,
@@ -399,10 +612,19 @@ export function classifyScopeChanges(scope, files, forceFullVerification) {
     hasScenarioChanges,
     hasEntrypointChanges,
     hasManifestChanges,
-    needsBuild: forceFullVerification || hasSourceChanges || hasConfigChanges,
+    hasVersionOnlyManifestChanges,
+    hasDependencyManifestChanges,
+    hasPublicSurfaceManifestChanges,
+    hasScriptOrBuildManifestChanges,
+    hasPublishMetadataManifestChanges,
+    hasSourceHeavyManifestChanges,
+    needsBuild,
     needsTest: forceFullVerification || hasSourceChanges || hasTestChanges || hasConfigChanges,
     needsLint: forceFullVerification || hasSourceChanges || hasTestChanges || hasConfigChanges,
-    needsTypecheck:
-      scope.hasTsconfig && (forceFullVerification || hasSourceChanges || hasConfigChanges),
+    needsTypecheck,
   };
+}
+
+function fileBelongsToScopePath(file, relativeDir) {
+  return file === relativeDir || file.startsWith(`${relativeDir}/`);
 }
