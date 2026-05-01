@@ -288,6 +288,7 @@ function AppInner(
         pendingPrompt={pendingPrompt}
         registry={registry}
         sessionName={sessionName}
+        history={history}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}
       <Text> </Text>

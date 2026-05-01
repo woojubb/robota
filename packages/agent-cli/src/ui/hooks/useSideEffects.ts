@@ -1,8 +1,3 @@
-/**
- * Hook for handling TUI-specific side effects from system commands.
- * Extracted from App.tsx for single-responsibility.
- */
-
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';

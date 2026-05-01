@@ -69,4 +69,22 @@ describe('cjk text input flow', () => {
 
     expect(result).toMatchObject({ value: 'a[Pasted]bc', cursor: 9 });
   });
+
+  it('Given vertical navigation disabled When up arrow is applied Then cursor is unchanged', () => {
+    const state = { ...createCjkTextInputFlowState('abcdef'), cursor: 5 };
+
+    const result = applyCjkTextInput(
+      state,
+      '',
+      { upArrow: true },
+      {
+        canPaste: true,
+        enableVerticalNavigation: false,
+        availableWidth: 2,
+      },
+    );
+
+    expect(result.state).toBe(state);
+    expect(result.effect).toEqual({ type: 'none' });
+  });
 });

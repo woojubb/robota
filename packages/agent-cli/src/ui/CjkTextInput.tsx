@@ -33,6 +33,8 @@ interface IProps {
   availableWidth?: number;
   /** Cursor position hint for external value changes. null = end (default). */
   cursorHint?: number | null;
+  /** When false, parent flows own up/down arrow behavior. */
+  enableVerticalNavigation?: boolean;
 }
 
 export default function CjkTextInput({
@@ -45,6 +47,7 @@ export default function CjkTextInput({
   showCursor = true,
   availableWidth,
   cursorHint = null,
+  enableVerticalNavigation = true,
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
@@ -60,6 +63,7 @@ export default function CjkTextInput({
         const result = applyCjkTextInput(stateRef.current, input, key, {
           availableWidth,
           canPaste: onPaste !== undefined,
+          enableVerticalNavigation,
         });
         stateRef.current = result.state;
         applyCjkTextInputEffect(result.effect, onChange, onSubmit, onPaste, forceRender);
