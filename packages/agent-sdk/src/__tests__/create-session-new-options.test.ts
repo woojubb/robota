@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import type { IResolvedConfig } from '../config/config-types.js';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -69,7 +70,7 @@ function createMockProvider() {
   } as never;
 }
 
-function baseConfig() {
+function baseConfig(): IResolvedConfig {
   return {
     defaultTrustLevel: 'moderate' as const,
     provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
