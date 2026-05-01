@@ -962,7 +962,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 `TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
 
-`BackgroundTaskPanel` renders active and recently completed background tasks with status, kind, label, task ID, unread marker, and a short preview. User controls are routed through SDK system commands:
+`BackgroundTaskPanel` renders active and recently completed background tasks with a compact status marker, kind, label, task ID, unread marker, and a short preview. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through SDK system commands:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |

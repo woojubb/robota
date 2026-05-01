@@ -516,7 +516,7 @@ describe('Agent tool', () => {
       }),
       wait: vi
         .fn()
-        .mockRejectedValue(new Error('Background agent produced no activity for 120000ms')),
+        .mockRejectedValue(new Error('Background agent produced no activity for 240000ms')),
       list: vi.fn(),
       get: vi.fn(),
       cancel: vi.fn(),
@@ -595,7 +595,7 @@ describe('Agent tool', () => {
           jobId: 'agent_parallel_2',
           output: 'designer complete',
         })
-        .mockRejectedValueOnce(new Error('Background agent produced no activity for 120000ms')),
+        .mockRejectedValueOnce(new Error('Background agent produced no activity for 240000ms')),
       list: vi.fn(),
       get: vi.fn(),
       cancel: vi.fn(),
