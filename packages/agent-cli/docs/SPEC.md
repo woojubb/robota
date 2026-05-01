@@ -794,6 +794,25 @@ Plugin skills show the plugin hint before the description:
 - Format: `/skill-name (plugin-name) description`
 - Example: `/audit (rulebased-harness) Audits your project's harness setup`
 
+### Assistant Markdown Diff Rendering
+
+Assistant responses are rendered as Markdown through `render-markdown.ts`. A fenced code block with the `diff` language identifier is the canonical way for the assistant to show proposed code changes inside normal prose:
+
+````markdown
+```diff
+- const oldValue = true;
++ const newValue = true;
+```
+````
+
+**Rules:**
+
+- `render-markdown.ts` owns assistant Markdown diff rendering.
+- `diff` fenced blocks receive line-level terminal colors: removed lines red, added lines green, hunk headers cyan, diff metadata dim.
+- Color is controlled by renderer options and terminal color environment. With color disabled, the same diff text remains readable without ANSI escape codes.
+- General fenced code blocks continue through `marked-terminal`; only `diff` fenced blocks take the Robota line-level path.
+- This path is for assistant prose. Tool execution summaries keep their compact structured display until the Edit tool diff format can be migrated without losing line numbers, truncation, and permission prompt integration.
+
 ### Edit Diff Display
 
 When the Edit tool completes successfully, a compact diff is shown below the tool line. This gives the user immediate visibility into what changed without inspecting the file.
