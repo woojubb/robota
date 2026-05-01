@@ -2,7 +2,7 @@
 
 ## Scope
 
-This package owns Gemma model-family provider behavior for Robota when Gemma models are served through OpenAI-compatible Chat Completions endpoints such as LM Studio. It composes `agent-provider-openai-compatible` for transport primitives and owns Gemma-specific text projection for reasoning-channel markers.
+This package owns Gemma model-family provider behavior for Robota when Gemma models are served through OpenAI-compatible Chat Completions endpoints such as LM Studio. It composes `agent-provider-openai-compatible` for transport primitives and owns Gemma-specific text projection for reasoning-channel markers and documented Gemma/LM Studio native tool-call text emitted by the serving template.
 
 ## Boundaries
 
@@ -21,9 +21,10 @@ src/
   message-factory.ts          # small universal streaming message factory
   types.ts                    # provider options and option value types
   reasoning-projector.ts      # Gemma reasoning-channel projection
+  tool-call-projector.ts      # Gemma/LM Studio native tool-call text projection
 ```
 
-`GemmaProvider` is the provider shell. It creates or receives an OpenAI SDK client, builds OpenAI-compatible requests, and delegates conversion/parsing/stream assembly to `agent-provider-openai-compatible`. `GemmaReasoningProjector` is a pure stateful projector used by streaming paths to remove Gemma channel markers from user-facing text.
+`GemmaProvider` is the provider shell. It creates or receives an OpenAI SDK client, builds OpenAI-compatible requests, and delegates conversion/parsing/stream assembly to `agent-provider-openai-compatible`. `GemmaReasoningProjector` is a pure stateful projector used by streaming paths to remove Gemma channel markers from user-facing text. `GemmaToolCallProjector` is a provider-owned adapter for the documented Gemma/LM Studio template block shaped as `<|tool_call>call:<tool>{...}<tool_call|>`.
 
 ## Type Ownership
 
@@ -32,6 +33,8 @@ src/
 | `IGemmaProviderOptions`           | `src/types.ts`               | Constructor options for `GemmaProvider`.                |
 | `TGemmaProviderOptionValue`       | `src/types.ts`               | Valid provider option value union.                      |
 | `IGemmaReasoningProjection`       | `src/reasoning-projector.ts` | Result of projecting raw Gemma text into visible text.  |
+| `IGemmaToolCallProjection`        | `src/tool-call-projector.ts` | Result of projecting Gemma native tool-call text.       |
+| `IGemmaToolCallProjectorOptions`  | `src/tool-call-projector.ts` | Declared tool names and call-id prefix for projection.  |
 | `DEFAULT_GEMMA_PROVIDER_MODEL`    | `src/provider-definition.ts` | Package-owned default Gemma model for setup definition. |
 | `DEFAULT_GEMMA_PROVIDER_API_KEY`  | `src/provider-definition.ts` | Package-owned local endpoint API-key default.           |
 | `DEFAULT_GEMMA_PROVIDER_BASE_URL` | `src/provider-definition.ts` | Package-owned local OpenAI-compatible base URL default. |
@@ -42,7 +45,9 @@ src/
 | --------------------------------- | ---------- | ------------------------------------------------------------------------- |
 | `GemmaProvider`                   | class      | Primary provider class; extends `AbstractAIProvider`.                     |
 | `GemmaReasoningProjector`         | class      | Stateful streaming projector for Gemma reasoning-channel markers.         |
+| `GemmaToolCallProjector`          | class      | Stateful projector for documented Gemma/LM Studio native tool-call text.  |
 | `projectGemmaReasoningText`       | function   | Stateless full-text projection helper.                                    |
+| `projectGemmaToolCallText`        | function   | Stateless full-text native tool-call projection helper.                   |
 | `createGemmaProviderDefinition`   | function   | Returns an `IProviderDefinition` for branch-free CLI/runtime composition. |
 | `DEFAULT_GEMMA_PROVIDER_MODEL`    | constant   | Default setup model owned by this package.                                |
 | `DEFAULT_GEMMA_PROVIDER_API_KEY`  | constant   | Default local endpoint API key owned by this package.                     |
@@ -58,6 +63,7 @@ src/
 - Consumers such as `agent-cli` can inject `createGemmaProviderDefinition()` alongside other provider definitions. The CLI must not special-case Gemma by type string.
 - `createGemmaProviderDefinition()` reuses the shared OpenAI-compatible endpoint probe instead of owning a Gemma-specific CLI/setup branch.
 - Future Gemma variants can extend projection behavior inside this package without changing generic OpenAI-compatible transport.
+- Native tool-call text projection is enabled only when declared tools are present. It validates calls against the request's tool names and does not parse arbitrary pseudo syntax.
 
 ## Error Taxonomy
 
@@ -72,7 +78,9 @@ src/
 ## Test Strategy
 
 - Unit tests cover `GemmaReasoningProjector` for complete markers, split markers across deltas, empty thought channels, and ordinary text.
+- Unit tests cover `GemmaToolCallProjector` for documented LM Studio/Gemma tool-call blocks, split streamed blocks, declared-tool validation, and malformed block preservation.
 - Unit tests cover `GemmaProvider` request construction with OpenAI-compatible base URL, tools, streaming text deltas, and model requirement errors.
+- Unit tests verify native Gemma tool-call text is converted to universal `toolCalls` before SDK execution sees the response.
 - Unit tests verify raw Gemma marker text is not emitted through `onTextDelta` or final assistant content when the Gemma provider is selected.
 - CLI tests verify injected provider definitions are resolved generically without provider-specific branches in CLI logic.
 

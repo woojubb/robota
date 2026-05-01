@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type OpenAI from 'openai';
 import type { IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
+  IOpenAICompatibleToolCallTextProjection,
   IOpenAICompatibleStreamAssemblyOptions,
   TOpenAICompatibleTextProjector,
 } from './types';
@@ -15,6 +16,9 @@ interface IToolCallPart {
 interface IAssemblyState {
   textParts: string[];
   toolCallParts: Map<number, IToolCallPart>;
+  projectedToolCalls: IToolCall[];
+  rawToolCallTextParts: string[];
+  toolCallTextProjected: boolean;
   model: string;
   finishReason: string | null;
 }
@@ -25,6 +29,9 @@ export async function assembleOpenAICompatibleStream(
   const state: IAssemblyState = {
     textParts: [],
     toolCallParts: new Map(),
+    projectedToolCalls: [],
+    rawToolCallTextParts: [],
+    toolCallTextProjected: false,
     model: '',
     finishReason: null,
   };
@@ -65,7 +72,9 @@ function applyTextDelta(
     return;
   }
 
-  const visibleContent = projectText(content, options.textProjector);
+  const toolProjection = projectToolCallText(content, options.toolCallTextProjector);
+  applyToolCallTextProjection(state, toolProjection);
+  const visibleContent = projectText(toolProjection.visibleText, options.textProjector);
   if (visibleContent.length === 0) {
     return;
   }
@@ -82,6 +91,16 @@ function applyProjectedTextFlush(
   state: IAssemblyState,
   options: IOpenAICompatibleStreamAssemblyOptions,
 ): void {
+  const toolProjection = options.toolCallTextProjector?.flush();
+  if (toolProjection) {
+    applyToolCallTextProjection(state, toolProjection);
+    const visibleToolText = projectText(toolProjection.visibleText, options.textProjector);
+    if (visibleToolText.length > 0) {
+      state.textParts.push(visibleToolText);
+      options.onTextDelta?.(visibleToolText);
+    }
+  }
+
   const visibleContent = options.textProjectorFlush?.();
   if (!visibleContent) {
     return;
@@ -89,6 +108,34 @@ function applyProjectedTextFlush(
 
   state.textParts.push(visibleContent);
   options.onTextDelta?.(visibleContent);
+}
+
+function projectToolCallText(
+  text: string,
+  projector: IOpenAICompatibleStreamAssemblyOptions['toolCallTextProjector'],
+): IOpenAICompatibleToolCallTextProjection {
+  return (
+    projector?.project(text) ?? {
+      visibleText: text,
+      toolCalls: [],
+      removedToolCallText: false,
+    }
+  );
+}
+
+function applyToolCallTextProjection(
+  state: IAssemblyState,
+  projection: IOpenAICompatibleToolCallTextProjection,
+): void {
+  if (projection.toolCalls.length > 0) {
+    state.projectedToolCalls.push(...projection.toolCalls);
+  }
+  if (projection.removedToolCallText) {
+    state.toolCallTextProjected = true;
+  }
+  if (projection.rawToolCallText && projection.rawToolCallText.length > 0) {
+    state.rawToolCallTextParts.push(projection.rawToolCallText);
+  }
 }
 
 function applyToolCallDeltas(
@@ -117,6 +164,14 @@ function buildMessage(
   if (state.finishReason) {
     resultMetadata['finishReason'] = state.finishReason;
   }
+  if (state.toolCallTextProjected) {
+    resultMetadata['toolCallTextProjected'] = true;
+  }
+  if (state.rawToolCallTextParts.length > 0) {
+    resultMetadata['rawToolCallText'] = state.rawToolCallTextParts.join('');
+  }
+
+  const toolCalls = buildAllToolCalls(state);
 
   return {
     id: randomUUID(),
@@ -124,9 +179,13 @@ function buildMessage(
     content: state.textParts.join(''),
     state: 'complete',
     timestamp: new Date(),
-    ...(state.toolCallParts.size > 0 && { toolCalls: buildToolCalls(state.toolCallParts) }),
+    ...(toolCalls.length > 0 && { toolCalls }),
     ...(Object.keys(resultMetadata).length > 0 && { metadata: resultMetadata }),
   };
+}
+
+function buildAllToolCalls(state: IAssemblyState): IToolCall[] {
+  return [...buildToolCalls(state.toolCallParts), ...state.projectedToolCalls];
 }
 
 function buildToolCalls(toolCallParts: Map<number, IToolCallPart>): IToolCall[] {

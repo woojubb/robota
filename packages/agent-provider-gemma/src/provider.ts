@@ -6,17 +6,21 @@ import type {
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import { isAssistantMessage } from '@robota-sdk/agent-core';
 import {
   assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
   convertToOpenAICompatibleTools,
-  OpenAICompatibleResponseParser,
 } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IOpenAICompatibleError } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IGemmaProviderOptions } from './types';
-import { GemmaReasoningProjector, projectGemmaReasoningText } from './reasoning-projector';
-import { createStreamTextMessage } from './message-factory';
+import { GemmaReasoningProjector } from './reasoning-projector';
+import { createGemmaToolCallProjector } from './tool-call-projector';
+import { parseGemmaChatCompletion, withGemmaProjectionMetadata } from './provider-projection';
+import {
+  createGemmaStreamProjectionState,
+  flushGemmaStreamProjection,
+  projectGemmaStreamChunk,
+} from './streaming-projection';
 
 export class GemmaProvider extends AbstractAIProvider {
   override readonly name = 'gemma';
@@ -24,7 +28,6 @@ export class GemmaProvider extends AbstractAIProvider {
 
   private readonly client?: OpenAI;
   private readonly options: IGemmaProviderOptions;
-  private readonly responseParser: OpenAICompatibleResponseParser;
 
   onTextDelta?: TTextDeltaCallback;
 
@@ -49,8 +52,6 @@ export class GemmaProvider extends AbstractAIProvider {
         throw new Error('Either Gemma client, apiKey, or executor is required');
       }
     }
-
-    this.responseParser = new OpenAICompatibleResponseParser({ logger: this.logger });
   }
 
   override async chat(
@@ -94,16 +95,7 @@ export class GemmaProvider extends AbstractAIProvider {
       }
 
       const response = await this.client.chat.completions.create(requestParams);
-      const rawContent = response.choices?.[0]?.message.content || '';
-      const projection = projectGemmaReasoningText(rawContent);
-      return withGemmaProjectionMetadata(
-        {
-          ...this.responseParser.parseResponse(response),
-          content: projection.visibleText,
-        },
-        projection.rawText,
-        projection.removedReasoning,
-      );
+      return parseGemmaChatCompletion(response, this.logger, options);
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
       const errorMessage = gemmaError.message || 'Gemma API request failed';
@@ -139,29 +131,16 @@ export class GemmaProvider extends AbstractAIProvider {
     try {
       const requestParams = this.buildStreamingRequestParams(messages, options);
       const stream = await this.client.chat.completions.create(requestParams);
-      const projector = new GemmaReasoningProjector();
+      const projectionState = createGemmaStreamProjectionState(this.logger, options?.tools);
 
       for await (const chunk of this.streamWithAbort(stream, options?.signal)) {
-        const choice = chunk.choices?.[0];
-        if (!choice) {
-          continue;
-        }
-
-        const toolCalls = this.responseParser.parseStreamingChunk(chunk);
-        if (toolCalls !== null && isAssistantMessage(toolCalls) && toolCalls.toolCalls?.length) {
-          yield toolCalls;
-          continue;
-        }
-
-        const visibleContent = projector.project(choice.delta.content || '');
-        if (visibleContent.length > 0) {
-          yield createStreamTextMessage(visibleContent, choice.finish_reason);
+        for (const message of projectGemmaStreamChunk(chunk, projectionState)) {
+          yield message;
         }
       }
 
-      const flushedContent = projector.flush();
-      if (flushedContent.length > 0) {
-        yield createStreamTextMessage(flushedContent, null);
+      for (const message of flushGemmaStreamProjection(projectionState)) {
+        yield message;
       }
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
@@ -256,6 +235,7 @@ export class GemmaProvider extends AbstractAIProvider {
         signal: options.signal,
         textProjector: (text) => projector.project(text),
         textProjectorFlush: () => projector.flush(),
+        toolCallTextProjector: createGemmaToolCallProjector(options.tools),
       });
 
       return withGemmaProjectionMetadata(result, projector.rawText, projector.removedReasoning);
@@ -265,23 +245,4 @@ export class GemmaProvider extends AbstractAIProvider {
       throw new Error(`Gemma stream failed: ${errorMessage}`);
     }
   }
-}
-
-function withGemmaProjectionMetadata(
-  message: TUniversalMessage,
-  rawContent: string,
-  removedReasoning: boolean,
-): TUniversalMessage {
-  if (!removedReasoning) {
-    return message;
-  }
-
-  return {
-    ...message,
-    metadata: {
-      ...(message.metadata ?? {}),
-      gemmaReasoningFiltered: true,
-      gemmaRawContent: rawContent,
-    },
-  };
 }

@@ -8,7 +8,7 @@ This package owns reusable OpenAI-compatible Chat Completions transport primitiv
 
 - Does not own an end-user provider class. Provider classes belong to packages such as `agent-provider-openai` and `agent-provider-gemma`.
 - Does not own OpenAI account semantics, API-key defaults, payload logging products, or OpenAI-branded public compatibility.
-- Does not own Gemma-specific reasoning marker policy. Gemma projection strategy belongs to `agent-provider-gemma`.
+- Does not own Gemma-specific reasoning marker or native tool-call text policy. Gemma projection strategies belong to `agent-provider-gemma`.
 - Does not own generic agent orchestration, universal message contracts, or executor contracts. Those belong to `agent-core`.
 
 ## Architecture Overview
@@ -19,7 +19,7 @@ src/
   types.ts                 # OpenAI-compatible transport types
   message-converter.ts     # universal message and tool conversion
   response-parser.ts       # Chat Completions response and chunk parsing
-  stream-assembler.ts      # streaming chunk assembly with optional text projection
+  stream-assembler.ts      # streaming chunk assembly with optional injected projection
   endpoint-probe.ts        # OpenAI-compatible /models endpoint probe
 ```
 
@@ -27,17 +27,19 @@ The package is a functional core for provider transport logic. Concrete provider
 
 ## Type Ownership
 
-| Type                                     | Location                | Purpose                                                                         |
-| ---------------------------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| `IOpenAICompatibleChatRequestParams`     | `src/types.ts`          | Chat Completions request shape used by provider shells.                         |
-| `IOpenAICompatibleStreamRequestParams`   | `src/types.ts`          | Streaming Chat Completions request shape.                                       |
-| `IOpenAICompatibleError`                 | `src/types.ts`          | Minimal upstream error contract used for message wrapping.                      |
-| `IOpenAICompatibleLogData`               | `src/types.ts`          | Model-neutral payload log summary contract.                                     |
-| `TOpenAICompatibleTextProjector`         | `src/types.ts`          | Stateful or stateless text projection hook for model-family providers.          |
-| `TOpenAICompatibleTextProjectorFlush`    | `src/types.ts`          | Flush hook for stateful streaming projectors that hold partial marker prefixes. |
-| `IOpenAICompatibleStreamAssemblyOptions` | `src/types.ts`          | Options for assembling streamed chunks into one universal assistant message.    |
-| `IOpenAICompatibleModelsResponse`        | `src/endpoint-probe.ts` | Minimal `/models` response contract used for endpoint probes.                   |
-| `TOpenAICompatibleFetch`                 | `src/endpoint-probe.ts` | Fetch adapter contract for testable OpenAI-compatible endpoint probes.          |
+| Type                                      | Location                | Purpose                                                                             |
+| ----------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| `IOpenAICompatibleChatRequestParams`      | `src/types.ts`          | Chat Completions request shape used by provider shells.                             |
+| `IOpenAICompatibleStreamRequestParams`    | `src/types.ts`          | Streaming Chat Completions request shape.                                           |
+| `IOpenAICompatibleError`                  | `src/types.ts`          | Minimal upstream error contract used for message wrapping.                          |
+| `IOpenAICompatibleLogData`                | `src/types.ts`          | Model-neutral payload log summary contract.                                         |
+| `TOpenAICompatibleTextProjector`          | `src/types.ts`          | Stateful or stateless text projection hook for model-family providers.              |
+| `TOpenAICompatibleTextProjectorFlush`     | `src/types.ts`          | Flush hook for stateful streaming projectors that hold partial marker prefixes.     |
+| `IOpenAICompatibleToolCallTextProjection` | `src/types.ts`          | Result from an injected provider-owned text-to-tool-call projector.                 |
+| `IOpenAICompatibleToolCallTextProjector`  | `src/types.ts`          | Provider-owned projector that converts known native tool-call text into tool calls. |
+| `IOpenAICompatibleStreamAssemblyOptions`  | `src/types.ts`          | Options for assembling streamed chunks into one universal assistant message.        |
+| `IOpenAICompatibleModelsResponse`         | `src/endpoint-probe.ts` | Minimal `/models` response contract used for endpoint probes.                       |
+| `TOpenAICompatibleFetch`                  | `src/endpoint-probe.ts` | Fetch adapter contract for testable OpenAI-compatible endpoint probes.              |
 
 ## Public API Surface
 
@@ -53,6 +55,7 @@ The package is a functional core for provider transport logic. Concrete provider
 ## Extension Points
 
 - Providers may pass a `TOpenAICompatibleTextProjector` and optional flush hook into response parsing or stream assembly to transform model-family output before user-facing rendering.
+- Providers may pass an `IOpenAICompatibleToolCallTextProjector` when a documented provider-owned serving template emits native tool-call text instead of OpenAI `tool_calls`. The shared package only calls the injected strategy; it must not infer model names, tool names, or prompt directives.
 - Providers own client creation and may use any OpenAI-compatible endpoint that the OpenAI SDK can target.
 - Providers own payload logging and diagnostic raw-data retention policy.
 
@@ -69,7 +72,7 @@ The package is a functional core for provider transport logic. Concrete provider
 
 - Unit tests cover message conversion for user, assistant, system, tool, and function tools.
 - Unit tests cover full response parsing and streaming chunk parsing.
-- Unit tests cover stream assembly with text delta callbacks, tool-call assembly, abort handling while awaiting the next chunk, optional projection, and projector flush behavior.
+- Unit tests cover stream assembly with text delta callbacks, native tool-call assembly, injected text-tool-call projection, abort handling while awaiting the next chunk, optional projection, and projector flush behavior.
 - Unit tests cover endpoint probe skip, success, and HTTP failure behavior.
 - Provider packages must add integration tests proving they compose this package without changing their public behavior.
 
