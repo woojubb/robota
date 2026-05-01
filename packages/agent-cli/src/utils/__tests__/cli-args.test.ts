@@ -120,6 +120,15 @@ describe('parseCliArgs', () => {
     expect(args.apiKeyEnv).toBe('LM_STUDIO_API_KEY');
     expect(args.setCurrent).toBe(true);
   });
+
+  it('parses update-check flags', () => {
+    process.argv = ['node', 'cli', '--check-update', '--disable-update-check'];
+
+    const args = parseCliArgs();
+
+    expect(args.checkUpdate).toBe(true);
+    expect(args.disableUpdateCheck).toBe(true);
+  });
 });
 
 describe('new non-interactive flags', () => {

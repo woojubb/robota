@@ -37,6 +37,8 @@ export interface IParsedCliArgs {
   apiKeyEnv: string | undefined;
   setCurrent: boolean;
   settingsScope: string | undefined;
+  checkUpdate: boolean;
+  disableUpdateCheck: boolean;
 }
 
 /** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
@@ -92,6 +94,8 @@ export function parseCliArgs(): IParsedCliArgs {
       'api-key-env': { type: 'string' },
       'set-current': { type: 'boolean', default: false },
       'settings-scope': { type: 'string' },
+      'check-update': { type: 'boolean', default: false },
+      'disable-update-check': { type: 'boolean', default: false },
     },
   });
 
@@ -124,5 +128,7 @@ export function parseCliArgs(): IParsedCliArgs {
     apiKeyEnv: values['api-key-env'],
     setCurrent: values['set-current'] ?? false,
     settingsScope: values['settings-scope'],
+    checkUpdate: values['check-update'] ?? false,
+    disableUpdateCheck: values['disable-update-check'] ?? false,
   };
 }

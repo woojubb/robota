@@ -25,6 +25,12 @@ import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
+import {
+  checkForCliUpdate,
+  formatCliUpdateCheckMessage,
+  formatCliUpdateNotice,
+  getStartupCliUpdateNotice,
+} from './utils/update-check.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -107,9 +113,21 @@ export interface IStartCliOptions {
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
+  const version = readVersion();
 
   if (args.version) {
-    process.stdout.write(`robota ${readVersion()}\n`);
+    process.stdout.write(`robota ${version}\n`);
+    return;
+  }
+
+  if (args.checkUpdate) {
+    const result = await checkForCliUpdate({ currentVersion: version, force: true });
+    const message = formatCliUpdateCheckMessage(result);
+    if (result.status === 'error') {
+      process.stderr.write(`${message}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`${message}\n`);
     return;
   }
 
@@ -120,6 +138,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const cwd = process.cwd();
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const startupUpdateNoticePromise = args.disableUpdateCheck
+    ? undefined
+    : getStartupCliUpdateNotice({ currentVersion: version });
 
   if (args.configure) {
     await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
@@ -178,6 +199,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // Print mode (-p): one-shot prompt via headless transport, then exit
   if (args.printMode) {
+    void startupUpdateNoticePromise
+      ?.then((notice) => {
+        if (notice !== undefined) {
+          process.stderr.write(`${formatCliUpdateNotice(notice)}\n`);
+        }
+      })
+      .catch(() => undefined);
+
     let prompt = args.positional.join(' ').trim();
 
     // Stdin pipe: read from stdin if no positional args and stdin is piped
@@ -243,7 +272,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
-    version: readVersion(),
+    version,
     sessionStore,
     resumeSessionId,
     forkSession: args.forkSession,
@@ -252,5 +281,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     subagentRunnerFactory,
     commandModules: options.commandModules,
     providerDefinitions,
+    startupUpdateNoticePromise,
   });
 }
