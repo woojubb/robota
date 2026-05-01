@@ -9,7 +9,9 @@ describe('command execution tool', () => {
     });
 
     expect(tool.schema.description).toContain('Use this tool when command execution is required');
-    expect(tool.schema.description).toContain('pseudo-tags');
+    expect(tool.schema.description).toContain('assistant text does not execute');
+    expect(tool.schema.description).not.toContain('pseudo-tags');
+    expect(tool.schema.description).not.toContain('<agent');
     expect(tool.schema.description).toContain('JSON arguments');
     expect(tool.schema.description).toContain('"command":"agent"');
   });

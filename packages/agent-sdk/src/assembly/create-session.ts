@@ -44,8 +44,15 @@ import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-ru
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
-import type { IBackgroundTaskManager, IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type {
+  IBackgroundTaskManager,
+  IBackgroundTaskRunner,
+  TBackgroundTaskEvent,
+} from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
+
+const ID_RADIX = 36;
+const ID_RANDOM_LENGTH = 9;
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -136,6 +143,7 @@ export function createSession(options: ICreateSessionOptions): Session {
   }
   const provider = options.provider;
   const cwd = options.cwd ?? process.cwd();
+  const sessionId = options.sessionId ?? createSessionId();
 
   const defaultTools = createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
@@ -185,7 +193,7 @@ export function createSession(options: ICreateSessionOptions): Session {
       terminal: options.terminal,
       provider,
       cwd,
-      parentSessionId: options.sessionId ?? 'pending-session',
+      parentSessionId: sessionId,
       permissionMode: options.permissionMode,
       permissionHandler: options.permissionHandler,
       hooks: options.config.hooks,
@@ -207,6 +215,12 @@ export function createSession(options: ICreateSessionOptions): Session {
       runners: options.backgroundTaskRunners ?? [],
     });
   }
+  const sessionLogger = options.sessionLogger;
+  if (backgroundTaskManager && sessionLogger) {
+    backgroundTaskManager.subscribe((event) =>
+      logBackgroundTaskEvent(sessionLogger, sessionId, event),
+    );
+  }
 
   let backgroundProcessToolDeps: IBackgroundProcessToolDeps | undefined;
   if (
@@ -216,7 +230,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     backgroundProcessToolDeps = {
       backgroundTaskManager,
       cwd,
-      parentSessionId: options.sessionId ?? 'pending-session',
+      parentSessionId: sessionId,
     };
     tools.push(createBackgroundProcessTool(backgroundProcessToolDeps));
   }
@@ -293,7 +307,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     model: options.config.provider.model,
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,
-    sessionId: options.sessionId,
+    sessionId,
     permissionHandler: options.permissionHandler,
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
@@ -312,4 +326,19 @@ export function createSession(options: ICreateSessionOptions): Session {
   if (agentToolDeps) storeAgentToolDeps(session, agentToolDeps);
 
   return session;
+}
+
+function createSessionId(): string {
+  return `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
+}
+
+function logBackgroundTaskEvent(
+  logger: ISessionLogger,
+  sessionId: string,
+  event: TBackgroundTaskEvent,
+): void {
+  logger.log(sessionId, 'background_task_event', {
+    backgroundEventType: event.type,
+    backgroundEvent: event,
+  });
 }

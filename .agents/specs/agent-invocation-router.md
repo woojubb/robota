@@ -170,15 +170,15 @@ Recommended descriptor:
 | Command                          | Behavior                                                                                                        |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `/agent`                         | List available agent definitions and active/terminal agent jobs, or open a picker when the host supports it.    |
-| `/agent <prompt>`                | Spawn one `general-purpose` background agent with the natural-language prompt and return `agentId` immediately. |
-| `/agent <agent> <prompt>`        | Spawn the named background agent when `<agent>` matches an available agent definition.                          |
-| `/agent run [<agent>] <prompt>`  | Compatibility alias for background agent spawn. Defaults to `general-purpose` when omitted.                     |
+| `/agent PROMPT`                  | Spawn one `general-purpose` background agent with the natural-language prompt and return `agentId` immediately. |
+| `/agent AGENT_NAME PROMPT`       | Spawn the named background agent when `AGENT_NAME` matches an available agent definition.                       |
+| `/agent run [AGENT_NAME] PROMPT` | Compatibility alias for background agent spawn. Defaults to `general-purpose` when omitted.                     |
 | `/agent parallel <spec>`         | Spawn multiple background agents from a structured spec and return all `agentId` values immediately.            |
-| `/agent read <agentId> [offset]` | Read retained transcript/log output for an agent job.                                                           |
-| `/agent send <agentId> <prompt>` | Send follow-up input to a running/open agent when supported.                                                    |
-| `/agent stop <agentId> [reason]` | Cancel a running/queued agent job.                                                                              |
-| `/agent close <agentId>`         | Close a terminal agent job.                                                                                     |
-| `/agent open <agentId>`          | Switch or focus the TUI agent thread/detail view when the TUI supports it.                                      |
+| `/agent read AGENT_ID [OFFSET]`  | Read retained transcript/log output for an agent job.                                                           |
+| `/agent send AGENT_ID PROMPT`    | Send follow-up input to a running/open agent when supported.                                                    |
+| `/agent stop AGENT_ID [REASON]`  | Cancel a running/queued agent job.                                                                              |
+| `/agent close AGENT_ID`          | Close a terminal agent job.                                                                                     |
+| `/agent open AGENT_ID`           | Switch or focus the TUI agent thread/detail view when the TUI supports it.                                      |
 
 `/background` remains the generic task manager command. `/agent` is the agent-specific control surface and may delegate task reads/cancel/close to the shared background task registry.
 
@@ -242,7 +242,7 @@ Rules:
 - The command execution tool must call the same command handler used by user-entered slash commands.
 - The command execution tool must return structured command results, including `agentId` values for created background agents.
 - Prompt text alone is not command execution. If the model writes `/agent ...` as assistant text instead of calling the command tool, no agent job has started.
-- XML/HTML-like assistant text such as `<agent ... />` is not command execution. Owner-provided command descriptors should explicitly point model-routed execution at the `ExecuteCommand` tool.
+- Tag-like assistant markup is not command execution. Owner-provided command descriptors should explicitly point model-routed execution at the `ExecuteCommand` tool without showing tag-shaped examples that local models may copy.
 - If the model does not call the command tool, Robota must not synthesize an agent job from natural language after the fact.
 - User-entered prompts that begin with `/agent` may bypass the model and execute the slash command handler directly.
 
@@ -265,7 +265,7 @@ Rules:
 - If the user explicitly asks to create, spawn, run, delegate to, or use subagents/agents, the assistant should call the `Agent` tool in the same assistant turn instead of replying with a plan.
 - For multiple or parallel subagents, the assistant should emit one `Agent` tool call per requested role in the same assistant turn.
 - Agent tool calls are background-first. `background` defaults to `true`; `background: false` is only for an explicit foreground/wait request.
-- The assistant must not print XML/HTML-like `<agent ... />` text as a substitute for a tool call.
+- The assistant must not print tag-like assistant markup as a substitute for a tool call.
 - The assistant must not say an agent is running unless the tool result returned an `agentId` or an equivalent runtime event exists.
 - Role naming should prefer available agent definitions. Developer, implementation, and engineering requests map to `general-purpose` when no more specific agent exists. Designer, planning, and architecture requests map to `Plan` when available.
 - If the user asks to analyze one backlog/task/item, the assistant may choose a reasonable target when visible context lists candidates. If no candidate is currently visible, it should include target selection/discovery inside each subagent prompt instead of first replying with an inspection plan.
@@ -345,7 +345,7 @@ Robota MUST use runtime evidence as the only authoritative source for agent exec
 Robota-owned UI, transport, logs, and command results may report that agents are running only when one of these is true:
 
 - an `Agent` tool call completed with `background: true` and returned an `agentId`;
-- `/agent <prompt>`, `/agent run`, or `/agent parallel` returned one or more `agentId` values;
+- `/agent PROMPT`, `/agent run`, or `/agent parallel` returned one or more `agentId` values;
 - a `background_task_created` event was observed for each claimed job.
 
 Rules:
@@ -398,7 +398,7 @@ Rules:
 4. Keep core SDK system commands free of agent-specific behavior unless the agent command module is injected.
 5. Add a model-callable command execution tool that projects `modelInvocable` command registry entries and calls the same command handlers.
 6. Add `InteractiveSession` APIs that let command handlers spawn/list/read/send/stop/close agent jobs through the existing runtime manager.
-7. Add `/agent <prompt>`, `/agent run`, and `/agent parallel` parsers with deterministic background spawn behavior.
+7. Add `/agent PROMPT`, `/agent run`, and `/agent parallel` parsers with deterministic background spawn behavior.
 8. Wire CLI/TUI slash input, headless slash input, and model command tool calls through the same command handler path.
 9. Add runtime evidence tests that fail when Robota-owned execution state reports agent execution without a runtime event or returned `agentId`.
 10. Persist the exact composed system prompt, registered tool schemas, provider messages, UI history, and diagnostic run data under the project `.robota` tree so resume and debugging inspect the same source of truth.
@@ -429,7 +429,7 @@ Rules:
 - Given a real `background_task_created` event for each created job, when runtime execution state is projected, then it reports those jobs as started.
 - Given a model emits the `Agent` tool without a `background` argument, when the tool executes, then it starts a background job and returns immediately with an `agentId`.
 - Given a model emits the `Agent` tool with `background: false`, when the tool executes, then it uses the explicit foreground/wait path.
-- Given the `Agent` tool schema is exposed, when its description is inspected, then it states that real subagent execution requires calling the tool, parallel roles require multiple same-turn tool calls, and `<agent ... />` assistant text is invalid.
+- Given the `Agent` tool schema is exposed, when its description is inspected, then it states that real subagent execution requires calling the tool and parallel roles require multiple same-turn tool calls, without exposing tag-shaped execution examples.
 - Given a CLI session is created, when it is persisted, then the record is written under project `.robota/sessions` and includes provider messages, UI history, the exact system prompt, and registered tool schemas.
 - Given diagnostic logs are inspected, when the session has run, then `session_init`, `pre_run`, and `assistant` events contain full prompt/input/history/response data instead of only lengths or truncated assistant text.
 
@@ -459,7 +459,7 @@ pnpm harness:verify -- --scope packages/agent-cli --base-ref origin/develop
 - Startup prompt context includes model-visible capability descriptors sourced from registries.
 - `/agent` exists as an injected CLI default command with user-visible and model-visible metadata.
 - SDK core can be assembled without the agent command module.
-- `/agent <prompt>` starts an actual background agent and returns an `agentId`.
+- `/agent PROMPT` starts an actual background agent and returns an `agentId`.
 - `/agent parallel` starts multiple background agents before waiting for any result.
 - Natural-language requests for agent execution can succeed when the model selects the command execution tool from registered descriptors.
 - Robota-owned execution state cannot report background agents as running unless runtime evidence exists.

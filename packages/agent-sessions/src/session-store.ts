@@ -30,6 +30,10 @@ export interface ISessionRecord {
   systemPrompt?: string;
   /** Tool schemas registered for the session. */
   toolSchemas?: IToolSchema[];
+  /** Latest background task snapshots for resume/debugging. */
+  backgroundTasks?: unknown[];
+  /** Durable non-streaming background task events for resume/debugging. */
+  backgroundTaskEvents?: unknown[];
 }
 
 /**

@@ -1,5 +1,5 @@
 import { fork } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   BackgroundTaskError,
@@ -8,6 +8,8 @@ import {
   type IAgentDefinition,
   type IInProcessSubagentRunnerDeps,
   type ISerializableProviderProfile,
+  type IBackgroundTaskLogCursor,
+  type IBackgroundTaskLogPage,
   type ISubagentJobHandle,
   type ISubagentJobResult,
   type ISubagentJobStart,
@@ -30,6 +32,7 @@ import {
 import { createGitWorktreeIsolationAdapter } from './git-worktree-isolation-adapter.js';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
+const LOG_PAGE_SIZE = 200;
 
 export interface IChildProcessSubagentRunnerOptions {
   providerConfig?: IProviderConfig;
@@ -39,6 +42,7 @@ export interface IChildProcessSubagentRunnerOptions {
   env?: NodeJS.ProcessEnv;
   worktreeIsolation?: boolean;
   worktreeAdapter?: ISubagentWorktreeAdapter;
+  logsDir?: string;
 }
 
 interface ICancellationResult {
@@ -67,6 +71,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly killGraceMs: number;
   private readonly providerConfig?: IProviderConfig;
   private readonly env?: NodeJS.ProcessEnv;
+  private readonly logsDir?: string;
 
   constructor(
     private readonly deps: IInProcessSubagentRunnerDeps,
@@ -77,6 +82,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
     this.providerConfig = options.providerConfig;
     this.env = options.env;
+    this.logsDir = options.logsDir;
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -96,10 +102,12 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const cancellation = createCancellationResult(job.jobId);
     void workerResult.catch(() => undefined);
     const result = Promise.race([workerResult, cancellation.promise]);
+    const transcriptPath = this.resolveTranscriptPath(job);
 
     return {
       jobId: job.jobId,
       ...(child.pid !== undefined && { pid: child.pid }),
+      ...(transcriptPath !== undefined && { transcriptPath, logPath: transcriptPath }),
       result,
       cancel: async (reason?: string) => {
         cancellation.reject(reason);
@@ -108,6 +116,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       send: async (prompt: string) => {
         await sendWorkerMessage(child, { type: 'send', prompt });
       },
+      ...(transcriptPath !== undefined && {
+        readLog: async (cursor?: IBackgroundTaskLogCursor) =>
+          readTranscriptLog(job.jobId, transcriptPath, cursor),
+      }),
     };
   }
 
@@ -121,7 +133,13 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       parentContext: this.deps.context,
       providerProfile: createProviderProfile(this.providerConfig, this.deps, job),
       permissionMode: this.deps.permissionMode,
+      ...(this.logsDir ? { logsDir: this.logsDir } : {}),
     };
+  }
+
+  private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {
+    if (!this.logsDir) return undefined;
+    return join(this.logsDir, job.request.parentSessionId, 'subagents', `${job.jobId}.jsonl`);
   }
 
   private createResult(
@@ -149,7 +167,12 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         settled = true;
         clearTimers();
         cleanup();
-        resolve({ jobId: runtime.job.jobId, output });
+        const transcriptPath = this.resolveTranscriptPath(runtime.job);
+        resolve({
+          jobId: runtime.job.jobId,
+          output,
+          ...(transcriptPath ? { metadata: { transcriptPath, logPath: transcriptPath } } : {}),
+        });
       };
 
       const rejectOnce = (error: Error): void => {
@@ -286,4 +309,27 @@ function resolveDefaultExecArgv(workerPath: string): string[] {
     return process.execArgv;
   }
   return [...process.execArgv, '--import', 'tsx'];
+}
+
+function readTranscriptLog(
+  jobId: string,
+  transcriptPath: string,
+  cursor?: IBackgroundTaskLogCursor,
+): IBackgroundTaskLogPage {
+  const offset = cursor?.offset ?? 0;
+  if (!existsSync(transcriptPath)) {
+    return {
+      taskId: jobId,
+      cursor,
+      lines: [],
+    };
+  }
+  const lines = readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  const nextOffset = Math.min(offset + LOG_PAGE_SIZE, lines.length);
+  return {
+    taskId: jobId,
+    cursor,
+    nextCursor: nextOffset < lines.length ? { offset: nextOffset } : undefined,
+    lines: lines.slice(offset, nextOffset),
+  };
 }

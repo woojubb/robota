@@ -38,7 +38,7 @@ describe('system prompt composer', () => {
         description: 'Start, inspect, steer, stop, and close subagent jobs.',
         userInvocable: true,
         modelInvocable: true,
-        argumentHint: 'run <agent> --background <prompt>',
+        argumentHint: 'run AGENT_NAME --background PROMPT',
         safety: 'background-agent',
       },
     ]);
@@ -47,6 +47,6 @@ describe('system prompt composer', () => {
 
     expect(prompt).toContain('/agent');
     expect(prompt).toContain('Start, inspect, steer, stop, and close subagent jobs.');
-    expect(prompt).toContain('run <agent> --background <prompt>');
+    expect(prompt).toContain('run AGENT_NAME --background PROMPT');
   });
 });

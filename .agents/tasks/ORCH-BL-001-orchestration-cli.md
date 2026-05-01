@@ -24,9 +24,9 @@ created: 2026-03-15
 ### Robota Agent 제어
 
 - `robota agent list` — 에이전트 목록 조회
-- `robota agent run <agentId>` — 에이전트 실행
-- `robota agent chat <agentId>` — 에이전트와 대화
-- `robota agent status <agentId>` — 에이전트 상태 확인
+- `robota agent run AGENT_ID` — 에이전트 실행
+- `robota agent chat AGENT_ID` — 에이전트와 대화
+- `robota agent status AGENT_ID` — 에이전트 상태 확인
 - @robota-sdk/agent-core 패키지의 기능을 CLI로 노출
 
 ## AI 에이전트 사용

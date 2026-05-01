@@ -179,7 +179,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background execution, and pseudo-tags such as `<agent ... />` are not execution.
+- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background execution, and assistant text alone is not execution.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
 ### Web Search
@@ -912,6 +912,8 @@ The manager does not create providers, sessions, child processes, worktrees, or 
 
 `InteractiveSession` emits `background_task_event` with `TBackgroundTaskEvent`.
 
+When session persistence is enabled, `InteractiveSession` must persist background task state as part of the project-local session record. Lifecycle, tool start/end, permission, completion, failure, cancellation, and close events update the session JSON with the latest task snapshots and durable event summaries. High-frequency `background_task_text_delta` events must not rewrite the main session JSON per chunk; they are written to append-only JSONL session logs and task/subagent transcript files so debugging data is available while streaming is still in progress without risking partial JSON writes.
+
 `createSession()` accepts `backgroundTaskRunners?: IBackgroundTaskRunner[]`. When a runner with `kind: 'process'` is present, SDK composition registers the model-callable `BackgroundProcess` tool:
 
 - `BackgroundProcess` starts a command as `kind: 'process'`, `mode: 'background'`
@@ -927,6 +929,7 @@ Runner progress semantics:
 - `background_task_tool_start` sets `IBackgroundTaskState.currentAction`
 - `background_task_tool_end` clears `currentAction` on success or stores the error/action on failure
 - progress events do not complete, fail, cancel, or close tasks; lifecycle remains manager-owned
+- progress and lifecycle events are diagnostic data, not just UI state; SDK composition must route them to session logging/persistence when those facilities are configured
 
 The built-in `/background` system command maps to these APIs:
 
@@ -971,13 +974,16 @@ interface ISubagentJobStart {
 interface ISubagentJobHandle {
   readonly jobId: string;
   readonly pid?: number;
+  readonly logPath?: string;
+  readonly transcriptPath?: string;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
   send?(prompt: string): Promise<void>;
+  readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
 }
 ```
 
-The runner reports completion through its `result` promise and supports targeted cancellation through `cancel()`. Follow-up routing via `send()` is optional until a runner supports it.
+The runner reports completion through its `result` promise and supports targeted cancellation through `cancel()`. Follow-up routing via `send()` is optional until a runner supports it. Log reading via `readLog()` is optional, but process-backed subagent runners should implement it so `/agent read AGENT_ID` can inspect append-only transcripts while a job is still running.
 
 `createInProcessSubagentRunner(deps)` is the default SDK adapter for foreground compatibility. It resolves the requested agent definition, creates an isolated child `Session` with `createSubagentSession()`, runs the prompt, and maps the response to `ISubagentJobResult`.
 
@@ -1083,7 +1089,9 @@ Assembles the full system prompt for a subagent session:
 
 ### Subagent Transcript Logger
 
-`createSubagentLogger(parentSessionId, agentId, baseLogsDir)` creates a `FileSessionLogger` that writes subagent session logs to `{baseLogsDir}/{parentSessionId}/subagents/{agentId}.jsonl`.
+`createSubagentLogger(parentSessionId, agentId, baseLogsDir)` creates a `FileSessionLogger` for append-only subagent transcripts. Subagent sessions must run with `sessionId = agentId`, so the transcript is written to `{baseLogsDir}/{parentSessionId}/subagents/{agentId}.jsonl`.
+
+Subagent transcript logs must include session initialization, prompts, tool calls/results, streaming `text_delta` chunks, final assistant output, context state, and errors. Parent sessions may store only transcript paths and task snapshots in `.robota/sessions/*.json`; the transcript JSONL remains the source of truth for high-frequency streaming data.
 
 ## Unconnected Packages (Future Integration Targets)
 

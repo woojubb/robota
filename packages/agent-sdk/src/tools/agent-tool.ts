@@ -33,7 +33,7 @@ export const AGENT_TOOL_DESCRIPTION = [
   'If the user asks to choose one backlog, task, or item, include that target-selection instruction inside each subagent prompt and start the agents instead of first replying with an inspection plan.',
   'Korean example: "백로그 중에 하나를 분석할건데, 개발자 서브에이전트와 디자이너 서브에이전트를 만들어서 병렬로 동시에 백로그 하나를 분석해" means call Agent twice immediately, once for a general-purpose developer prompt and once for a Plan designer prompt.',
   'Subagent jobs are background-first: omit background or set background: true unless the user explicitly asks to wait in the foreground.',
-  'Do not print XML/HTML-like <agent ... /> pseudo-tags as assistant text; pseudo-tags do not execute anything.',
+  'Execution requires the tool-call channel; assistant text does not start a subagent job.',
   'The result returned by the agent is not visible to the user, so summarize completed foreground results for the user when needed.',
 ].join(' ');
 
@@ -53,7 +53,7 @@ export function createAgentToolPromptDescription(
     'If needed, choose one backlog/task/item inside the agent prompt instead of delaying launch.',
     'Korean example: "백로그 중에 하나를 분석할건데..." means launch the requested agents now.',
     'background defaults to true; use background: false only for explicit foreground/wait requests.',
-    'Do not print <agent ... /> pseudo-tags as assistant text.',
+    'Execution requires the tool-call channel; assistant text alone does not start a subagent job.',
     availableAgents,
   ]
     .join(' ')

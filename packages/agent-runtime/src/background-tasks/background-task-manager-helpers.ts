@@ -60,6 +60,10 @@ export function applyBackgroundTaskResultMetadataToState(
   if (typeof worktreePath === 'string') state.worktreePath = worktreePath;
   const branchName = result.metadata?.['branchName'];
   if (typeof branchName === 'string') state.branchName = branchName;
+  const logPath = result.metadata?.['logPath'];
+  if (typeof logPath === 'string') state.logPath = logPath;
+  const transcriptPath = result.metadata?.['transcriptPath'];
+  if (typeof transcriptPath === 'string') state.transcriptPath = transcriptPath;
 }
 
 export function createQueuedBackgroundTaskState(

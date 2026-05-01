@@ -1,5 +1,6 @@
 import {
   createDefaultTools,
+  createSubagentLogger,
   createSubagentSession,
   type ITerminalOutput,
 } from '@robota-sdk/agent-sdk';
@@ -36,6 +37,9 @@ function sendChildMessage(message: TSubagentWorkerChildMessage): void {
 async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<void> {
   try {
     const provider = createProviderFromProfile(payload.providerProfile, payload.request.model);
+    const sessionLogger = payload.logsDir
+      ? createSubagentLogger(payload.request.parentSessionId, payload.jobId, payload.logsDir)
+      : undefined;
     session = createSubagentSession({
       agentDefinition: payload.agentDefinition,
       parentConfig: payload.parentConfig,
@@ -43,6 +47,8 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       parentTools: createDefaultTools(),
       provider,
       terminal: NOOP_TERMINAL,
+      sessionId: payload.jobId,
+      ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
       hooks: payload.parentConfig.hooks,
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),

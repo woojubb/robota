@@ -190,6 +190,12 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       });
       task.handle = handle;
       if (handle.pid) task.state.pid = handle.pid;
+      if (handle.logPath) task.state.logPath = handle.logPath;
+      if (handle.transcriptPath) task.state.transcriptPath = handle.transcriptPath;
+      if (handle.pid || handle.logPath || handle.transcriptPath) {
+        task.state.updatedAt = this.now();
+        this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
+      }
       handle.result.then(
         (result) => this.completeTask(task, result),
         (error) => this.failTask(task, error instanceof Error ? error : String(error)),

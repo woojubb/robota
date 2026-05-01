@@ -13,6 +13,7 @@ import { Session } from '../session.js';
 // Capture the config passed to Robota constructor
 let capturedConfig: Record<string, unknown> | null = null;
 let mockRunResult = 'mock response';
+let mockRunDeltas: string[] = [];
 
 vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
@@ -21,7 +22,12 @@ vi.mock('@robota-sdk/agent-core', async () => {
     Robota: vi.fn().mockImplementation((config: Record<string, unknown>) => {
       capturedConfig = config;
       return {
-        run: vi.fn().mockImplementation(async () => mockRunResult),
+        run: vi.fn().mockImplementation(async (_message: string, options?: unknown) => {
+          const onTextDelta = (options as { onTextDelta?: (delta: string) => void } | undefined)
+            ?.onTextDelta;
+          for (const delta of mockRunDeltas) onTextDelta?.(delta);
+          return mockRunResult;
+        }),
         getHistory: vi.fn().mockReturnValue([]),
         clearHistory: vi.fn(),
       };
@@ -78,6 +84,7 @@ describe('Session — system prompt delivery', () => {
   beforeEach(() => {
     capturedConfig = null;
     mockRunResult = 'mock response';
+    mockRunDeltas = [];
   });
 
   it('should include AGENTS.md content in system prompt', () => {
@@ -236,6 +243,35 @@ describe('Session — system prompt delivery', () => {
       expect.objectContaining({
         content: longResponse,
       }),
+    );
+  });
+
+  it('logs streaming text deltas before forwarding them to the callback', async () => {
+    mockRunDeltas = ['hello ', 'world'];
+    const forwarded: string[] = [];
+    const logger = { log: vi.fn() };
+
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'System prompt',
+      terminal: MOCK_TERMINAL,
+      sessionLogger: logger,
+      onTextDelta: (delta) => forwarded.push(delta),
+    });
+
+    await session.run('hello');
+
+    expect(forwarded).toEqual(['hello ', 'world']);
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'text_delta',
+      expect.objectContaining({ delta: 'hello ' }),
+    );
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'text_delta',
+      expect.objectContaining({ delta: 'world' }),
     );
   });
 });

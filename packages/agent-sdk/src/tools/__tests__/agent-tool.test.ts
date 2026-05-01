@@ -126,7 +126,9 @@ describe('Agent tool', () => {
     expect(schema.description).toContain('same assistant turn');
     expect(schema.description).toContain('one Agent tool call per role');
     expect(schema.description).toContain('background: true');
-    expect(schema.description).toContain('<agent');
+    expect(schema.description).toContain('tool-call channel');
+    expect(schema.description).not.toContain('<agent');
+    expect(schema.description).not.toContain('pseudo-tags');
     expect(schema.description).toContain('choose one backlog');
     expect(schema.description).toContain('Korean example');
     expect(schema.description).toContain('백로그 중에 하나');
