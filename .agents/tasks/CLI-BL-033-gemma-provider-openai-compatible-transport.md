@@ -34,7 +34,7 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 - Any Gemma-specific behavior must be explicit through provider selection or an equivalent typed configuration, not inferred from model name strings.
 - Shared OpenAI-compatible transport code should be composable so future model-family providers can reuse it without copy-pasting the OpenAI provider.
 
-## Verification Plan
+## Test Plan
 
 - Given Gemma reasoning-channel markers arrive in streamed deltas, when the Gemma provider is selected, then user-facing streamed text excludes reasoning markers while diagnostic logs retain raw provider data.
 - Given the same response arrives through the generic OpenAI-compatible provider, when no Gemma provider/profile is selected, then Robota does not apply Gemma-specific filtering.
