@@ -8,7 +8,7 @@
 
 ## Boundaries
 
-- Keeps provider-specific transport behavior in provider packages (`@robota-sdk/agent-provider-openai`, `@robota-sdk/agent-provider-anthropic`, `@robota-sdk/agent-provider-google`).
+- Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
 - Does not own workflow visualization, DAG orchestration, or session persistence (those belong to `dag-*`, `@robota-sdk/agent-sessions`).
 
@@ -71,36 +71,41 @@ Safe defaults use the Null Object pattern:
 
 This package is the single source of truth (SSOT) for the following types:
 
-| Type                        | Location                         | Purpose                                                                                                                                                                                                               |
-| --------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TUniversalMessage`         | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)                                                                                                                                                               |
-| `TUniversalMessageMetadata` | `interfaces/messages.ts`         | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects)                                                               |
-| `TUniversalValue`           | `interfaces/types.ts`            | Recursive value type without `any`                                                                                                                                                                                    |
-| `TMetadata`                 | `interfaces/types.ts`            | Metadata record type                                                                                                                                                                                                  |
-| `IAgentConfig`              | `interfaces/agent.ts`            | Agent configuration contract                                                                                                                                                                                          |
-| `IAIProvider`               | `interfaces/provider.ts`         | Provider integration contract                                                                                                                                                                                         |
-| `IToolSchema`               | `interfaces/provider.ts`         | Tool schema contract                                                                                                                                                                                                  |
-| `TToolParameters`           | `interfaces/types.ts`            | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                            |
-| `IEventService`             | `event-service/interfaces.ts`    | Event emission contract                                                                                                                                                                                               |
-| `IOwnerPathSegment`         | `event-service/interfaces.ts`    | Execution path tracking                                                                                                                                                                                               |
-| `RobotaError`               | `utils/errors.ts`                | Base error hierarchy                                                                                                                                                                                                  |
-| `TTextDeltaCallback`        | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`                                                                                                                                                               |
-| `TPermissionMode`           | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                       |
-| `TTrustLevel`               | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                                                                                                                                                                          |
-| `TPermissionDecision`       | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                                                                                                                                                                               |
-| `TToolArgs`                 | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                                                                                                                                                         |
-| `IPermissionLists`          | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                                                                                                                                                        |
-| `TKnownToolName`            | `permissions/permission-mode.ts` | Known tool names in the permission system                                                                                                                                                                             |
-| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events (9 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, WorktreeCreate, WorktreeRemove                                                              |
-| `THooksConfig`              | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                                                                                                                                                    |
-| `IHookGroup`                | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                                                                                                                                                        |
-| `IHookDefinition`           | `hooks/types.ts`                 | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                              |
-| `IHookTypeExecutor`         | `hooks/types.ts`                 | Strategy interface for hook type execution                                                                                                                                                                            |
-| `IHookInput`                | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                                                                                                                                               |
-| `IHookResult`               | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                      |
-| `IContextTokenUsage`        | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                      |
-| `IContextWindowState`       | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                     |
-| `IHistoryEntry`             | `interfaces/history.ts`          | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type) |
+| Type                        | Location                            | Purpose                                                                                                                                                                                                               |
+| --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TUniversalMessage`         | `interfaces/messages.ts`            | Canonical message union (User, Assistant, System, Tool)                                                                                                                                                               |
+| `TUniversalMessageMetadata` | `interfaces/messages.ts`            | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects)                                                               |
+| `TUniversalValue`           | `interfaces/types.ts`               | Recursive value type without `any`                                                                                                                                                                                    |
+| `TMetadata`                 | `interfaces/types.ts`               | Metadata record type                                                                                                                                                                                                  |
+| `IAgentConfig`              | `interfaces/agent.ts`               | Agent configuration contract                                                                                                                                                                                          |
+| `IAIProvider`               | `interfaces/provider.ts`            | Provider integration contract                                                                                                                                                                                         |
+| `IProviderDefinition`       | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with defaults, setup prompts, validation requirements, probe hooks, and `createProvider()` factories.                                                |
+| `IProviderConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions.                                                                                                                                                   |
+| `IProviderProbeResult`      | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                |
+| `TMessageFormatConverter`   | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                           |
+| `TMessageConverterRegistry` | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                         |
+| `IToolSchema`               | `interfaces/provider.ts`            | Tool schema contract                                                                                                                                                                                                  |
+| `TToolParameters`           | `interfaces/types.ts`               | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                            |
+| `IEventService`             | `event-service/interfaces.ts`       | Event emission contract                                                                                                                                                                                               |
+| `IOwnerPathSegment`         | `event-service/interfaces.ts`       | Execution path tracking                                                                                                                                                                                               |
+| `RobotaError`               | `utils/errors.ts`                   | Base error hierarchy                                                                                                                                                                                                  |
+| `TTextDeltaCallback`        | `interfaces/provider.ts`            | Streaming text delta callback `(delta: string) => void`                                                                                                                                                               |
+| `TPermissionMode`           | `permissions/types.ts`              | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                       |
+| `TTrustLevel`               | `permissions/types.ts`              | Friendly trust aliases: safe, moderate, full                                                                                                                                                                          |
+| `TPermissionDecision`       | `permissions/types.ts`              | Evaluation outcome: auto, approve, deny                                                                                                                                                                               |
+| `TToolArgs`                 | `permissions/permission-gate.ts`    | Tool arguments record for permission matching                                                                                                                                                                         |
+| `IPermissionLists`          | `permissions/permission-gate.ts`    | Allow/deny pattern lists for permission config                                                                                                                                                                        |
+| `TKnownToolName`            | `permissions/permission-mode.ts`    | Known tool names in the permission system                                                                                                                                                                             |
+| `THookEvent`                | `hooks/types.ts`                    | Hook lifecycle events (9 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, WorktreeCreate, WorktreeRemove                                                              |
+| `THooksConfig`              | `hooks/types.ts`                    | Complete hooks configuration: event to hook groups                                                                                                                                                                    |
+| `IHookGroup`                | `hooks/types.ts`                    | Hook group: matcher pattern + hook definitions                                                                                                                                                                        |
+| `IHookDefinition`           | `hooks/types.ts`                    | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                              |
+| `IHookTypeExecutor`         | `hooks/types.ts`                    | Strategy interface for hook type execution                                                                                                                                                                            |
+| `IHookInput`                | `hooks/types.ts`                    | Input passed to hook commands via stdin                                                                                                                                                                               |
+| `IHookResult`               | `hooks/types.ts`                    | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                      |
+| `IContextTokenUsage`        | `context/types.ts`                  | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                      |
+| `IContextWindowState`       | `context/types.ts`                  | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                     |
+| `IHistoryEntry`             | `interfaces/history.ts`             | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type) |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -123,15 +128,18 @@ Provider packages import these types. They must not re-declare them.
 
 ### Core
 
-| Export               | Kind           | Description                       |
-| -------------------- | -------------- | --------------------------------- |
-| `Robota`             | class          | Main agent facade                 |
-| `AbstractAgent`      | abstract class | Base agent lifecycle              |
-| `AbstractAIProvider` | abstract class | Base for provider implementations |
-| `AbstractPlugin`     | abstract class | Base for plugin extensions        |
-| `AbstractTool`       | abstract class | Base for tool implementations     |
-| `AbstractExecutor`   | abstract class | Base for execution strategies     |
-| `LocalExecutor`      | class          | Local provider execution          |
+| Export                         | Kind           | Description                                       |
+| ------------------------------ | -------------- | ------------------------------------------------- |
+| `Robota`                       | class          | Main agent facade                                 |
+| `AbstractAgent`                | abstract class | Base agent lifecycle                              |
+| `AbstractAIProvider`           | abstract class | Base for provider implementations                 |
+| `AbstractPlugin`               | abstract class | Base for plugin extensions                        |
+| `AbstractTool`                 | abstract class | Base for tool implementations                     |
+| `AbstractExecutor`             | abstract class | Base for execution strategies                     |
+| `LocalExecutor`                | class          | Local provider execution                          |
+| `IProviderDefinition`          | interface      | Provider assembly definition                      |
+| `findProviderDefinition`       | function       | Resolve an injected provider definition by type   |
+| `formatSupportedProviderTypes` | function       | Format injected provider types for generic errors |
 
 ### Tools
 

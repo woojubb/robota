@@ -24,7 +24,12 @@ import type {
   TSubagentRunnerFactory,
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
-import type { TPermissionMode, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  IProviderDefinition,
+  TPermissionMode,
+  TToolArgs,
+  IHistoryEntry,
+} from '@robota-sdk/agent-core';
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
@@ -39,7 +44,7 @@ export interface ISideEffects {
   _triggerResumePicker?: boolean;
   _sessionName?: string;
   _pendingProviderProfile?: string;
-  _pendingProviderSetupType?: 'openai' | 'anthropic';
+  _pendingProviderSetupType?: string;
 }
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
@@ -56,6 +61,7 @@ export interface IInteractiveSessionProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 export interface IInteractiveSessionState {
@@ -241,7 +247,13 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, [manager.isThinking, interactiveSession, manager]);
 
   // Slash command routing (delegated to useSlashRouting)
-  const handleSubmit = useSlashRouting(props.cwd, interactiveSession, registry, manager);
+  const handleSubmit = useSlashRouting(
+    props.cwd,
+    interactiveSession,
+    registry,
+    manager,
+    props.providerDefinitions ?? [],
+  );
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);

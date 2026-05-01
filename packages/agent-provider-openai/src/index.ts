@@ -10,6 +10,7 @@ export { OpenAIProvider } from './provider';
 // Export types and utilities
 export * from './types';
 export * from './adapter';
+export * from './provider-definition';
 
 // Export payload logging interfaces only (implementations are in separate subpaths)
 export type { IPayloadLogger, IPayloadLoggerOptions } from './interfaces/payload-logger';

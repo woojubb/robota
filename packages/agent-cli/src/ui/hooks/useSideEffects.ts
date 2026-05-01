@@ -8,6 +8,7 @@ import { useApp } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
   updateModelInSettings,
@@ -32,6 +33,7 @@ interface IUseSideEffectsOptions {
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
+  providerDefinitions: readonly IProviderDefinition[];
 }
 
 interface IUseSideEffectsResult {
@@ -56,6 +58,7 @@ export function useSideEffects({
   addEntry,
   baseHandleSubmit,
   setSessionName,
+  providerDefinitions,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
@@ -218,7 +221,7 @@ export function useSideEffects({
       setPendingProviderSetupType(null);
       try {
         const settingsPath = getUserSettingsPath();
-        applyProviderConfiguration(settingsPath, input);
+        applyProviderConfiguration(settingsPath, input, { providerDefinitions });
         addEntry(
           messageToHistoryEntry(
             createSystemMessage(`Provider ${input.profile} configured. Restarting...`),
@@ -233,7 +236,7 @@ export function useSideEffects({
         );
       }
     },
-    [addEntry, exit],
+    [addEntry, exit, providerDefinitions],
   );
 
   const handleProviderSetupCancel = useCallback(() => {

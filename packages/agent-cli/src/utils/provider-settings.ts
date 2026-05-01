@@ -1,4 +1,5 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import { findProviderDefinition, type IProviderDefinition } from './provider-definition.js';
 
 export interface IProviderProfileSettings {
   [key: string]: TUniversalValue;
@@ -40,13 +41,9 @@ export interface IProviderSetupPatch {
   providers: Record<string, IProviderProfileSettings>;
 }
 
-export const DEFAULT_PROVIDER_MODELS: Record<string, string> = {
-  anthropic: 'claude-sonnet-4-6',
-  openai: 'supergemma4-26b-uncensored-v2',
-};
-
-export const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = 'http://localhost:1234/v1';
-export const DEFAULT_OPENAI_COMPATIBLE_API_KEY = 'lm-studio';
+export interface IProviderSettingsBuildOptions {
+  providerDefinitions?: readonly IProviderDefinition[];
+}
 
 export function upsertProviderProfile(
   settings: TProviderSettingsDocument,
@@ -78,6 +75,7 @@ export function setCurrentProvider(
 export function validateProviderProfile(
   profileName: string,
   profile: IProviderProfileSettings,
+  options: IProviderSettingsBuildOptions = {},
 ): void {
   if (!profile.type) {
     throw new Error(`Provider profile "${profileName}" is missing type`);
@@ -85,14 +83,22 @@ export function validateProviderProfile(
   if (!profile.model) {
     throw new Error(`Provider profile "${profileName}" is missing model`);
   }
-  if (profile.type === 'anthropic' && !profile.apiKey) {
+  const definition = findProviderDefinition(options.providerDefinitions ?? [], profile.type);
+  if (
+    definition?.requiresApiKey === true &&
+    !profile.apiKey &&
+    definition.defaults?.apiKey === undefined
+  ) {
     throw new Error(`Provider profile "${profileName}" is missing apiKey`);
   }
 }
 
-export function buildProviderSetupPatch(input: IProviderSetupInput): IProviderSetupPatch {
-  const profile = buildProviderProfile(input);
-  validateProviderProfile(input.profile, profile);
+export function buildProviderSetupPatch(
+  input: IProviderSetupInput,
+  options: IProviderSettingsBuildOptions = {},
+): IProviderSetupPatch {
+  const profile = buildProviderProfile(input, options);
+  validateProviderProfile(input.profile, profile, options);
   return {
     ...(input.setCurrent && { currentProvider: input.profile }),
     providers: {
@@ -101,21 +107,29 @@ export function buildProviderSetupPatch(input: IProviderSetupInput): IProviderSe
   };
 }
 
-export function buildProviderProfile(input: IProviderSetupInput): IProviderProfileSettings {
+export function buildProviderProfile(
+  input: IProviderSetupInput,
+  options: IProviderSettingsBuildOptions = {},
+): IProviderProfileSettings {
+  const defaults = getProviderDefaults(input.type, options.providerDefinitions ?? []);
   const apiKey =
-    input.apiKeyEnv !== undefined
-      ? `$ENV:${input.apiKeyEnv}`
-      : (input.apiKey ?? (input.type === 'openai' ? DEFAULT_OPENAI_COMPATIBLE_API_KEY : undefined));
-  const baseURL =
-    input.baseURL ?? (input.type === 'openai' ? DEFAULT_OPENAI_COMPATIBLE_BASE_URL : undefined);
+    input.apiKeyEnv !== undefined ? `$ENV:${input.apiKeyEnv}` : (input.apiKey ?? defaults.apiKey);
+  const baseURL = input.baseURL ?? defaults.baseURL;
 
   return {
     type: input.type,
-    model: input.model ?? DEFAULT_PROVIDER_MODELS[input.type],
+    model: input.model ?? defaults.model,
     ...(apiKey !== undefined && { apiKey }),
     ...(baseURL !== undefined && { baseURL }),
     ...(input.timeout !== undefined && { timeout: input.timeout }),
   };
+}
+
+function getProviderDefaults(
+  type: string,
+  providerDefinitions: readonly IProviderDefinition[],
+): { model?: string; apiKey?: string; baseURL?: string } {
+  return findProviderDefinition(providerDefinitions, type)?.defaults ?? {};
 }
 
 export function mergeProviderPatch(

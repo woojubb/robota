@@ -41,6 +41,17 @@ export type {
 } from './provider';
 
 export type {
+  IProviderConfig,
+  IProviderDefinition,
+  IProviderProbeResult,
+  IProviderProfileConfig,
+  IProviderProfileDefaults,
+  IProviderSetupStepDefinition,
+  TProviderSetupField,
+} from './provider-definition';
+export { findProviderDefinition, formatSupportedProviderTypes } from './provider-definition';
+
+export type {
   IMediaOutputRef,
   IProviderMediaError,
   TProviderMediaResult,

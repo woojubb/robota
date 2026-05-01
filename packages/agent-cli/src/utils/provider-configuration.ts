@@ -5,6 +5,7 @@ import {
   setCurrentProvider,
   type IProviderProfileSettings,
   type IProviderSetupInput,
+  type IProviderSettingsBuildOptions,
   type TProviderSettingsDocument,
 } from './provider-settings.js';
 
@@ -19,9 +20,10 @@ function readProviderDocument(settingsPath: string): TProviderSettingsDocument {
 export function applyProviderConfiguration(
   settingsPath: string,
   input: IProviderSetupInput,
+  options: IProviderSettingsBuildOptions = {},
 ): TProviderSettingsDocument {
   const settings = readProviderDocument(settingsPath);
-  const patch = buildProviderSetupPatch(input);
+  const patch = buildProviderSetupPatch(input, options);
   const next = mergeProviderPatch(settings, patch);
   writeSettings(settingsPath, next);
   return next;

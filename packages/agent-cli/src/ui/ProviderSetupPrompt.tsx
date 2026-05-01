@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { IProviderSetupInput } from '../utils/provider-settings.js';
+import type { IProviderDefinition } from '../utils/provider-definition.js';
 import {
   createProviderSetupFlow,
   getProviderSetupStep,
@@ -12,16 +13,20 @@ import TextPrompt from './TextPrompt.js';
 
 interface IProviderSetupPromptProps {
   type: TProviderSetupType;
+  providerDefinitions: readonly IProviderDefinition[];
   onSubmit: (input: IProviderSetupInput) => void;
   onCancel: () => void;
 }
 
 export default function ProviderSetupPrompt({
   type,
+  providerDefinitions,
   onSubmit,
   onCancel,
 }: IProviderSetupPromptProps): React.ReactElement {
-  const [state, setState] = useState<IProviderSetupFlowState>(() => createProviderSetupFlow(type));
+  const [state, setState] = useState<IProviderSetupFlowState>(() =>
+    createProviderSetupFlow(type, providerDefinitions),
+  );
   const step = getProviderSetupStep(state);
 
   const handleStepSubmit = (rawValue: string): void => {

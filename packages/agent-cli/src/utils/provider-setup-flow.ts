@@ -1,12 +1,12 @@
 import type { IProviderSetupInput } from './provider-settings.js';
 import {
-  DEFAULT_OPENAI_COMPATIBLE_API_KEY,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  DEFAULT_PROVIDER_MODELS,
-} from './provider-settings.js';
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  type IProviderDefinition,
+  type TProviderSetupField,
+} from './provider-definition.js';
 
-export type TProviderSetupType = 'openai' | 'anthropic';
-export type TProviderSetupField = 'baseURL' | 'model' | 'apiKey';
+export type TProviderSetupType = string;
 export type TPromptInput = (label: string, masked?: boolean) => Promise<string>;
 
 export interface IProviderSetupPromptStep {
@@ -19,6 +19,7 @@ export interface IProviderSetupPromptStep {
 
 export interface IProviderSetupFlowState {
   type: TProviderSetupType;
+  steps: readonly IProviderSetupPromptStep[];
   stepIndex: number;
   values: Partial<Record<TProviderSetupField, string>>;
 }
@@ -38,12 +39,20 @@ export type TProviderSetupFlowSubmitResult =
       message: string;
     };
 
-export function createProviderSetupFlow(type: TProviderSetupType): IProviderSetupFlowState {
-  return { type, stepIndex: 0, values: {} };
+export function createProviderSetupFlow(
+  type: TProviderSetupType,
+  providerDefinitions: readonly IProviderDefinition[],
+): IProviderSetupFlowState {
+  return {
+    type,
+    steps: getProviderSetupSteps(type, providerDefinitions),
+    stepIndex: 0,
+    values: {},
+  };
 }
 
 export function getProviderSetupStep(state: IProviderSetupFlowState): IProviderSetupPromptStep {
-  const step = getProviderSetupSteps(state.type)[state.stepIndex];
+  const step = state.steps[state.stepIndex];
   if (step === undefined) {
     throw new Error(`Provider setup step ${state.stepIndex} is out of range`);
   }
@@ -66,7 +75,7 @@ export function submitProviderSetupValue(
     stepIndex: state.stepIndex + 1,
     values: { ...state.values, [step.key]: value },
   };
-  if (nextState.stepIndex < getProviderSetupSteps(state.type).length) {
+  if (nextState.stepIndex < state.steps.length) {
     return { status: 'next', state: nextState };
   }
   return { status: 'complete', input: buildProviderSetupInput(nextState) };
@@ -75,9 +84,10 @@ export function submitProviderSetupValue(
 export async function runProviderSetupPromptFlow(
   type: TProviderSetupType,
   promptInput: TPromptInput,
+  providerDefinitions: readonly IProviderDefinition[],
 ): Promise<IProviderSetupInput> {
-  let state = createProviderSetupFlow(type);
-  const stepCount = getProviderSetupSteps(type).length;
+  let state = createProviderSetupFlow(type, providerDefinitions);
+  const stepCount = state.steps.length;
   while (state.stepIndex < stepCount) {
     const step = getProviderSetupStep(state);
     const value = await promptInput(formatProviderSetupPromptLabel(step), step.masked === true);
@@ -108,31 +118,45 @@ export function validateProviderSetupValue(
   return undefined;
 }
 
-function getProviderSetupSteps(type: TProviderSetupType): IProviderSetupPromptStep[] {
-  if (type === 'openai') {
-    return [
-      {
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-      },
-      {
-        key: 'model',
-        title: 'OpenAI-compatible model',
-        defaultValue: DEFAULT_PROVIDER_MODELS.openai,
-      },
-      {
-        key: 'apiKey',
-        title: 'OpenAI-compatible API key',
-        defaultValue: DEFAULT_OPENAI_COMPATIBLE_API_KEY,
-        masked: true,
-      },
-    ];
+function getProviderSetupSteps(
+  type: TProviderSetupType,
+  providerDefinitions: readonly IProviderDefinition[],
+): IProviderSetupPromptStep[] {
+  const definition = findProviderDefinition(providerDefinitions, type);
+  if (definition === undefined) {
+    throw new Error(
+      `Unknown provider: ${type}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
+    );
   }
-  return [
-    { key: 'apiKey', title: 'Anthropic API key', required: true, masked: true },
-    { key: 'model', title: 'Anthropic model', defaultValue: DEFAULT_PROVIDER_MODELS.anthropic },
+  if (definition.setupSteps !== undefined) {
+    return [...definition.setupSteps];
+  }
+
+  const steps: IProviderSetupPromptStep[] = [
+    {
+      key: 'model',
+      title: `${definition.type} model`,
+      defaultValue: definition.defaults?.model,
+      required: definition.defaults?.model === undefined,
+    },
   ];
+  if (definition.defaults?.baseURL !== undefined) {
+    steps.unshift({
+      key: 'baseURL',
+      title: `${definition.type} base URL`,
+      defaultValue: definition.defaults.baseURL,
+    });
+  }
+  if (definition.requiresApiKey === true) {
+    steps.push({
+      key: 'apiKey',
+      title: `${definition.type} API key`,
+      defaultValue: definition.defaults?.apiKey,
+      required: definition.defaults?.apiKey === undefined,
+      masked: true,
+    });
+  }
+  return steps;
 }
 
 function buildProviderSetupInput(state: IProviderSetupFlowState): IProviderSetupInput {
@@ -141,7 +165,7 @@ function buildProviderSetupInput(state: IProviderSetupFlowState): IProviderSetup
     type: state.type,
     model: state.values.model,
     apiKey: state.values.apiKey,
-    ...(state.type === 'openai' && { baseURL: state.values.baseURL }),
+    ...(state.values.baseURL !== undefined && { baseURL: state.values.baseURL }),
     setCurrent: true,
   };
 }

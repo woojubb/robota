@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
-import {
-  DEFAULT_OPENAI_COMPATIBLE_API_KEY,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  DEFAULT_PROVIDER_MODELS,
-} from '../../utils/provider-settings.js';
+const openaiDefaults = {
+  model: 'supergemma4-26b-uncensored-v2',
+  apiKey: 'lm-studio',
+  baseURL: 'http://localhost:1234/v1',
+};
 
 const DRIVER_PATH = fileURLToPath(
   new URL('./fixtures/provider-setup-prompt-driver.tsx', import.meta.url),
@@ -55,9 +55,9 @@ describe('ProviderSetupPrompt PTY E2E', () => {
       expect(readResult(outputPath)).toEqual({
         profile: 'openai',
         type: 'openai',
-        baseURL: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-        model: DEFAULT_PROVIDER_MODELS.openai,
-        apiKey: DEFAULT_OPENAI_COMPATIBLE_API_KEY,
+        baseURL: openaiDefaults.baseURL,
+        model: openaiDefaults.model,
+        apiKey: openaiDefaults.apiKey,
         setCurrent: true,
       });
     },

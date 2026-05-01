@@ -6,6 +6,7 @@ import React from 'react';
 import { render } from 'ink';
 import App from './App.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type {
@@ -29,6 +30,7 @@ export interface IRenderOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 export function renderApp(options: IRenderOptions): void {

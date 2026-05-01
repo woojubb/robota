@@ -7,6 +7,7 @@ import type {
   ISystemMessage,
   IToolMessage,
 } from '../interfaces/messages';
+import type { IUniversalObjectValue } from '../interfaces/types';
 
 function makeUserMessage(content: string): IUserMessage {
   return { id: 'msg-1', role: 'user', content, state: 'complete' as const, timestamp: new Date() };
@@ -47,16 +48,51 @@ function makeToolMessage(content: string, toolCallId: string): IToolMessage {
   };
 }
 
+const openAIConverter = (messages: readonly TUniversalMessage[]): IUniversalObjectValue[] =>
+  messages.map((msg) => {
+    const converted: IUniversalObjectValue = {
+      role: msg.role,
+      content: msg.content,
+    };
+    if (msg.role === 'assistant' && msg.toolCalls !== undefined) {
+      converted.tool_calls = msg.toolCalls.map((tc) => ({
+        id: tc.id,
+        type: tc.type,
+        function: tc.function,
+      }));
+    }
+    if (msg.role === 'tool') {
+      converted.tool_call_id = msg.toolCallId;
+    }
+    return converted;
+  });
+
+const anthropicConverter = (messages: readonly TUniversalMessage[]): IUniversalObjectValue[] =>
+  messages
+    .filter((msg) => msg.role !== 'system')
+    .map((msg) => ({
+      role: msg.role === 'assistant' ? 'assistant' : 'user',
+      content: msg.content || '',
+    }));
+
+const googleConverter = (messages: readonly TUniversalMessage[]): IUniversalObjectValue[] =>
+  messages.map((msg) => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content || '' }],
+  }));
+
 describe('MessageConverter', () => {
-  describe('toProviderFormat - OpenAI', () => {
-    it('should convert basic messages to OpenAI format', () => {
+  describe('toProviderFormat - registry conversion', () => {
+    it('should convert basic messages using a registered converter', () => {
       const messages: TUniversalMessage[] = [
         makeSystemMessage('You are helpful.'),
         makeUserMessage('Hello'),
         makeAssistantMessage('Hi there!'),
       ];
 
-      const result = MessageConverter.toProviderFormat(messages, 'openai');
+      const result = MessageConverter.toProviderFormat(messages, 'openai', {
+        openai: openAIConverter,
+      });
 
       expect(result).toHaveLength(3);
       expect(result[0]).toEqual(
@@ -78,7 +114,9 @@ describe('MessageConverter', () => {
       ];
       const messages: TUniversalMessage[] = [makeAssistantMessage(null, toolCalls)];
 
-      const result = MessageConverter.toProviderFormat(messages, 'openai');
+      const result = MessageConverter.toProviderFormat(messages, 'openai', {
+        openai: openAIConverter,
+      });
 
       const openaiMsg = result[0] as unknown as Record<string, unknown>;
       expect(openaiMsg.role).toBe('assistant');
@@ -97,15 +135,27 @@ describe('MessageConverter', () => {
     it('should include tool_call_id for tool messages', () => {
       const messages: TUniversalMessage[] = [makeToolMessage('result data', 'call_1')];
 
-      const result = MessageConverter.toProviderFormat(messages, 'openai');
+      const result = MessageConverter.toProviderFormat(messages, 'openai', {
+        openai: openAIConverter,
+      });
 
       const openaiMsg = result[0] as unknown as Record<string, unknown>;
       expect(openaiMsg.role).toBe('tool');
       expect(openaiMsg.tool_call_id).toBe('call_1');
     });
+
+    it('should convert messages using a directly injected converter', () => {
+      const messages: TUniversalMessage[] = [makeUserMessage('Hello')];
+
+      const result = MessageConverter.toProviderFormat(messages, (input) =>
+        input.map((msg) => ({ providerRole: msg.role, text: msg.content })),
+      );
+
+      expect(result).toEqual([{ providerRole: 'user', text: 'Hello' }]);
+    });
   });
 
-  describe('toProviderFormat - Anthropic', () => {
+  describe('toProviderFormat - alternate registered converters', () => {
     it('should filter out system messages', () => {
       const messages: TUniversalMessage[] = [
         makeSystemMessage('System prompt'),
@@ -113,7 +163,9 @@ describe('MessageConverter', () => {
         makeAssistantMessage('Hi'),
       ];
 
-      const result = MessageConverter.toProviderFormat(messages, 'anthropic');
+      const result = MessageConverter.toProviderFormat(messages, 'anthropic', {
+        anthropic: anthropicConverter,
+      });
 
       expect(result).toHaveLength(2);
       expect(
@@ -130,7 +182,9 @@ describe('MessageConverter', () => {
         makeAssistantMessage('answer'),
       ];
 
-      const result = MessageConverter.toProviderFormat(messages, 'anthropic');
+      const result = MessageConverter.toProviderFormat(messages, 'anthropic', {
+        anthropic: anthropicConverter,
+      });
 
       expect(result[0]).toEqual(expect.objectContaining({ role: 'user', content: 'question' }));
       expect(result[1]).toEqual(expect.objectContaining({ role: 'assistant', content: 'answer' }));
@@ -139,17 +193,19 @@ describe('MessageConverter', () => {
     it('should map tool role to user', () => {
       const messages: TUniversalMessage[] = [makeToolMessage('tool result', 'call_1')];
 
-      const result = MessageConverter.toProviderFormat(messages, 'anthropic');
+      const result = MessageConverter.toProviderFormat(messages, 'anthropic', {
+        anthropic: anthropicConverter,
+      });
 
       expect(result[0]).toEqual(expect.objectContaining({ role: 'user' }));
     });
-  });
 
-  describe('toProviderFormat - Google', () => {
     it('should map assistant role to model', () => {
       const messages: TUniversalMessage[] = [makeAssistantMessage('model response')];
 
-      const result = MessageConverter.toProviderFormat(messages, 'google');
+      const result = MessageConverter.toProviderFormat(messages, 'google', {
+        google: googleConverter,
+      });
 
       const googleMsg = result[0] as unknown as Record<string, unknown>;
       expect(googleMsg.role).toBe('model');
@@ -158,7 +214,9 @@ describe('MessageConverter', () => {
     it('should map user role to user', () => {
       const messages: TUniversalMessage[] = [makeUserMessage('user input')];
 
-      const result = MessageConverter.toProviderFormat(messages, 'google');
+      const result = MessageConverter.toProviderFormat(messages, 'google', {
+        google: googleConverter,
+      });
 
       const googleMsg = result[0] as unknown as Record<string, unknown>;
       expect(googleMsg.role).toBe('user');
@@ -167,7 +225,9 @@ describe('MessageConverter', () => {
     it('should use parts structure with text', () => {
       const messages: TUniversalMessage[] = [makeUserMessage('hello')];
 
-      const result = MessageConverter.toProviderFormat(messages, 'google');
+      const result = MessageConverter.toProviderFormat(messages, 'google', {
+        google: googleConverter,
+      });
 
       const googleMsg = result[0] as unknown as Record<string, unknown>;
       expect(googleMsg.parts).toEqual([{ text: 'hello' }]);
@@ -176,7 +236,9 @@ describe('MessageConverter', () => {
     it('should map system role to user', () => {
       const messages: TUniversalMessage[] = [makeSystemMessage('system prompt')];
 
-      const result = MessageConverter.toProviderFormat(messages, 'google');
+      const result = MessageConverter.toProviderFormat(messages, 'google', {
+        google: googleConverter,
+      });
 
       const googleMsg = result[0] as unknown as Record<string, unknown>;
       expect(googleMsg.role).toBe('user');
@@ -191,6 +253,17 @@ describe('MessageConverter', () => {
       ];
 
       const result = MessageConverter.toProviderFormat(messages, 'custom-provider');
+
+      expect(result).toEqual(messages);
+    });
+
+    it('should not hardcode conversions for known provider names without registry injection', () => {
+      const messages: TUniversalMessage[] = [
+        makeSystemMessage('You are helpful.'),
+        makeUserMessage('Hello'),
+      ];
+
+      const result = MessageConverter.toProviderFormat(messages, 'openai');
 
       expect(result).toEqual(messages);
     });

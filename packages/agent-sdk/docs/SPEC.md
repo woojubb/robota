@@ -250,27 +250,34 @@ Provider profile shape:
 
 ```json
 {
-  "currentProvider": "openai",
+  "currentProvider": "gemma",
   "providers": {
-    "openai": {
-      "type": "openai",
+    "gemma": {
+      "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
     }
   }
 }
 ```
 
+Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
+
 Resolved provider fields:
 
-| Field     | Description                                                        |
-| --------- | ------------------------------------------------------------------ |
-| `name`    | Provider type used by session model config (`anthropic`, `openai`) |
-| `model`   | Active model id                                                    |
-| `apiKey`  | API key or local placeholder token                                 |
-| `baseURL` | Optional OpenAI-compatible endpoint override                       |
-| `timeout` | Optional provider request timeout in milliseconds                  |
+| Field     | Description                                                                 |
+| --------- | --------------------------------------------------------------------------- |
+| `name`    | Provider type used by session model config (`anthropic`, `openai`, `gemma`) |
+| `model`   | Active model id                                                             |
+| `apiKey`  | API key or local placeholder token                                          |
+| `baseURL` | Optional OpenAI-compatible endpoint override                                |
+| `timeout` | Optional provider request timeout in milliseconds                           |
 
 ### Context Loading (SDK-Specific)
 
