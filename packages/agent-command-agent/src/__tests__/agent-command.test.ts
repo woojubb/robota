@@ -110,10 +110,11 @@ describe('agent command module', () => {
       modelInvocable: true,
       safety: 'background-agent',
     });
-    expect(agent?.description).toContain('subagent jobs');
-    expect(agent?.description).toContain('ExecuteCommand');
-    expect(agent?.description).toContain('choose one backlog');
-    expect(agent?.description).toContain('ExecuteCommand tool');
+    expect(agent?.description).toContain('Subagent jobs');
+    expect(agent?.description).toContain('parallel');
+    expect(agent?.description).toContain('consolidated');
+    expect(agent?.description).not.toContain('Use this');
+    expect(agent?.description).not.toContain('call the');
     expect(agent?.description).not.toContain('<agent>');
     expect(agent?.description).not.toContain('XML/HTML');
     expect(agent?.argumentHint).toContain('PROMPT');

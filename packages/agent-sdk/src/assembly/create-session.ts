@@ -54,6 +54,7 @@ import { storeSessionBackgroundTaskManager } from '../background-tasks/session-b
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
+const DEFAULT_PROVIDER_IDLE_TIMEOUT_MS = 120_000;
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -316,6 +317,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,
     model: options.config.provider.model,
+    providerTimeout: options.config.provider.timeout ?? DEFAULT_PROVIDER_IDLE_TIMEOUT_MS,
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,
     sessionId,

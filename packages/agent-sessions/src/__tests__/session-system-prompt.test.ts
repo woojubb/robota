@@ -188,6 +188,19 @@ describe('Session — system prompt delivery', () => {
     expect(topLevel).toContain('moderate');
   });
 
+  it('should pass provider timeout into Robota agent config', () => {
+    new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'test system',
+      terminal: MOCK_TERMINAL,
+      providerTimeout: 1234,
+    });
+
+    expect(capturedConfig).not.toBeNull();
+    expect(capturedConfig!['timeout']).toBe(1234);
+  });
+
   it('logs the complete system prompt and tool schemas at session initialization', () => {
     const systemMessage = '## Capabilities\n- /agent <prompt>: Start a background agent job';
     const logger = { log: vi.fn() };

@@ -43,6 +43,7 @@ export interface IToolSchema {
     type: 'object';
     properties: Record<string, IParameterSchema>;
     required?: string[];
+    additionalProperties?: boolean | IParameterSchema;
   };
 }
 

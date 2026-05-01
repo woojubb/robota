@@ -65,6 +65,7 @@ export class FunctionTool implements IFunctionTool {
         parameters,
         this.schema.parameters.required || [],
         this.schema.parameters.properties || {},
+        this.schema.parameters.additionalProperties,
       );
       throw new ValidationError(`Invalid parameters for tool "${toolName}": ${errors.join(', ')}`);
     }
@@ -112,6 +113,7 @@ export class FunctionTool implements IFunctionTool {
         parameters,
         this.schema.parameters.required || [],
         this.schema.parameters.properties || {},
+        this.schema.parameters.additionalProperties,
       ).length === 0
     );
   }
@@ -124,6 +126,7 @@ export class FunctionTool implements IFunctionTool {
       parameters,
       this.schema.parameters.required || [],
       this.schema.parameters.properties || {},
+      this.schema.parameters.additionalProperties,
     );
   }
 

@@ -45,6 +45,8 @@ export interface ISessionOptions {
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
   /** Model name (for context window sizing and Robota config) */
   model?: string;
+  /** Provider idle timeout in milliseconds for each model call */
+  providerTimeout?: number;
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */

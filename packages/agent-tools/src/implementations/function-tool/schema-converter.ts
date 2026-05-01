@@ -55,7 +55,9 @@ export function zodToJsonSchema(
     type: 'object',
     properties,
     required,
-    ...(options.allowAdditionalProperties && { additionalProperties: true }),
+    ...((options.allowAdditionalProperties || schemaDef.unknownKeys === 'passthrough') && {
+      additionalProperties: true,
+    }),
   };
 }
 

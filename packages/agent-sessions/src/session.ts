@@ -149,6 +149,7 @@ export class Session {
       systemMessage,
       tools: wrappedTools,
       logging: { enabled: false },
+      ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
     };
 
     this.robota = new Robota(agentConfig);

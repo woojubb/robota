@@ -371,7 +371,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
 
     const prompt = buildSystemPrompt(params);
 
-    expect(prompt).toContain('## Capabilities');
+    expect(prompt).toContain('## Skills');
     expect(prompt).toContain('deploy');
     expect(prompt).toContain('Deploy application to production');
   });
