@@ -1,20 +1,21 @@
 /**
  * CLI entry point — parses arguments, creates provider, and starts the Ink TUI.
  *
- * CLI owns provider creation. SDK owns everything else
+ * CLI composes provider definitions. SDK owns everything else
  * (config, context, session, tools).
  */
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type { ICommandModule } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from './utils/provider-default-definitions.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -101,6 +102,7 @@ function resetConfig(): void {
  */
 export interface IStartCliOptions {
   commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
@@ -117,25 +119,28 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+  const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
 
   if (args.configure) {
-    await runInteractiveProviderSetup(cwd, args, promptInput);
+    await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
     return;
   }
 
-  if (handleProviderConfigurationArgs(cwd, args)) {
+  if (handleProviderConfigurationArgs(cwd, args, providerDefinitions)) {
     return;
   }
 
   try {
-    await ensureConfig(cwd, args, promptInput);
+    await ensureConfig(cwd, args, promptInput, providerDefinitions);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
 
-  // CLI owns provider creation
-  const providerOptions = args.provider ? { providerOverride: args.provider } : {};
+  // CLI resolves the active provider profile through injected provider definitions.
+  const providerOptions = args.provider
+    ? { providerOverride: args.provider, providerDefinitions }
+    : { providerDefinitions };
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
@@ -245,5 +250,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     backgroundTaskRunners,
     subagentRunnerFactory,
     commandModules: options.commandModules,
+    providerDefinitions,
   });
 }

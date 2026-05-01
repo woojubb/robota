@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -21,6 +21,7 @@ import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
@@ -38,6 +39,7 @@ interface IProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 /**
@@ -60,6 +62,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
+  const providerDefinitions = props.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
 
   const {
     interactiveSession,
@@ -89,6 +92,7 @@ function AppInner(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
+    providerDefinitions,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);
@@ -113,6 +117,7 @@ function AppInner(
     addEntry,
     baseHandleSubmit,
     setSessionName,
+    providerDefinitions,
   });
 
   // Sync session name from InteractiveSession when resuming
@@ -182,6 +187,7 @@ function AppInner(
       {pendingProviderSetupType && (
         <ProviderSetupPrompt
           type={pendingProviderSetupType}
+          providerDefinitions={providerDefinitions}
           onSubmit={handleProviderSetupSubmit}
           onCancel={handleProviderSetupCancel}
         />

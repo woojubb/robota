@@ -6,18 +6,61 @@ import {
   runProviderSetupPromptFlow,
   submitProviderSetupValue,
 } from '../provider-setup-flow.js';
-import {
-  DEFAULT_OPENAI_COMPATIBLE_API_KEY,
-  DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-  DEFAULT_PROVIDER_MODELS,
-} from '../provider-settings.js';
+import type { IProviderDefinition } from '../provider-definition.js';
+
+const openaiDefaults = {
+  model: 'supergemma4-26b-uncensored-v2',
+  apiKey: 'lm-studio',
+  baseURL: 'http://localhost:1234/v1',
+};
+
+const providerDefinitions: readonly IProviderDefinition[] = [
+  {
+    type: 'openai',
+    defaults: openaiDefaults,
+    setupSteps: [
+      {
+        key: 'baseURL',
+        title: 'OpenAI-compatible base URL',
+        defaultValue: openaiDefaults.baseURL,
+      },
+      {
+        key: 'model',
+        title: 'OpenAI-compatible model',
+        defaultValue: openaiDefaults.model,
+      },
+      {
+        key: 'apiKey',
+        title: 'OpenAI-compatible API key',
+        defaultValue: openaiDefaults.apiKey,
+        masked: true,
+      },
+    ],
+    requiresApiKey: true,
+    createProvider: () => {
+      throw new Error('not used');
+    },
+  },
+  {
+    type: 'anthropic',
+    defaults: { model: 'claude-sonnet-4-6' },
+    setupSteps: [
+      { key: 'apiKey', title: 'Anthropic API key', required: true, masked: true },
+      { key: 'model', title: 'Anthropic model', defaultValue: 'claude-sonnet-4-6' },
+    ],
+    requiresApiKey: true,
+    createProvider: () => {
+      throw new Error('not used');
+    },
+  },
+];
 
 describe('provider setup prompt flow', () => {
   it('builds OpenAI-compatible setup input from defaulted prompt submissions', () => {
-    let state = createProviderSetupFlow('openai');
+    let state = createProviderSetupFlow('openai', providerDefinitions);
     expect(getProviderSetupStep(state)).toMatchObject({
       key: 'baseURL',
-      defaultValue: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+      defaultValue: openaiDefaults.baseURL,
     });
 
     const baseURLResult = submitProviderSetupValue(state, '');
@@ -36,16 +79,16 @@ describe('provider setup prompt flow', () => {
       input: {
         profile: 'openai',
         type: 'openai',
-        baseURL: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
-        model: DEFAULT_PROVIDER_MODELS.openai,
-        apiKey: DEFAULT_OPENAI_COMPATIBLE_API_KEY,
+        baseURL: openaiDefaults.baseURL,
+        model: openaiDefaults.model,
+        apiKey: openaiDefaults.apiKey,
         setCurrent: true,
       },
     });
   });
 
   it('keeps Anthropic API key validation outside the TUI component', () => {
-    const state = createProviderSetupFlow('anthropic');
+    const state = createProviderSetupFlow('anthropic', providerDefinitions);
 
     expect(submitProviderSetupValue(state, '')).toEqual({
       status: 'error',
@@ -57,15 +100,15 @@ describe('provider setup prompt flow', () => {
   it('runs prompt input with masked API key steps', async () => {
     const promptInput = vi.fn(async () => '');
 
-    const input = await runProviderSetupPromptFlow('openai', promptInput);
+    const input = await runProviderSetupPromptFlow('openai', promptInput, providerDefinitions);
 
-    expect(input.apiKey).toBe(DEFAULT_OPENAI_COMPATIBLE_API_KEY);
+    expect(input.apiKey).toBe(openaiDefaults.apiKey);
     expect(promptInput).toHaveBeenNthCalledWith(
       1,
       formatProviderSetupPromptLabel({
         key: 'baseURL',
         title: 'OpenAI-compatible base URL',
-        defaultValue: DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+        defaultValue: openaiDefaults.baseURL,
       }),
       false,
     );
@@ -74,7 +117,7 @@ describe('provider setup prompt flow', () => {
       formatProviderSetupPromptLabel({
         key: 'apiKey',
         title: 'OpenAI-compatible API key',
-        defaultValue: DEFAULT_OPENAI_COMPATIBLE_API_KEY,
+        defaultValue: openaiDefaults.apiKey,
         masked: true,
       }),
       true,

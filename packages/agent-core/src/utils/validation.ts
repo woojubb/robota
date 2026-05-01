@@ -163,27 +163,13 @@ export class Validator {
   /**
    * Validate API key format (basic check)
    */
-  static validateApiKey(apiKey: string, provider?: string): ISimpleValidationResult {
+  static validateApiKey(apiKey: string): ISimpleValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     if (!apiKey || typeof apiKey !== 'string') {
       errors.push('API key must be a non-empty string');
       return { isValid: false, errors };
-    }
-
-    // Basic format checks based on provider
-    switch (provider?.toLowerCase()) {
-      case 'openai':
-        if (!apiKey.startsWith('sk-')) {
-          warnings.push('OpenAI API keys typically start with "sk-"');
-        }
-        break;
-      case 'anthropic':
-        if (!apiKey.startsWith('sk-ant-')) {
-          warnings.push('Anthropic API keys typically start with "sk-ant-"');
-        }
-        break;
     }
 
     // General security checks

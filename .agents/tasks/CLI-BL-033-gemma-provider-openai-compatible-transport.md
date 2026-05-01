@@ -1,8 +1,8 @@
 # CLI-BL-033 Gemma Provider and OpenAI-Compatible Transport Reuse
 
-- **Status**: todo
+- **Status**: in-progress
 - **Created**: 2026-05-01
-- **Branch**: TBD
+- **Branch**: feat/gemma-provider-transport
 - **Scope**: packages/agent-provider-gemma, packages/agent-provider-openai-compatible, packages/agent-provider-openai, packages/agent-provider-google, packages/agent-provider-gemini, packages/agent-cli
 
 ## Objective
@@ -19,13 +19,13 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 
 - [x] Research whether Gemma should be implemented as a dedicated `agent-provider-gemma` package or as a Gemma-specific module under the existing Google provider.
 - [x] Define the recommended package boundary and future provider naming direction.
-- [ ] Extract OpenAI-compatible transport pieces from `agent-provider-openai` into a reusable package so local providers can share request, streaming, tool schema conversion, and response parsing infrastructure.
-- [ ] Define a Gemma provider contract that owns Gemma chat-template assumptions, reasoning-channel parsing, tool-call parsing expectations, and compatibility notes for LM Studio and other OpenAI-compatible servers.
-- [ ] Keep `agent-provider-openai` model-family neutral. It must not contain Gemma-specific marker filtering or model-name heuristics.
-- [ ] Add CLI configuration support for selecting the Gemma provider explicitly while still pointing at an OpenAI-compatible base URL.
-- [ ] Add unit tests for Gemma reasoning marker parsing, streamed content projection, and provider composition with shared OpenAI-compatible transport.
-- [ ] Add integration or replay tests using captured `.robota/logs` samples where Gemma emits reasoning-channel markers in streamed deltas.
-- [ ] Update package SPEC files and user docs so provider selection and supported local-model behavior are clear.
+- [x] Extract OpenAI-compatible transport pieces from `agent-provider-openai` into a reusable package so local providers can share request, streaming, tool schema conversion, and response parsing infrastructure.
+- [x] Define a Gemma provider contract that owns Gemma chat-template assumptions, reasoning-channel parsing, tool-call parsing expectations, and compatibility notes for LM Studio and other OpenAI-compatible servers.
+- [x] Keep `agent-provider-openai` model-family neutral. It must not contain Gemma-specific marker filtering or model-name heuristics.
+- [x] Add CLI configuration support for selecting the Gemma provider explicitly while still pointing at an OpenAI-compatible base URL.
+- [x] Add unit tests for Gemma reasoning marker parsing, streamed content projection, and provider composition with shared OpenAI-compatible transport.
+- [x] Add replay-style unit coverage using captured `.robota/logs` streamed delta samples where Gemma emits reasoning-channel markers.
+- [x] Update package SPEC files and user docs so provider selection and supported local-model behavior are clear.
 
 ## Decisions
 
@@ -35,6 +35,8 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 - Any Gemma-specific behavior must be explicit through provider selection or an equivalent typed configuration, not inferred from model name strings.
 - Shared OpenAI-compatible transport code should be composable so future model-family providers can reuse it without copy-pasting the OpenAI provider.
 - Existing provider package names and boundaries may be changed in future migrations. The Gemma work should not assume today's `agent-provider-google` naming is permanent.
+- All providers use the same `IProviderDefinition` composition contract. CLI may assemble provider definitions, but generic CLI logic must not branch on provider type names, model names, or Gemma/OpenAI/Anthropic-specific defaults.
+- Shared core utilities follow the same rule: `agent-core` does not hardcode provider-name message conversion or API-key prefix policy. Provider packages inject conversion, setup, probing, and construction behavior through owned adapters/definitions.
 
 ## Recommended Package Boundary
 
@@ -81,12 +83,21 @@ This rename should not be bundled into the Gemma provider implementation. It sho
 
 - Backlog created after Gemma 4 LM Studio investigation showed reasoning-channel markers are model-template/serving behavior rather than Robota prompt content.
 - Captured the recommended package boundary: shared OpenAI-compatible transport package, dedicated Gemma provider package, and a future Gemini rename path for the current Google provider.
+- Started implementation of `agent-provider-openai-compatible` and `agent-provider-gemma`.
+- Added `IProviderDefinition` to `agent-core`, provider definitions for Anthropic/OpenAI/Gemma, shared OpenAI-compatible transport primitives, and the Gemma provider with reasoning marker projection.
+- Refactored CLI provider setup/factory/test flows to resolve injected provider definitions generically instead of branching on provider names.
+- Removed the old provider-name switch from `agent-core` message conversion and provider-specific API-key prefix warnings from core validation.
+- Moved OpenAI-compatible `/models` endpoint probing into the shared transport package so OpenAI and Gemma provider definitions reuse the same probe primitive.
+- Verified provider builds/tests, full agent-cli tests, lint with zero errors, docs structure, and harness scan. Replay tests from captured `.robota/logs` remain as follow-up coverage.
+- Investigated the captured session that still displayed `<|channel>` markers and found it was started with `provider: openai` even though the model was `supergemma4-26b-uncensored-v2`; the Gemma provider projector was never on that path.
+- Removed the Gemma model default from the OpenAI provider definition, required an explicit OpenAI-compatible model during OpenAI setup, and updated local `.robota/settings.local.json` to use `currentProvider: gemma`.
+- Added a regression test for captured streamed deltas shaped like `<|channel>`, `s`, newline, `<channel|>` so the Gemma projector must suppress those tags before user-facing output.
 
 ## Blockers
 
-- Need to decide whether `agent-provider-openai-compatible` should expose only pure conversion/streaming helpers or also a thin reusable provider base class.
 - Need a separate backlog item before renaming `agent-provider-google` to `agent-provider-gemini`.
+- Captured `.robota/logs` replay fixtures are still needed for integration-level Gemma marker regression coverage.
 
 ## Result
 
-Not started.
+Implemented shared transport extraction, Gemma provider, provider-definition composition, CLI integration, unit coverage, and SPEC updates. Remaining follow-up: add replay/integration tests from captured Gemma logs.

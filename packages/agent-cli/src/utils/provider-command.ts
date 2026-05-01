@@ -1,12 +1,19 @@
 import { readMergedProviderSettings } from './provider-factory.js';
 import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
+import {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  type IProviderDefinition,
+  type IProviderProbeResult,
+} from './provider-definition.js';
 
 export interface IProviderCommandData {
   providerSwitch?: {
     profile: string;
   };
   providerSetup?: {
-    type: 'openai' | 'anthropic';
+    type: string;
   };
   providerTest?: {
     profile: string;
@@ -19,14 +26,9 @@ export interface IProviderCommandResult {
   data?: IProviderCommandData;
 }
 
-export interface IProviderProbeResult {
-  ok: boolean;
-  message: string;
-  models?: string[];
-}
-
 export interface IProviderCommandDeps {
   probe?: (profile: IProviderProfileSettings) => Promise<IProviderProbeResult>;
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 export async function handleProviderCommand(
@@ -35,6 +37,7 @@ export async function handleProviderCommand(
   deps: IProviderCommandDeps = {},
 ): Promise<IProviderCommandResult> {
   const settings = readMergedProviderSettings(cwd);
+  const providerDefinitions = deps.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const [subcommand = 'current', profileArg] = args.trim().split(/\s+/);
 
   if (subcommand === 'list') {
@@ -56,7 +59,7 @@ export async function handleProviderCommand(
     return await testProvider(settings.currentProvider, settings.providers, profileArg, deps);
   }
   if (subcommand === 'add') {
-    return buildProviderSetup(profileArg);
+    return buildProviderSetup(profileArg, providerDefinitions);
   }
 
   return {
@@ -117,9 +120,15 @@ function buildProviderSwitch(
   };
 }
 
-function buildProviderSetup(type: string | undefined): IProviderCommandResult {
-  if (type !== 'openai' && type !== 'anthropic') {
-    return { message: 'Usage: provider add openai|anthropic', success: false };
+function buildProviderSetup(
+  type: string | undefined,
+  providerDefinitions: readonly IProviderDefinition[],
+): IProviderCommandResult {
+  if (!type || findProviderDefinition(providerDefinitions, type) === undefined) {
+    return {
+      message: `Usage: provider add <type>. Supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
+      success: false,
+    };
   }
   return {
     message: `Provider setup requested: ${type}`,
@@ -143,11 +152,17 @@ async function testProvider(
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
   try {
-    validateProviderProfile(profileName, profile);
+    validateProviderProfile(profileName, profile, {
+      providerDefinitions: deps.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS,
+    });
   } catch (error) {
     return { message: error instanceof Error ? error.message : String(error), success: false };
   }
-  const probe = deps.probe ?? probeProviderProfile;
+  const providerDefinitions = deps.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const definition = profile.type
+    ? findProviderDefinition(providerDefinitions, profile.type)
+    : undefined;
+  const probe = deps.probe ?? definition?.probeProfile ?? probeProviderProfile;
   const result = await probe(profile);
   return {
     message: result.ok
@@ -161,18 +176,6 @@ async function testProvider(
 export async function probeProviderProfile(
   profile: IProviderProfileSettings,
 ): Promise<IProviderProbeResult> {
-  if (profile.type !== 'openai' || !profile.baseURL) {
-    return { ok: true, message: 'Profile fields are valid; no endpoint probe required.' };
-  }
-  try {
-    const response = await fetch(`${profile.baseURL.replace(/\/$/, '')}/models`);
-    if (!response.ok) {
-      return { ok: false, message: `HTTP ${response.status}` };
-    }
-    const body = (await response.json()) as { data?: Array<{ id?: string }> };
-    const models = (body.data ?? []).map((item) => item.id).filter((id): id is string => !!id);
-    return { ok: true, message: `${models.length} model(s) discovered`, models };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : String(error) };
-  }
+  void profile;
+  return { ok: true, message: 'Profile fields are valid; no endpoint probe configured.' };
 }
