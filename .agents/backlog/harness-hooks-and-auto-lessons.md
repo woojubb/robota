@@ -25,12 +25,12 @@ Current enforcement is reactive (CI scans, post-commit review). Recurring mistak
 
 ### Signal collectors (fully automatic)
 
-| Hook                                        | Signal                                                                                                       | Sink                                     |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| `PreToolUse` Edit\|Write (from Phase B)     | Blocked pattern event `{ pattern, file, escape_attempted }`                                                  | `.agents/evals/harness-log/blocks.jsonl` |
-| `UserPromptSubmit`                          | Correction keywords (`아니`, `틀렸`, `그거 말고`, `다시`, `하지 마`, `no, …`) + previous assistant turn hash | `corrections.jsonl`                      |
-| `Stop` (new: `revert-detect.sh`)            | Same file edited ≥ 3 times, `git revert`/`fix:` commits in session, repeated tool errors                     | `reverts.jsonl`                          |
-| `Stop` (extend existing `eval-log-stop.sh`) | Add `blocks_total`, `corrections_total`, `reverts_total` to `sessions.jsonl`                                 | `sessions.jsonl`                         |
+| Hook                                        | Signal                                                                                                       | Sink                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| `PreToolUse` Edit\|Write (from Phase B)     | Blocked pattern event `{ pattern, file, escape_attempted }`                                                  | `.agents/evals/local-metrics/blocks.jsonl` |
+| `UserPromptSubmit`                          | Correction keywords (`아니`, `틀렸`, `그거 말고`, `다시`, `하지 마`, `no, …`) + previous assistant turn hash | `corrections.jsonl`                        |
+| `Stop` (new: `revert-detect.sh`)            | Same file edited ≥ 3 times, `git revert`/`fix:` commits in session, repeated tool errors                     | `reverts.jsonl`                            |
+| `Stop` (extend existing `eval-log-stop.sh`) | Add `blocks_total`, `corrections_total`, `reverts_total` to `sessions.jsonl`                                 | `sessions.jsonl`                           |
 
 ### Aggregation & promotion
 
@@ -44,7 +44,7 @@ Current enforcement is reactive (CI scans, post-commit review). Recurring mistak
 
 ```
 .agents/evals/
-├── harness-log/
+├── local-metrics/              (gitignored, local-only generated eval metrics)
 │   ├── sessions.jsonl            (existing, extend)
 │   ├── blocks.jsonl              (new)
 │   ├── corrections.jsonl         (new)
