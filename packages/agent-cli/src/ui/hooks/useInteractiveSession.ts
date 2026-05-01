@@ -36,19 +36,6 @@ import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
 
-/** Side-effect flags for TUI-specific actions */
-export interface ISideEffects {
-  _pendingModelId?: string;
-  _pendingLanguage?: string;
-  _resetRequested?: boolean;
-  _exitRequested?: boolean;
-  _triggerPluginTUI?: boolean;
-  _triggerResumePicker?: boolean;
-  _sessionName?: string;
-  _pendingProviderProfile?: string;
-  _pendingProviderSetupType?: string;
-}
-
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 export interface IInteractiveSessionProps {

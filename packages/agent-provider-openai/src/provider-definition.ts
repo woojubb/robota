@@ -9,6 +9,8 @@ export const DEFAULT_OPENAI_COMPATIBLE_PROVIDER_BASE_URL = 'http://localhost:123
 export function createOpenAIProviderDefinition(): IProviderDefinition {
   return {
     type: 'openai',
+    displayName: 'OpenAI Compatible',
+    description: 'OpenAI or OpenAI-compatible Chat Completions endpoint',
     defaults: {
       apiKey: DEFAULT_OPENAI_COMPATIBLE_PROVIDER_API_KEY,
       baseURL: DEFAULT_OPENAI_COMPATIBLE_PROVIDER_BASE_URL,

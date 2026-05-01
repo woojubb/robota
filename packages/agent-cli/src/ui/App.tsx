@@ -15,14 +15,13 @@ import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
-import ProviderSetupPrompt from './ProviderSetupPrompt.js';
+import InteractivePrompt from './InteractivePrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import UpdateNotice from './UpdateNotice.js';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
@@ -65,7 +64,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
-  const providerDefinitions = props.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const providerDefinitions = props.providerDefinitions ?? [];
 
   const {
     interactiveSession,
@@ -109,15 +108,15 @@ function AppInner(
     handleSubmit,
     pendingModelId,
     pendingProviderProfile,
-    pendingProviderSetupType,
+    pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
     handleProviderConfirm,
-    handleProviderSetupSubmit,
-    handleProviderSetupCancel,
+    handleInteractionSubmit,
+    handleInteractionCancel,
   } = useSideEffects({
     cwd,
     interactiveSession,
@@ -232,12 +231,11 @@ function AppInner(
           onSelect={handleProviderConfirm}
         />
       )}
-      {pendingProviderSetupType && (
-        <ProviderSetupPrompt
-          type={pendingProviderSetupType}
-          providerDefinitions={providerDefinitions}
-          onSubmit={handleProviderSetupSubmit}
-          onCancel={handleProviderSetupCancel}
+      {pendingInteractionPrompt && (
+        <InteractivePrompt
+          prompt={pendingInteractionPrompt}
+          onSubmit={handleInteractionSubmit}
+          onCancel={handleInteractionCancel}
         />
       )}
       {showPluginTUI && (
@@ -280,7 +278,7 @@ function AppInner(
           showPluginTUI ||
           showSessionPicker ||
           isShuttingDown ||
-          !!pendingProviderSetupType ||
+          pendingInteractionPrompt !== null ||
           (isThinking && !!pendingPrompt)
         }
         isAborting={isAborting}

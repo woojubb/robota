@@ -130,10 +130,15 @@ git diff | robota -p "Summarize changes" --output-format stream-json
 
 When no usable settings file exists, the CLI prompts for:
 
-1. **Anthropic API key** (input masked with asterisks)
-2. **Response language** (ko/en/ja/zh, default: en)
+1. **Provider selection** from the providers assembled into the CLI binary
+2. **Provider-specific setup fields** such as model, base URL, and masked API key
+3. **Response language** (ko/en/ja/zh, default: en)
 
-Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state. OpenAI-compatible local profiles, such as LM Studio, can be configured manually without using the first-run Anthropic prompt.
+Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
+
+Provider setup is generated from provider definitions. The default CLI build includes Anthropic, OpenAI-compatible, Gemma, and Qwen providers; other embeddings can inject their own provider definitions.
+
+Non-interactive/headless mode never prompts. Configure a provider ahead of time with `robota --configure` in an interactive terminal, or use `robota --configure-provider <profile> --type <type> ... --set-current`.
 
 ## Built-in Tools
 

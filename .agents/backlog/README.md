@@ -18,4 +18,3 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [headless-update-check-policy.md](headless-update-check-policy.md)             | Headless startup update-check policy                          |
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |
 | [openai-provider-modernization.md](openai-provider-modernization.md)           | OpenAI provider modernization                                 |
-| [provider-composition-setup-ui.md](provider-composition-setup-ui.md)           | Provider-composed first-run and runtime setup UI              |
