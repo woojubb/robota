@@ -61,6 +61,7 @@ pnpm build
 pnpm build:deps
 pnpm --filter @robota-sdk/<pkg> build
 pnpm test
+pnpm test:coverage
 pnpm typecheck
 pnpm lint
 pnpm docs:build
