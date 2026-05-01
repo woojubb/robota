@@ -28,6 +28,7 @@ export interface ICjkTextInputKey {
 export interface ICjkTextInputFlowOptions {
   availableWidth?: number;
   canPaste: boolean;
+  enableVerticalNavigation?: boolean;
 }
 
 export type TCjkTextInputEffect =
@@ -71,7 +72,7 @@ export function applyCjkTextInput(
   if (pasteResult !== undefined) return pasteResult;
   const controlResult = applyControlInput(state, input, key, options);
   if (controlResult !== undefined) return controlResult;
-  const cursorResult = applyCursorInput(state, key, options.availableWidth);
+  const cursorResult = applyCursorInput(state, key, options);
   if (cursorResult !== undefined) return cursorResult;
   return insertPrintableInput(state, input);
 }
@@ -114,10 +115,17 @@ function applyControlInput(
 function applyCursorInput(
   state: ICjkTextInputFlowState,
   key: ICjkTextInputKey,
-  availableWidth: number | undefined,
+  options: ICjkTextInputFlowOptions,
 ): ICjkTextInputFlowResult | undefined {
   if (key.upArrow === true || key.downArrow === true) {
-    return moveCursorVertically(state, key.upArrow === true ? 'up' : 'down', availableWidth);
+    if (options.enableVerticalNavigation === false) {
+      return { state, effect: { type: 'none' } };
+    }
+    return moveCursorVertically(
+      state,
+      key.upArrow === true ? 'up' : 'down',
+      options.availableWidth,
+    );
   }
   if (key.leftArrow === true) {
     return moveCursorHorizontally(state, 'left');

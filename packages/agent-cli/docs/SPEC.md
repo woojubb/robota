@@ -135,14 +135,14 @@ TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prom
 
 Flow ownership:
 
-| Flow module                 | Owns                                                                        | Thin shell consumers                                             |
-| --------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                | `TextPrompt`, `InteractivePrompt` text rendering                 |
-| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling       | `ListPicker`, `MenuSelect`, `InteractivePrompt` choice rendering |
-| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                 | `ConfirmPrompt`                                                  |
-| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions           | `PermissionPrompt`                                               |
-| `input-area-flow.ts`        | slash autocomplete movement, command completion, queue cancel, paste labels | `InputArea`                                                      |
-| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                                   |
+| Flow module                 | Owns                                                                                        | Thin shell consumers                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                                | `TextPrompt`, `InteractivePrompt` text rendering                 |
+| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling                       | `ListPicker`, `MenuSelect`, `InteractivePrompt` choice rendering |
+| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                                 | `ConfirmPrompt`                                                  |
+| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions                           | `PermissionPrompt`                                               |
+| `input-area-flow.ts`        | slash autocomplete movement, command completion, prompt history, queue cancel, paste labels | `InputArea`                                                      |
+| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects                       | `CjkTextInput`                                                   |
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
@@ -614,7 +614,7 @@ src/
     │   ├── selection-flow.ts        ← Shared bounded/wrapping selection state machine
     │   ├── confirm-prompt-flow.ts   ← Confirmation shortcuts and option selection
     │   ├── permission-prompt-flow.ts← Permission shortcuts and decision mapping
-    │   ├── input-area-flow.ts       ← Slash autocomplete and paste-label input flow
+    │   ├── input-area-flow.ts       ← Slash autocomplete, prompt history, and paste-label input flow
     │   └── cjk-text-input-flow.ts   ← CJK-aware text editing and paste flow
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
@@ -904,9 +904,20 @@ System:                         ← in MessageList
 
 Tool → Robota order preserved. StreamingIndicator is cleared (activeTools = []).
 
+### Prompt History Navigation
+
+In `InputArea`, up/down arrows follow shell-style prompt history navigation:
+
+- Up recalls the newest submitted prompt first, then moves toward older prompts.
+- Down moves toward newer prompts and restores the in-progress draft after the newest history item.
+- Empty prompts and consecutive duplicates are not added to prompt history.
+- Restored session history contributes user chat entries to the prompt history list.
+- The behavior is owned by `input-area-flow.ts`; `InputArea` applies returned value/cursor/state changes.
+- `InputArea` disables `CjkTextInput` vertical arrow handling so the parent prompt-history flow owns up/down semantics.
+
 ### Up/Down Arrows — Visual Line Navigation
 
-When input text wraps across multiple visual lines (exceeds terminal width), up/down arrows move the cursor between visual lines using display offset arithmetic.
+`CjkTextInput` can move the cursor between wrapped visual lines when `enableVerticalNavigation=true`. `InputArea` sets this to `false` because its product-level up/down semantics are prompt history navigation.
 
 **Architecture:**
 
@@ -925,7 +936,7 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 - `availableWidth = terminalColumns - BORDER_HORIZONTAL - PADDING_LEFT - PROMPT_WIDTH`
 - Named constants (no magic numbers): `BORDER_HORIZONTAL = 2`, `PADDING_LEFT = 1`, `PROMPT_WIDTH = 2` ("> ")
 - Layout constants are co-located with InputArea (the component that owns the layout)
-- `availableWidth` is passed to `CjkTextInput` as a prop
+- `availableWidth` is passed to `CjkTextInput` as a prop when visual navigation is enabled
 
 **Behavior:**
 
@@ -1080,7 +1091,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 ## Known Limitations
 
 - **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
-- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and visual-line-aware up/down arrow navigation for wrapped text.
+- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and optional visual-line-aware up/down arrow navigation for wrapped text.
 
 ## Dependencies
 
