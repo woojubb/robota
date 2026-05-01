@@ -91,7 +91,7 @@ When `InteractiveSession` emits `background_task_event` or `background_job_group
 }
 ```
 
-Background job group events use the same wrapper shape with `type: "background_job_group_event"` and a `background_job_group_event` payload. Headless transport does not own group waiting logic; slash commands such as `/agent parallel --wait` and `/agent wait GROUP_ID` call SDK-owned command/session APIs.
+Background job group events use the same wrapper shape with `type: "background_job_group_event"` and a `background_job_group_event` payload. Headless transport does not own group waiting logic; slash commands such as default `/agent parallel`, compatibility `/agent parallel --wait`, explicit `/agent parallel --detach`, and `/agent wait GROUP_ID` call SDK-owned command/session APIs.
 
 Headless transport does not expose interactive background controls. Non-interactive callers should use the emitted events plus SDK/transport-specific control surfaces outside this one-shot runner.
 

@@ -278,6 +278,20 @@ describe('agent command module', () => {
         callOrder.push(`wait:${jobId}`);
         return Promise.resolve({ jobId, output: 'done' });
       }),
+      waitBackgroundJobGroup: vi.fn().mockImplementation((groupId: string) => {
+        callOrder.push(`wait-group:${groupId}`);
+        return Promise.resolve({
+          id: groupId,
+          parentSessionId: 'test-session-id',
+          waitPolicy: 'wait_all',
+          taskIds: ['agent_1', 'agent_2'],
+          status: 'completed',
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:02.000Z',
+          completedAt: '2026-05-01T00:00:02.000Z',
+          results: [],
+        });
+      }),
     });
 
     const result = await executor.execute(
@@ -297,7 +311,7 @@ describe('agent command module', () => {
       taskIds: ['agent_1', 'agent_2'],
       label: 'agent parallel',
     });
-    expect(callOrder).toEqual(['spawn:developer', 'spawn:designer']);
+    expect(callOrder).toEqual(['spawn:developer', 'spawn:designer', 'wait-group:group_1']);
   });
 
   it('supports simple parallel label prompt syntax with default agent type', async () => {
@@ -352,6 +366,52 @@ describe('agent command module', () => {
       (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
         .waitBackgroundJobGroup,
     ).toHaveBeenCalledWith('group_1');
+  });
+
+  it('waits for a parallel group by default so model-routed calls produce a consolidated result', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'parallel developer:"implementation risks" designer=Plan:"architecture boundaries"',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Background job group group_1: completed');
+    expect(result?.message).toContain('[completed] developer agent_1: developer summary');
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).toHaveBeenCalledWith('group_1');
+  });
+
+  it('detaches a parallel group only when --detach is explicit', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'parallel --detach developer:"implementation risks" designer=Plan:"architecture boundaries"',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Started agent jobs:');
+    expect(result?.data?.groupId).toBe('group_1');
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).not.toHaveBeenCalled();
   });
 
   it('waits for an existing agent group by id', async () => {

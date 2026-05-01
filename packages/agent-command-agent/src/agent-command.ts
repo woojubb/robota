@@ -80,13 +80,13 @@ async function executeParallel(
   session: InteractiveSession,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
-  const wait = tokens.includes('--wait');
-  const commandTokens = tokens.filter((token) => token !== '--wait');
+  const wait = tokens.includes('--wait') || !tokens.includes('--detach');
+  const commandTokens = tokens.filter((token) => token !== '--wait' && token !== '--detach');
   const jobs = parseParallelRequests(commandTokens, getAvailableAgentNames(session));
 
   if (jobs.length === 0) {
     return {
-      message: 'Usage: agent parallel [--wait] LABEL:"PROMPT" [LABEL=AGENT_NAME:"PROMPT"]',
+      message: 'Usage: agent parallel [--wait|--detach] LABEL:"PROMPT" [LABEL=AGENT_NAME:"PROMPT"]',
       success: false,
     };
   }
