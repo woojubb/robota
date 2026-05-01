@@ -973,6 +973,8 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
 
+Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
+
 ## Memory Management
 
 ### Message Windowing

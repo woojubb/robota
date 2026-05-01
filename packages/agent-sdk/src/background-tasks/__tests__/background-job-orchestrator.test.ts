@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BackgroundTaskManager } from '../index.js';
-import { BackgroundJobOrchestrator } from '../background-job-orchestrator.js';
+import {
+  BackgroundJobOrchestrator,
+  summarizeBackgroundJobGroup,
+} from '../background-job-orchestrator.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRequest,
@@ -13,6 +16,7 @@ import type {
 interface IControlledTask {
   taskId: string;
   resolve: (result: IBackgroundTaskResult) => void;
+  reject: (error: Error) => void;
 }
 
 function createAgentRequest(label: string): IBackgroundTaskRequest {
@@ -34,14 +38,16 @@ function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner
     kind: 'agent',
     start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
       let resolveResult: (result: IBackgroundTaskResult) => void = () => {};
-      const result = new Promise<IBackgroundTaskResult>((resolve) => {
+      let rejectResult: (error: Error) => void = () => {};
+      const tracked = new Promise<IBackgroundTaskResult>((resolve, reject) => {
         resolveResult = resolve;
+        rejectResult = reject;
       });
-      tasks.push({ taskId: task.taskId, resolve: resolveResult });
+      tasks.push({ taskId: task.taskId, resolve: resolveResult, reject: rejectResult });
       return {
         taskId: task.taskId,
         transcriptPath: `/tmp/${task.taskId}.jsonl`,
-        result,
+        result: tracked,
         cancel: () => Promise.resolve(),
       };
     },
@@ -157,5 +163,47 @@ describe('BackgroundJobOrchestrator', () => {
     });
 
     expect(created.id).toBe('group_2');
+  });
+
+  it('summarizes group status counts and result lines without raw logs', () => {
+    const summary = summarizeBackgroundJobGroup({
+      id: 'group_1',
+      parentSessionId: 'session_parent',
+      waitPolicy: 'wait_all',
+      taskIds: ['agent_1', 'agent_2'],
+      status: 'completed',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:02.000Z',
+      completedAt: '2026-05-01T00:00:02.000Z',
+      results: [
+        {
+          taskId: 'agent_1',
+          label: 'developer',
+          status: 'completed',
+          summary: '\n\n implementation summary \n',
+          outputRef: '/tmp/agent_1.jsonl',
+        },
+        {
+          taskId: 'agent_2',
+          label: 'designer',
+          status: 'failed',
+          error: { category: 'runner', message: 'worker failed', recoverable: true },
+        },
+      ],
+    });
+
+    expect(summary).toEqual({
+      groupId: 'group_1',
+      status: 'completed',
+      total: 2,
+      completed: 1,
+      failed: 1,
+      cancelled: 0,
+      pending: 0,
+      lines: [
+        '[completed] developer agent_1: implementation summary (output: /tmp/agent_1.jsonl)',
+        '[failed] designer agent_2: worker failed',
+      ],
+    });
   });
 });

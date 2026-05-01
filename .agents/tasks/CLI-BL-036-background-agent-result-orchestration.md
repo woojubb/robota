@@ -61,9 +61,9 @@ The `/agent` command module should expose orchestration usage in its own command
 3. Add `BackgroundJobOrchestrator` that subscribes to `BackgroundTaskManager` events and emits group completion events.
 4. Persist group creation, membership, state transitions, terminal envelopes, and continuation requests in `.robota` session data.
 5. Extend `agent-command-agent` so `/agent parallel ...` and model-invoked agent command calls can create a group with `wait_all` when the request requires a consolidated answer.
-6. Add parent-session continuation support that can enqueue a synthetic follow-up turn after group completion, with clear session-log provenance.
-7. Add TUI rendering for group-level status: pending/running count, completed count, failed count, and one-line previews.
-8. Add notification behavior when a detached background group completes while the user is typing or another turn is active.
+6. Add deterministic group wait and summary support through SDK APIs plus `/agent parallel --wait` and `/agent wait GROUP_ID`.
+7. Add TUI rendering for group-level status as presentation-only projection of SDK group events: pending/running count, completed count, failed count, and one-line previews.
+8. Add notification behavior through SDK group events when a detached background group completes while the user is typing or another turn is active.
 9. Add headless and WebSocket event projection for group lifecycle and group completion summaries.
 10. Keep raw agent logs out of parent context by default; parent continuation receives `ResultEnvelope` summaries and can fetch detailed logs only when asked.
 
@@ -74,6 +74,14 @@ The `/agent` command module should expose orchestration usage in its own command
 - Started implementation after opening PR #107 for the current unmerged branch.
 - Updated `agent-sdk` and `agent-command-agent` specs so the first implementation slice has an SDK-owned background job orchestration contract and `/agent parallel` creates a `wait_all` group from command-owned metadata.
 
+### 2026-05-01 continued
+
+- Created `feat/agent-orchestration-completion` after the previous PR was merged.
+- Reaffirmed the layer split: SDK owns group wait/summary/orchestration, command modules invoke SDK APIs, transports project SDK events, and TUI renders view models only.
+- Added SDK `summarizeBackgroundJobGroup(group)` with status counts and one-line result summaries.
+- Added `/agent parallel --wait` and `/agent wait GROUP_ID` command handling through SDK group wait/summary APIs.
+- Verified background preview trimming remains a TUI view-model projection, not orchestration logic.
+
 ## Test Plan
 
 - Given a group with two running jobs, when both complete successfully, then the orchestrator emits one `group_completed` event with both result envelopes.
@@ -81,6 +89,10 @@ The `/agent` command module should expose orchestration usage in its own command
 - Given a `wait_any` group, when the first job completes, then the completion subscription fires once and later job completions update stored state without duplicate continuation requests.
 - Given a detached group, when all jobs complete, then no automatic parent continuation is enqueued but the TUI notification event is emitted.
 - Given a continuation request, when it is enqueued, then session logs contain the source group id, source task ids, and exact result envelopes.
+- Given `/agent parallel --wait ...`, when all grouped background agents finish, then the command returns the SDK group summary.
+- Given `/agent wait GROUP_ID`, when the group exists, then the command waits for completion and returns the same SDK group summary.
+- Given `stream-json` is running, when a background job group event fires, then headless output emits `background_job_group_event`.
+- Given a WebSocket client is connected, when a group event fires or a group query is received, then the transport forwards SDK group events/snapshots without deriving orchestration state.
 - Given the `/agent` command descriptor is inspected, then orchestration guidance comes from `agent-command-agent` descriptor metadata and no SDK prompt builder contains agent-specific instructions.
 - Given background task previews contain leading newlines and repeated whitespace, when projected to TUI view models, then preview text is a single trimmed line.
 - Given a resumed session with persisted running or completed groups, when the orchestrator starts, then group state is reconstructed from persisted task/group events.

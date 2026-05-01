@@ -10,72 +10,16 @@
 
 import type {
   InteractiveSession,
-  IToolState,
   IExecutionResult,
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  ICommandResult,
+  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
+  IToolState,
 } from '@robota-sdk/agent-sdk';
+import type { TClientMessage, TServerMessage } from './ws-protocol.js';
 import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './ws-background-messages.js';
-
-type TBackgroundControlAction = 'cancel' | 'close' | 'send';
-
-/** Inbound message from client → server. */
-export type TClientMessage =
-  | { type: 'submit'; prompt: string }
-  | { type: 'command'; name: string; args?: string }
-  | { type: 'abort' }
-  | { type: 'cancel-queue' }
-  | { type: 'get-messages' }
-  | { type: 'get-context' }
-  | { type: 'get-executing' }
-  | { type: 'get-pending' }
-  | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
-  | { type: 'get-background-task'; taskId: string }
-  | { type: 'cancel-background-task'; taskId: string; reason?: string }
-  | { type: 'close-background-task'; taskId: string }
-  | { type: 'send-background-task'; taskId: string; input: IBackgroundTaskInput }
-  | { type: 'read-background-task-log'; taskId: string; cursor?: IBackgroundTaskLogCursor };
-
-/** Outbound message from server → client. */
-export type TServerMessage =
-  | { type: 'text_delta'; delta: string }
-  | { type: 'tool_start'; state: IToolState }
-  | { type: 'tool_end'; state: IToolState }
-  | { type: 'thinking'; isThinking: boolean }
-  | { type: 'complete'; result: IExecutionResult }
-  | { type: 'interrupted'; result: IExecutionResult }
-  | { type: 'error'; message: string }
-  | {
-      type: 'command_result';
-      name: string;
-      message: string;
-      success: boolean;
-      data?: ICommandResult['data'];
-    }
-  | { type: 'messages'; messages: ReturnType<InteractiveSession['getMessages']> }
-  | { type: 'context'; state: ReturnType<InteractiveSession['getContextState']> }
-  | { type: 'executing'; executing: boolean }
-  | { type: 'pending'; pending: string | null }
-  | { type: 'background_task_event'; event: TBackgroundTaskEvent }
-  | { type: 'background_tasks'; tasks: IBackgroundTaskState[] }
-  | { type: 'background_task'; taskId: string; task: IBackgroundTaskState | null }
-  | { type: 'background_task_log'; taskId: string; page: IBackgroundTaskLogPage }
-  | {
-      type: 'background_task_control_result';
-      action: TBackgroundControlAction;
-      taskId: string;
-      success: boolean;
-      message?: string;
-    }
-  | { type: 'protocol_error'; message: string };
 
 export interface IWsHandlerOptions {
   /** InteractiveSession to expose. */
@@ -125,6 +69,8 @@ function subscribeSessionEvents(
   const onError = (error: Error): void => send({ type: 'error', message: error.message });
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
     send({ type: 'background_task_event', event });
+  const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
+    send({ type: 'background_job_group_event', event });
 
   session.on('text_delta', onTextDelta);
   session.on('tool_start', onToolStart);
@@ -134,6 +80,7 @@ function subscribeSessionEvents(
   session.on('interrupted', onInterrupted);
   session.on('error', onError);
   session.on('background_task_event', onBackgroundTaskEvent);
+  session.on('background_job_group_event', onBackgroundJobGroupEvent);
 
   return (): void => {
     session.off('text_delta', onTextDelta);
@@ -144,6 +91,7 @@ function subscribeSessionEvents(
     session.off('interrupted', onInterrupted);
     session.off('error', onError);
     session.off('background_task_event', onBackgroundTaskEvent);
+    session.off('background_job_group_event', onBackgroundJobGroupEvent);
   };
 }
 
@@ -175,36 +123,82 @@ function handleClientMessage(
   send: (message: TServerMessage) => void,
   msg: TClientMessage,
 ): void {
-  switch (msg.type) {
-    case 'submit':
-    case 'command':
-    case 'abort':
-    case 'cancel-queue':
-      handleSessionControlMessage(session, send, msg);
-      return;
-    case 'get-messages':
-    case 'get-context':
-    case 'get-executing':
-    case 'get-pending':
-      handleSessionQueryMessage(session, send, msg);
-      return;
-    case 'get-background-tasks':
-    case 'get-background-task':
-    case 'read-background-task-log':
-      handleBackgroundQueryMessage(session, send, msg);
-      return;
-    case 'cancel-background-task':
-    case 'close-background-task':
-    case 'send-background-task':
-      handleBackgroundControlMessage(session, send, msg);
-      return;
-    default:
-      send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
+  if (isSessionControlMessage(msg)) {
+    handleSessionControlMessage(session, send, msg);
+    return;
   }
+  if (isSessionQueryMessage(msg)) {
+    handleSessionQueryMessage(session, send, msg);
+    return;
+  }
+  if (isBackgroundQueryMessage(msg)) {
+    handleBackgroundQueryMessage(session, send, msg);
+    return;
+  }
+  if (isBackgroundControlMessage(msg)) {
+    handleBackgroundControlMessage(session, send, msg);
+    return;
+  }
+  send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
 }
 
 function getMessageType(msg: TClientMessage): string {
   return (msg as { type: string }).type;
+}
+
+function isSessionControlMessage(
+  msg: TClientMessage,
+): msg is Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }> {
+  return (
+    msg.type === 'submit' ||
+    msg.type === 'command' ||
+    msg.type === 'abort' ||
+    msg.type === 'cancel-queue'
+  );
+}
+
+function isSessionQueryMessage(
+  msg: TClientMessage,
+): msg is Extract<
+  TClientMessage,
+  { type: 'get-messages' | 'get-context' | 'get-executing' | 'get-pending' }
+> {
+  return (
+    msg.type === 'get-messages' ||
+    msg.type === 'get-context' ||
+    msg.type === 'get-executing' ||
+    msg.type === 'get-pending'
+  );
+}
+
+function isBackgroundQueryMessage(
+  msg: TClientMessage,
+): msg is Extract<
+  TClientMessage,
+  | { type: 'get-background-tasks' | 'get-background-task' | 'read-background-task-log' }
+  | { type: 'get-background-job-groups' | 'get-background-job-group' | 'wait-background-job-group' }
+> {
+  return (
+    msg.type === 'get-background-tasks' ||
+    msg.type === 'get-background-task' ||
+    msg.type === 'read-background-task-log' ||
+    msg.type === 'get-background-job-groups' ||
+    msg.type === 'get-background-job-group' ||
+    msg.type === 'wait-background-job-group'
+  );
+}
+
+function isBackgroundControlMessage(
+  msg: TClientMessage,
+): msg is Extract<
+  TClientMessage,
+  { type: 'cancel-background-task' | 'close-background-task' | 'send-background-task' }
+> {
+  return (
+    msg.type === 'cancel-background-task' ||
+    msg.type === 'close-background-task' ||
+    msg.type === 'send-background-task'
+  );
 }
 
 function handleSessionControlMessage(

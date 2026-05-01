@@ -1,3 +1,4 @@
+import { summarizeBackgroundJobGroup } from '@robota-sdk/agent-sdk';
 import type { ICommandResult, InteractiveSession } from '@robota-sdk/agent-sdk';
 import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
 import type { IAgentRunRequest } from './agent-command-parser.js';
@@ -79,11 +80,13 @@ async function executeParallel(
   session: InteractiveSession,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
-  const jobs = parseParallelRequests(tokens, getAvailableAgentNames(session));
+  const wait = tokens.includes('--wait');
+  const commandTokens = tokens.filter((token) => token !== '--wait');
+  const jobs = parseParallelRequests(commandTokens, getAvailableAgentNames(session));
 
   if (jobs.length === 0) {
     return {
-      message: 'Usage: agent parallel LABEL:"PROMPT" [LABEL=AGENT_NAME:"PROMPT"]',
+      message: 'Usage: agent parallel [--wait] LABEL:"PROMPT" [LABEL=AGENT_NAME:"PROMPT"]',
       success: false,
     };
   }
@@ -105,12 +108,37 @@ async function executeParallel(
     label: 'agent parallel',
   });
 
+  if (wait) {
+    const completed = await session.waitBackgroundJobGroup(group.id);
+    const summary = summarizeBackgroundJobGroup(completed);
+    return {
+      message: formatGroupSummary(summary),
+      success: true,
+      data: { agentIds: states.map((state) => state.id), groupId: group.id, summary },
+    };
+  }
+
   return {
     message: ['Started agent jobs:', ...states.map((state) => `${state.label}: ${state.id}`)].join(
       '\n',
     ),
     success: true,
     data: { agentIds: states.map((state) => state.id), groupId: group.id },
+  };
+}
+
+async function executeWait(
+  session: InteractiveSession,
+  tokens: readonly string[],
+): Promise<ICommandResult> {
+  const [groupId] = tokens;
+  if (!groupId) return { message: 'Usage: agent wait GROUP_ID', success: false };
+  const completed = await session.waitBackgroundJobGroup(groupId);
+  const summary = summarizeBackgroundJobGroup(completed);
+  return {
+    message: formatGroupSummary(summary),
+    success: true,
+    data: { groupId, summary },
   };
 }
 
@@ -172,6 +200,7 @@ export async function executeAgentCommand(
     if (action === 'list' && tokens.length === 0) return executeList(session);
     if (action === 'run') return executeRun(session, tokens);
     if (action === 'parallel') return executeParallel(session, tokens);
+    if (action === 'wait') return executeWait(session, tokens);
     if (action === 'read' || action === 'open') return executeRead(session, tokens);
     if (action === 'send') return executeSend(session, tokens);
     if (action === 'stop' || action === 'cancel') return executeStop(session, tokens);
@@ -180,4 +209,9 @@ export async function executeAgentCommand(
   } catch (error) {
     return { message: formatError(error), success: false };
   }
+}
+
+function formatGroupSummary(summary: ReturnType<typeof summarizeBackgroundJobGroup>): string {
+  const header = `Background job group ${summary.groupId}: ${summary.status} (${summary.completed}/${summary.total} completed, ${summary.failed} failed, ${summary.cancelled} cancelled, ${summary.pending} pending)`;
+  return [header, ...summary.lines].join('\n');
 }
