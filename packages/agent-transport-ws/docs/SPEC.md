@@ -85,6 +85,8 @@ ws.on('close', cleanup);
 | `background_task_control_result` | `{ action, taskId, success, message? }`                | cancel/close/send response               |
 | `protocol_error`                 | `{ message: string }`                                  | invalid client message                   |
 
+The `command` message is generic. Available commands depend on the `ICommandModule` instances composed into the upstream `InteractiveSession`; this transport does not know command names in advance.
+
 ## ITransportAdapter
 
 This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.

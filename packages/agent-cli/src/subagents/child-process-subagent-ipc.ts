@@ -19,6 +19,7 @@ export interface ISubagentWorkerStartPayload {
   parentContext: IInProcessSubagentRunnerDeps['context'];
   providerProfile: ISerializableProviderProfile;
   permissionMode?: TPermissionMode;
+  logsDir?: string;
 }
 
 export interface ISubagentWorkerStartMessage {

@@ -9,6 +9,7 @@ import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-c
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { IExecutionResult, IToolSummary } from './types.js';
+import type { IBackgroundTaskState, TBackgroundTaskEvent } from '../background-tasks/index.js';
 
 /** Detect whether an error represents an abort/cancel action. */
 export function isAbortError(err: unknown): boolean {
@@ -95,6 +96,10 @@ export function persistSession(
   sessionName: string | undefined,
   cwd: string,
   history: IHistoryEntry[],
+  backgroundState?: {
+    tasks: readonly IBackgroundTaskState[];
+    events: readonly TBackgroundTaskEvent[];
+  },
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -107,6 +112,14 @@ export function persistSession(
       updatedAt: new Date().toISOString(),
       messages: session.getHistory(),
       history,
+      systemPrompt: session.getSystemMessage(),
+      toolSchemas: session.getToolSchemas(),
+      ...(backgroundState
+        ? {
+            backgroundTasks: [...backgroundState.tasks],
+            backgroundTaskEvents: [...backgroundState.events],
+          }
+        : {}),
     });
   } catch {
     // Persist failure should not break execution

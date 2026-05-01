@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskRunner, TSubagentRunnerFactory } from '@robota-sdk/agent-sdk';
+import type {
+  IBackgroundTaskRunner,
+  ICommandModule,
+  TSubagentRunnerFactory,
+} from '@robota-sdk/agent-sdk';
 import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
@@ -33,6 +37,7 @@ interface IProps {
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  commandModules?: readonly ICommandModule[];
 }
 
 /**
@@ -83,6 +88,7 @@ function AppInner(
     sessionName: props.sessionName,
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
+    commandModules: props.commandModules,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);

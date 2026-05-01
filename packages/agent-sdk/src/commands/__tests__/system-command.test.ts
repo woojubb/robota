@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
+import type { ICommandModule } from '../command-module.js';
 
 function createMockSession(overrides?: Record<string, unknown>) {
   const underlying = {
@@ -20,6 +21,27 @@ function createMockSession(overrides?: Record<string, unknown>) {
     cancelBackgroundTask: vi.fn(),
     closeBackgroundTask: vi.fn(),
     readBackgroundTaskLog: vi.fn().mockResolvedValue({ taskId: 'agent_1', lines: [] }),
+    spawnAgentJob: vi.fn().mockResolvedValue({
+      id: 'agent_1',
+      type: 'Plan',
+      label: 'Plan',
+      parentSessionId: 'test-session-id',
+      status: 'running',
+      mode: 'background',
+      depth: 1,
+      cwd: '/workspace',
+      promptPreview: 'draft architecture',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+    }),
+    waitAgentJob: vi.fn(),
+    listAgentJobs: vi.fn().mockReturnValue([]),
+    listAgentDefinitions: vi.fn().mockReturnValue([
+      { name: 'general-purpose', description: 'General-purpose task execution agent.' },
+      { name: 'Plan', description: 'Read-only planning agent.' },
+    ]),
+    sendAgentJob: vi.fn(),
+    cancelAgentJob: vi.fn(),
+    closeAgentJob: vi.fn(),
     ...overrides,
   };
 
@@ -30,6 +52,13 @@ function createMockSession(overrides?: Record<string, unknown>) {
     cancelBackgroundTask: underlying.cancelBackgroundTask,
     closeBackgroundTask: underlying.closeBackgroundTask,
     readBackgroundTaskLog: underlying.readBackgroundTaskLog,
+    spawnAgentJob: underlying.spawnAgentJob,
+    waitAgentJob: underlying.waitAgentJob,
+    listAgentJobs: underlying.listAgentJobs,
+    listAgentDefinitions: underlying.listAgentDefinitions,
+    sendAgentJob: underlying.sendAgentJob,
+    cancelAgentJob: underlying.cancelAgentJob,
+    closeAgentJob: underlying.closeAgentJob,
     _underlying: underlying,
   } as unknown as InteractiveSession;
 }
@@ -42,6 +71,15 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
     expect(commands.map((c) => c.name)).toContain('mode');
+  });
+
+  it('does not expose model-invocable commands from the core command set', () => {
+    const executor = new SystemCommandExecutor();
+    const modelCommands = executor.listModelInvocableCommands();
+
+    expect(modelCommands).toEqual([]);
+    expect(executor.isModelInvocable('agent')).toBe(false);
+    expect(executor.isModelInvocable('reset')).toBe(false);
   });
 
   it('returns null for unknown command', async () => {
@@ -221,5 +259,53 @@ describe('SystemCommandExecutor', () => {
     expect(executor.hasCommand('custom')).toBe(true);
     const result = await executor.execute('custom', createMockSession(), '');
     expect(result!.message).toBe('custom result');
+  });
+
+  it('executes arbitrary injected command modules without knowing their names in SDK core', async () => {
+    const module: ICommandModule = {
+      name: 'diagnostics-command',
+      systemCommands: [
+        {
+          name: 'diagnose',
+          description: 'Run read-only diagnostics for the current workspace',
+          modelInvocable: true,
+          safety: 'read-only',
+          execute: (_session, args) => ({
+            message: `diagnosed ${args}`,
+            success: true,
+            data: { scope: args },
+          }),
+        },
+      ],
+    };
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+
+    expect(executor.hasCommand('agent')).toBe(false);
+    expect(executor.hasCommand('diagnose')).toBe(true);
+    expect(executor.listModelInvocableCommands()).toEqual([
+      {
+        name: '/diagnose',
+        kind: 'builtin-command',
+        description: 'Run read-only diagnostics for the current workspace',
+        userInvocable: true,
+        modelInvocable: true,
+        safety: 'read-only',
+      },
+    ]);
+
+    const result = await executor.executeModelInvocable(
+      'diagnose',
+      createMockSession(),
+      'workspace',
+    );
+
+    expect(result).toEqual({
+      message: 'diagnosed workspace',
+      success: true,
+      data: { scope: 'workspace' },
+    });
   });
 });

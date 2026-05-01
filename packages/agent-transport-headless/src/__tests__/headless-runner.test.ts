@@ -39,6 +39,7 @@ function createMockSession(behavior: 'complete' | 'interrupted' | 'error', respo
         }
       }
     }),
+    executeCommand: vi.fn().mockResolvedValue(null),
     getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
   } as unknown as InteractiveSession;
 }
@@ -101,6 +102,28 @@ describe('createHeadlessRunner (text format)', () => {
     await runner.run('my prompt');
 
     expect(session.submit).toHaveBeenCalledWith('my prompt');
+  });
+
+  it('executes /agent as a command without submitting to the model', async () => {
+    const session = {
+      ...createMockSession('complete', 'unused'),
+      executeCommand: vi.fn().mockResolvedValue({
+        message: 'Started agent job: agent_1',
+        success: true,
+        data: { agentId: 'agent_1' },
+      }),
+    } as unknown as InteractiveSession;
+    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+
+    const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
+
+    expect(exitCode).toBe(0);
+    expect(session.executeCommand).toHaveBeenCalledWith(
+      'agent',
+      'run Plan --background "draft architecture"',
+    );
+    expect(session.submit).not.toHaveBeenCalled();
+    expect(stdoutWriteSpy).toHaveBeenCalledWith('Started agent job: agent_1\n');
   });
 });
 
@@ -286,11 +309,6 @@ describe('createHeadlessRunner (stream-json format)', () => {
   });
 
   it('stream-json emits background task events before the final result', async () => {
-    const backgroundEvent: TBackgroundTaskEvent = {
-      type: 'background_task_text_delta',
-      taskId: 'task_1',
-      delta: 'partial output',
-    };
     const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
     const session = {
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
@@ -298,19 +316,37 @@ describe('createHeadlessRunner (stream-json format)', () => {
         listeners.get(event)!.push(handler);
       }),
       off: vi.fn(),
-      submit: vi.fn(async () => {
+      submit: vi.fn(),
+      executeCommand: vi.fn().mockImplementation(async () => {
         for (const h of listeners.get('background_task_event') ?? []) {
-          h(backgroundEvent);
+          h({
+            type: 'background_task_created',
+            task: {
+              id: 'agent_1',
+              kind: 'agent',
+              label: 'Plan',
+              status: 'running',
+              mode: 'background',
+              parentSessionId: 'stream-session',
+              depth: 1,
+              cwd: '/workspace',
+              updatedAt: '2026-05-01T00:00:00.000Z',
+              unread: false,
+              promptPreview: 'draft architecture',
+            },
+          } satisfies TBackgroundTaskEvent);
         }
-        for (const h of listeners.get('complete') ?? []) {
-          h({ response: 'done', history: [], toolSummaries: [], contextState: {} });
-        }
+        return {
+          message: 'Started agent job: agent_1',
+          success: true,
+          data: { agentId: 'agent_1' },
+        };
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
     } as unknown as InteractiveSession;
 
     const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
-    const exitCode = await runner.run('test prompt');
+    const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
 
     expect(exitCode).toBe(0);
 
@@ -320,17 +356,24 @@ describe('createHeadlessRunner (stream-json format)', () => {
     );
 
     expect(parsed).toHaveLength(2);
+    expect(session.submit).not.toHaveBeenCalled();
+    expect(session.executeCommand).toHaveBeenCalledWith(
+      'agent',
+      'run Plan --background "draft architecture"',
+    );
     expect(parsed[0]).toMatchObject({
       type: 'stream_event',
       session_id: 'stream-session',
       event: {
         type: 'background_task_event',
-        background_task_event: backgroundEvent,
+        background_task_event: {
+          type: 'background_task_created',
+        },
       },
     });
     expect(parsed[1]).toEqual({
       type: 'result',
-      result: 'done',
+      result: 'Started agent job: agent_1',
       session_id: 'stream-session',
       subtype: 'success',
     });

@@ -273,7 +273,7 @@ import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
 
 ## Subagent Sessions
 
-`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk.
+`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId` and `sessionLogger` so the child session writes a durable transcript.
 
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-sdk';
@@ -295,6 +295,8 @@ Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Hai
 ### createAgentTool()
 
 `createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
+
+Background subagent lifecycle events are persisted through `InteractiveSession` when a `SessionStore` is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
 
 ## Hook Executors (SDK-Specific)
 

@@ -1,5 +1,7 @@
 import type {
   IBackgroundTaskManager,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
   IBackgroundTaskRunner,
   IBackgroundTaskRequest,
   TBackgroundPrimitive,
@@ -49,6 +51,8 @@ export interface ISubagentJobState {
   branchName?: string;
   promptPreview: string;
   currentTool?: string;
+  logPath?: string;
+  transcriptPath?: string;
   startedAt?: string;
   updatedAt: string;
   completedAt?: string;
@@ -71,9 +75,12 @@ export interface ISubagentJobStart {
 export interface ISubagentJobHandle {
   readonly jobId: string;
   readonly pid?: number;
+  readonly logPath?: string;
+  readonly transcriptPath?: string;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
   send?(prompt: string): Promise<void>;
+  readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
 }
 
 export interface ISubagentRunner {

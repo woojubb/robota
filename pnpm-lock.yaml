@@ -552,6 +552,9 @@ importers:
 
   packages/agent-cli:
     dependencies:
+      '@robota-sdk/agent-command-agent':
+        specifier: workspace:*
+        version: link:../agent-command-agent
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -622,6 +625,25 @@ importers:
       tsx:
         specifier: ^4.7.0
         version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-agent:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3

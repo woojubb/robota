@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import type {
   IInProcessSubagentRunnerDeps,
   ISubagentJobStart,
@@ -121,6 +124,30 @@ describe('ChildProcessSubagentRunner', () => {
         toolName: 'Read',
         success: true,
       });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'exposes a deterministic transcript path and reads transcript pages',
+    async () => {
+      const logsDir = mkdtempSync(join(tmpdir(), 'robota-subagent-logs-'));
+      const transcriptDir = join(logsDir, 'session_1', 'subagents');
+      mkdirSync(transcriptDir, { recursive: true });
+      writeFileSync(join(transcriptDir, 'agent_1.jsonl'), 'line1\nline2\n', 'utf8');
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerPath: FIXTURE_WORKER,
+        execArgv: [],
+        logsDir,
+      });
+
+      const handle = runner.start(createJob());
+      const page = await handle.readLog?.({ offset: 0 });
+      await handle.result;
+
+      expect(handle.transcriptPath).toBe(join(transcriptDir, 'agent_1.jsonl'));
+      expect(handle.logPath).toBe(join(transcriptDir, 'agent_1.jsonl'));
+      expect(page?.lines).toEqual(['line1', 'line2']);
     },
     TEST_TIMEOUT_MS,
   );

@@ -10,7 +10,11 @@
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-sessions';
-import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
+import type {
+  ISessionLogger,
+  ITerminalOutput,
+  TPermissionHandler,
+} from '@robota-sdk/agent-sessions';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
@@ -38,6 +42,10 @@ export interface ISubagentOptions {
   provider: IAIProvider;
   /** Terminal output interface. */
   terminal: ITerminalOutput;
+  /** Stable session ID for transcript files. */
+  sessionId?: string;
+  /** Optional logger for subagent transcripts. */
+  sessionLogger?: ISessionLogger;
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
   isForkWorker?: boolean;
   /** Permission mode from parent (bypassPermissions, acceptEdits, etc.). */
@@ -131,6 +139,8 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     provider,
     systemMessage,
     terminal,
+    ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+    ...(options.sessionLogger !== undefined ? { sessionLogger: options.sessionLogger } : {}),
     model,
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,

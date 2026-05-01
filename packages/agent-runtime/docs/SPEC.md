@@ -95,6 +95,8 @@ Consumers extend the runtime by implementing ports:
 
 Runtime ports own required shapes. Adapter packages own concrete I/O and must not add global task registries outside `BackgroundTaskManager`.
 
+Runner handles may expose `logPath` and `transcriptPath` for append-only diagnostic streams. `BackgroundTaskManager` projects those paths into task state immediately after runner start and preserves matching result metadata on completion.
+
 ## Error Taxonomy
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.

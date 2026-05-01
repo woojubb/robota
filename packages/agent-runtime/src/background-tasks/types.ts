@@ -173,6 +173,8 @@ export interface IBackgroundTaskStart {
 export interface IBackgroundTaskHandle {
   readonly taskId: string;
   readonly pid?: number;
+  readonly logPath?: string;
+  readonly transcriptPath?: string;
   result: Promise<IBackgroundTaskResult>;
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
