@@ -33,6 +33,7 @@
     "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
