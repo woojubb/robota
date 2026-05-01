@@ -92,6 +92,25 @@ describe('MessageList rendering', () => {
     expect(output).toContain('response text');
   });
 
+  it('assistant message renders markdown diff fenced code block content', () => {
+    const response = [
+      'Patch preview:',
+      '',
+      '```diff',
+      '- const oldValue = true;',
+      '+ const newValue = true;',
+      '```',
+    ].join('\n');
+    const history: IHistoryEntry[] = [messageToHistoryEntry(createAssistantMessage(response))];
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('Robota:');
+    expect(output).toContain('Patch preview:');
+    expect(output).toContain('- const oldValue = true;');
+    expect(output).toContain('+ const newValue = true;');
+  });
+
   it('system message renders with "System:" label', () => {
     const history: IHistoryEntry[] = [
       messageToHistoryEntry(createSystemMessage('Interrupted by user.')),
