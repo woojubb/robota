@@ -450,22 +450,24 @@ Background task runtime exports:
 | `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                                      |
 | `BackgroundJobOrchestrator`      | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
 | `IBackgroundJobGroupState`       | interface | Parent-session-scoped background task group snapshot                    |
+| `IBackgroundJobGroupSummary`     | interface | Presentation-neutral group completion counts and result lines           |
 | `TBackgroundJobWaitPolicy`       | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
 
 Background agent watchdog configuration is provider-neutral. Agent requests may set `idleTimeoutMs`, `maxRuntimeMs`, `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold`; the runtime refreshes `lastActivityAt` from runner progress events and fails runaway jobs with `timeoutReason`.
 
 `InteractiveSession` subscribes to background task events, persists every event including streaming text deltas into the session record for local debugging/resume, and emits `background_task_event` for transports and TUI state projection. It also maps background agent lifecycle events into Claude Code-compatible `SubagentStart` and `SubagentStop` hooks.
 
-`BackgroundJobOrchestrator` is the SDK-owned layer above `BackgroundTaskManager` for parent-request orchestration. It groups related task IDs, applies a wait policy, emits group lifecycle events, and produces result envelopes with task IDs, labels, terminal status, concise output summaries, output references, and errors. The orchestrator does not run processes, own provider calls, mutate TUI state, or inject hardcoded prompt instructions.
+`BackgroundJobOrchestrator` is the SDK-owned layer above `BackgroundTaskManager` for parent-request orchestration. It groups related task IDs, applies a wait policy, emits group lifecycle events, and produces result envelopes with task IDs, labels, terminal status, concise output summaries, output references, and errors. It also exposes presentation-neutral summary helpers for command/transport/UI adapters. The orchestrator does not run processes, own provider calls, mutate TUI state, or inject hardcoded prompt instructions.
 
 `InteractiveSession` exposes background job group controls:
 
-| API                                 | Behavior                                                       |
-| ----------------------------------- | -------------------------------------------------------------- |
-| `createBackgroundJobGroup(request)` | Create a parent-session-scoped group over existing task IDs    |
-| `listBackgroundJobGroups()`         | Return cloned group snapshots                                  |
-| `getBackgroundJobGroup(groupId)`    | Return one cloned group snapshot                               |
-| `waitBackgroundJobGroup(groupId)`   | Resolve when the group's wait policy reaches a terminal result |
+| API                                  | Behavior                                                       |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `createBackgroundJobGroup(request)`  | Create a parent-session-scoped group over existing task IDs    |
+| `listBackgroundJobGroups()`          | Return cloned group snapshots                                  |
+| `getBackgroundJobGroup(groupId)`     | Return one cloned group snapshot                               |
+| `waitBackgroundJobGroup(groupId)`    | Resolve when the group's wait policy reaches a terminal result |
+| `summarizeBackgroundJobGroup(group)` | Return counts and concise result lines for an existing group   |
 
 `InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 

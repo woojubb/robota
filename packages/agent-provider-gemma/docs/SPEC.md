@@ -2,7 +2,7 @@
 
 ## Scope
 
-This package owns Gemma model-family provider behavior for Robota when Gemma models are served through OpenAI-compatible Chat Completions endpoints such as LM Studio. It composes `agent-provider-openai-compatible` for transport primitives and owns Gemma-specific text projection for reasoning-channel markers and documented Gemma/LM Studio native tool-call text emitted by the serving template.
+This package owns Gemma model-family provider behavior for Robota when Gemma models are served through OpenAI-compatible Chat Completions endpoints such as LM Studio. It composes `agent-provider-openai-compatible` for transport primitives and owns Gemma-specific text projection for reasoning-channel markers, documented Gemma/LM Studio native tool-call text, and Gemma-generated XML-like execution artifacts emitted as assistant content.
 
 ## Boundaries
 
@@ -22,9 +22,10 @@ src/
   types.ts                    # provider options and option value types
   reasoning-projector.ts      # Gemma reasoning-channel projection
   tool-call-projector.ts      # Gemma/LM Studio native tool-call text projection
+  pseudo-tool-call-projector.ts # Gemma XML-like execution artifact projection
 ```
 
-`GemmaProvider` is the provider shell. It creates or receives an OpenAI SDK client, builds OpenAI-compatible requests, and delegates conversion/parsing/stream assembly to `agent-provider-openai-compatible`. `GemmaReasoningProjector` is a pure stateful projector used by streaming paths to remove Gemma channel markers from user-facing text. `GemmaToolCallProjector` is a provider-owned adapter for the documented Gemma/LM Studio template block shaped as `<|tool_call>call:<tool>{...}<tool_call|>`.
+`GemmaProvider` is the provider shell. It creates or receives an OpenAI SDK client, builds OpenAI-compatible requests, and delegates conversion/parsing/stream assembly to `agent-provider-openai-compatible`. `GemmaReasoningProjector` is a pure stateful projector used by streaming paths to remove Gemma channel markers from user-facing text. `GemmaToolCallProjector` is a provider-owned adapter for the documented Gemma/LM Studio template block shaped as `<|tool_call>call:<tool>{...}<tool_call|>` and for Gemma XML-like execution artifacts. XML-like projection is generic: executable calls are produced only when a tag name or JSON command envelope matches a tool declared in the current request.
 
 ## Type Ownership
 
@@ -63,7 +64,7 @@ src/
 - Consumers such as `agent-cli` can inject `createGemmaProviderDefinition()` alongside other provider definitions. The CLI must not special-case Gemma by type string.
 - `createGemmaProviderDefinition()` reuses the shared OpenAI-compatible endpoint probe instead of owning a Gemma-specific CLI/setup branch.
 - Future Gemma variants can extend projection behavior inside this package without changing generic OpenAI-compatible transport.
-- Native tool-call text projection is enabled only when declared tools are present. It validates calls against the request's tool names and does not parse arbitrary pseudo syntax.
+- Native and XML-like execution artifact projection is enabled only when declared tools are present. It validates executable calls against the request's tool names, strips Gemma XML artifact wrappers from user-facing text, and does not add CLI/TUI, command, or domain-tool-specific branches.
 
 ## Error Taxonomy
 
@@ -79,8 +80,10 @@ src/
 
 - Unit tests cover `GemmaReasoningProjector` for complete markers, split markers across deltas, empty thought channels, and ordinary text.
 - Unit tests cover `GemmaToolCallProjector` for documented LM Studio/Gemma tool-call blocks, split streamed blocks, declared-tool validation, and malformed block preservation.
+- Unit tests cover XML-like Gemma execution artifacts so declared tool tags and JSON command envelopes are converted to universal tool calls while wrapper tags are removed from visible text.
 - Unit tests cover `GemmaProvider` request construction with OpenAI-compatible base URL, tools, streaming text deltas, and model requirement errors.
 - Unit tests verify native Gemma tool-call text is converted to universal `toolCalls` before SDK execution sees the response.
+- Unit tests verify Gemma XML-like declared tool text is converted to universal `toolCalls` before SDK execution sees the response.
 - Unit tests verify raw Gemma marker text is not emitted through `onTextDelta` or final assistant content when the Gemma provider is selected.
 - CLI tests verify injected provider definitions are resolved generically without provider-specific branches in CLI logic.
 

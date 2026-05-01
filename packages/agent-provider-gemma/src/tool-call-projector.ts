@@ -4,6 +4,7 @@ import type {
   IOpenAICompatibleToolCallTextProjector,
 } from '@robota-sdk/agent-provider-openai-compatible';
 import { GemmaArgumentParser } from './tool-call-argument-parser';
+import { projectGemmaPseudoToolCallText } from './pseudo-tool-call-projector';
 
 const TOOL_CALL_START = '<|tool_call>';
 const TOOL_CALL_END = '<tool_call|>';
@@ -50,6 +51,7 @@ export function projectGemmaToolCallText(
 export class GemmaToolCallProjector implements IOpenAICompatibleToolCallTextProjector {
   private buffer = '';
   private emittedVisibleText = '';
+  private emittedRawToolCallText = '';
   private readonly emittedToolCallIds = new Set<string>();
 
   constructor(private readonly options: IGemmaToolCallProjectorOptions) {}
@@ -71,33 +73,59 @@ export class GemmaToolCallProjector implements IOpenAICompatibleToolCallTextProj
     const result = projectText(this.buffer, this.options, options);
     const nextVisibleText = result.visibleParts.join('');
     const visibleText = nextVisibleText.slice(this.emittedVisibleText.length);
+    const nextRawToolCallText = result.rawToolCallTextParts.join('');
+    const rawToolCallText = nextRawToolCallText.slice(this.emittedRawToolCallText.length);
     this.emittedVisibleText = nextVisibleText;
+    this.emittedRawToolCallText = nextRawToolCallText;
 
-    const rawToolCallTextParts: string[] = [];
-    const toolCalls = result.toolCalls.filter((toolCall, index) => {
+    const toolCalls = result.toolCalls.filter((toolCall) => {
       if (this.emittedToolCallIds.has(toolCall.id)) {
         return false;
       }
       this.emittedToolCallIds.add(toolCall.id);
-      const rawToolCallText = result.rawToolCallTextParts[index];
-      if (rawToolCallText) {
-        rawToolCallTextParts.push(rawToolCallText);
-      }
       return true;
     });
 
     return {
       visibleText,
       toolCalls,
-      removedToolCallText: rawToolCallTextParts.length > 0,
-      ...(rawToolCallTextParts.length > 0 && {
-        rawToolCallText: rawToolCallTextParts.join(''),
+      removedToolCallText: rawToolCallText.length > 0,
+      ...(rawToolCallText.length > 0 && {
+        rawToolCallText,
       }),
     };
   }
 }
 
 function projectText(
+  rawText: string,
+  options: IGemmaToolCallProjectorOptions,
+  projectionOptions: IProjectionOptions,
+): IProjectionState {
+  const nativeProjection = projectNativeToolCallText(rawText, options, projectionOptions);
+  const pseudoProjection = projectGemmaPseudoToolCallText(
+    nativeProjection.visibleParts.join(''),
+    {
+      toolNames: options.toolNames,
+      callIdPrefix: options.callIdPrefix ?? DEFAULT_CALL_ID_PREFIX,
+      startCallIndex: nativeProjection.toolCalls.length,
+    },
+    projectionOptions,
+  );
+
+  return {
+    visibleParts: [pseudoProjection.visibleText],
+    toolCalls: [...nativeProjection.toolCalls, ...pseudoProjection.toolCalls],
+    rawToolCallTextParts: [
+      ...nativeProjection.rawToolCallTextParts,
+      ...pseudoProjection.rawToolCallTextParts,
+    ],
+    removedToolCallText:
+      nativeProjection.removedToolCallText || pseudoProjection.removedToolCallText,
+  };
+}
+
+function projectNativeToolCallText(
   rawText: string,
   options: IGemmaToolCallProjectorOptions,
   projectionOptions: IProjectionOptions,
