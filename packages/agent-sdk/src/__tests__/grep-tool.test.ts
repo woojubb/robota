@@ -131,11 +131,7 @@ describe('GrepTool', () => {
 
   it('content mode shows -- separator between non-adjacent context blocks', async () => {
     const filePath = join(tmpDir, 'separated.txt');
-    await writeFile(
-      filePath,
-      'match1\na\nb\nc\nd\ne\nf\nmatch2\n',
-      'utf8',
-    );
+    await writeFile(filePath, 'match1\na\nb\nc\nd\ne\nf\nmatch2\n', 'utf8');
 
     const result = await run({
       pattern: 'match',

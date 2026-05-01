@@ -130,6 +130,8 @@ export class SubagentManager implements ISubagentManager {
       branchName: state.branchName,
       promptPreview: state.promptPreview ?? '',
       currentTool: state.currentAction,
+      logPath: state.logPath,
+      transcriptPath: state.transcriptPath,
       startedAt: state.startedAt,
       updatedAt: state.updatedAt,
       completedAt: state.completedAt,
@@ -155,6 +157,8 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
       const handle: IBackgroundTaskHandle = {
         taskId: task.taskId,
         pid: subagentHandle.pid,
+        logPath: subagentHandle.logPath,
+        transcriptPath: subagentHandle.transcriptPath,
         result: subagentHandle.result.then((result) => toBackgroundResult(result)),
         cancel: (reason?: string) => subagentHandle.cancel(reason),
       };
@@ -162,6 +166,10 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
       if (subagentHandle.send) {
         const send = subagentHandle.send;
         handle.send = (input) => send(input.prompt ?? '');
+      }
+      if (subagentHandle.readLog) {
+        const readLog = subagentHandle.readLog;
+        handle.readLog = (cursor) => readLog(cursor);
       }
 
       return handle;

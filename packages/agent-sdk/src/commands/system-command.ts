@@ -7,6 +7,7 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { ICapabilityDescriptor, TCapabilitySafety } from '../capabilities/types.js';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { executeBackgroundCommand } from './background-command.js';
 
@@ -24,6 +25,10 @@ export interface ICommandResult {
 export interface ISystemCommand {
   name: string;
   description: string;
+  modelInvocable?: boolean;
+  userInvocable?: boolean;
+  argumentHint?: string;
+  safety?: TCapabilitySafety;
   execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
 }
 
@@ -263,6 +268,33 @@ export class SystemCommandExecutor {
   /** List all registered commands. */
   listCommands(): ISystemCommand[] {
     return [...this.commands.values()];
+  }
+
+  listModelInvocableCommands(): ICapabilityDescriptor[] {
+    return this.listCommands()
+      .filter((command) => command.modelInvocable === true)
+      .map((command) => ({
+        name: `/${command.name}`,
+        kind: 'builtin-command',
+        description: command.description,
+        userInvocable: command.userInvocable !== false,
+        modelInvocable: true,
+        ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
+        ...(command.safety ? { safety: command.safety } : {}),
+      }));
+  }
+
+  isModelInvocable(name: string): boolean {
+    return this.commands.get(name)?.modelInvocable === true;
+  }
+
+  async executeModelInvocable(
+    name: string,
+    session: InteractiveSession,
+    args: string,
+  ): Promise<ICommandResult | null> {
+    if (!this.isModelInvocable(name)) return null;
+    return this.execute(name, session, args);
   }
 
   /** Check if a command exists. */

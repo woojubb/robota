@@ -36,6 +36,12 @@ function createMockSession(options?: {
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
     getSessionId: vi.fn().mockReturnValue('sess-1'),
+    getSystemMessage: vi.fn().mockReturnValue('system prompt with capabilities'),
+    getToolSchemas: vi
+      .fn()
+      .mockReturnValue([
+        { name: 'Read', description: 'Read files', parameters: { type: 'object', properties: {} } },
+      ]),
     getMessageCount: vi.fn().mockReturnValue(0),
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
     compact: vi.fn(),
@@ -711,6 +717,31 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
       // Saved history must be identical to live history — no transformation
       expect(savedRecord.history).toEqual(liveHistory);
+    });
+
+    it('persists system prompt and tool schemas for session restore diagnostics', async () => {
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue(undefined),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'answer' }) as never,
+        sessionStore: mockSessionStore,
+      } as never);
+
+      await session.submit('hello');
+
+      const savedRecord = mockSessionStore.save.mock.calls[0][0] as {
+        systemPrompt?: string;
+        toolSchemas?: unknown[];
+      };
+      expect(savedRecord.systemPrompt).toBe('system prompt with capabilities');
+      expect(savedRecord.toolSchemas).toEqual([
+        { name: 'Read', description: 'Read files', parameters: { type: 'object', properties: {} } },
+      ]);
     });
 
     it('multiple submits accumulate in persisted history', async () => {

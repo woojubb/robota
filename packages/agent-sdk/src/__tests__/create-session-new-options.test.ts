@@ -218,7 +218,23 @@ describe('createSession — appendSystemPrompt option', () => {
     expect(systemMessage.endsWith(extraText)).toBe(true);
   });
 
-  it('includes Agent tool and discovered agent metadata in the system prompt', async () => {
+  it('does not include Agent tool or agent metadata unless agent runtime is enabled', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const systemMessage = opts.systemMessage as string;
+    expect(systemMessage).not.toContain('Agent — launch an isolated agent');
+    expect(systemMessage).not.toContain('general-purpose');
+  });
+
+  it('includes Agent tool and discovered agent metadata when agent runtime is enabled', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-agents-'));
     const agentsDir = join(cwd, '.robota', 'agents');
@@ -242,11 +258,17 @@ describe('createSession — appendSystemPrompt option', () => {
         context: { agentsMd: '', claudeMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
+        enableAgentRuntime: true,
       });
 
       const opts = sessionCtorCalls[0]!;
       const systemMessage = opts.systemMessage as string;
       expect(systemMessage).toContain('Agent — launch an isolated agent');
+      expect(systemMessage).toContain('one Agent tool call per role');
+      expect(systemMessage).toContain('choose one backlog');
+      expect(systemMessage).toContain('Korean example');
+      expect(systemMessage).toContain('백로그 중에 하나');
+      expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
@@ -271,6 +293,7 @@ describe('createSession — subagent runner factory option', () => {
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       subagentRunnerFactory,
+      enableAgentRuntime: true,
     });
 
     expect(subagentRunnerFactory).toHaveBeenCalledTimes(1);

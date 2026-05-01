@@ -101,6 +101,8 @@ export async function executeRun(
     historyLength: history.length,
     historyChars: historyJson.length,
     historyEstTokens: Math.ceil(historyJson.length / 4),
+    input: enrichedMessage,
+    history,
     model: ctx.model,
     provider: ctx.aiProvider.name,
     maxTokens: ctx.contextTracker.getContextState().maxTokens,
@@ -109,9 +111,16 @@ export async function executeRun(
 
   let response: string;
   try {
+    const onTextDelta = ctx.onTextDelta
+      ? (delta: string): void => {
+          ctx.log('text_delta', { delta });
+          ctx.onTextDelta?.(delta);
+        }
+      : undefined;
+
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
-      ...(ctx.onTextDelta && { onTextDelta: ctx.onTextDelta }),
+      ...(onTextDelta && { onTextDelta }),
     });
 
     // If execution was interrupted (abort fired during execution),
@@ -145,9 +154,10 @@ export async function executeRun(
     };
   });
   ctx.log('assistant', {
-    content: response.substring(0, 500),
+    content: response,
     historyLength: postHistory.length,
     estimatedChars: JSON.stringify(postHistory).length,
+    history: postHistory,
     historyStructure,
   });
 

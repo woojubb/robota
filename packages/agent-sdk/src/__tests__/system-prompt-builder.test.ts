@@ -105,19 +105,19 @@ describe('buildSystemPrompt', () => {
         ],
       });
 
-      expect(result).toContain('The following skills are available');
+      expect(result).toContain('## Capabilities');
       expect(result).toContain('my-skill: Does useful things');
       expect(result).not.toContain('hidden');
     });
 
     it('should not include skills section when no skills provided', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS });
-      expect(result).not.toContain('The following skills are available');
+      expect(result).not.toContain('## Capabilities');
     });
 
     it('should not include skills section when skills array is empty', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS, skills: [] });
-      expect(result).not.toContain('The following skills are available');
+      expect(result).not.toContain('## Capabilities');
     });
 
     it('should not include skills section when all skills are model-invocation disabled', () => {
@@ -125,7 +125,7 @@ describe('buildSystemPrompt', () => {
         ...BASE_PARAMS,
         skills: [{ name: 'hidden', description: 'Secret', disableModelInvocation: true }],
       });
-      expect(result).not.toContain('The following skills are available');
+      expect(result).not.toContain('## Capabilities');
     });
 
     it('should include multiple invocable skills', () => {
@@ -149,14 +149,14 @@ describe('buildSystemPrompt', () => {
       });
 
       const toolsIdx = result.indexOf('## Available Tools');
-      const skillsIdx = result.indexOf('The following skills are available');
+      const skillsIdx = result.indexOf('## Capabilities');
       expect(toolsIdx).toBeGreaterThanOrEqual(0);
       expect(skillsIdx).toBeGreaterThan(toolsIdx);
     });
   });
 
   describe('System prompt agent injection', () => {
-    it('should include available agents and Agent tool guidance', () => {
+    it('should include available agents as capability descriptors', () => {
       const result = buildSystemPrompt({
         ...BASE_PARAMS,
         agents: [
@@ -165,16 +165,14 @@ describe('buildSystemPrompt', () => {
         ],
       });
 
-      expect(result).toContain('## Subagents');
-      expect(result).toContain('Agent tool');
-      expect(result).toContain('subagent_type');
+      expect(result).toContain('## Capabilities');
       expect(result).toContain('- general-purpose: General task execution');
       expect(result).toContain('- Explore: Read-only exploration');
     });
 
     it('should not include agents section when no agents are provided', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS, agents: [] });
-      expect(result).not.toContain('## Subagents');
+      expect(result).not.toContain('## Capabilities');
     });
   });
 });

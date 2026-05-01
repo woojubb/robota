@@ -310,7 +310,9 @@ The AI can spawn subagents via the **Agent** tool to handle complex subtasks (e.
 
 ## Session Logging
 
-Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `assistant`, `server_tool`, and `context`.
+Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `text_delta`, `assistant`, `server_tool`, `context`, and `background_task_event`.
+
+Background subagents write append-only transcripts to `.robota/logs/{sessionId}/subagents/{agentId}.jsonl`. These transcripts include streaming deltas, tool calls/results, final output, and errors as they occur. The resumable `.robota/sessions/{sessionId}.json` file stores background task snapshots and transcript paths, not every token chunk.
 
 ## First-Run Setup
 

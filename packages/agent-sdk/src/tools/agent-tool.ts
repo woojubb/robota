@@ -26,6 +26,41 @@ import type {
 } from '../subagents/index.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 
+export const AGENT_TOOL_DESCRIPTION = [
+  'Launch a real subagent job for delegated work in an isolated context.',
+  'Use this tool in the same assistant turn when the user explicitly asks to create, spawn, run, delegate to, or use agents/subagents.',
+  'For multiple or parallel roles, emit one Agent tool call per role in the same assistant turn.',
+  'If the user asks to choose one backlog, task, or item, include that target-selection instruction inside each subagent prompt and start the agents instead of first replying with an inspection plan.',
+  'Korean example: "백로그 중에 하나를 분석할건데, 개발자 서브에이전트와 디자이너 서브에이전트를 만들어서 병렬로 동시에 백로그 하나를 분석해" means call Agent twice immediately, once for a general-purpose developer prompt and once for a Plan designer prompt.',
+  'Subagent jobs are background-first: omit background or set background: true unless the user explicitly asks to wait in the foreground.',
+  'Execution requires the tool-call channel; assistant text does not start a subagent job.',
+  'The result returned by the agent is not visible to the user, so summarize completed foreground results for the user when needed.',
+].join(' ');
+
+export function createAgentToolPromptDescription(
+  agentDefinitions: readonly Pick<IAgentDefinition, 'name' | 'description'>[] = [],
+): string {
+  const availableAgents =
+    agentDefinitions.length > 0
+      ? ` Available agent types: ${agentDefinitions
+          .map((agent) => `${agent.name} (${agent.description})`)
+          .join(', ')}.`
+      : '';
+  return [
+    'Agent — launch an isolated agent for delegated work.',
+    'Call the Agent tool in the same assistant turn for explicit subagent requests.',
+    'For parallel work, emit one Agent tool call per role with background: true.',
+    'If needed, choose one backlog/task/item inside the agent prompt instead of delaying launch.',
+    'Korean example: "백로그 중에 하나를 분석할건데..." means launch the requested agents now.',
+    'background defaults to true; use background: false only for explicit foreground/wait requests.',
+    'Execution requires the tool-call channel; assistant text alone does not start a subagent job.',
+    availableAgents,
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
 function asZodSchema(schema: z.ZodType): IZodSchema {
   return schema as IZodSchema;
@@ -41,7 +76,9 @@ const AgentSchema = z.object({
   background: z
     .boolean()
     .optional()
-    .describe('When true, start the subagent as a background task and return immediately'),
+    .describe(
+      'Defaults to true. When true or omitted, start the subagent as a background task and return immediately. Use false only when the user explicitly asks to wait in the foreground.',
+    ),
   isolation: z
     .enum(['none', 'worktree'])
     .optional()
@@ -59,6 +96,8 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   backgroundTaskManager?: IBackgroundTaskManager;
   /** Optional custom agent registry for resolving non-built-in agent types. */
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
+  /** Model-visible and command-visible agent definitions available to this session. */
+  agentDefinitions?: IAgentDefinition[];
 }
 
 /**
@@ -116,7 +155,7 @@ function createSpawnRequest(
     type: agentType,
     label: agentDef.name,
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
-    mode: args.background ? 'background' : 'foreground',
+    mode: args.background === false ? 'foreground' : 'background',
     depth: deps.subagentDepth ?? 1,
     cwd: deps.cwd ?? process.cwd(),
     prompt: args.prompt,
@@ -180,7 +219,7 @@ async function runManagedAgent(
   try {
     const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
     agentId = state.id;
-    if (args.background) {
+    if (args.background !== false) {
       return stringifyBackgroundAgentStarted(state.id, state.status);
     }
     const response = await manager.wait(state.id);
@@ -201,7 +240,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
 
   return createZodFunctionTool(
     'Agent',
-    'Launch a subagent to handle a task in an isolated context. The subagent gets its own context window and returns a result when done. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.',
+    AGENT_TOOL_DESCRIPTION,
     asZodSchema(AgentSchema),
     async (params) => {
       return runManagedAgent(params as TAgentArgs, deps, manager);

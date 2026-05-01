@@ -8,6 +8,7 @@ packages/
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, config/context, commands
+├── agent-command-agent/         # Optional command module that contributes /agent
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs
 ├── agent-provider-anthropic/    # Anthropic provider

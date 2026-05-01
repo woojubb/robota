@@ -190,17 +190,17 @@ const systemMessage = buildSystemPrompt({
 
 `InteractiveSession` provides these capabilities:
 
-| Feature                    | Description                                                                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                 |
-| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                        |
-| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                  |
-| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                               |
-| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`. `ISessionRecord` includes `history` (`IHistoryEntry[]`) for full UI restoration                         |
-| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history |
-| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                           |
-| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                      |
-| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                              |
+| Feature                    | Description                                                                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                              |
+| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                                     |
+| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                               |
+| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                                            |
+| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`. `ISessionRecord` includes `history` (`IHistoryEntry[]`) plus background task snapshots for restoration and debugging |
+| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history              |
+| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                        |
+| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                   |
+| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                           |
 
 ## Subagent Sessions
 
@@ -256,7 +256,7 @@ The SDK appends a framework suffix to the subagent's system prompt to shape its 
 
 ### Subagent Transcript
 
-Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` for debugging and audit purposes.
+Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` for debugging and audit purposes. Streaming text deltas are appended to this transcript while the provider request is still running. The parent session JSON stores the background task snapshot and transcript path; it does not rewrite the whole session file for every token chunk.
 
 ## Always-Streaming Policy
 

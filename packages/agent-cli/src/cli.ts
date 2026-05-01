@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
+import type { ICommandModule } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
@@ -98,7 +99,11 @@ function resetConfig(): void {
 /**
  * Main CLI orchestration function.
  */
-export async function startCli(): Promise<void> {
+export interface IStartCliOptions {
+  commandModules?: readonly ICommandModule[];
+}
+
+export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
 
   if (args.version) {
@@ -135,12 +140,14 @@ export async function startCli(): Promise<void> {
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
   const backgroundTaskRunners = [createManagedShellProcessRunner()];
+  const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
     providerConfig: { ...providerSettings, model: modelId },
+    logsDir: paths.logs,
   });
 
   // Session management
-  const sessionStore = new SessionStore();
+  const sessionStore = new SessionStore(paths.sessions);
   let resumeSessionId: string | undefined;
 
   if (args.continueMode) {
@@ -210,6 +217,7 @@ export async function startCli(): Promise<void> {
       appendSystemPrompt,
       backgroundTaskRunners,
       subagentRunnerFactory,
+      commandModules: options.commandModules,
     });
 
     const transport = createHeadlessTransport({
@@ -236,5 +244,6 @@ export async function startCli(): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
+    commandModules: options.commandModules,
   });
 }

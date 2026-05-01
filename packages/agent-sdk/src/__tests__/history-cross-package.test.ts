@@ -37,6 +37,8 @@ function createMockSession(options?: {
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
     compact: vi.fn(),
     injectMessage: vi.fn(),
+    getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
+    getToolSchemas: vi.fn().mockReturnValue([]),
   };
 }
 

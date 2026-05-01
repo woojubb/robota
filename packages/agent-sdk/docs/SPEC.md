@@ -27,15 +27,21 @@ agent-provider-*     ← provider implementations (unchanged)
 agent-sdk            ← InteractiveSession (single entry point)
   ├── embedded: SystemCommandExecutor (session.executeCommand())
   ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
-  ├── embedded: Agent tool + AgentDefinitionLoader for model-requested delegation
+  ├── extension: ICommandModule command/source/session-requirement injection
+  ├── optional: Agent tool + AgentDefinitionLoader when a module requests agent-runtime
   ├── composed: agent-runtime BackgroundTaskManager, SubagentManager, runner ports
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
 
+agent-command-*      ← optional command modules
+  ├── consumes SDK command interfaces
+  └── NO dependency from agent-sdk back to command modules
+
 agent-cli            ← minimal TUI
   ├── creates provider (reads config, picks provider package)
-  ├── creates InteractiveSession({ cwd, provider })
+  ├── selects product-default command modules such as @robota-sdk/agent-command-agent
+  ├── creates InteractiveSession({ cwd, provider, commandModules })
   ├── subscribes to events → renders to terminal
   └── owns: slash prefix parsing, Ink components, paste handling, CJK input
 ```
@@ -64,7 +70,7 @@ Session  (agent-sessions — generic run loop)
 Robota engine + Provider  (agent-core / agent-provider-*)
 
 agent-cli (Ink TUI — thin bridge layer)
-    creates provider → passes to InteractiveSession({ cwd, provider })
+    creates provider → passes to InteractiveSession({ cwd, provider, commandModules })
     subscribes to InteractiveSession events → maps to React/Ink state
     routes /commands → session.executeCommand()
 ```
@@ -73,15 +79,16 @@ The SDK layer has **no React dependency** and **no provider dependency**. The CL
 
 ### Package Roles
 
-| Package               | Role                                                                                                       | General/Specialized |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------- |
-| **agent-core**        | Robota engine, execution loop, provider abstraction, permissions, hooks                                    | General             |
-| **agent-runtime**     | Background task and subagent lifecycle primitives, runner ports, worktree runner decorator                 | General             |
-| **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                            | General             |
-| **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                          | General             |
-| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), embedded commands, createQuery(), config, context | SDK-specific        |
-| **agent-cli**         | Ink TUI (terminal UI). Creates provider, passes to InteractiveSession. No agent-sessions import.           | CLI-specific        |
-| **agent-provider-\*** | AI provider implementations. CLI depends on these directly; SDK does not.                                  | Provider-specific   |
+| Package               | Role                                                                                                                                     | General/Specialized |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **agent-core**        | Robota engine, execution loop, provider abstraction, permissions, hooks                                                                  | General             |
+| **agent-runtime**     | Background task and subagent lifecycle primitives, runner ports, worktree runner decorator                                               | General             |
+| **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                                                          | General             |
+| **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                                                        | General             |
+| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), embedded commands, createQuery(), config, context                               | SDK-specific        |
+| **agent-command-\***  | Optional command modules that consume SDK command interfaces and can be selected by composition roots                                    | Command-specific    |
+| **agent-cli**         | Ink TUI and product composition. Creates provider, selects command modules, passes both to InteractiveSession. No agent-sessions import. | CLI-specific        |
+| **agent-provider-\*** | AI provider implementations. CLI depends on these directly; SDK does not.                                                                | Provider-specific   |
 
 ### Feature Layout (Current Implementation State)
 
@@ -118,7 +125,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── builtin-source.ts       ← BuiltinCommandSource: built-in commands
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
-│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands() (internal)
+│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands()
 │   └── types.ts                ← ICommand, ICommandSource
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
@@ -150,7 +157,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sessions` (generic, depends only on agent-core)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-sdk/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from config/context. Consumers use `InteractiveSession({ cwd, provider })` instead.
-- **Persistence**: SessionStore saves/loads/lists/deletes JSON at `~/.robota/sessions/{id}.json`
+- **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic consumers. CLI composition injects a project-local `.robota/sessions` directory so project runs keep resumable session JSON beside project logs.
 
 ### Permission System
 
@@ -172,7 +179,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific)
+- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background execution, and assistant text alone is not execution.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
 ### Web Search
@@ -192,17 +199,17 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Package**: `agent-sdk/interactive/`
 - **Pattern**: Composition over Session (holds a `Session` instance, does not extend it)
-- **Constructor**: Accepts `{ cwd, provider }` only. Config and context are loaded internally from `cwd`.
+- **Constructor**: Accepts `{ cwd, provider }` plus optional composition inputs such as `commandModules`. Config and context are loaded internally from `cwd`.
 - **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, full history management (`IHistoryEntry[]`), embedded command execution
 - **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. The `tool-summary` entry (aggregated) is still pushed at execution completion for backward compatibility.
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
-- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Replaces direct `SystemCommandExecutor` usage by consumers.
+- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Core commands are always present; additional command modules may contribute more commands.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
-- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`.
+- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
 - **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
@@ -213,12 +220,13 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Package**: `agent-sdk/commands/`
 - **Purpose**: SDK-level command execution logic — pure TypeScript, no React, no TUI dependency
-- **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` is not independently exported.
+- **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers normally call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` and `createSystemCommands()` are exported so independent command modules can compose and test against the same command contract.
 - **Classes**:
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `resume`, `rename`, `reset`
+- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `resume`, `rename`, `reset`
+- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
 
 ### Slash Command Registry (SDK-Specific)
 
@@ -520,7 +528,7 @@ Consumers that need only AI messages call `getMessages()` (returns `TUniversalMe
 
 ### System Commands — Embedded in InteractiveSession
 
-`SystemCommandExecutor` is embedded inside `InteractiveSession` and is **not independently exported**. Consumers access system commands via `session.executeCommand(name, args)`.
+`SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers access system commands via `session.executeCommand(name, args)`. Command module packages may import `ISystemCommand`, `ICommandModule`, `SystemCommandExecutor`, and `createSystemCommands()` for composition tests.
 
 The command types and result interface are exported for consumers that need to inspect results:
 
@@ -557,9 +565,27 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 interface ISystemCommand {
   name: string;
   description: string;
+  modelInvocable?: boolean;
+  userInvocable?: boolean;
+  argumentHint?: string;
+  safety?: TCapabilitySafety;
   execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
 }
 ```
+
+**ICommandModule:**
+
+```typescript
+interface ICommandModule {
+  name: string;
+  commandSources?: readonly ICommandSource[];
+  systemCommands?: readonly ISystemCommand[];
+  commandDescriptors?: readonly ICapabilityDescriptor[];
+  sessionRequirements?: readonly TCommandModuleSessionRequirement[];
+}
+```
+
+`sessionRequirements` is how command modules request optional SDK wiring. The current requirement is `agent-runtime`, which enables `Agent` tool registration, agent definitions, and the shared background/subagent managers.
 
 **ICommandResult:**
 
@@ -573,7 +599,7 @@ interface ICommandResult {
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 
-Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-sdk`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-sdk` so all clients benefit from plugin command discovery.
+Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-sdk`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-sdk` so all clients benefit from plugin command discovery. Command modules can be added through `registry.addModule(module)` without the registry knowing their command names.
 
 ```typescript
 import {
@@ -585,6 +611,7 @@ import {
 
 const registry = new CommandRegistry();
 registry.addSource(new BuiltinCommandSource());
+registry.addModule(commandModule);
 registry.addSource(new SkillCommandSource(process.cwd()));
 
 registry.getCommands(); // ICommand[] — all commands
@@ -721,19 +748,19 @@ These rules define which packages each layer is allowed to import from. Violatio
 
 Each module's placement is determined by "Is this used only in the SDK, or is it general-purpose?":
 
-| Module                 | Verdict                      | Rationale                                                                            |
-| ---------------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
-| Permissions            | **General** → agent-core     | Tool permission checks are needed on servers too                                     |
-| Hooks                  | **General** → agent-core     | Audit/validation is needed on servers too                                            |
-| Built-in tools         | **General** → agent-tools    | File system tools are needed in playground/server environments too                   |
-| Session                | **General** → agent-sessions | Session management is needed in any environment                                      |
-| Config loading         | **SDK-specific** → agent-sdk | `.robota/settings.json` is for local environments only                               |
-| Context loading        | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                                     |
-| Agent tool             | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                                      |
-| InteractiveSession     | **SDK-specific** → agent-sdk | Client-facing event wrapper; no CLI/React dependency; reusable by all clients        |
-| SystemCommandExecutor  | **SDK-specific** → agent-sdk | Embedded in InteractiveSession; accessed via session.executeCommand(); not exported  |
-| CommandRegistry et al. | **SDK-specific** → agent-sdk | Slash command discovery is useful for any client; moved from CLI to SDK              |
-| ITerminalOutput        | **General** → agent-sessions | Terminal I/O abstraction (SSOT in permission-enforcer.ts; agent-cli has a duplicate) |
+| Module                 | Verdict                      | Rationale                                                                                                            |
+| ---------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Permissions            | **General** → agent-core     | Tool permission checks are needed on servers too                                                                     |
+| Hooks                  | **General** → agent-core     | Audit/validation is needed on servers too                                                                            |
+| Built-in tools         | **General** → agent-tools    | File system tools are needed in playground/server environments too                                                   |
+| Session                | **General** → agent-sessions | Session management is needed in any environment                                                                      |
+| Config loading         | **SDK-specific** → agent-sdk | `.robota/settings.json` is for local environments only                                                               |
+| Context loading        | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                                                                     |
+| Agent tool             | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                                                                      |
+| InteractiveSession     | **SDK-specific** → agent-sdk | Client-facing event wrapper; no CLI/React dependency; reusable by all clients                                        |
+| SystemCommandExecutor  | **SDK-specific** → agent-sdk | Embedded in InteractiveSession; accessed via session.executeCommand(); exported for command module composition tests |
+| CommandRegistry et al. | **SDK-specific** → agent-sdk | Slash command discovery is useful for any client; moved from CLI to SDK                                              |
+| ITerminalOutput        | **General** → agent-sessions | Terminal I/O abstraction (SSOT in permission-enforcer.ts; agent-cli has a duplicate)                                 |
 
 ### Existing Package Refactoring History
 
@@ -824,9 +851,9 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 
 Skills discovered from skill directories are exposed to the system prompt by metadata only: name and description. Full `SKILL.md` content is loaded only when a skill is invoked. Skills with `disable-model-invocation: true` are omitted from model-visible metadata.
 
-Agent definitions are also exposed to the system prompt by metadata only: name and description. The system prompt instructs the model to use the `Agent` tool when the user explicitly requests delegation, asks to call an agent, or when a task should be isolated into a separate context. The model must pass the selected agent name through `subagent_type`.
+Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, `Agent` tool registration, agent definitions, and model-visible agent metadata are omitted.
 
-The `Agent` tool must be part of the available tool set and must be described in `DEFAULT_TOOL_DESCRIPTIONS`.
+When enabled, the `Agent` tool is part of the available tool set and is described in tool descriptors.
 
 The `Agent` tool routes execution through a per-session `SubagentManager`, which delegates to the shared `BackgroundTaskManager` for `kind: 'agent'` tasks. It resolves unknown agent types before spawning so existing error results remain compatible.
 
@@ -885,6 +912,8 @@ The manager does not create providers, sessions, child processes, worktrees, or 
 
 `InteractiveSession` emits `background_task_event` with `TBackgroundTaskEvent`.
 
+When session persistence is enabled, `InteractiveSession` must persist background task state as part of the project-local session record. Lifecycle, tool start/end, permission, completion, failure, cancellation, and close events update the session JSON with the latest task snapshots and durable event summaries. High-frequency `background_task_text_delta` events must not rewrite the main session JSON per chunk; they are written to append-only JSONL session logs and task/subagent transcript files so debugging data is available while streaming is still in progress without risking partial JSON writes.
+
 `createSession()` accepts `backgroundTaskRunners?: IBackgroundTaskRunner[]`. When a runner with `kind: 'process'` is present, SDK composition registers the model-callable `BackgroundProcess` tool:
 
 - `BackgroundProcess` starts a command as `kind: 'process'`, `mode: 'background'`
@@ -900,6 +929,7 @@ Runner progress semantics:
 - `background_task_tool_start` sets `IBackgroundTaskState.currentAction`
 - `background_task_tool_end` clears `currentAction` on success or stores the error/action on failure
 - progress events do not complete, fail, cancel, or close tasks; lifecycle remains manager-owned
+- progress and lifecycle events are diagnostic data, not just UI state; SDK composition must route them to session logging/persistence when those facilities are configured
 
 The built-in `/background` system command maps to these APIs:
 
@@ -944,13 +974,16 @@ interface ISubagentJobStart {
 interface ISubagentJobHandle {
   readonly jobId: string;
   readonly pid?: number;
+  readonly logPath?: string;
+  readonly transcriptPath?: string;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
   send?(prompt: string): Promise<void>;
+  readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
 }
 ```
 
-The runner reports completion through its `result` promise and supports targeted cancellation through `cancel()`. Follow-up routing via `send()` is optional until a runner supports it.
+The runner reports completion through its `result` promise and supports targeted cancellation through `cancel()`. Follow-up routing via `send()` is optional until a runner supports it. Log reading via `readLog()` is optional, but process-backed subagent runners should implement it so `/agent read AGENT_ID` can inspect append-only transcripts while a job is still running.
 
 `createInProcessSubagentRunner(deps)` is the default SDK adapter for foreground compatibility. It resolves the requested agent definition, creates an isolated child `Session` with `createSubagentSession()`, runs the prompt, and maps the response to `ISubagentJobResult`.
 
@@ -1056,7 +1089,9 @@ Assembles the full system prompt for a subagent session:
 
 ### Subagent Transcript Logger
 
-`createSubagentLogger(parentSessionId, agentId, baseLogsDir)` creates a `FileSessionLogger` that writes subagent session logs to `{baseLogsDir}/{parentSessionId}/subagents/{agentId}.jsonl`.
+`createSubagentLogger(parentSessionId, agentId, baseLogsDir)` creates a `FileSessionLogger` for append-only subagent transcripts. Subagent sessions must run with `sessionId = agentId`, so the transcript is written to `{baseLogsDir}/{parentSessionId}/subagents/{agentId}.jsonl`.
+
+Subagent transcript logs must include session initialization, prompts, tool calls/results, streaming `text_delta` chunks, final assistant output, context state, and errors. Parent sessions may store only transcript paths and task snapshots in `.robota/sessions/*.json`; the transcript JSONL remains the source of truth for high-frequency streaming data.
 
 ## Unconnected Packages (Future Integration Targets)
 

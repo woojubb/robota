@@ -12,6 +12,7 @@ import { Robota, TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type {
   IAgentConfig,
   IAIProvider,
+  IToolSchema,
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
@@ -51,6 +52,7 @@ export class Session {
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
   private readonly systemMessage: string;
+  private readonly toolSchemas: IToolSchema[];
   private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
@@ -71,6 +73,7 @@ export class Session {
     this.terminal = terminal;
     this.sessionStore = sessionStore;
     this.systemMessage = systemMessage;
+    this.toolSchemas = tools.map((tool) => tool.schema);
     this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
@@ -89,6 +92,8 @@ export class Session {
     this.log('session_init', {
       cwd: this.cwd,
       systemPromptLength: systemMessage.length,
+      systemPrompt: systemMessage,
+      toolSchemas: this.toolSchemas,
       model: this.model,
       provider: provider.name,
     });
@@ -192,6 +197,8 @@ export class Session {
     persistSession({
       sessionId: this.sessionId,
       cwd: this.cwd,
+      systemPrompt: this.systemMessage,
+      toolSchemas: this.toolSchemas,
       sessionStore: this.sessionStore,
       robota: this.robota,
       getFullHistory: () => this.getFullHistory(),
@@ -214,6 +221,16 @@ export class Session {
   /** Return the stable session identifier */
   getSessionId(): string {
     return this.sessionId;
+  }
+
+  /** Return the exact system prompt used by this session. */
+  getSystemMessage(): string {
+    return this.systemMessage;
+  }
+
+  /** Return tool schemas registered for this session. */
+  getToolSchemas(): IToolSchema[] {
+    return this.toolSchemas;
   }
 
   /** Return the number of run() calls completed */

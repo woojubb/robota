@@ -17,7 +17,12 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import type { ICommand, ISkillExecutionResult, IForkExecutionOptions } from '../commands/index.js';
+import type {
+  ICommand,
+  ICommandModule,
+  ISkillExecutionResult,
+  IForkExecutionOptions,
+} from '../commands/index.js';
 import { executeSkill } from '../commands/index.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
@@ -37,7 +42,15 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskState,
+  TBackgroundTaskEvent,
+  TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
+import type {
+  ISubagentJobResult,
+  ISubagentJobState,
+  ISubagentManager,
+} from '../subagents/index.js';
+import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import {
   isAbortError,
   buildResult,
@@ -80,12 +93,19 @@ export class InteractiveSession {
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: unknown[] | null = null;
+  private backgroundTasks: IBackgroundTaskState[] = [];
+  private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private resumeSessionId?: string;
   private forkSession: boolean;
   private backgroundTaskUnsubscribe: (() => void) | null = null;
+  private readonly commandModules: readonly ICommandModule[];
 
   constructor(options: IInteractiveSessionOptions) {
-    this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
+    this.commandModules = 'commandModules' in options ? (options.commandModules ?? []) : [];
+    this.commandExecutor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...this.commandModules.flatMap((module) => module.systemCommands ?? []),
+    ]);
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
@@ -109,6 +129,8 @@ export class InteractiveSession {
       );
       if (restored.history.length > 0) this.history = restored.history;
       if (restored.sessionName) this.sessionName = restored.sessionName;
+      this.backgroundTasks = restored.backgroundTasks;
+      this.backgroundTaskEvents = restored.backgroundTaskEvents;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
 
@@ -131,6 +153,14 @@ export class InteractiveSession {
       appendSystemPrompt: options.appendSystemPrompt,
       backgroundTaskRunners: options.backgroundTaskRunners,
       subagentRunnerFactory: options.subagentRunnerFactory,
+      ...(options.commandModules ? { commandModules: options.commandModules } : {}),
+      commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
+      ...(this.commandExecutor.listModelInvocableCommands().length > 0
+        ? {
+            modelCommandExecutor: (command, args) => this.executeModelCommand(command, args),
+            isModelCommandInvocable: (command) => this.commandExecutor.isModelInvocable(command),
+          }
+        : {}),
     });
 
     if (this.pendingRestoreMessages) {
@@ -187,6 +217,14 @@ export class InteractiveSession {
     return this.commandExecutor.execute(name, this, args);
   }
 
+  async executeModelCommand(
+    name: string,
+    args: string,
+  ): Promise<{ message: string; success: boolean; data?: Record<string, unknown> } | null> {
+    await this.ensureInitialized();
+    return this.commandExecutor.executeModelInvocable(name, this, args);
+  }
+
   async executeSkillCommand(
     skill: ICommand,
     args: string,
@@ -221,6 +259,13 @@ export class InteractiveSession {
 
   listCommands(): Array<{ name: string; description: string }> {
     return this.commandExecutor.listCommands().map((cmd) => ({
+      name: cmd.name,
+      description: cmd.description,
+    }));
+  }
+
+  listModelInvocableCommands(): Array<{ name: string; description: string }> {
+    return this.commandExecutor.listModelInvocableCommands().map((cmd) => ({
       name: cmd.name,
       description: cmd.description,
     }));
@@ -301,6 +346,64 @@ export class InteractiveSession {
     return this.getBackgroundTaskManagerOrThrow().readLog(taskId, cursor);
   }
 
+  listAgentDefinitions(): Array<{ name: string; description: string }> {
+    const deps = retrieveAgentToolDeps(this.getSessionOrThrow());
+    return (deps?.agentDefinitions ?? []).map((agent) => ({
+      name: agent.name,
+      description: agent.description,
+    }));
+  }
+
+  listAgentJobs(): ISubagentJobState[] {
+    return this.getSubagentManagerOrThrow().list();
+  }
+
+  async spawnAgentJob(input: {
+    agentType: string;
+    label: string;
+    mode: 'foreground' | 'background';
+    prompt: string;
+    model?: string;
+    isolation?: TBackgroundTaskIsolation;
+  }): Promise<ISubagentJobState> {
+    await this.ensureInitialized();
+    const deps = this.getAgentToolDepsOrThrow();
+    const definition = this.resolveAgentDefinition(input.agentType, deps);
+    return this.getSubagentManagerOrThrow().spawn({
+      type: input.agentType,
+      label: input.label,
+      parentSessionId: this.getSessionOrThrow().getSessionId(),
+      mode: input.mode,
+      depth: (deps.subagentDepth ?? 0) + 1,
+      cwd: deps.cwd ?? this.cwd ?? process.cwd(),
+      prompt: input.prompt,
+      model: input.model ?? definition.model,
+      isolation: input.isolation,
+      allowedTools: definition.tools,
+      disallowedTools: definition.disallowedTools,
+    });
+  }
+
+  async waitAgentJob(jobId: string): Promise<ISubagentJobResult> {
+    await this.ensureInitialized();
+    return this.getSubagentManagerOrThrow().wait(jobId);
+  }
+
+  async sendAgentJob(jobId: string, prompt: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.getSubagentManagerOrThrow().send(jobId, prompt);
+  }
+
+  async cancelAgentJob(jobId: string, reason?: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.getSubagentManagerOrThrow().cancel(jobId, reason);
+  }
+
+  async closeAgentJob(jobId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.getSubagentManagerOrThrow().close(jobId);
+  }
+
   setName(name: string): void {
     this.sessionName = name;
     if (this.sessionStore && this.session) {
@@ -351,20 +454,88 @@ export class InteractiveSession {
   }
 
   private getBackgroundTaskManagerOrThrow(): IBackgroundTaskManager {
-    const deps = retrieveAgentToolDeps(this.getSessionOrThrow());
-    if (!deps?.backgroundTaskManager) {
+    const session = this.getSessionOrThrow();
+    const manager =
+      retrieveSessionBackgroundTaskManager(session) ??
+      retrieveAgentToolDeps(session)?.backgroundTaskManager;
+    if (!manager) {
       throw new Error('Background task manager is not available for this session.');
     }
-    return deps.backgroundTaskManager;
+    return manager;
+  }
+
+  private getAgentToolDepsOrThrow(): NonNullable<ReturnType<typeof retrieveAgentToolDeps>> {
+    const deps = retrieveAgentToolDeps(this.getSessionOrThrow());
+    if (!deps) {
+      throw new Error('Agent runtime dependencies are not available for this session.');
+    }
+    if (!deps.backgroundTaskManager) {
+      throw new Error('Background task manager is not available for this session.');
+    }
+    return deps;
+  }
+
+  private getSubagentManagerOrThrow(): ISubagentManager {
+    const deps = this.getAgentToolDepsOrThrow();
+    if (!deps.subagentManager) {
+      throw new Error('Subagent manager is not available for this session.');
+    }
+    return deps.subagentManager;
+  }
+
+  private resolveAgentDefinition(
+    agentType: string,
+    deps: NonNullable<ReturnType<typeof retrieveAgentToolDeps>>,
+  ): IAgentDefinition {
+    const definition = deps.customAgentRegistry?.(agentType);
+    if (!definition) {
+      throw new Error(`Unknown agent type: ${agentType}`);
+    }
+    return definition;
   }
 
   private subscribeBackgroundTaskEvents(): void {
     if (this.backgroundTaskUnsubscribe || !this.session) return;
-    const deps = retrieveAgentToolDeps(this.session);
-    if (!deps?.backgroundTaskManager) return;
-    this.backgroundTaskUnsubscribe = deps.backgroundTaskManager.subscribe((event) => {
+    const manager =
+      retrieveSessionBackgroundTaskManager(this.session) ??
+      retrieveAgentToolDeps(this.session)?.backgroundTaskManager;
+    if (!manager) return;
+    this.backgroundTaskUnsubscribe = manager.subscribe((event) => {
+      this.recordBackgroundTaskEvent(event);
       this.emit('background_task_event', event);
     });
+  }
+
+  private recordBackgroundTaskEvent(event: TBackgroundTaskEvent): void {
+    this.backgroundTasks = this.getBackgroundTaskSnapshots();
+    if (event.type !== 'background_task_text_delta') {
+      this.backgroundTaskEvents.push(event);
+      this.persistCurrentSession();
+    }
+  }
+
+  private getBackgroundTaskSnapshots(): IBackgroundTaskState[] {
+    try {
+      return this.getBackgroundTaskManagerOrThrow().list();
+    } catch {
+      return this.backgroundTasks;
+    }
+  }
+
+  private persistCurrentSession(): void {
+    if (!this.sessionStore || !this.session) return;
+    this.backgroundTasks = this.getBackgroundTaskSnapshots();
+    persistSession(
+      this.sessionStore,
+      this.session,
+      this.sessionName,
+      this.cwd ?? '',
+      this.history,
+      {
+        tasks: this.backgroundTasks,
+        events: this.backgroundTaskEvents,
+      },
+    );
   }
 
   private startForkSkillExecution(displayInput: string): void {
@@ -377,15 +548,7 @@ export class InteractiveSession {
   private finishForkSkillExecution(): void {
     this.executing = false;
     this.emit('thinking', false);
-    if (this.sessionStore && this.session) {
-      persistSession(
-        this.sessionStore,
-        this.session,
-        this.sessionName,
-        this.cwd ?? '',
-        this.history,
-      );
-    }
+    this.persistCurrentSession();
     if (this.pendingPrompt) {
       const queued = this.pendingPrompt;
       const queuedDisplay = this.pendingDisplayInput;
@@ -508,15 +671,7 @@ export class InteractiveSession {
     } finally {
       this.executing = false;
       this.emit('thinking', false);
-      if (this.sessionStore && this.session) {
-        persistSession(
-          this.sessionStore,
-          this.session,
-          this.sessionName,
-          this.cwd ?? '',
-          this.history,
-        );
-      }
+      this.persistCurrentSession();
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;
