@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-runtime",
-  "version": "3.0.0-beta.55",
+  "version": "3.0.0-beta.56",
   "description": "Composable runtime primitives for Robota background tasks and subagent orchestration",
   "type": "module",
   "main": "dist/node/index.js",
