@@ -84,8 +84,26 @@ robota --output-format <fmt>        # text | json | stream-json (print mode)
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --reset                      # Delete user settings and exit
+robota --check-update               # Check npm for a newer CLI version and exit
+robota --disable-update-check        # Skip startup update check for this run
 robota --version                    # Show version
 ```
+
+### CLI Updates
+
+Robota can check npm for a newer `@robota-sdk/agent-cli` version:
+
+```bash
+robota --check-update
+```
+
+When an update is available, Robota prints the npm global install command:
+
+```bash
+npm install -g '@robota-sdk/agent-cli@latest'
+```
+
+Robota does not implement its own updater and does not modify `~/.robota/settings.json` for update checks. Startup checks use a user-level operational cache at `~/.robota/update-check.json` and can be skipped for one run with `--disable-update-check`.
 
 ### Print Mode Output Formats
 

@@ -21,7 +21,9 @@ import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import UpdateNotice from './UpdateNotice.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
+import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
@@ -40,6 +42,7 @@ interface IProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
+  startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
 /**
@@ -100,6 +103,7 @@ function AppInner(
   const pluginCallbacks = usePluginCallbacks(cwd);
   const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
+  const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();
 
   const {
     handleSubmit,
@@ -128,6 +132,22 @@ function AppInner(
     const name = interactiveSession?.getName?.();
     if (name && !sessionName) setSessionName(name);
   }, [interactiveSession, sessionName]);
+
+  useEffect(() => {
+    let isMounted = true;
+    props.startupUpdateNoticePromise
+      ?.then((notice) => {
+        if (isMounted && notice !== undefined) {
+          setUpdateNotice(notice);
+        }
+      })
+      .catch(() => {
+        // Startup update checks are best-effort and must not disrupt the TUI.
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [props.startupUpdateNoticePromise]);
 
   // Update terminal title
   useEffect(() => {
@@ -184,6 +204,7 @@ function AppInner(
 `}</Text>
         <Text dimColor> v{props.version ?? '0.0.0'}</Text>
       </Box>
+      {updateNotice && <UpdateNotice message={formatCliUpdateNotice(updateNotice)} />}
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList history={history} />
         {isShuttingDown && (
