@@ -1,9 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
 import type { ICommandModule } from '../command-module.js';
 
-function createMockSession(overrides?: Record<string, unknown>) {
+const TMP_BASE = join(tmpdir(), `robota-system-command-${process.pid}`);
+
+function makeProject(): string {
+  const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+afterEach(() => {
+  if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
+});
+
+function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
   const underlying = {
     clearHistory: vi.fn(),
     getPermissionMode: vi.fn().mockReturnValue('default'),
@@ -60,6 +75,7 @@ function createMockSession(overrides?: Record<string, unknown>) {
     cancelAgentJob: underlying.cancelAgentJob,
     closeAgentJob: underlying.closeAgentJob,
     _underlying: underlying,
+    getCwd: () => cwd,
   } as unknown as InteractiveSession;
 }
 
@@ -73,11 +89,12 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).toContain('mode');
   });
 
-  it('does not expose model-invocable commands from the core command set', () => {
+  it('exposes only memory as a model-invocable core command', () => {
     const executor = new SystemCommandExecutor();
     const modelCommands = executor.listModelInvocableCommands();
 
-    expect(modelCommands).toEqual([]);
+    expect(modelCommands.map((command) => command.name)).toEqual(['/memory']);
+    expect(executor.isModelInvocable('memory')).toBe(true);
     expect(executor.isModelInvocable('agent')).toBe(false);
     expect(executor.isModelInvocable('reset')).toBe(false);
   });
@@ -237,6 +254,49 @@ describe('SystemCommandExecutor', () => {
     expect(result!.message).toContain('Next offset: 200');
   });
 
+  it('memory list reports configured memory paths', async () => {
+    const cwd = makeProject();
+    const executor = new SystemCommandExecutor();
+
+    const result = await executor.execute('memory', createMockSession({}, cwd), 'list');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain(join(cwd, '.robota', 'memory', 'MEMORY.md'));
+  });
+
+  it('memory add persists index and topic entries', async () => {
+    const cwd = makeProject();
+    const executor = new SystemCommandExecutor();
+
+    const result = await executor.execute(
+      'memory',
+      createMockSession({}, cwd),
+      'add project build Use pnpm for scripts.',
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      '(project/build) Use pnpm for scripts.',
+    );
+  });
+
+  it('memory command is exposed as model-invocable descriptor', () => {
+    const executor = new SystemCommandExecutor();
+
+    expect(executor.isModelInvocable('memory')).toBe(true);
+    expect(executor.listModelInvocableCommands()).toContainEqual({
+      name: '/memory',
+      kind: 'builtin-command',
+      description: 'Manage project memory index and topic files.',
+      userInvocable: true,
+      modelInvocable: true,
+      argumentHint: 'list | show [topic] | add TYPE TOPIC TEXT',
+      safety: 'write',
+    });
+  });
+
   it('rename returns name in data', async () => {
     const executor = new SystemCommandExecutor();
     const result = await executor.execute('rename', createMockSession(), 'my-session');
@@ -289,6 +349,15 @@ describe('SystemCommandExecutor', () => {
     expect(executor.hasCommand('agent')).toBe(false);
     expect(executor.hasCommand('diagnose')).toBe(true);
     expect(executor.listModelInvocableCommands()).toEqual([
+      {
+        name: '/memory',
+        kind: 'builtin-command',
+        description: 'Manage project memory index and topic files.',
+        userInvocable: true,
+        modelInvocable: true,
+        argumentHint: 'list | show [topic] | add TYPE TOPIC TEXT',
+        safety: 'write',
+      },
       {
         name: '/diagnose',
         kind: 'builtin-command',
