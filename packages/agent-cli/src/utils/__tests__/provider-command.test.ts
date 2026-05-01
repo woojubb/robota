@@ -75,4 +75,11 @@ describe('provider command handler', () => {
     expect(result.success).toBe(true);
     expect(result.data?.providerSetup).toEqual({ type: 'openai' });
   });
+
+  it('returns providerSetup data without a type when add command omits a provider type', async () => {
+    const result = await handleProviderCommand(TMP_BASE, 'add');
+
+    expect(result.success).toBe(true);
+    expect(result.data?.providerSetup).toEqual({});
+  });
 });
