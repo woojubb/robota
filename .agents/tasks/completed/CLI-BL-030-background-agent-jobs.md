@@ -1,9 +1,10 @@
 # Background Agent Jobs
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-04-30
 - **Branch**: feat/background-agent-jobs
 - **Scope**: packages/agent-sdk, packages/agent-cli
+- **Merged PR**: #103
 
 ## Objective
 
@@ -100,3 +101,5 @@ Implemented the background agent/process jobs foundation on `feat/background-age
 Child-process subagent isolation is now also connected for CLI runtime: SDK consumers can inject a `TSubagentRunnerFactory`, and Robota CLI uses a worker-process runner that reconstructs provider/session state inside the child process. Worker text/tool progress is projected into `BackgroundTaskManager` progress events, and the TUI accumulates partial output previews plus current tool action from those events.
 
 Transport projection is connected for the generic background task layer: WebSocket clients receive pushed `background_task_event` messages and can list/get/cancel/close/send/read task logs, while headless `stream-json` callers receive background task events as stream events.
+
+Archived after confirming the implementation branch was merged through PR #103 and the resulting SDK/CLI background task surfaces are present on `develop`.
