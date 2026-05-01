@@ -47,7 +47,7 @@ The manager remains responsible for lifecycle, persistence, cancellation, logs, 
 Recommended core concepts:
 
 - `BackgroundJobGroup`: a parent-session-scoped collection of related jobs spawned from one user request or command execution.
-- `WaitPolicy`: `detached`, `wait_all`, `wait_any`, and `manual`. Default command behavior can remain detached, while model-invoked orchestration can request `wait_all` for "analyze in parallel and summarize" tasks.
+- `WaitPolicy`: `detached`, `wait_all`, `wait_any`, and `manual`. `/agent parallel` should use `wait_all` consolidation by default because model-routed parallel delegation usually implies one parent answer after all specialist agents finish. Detached background execution must be explicit.
 - `CompletionSubscription`: an SDK event subscription that fires when a group reaches its policy terminal condition.
 - `ResultEnvelope`: normalized terminal result containing `taskId`, `label`, `status`, `summary`, `outputRef`, `error`, and timing metadata.
 - `ContinuationRequest`: a structured follow-up payload that can be submitted to the parent session after a group completes, preserving causality in session logs.
@@ -61,7 +61,7 @@ The `/agent` command module should expose orchestration usage in its own command
 3. Add `BackgroundJobOrchestrator` that subscribes to `BackgroundTaskManager` events and emits group completion events.
 4. Persist group creation, membership, state transitions, terminal envelopes, and continuation requests in `.robota` session data.
 5. Extend `agent-command-agent` so `/agent parallel ...` and model-invoked agent command calls can create a group with `wait_all` when the request requires a consolidated answer.
-6. Add deterministic group wait and summary support through SDK APIs plus `/agent parallel --wait` and `/agent wait GROUP_ID`.
+6. Add deterministic group wait and summary support through SDK APIs plus default `/agent parallel` wait behavior, compatibility `/agent parallel --wait`, explicit `/agent parallel --detach`, and `/agent wait GROUP_ID`.
 7. Add TUI rendering for group-level status as presentation-only projection of SDK group events: pending/running count, completed count, failed count, and one-line previews.
 8. Add notification behavior through SDK group events when a detached background group completes while the user is typing or another turn is active.
 9. Add headless and WebSocket event projection for group lifecycle and group completion summaries.
@@ -82,6 +82,12 @@ The `/agent` command module should expose orchestration usage in its own command
 - Added `/agent parallel --wait` and `/agent wait GROUP_ID` command handling through SDK group wait/summary APIs.
 - Verified background preview trimming remains a TUI view-model projection, not orchestration logic.
 
+### 2026-05-01 follow-up diagnosis
+
+- Inspected the latest persisted session and confirmed both subagents completed under `group_1` with `wait_all`; the session also contains a normal assistant response after the command tool result.
+- Identified the fragile contract behind the reported failure mode: only `parallel --wait` was tested as a consolidation path. Plain `parallel` remained detached, so if a local model omitted `--wait`, completion events were persisted but no same-turn consolidated command result was guaranteed.
+- Changed `/agent parallel` to wait for the SDK group summary by default while keeping every spawned agent as a background job. Added explicit `--detach` for intentionally fire-and-return groups.
+
 ## Test Plan
 
 - Given a group with two running jobs, when both complete successfully, then the orchestrator emits one `group_completed` event with both result envelopes.
@@ -89,7 +95,9 @@ The `/agent` command module should expose orchestration usage in its own command
 - Given a `wait_any` group, when the first job completes, then the completion subscription fires once and later job completions update stored state without duplicate continuation requests.
 - Given a detached group, when all jobs complete, then no automatic parent continuation is enqueued but the TUI notification event is emitted.
 - Given a continuation request, when it is enqueued, then session logs contain the source group id, source task ids, and exact result envelopes.
-- Given `/agent parallel --wait ...`, when all grouped background agents finish, then the command returns the SDK group summary.
+- Given `/agent parallel ...`, when all grouped background agents finish, then the command returns the SDK group summary by default.
+- Given `/agent parallel --wait ...`, when all grouped background agents finish, then the command returns the SDK group summary as a compatibility alias.
+- Given `/agent parallel --detach ...`, when grouped agents are started, then the command returns `agentId` values and `groupId` immediately without waiting.
 - Given `/agent wait GROUP_ID`, when the group exists, then the command waits for completion and returns the same SDK group summary.
 - Given `stream-json` is running, when a background job group event fires, then headless output emits `background_job_group_event`.
 - Given a WebSocket client is connected, when a group event fires or a group query is received, then the transport forwards SDK group events/snapshots without deriving orchestration state.
