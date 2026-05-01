@@ -31,6 +31,7 @@ import {
   getStartupCliUpdateNotice,
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
+import { createStatusLineCommandModule } from './commands/statusline-command-module.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -138,6 +139,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const cwd = process.cwd();
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const commandModules: readonly ICommandModule[] = [
+    createStatusLineCommandModule(),
+    ...(options.commandModules ?? []),
+  ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
     ? getStartupCliUpdateNotice({ currentVersion: version })
     : undefined;
@@ -243,7 +248,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       appendSystemPrompt,
       backgroundTaskRunners,
       subagentRunnerFactory,
-      commandModules: options.commandModules,
+      commandModules,
     });
 
     const transport = createHeadlessTransport({
@@ -271,7 +276,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
-    commandModules: options.commandModules,
+    commandModules,
     providerDefinitions,
     startupUpdateNoticePromise,
   });
