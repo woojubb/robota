@@ -17,6 +17,7 @@ import {
   WORKSPACE_ROOT,
   classifyScopeChanges,
   collectPackageManifestChanges,
+  createWorkspaceDependencyBuildArgs,
   detectChangedFiles,
   listWorkspaceScopes,
   parseScopeArgs,
@@ -73,6 +74,19 @@ function runRepositoryCheck(check, dryRun) {
     default:
       throw new Error(`Unknown repository check: ${check}`);
   }
+}
+
+function shouldPrepareWorkspaceDependencies(scope, plannedChecks, options) {
+  if ((scope.workspaceDependencies ?? []).length === 0) {
+    return false;
+  }
+
+  return (
+    (!options.skipBuild && plannedChecks.has('build')) ||
+    (!options.skipTests && plannedChecks.has('test')) ||
+    (!options.skipLint && plannedChecks.has('lint')) ||
+    (!options.skipTypecheck && plannedChecks.has('typecheck'))
+  );
 }
 
 async function main() {
@@ -132,6 +146,7 @@ async function main() {
     process.stdout.write(`\n[verify] ${scope.relativeDir}\n`);
     process.stdout.write(`files: ${renderFiles(files)}\n`);
 
+    const notes = [...planScope.notes];
     const stepResults = {
       build: 'skip',
       test: 'skip',
@@ -139,6 +154,19 @@ async function main() {
       typecheck: 'skip',
       scenarios: 'not-applicable',
     };
+
+    if (shouldPrepareWorkspaceDependencies(scope, plannedChecks, options)) {
+      const dependencyBuildArgs = createWorkspaceDependencyBuildArgs(scope);
+      if (dependencyBuildArgs) {
+        try {
+          runCommand('pnpm', dependencyBuildArgs, WORKSPACE_ROOT, options.dryRun);
+          notes.push('workspace dependencies built before scoped checks');
+        } catch (error) {
+          allPassed = false;
+          throw error;
+        }
+      }
+    }
 
     if (!options.skipBuild && plannedChecks.has('build')) {
       try {
@@ -189,7 +217,6 @@ async function main() {
       }
     }
 
-    const notes = [...planScope.notes];
     const scenarios = [];
     if (shouldRunScenarios) {
       if (scenarioVerification) {

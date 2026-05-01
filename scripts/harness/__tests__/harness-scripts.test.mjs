@@ -5,6 +5,7 @@ import {
   parseScopeArgs,
   classifyScopeChanges,
   classifyPackageManifestChange,
+  createWorkspaceDependencyBuildArgs,
   mapFilesToScopes,
   resolveBaseRef,
   resolveRequestedScopes,
@@ -90,6 +91,29 @@ describe('parseScopeArgs', () => {
       reportFormat: null,
       baseRef: null,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createWorkspaceDependencyBuildArgs
+// ---------------------------------------------------------------------------
+describe('createWorkspaceDependencyBuildArgs', () => {
+  it('renders a pnpm dependency-only filter for clean scoped verification', () => {
+    const result = createWorkspaceDependencyBuildArgs({
+      workspaceName: '@robota-sdk/agent-cli',
+      workspaceDependencies: ['@robota-sdk/agent-command-agent'],
+    });
+
+    expect(result).toEqual(['--filter', '@robota-sdk/agent-cli^...', '--if-present', 'build']);
+  });
+
+  it('returns null when a scope has no workspace dependencies', () => {
+    const result = createWorkspaceDependencyBuildArgs({
+      workspaceName: '@robota-sdk/agent-core',
+      workspaceDependencies: [],
+    });
+
+    expect(result).toBeNull();
   });
 });
 
