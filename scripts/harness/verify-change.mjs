@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { createVerificationPlan } from './check-plan.mjs';
 import {
   compareScenarioRecordArtifact,
   createScenarioRecordPayload,
@@ -15,11 +16,10 @@ import { resolveScenarioVerification } from './scenario-owner-map.mjs';
 import {
   WORKSPACE_ROOT,
   classifyScopeChanges,
+  collectPackageManifestChanges,
   detectChangedFiles,
   listWorkspaceScopes,
-  mapFilesToScopes,
   parseScopeArgs,
-  resolveRequestedScopes,
   runCommand,
 } from './shared.mjs';
 
@@ -40,17 +40,67 @@ function renderFiles(files) {
   return files.join(', ');
 }
 
+function runRepositoryCheck(check, dryRun) {
+  switch (check) {
+    case 'task-plan-scan':
+      runCommand('pnpm', ['harness:scan:test-plans'], WORKSPACE_ROOT, dryRun);
+      break;
+    case 'harness-consistency':
+      runCommand('pnpm', ['harness:scan:consistency'], WORKSPACE_ROOT, dryRun);
+      break;
+    case 'publish-safety':
+      runCommand('pnpm', ['harness:scan:publish'], WORKSPACE_ROOT, dryRun);
+      break;
+    case 'harness-tests':
+      runCommand(
+        'pnpm',
+        [
+          'exec',
+          'vitest',
+          'run',
+          'scripts/harness/__tests__/harness-scripts.test.mjs',
+          'scripts/harness/__tests__/check-plan.test.mjs',
+          'scripts/harness/__tests__/scan-test-plan.test.mjs',
+          'scripts/harness/__tests__/harness-smoke.test.mjs',
+        ],
+        WORKSPACE_ROOT,
+        dryRun,
+      );
+      break;
+    case 'repository-review':
+      process.stdout.write('note: repository-review has no executable fast-path check.\n');
+      break;
+    default:
+      throw new Error(`Unknown repository check: ${check}`);
+  }
+}
+
 async function main() {
   const options = parseScopeArgs(process.argv.slice(2));
   const scopes = await listWorkspaceScopes();
   const changedFiles = detectChangedFiles(options.baseRef);
-  const scopeFiles = mapFilesToScopes(changedFiles, scopes);
-  const selectedScopes =
-    options.scopeTokens.length > 0
-      ? resolveRequestedScopes(options.scopeTokens, scopes)
-      : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
+  const manifestChangesByScope = await collectPackageManifestChanges({
+    scopes,
+    changedFiles,
+    baseRef: options.baseRef,
+  });
+  const plan = createVerificationPlan({
+    scopes,
+    changedFiles,
+    scopeTokens: options.scopeTokens,
+    manifestChangesByScope,
+  });
 
-  if (selectedScopes.length === 0) {
+  if (plan.repositoryChecks.length > 0 && !options.skipRepositoryChecks) {
+    process.stdout.write(`Repository checks: ${plan.repositoryChecks.join(', ')}\n`);
+    for (const check of plan.repositoryChecks) {
+      runRepositoryCheck(check, options.dryRun);
+    }
+  } else if (plan.repositoryChecks.length > 0) {
+    process.stdout.write(`Repository checks skipped: ${plan.repositoryChecks.join(', ')}\n`);
+  }
+
+  if (plan.scopes.length === 0) {
     process.stdout.write('No package or app scope detected from changed files.\n');
     process.stdout.write('Use --scope <packages/foo|apps/bar> to run explicit verification.\n');
     return;
@@ -59,9 +109,17 @@ async function main() {
   const summary = [];
   let allPassed = true;
 
-  for (const scope of selectedScopes) {
-    const files = scopeFiles.get(scope.relativeDir) ?? [];
-    const classification = classifyScopeChanges(scope, files, options.scopeTokens.length > 0);
+  for (const planScope of plan.scopes) {
+    const scope = scopes.find((candidate) => candidate.relativeDir === planScope.scope);
+    if (!scope) {
+      throw new Error(`Unknown planned scope: ${planScope.scope}`);
+    }
+
+    const files = planScope.files;
+    const classification = classifyScopeChanges(scope, files, options.scopeTokens.length > 0, {
+      manifestChange: manifestChangesByScope.get(scope.relativeDir) ?? null,
+    });
+    const plannedChecks = new Set(planScope.checks);
     const workdir = path.join(WORKSPACE_ROOT, scope.relativeDir);
     const scenarioVerification = resolveScenarioVerification(scope);
     const shouldRunScenarios =
@@ -82,7 +140,7 @@ async function main() {
       scenarios: 'not-applicable',
     };
 
-    if (!options.skipBuild && classification.needsBuild && scope.scripts.build) {
+    if (!options.skipBuild && plannedChecks.has('build')) {
       try {
         runCommand('pnpm', ['build'], workdir, options.dryRun);
         stepResults.build = 'pass';
@@ -93,7 +151,7 @@ async function main() {
       }
     }
 
-    if (!options.skipTests && classification.needsTest && scope.scripts.test) {
+    if (!options.skipTests && plannedChecks.has('test')) {
       try {
         runCommand('pnpm', ['test'], workdir, options.dryRun);
         stepResults.test = 'pass';
@@ -104,7 +162,7 @@ async function main() {
       }
     }
 
-    if (!options.skipLint && classification.needsLint && scope.scripts.lint) {
+    if (!options.skipLint && plannedChecks.has('lint')) {
       try {
         runCommand('pnpm', ['lint'], workdir, options.dryRun);
         stepResults.lint = 'pass';
@@ -115,7 +173,7 @@ async function main() {
       }
     }
 
-    if (!options.skipTypecheck && classification.needsTypecheck) {
+    if (!options.skipTypecheck && plannedChecks.has('typecheck')) {
       try {
         runCommand(
           'pnpm',
@@ -131,7 +189,7 @@ async function main() {
       }
     }
 
-    const notes = [];
+    const notes = [...planScope.notes];
     const scenarios = [];
     if (shouldRunScenarios) {
       if (scenarioVerification) {
