@@ -7,7 +7,10 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:scan`
 - `pnpm harness:scan:consistency`
 - `pnpm harness:scan:specs`
+- `pnpm harness:plan -- --changed-file <path> [--changed-file <path>] [--base-ref <git-ref>]`
+- `pnpm harness:pre-push`
 - `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]`
+- `pnpm harness:verify:release`
 - `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
@@ -42,6 +45,20 @@ These scripts are the executable layer of the Robota harness.
 - checks whether each actual workspace owns `docs/SPEC.md`
 - checks whether each workspace docs index points to `SPEC.md`
 - reports current coverage and missing scopes
+
+### `plan-change.mjs`
+
+- resolves workspace scopes from explicit `--changed-file` fixtures or changed files from Git
+- reports which package/app checks would run without executing those checks
+- keeps files outside workspace scopes visible as repository review inputs
+- can persist the plan as JSON or Markdown via `--report-file`
+
+### `pre-push.mjs`
+
+- resolves the branch-appropriate comparison base through the harness base-ref primitive
+- prints the scoped verification plan
+- runs `harness:verify` for affected scopes and executable repository checks
+- leaves release-grade verification as an explicit `pnpm harness:verify:release` command
 
 ### `verify-change.mjs`
 
