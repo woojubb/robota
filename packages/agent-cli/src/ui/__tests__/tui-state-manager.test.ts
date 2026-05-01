@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { TuiStateManager } from '../tui-state-manager.js';
+import { trimBackgroundPreview } from '../background-task-view-model.js';
 import type { IToolState, IExecutionResult, IBackgroundTaskState } from '@robota-sdk/agent-sdk';
 
 function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
@@ -312,6 +313,12 @@ describe('TuiStateManager', () => {
     expect(mgr.backgroundTasks[0]!.lastActivityAt).toBe('2026-05-01T00:00:10.000Z');
   });
 
+  it('normalizes background task previews into one trimmed line', () => {
+    expect(trimBackgroundPreview('\n\n  The analysis\n\n reveals   details  ')).toBe(
+      'The analysis reveals details',
+    );
+  });
+
   it('accumulates background text deltas and tool action previews', () => {
     const mgr = new TuiStateManager();
 
@@ -340,12 +347,12 @@ describe('TuiStateManager', () => {
     mgr.onBackgroundTaskEvent({
       type: 'background_task_text_delta',
       taskId: 'agent_1',
-      delta: 'partial ',
+      delta: '\n\npartial ',
     });
     mgr.onBackgroundTaskEvent({
       type: 'background_task_text_delta',
       taskId: 'agent_1',
-      delta: 'answer',
+      delta: 'answer\n\n',
     });
 
     expect(mgr.backgroundTasks[0]!.currentAction).toBe('file.ts');
