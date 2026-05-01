@@ -32,8 +32,13 @@ describe('OpenAICompatibleResponseParser', () => {
     const result = parser.parseResponse(response);
 
     expect(result.role).toBe('assistant');
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
     expect(result.content).toBe('Visible answer');
-    expect(result.usage).toEqual({
+    expect(result).toHaveProperty('usage');
+    const withUsage = result as unknown as {
+      usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+    };
+    expect(withUsage.usage).toEqual({
       promptTokens: 3,
       completionTokens: 4,
       totalTokens: 7,
