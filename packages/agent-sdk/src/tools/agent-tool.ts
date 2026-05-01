@@ -72,6 +72,12 @@ const AgentSchema = z.object({
     .optional()
     .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
   model: z.string().optional().describe('Optional model override'),
+  parallel: z
+    .boolean()
+    .optional()
+    .describe(
+      'Optional model hint for parallel delegation. Parallel execution is achieved by emitting multiple Agent tool calls in the same assistant turn; this flag does not change a single call result shape.',
+    ),
   background: z
     .boolean()
     .optional()

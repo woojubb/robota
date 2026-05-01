@@ -35,7 +35,6 @@ vi.mock('../../agents/built-in-agents.js', () => ({
         name: 'Explore',
         description: 'Exploration agent',
         systemPrompt: 'You are an explorer.',
-        model: 'claude-haiku-4-5',
       },
       Plan: {
         name: 'Plan',
@@ -137,9 +136,13 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('prompt');
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
+    expect(props).toHaveProperty('parallel');
     expect(props).toHaveProperty('background');
     expect(props).toHaveProperty('detach');
     expect(props).toHaveProperty('isolation');
+    expect((props.parallel as { description?: string }).description).toContain(
+      'multiple Agent tool calls',
+    );
     expect((props.background as { description?: string }).description).toContain(
       'Defaults to true',
     );
@@ -651,6 +654,61 @@ describe('Agent tool', () => {
     expect(timedOut['error']).toContain('Background agent produced no activity');
   });
 
+  it('should accept a model-emitted parallel hint without changing single-call execution', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_parallel_hint_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Explore in parallel',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_parallel_hint_1',
+        output: 'parallel hint complete',
+      }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Explore in parallel',
+      subagent_type: 'Explore',
+      parallel: true,
+    });
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        mode: 'background',
+        prompt: 'Explore in parallel',
+      }),
+    );
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_parallel_hint_1');
+    expect(parseToolResult(toolResult)).toEqual({
+      success: true,
+      output: 'parallel hint complete',
+      agentId: 'agent_parallel_hint_1',
+    });
+  });
+
   it('should return error for unknown agent type', async () => {
     const tool = createAgentTool(makeDeps());
 
@@ -818,7 +876,13 @@ describe('Agent tool', () => {
       expect.objectContaining({
         agentDefinition: expect.objectContaining({
           name: 'Explore',
-          model: 'claude-haiku-4-5', // original agent model preserved
+        }),
+      }),
+    );
+    expect(createSubagentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDefinition: expect.not.objectContaining({
+          model: expect.any(String),
         }),
       }),
     );

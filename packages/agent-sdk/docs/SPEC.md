@@ -1072,23 +1072,25 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 **Built-in agents:**
 
-| Name              | Model Override     | Tool Restrictions   | Purpose                     |
-| ----------------- | ------------------ | ------------------- | --------------------------- |
-| `general-purpose` | (parent)           | None (inherits all) | Full-capability task agent  |
-| `Explore`         | `claude-haiku-4-5` | Denies Write, Edit  | Read-only code exploration  |
-| `Plan`            | (parent)           | Denies Write, Edit  | Read-only planning/research |
+| Name              | Model Override | Tool Restrictions   | Purpose                     |
+| ----------------- | -------------- | ------------------- | --------------------------- |
+| `general-purpose` | (parent)       | None (inherits all) | Full-capability task agent  |
+| `Explore`         | (parent)       | Denies Write, Edit  | Read-only code exploration  |
+| `Plan`            | (parent)       | Denies Write, Edit  | Read-only planning/research |
 
 ### Model-Requested Agent Invocation
 
 The parent session exposes an `Agent` function tool with parameters:
 
-| Parameter       | Type                   | Required | Description                                              |
-| --------------- | ---------------------- | -------- | -------------------------------------------------------- |
-| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session               |
-| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted   |
-| `model`         | `string`               | No       | Optional model override for this invocation              |
-| `background`    | `boolean`              | No       | Start as background task and return metadata immediately |
-| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree  |
+| Parameter       | Type                   | Required | Description                                                                      |
+| --------------- | ---------------------- | -------- | -------------------------------------------------------------------------------- |
+| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session                                       |
+| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted                           |
+| `model`         | `string`               | No       | Optional model override for this invocation                                      |
+| `parallel`      | `boolean`              | No       | Optional model hint. Actual parallelism is multiple same-turn `Agent` tool calls |
+| `background`    | `boolean`              | No       | Background runtime mode. The tool still waits unless `detach` is true            |
+| `detach`        | `boolean`              | No       | Return immediately for later collection                                          |
+| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree                          |
 
 The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
 
