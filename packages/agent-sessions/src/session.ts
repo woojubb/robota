@@ -70,6 +70,7 @@ export class Session {
   private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly sessionLogger?: ISessionLogger;
+  private readonly maxTurns?: number;
   private readonly permissionEnforcer: PermissionEnforcer;
   private readonly contextTracker: ContextWindowTracker;
   private readonly compactionOrchestrator: CompactionOrchestrator;
@@ -92,6 +93,7 @@ export class Session {
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.onTextDeltaCallback = options.onTextDelta;
     this.onCompactCallback = options.onCompact;
+    this.maxTurns = options.maxTurns;
     this.model = options.model ?? 'claude-sonnet-4-5';
     this.sessionId =
       options.sessionId ??
@@ -188,6 +190,7 @@ export class Session {
           clearSessionStartStdout: () => {
             this.sessionStartStdout = '';
           },
+          ...(this.maxTurns !== undefined ? { maxTurns: this.maxTurns } : {}),
           onTextDelta: this.onTextDeltaCallback,
         },
         signal,

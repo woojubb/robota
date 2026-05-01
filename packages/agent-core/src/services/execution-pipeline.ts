@@ -19,6 +19,24 @@ import {
 } from './execution-types';
 import { buildFinalResult } from './execution-service-helpers';
 
+export const DEFAULT_MAX_EXECUTION_ROUNDS = 10;
+export const UNLIMITED_EXECUTION_ROUNDS = 0;
+
+function resolveMaxExecutionRounds(config: IAgentConfig, context: IExecutionContext): number {
+  const configured = context.maxExecutionRounds ?? config.maxExecutionRounds;
+  if (configured === undefined) {
+    return DEFAULT_MAX_EXECUTION_ROUNDS;
+  }
+  if (!Number.isInteger(configured) || configured < 0) {
+    throw new Error('[EXECUTION] maxExecutionRounds must be a non-negative integer');
+  }
+  return configured;
+}
+
+function hasRoundCapacity(currentRound: number, maxRounds: number): boolean {
+  return maxRounds === UNLIMITED_EXECUTION_ROUNDS || currentRound < maxRounds;
+}
+
 /** Dependencies for running the execution round loop */
 export interface IExecutionRoundDeps {
   toolExecutionService: ToolExecutionService;
@@ -43,9 +61,9 @@ export async function runExecutionLoop(
   signal: AbortSignal | undefined,
   deps: IExecutionRoundDeps,
 ): Promise<void> {
-  const maxRounds = 10;
+  const maxRounds = resolveMaxExecutionRounds(config, fullContext);
 
-  while (roundState.currentRound < maxRounds) {
+  while (hasRoundCapacity(roundState.currentRound, maxRounds)) {
     if (signal?.aborted) break;
     roundState.currentRound++;
     const shouldBreak = await executeRound(
@@ -84,6 +102,7 @@ export async function runExecutionLoop(
       conversationId,
       fullContext,
       deps.logger,
+      maxRounds,
     );
   }
 }
@@ -101,10 +120,10 @@ export async function forceSummaryCall(
   conversationId: string,
   fullContext: IExecutionContext,
   logger: ILogger,
+  maxRounds: number = DEFAULT_MAX_EXECUTION_ROUNDS,
 ): Promise<void> {
-  const maxRounds = 10;
   logger.warn('No final text response — forcing summary call', {
-    maxRounds,
+    maxRounds: maxRounds === UNLIMITED_EXECUTION_ROUNDS ? 'unlimited' : maxRounds,
     currentRound: roundState.currentRound,
     conversationId,
   });

@@ -22,5 +22,6 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | [tdd-and-planning.md](tdd-and-planning.md) | TDD red-green-refactor, planning requirements                     |
 | [verification.md](verification.md)         | Build, browser, harness, and pre-push verification gates          |
 | [publish.md](publish.md)                   | Package publish safety gate and scope approval                    |
+| [research.md](research.md)                 | Research-first implementation and recommendation authority        |
 | [operational.md](operational.md)           | No fallback policy, idea capture, feature documentation           |
 | [learning-loop.md](learning-loop.md)       | Lesson capture and mechanical enforcement preference              |
