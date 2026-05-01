@@ -18,6 +18,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
+- OWNS: CLI-only command modules for terminal UI configuration, including `/statusline`
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -145,6 +146,7 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
+              ├── createStatusLineCommandModule() (CLI-owned command module)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession({ cwd, provider })
@@ -159,7 +161,8 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
                     │   └── session.executeCommand()  (slash commands routed via SDK)
                     ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                     ├── InputArea.tsx          (bottom input area, slash detection)
-                    ├── StatusBar.tsx          (status bar, shows "Thinking..." during run())
+                    ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
+                    ├── StatusBar.tsx          (pure status bar renderer, shows "Thinking..." during run())
                     ├── PermissionPrompt.tsx   (arrow-key selection)
                     └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
@@ -180,7 +183,7 @@ The StatusBar shows real-time session information:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12  |  my-project │
+│ Mode: default  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -188,10 +191,27 @@ The StatusBar shows real-time session information:
 | -------- | ------------------------------------------ | ----------------------------------------------------- |
 | Mode     | `session.getPermissionMode()`              | Current permission mode                               |
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
+| Git      | `resolveGitBranch(cwd)`                    | Current git branch when available and enabled         |
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
 | msgs     | message count                              | Number of messages in conversation                    |
 | Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
 | Thinking | isThinking state                           | Shown during `session.run()` execution                |
+
+### `/statusline` Slash Command
+
+`/statusline` is a CLI-owned `ICommandModule`, not an SDK core built-in. The CLI composes it into `InteractiveSession` alongside other command modules so the SDK only sees the generic `ICommandModule` interface.
+
+Supported commands:
+
+| Command               | Behavior                                                       |
+| --------------------- | -------------------------------------------------------------- |
+| `/statusline on`      | Persist `statusline.enabled=true` in `~/.robota/settings.json` |
+| `/statusline off`     | Persist `statusline.enabled=false`                             |
+| `/statusline git on`  | Persist `statusline.gitBranch=true`                            |
+| `/statusline git off` | Persist `statusline.gitBranch=false`                           |
+| `/statusline reset`   | Restore default status line fields                             |
+
+Defaults are `enabled=true` and `gitBranch=true`. The command returns structured data, `useSlashRouting` converts it into a CLI side-effect flag, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
 ### Session Name Display
 
@@ -599,7 +619,8 @@ src/
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
-    ├── StatusBar.tsx                ← Mode, model, context %, message count, Thinking
+    ├── SessionStatusBar.tsx         ← Statusline settings + git branch adapter
+    ├── StatusBar.tsx                ← Mode, model, git branch, context %, message count, Thinking
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
     ├── StreamingIndicator.tsx       ← Real-time Tools:/Robota: display during run()
     ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
