@@ -1,5 +1,12 @@
 # @robota-sdk/agent-plugin-performance
 
+## 3.0.0-beta.56
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.56
+
 ## 3.0.0-beta.55
 
 ### Patch Changes

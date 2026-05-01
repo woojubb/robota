@@ -7,7 +7,7 @@ OpenAI Provider for Robota SDK - Complete type-safe integration with OpenAI's GP
 ### Core Capabilities
 
 - **🎯 Type-Safe Integration**: Complete TypeScript support with zero `any` types
-- **🤖 GPT Model Support**: GPT-4, GPT-3.5 Turbo, and all OpenAI models
+- **🤖 GPT Model Support**: GPT-4, GPT-3.5 Turbo, OpenAI models, and OpenAI-compatible chat completion models
 - **⚡ Real-Time Streaming**: Asynchronous streaming responses with proper error handling
 - **🛠️ Function Calling**: Native OpenAI function calling with type validation
 - **🔄 Provider-Agnostic Design**: Seamless integration with other Robota providers
@@ -59,6 +59,24 @@ console.log(response);
 await agent.destroy();
 ```
 
+### OpenAI-Compatible Endpoints
+
+Use `baseURL` to point the provider at an OpenAI-compatible Chat Completions endpoint. For LM Studio, the local API typically listens on `http://localhost:1234/v1` and accepts a local placeholder API key:
+
+```typescript
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+
+const provider = new OpenAIProvider({
+  apiKey: 'lm-studio',
+  baseURL: 'http://localhost:1234/v1',
+  defaultModel: '<local-openai-compatible-model>',
+});
+```
+
+Gemma-family local models should use `@robota-sdk/agent-provider-gemma` instead of this
+OpenAI provider so Gemma chat-template channel markers are projected out of user-facing
+streamed text.
+
 ### Streaming Responses
 
 ```typescript
@@ -76,6 +94,8 @@ for await (const chunk of stream) {
   }
 }
 ```
+
+When `chat()` receives an `onTextDelta` callback, the provider uses the streaming Chat Completions path internally, forwards text deltas to the callback, assembles streamed tool-call chunks, and returns the final assistant message.
 
 ## 🛠️ Function Calling
 

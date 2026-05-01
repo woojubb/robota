@@ -8,40 +8,18 @@
  * Server pushes InteractiveSession events to client in real-time.
  */
 
-import type { InteractiveSession, IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
-
-/** Inbound message from client → server. */
-export type TClientMessage =
-  | { type: 'submit'; prompt: string }
-  | { type: 'command'; name: string; args?: string }
-  | { type: 'abort' }
-  | { type: 'cancel-queue' }
-  | { type: 'get-messages' }
-  | { type: 'get-context' }
-  | { type: 'get-executing' }
-  | { type: 'get-pending' };
-
-/** Outbound message from server → client. */
-export type TServerMessage =
-  | { type: 'text_delta'; delta: string }
-  | { type: 'tool_start'; state: IToolState }
-  | { type: 'tool_end'; state: IToolState }
-  | { type: 'thinking'; isThinking: boolean }
-  | { type: 'complete'; result: IExecutionResult }
-  | { type: 'interrupted'; result: IExecutionResult }
-  | { type: 'error'; message: string }
-  | {
-      type: 'command_result';
-      name: string;
-      message: string;
-      success: boolean;
-      data?: Record<string, unknown>;
-    }
-  | { type: 'messages'; messages: unknown[] }
-  | { type: 'context'; state: unknown }
-  | { type: 'executing'; executing: boolean }
-  | { type: 'pending'; pending: string | null }
-  | { type: 'protocol_error'; message: string };
+import type {
+  InteractiveSession,
+  IExecutionResult,
+  TBackgroundJobGroupEvent,
+  TBackgroundTaskEvent,
+  IToolState,
+} from '@robota-sdk/agent-sdk';
+import type { TClientMessage, TServerMessage } from './ws-protocol.js';
+import {
+  handleBackgroundControlMessage,
+  handleBackgroundQueryMessage,
+} from './ws-background-messages.js';
 
 export interface IWsHandlerOptions {
   /** InteractiveSession to expose. */
@@ -72,9 +50,16 @@ export function createWsHandler(options: IWsHandlerOptions): {
   onMessage: (data: string) => void;
   cleanup: () => void;
 } {
-  const { session, send } = options;
+  const cleanup = subscribeSessionEvents(options.session, options.send);
+  const onMessage = createWsMessageHandler(options.session, options.send);
 
-  // Subscribe to InteractiveSession events and push to client
+  return { onMessage, cleanup };
+}
+
+function subscribeSessionEvents(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+): () => void {
   const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta });
   const onToolStart = (state: IToolState): void => send({ type: 'tool_start', state });
   const onToolEnd = (state: IToolState): void => send({ type: 'tool_end', state });
@@ -82,6 +67,10 @@ export function createWsHandler(options: IWsHandlerOptions): {
   const onComplete = (result: IExecutionResult): void => send({ type: 'complete', result });
   const onInterrupted = (result: IExecutionResult): void => send({ type: 'interrupted', result });
   const onError = (error: Error): void => send({ type: 'error', message: error.message });
+  const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
+    send({ type: 'background_task_event', event });
+  const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
+    send({ type: 'background_job_group_event', event });
 
   session.on('text_delta', onTextDelta);
   session.on('tool_start', onToolStart);
@@ -90,74 +79,10 @@ export function createWsHandler(options: IWsHandlerOptions): {
   session.on('complete', onComplete);
   session.on('interrupted', onInterrupted);
   session.on('error', onError);
+  session.on('background_task_event', onBackgroundTaskEvent);
+  session.on('background_job_group_event', onBackgroundJobGroupEvent);
 
-  const onMessage = (data: string): void => {
-    let msg: TClientMessage;
-    try {
-      msg = JSON.parse(data) as TClientMessage;
-    } catch {
-      send({ type: 'protocol_error', message: 'Invalid JSON' });
-      return;
-    }
-
-    switch (msg.type) {
-      case 'submit':
-        if (!msg.prompt) {
-          send({ type: 'protocol_error', message: 'prompt is required' });
-          return;
-        }
-        session.submit(msg.prompt);
-        break;
-
-      case 'command':
-        if (!msg.name) {
-          send({ type: 'protocol_error', message: 'name is required' });
-          return;
-        }
-        session.executeCommand(msg.name, msg.args ?? '').then((result) => {
-          send({
-            type: 'command_result',
-            name: msg.name,
-            message: result?.message ?? `Unknown command: ${msg.name}`,
-            success: result?.success ?? false,
-            data: result?.data,
-          });
-        });
-        break;
-
-      case 'abort':
-        session.abort();
-        break;
-
-      case 'cancel-queue':
-        session.cancelQueue();
-        break;
-
-      case 'get-messages':
-        send({ type: 'messages', messages: session.getMessages() });
-        break;
-
-      case 'get-context':
-        send({ type: 'context', state: session.getContextState() });
-        break;
-
-      case 'get-executing':
-        send({ type: 'executing', executing: session.isExecuting() });
-        break;
-
-      case 'get-pending':
-        send({ type: 'pending', pending: session.getPendingPrompt() });
-        break;
-
-      default:
-        send({
-          type: 'protocol_error',
-          message: `Unknown message type: ${(msg as Record<string, string>).type}`,
-        });
-    }
-  };
-
-  const cleanup = (): void => {
+  return (): void => {
     session.off('text_delta', onTextDelta);
     session.off('tool_start', onToolStart);
     session.off('tool_end', onToolEnd);
@@ -165,7 +90,164 @@ export function createWsHandler(options: IWsHandlerOptions): {
     session.off('complete', onComplete);
     session.off('interrupted', onInterrupted);
     session.off('error', onError);
+    session.off('background_task_event', onBackgroundTaskEvent);
+    session.off('background_job_group_event', onBackgroundJobGroupEvent);
   };
+}
 
-  return { onMessage, cleanup };
+function createWsMessageHandler(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+): (data: string) => void {
+  return (data: string): void => {
+    const msg = parseClientMessage(data, send);
+    if (!msg) return;
+    handleClientMessage(session, send, msg);
+  };
+}
+
+function parseClientMessage(
+  data: string,
+  send: (message: TServerMessage) => void,
+): TClientMessage | null {
+  try {
+    return JSON.parse(data) as TClientMessage;
+  } catch {
+    send({ type: 'protocol_error', message: 'Invalid JSON' });
+    return null;
+  }
+}
+
+function handleClientMessage(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+  msg: TClientMessage,
+): void {
+  if (isSessionControlMessage(msg)) {
+    handleSessionControlMessage(session, send, msg);
+    return;
+  }
+  if (isSessionQueryMessage(msg)) {
+    handleSessionQueryMessage(session, send, msg);
+    return;
+  }
+  if (isBackgroundQueryMessage(msg)) {
+    handleBackgroundQueryMessage(session, send, msg);
+    return;
+  }
+  if (isBackgroundControlMessage(msg)) {
+    handleBackgroundControlMessage(session, send, msg);
+    return;
+  }
+  send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
+}
+
+function getMessageType(msg: TClientMessage): string {
+  return (msg as { type: string }).type;
+}
+
+function isSessionControlMessage(
+  msg: TClientMessage,
+): msg is Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }> {
+  return (
+    msg.type === 'submit' ||
+    msg.type === 'command' ||
+    msg.type === 'abort' ||
+    msg.type === 'cancel-queue'
+  );
+}
+
+function isSessionQueryMessage(
+  msg: TClientMessage,
+): msg is Extract<
+  TClientMessage,
+  { type: 'get-messages' | 'get-context' | 'get-executing' | 'get-pending' }
+> {
+  return (
+    msg.type === 'get-messages' ||
+    msg.type === 'get-context' ||
+    msg.type === 'get-executing' ||
+    msg.type === 'get-pending'
+  );
+}
+
+function isBackgroundQueryMessage(
+  msg: TClientMessage,
+): msg is Extract<
+  TClientMessage,
+  | { type: 'get-background-tasks' | 'get-background-task' | 'read-background-task-log' }
+  | { type: 'get-background-job-groups' | 'get-background-job-group' | 'wait-background-job-group' }
+> {
+  return (
+    msg.type === 'get-background-tasks' ||
+    msg.type === 'get-background-task' ||
+    msg.type === 'read-background-task-log' ||
+    msg.type === 'get-background-job-groups' ||
+    msg.type === 'get-background-job-group' ||
+    msg.type === 'wait-background-job-group'
+  );
+}
+
+function isBackgroundControlMessage(
+  msg: TClientMessage,
+): msg is Extract<
+  TClientMessage,
+  { type: 'cancel-background-task' | 'close-background-task' | 'send-background-task' }
+> {
+  return (
+    msg.type === 'cancel-background-task' ||
+    msg.type === 'close-background-task' ||
+    msg.type === 'send-background-task'
+  );
+}
+
+function handleSessionControlMessage(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+  msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
+): void {
+  if (msg.type === 'submit') {
+    if (!msg.prompt) {
+      send({ type: 'protocol_error', message: 'prompt is required' });
+      return;
+    }
+    session.submit(msg.prompt);
+  } else if (msg.type === 'command') {
+    if (!msg.name) {
+      send({ type: 'protocol_error', message: 'name is required' });
+      return;
+    }
+    session.executeCommand(msg.name, msg.args ?? '').then((result) => {
+      send({
+        type: 'command_result',
+        name: msg.name,
+        message: result?.message ?? `Unknown command: ${msg.name}`,
+        success: result?.success ?? false,
+        data: result?.data,
+      });
+    });
+  } else if (msg.type === 'abort') {
+    session.abort();
+  } else {
+    session.cancelQueue();
+  }
+}
+
+function handleSessionQueryMessage(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+  msg: Extract<
+    TClientMessage,
+    { type: 'get-messages' | 'get-context' | 'get-executing' | 'get-pending' }
+  >,
+): void {
+  if (msg.type === 'get-messages') {
+    send({ type: 'messages', messages: session.getMessages() });
+  } else if (msg.type === 'get-context') {
+    send({ type: 'context', state: session.getContextState() });
+  } else if (msg.type === 'get-executing') {
+    send({ type: 'executing', executing: session.isExecuting() });
+  } else {
+    send({ type: 'pending', pending: session.getPendingPrompt() });
+  }
 }

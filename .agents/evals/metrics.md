@@ -40,6 +40,6 @@
 
 ## Measurement Cadence
 
-- **세션별**: eval-log 훅이 Stop 시 자동 수집
+- **세션별**: eval-log 훅이 Stop 시 `.agents/evals/local-metrics/`에 자동 수집
 - **주간**: 누적 지표 리뷰 (수동)
 - **릴리즈별**: 전체 메트릭 스냅샷 기록

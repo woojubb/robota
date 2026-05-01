@@ -69,6 +69,12 @@ const SAMPLE_HOOKS: THooksConfig = {
       hooks: [{ type: 'command', command: 'echo session-started' }],
     },
   ],
+  SessionEnd: [
+    {
+      matcher: '',
+      hooks: [{ type: 'command', command: 'echo session-ended' }],
+    },
+  ],
   UserPromptSubmit: [
     {
       matcher: '',
@@ -79,6 +85,12 @@ const SAMPLE_HOOKS: THooksConfig = {
     {
       matcher: '',
       hooks: [{ type: 'command', command: 'echo stopped' }],
+    },
+  ],
+  StopFailure: [
+    {
+      matcher: '',
+      hooks: [{ type: 'command', command: 'echo stop-failed' }],
     },
   ],
   PreToolUse: [
@@ -162,6 +174,26 @@ describe('Hook wiring in session', () => {
     expect(stopCalls.length).toBe(1);
     expect(stopCalls[0].input.hook_event_name).toBe('Stop');
     expect(stopCalls[0].input.response).toBeDefined();
+  });
+
+  it('should fire SessionEnd hook once during graceful shutdown', async () => {
+    const session = new Session({
+      tools: [],
+      provider: createMockProvider(),
+      systemMessage: 'test',
+      terminal: MOCK_TERMINAL,
+      hooks: SAMPLE_HOOKS,
+    });
+
+    runHooksCalls.length = 0;
+
+    await session.shutdown({ reason: 'prompt_input_exit' });
+    await session.shutdown({ reason: 'other' });
+
+    const sessionEndCalls = runHooksCalls.filter((c) => c.event === 'SessionEnd');
+    expect(sessionEndCalls).toHaveLength(1);
+    expect(sessionEndCalls[0].input.hook_event_name).toBe('SessionEnd');
+    expect(sessionEndCalls[0].input.reason).toBe('prompt_input_exit');
   });
 
   it('should fire UserPromptSubmit before Stop in run() lifecycle', async () => {

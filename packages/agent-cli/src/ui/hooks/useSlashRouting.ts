@@ -5,19 +5,26 @@
 
 import { useCallback } from 'react';
 import { randomUUID } from 'node:crypto';
-import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
-import { buildSkillPrompt } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ISideEffects } from './useInteractiveSession.js';
+import { handleProviderCommand } from '../../utils/provider-command.js';
+
+type TSessionWithEffects = InteractiveSession & ISideEffects;
 
 export function useSlashRouting(
+  cwd: string,
   interactiveSession: InteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
+  providerDefinitions: readonly IProviderDefinition[],
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
+      manager.onUserTurnAccepted();
+
       if (!input.startsWith('/')) {
         await interactiveSession.submit(input);
         manager.setPendingPrompt(interactiveSession.getPendingPrompt());
@@ -28,75 +35,25 @@ export function useSlashRouting(
       const cmd = parts[0]?.toLowerCase() ?? '';
       const args = parts.slice(1).join(' ');
 
+      if (cmd === 'provider') {
+        await routeProviderCommand(cwd, args, interactiveSession, manager, providerDefinitions);
+        return;
+      }
+
       // Try system command first
       const result = await interactiveSession.executeCommand(cmd, args);
       if (result) {
-        manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
-        const effects = interactiveSession as InteractiveSession & ISideEffects;
-        if (result.data?.modelId) {
-          effects._pendingModelId = result.data.modelId as string;
-          return;
-        }
-        if (result.data?.language) {
-          effects._pendingLanguage = result.data.language as string;
-          return;
-        }
-        if (result.data?.resetRequested) {
-          effects._resetRequested = true;
-          return;
-        }
-        if (result.data?.triggerResumePicker) {
-          effects._triggerResumePicker = true;
-          return;
-        }
-        if (result.data?.name) {
-          effects._sessionName = result.data.name as string;
-          return;
-        }
-        const ctx = interactiveSession.getContextState();
-        manager.setContextState({
-          percentage: ctx.usedPercentage,
-          usedTokens: ctx.usedTokens,
-          maxTokens: ctx.maxTokens,
-        });
+        applySystemCommandResult(result, interactiveSession, manager);
         return;
       }
 
       // Try skill/plugin command
-      const skillCmd = registry
-        .getCommands()
-        .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
-      if (skillCmd) {
-        manager.addEntry({
-          id: randomUUID(),
-          timestamp: new Date(),
-          category: 'event',
-          type: 'skill-invocation',
-          data: {
-            skillName: cmd,
-            source: skillCmd.source,
-            message: `Invoking ${skillCmd.source}: ${cmd}`,
-          },
-        });
-        const prompt = await buildSkillPrompt(input, registry);
-        if (prompt) {
-          const qualifiedName = registry.resolveQualifiedName(cmd);
-          const hookInput = qualifiedName
-            ? `/${qualifiedName}${input.slice(1 + cmd.length)}`
-            : input;
-          await interactiveSession.submit(prompt, input, hookInput);
-          manager.setPendingPrompt(interactiveSession.getPendingPrompt());
-          return;
-        }
+      if (await routeSkillCommand(input, cmd, registry, interactiveSession, manager)) {
+        return;
       }
 
       // TUI-only commands
-      if (cmd === 'exit') {
-        (interactiveSession as InteractiveSession & ISideEffects)._exitRequested = true;
-        return;
-      }
-      if (cmd === 'plugin') {
-        (interactiveSession as InteractiveSession & ISideEffects)._triggerPluginTUI = true;
+      if (routeTuiCommand(cmd, interactiveSession)) {
         return;
       }
 
@@ -106,6 +63,113 @@ export function useSlashRouting(
         ),
       );
     },
-    [interactiveSession, registry, manager],
+    [cwd, interactiveSession, registry, manager, providerDefinitions],
   );
+}
+
+async function routeProviderCommand(
+  cwd: string,
+  args: string,
+  interactiveSession: InteractiveSession,
+  manager: TuiStateManager,
+  providerDefinitions: readonly IProviderDefinition[],
+): Promise<void> {
+  const result = await handleProviderCommand(cwd, args, { providerDefinitions });
+  manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
+  const providerSwitch = result.data?.providerSwitch;
+  if (providerSwitch?.profile) {
+    getEffects(interactiveSession)._pendingProviderProfile = providerSwitch.profile;
+  }
+  const providerSetup = result.data?.providerSetup;
+  if (providerSetup?.type) {
+    getEffects(interactiveSession)._pendingProviderSetupType = providerSetup.type;
+  }
+}
+
+function applySystemCommandResult(
+  result: ICommandResult,
+  interactiveSession: InteractiveSession,
+  manager: TuiStateManager,
+): void {
+  manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
+  const data = result.data;
+  const effects = getEffects(interactiveSession);
+
+  if (typeof data?.modelId === 'string') {
+    effects._pendingModelId = data.modelId;
+    return;
+  }
+  if (typeof data?.language === 'string') {
+    effects._pendingLanguage = data.language;
+    return;
+  }
+  if (data?.resetRequested === true) {
+    effects._resetRequested = true;
+    return;
+  }
+  if (data?.triggerResumePicker === true) {
+    effects._triggerResumePicker = true;
+    return;
+  }
+  if (typeof data?.name === 'string') {
+    effects._sessionName = data.name;
+    return;
+  }
+
+  const ctx = interactiveSession.getContextState();
+  manager.setContextState({
+    percentage: ctx.usedPercentage,
+    usedTokens: ctx.usedTokens,
+    maxTokens: ctx.maxTokens,
+  });
+}
+
+async function routeSkillCommand(
+  input: string,
+  cmd: string,
+  registry: CommandRegistry,
+  interactiveSession: InteractiveSession,
+  manager: TuiStateManager,
+): Promise<boolean> {
+  const skillCmd = registry
+    .getCommands()
+    .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
+  if (!skillCmd) {
+    return false;
+  }
+
+  manager.addEntry({
+    id: randomUUID(),
+    timestamp: new Date(),
+    category: 'event',
+    type: 'skill-invocation',
+    data: {
+      skillName: cmd,
+      source: skillCmd.source,
+      message: `Invoking ${skillCmd.source}: ${cmd}`,
+    },
+  });
+
+  const args = input.slice(1 + cmd.length).trimStart();
+  const qualifiedName = registry.resolveQualifiedName(cmd);
+  const hookInput = qualifiedName ? `/${qualifiedName}${input.slice(1 + cmd.length)}` : input;
+  await interactiveSession.executeSkillCommand(skillCmd, args, input, hookInput);
+  manager.setPendingPrompt(interactiveSession.getPendingPrompt());
+  return true;
+}
+
+function routeTuiCommand(cmd: string, interactiveSession: InteractiveSession): boolean {
+  if (cmd === 'exit') {
+    getEffects(interactiveSession)._exitRequested = true;
+    return true;
+  }
+  if (cmd === 'plugin') {
+    getEffects(interactiveSession)._triggerPluginTUI = true;
+    return true;
+  }
+  return false;
+}
+
+function getEffects(interactiveSession: InteractiveSession): TSessionWithEffects {
+  return interactiveSession as TSessionWithEffects;
 }

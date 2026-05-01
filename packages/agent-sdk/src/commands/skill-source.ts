@@ -19,12 +19,20 @@ interface IFrontmatter {
 /** Known boolean frontmatter keys */
 const BOOLEAN_KEYS = new Set(['disable-model-invocation', 'user-invocable']);
 
-/** Known comma-separated list frontmatter keys */
+/** Known comma-separated or whitespace-separated list frontmatter keys */
 const LIST_KEYS = new Set(['allowed-tools']);
 
 /** Convert kebab-case to camelCase */
 function kebabToCamel(key: string): string {
   return key.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+}
+
+function parseListValue(rawValue: string): string[] {
+  const separator = rawValue.includes(',') ? /\s*,\s*/ : /\s+/;
+  return rawValue
+    .split(separator)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
 }
 
 /** Parse YAML-like frontmatter between --- markers */
@@ -48,7 +56,7 @@ export function parseFrontmatter(content: string): IFrontmatter | null {
     if (BOOLEAN_KEYS.has(key)) {
       result[camelKey] = rawValue === 'true';
     } else if (LIST_KEYS.has(key)) {
-      result[camelKey] = rawValue.split(',').map((s) => s.trim());
+      result[camelKey] = parseListValue(rawValue);
     } else {
       result[camelKey] = rawValue;
     }

@@ -30,6 +30,28 @@ import {
 } from './execution-service-helpers';
 import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
 
+function buildFullExecutionContext(
+  messages: TUniversalMessage[],
+  config: IAgentConfig,
+  startTime: Date,
+  executionId: string,
+  conversationId: string,
+  context?: Partial<IExecutionContext>,
+): IExecutionContext {
+  return {
+    messages,
+    config,
+    startTime,
+    executionId,
+    conversationId,
+    ...(context?.sessionId && { sessionId: context.sessionId }),
+    ...(context?.userId && { userId: context.userId }),
+    ...(context?.metadata && { metadata: context.metadata }),
+    ...(context?.signal && { signal: context.signal }),
+    ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
+  };
+}
+
 /**
  * Service that orchestrates the entire execution pipeline.
  * Coordinates AI provider execution, tool execution service, and plugin lifecycle.
@@ -117,17 +139,14 @@ export class ExecutionService {
     const startTime = new Date();
     const conversationId = requireConversationId(context, 'execute');
 
-    const fullContext: IExecutionContext = {
+    const fullContext = buildFullExecutionContext(
       messages,
       config,
       startTime,
       executionId,
       conversationId,
-      ...(context?.sessionId && { sessionId: context.sessionId }),
-      ...(context?.userId && { userId: context.userId }),
-      ...(context?.metadata && { metadata: context.metadata }),
-      ...(context?.signal && { signal: context.signal }),
-    };
+      context,
+    );
 
     this.eventEmitter.prepareOwnerPathBases(conversationId);
 

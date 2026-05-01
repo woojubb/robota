@@ -16,7 +16,7 @@ set -uo pipefail
 
 INPUT=$(cat)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
-LOG_FILE="$PROJECT_DIR/.agents/evals/harness-log/blocks.jsonl"
+LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl"
 
 # ── scope filter ──────────────────────────────────────────────────────────────
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')

@@ -1,39 +1,30 @@
 /**
  * CLI entry point — parses arguments, creates provider, and starts the Ink TUI.
  *
- * CLI owns provider creation. SDK owns everything else
+ * CLI composes provider definitions. SDK owns everything else
  * (config, context, session, tools).
  */
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
+import type { ICommandModule } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from './utils/provider-default-definitions.js';
+import {
+  ensureConfig,
+  handleProviderConfigurationArgs,
+  runInteractiveProviderSetup,
+} from './utils/provider-setup.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
-
-/** Result of checking a settings file. */
-type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
-
-/** Check a settings file's state. */
-function checkSettingsFile(filePath: string): TSettingsCheck {
-  if (!existsSync(filePath)) return 'missing';
-  try {
-    const raw = readFileSync(filePath, 'utf8').trim();
-    if (raw.length === 0) return 'incomplete';
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const provider = parsed.provider as Record<string, unknown> | undefined;
-    if (!provider?.apiKey) return 'incomplete';
-    return 'valid';
-  } catch {
-    return 'corrupt';
-  }
-}
+import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
+import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -96,70 +87,6 @@ function promptInput(label: string, masked = false): Promise<string> {
   });
 }
 
-/**
- * Check if any settings file exists. If not, prompt for setup and create one.
- */
-async function ensureConfig(cwd: string): Promise<void> {
-  const userPath = getUserSettingsPath();
-  const projectPath = join(cwd, '.robota', 'settings.json');
-  const localPath = join(cwd, '.robota', 'settings.local.json');
-
-  const paths = [userPath, projectPath, localPath];
-  const checks = paths.map((p) => ({ path: p, status: checkSettingsFile(p) }));
-
-  if (checks.some((c) => c.status === 'valid')) {
-    return;
-  }
-
-  const corrupt = checks.filter((c) => c.status === 'corrupt');
-  const incomplete = checks.filter((c) => c.status === 'incomplete');
-
-  process.stdout.write('\n');
-  if (corrupt.length > 0) {
-    for (const c of corrupt) {
-      process.stderr.write(`  ERROR: Settings file is corrupt (invalid JSON): ${c.path}\n`);
-    }
-    process.stdout.write('\n');
-  }
-  if (incomplete.length > 0) {
-    for (const c of incomplete) {
-      process.stderr.write(`  WARNING: Settings file is missing provider.apiKey: ${c.path}\n`);
-    }
-    process.stdout.write('\n');
-  }
-
-  if (corrupt.length === 0 && incomplete.length === 0) {
-    process.stdout.write('  Welcome to Robota CLI!\n');
-    process.stdout.write("  No configuration found. Let's set up.\n");
-  } else {
-    process.stdout.write('  Reconfiguring...\n');
-  }
-  process.stdout.write('\n');
-
-  const apiKey = await promptInput('  Anthropic API key: ', true);
-  if (!apiKey) {
-    process.stderr.write('\n  No API key provided. Exiting.\n');
-    process.exit(1);
-  }
-
-  const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
-
-  const settingsDir = dirname(userPath);
-  mkdirSync(settingsDir, { recursive: true });
-  const settings: Record<string, unknown> = {
-    provider: {
-      name: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      apiKey,
-    },
-  };
-  if (language) {
-    settings.language = language;
-  }
-  writeFileSync(userPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
-  process.stdout.write(`\n  Config saved to ${userPath}\n\n`);
-}
-
 /** Delete user settings and exit. */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
@@ -173,7 +100,12 @@ function resetConfig(): void {
 /**
  * Main CLI orchestration function.
  */
-export async function startCli(): Promise<void> {
+export interface IStartCliOptions {
+  commandModules?: readonly ICommandModule[];
+  providerDefinitions?: readonly IProviderDefinition[];
+}
+
+export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
 
   if (args.version) {
@@ -187,17 +119,40 @@ export async function startCli(): Promise<void> {
   }
 
   const cwd = process.cwd();
+  const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
 
-  // First-run setup: prompt for API key if no config exists
-  await ensureConfig(cwd);
+  if (args.configure) {
+    await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
+    return;
+  }
 
-  // CLI owns provider creation
-  const providerSettings = readProviderSettings(cwd);
+  if (handleProviderConfigurationArgs(cwd, args, providerDefinitions)) {
+    return;
+  }
+
+  try {
+    await ensureConfig(cwd, args, promptInput, providerDefinitions);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+
+  // CLI resolves the active provider profile through injected provider definitions.
+  const providerOptions = args.provider
+    ? { providerOverride: args.provider, providerDefinitions }
+    : { providerDefinitions };
+  const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
-  const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
+  const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
+  const backgroundTaskRunners = [createManagedShellProcessRunner()];
+  const paths = projectPaths(cwd);
+  const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
+    providerConfig: { ...providerSettings, model: modelId },
+    logsDir: paths.logs,
+  });
 
   // Session management
-  const sessionStore = new SessionStore();
+  const sessionStore = new SessionStore(paths.sessions);
   let resumeSessionId: string | undefined;
 
   if (args.continueMode) {
@@ -265,6 +220,9 @@ export async function startCli(): Promise<void> {
             .filter((t) => t.length > 0)
         : undefined,
       appendSystemPrompt,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      commandModules: options.commandModules,
     });
 
     const transport = createHeadlessTransport({
@@ -273,6 +231,7 @@ export async function startCli(): Promise<void> {
     });
     session.attachTransport(transport);
     await transport.start();
+    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
     process.exit(transport.getExitCode());
   }
 
@@ -289,5 +248,9 @@ export async function startCli(): Promise<void> {
     resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
+    backgroundTaskRunners,
+    subagentRunnerFactory,
+    commandModules: options.commandModules,
+    providerDefinitions,
   });
 }

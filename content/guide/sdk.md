@@ -110,22 +110,32 @@ const response = await query('Refactor this function');
 
 ## Configuration
 
-Config is loaded from 5 layers. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
+Config is loaded from 6 settings-file layers. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
 
 1. **User global**: `~/.robota/settings.json` (lowest priority)
-2. **Project (primary)**: `.robota/settings.json`
-3. **Project local**: `.robota/settings.local.json` (gitignored)
-4. **Project (Claude Code compatible)**: `.claude/settings.json`
-5. **Project local (Claude Code compatible)**: `.claude/settings.local.json` (gitignored, highest priority)
+2. **User global (Claude Code compatible)**: `~/.claude/settings.json`
+3. **Project (primary)**: `.robota/settings.json`
+4. **Project local**: `.robota/settings.local.json` (gitignored)
+5. **Project (Claude Code compatible)**: `.claude/settings.json`
+6. **Project local (Claude Code compatible)**: `.claude/settings.local.json` (gitignored, highest priority)
 
 The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
 
 ```json
 {
-  "provider": {
-    "name": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "apiKey": "$ENV:ANTHROPIC_API_KEY"
+  "currentProvider": "openai",
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKey": "$ENV:ANTHROPIC_API_KEY"
+    }
   },
   "defaultTrustLevel": "moderate",
   "permissions": {
@@ -142,6 +152,8 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
   }
 }
 ```
+
+`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. LM Studio and other OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`; the legacy single `provider` object remains supported when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 
@@ -178,17 +190,17 @@ const systemMessage = buildSystemPrompt({
 
 `InteractiveSession` provides these capabilities:
 
-| Feature                    | Description                                                                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                 |
-| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                        |
-| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                  |
-| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                               |
-| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`. `ISessionRecord` includes `history` (`IHistoryEntry[]`) for full UI restoration                         |
-| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history |
-| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                           |
-| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                      |
-| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                              |
+| Feature                    | Description                                                                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                              |
+| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                                     |
+| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                               |
+| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                                            |
+| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`. `ISessionRecord` includes `history` (`IHistoryEntry[]`) plus background task snapshots for restoration and debugging |
+| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history              |
+| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                        |
+| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                   |
+| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                           |
 
 ## Subagent Sessions
 
@@ -244,7 +256,7 @@ The SDK appends a framework suffix to the subagent's system prompt to shape its 
 
 ### Subagent Transcript
 
-Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` for debugging and audit purposes.
+Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` for debugging and audit purposes. Streaming text deltas are appended to this transcript while the provider request is still running. The parent session JSON stores the background task snapshot and transcript path; it does not rewrite the whole session file for every token chunk.
 
 ## Always-Streaming Policy
 

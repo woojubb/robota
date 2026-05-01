@@ -7,7 +7,7 @@
 
 import type { InteractiveSession, ITransportAdapter } from '@robota-sdk/agent-sdk';
 import { createWsHandler } from './ws-handler.js';
-import type { TServerMessage } from './ws-handler.js';
+import type { TServerMessage } from './ws-protocol.js';
 
 export interface IWsTransportOptions {
   /** Send a JSON message to the connected WebSocket client. */

@@ -12,6 +12,17 @@ import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  IBackgroundJobGroupState,
+  IBackgroundTaskRunner,
+  IBackgroundTaskState,
+  TBackgroundJobGroupEvent,
+  TBackgroundTaskEvent,
+  TBackgroundTaskStatus,
+} from '../background-tasks/index.js';
+import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { ICommandModule, ICommandResult } from '../commands/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
 import { loadContext } from '../context/context-loader.js';
@@ -40,6 +51,18 @@ export interface IInteractiveSessionStandardOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Runtime-composed background task runners. */
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Runtime shell override for subagent execution. */
+  subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** Optional command modules composed into this session. */
+  commandModules?: readonly ICommandModule[];
+  /** Model-visible command descriptors derived from the composed command executor. */
+  commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Model command execution bridge. */
+  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Predicate for commands allowed through the model command execution bridge. */
+  isModelCommandInvocable?: (command: string) => boolean;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -54,6 +77,8 @@ export interface IInteractiveSessionInjectedOptions {
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /** Optional command modules composed into this injected session. */
+  commandModules?: readonly ICommandModule[];
 }
 
 /** Union of standard and injected construction options. */
@@ -85,6 +110,18 @@ export interface IInitOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Runtime-composed background task runners. */
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Runtime shell override for subagent execution. */
+  subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** Optional command modules composed into this session. */
+  commandModules?: readonly ICommandModule[];
+  /** Model-visible command descriptors derived from the composed command executor. */
+  commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Model command execution bridge. */
+  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Predicate for commands allowed through the model command execution bridge. */
+  isModelCommandInvocable?: (command: string) => boolean;
 }
 
 /**
@@ -133,6 +170,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
 
   return createSession({
     config: mergedConfig,
+    cwd,
     context,
     projectInfo,
     permissionMode: options.permissionMode,
@@ -146,6 +184,23 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     sessionId,
     allowedTools: options.allowedTools,
     appendSystemPrompt: options.appendSystemPrompt,
+    backgroundTaskRunners: options.backgroundTaskRunners,
+    subagentRunnerFactory: options.subagentRunnerFactory,
+    ...(options.commandModules?.some((module) =>
+      module.sessionRequirements?.includes('agent-runtime'),
+    )
+      ? { enableAgentRuntime: true }
+      : {}),
+    ...(options.commandModules || options.commandDescriptors
+      ? {
+          commandDescriptors: [
+            ...(options.commandDescriptors ?? []),
+            ...(options.commandModules?.flatMap((module) => module.commandDescriptors ?? []) ?? []),
+          ],
+        }
+      : {}),
+    modelCommandExecutor: options.modelCommandExecutor,
+    isModelCommandInvocable: options.isModelCommandInvocable,
   });
 }
 
@@ -177,13 +232,35 @@ export function loadSessionRecord(
   history: IHistoryEntry[];
   sessionName: string | undefined;
   pendingRestoreMessages: unknown[] | null;
+  backgroundTasks: IBackgroundTaskState[];
+  backgroundTaskEvents: TBackgroundTaskEvent[];
+  backgroundJobGroups: IBackgroundJobGroupState[];
+  backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
-    return { history: [], sessionName: undefined, pendingRestoreMessages: null };
+    return {
+      history: [],
+      sessionName: undefined,
+      pendingRestoreMessages: null,
+      backgroundTasks: [],
+      backgroundTaskEvents: [],
+      backgroundJobGroups: [],
+      backgroundJobGroupEvents: [],
+    };
   }
 
   const history = (record.history ?? []) as IHistoryEntry[];
+  const restoredBackgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
+  const restoredBackgroundTaskEvents = (record.backgroundTaskEvents ??
+    []) as TBackgroundTaskEvent[];
+  const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
+  const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
+    []) as TBackgroundJobGroupEvent[];
+  const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
+    restoredBackgroundTasks,
+    restoredBackgroundTaskEvents,
+  );
   const sessionName = record.name;
   let pendingRestoreMessages: unknown[] | null = null;
 
@@ -199,5 +276,47 @@ export function loadSessionRecord(
     }
   }
 
-  return { history, sessionName, pendingRestoreMessages };
+  return {
+    history,
+    sessionName,
+    pendingRestoreMessages,
+    backgroundTasks,
+    backgroundTaskEvents,
+    backgroundJobGroups,
+    backgroundJobGroupEvents,
+  };
+}
+
+function reconcileRestoredBackgroundTasks(
+  tasks: IBackgroundTaskState[],
+  events: TBackgroundTaskEvent[],
+): { backgroundTasks: IBackgroundTaskState[]; backgroundTaskEvents: TBackgroundTaskEvent[] } {
+  const now = new Date().toISOString();
+  const syntheticEvents: TBackgroundTaskEvent[] = [];
+  const backgroundTasks = tasks.map((task) => {
+    if (isRestoredTerminalStatus(task.status)) return task;
+    const reconciled: IBackgroundTaskState = {
+      ...task,
+      status: 'failed',
+      timeoutReason: 'stale_worker',
+      error: {
+        category: 'timeout',
+        message: 'Restored background task is stale; worker cannot be reattached',
+        recoverable: true,
+      },
+      unread: true,
+      completedAt: now,
+      updatedAt: now,
+    };
+    syntheticEvents.push({ type: 'background_task_failed', task: reconciled });
+    return reconciled;
+  });
+  return {
+    backgroundTasks,
+    backgroundTaskEvents: [...events, ...syntheticEvents],
+  };
+}
+
+function isRestoredTerminalStatus(status: TBackgroundTaskStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled';
 }

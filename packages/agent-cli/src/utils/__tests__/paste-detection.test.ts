@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { filterPrintable } from '../../ui/CjkTextInput.js';
+import { filterPrintable } from '../../ui/flows/cjk-text-input-flow.js';
 import { expandPasteLabels } from '../paste-labels.js';
 
 describe('filterPrintable and newlines', () => {

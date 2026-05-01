@@ -7,7 +7,9 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { ICapabilityDescriptor, TCapabilitySafety } from '../capabilities/types.js';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
+import { executeBackgroundCommand } from './background-command.js';
 
 /** Result of a system command execution. */
 export interface ICommandResult {
@@ -23,6 +25,10 @@ export interface ICommandResult {
 export interface ISystemCommand {
   name: string;
   description: string;
+  modelInvocable?: boolean;
+  userInvocable?: boolean;
+  argumentHint?: string;
+  safety?: TCapabilitySafety;
   execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
 }
 
@@ -46,7 +52,9 @@ export function createSystemCommands(): ISystemCommand[] {
           '  cost              — Show session info',
           '  context           — Context window info',
           '  permissions       — Permission rules',
+          '  provider          — Provider profile status and switching',
           '  resume            — Resume a previous session',
+          '  background        — List/cancel/close background tasks',
           '  rename <name>     — Rename the current session',
           '  reset             — Delete settings and exit',
         ].join('\n'),
@@ -196,6 +204,11 @@ export function createSystemCommands(): ISystemCommand[] {
       }),
     },
     {
+      name: 'background',
+      description: 'List and control background tasks',
+      execute: executeBackgroundCommand,
+    },
+    {
       name: 'rename',
       description: 'Rename the current session',
       execute: (_session, args) => {
@@ -255,6 +268,33 @@ export class SystemCommandExecutor {
   /** List all registered commands. */
   listCommands(): ISystemCommand[] {
     return [...this.commands.values()];
+  }
+
+  listModelInvocableCommands(): ICapabilityDescriptor[] {
+    return this.listCommands()
+      .filter((command) => command.modelInvocable === true)
+      .map((command) => ({
+        name: `/${command.name}`,
+        kind: 'builtin-command',
+        description: command.description,
+        userInvocable: command.userInvocable !== false,
+        modelInvocable: true,
+        ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
+        ...(command.safety ? { safety: command.safety } : {}),
+      }));
+  }
+
+  isModelInvocable(name: string): boolean {
+    return this.commands.get(name)?.modelInvocable === true;
+  }
+
+  async executeModelInvocable(
+    name: string,
+    session: InteractiveSession,
+    args: string,
+  ): Promise<ICommandResult | null> {
+    if (!this.isModelInvocable(name)) return null;
+    return this.execute(name, session, args);
   }
 
   /** Check if a command exists. */

@@ -8,8 +8,9 @@
 evals/
 ├── README.md           # This file
 ├── metrics.md          # Autonomy metrics definition (targets & measurement)
-├── harness-log/        # Session log evaluations (auto-collected by Stop hook)
-│   └── sessions.jsonl  # Per-session metrics (commits, test files, branch)
+├── local-metrics/      # Local-only generated eval metrics (gitignored)
+│   ├── sessions.jsonl  # Per-session metrics (commits, test files, branch)
+│   └── blocks.jsonl    # Hook block events
 └── scenarios/          # Task-specific eval scenarios
     ├── build-and-test.md          # TDD cycle compliance
     ├── multi-package-change.md    # Dependency direction compliance
@@ -27,9 +28,9 @@ See [metrics.md](metrics.md) for full definitions. Key targets:
 | Tool Diversity Score    | ≥ 50%  |
 | Build Verification Rate | 100%   |
 
-## Session Logging
+## Local Metrics
 
-The `eval-log-stop.sh` hook runs on every session Stop and appends to `harness-log/sessions.jsonl`:
+The `eval-log-stop.sh` hook runs on every session Stop and appends to `local-metrics/sessions.jsonl`:
 
 ```json
 {
@@ -39,6 +40,8 @@ The `eval-log-stop.sh` hook runs on every session Stop and appends to `harness-l
   "testFilesChanged": 2
 }
 ```
+
+`local-metrics/` is generated local telemetry for evaluating agent behavior. It is not Robota runtime session history and is not used for `/resume`.
 
 ## Scenarios
 

@@ -2,17 +2,23 @@ import { describe, it, expect } from 'vitest';
 import type { THookEvent, IHookDefinition, IHookTypeExecutor } from '../types.js';
 
 describe('Hook types', () => {
-  it('should include all Phase 1 events', () => {
+  it('should include all supported hook events', () => {
     const events: THookEvent[] = [
       'PreToolUse',
       'PostToolUse',
       'SessionStart',
+      'SessionEnd',
       'Stop',
+      'StopFailure',
       'PreCompact',
       'PostCompact',
       'UserPromptSubmit',
+      'SubagentStart',
+      'SubagentStop',
+      'WorktreeCreate',
+      'WorktreeRemove',
     ];
-    expect(events).toHaveLength(7);
+    expect(events).toHaveLength(13);
   });
 
   it('should support discriminated union for hook definitions', () => {

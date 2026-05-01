@@ -5,6 +5,9 @@ Package-specific specs are owned by each package at `packages/<name>/docs/SPEC.m
 
 ## Index
 
-| Spec                                                    | Scope                 |
-| ------------------------------------------------------- | --------------------- |
-| (See `packages/*/docs/SPEC.md` for package-level specs) | Per-package contracts |
+| Spec                                                       | Scope                                                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| (See `packages/*/docs/SPEC.md` for package-level specs)    | Per-package contracts                                                                 |
+| [agent-invocation-router.md](agent-invocation-router.md)   | Agent command descriptors, deterministic invocation routing, and claim guards         |
+| [background-task-layer.md](background-task-layer.md)       | Generic background task lifecycle, composition, runners, and TUI/transport projection |
+| [subagent-process-manager.md](subagent-process-manager.md) | CLI subagent process management, parallel execution, and TUI lifecycle                |

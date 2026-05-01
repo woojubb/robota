@@ -15,6 +15,13 @@ export type {
   IChatOptions,
   TTextDeltaCallback,
   IAIProvider,
+  IProviderConfig,
+  IProviderDefinition,
+  IProviderProbeResult,
+  IProviderProfileConfig,
+  IProviderProfileDefaults,
+  IProviderSetupStepDefinition,
+  TProviderSetupField,
   IMediaOutputRef,
   IProviderMediaError,
   TProviderMediaResult,
@@ -33,6 +40,7 @@ export type {
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
+export { findProviderDefinition, formatSupportedProviderTypes } from './interfaces';
 
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';
@@ -209,6 +217,7 @@ export {
 // Hooks
 export type {
   THookEvent,
+  TSessionEndReason,
   THooksConfig,
   IHookGroup,
   ICommandHookDefinition,

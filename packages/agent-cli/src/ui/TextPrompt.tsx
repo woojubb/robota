@@ -1,5 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import {
+  applyTextPromptInput,
+  createTextPromptFlowState,
+  getTextPromptInputAction,
+  type ITextPromptFlowState,
+  type TTextPromptInputAction,
+} from './flows/text-prompt-flow.js';
 
 interface IProps {
   title: string;
@@ -7,6 +14,8 @@ interface IProps {
   onSubmit: (value: string) => void;
   onCancel: () => void;
   validate?: (value: string) => string | undefined;
+  allowEmpty?: boolean;
+  masked?: boolean;
 }
 
 export default function TextPrompt({
@@ -15,47 +24,29 @@ export default function TextPrompt({
   onSubmit,
   onCancel,
   validate,
+  allowEmpty = false,
+  masked = false,
 }: IProps): React.ReactElement {
-  const [value, setValue] = useState('');
-  const [error, setError] = useState<string | undefined>();
-  const resolvedRef = useRef(false);
-  const valueRef = useRef('');
-  const handleSubmit = useCallback(() => {
-    if (resolvedRef.current) return;
-    const trimmed = valueRef.current.trim();
-    if (!trimmed) return;
-    if (validate) {
-      const err = validate(trimmed);
-      if (err) {
-        setError(err);
-        return;
+  const [state, setState] = useState<ITextPromptFlowState>(() => createTextPromptFlowState());
+  const stateRef = useRef(state);
+  const applyAction = useCallback(
+    (action: TTextPromptInputAction): void => {
+      const result = applyTextPromptInput(stateRef.current, action, { allowEmpty, validate });
+      stateRef.current = result.state;
+      setState(result.state);
+      if (result.effect.type === 'cancel') {
+        onCancel();
+      } else if (result.effect.type === 'submit') {
+        onSubmit(result.effect.value);
       }
-    }
-    resolvedRef.current = true;
-    onSubmit(trimmed);
-  }, [validate, onSubmit]);
+    },
+    [allowEmpty, validate, onCancel, onSubmit],
+  );
 
   useInput((input, key) => {
-    if (resolvedRef.current) return;
-    if (key.escape) {
-      resolvedRef.current = true;
-      onCancel();
-      return;
-    }
-    if (key.return) {
-      handleSubmit();
-      return;
-    }
-    if (key.backspace || key.delete) {
-      valueRef.current = valueRef.current.slice(0, -1);
-      setValue(valueRef.current);
-      setError(undefined);
-      return;
-    }
-    if (input && !key.ctrl && !key.meta) {
-      valueRef.current = valueRef.current + input;
-      setValue(valueRef.current);
-      setError(undefined);
+    const action = getTextPromptInputAction(input, key);
+    if (action !== undefined) {
+      applyAction(action);
     }
   });
 
@@ -66,10 +57,14 @@ export default function TextPrompt({
       </Text>
       <Box marginTop={1}>
         <Text color="cyan">&gt; </Text>
-        {value ? <Text>{value}</Text> : placeholder ? <Text dimColor>{placeholder}</Text> : null}
+        {state.value ? (
+          <Text>{masked ? '*'.repeat(state.value.length) : state.value}</Text>
+        ) : placeholder ? (
+          <Text dimColor>{placeholder}</Text>
+        ) : null}
         <Text color="cyan">█</Text>
       </Box>
-      {error && <Text color="red">{error}</Text>}
+      {state.error && <Text color="red">{state.error}</Text>}
       <Text dimColor> Enter Submit Esc Cancel</Text>
     </Box>
   );

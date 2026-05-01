@@ -8,6 +8,7 @@
 - Owns Anthropic-specific response parsing, including streaming chunk handling.
 - Owns Anthropic-specific tool call format conversion (`input_schema`-based tools).
 - Owns provider option types (`IAnthropicProviderOptions`, `TAnthropicProviderOptionValue`).
+- Owns Anthropic provider definition metadata used by branch-free CLI/runtime composition.
 - Owns Anthropic API type definitions for messages, requests, responses, streaming, tools, and errors.
 
 ## Boundaries
@@ -29,7 +30,9 @@ The package follows a provider-adapter pattern:
 
 3. **Types layer** (`types.ts`, `types/api-types.ts`) -- provider option interface and Anthropic-specific API type definitions covering messages, requests, streaming, tools, and errors.
 
-4. **Entry point** (`index.ts`) -- re-exports `provider.ts` and `types.ts`, and exposes a `createAnthropicProvider` factory function.
+4. **Provider definition** (`provider-definition.ts`) -- exposes `createAnthropicProviderDefinition()` with setup defaults, validation requirements, and provider construction through the common `IProviderDefinition` contract.
+
+5. **Entry point** (`index.ts`) -- re-exports `provider.ts`, `types.ts`, and `provider-definition.ts`, and exposes a `createAnthropicProvider` factory function.
 
 Dependency direction: `@robota-sdk/agent-provider-anthropic` depends on `@robota-sdk/agent-core` (peer dependency) and `@anthropic-ai/sdk` (direct dependency). No other workspace packages are imported.
 
@@ -47,28 +50,29 @@ The provider uses `max_tokens` from `IChatOptions.maxTokens` if provided. When n
 
 ## Type Ownership
 
-| Type                            | Owner                                  | Location                         |
-| ------------------------------- | -------------------------------------- | -------------------------------- |
-| `IAnthropicProviderOptions`     | `@robota-sdk/agent-provider-anthropic` | `src/types.ts`                   |
-| `TAnthropicProviderOptionValue` | `@robota-sdk/agent-provider-anthropic` | `src/types.ts`                   |
-| `IAnthropicMessage`             | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicContent`             | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicUsage`               | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicChatRequestParams`   | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicStreamRequestParams` | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicRequestMessage`      | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicRequestContent`      | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicTool`                | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicToolProperty`        | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicToolCall`            | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicStreamChunk`         | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicStreamDelta`         | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicError`               | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicLogData`             | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicProviderResponse`    | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `IAnthropicStreamContext`       | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
-| `AnthropicProvider`             | `@robota-sdk/agent-provider-anthropic` | `src/provider.ts`                |
-| `AnthropicResponseParser`       | `@robota-sdk/agent-provider-anthropic` | `src/parsers/response-parser.ts` |
+| Type                               | Owner                                  | Location                         |
+| ---------------------------------- | -------------------------------------- | -------------------------------- |
+| `IAnthropicProviderOptions`        | `@robota-sdk/agent-provider-anthropic` | `src/types.ts`                   |
+| `TAnthropicProviderOptionValue`    | `@robota-sdk/agent-provider-anthropic` | `src/types.ts`                   |
+| `IAnthropicMessage`                | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicContent`                | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicUsage`                  | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicChatRequestParams`      | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicStreamRequestParams`    | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicRequestMessage`         | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicRequestContent`         | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicTool`                   | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicToolProperty`           | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicToolCall`               | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicStreamChunk`            | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicStreamDelta`            | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicError`                  | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicLogData`                | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicProviderResponse`       | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `IAnthropicStreamContext`          | `@robota-sdk/agent-provider-anthropic` | `src/types/api-types.ts`         |
+| `AnthropicProvider`                | `@robota-sdk/agent-provider-anthropic` | `src/provider.ts`                |
+| `AnthropicResponseParser`          | `@robota-sdk/agent-provider-anthropic` | `src/parsers/response-parser.ts` |
+| `DEFAULT_ANTHROPIC_PROVIDER_MODEL` | `@robota-sdk/agent-provider-anthropic` | `src/provider-definition.ts`     |
 
 Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniversalMessage`, `IChatOptions`, `IToolSchema`, `IAssistantMessage`, `IExecutor`, `TProviderOptionValueBase`, `logger`.
 
@@ -77,6 +81,8 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 | Export                                      | Kind                        | Source                           | Description                                                                                                                                                                                                                   |
 | ------------------------------------------- | --------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AnthropicProvider`                         | class                       | `src/provider.ts`                | Anthropic provider implementing `AbstractAIProvider`. Methods: `chat()`, `chatStream()`, `supportsTools()`, `validateConfig()`, `dispose()`.                                                                                  |
+| `createAnthropicProviderDefinition`         | function                    | `src/provider-definition.ts`     | Returns an `IProviderDefinition` for branch-free provider composition.                                                                                                                                                        |
+| `DEFAULT_ANTHROPIC_PROVIDER_MODEL`          | constant                    | `src/provider-definition.ts`     | Package-owned default model for setup definitions.                                                                                                                                                                            |
 | ~~`AnthropicResponseParser`~~               | class (internal)            | `src/parsers/response-parser.ts` | Internal static utility — not exported from `src/index.ts`. Used by `AnthropicProvider` internally for response/streaming parsing.                                                                                            |
 | `IAnthropicProviderOptions`                 | interface                   | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature.                                                                               |
 | `TAnthropicProviderOptionValue`             | type alias                  | `src/types.ts`                   | Union type for valid provider option values.                                                                                                                                                                                  |
@@ -156,9 +162,10 @@ None. This package has no local interface implementations.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                      | Adapter             | Location          |
-| --------------------------------- | ------------------- | ----------------- |
-| `AbstractAIProvider` (agent-core) | `AnthropicProvider` | `src/provider.ts` |
+| Port (Owner)                       | Adapter                             | Location                     |
+| ---------------------------------- | ----------------------------------- | ---------------------------- |
+| `AbstractAIProvider` (agent-core)  | `AnthropicProvider`                 | `src/provider.ts`            |
+| `IProviderDefinition` (agent-core) | `createAnthropicProviderDefinition` | `src/provider-definition.ts` |
 
 ## Test Strategy
 

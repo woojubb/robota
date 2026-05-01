@@ -110,7 +110,7 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 1. **ToolRegistry** -- Consumers register custom tools via `ToolRegistry.register()`. The registry manages name-based lookup and schema retrieval.
 
-2. **FunctionTool / createZodFunctionTool** -- Consumers create custom tools from plain functions with Zod schemas for parameter validation.
+2. **FunctionTool / createZodFunctionTool** -- Consumers create custom tools from plain functions with Zod schemas for parameter validation. Zod object schemas marked with `passthrough()` are converted to root `additionalProperties: true`, and `FunctionTool` validation accepts unknown root parameters for those schemas.
 
 3. **OpenAPITool / createOpenAPITool** -- Consumers create tools from OpenAPI specifications for API integration.
 

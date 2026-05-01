@@ -1,0 +1,3 @@
+# Agent Command Agent Docs
+
+- [SPEC.md](SPEC.md) - package contract, ownership, public API, and verification expectations.

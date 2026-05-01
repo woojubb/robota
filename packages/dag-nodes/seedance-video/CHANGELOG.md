@@ -1,5 +1,15 @@
 # @robota-sdk/dag-node-seedance-video
 
+## 3.0.0-beta.56
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.56
+  - @robota-sdk/agent-provider-bytedance@3.0.0-beta.56
+  - @robota-sdk/dag-core@3.0.0-beta.56
+  - @robota-sdk/dag-node@3.0.0-beta.56
+
 ## 3.0.0-beta.55
 
 ### Patch Changes

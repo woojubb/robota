@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.55",
+  "version": "3.0.0-beta.56",
   "description": "AI coding assistant CLI built on Robota SDK",
   "type": "module",
   "bin": {
@@ -30,15 +30,15 @@
     "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/bin.ts --format esm,cjs --dts --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
-    "build:js": "tsup src/index.ts src/bin.ts --format esm,cjs --out-dir dist/node --clean && rm -f dist/node/bin.cjs",
-    "build:types": "tsup src/index.ts src/bin.ts --format esm,cjs --dts-only --out-dir dist/node && rm -f dist/node/bin.d.cts",
+    "build": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --dts --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/bin.d.cts dist/node/subagents/child-process-subagent-worker.cjs dist/node/subagents/child-process-subagent-worker.d.cts",
+    "build:js": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/subagents/child-process-subagent-worker.cjs",
+    "build:types": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --dts-only --out-dir dist/node && rm -f dist/node/bin.d.cts dist/node/subagents/child-process-subagent-worker.d.cts",
     "dev": "tsx --env-file=.env src/bin.ts",
     "start": "node --env-file=.env dist/node/bin.js",
     "test": "vitest run --passWithNoTests",
@@ -48,14 +48,17 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-command-agent": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
+    "@robota-sdk/agent-provider-gemma": "workspace:*",
+    "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-sdk": "workspace:*",
-    "@robota-sdk/agent-sessions": "workspace:3.0.0-beta.55",
+    "@robota-sdk/agent-sessions": "workspace:3.0.0-beta.56",
     "@robota-sdk/agent-transport-headless": "workspace:*",
     "chalk": "^5.3.0",
     "cli-highlight": "^2.1.0",
-    "ink": "^6.8.0",
+    "ink": "^7.0.1",
     "ink-select-input": "^6.2.0",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
@@ -65,6 +68,7 @@
     "string-width": "^8.2.0"
   },
   "devDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "@types/marked": "^6.0.0",
     "@types/react": "^19.2.14",
     "ink-testing-library": "^4.0.0",

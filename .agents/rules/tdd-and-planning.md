@@ -9,6 +9,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Never write production code without a failing test that demands it.
 - Never refactor while tests are failing.
 - Bug fixes start with a test that reproduces the bug.
+- Agent/tool orchestration bugs require behavior tests that prove trigger, runtime event, terminal result or timeout, session persistence, and parent-turn follow-up. A test that only checks parser output or spawned-job count is incomplete.
 - **Pre-refactor rule**: Before modularizing or restructuring existing code, write characterization tests that capture current behavior. Commit tests before any extraction. See `pre-refactor-test-harness` skill.
 
 ### Planning Requirements

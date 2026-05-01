@@ -6,7 +6,12 @@
  */
 
 import { runHooks } from '@robota-sdk/agent-core';
-import type { IAIProvider, THooksConfig, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  THooksConfig,
+  IHookTypeExecutor,
+  TTextDeltaCallback,
+} from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
@@ -27,6 +32,7 @@ export interface IRunContext {
   persistSession: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
+  onTextDelta?: TTextDeltaCallback;
 }
 
 /**
@@ -95,6 +101,8 @@ export async function executeRun(
     historyLength: history.length,
     historyChars: historyJson.length,
     historyEstTokens: Math.ceil(historyJson.length / 4),
+    input: enrichedMessage,
+    history,
     model: ctx.model,
     provider: ctx.aiProvider.name,
     maxTokens: ctx.contextTracker.getContextState().maxTokens,
@@ -103,7 +111,17 @@ export async function executeRun(
 
   let response: string;
   try {
-    response = await ctx.robota.run(enrichedMessage, { signal: abortSignal });
+    const onTextDelta = ctx.onTextDelta
+      ? (delta: string): void => {
+          ctx.log('text_delta', { delta });
+          ctx.onTextDelta?.(delta);
+        }
+      : undefined;
+
+    response = await ctx.robota.run(enrichedMessage, {
+      signal: abortSignal,
+      ...(onTextDelta && { onTextDelta }),
+    });
 
     // If execution was interrupted (abort fired during execution),
     // throw AbortError so the caller (useSubmitHandler) shows "Cancelled."
@@ -116,6 +134,22 @@ export async function executeRun(
       stack: error instanceof Error ? (error.stack ?? '') : '',
       historyLength: ctx.robota.getHistory().length,
     });
+    runHooks(
+      ctx.hooks as THooksConfig | undefined,
+      'StopFailure',
+      {
+        session_id: ctx.sessionId,
+        cwd: ctx.cwd,
+        hook_event_name: 'StopFailure',
+        reason: error instanceof Error ? error.message : String(error),
+        stop_hook_active: false,
+        env: {
+          CLAUDE_PROJECT_DIR: ctx.cwd,
+          CLAUDE_SESSION_ID: ctx.sessionId,
+        },
+      },
+      ctx.hookTypeExecutors,
+    ).catch(() => {});
     throw error;
   }
 
@@ -136,9 +170,10 @@ export async function executeRun(
     };
   });
   ctx.log('assistant', {
-    content: response.substring(0, 500),
+    content: response,
     historyLength: postHistory.length,
     estimatedChars: JSON.stringify(postHistory).length,
+    history: postHistory,
     historyStructure,
   });
 
@@ -162,6 +197,8 @@ export async function executeRun(
       cwd: ctx.cwd,
       hook_event_name: 'Stop',
       response: response.substring(0, 500),
+      last_assistant_message: response,
+      stop_hook_active: false,
       env: {
         CLAUDE_PROJECT_DIR: ctx.cwd,
         CLAUDE_SESSION_ID: ctx.sessionId,

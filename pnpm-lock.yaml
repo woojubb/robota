@@ -552,12 +552,21 @@ importers:
 
   packages/agent-cli:
     dependencies:
+      '@robota-sdk/agent-command-agent':
+        specifier: workspace:*
+        version: link:../agent-command-agent
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-gemma':
+        specifier: workspace:*
+        version: link:../agent-provider-gemma
+      '@robota-sdk/agent-provider-openai':
+        specifier: workspace:*
+        version: link:../agent-provider-openai
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -574,17 +583,17 @@ importers:
         specifier: ^2.1.0
         version: 2.1.11
       ink:
-        specifier: ^6.8.0
-        version: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+        specifier: ^7.0.1
+        version: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       ink-select-input:
         specifier: ^6.2.0
-        version: 6.2.0(ink@6.8.0)(react@19.2.4)
+        version: 6.2.0(ink@7.0.1)(react@19.2.4)
       ink-spinner:
         specifier: ^5.0.0
-        version: 5.0.0(ink@6.8.0)(react@19.2.4)
+        version: 5.0.0(ink@7.0.1)(react@19.2.4)
       ink-text-input:
         specifier: ^6.0.0
-        version: 6.0.0(ink@6.8.0)(react@19.2.4)
+        version: 6.0.0(ink@7.0.1)(react@19.2.4)
       marked:
         specifier: ^9.1.5
         version: 9.1.6
@@ -598,6 +607,9 @@ importers:
         specifier: ^8.2.0
         version: 8.2.0
     devDependencies:
+      '@homebridge/node-pty-prebuilt-multiarch':
+        specifier: ^0.13.1
+        version: 0.13.1
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -616,6 +628,25 @@ importers:
       tsx:
         specifier: ^4.7.0
         version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-agent:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -1048,6 +1079,40 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/agent-provider-gemma:
+    dependencies:
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(zod@3.25.76)
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/agent-provider-google:
     dependencies:
       '@google/generative-ai':
@@ -1080,6 +1145,40 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-provider-openai:
+    dependencies:
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(zod@3.25.76)
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-provider-openai-compatible:
     dependencies:
       openai:
         specifier: ^4.98.0
@@ -1132,11 +1231,36 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/agent-runtime:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/agent-sdk:
     dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
       '@robota-sdk/agent-sessions':
         specifier: workspace:*
         version: link:../agent-sessions
@@ -2013,15 +2137,15 @@ packages:
       }
     dev: true
 
-  /@alcalzone/ansi-tokenize@0.2.5:
+  /@alcalzone/ansi-tokenize@0.3.0:
     resolution:
       {
-        integrity: sha512-3NX/MpTdroi0aKz134A6RC2Gb2iXVECN4QaAXnvCIxxIm3C3AVB1mkUe8NaaiyvOpDfsrqWhYtj+Q6a62RrTsw==,
+        integrity: sha512-p+CMKJ93HFmLkjXKlXiVGlMQEuRb6H0MokBSwUsX+S6BRX8eV5naFZpQJFfJHjRZY0Hmnqy1/r6UWl3x+19zYA==,
       }
     engines: { node: '>=18' }
     dependencies:
-      ansi-styles: 6.2.1
-      is-fullwidth-code-point: 5.0.0
+      ansi-styles: 6.2.3
+      is-fullwidth-code-point: 5.1.0
     dev: false
 
   /@algolia/autocomplete-core@1.17.7(@algolia/client-search@5.34.0)(algoliasearch@5.34.0)(search-insights@2.17.3):
@@ -4556,6 +4680,18 @@ packages:
       yargs: 17.7.2
     dev: false
     optional: true
+
+  /@homebridge/node-pty-prebuilt-multiarch@0.13.1:
+    resolution:
+      {
+        integrity: sha512-ccQ60nMcbEGrQh0U9E6x0ajW9qJNeazpcM/9CH6J8leyNtJgb+gu24WTBAfBUVeO486ZhscnaxLEITI2HXwhow==,
+      }
+    engines: { node: '>=18.0.0 <25.0.0' }
+    requiresBuild: true
+    dependencies:
+      node-addon-api: 7.1.1
+      prebuild-install: 7.1.3
+    dev: true
 
   /@hono/node-server@1.19.11(hono@4.12.9):
     resolution:
@@ -8706,7 +8842,7 @@ packages:
       '@typescript-eslint/types': 6.21.0
       '@typescript-eslint/typescript-estree': 6.21.0(typescript@5.8.3)
       '@typescript-eslint/visitor-keys': 6.21.0
-      debug: 4.4.1
+      debug: 4.4.3
       eslint: 9.31.0
       typescript: 5.8.3
     transitivePeerDependencies:
@@ -8886,7 +9022,7 @@ packages:
       globby: 11.1.0
       is-glob: 4.0.3
       minimatch: 9.0.9
-      semver: 7.7.2
+      semver: 7.7.4
       ts-api-utils: 1.4.3(typescript@5.8.3)
       typescript: 5.8.3
     transitivePeerDependencies:
@@ -9810,6 +9946,7 @@ packages:
         integrity: sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==,
       }
     engines: { node: '>=12' }
+    dev: true
 
   /ansi-styles@6.2.3:
     resolution:
@@ -10352,6 +10489,17 @@ packages:
       }
     dev: true
 
+  /bl@4.1.0:
+    resolution:
+      {
+        integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==,
+      }
+    dependencies:
+      buffer: 5.7.1
+      inherits: 2.0.4
+      readable-stream: 3.6.2
+    dev: true
+
   /body-parser@1.20.3:
     resolution:
       {
@@ -10463,6 +10611,16 @@ packages:
       {
         integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==,
       }
+
+  /buffer@5.7.1:
+    resolution:
+      {
+        integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==,
+      }
+    dependencies:
+      base64-js: 1.5.1
+      ieee754: 1.2.1
+    dev: true
 
   /buffer@6.0.3:
     resolution:
@@ -10714,6 +10872,13 @@ packages:
       readdirp: 5.0.0
     dev: false
 
+  /chownr@1.1.4:
+    resolution:
+      {
+        integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==,
+      }
+    dev: true
+
   /chownr@3.0.0:
     resolution:
       {
@@ -10769,12 +10934,12 @@ packages:
       }
     dev: false
 
-  /cli-boxes@3.0.0:
+  /cli-boxes@4.0.1:
     resolution:
       {
-        integrity: sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g==,
+        integrity: sha512-5IOn+jcCEHEraYolBPs/sT4BxYCe2nHg374OPiItB1O96KZFseS2gthU4twyYzeDcFew4DaUM/xwc5BQf08JJw==,
       }
-    engines: { node: '>=10' }
+    engines: { node: '>=18.20 <19 || >=20.10' }
     dev: false
 
   /cli-cursor@4.0.0:
@@ -10844,14 +11009,14 @@ packages:
       string-width: 7.2.0
     dev: true
 
-  /cli-truncate@5.2.0:
+  /cli-truncate@6.0.0:
     resolution:
       {
-        integrity: sha512-xRwvIOMGrfOAnM1JYtqQImuaNtDEv9v6oIYAs4LIHwTiKee8uwvIi363igssOC0O5U04i4AlENs79LQLu9tEMw==,
+        integrity: sha512-3+YKIUFsohD9MIoOFPFBldjAlnfCmCDcqe6aYGFqlDTRKg80p4wg35L+j83QQ63iOlKRccEkbn8IuM++HsgEjA==,
       }
-    engines: { node: '>=20' }
+    engines: { node: '>=22' }
     dependencies:
-      slice-ansi: 8.0.0
+      slice-ansi: 9.0.0
       string-width: 8.2.0
     dev: false
 
@@ -11547,6 +11712,16 @@ packages:
       character-entities: 2.0.2
     dev: false
 
+  /decompress-response@6.0.0:
+    resolution:
+      {
+        integrity: sha512-aW35yZM6Bb/4oJlZncMH2LCoZtJXTRxES17vE3hoRiowU2kWHaJKFkSBDnDR+cm9J+9QhXmREyIfv0pji9ejCQ==,
+      }
+    engines: { node: '>=10' }
+    dependencies:
+      mimic-response: 3.1.0
+    dev: true
+
   /dedent@1.6.0:
     resolution:
       {
@@ -11567,6 +11742,14 @@ packages:
     engines: { node: '>=6' }
     dependencies:
       type-detect: 4.1.0
+    dev: true
+
+  /deep-extend@0.6.0:
+    resolution:
+      {
+        integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==,
+      }
+    engines: { node: '>=4.0.0' }
     dev: true
 
   /deep-is@0.1.4:
@@ -11935,6 +12118,7 @@ packages:
       {
         integrity: sha512-EC+0oUMY1Rqm4O6LLrgjtYDvcVYTy7chDnM4Q7030tP4Kwj3u/pR6gP9ygnp2CJMK5Gq+9Q2oqmrFJAz01DXjw==,
       }
+    dev: true
 
   /emoji-regex@8.0.0:
     resolution:
@@ -11986,8 +12170,6 @@ packages:
     requiresBuild: true
     dependencies:
       once: 1.4.0
-    dev: false
-    optional: true
 
   /enhanced-resolve@5.18.2:
     resolution:
@@ -13092,6 +13274,14 @@ packages:
     engines: { node: '>= 0.8.0' }
     dev: true
 
+  /expand-template@2.0.3:
+    resolution:
+      {
+        integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==,
+      }
+    engines: { node: '>=6' }
+    dev: true
+
   /expect@30.0.4:
     resolution:
       {
@@ -13742,6 +13932,13 @@ packages:
       js-yaml: 3.14.1
     dev: true
 
+  /fs-constants@1.0.0:
+    resolution:
+      {
+        integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==,
+      }
+    dev: true
+
   /fs-extra@11.3.0:
     resolution:
       {
@@ -13975,6 +14172,13 @@ packages:
       }
     dependencies:
       resolve-pkg-maps: 1.0.0
+
+  /github-from-package@0.0.0:
+    resolution:
+      {
+        integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==,
+      }
+    dev: true
 
   /github-slugger@2.0.0:
     resolution:
@@ -14814,6 +15018,13 @@ packages:
         integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==,
       }
 
+  /ini@1.3.8:
+    resolution:
+      {
+        integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==,
+      }
+    dev: true
+
   /ini@4.1.1:
     resolution:
       {
@@ -14822,7 +15033,7 @@ packages:
     engines: { node: ^14.17.0 || ^16.13.0 || >=18.0.0 }
     dev: true
 
-  /ink-select-input@6.2.0(ink@6.8.0)(react@19.2.4):
+  /ink-select-input@6.2.0(ink@7.0.1)(react@19.2.4):
     resolution:
       {
         integrity: sha512-304fZXxkpYxJ9si5lxRCaX01GNlmPBgOZumXXRnPYbHW/iI31cgQynqk2tRypGLOF1cMIwPUzL2LSm6q4I5rQQ==,
@@ -14833,12 +15044,12 @@ packages:
       react: '>=18.0.0'
     dependencies:
       figures: 6.1.0
-      ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
       to-rotated: 1.0.0
     dev: false
 
-  /ink-spinner@5.0.0(ink@6.8.0)(react@19.2.4):
+  /ink-spinner@5.0.0(ink@7.0.1)(react@19.2.4):
     resolution:
       {
         integrity: sha512-EYEasbEjkqLGyPOUc8hBJZNuC5GvXGMLu0w5gdTNskPc7Izc5vO3tdQEYnzvshucyGCBXc86ig0ujXPMWaQCdA==,
@@ -14849,7 +15060,7 @@ packages:
       react: '>=18.0.0'
     dependencies:
       cli-spinners: 2.9.2
-      ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
     dev: false
 
@@ -14868,7 +15079,7 @@ packages:
       '@types/react': 19.2.14
     dev: true
 
-  /ink-text-input@6.0.0(ink@6.8.0)(react@19.2.4):
+  /ink-text-input@6.0.0(ink@7.0.1)(react@19.2.4):
     resolution:
       {
         integrity: sha512-Fw64n7Yha5deb1rHY137zHTAbSTNelUKuB5Kkk2HACXEtwIHBCf9OH2tP/LQ9fRYTl1F0dZgbW0zPnZk6FA9Lw==,
@@ -14879,20 +15090,20 @@ packages:
       react: '>=18'
     dependencies:
       chalk: 5.6.2
-      ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
+      ink: 7.0.1(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
       type-fest: 4.41.0
     dev: false
 
-  /ink@6.8.0(@types/react@19.2.14)(react@19.2.4):
+  /ink@7.0.1(@types/react@19.2.14)(react@19.2.4):
     resolution:
       {
-        integrity: sha512-sbl1RdLOgkO9isK42WCZlJCFN9hb++sX9dsklOvfd1YQ3bQ2AiFu12Q6tFlr0HvEUvzraJntQCCpfEoUe9DSzA==,
+        integrity: sha512-o6LAC268PLawlGVYrXTyaTfke4VtJftEheuwbgkQf7yvSXyWp1nRwBbAyKEkWXFZZsW/la5wrMuNbuBvZK2C1w==,
       }
-    engines: { node: '>=20' }
+    engines: { node: '>=22' }
     peerDependencies:
-      '@types/react': '>=19.0.0'
-      react: '>=19.0.0'
+      '@types/react': '>=19.2.0'
+      react: '>=19.2.0'
       react-devtools-core: '>=6.1.2'
     peerDependenciesMeta:
       '@types/react':
@@ -14900,15 +15111,15 @@ packages:
       react-devtools-core:
         optional: true
     dependencies:
-      '@alcalzone/ansi-tokenize': 0.2.5
+      '@alcalzone/ansi-tokenize': 0.3.0
       '@types/react': 19.2.14
       ansi-escapes: 7.3.0
-      ansi-styles: 6.2.1
+      ansi-styles: 6.2.3
       auto-bind: 5.0.1
       chalk: 5.6.2
-      cli-boxes: 3.0.0
+      cli-boxes: 4.0.1
       cli-cursor: 4.0.0
-      cli-truncate: 5.2.0
+      cli-truncate: 6.0.0
       code-excerpt: 4.0.0
       es-toolkit: 1.45.1
       indent-string: 5.0.0
@@ -14918,14 +15129,14 @@ packages:
       react-reconciler: 0.33.0(react@19.2.4)
       scheduler: 0.27.0
       signal-exit: 3.0.7
-      slice-ansi: 8.0.0
+      slice-ansi: 9.0.0
       stack-utils: 2.0.6
       string-width: 8.2.0
       terminal-size: 4.0.1
-      type-fest: 5.4.4
+      type-fest: 5.6.0
       widest-line: 6.0.0
-      wrap-ansi: 9.0.0
-      ws: 8.18.3
+      wrap-ansi: 10.0.0
+      ws: 8.20.0
       yoga-layout: 3.2.1
     transitivePeerDependencies:
       - bufferutil
@@ -15166,6 +15377,7 @@ packages:
     engines: { node: '>=18' }
     dependencies:
       get-east-asian-width: 1.5.0
+    dev: true
 
   /is-fullwidth-code-point@5.1.0:
     resolution:
@@ -18008,6 +18220,14 @@ packages:
     engines: { node: '>=18' }
     dev: true
 
+  /mimic-response@3.1.0:
+    resolution:
+      {
+        integrity: sha512-z0yWI+4FDrrweS8Zmt4Ej5HdJmky15+L2e6Wgn3+iK5fWzb6T3fhNFq2+MeTRb064c6Wr4N/wv0DzQTjNzHNGQ==,
+      }
+    engines: { node: '>=10' }
+    dev: true
+
   /min-indent@1.0.1:
     resolution:
       {
@@ -18071,6 +18291,13 @@ packages:
     resolution:
       {
         integrity: sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==,
+      }
+    dev: true
+
+  /mkdirp-classic@0.5.3:
+    resolution:
+      {
+        integrity: sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==,
       }
     dev: true
 
@@ -18150,6 +18377,13 @@ packages:
       }
     engines: { node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1 }
     hasBin: true
+
+  /napi-build-utils@2.0.0:
+    resolution:
+      {
+        integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==,
+      }
+    dev: true
 
   /napi-postinstall@0.3.2:
     resolution:
@@ -18251,6 +18485,23 @@ packages:
     dependencies:
       '@types/nlcst': 2.0.3
     dev: false
+
+  /node-abi@3.89.0:
+    resolution:
+      {
+        integrity: sha512-6u9UwL0HlAl21+agMN3YAMXcKByMqwGx+pq+P76vii5f7hTPtKDp08/H9py6DY+cfDw7kQNTGEj/rly3IgbNQA==,
+      }
+    engines: { node: '>=10' }
+    dependencies:
+      semver: 7.7.4
+    dev: true
+
+  /node-addon-api@7.1.1:
+    resolution:
+      {
+        integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==,
+      }
+    dev: true
 
   /node-domexception@1.0.0:
     resolution:
@@ -19182,6 +19433,29 @@ packages:
       }
     dev: true
 
+  /prebuild-install@7.1.3:
+    resolution:
+      {
+        integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==,
+      }
+    engines: { node: '>=10' }
+    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+    hasBin: true
+    dependencies:
+      detect-libc: 2.0.4
+      expand-template: 2.0.3
+      github-from-package: 0.0.0
+      minimist: 1.2.8
+      mkdirp-classic: 0.5.3
+      napi-build-utils: 2.0.0
+      node-abi: 3.89.0
+      pump: 3.0.4
+      rc: 1.2.8
+      simple-get: 4.0.1
+      tar-fs: 2.1.4
+      tunnel-agent: 0.6.0
+    dev: true
+
   /prelude-ls@1.2.1:
     resolution:
       {
@@ -19332,6 +19606,16 @@ packages:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
 
+  /pump@3.0.4:
+    resolution:
+      {
+        integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==,
+      }
+    dependencies:
+      end-of-stream: 1.4.5
+      once: 1.4.0
+    dev: true
+
   /punycode@2.3.1:
     resolution:
       {
@@ -19426,6 +19710,19 @@ packages:
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       unpipe: 1.0.0
+
+  /rc@1.2.8:
+    resolution:
+      {
+        integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==,
+      }
+    hasBin: true
+    dependencies:
+      deep-extend: 0.6.0
+      ini: 1.3.8
+      minimist: 1.2.8
+      strip-json-comments: 2.0.1
+    dev: true
 
   /react-dom@19.1.0(react@19.1.0):
     resolution:
@@ -20570,6 +20867,24 @@ packages:
     engines: { node: '>=14' }
     dev: true
 
+  /simple-concat@1.0.1:
+    resolution:
+      {
+        integrity: sha512-cSFtAPtRhljv69IK0hTVZQ+OfE9nePi/rtJmw5UjHeVyVroEqJXP1sFztKUy1qU+xvz3u/sfYJLa947b7nAN2Q==,
+      }
+    dev: true
+
+  /simple-get@4.0.1:
+    resolution:
+      {
+        integrity: sha512-brv7p5WgH0jmQJr1ZDDfKDOSeWWg+OVypG99A/5vYGPqJ6pxiaHLy8nxtFjBA7oMa01ebA9gfh1uMCFqOuXxvA==,
+      }
+    dependencies:
+      decompress-response: 6.0.0
+      once: 1.4.0
+      simple-concat: 1.0.1
+    dev: true
+
   /simple-swizzle@0.2.2:
     resolution:
       {
@@ -20652,12 +20967,12 @@ packages:
       is-fullwidth-code-point: 5.0.0
     dev: true
 
-  /slice-ansi@8.0.0:
+  /slice-ansi@9.0.0:
     resolution:
       {
-        integrity: sha512-stxByr12oeeOyY2BlviTNQlYV5xOj47GirPr4yA1hE9JCtxfQN0+tVbkxwCtYDQWhEKWFHsEK48ORg5jrouCAg==,
+        integrity: sha512-SO/3iYL5S3W57LLEniscOGPZgOqZUPCx6d3dB+52B80yJ0XstzsC/eV8gnA4tM3MHDrKz+OCFSLNjswdSC+/bA==,
       }
-    engines: { node: '>=20' }
+    engines: { node: '>=22' }
     dependencies:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
@@ -20905,6 +21220,7 @@ packages:
       emoji-regex: 10.4.0
       get-east-asian-width: 1.5.0
       strip-ansi: 7.2.0
+    dev: true
 
   /string-width@8.2.0:
     resolution:
@@ -21037,6 +21353,7 @@ packages:
     engines: { node: '>=12' }
     dependencies:
       ansi-regex: 6.2.2
+    dev: true
 
   /strip-ansi@7.2.0:
     resolution:
@@ -21087,6 +21404,14 @@ packages:
     engines: { node: '>=8' }
     dependencies:
       min-indent: 1.0.1
+    dev: true
+
+  /strip-json-comments@2.0.1:
+    resolution:
+      {
+        integrity: sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ==,
+      }
+    engines: { node: '>=0.10.0' }
     dev: true
 
   /strip-json-comments@3.1.1:
@@ -21321,6 +21646,32 @@ packages:
         integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==,
       }
     engines: { node: '>=6' }
+    dev: true
+
+  /tar-fs@2.1.4:
+    resolution:
+      {
+        integrity: sha512-mDAjwmZdh7LTT6pNleZ05Yt65HC3E+NiQzl672vQG38jIrehtJk/J3mNwIg+vShQPcLF/LV7CMnDW6vjj6sfYQ==,
+      }
+    dependencies:
+      chownr: 1.1.4
+      mkdirp-classic: 0.5.3
+      pump: 3.0.4
+      tar-stream: 2.2.0
+    dev: true
+
+  /tar-stream@2.2.0:
+    resolution:
+      {
+        integrity: sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ==,
+      }
+    engines: { node: '>=6' }
+    dependencies:
+      bl: 4.1.0
+      end-of-stream: 1.4.5
+      fs-constants: 1.0.0
+      inherits: 2.0.4
+      readable-stream: 3.6.2
     dev: true
 
   /tar@7.5.13:
@@ -21789,6 +22140,15 @@ packages:
     optionalDependencies:
       fsevents: 2.3.3
 
+  /tunnel-agent@0.6.0:
+    resolution:
+      {
+        integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==,
+      }
+    dependencies:
+      safe-buffer: 5.2.1
+    dev: true
+
   /tw-animate-css@1.3.5:
     resolution:
       {
@@ -21846,10 +22206,10 @@ packages:
     engines: { node: '>=16' }
     dev: false
 
-  /type-fest@5.4.4:
+  /type-fest@5.6.0:
     resolution:
       {
-        integrity: sha512-JnTrzGu+zPV3aXIUhnyWJj4z/wigMsdYajGLIYakqyOW1nPllzXEJee0QQbHj+CTIQtXGlAjuK0UY+2xTyjVAw==,
+        integrity: sha512-8ZiHFm91orbSAe2PSAiSVBVko18pbhbiB3U9GglSzF/zCGkR+rxpHx6sEMCUm4kxY4LjDIUGgCfUMtwfZfjfUA==,
       }
     engines: { node: '>=20' }
     dependencies:
@@ -22487,7 +22847,7 @@ packages:
     hasBin: true
     dependencies:
       cac: 6.7.14
-      debug: 4.4.1
+      debug: 4.4.3
       pathe: 1.1.2
       picocolors: 1.1.1
       vite: 5.4.19(@types/node@20.19.9)
@@ -23115,6 +23475,18 @@ packages:
       }
     dev: true
 
+  /wrap-ansi@10.0.0:
+    resolution:
+      {
+        integrity: sha512-SGcvg80f0wUy2/fXES19feHMz8E0JoXv2uNgHOu4Dgi2OrCy1lqwFYEJz1BLbDI0exjPMe/ZdzZ/YpGECBG/aQ==,
+      }
+    engines: { node: '>=20' }
+    dependencies:
+      ansi-styles: 6.2.3
+      string-width: 8.2.0
+      strip-ansi: 7.2.0
+    dev: false
+
   /wrap-ansi@7.0.0:
     resolution:
       {
@@ -23148,6 +23520,7 @@ packages:
       ansi-styles: 6.2.1
       string-width: 7.2.0
       strip-ansi: 7.1.0
+    dev: true
 
   /wrappy@1.0.2:
     resolution:
@@ -23196,6 +23569,22 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  /ws@8.20.0:
+    resolution:
+      {
+        integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==,
+      }
+    engines: { node: '>=10.0.0' }
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
 
   /xml-name-validator@5.0.0:
     resolution:

@@ -1,12 +1,12 @@
 #!/bin/bash
 # eval-log-stop hook
 # Captures session metrics on stop: commits, test files changed.
-# Appends a summary line to .agents/evals/harness-log/sessions.jsonl
+# Appends a summary line to .agents/evals/local-metrics/sessions.jsonl
 
 set -uo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
-LOG_DIR="$PROJECT_DIR/.agents/evals/harness-log"
+LOG_DIR="$PROJECT_DIR/.agents/evals/local-metrics"
 LOG_FILE="$LOG_DIR/sessions.jsonl"
 
 mkdir -p "$LOG_DIR"

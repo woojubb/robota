@@ -53,6 +53,8 @@ agent-remote-client                    (HTTP client, no agent-sdk dependency)
 
 `InteractiveSession` maintains history as `IHistoryEntry[]` — a universal timeline that includes both chat messages (user/assistant turns) and session events (tool calls, system events, status changes). This is the single source of truth for display and persistence.
 
+Background tasks are tracked alongside the session through runtime snapshots and append-only JSONL event/transcript streams. High-frequency streaming output is stored in logs/transcripts, while session JSON stores resumable task state and references.
+
 ```
 User input
   → InteractiveSession.submit()

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.56
+
+### Patch Changes
+
+- Prepare a coordinated beta release for batch npm publishing.
+
 ## 3.0.0-beta.55
 
 ### Patch Changes

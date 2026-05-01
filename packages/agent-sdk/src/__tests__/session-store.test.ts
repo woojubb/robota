@@ -45,11 +45,27 @@ describe('SessionStore', () => {
           { role: 'user', content: 'hello' },
           { role: 'assistant', content: 'world' },
         ],
+        systemPrompt: 'system prompt with /agent capability',
+        toolSchemas: [
+          {
+            name: 'ExecuteCommand',
+            description: 'Execute commands',
+            parameters: { type: 'object', properties: {} },
+          },
+        ],
       });
       store.save(record);
       const loaded = store.load(record.id);
       expect(loaded?.messages).toHaveLength(2);
       expect(loaded?.name).toBe('My Session');
+      expect(loaded?.systemPrompt).toBe('system prompt with /agent capability');
+      expect(loaded?.toolSchemas).toEqual([
+        {
+          name: 'ExecuteCommand',
+          description: 'Execute commands',
+          parameters: { type: 'object', properties: {} },
+        },
+      ]);
     });
 
     it('overwrites an existing session on re-save', () => {
