@@ -1,6 +1,6 @@
 ---
 title: CLI-BL-036 Background Agent Result Orchestration
-status: in-progress
+status: completed
 priority: high
 urgency: next
 created: 2026-05-01
@@ -15,6 +15,8 @@ related:
   - .agents/tasks/completed/CLI-BL-030-background-agent-jobs.md
   - .agents/tasks/completed/CLI-BL-032-agent-invocation-router.md
   - .agents/tasks/CLI-BL-035-background-agent-watchdogs.md
+merged_prs:
+  - 108
 ---
 
 # CLI-BL-036 Background Agent Result Orchestration
@@ -94,6 +96,12 @@ The `/agent` command module should expose orchestration usage in its own command
 - Confirmed the terminal events were persisted later: one subagent failed with idle timeout and two reached completed states. Because no group or wait contract existed for direct `Agent` tool calls, completed/failed outcomes did not trigger a parent continuation.
 - Updated the direct `Agent` tool contract so background runtime mode still waits for a terminal result by default. Completed, failed, and timed-out results now flow back through the tool result channel and trigger the normal parent model continuation. Explicit `detach: true` is required for fire-and-return behavior.
 
+### 2026-05-02 completion verification
+
+- Confirmed PR #108 merged the background orchestration flow onto `develop`.
+- Ran targeted SDK orchestrator/direct Agent tool/session tests, `agent-command-agent` command tests, and headless/WebSocket group event tests.
+- Fixed the `agent-command-agent` regression test so it preserves SDK core model-invocable commands such as `/memory` while asserting that injected `/agent` is added by the command module.
+
 ## Test Plan
 
 - Given a group with two running jobs, when both complete successfully, then the orchestrator emits one `group_completed` event with both result envelopes.
@@ -116,9 +124,13 @@ The `/agent` command module should expose orchestration usage in its own command
 
 ## Acceptance Criteria
 
-- Background agent groups can be created, waited on, and summarized without CLI-owned orchestration logic.
-- Parent-session follow-up work can be triggered from SDK-owned group completion events with full session-log provenance.
-- TUI can show both individual background tasks and group-level completion notifications.
-- `/agent` command/tool descriptors explain orchestration usage without hardcoded global prompt directives.
-- Completed background agent outputs are summarized into parent context; verbose logs stay referenced unless explicitly requested.
-- Session resume can reconstruct group state and continuation provenance.
+- [x] Background agent groups can be created, waited on, and summarized without CLI-owned orchestration logic.
+- [x] Parent-session follow-up work can be triggered from SDK-owned group completion events with full session-log provenance.
+- [x] TUI can show both individual background tasks and group-level completion notifications.
+- [x] `/agent` command/tool descriptors explain orchestration usage without hardcoded global prompt directives.
+- [x] Completed background agent outputs are summarized into parent context; verbose logs stay referenced unless explicitly requested.
+- [x] Session resume can reconstruct group state and continuation provenance.
+
+## Result
+
+Background agent result orchestration is implemented on `develop`. The SDK owns `BackgroundJobOrchestrator`, group wait/summary APIs, persisted group events, and direct Agent tool terminal-result behavior. The agent command module owns `/agent parallel`, default wait_all consolidation, explicit `--detach`, and `/agent wait`. Headless and WebSocket transports project group events without deriving orchestration state, and CLI/TUI remains a projection layer.
