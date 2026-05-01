@@ -549,6 +549,108 @@ describe('Agent tool', () => {
     expect(result['error']).toContain('Background agent produced no activity');
   });
 
+  it('should return terminal results for parallel direct Agent tool calls including timeouts', async () => {
+    const subagentManager = {
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'agent_parallel_1',
+          type: 'Explore',
+          label: 'Explore',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Developer analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce({
+          id: 'agent_parallel_2',
+          type: 'Plan',
+          label: 'Plan',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Designer analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce({
+          id: 'agent_parallel_3',
+          type: 'Explore',
+          label: 'Explore',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Risk analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        }),
+      wait: vi
+        .fn()
+        .mockResolvedValueOnce({
+          jobId: 'agent_parallel_1',
+          output: 'developer complete',
+        })
+        .mockResolvedValueOnce({
+          jobId: 'agent_parallel_2',
+          output: 'designer complete',
+        })
+        .mockRejectedValueOnce(new Error('Background agent produced no activity for 120000ms')),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const [developerResult, designerResult, timeoutResult] = await Promise.all([
+      tool.execute({
+        prompt: 'Developer analysis',
+        subagent_type: 'Explore',
+      }),
+      tool.execute({
+        prompt: 'Designer analysis',
+        subagent_type: 'Plan',
+      }),
+      tool.execute({
+        prompt: 'Risk analysis',
+        subagent_type: 'Explore',
+      }),
+    ]);
+
+    expect(subagentManager.wait).toHaveBeenCalledTimes(3);
+    expect(subagentManager.wait).toHaveBeenNthCalledWith(1, 'agent_parallel_1');
+    expect(subagentManager.wait).toHaveBeenNthCalledWith(2, 'agent_parallel_2');
+    expect(subagentManager.wait).toHaveBeenNthCalledWith(3, 'agent_parallel_3');
+    expect(parseToolResult(developerResult)).toEqual({
+      success: true,
+      output: 'developer complete',
+      agentId: 'agent_parallel_1',
+    });
+    expect(parseToolResult(designerResult)).toEqual({
+      success: true,
+      output: 'designer complete',
+      agentId: 'agent_parallel_2',
+    });
+    const timedOut = parseToolResult(timeoutResult);
+    expect(timedOut['success']).toBe(false);
+    expect(timedOut['agentId']).toBe('agent_parallel_3');
+    expect(timedOut['error']).toContain('Background agent produced no activity');
+  });
+
   it('should return error for unknown agent type', async () => {
     const tool = createAgentTool(makeDeps());
 
