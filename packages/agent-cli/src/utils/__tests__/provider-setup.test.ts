@@ -86,6 +86,8 @@ function baseArgs(): IParsedCliArgs {
     apiKeyEnv: undefined,
     setCurrent: false,
     settingsScope: undefined,
+    checkUpdate: false,
+    disableUpdateCheck: false,
   };
 }
 

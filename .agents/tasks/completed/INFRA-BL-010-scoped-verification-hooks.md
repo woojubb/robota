@@ -1,6 +1,6 @@
 # INFRA-BL-010 Scoped Verification Hooks
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-01
 - **Branch**: chore/scoped-verification-hooks
 - **Scope**: .husky, .github/workflows, scripts/harness, .agents/backlog
@@ -122,4 +122,4 @@ None.
 
 ## Result
 
-Implemented through M8 on branch `chore/scoped-verification-hooks`. Remaining risk is live GitHub Actions fan-out behavior, which requires a pushed branch or disposable draft PR to observe remotely.
+Implemented through M8 on branch `chore/scoped-verification-hooks` and merged through PR #111. Local verification and remote PR checks passed after refreshing `pnpm-lock.yaml` with `pnpm install`.
