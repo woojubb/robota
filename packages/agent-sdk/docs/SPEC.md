@@ -129,7 +129,8 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   └── types.ts                ← ICommand, ICommandSource
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
-├── src/context/                ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
+├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
+├── src/memory/                 ← project memory store for .robota/memory
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
 ├── src/subagents/              ← SDK in-process runner + explicit compatibility exports from agent-runtime
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
@@ -225,7 +226,8 @@ agent-cli (Ink TUI — CLI-specific)
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `resume`, `rename`, `reset`
+- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `resume`, `rename`, `reset`
+- **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can persist project memory via the generic command execution bridge. The descriptor owns usage metadata; the system prompt composer must not add separate behavior instructions.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
 
 ### Slash Command Registry (SDK-Specific)
@@ -283,10 +285,20 @@ Resolved provider fields:
 
 - **Package**: `agent-sdk/context/`
 - **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
-- **Implementation**: Directory traversal from cwd to root, project type/language detection, system prompt assembly
+- **Implementation**: Directory traversal from cwd to root, project type/language detection, `.robota/memory/MEMORY.md` startup memory loading, system prompt assembly
 - **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
 - **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project) and `~/.robota/skills/*/SKILL.md` (user). Used by agent-cli's `SkillCommandSource` for slash command autocomplete
+
+### Project Memory (SDK-Specific)
+
+- **Package**: `agent-sdk/memory/`
+- **Storage**: `.robota/memory/MEMORY.md` is the project memory index; `.robota/memory/topics/*.md` stores topic details.
+- **Startup injection**: `loadContext()` reads the memory index into `ILoadedContext.memoryMd`; `buildSystemPrompt()` renders it under the neutral `Project Memory` section. Topic files are not injected at startup.
+- **Caps**: Startup memory is capped to the first 200 lines and at most 25KB.
+- **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text>`.
+- **Ownership**: SDK owns the store and command behavior. CLI only renders slash command results and autocomplete metadata.
+- **Automatic extraction**: Passive sidecar extraction is intentionally not part of this phase because comparable products require explicit user approval for background-generated memories.
 
 ### Context Window Management
 
@@ -590,6 +602,7 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `cost`        | Session ID and message count                                                          |
 | `context`     | Token usage: used / max / percentage                                                  |
 | `permissions` | Current mode and session-approved tools                                               |
+| `memory`      | List/show/add project memory in `.robota/memory`                                      |
 | `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
 | `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
 | `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |

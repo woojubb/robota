@@ -47,6 +47,17 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('Use pnpm.');
   });
 
+  it('includes project memory when provided without adding memory behavior instructions', () => {
+    const result = buildSystemPrompt({
+      ...BASE_PARAMS,
+      memoryMd: '- Use pnpm for scripts.',
+    });
+
+    expect(result).toContain('## Project Memory');
+    expect(result).toContain('- Use pnpm for scripts.');
+    expect(result).not.toContain('automatically save');
+  });
+
   it('includes tool descriptions', () => {
     const result = buildSystemPrompt({
       ...BASE_PARAMS,
