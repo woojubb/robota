@@ -1,9 +1,10 @@
-# Google Specification
+# Google/Gemini Provider Specification
 
 ## Scope
 
-- Owns the Google AI (Gemini) provider integration for Robota SDK.
-- Implements `AbstractAIProvider` from `@robota-sdk/agent-core` to provide Gemini model access through the Google Generative AI SDK.
+- Owns the Google Gemini API provider integration for Robota SDK.
+- Implements `AbstractAIProvider` from `@robota-sdk/agent-core` to provide Gemini model access through the Google GenAI SDK.
+- Exposes `createGeminiProviderDefinition()` so CLI/SDK composition can select canonical provider type `gemini` while accepting `google` as a compatibility alias.
 - Implements `IImageGenerationProvider` from `@robota-sdk/agent-core` to provide image generation, editing, and composition capabilities.
 - Owns Google-specific message format conversion (universal to/from Gemini wire format), including multipart content with inline image data.
 - Owns Google-specific tool call format conversion (`functionDeclarations`-based tools).
@@ -23,11 +24,13 @@
 
 The package follows a provider-adapter pattern with additional image generation support:
 
-1. **`GoogleProvider`** (`provider.ts`) -- the primary class. Extends `AbstractAIProvider` and implements `IImageGenerationProvider`. Provides `chat()`, `chatStream()`, `generateImage()`, `editImage()`, `composeImage()`, `supportsTools()`, `validateConfig()`, and `dispose()`. Converts between `TUniversalMessage` (including multipart with inline images) and Gemini `contents` format. Supports both direct API execution (via `@google/generative-ai` SDK) and delegated execution (via `IExecutor`).
+1. **`GoogleProvider`** (`provider.ts`) -- the primary class. Extends `AbstractAIProvider` and implements `IImageGenerationProvider`. Provides `chat()`, `chatStream()`, `generateImage()`, `editImage()`, `composeImage()`, `supportsTools()`, `validateConfig()`, and `dispose()`. Converts between `TUniversalMessage` (including multipart with inline images) and Gemini `contents` format. Supports both direct API execution via `@google/genai` and delegated execution via `IExecutor`.
 
 2. **Types layer** (`types.ts`, `types/api-types.ts`) -- provider option interface and Google AI-specific API type definitions covering content, requests, responses, streaming, tools, safety ratings, citation metadata, and errors.
 
-3. **Entry point** (`index.ts`) -- re-exports `provider.ts` and `types.ts`.
+3. **Provider definition** (`provider-definition.ts`) -- exposes canonical `type: "gemini"`, compatibility alias `google`, setup metadata, defaults, and concrete provider construction through the common `IProviderDefinition` contract.
+
+4. **Entry point** (`index.ts`) -- re-exports `provider.ts`, `provider-definition.ts`, and `types.ts`.
 
 Key internal methods:
 
@@ -38,55 +41,58 @@ Key internal methods:
 - `runImageRequest()` -- shared execution path for `generateImage()`, `editImage()`, and `composeImage()`, delegating to `chat()` with IMAGE modality.
 - `mapImageInputSourceToPart()` -- validates and converts image input sources (inline or data URI) to `TUniversalMessagePart`.
 
-Dependency direction: `@robota-sdk/agent-provider-google` depends on `@robota-sdk/agent-core` (peer dependency) and `@google/generative-ai` (direct dependency). No other workspace packages are imported.
+Dependency direction: `@robota-sdk/agent-provider-google` depends on `@robota-sdk/agent-core` (peer dependency) and `@google/genai` (direct dependency). No other workspace packages are imported.
 
 ## Type Ownership
 
-| Type                                  | Owner                               | Location                 |
-| ------------------------------------- | ----------------------------------- | ------------------------ |
-| `IGoogleProviderOptions`              | `@robota-sdk/agent-provider-google` | `src/types.ts`           |
-| `TGoogleProviderOptionValue`          | `@robota-sdk/agent-provider-google` | `src/types.ts`           |
-| `IGoogleModelConfig`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleGenerateContentRequest`       | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleStreamGenerateContentRequest` | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleContent`                      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGooglePart`                         | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleFunctionCall`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleFunctionResponse`             | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleTool`                         | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleFunctionDeclaration`          | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleFunctionParameters`           | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGooglePropertySchema`               | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleGenerateContentResponse`      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleCandidate`                    | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `TGoogleFinishReason`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleSafetyRating`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `TGoogleHarmCategory`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `TGoogleHarmProbability`              | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleCitationMetadata`             | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleCitationSource`               | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGooglePromptFeedback`               | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `TGoogleBlockReason`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleUsageMetadata`                | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleStreamChunk`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleError`                        | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleErrorDetail`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleLogData`                      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleToolCall`                     | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleMessageConversionResult`      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `IGoogleStreamContext`                | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts` |
-| `GoogleProvider`                      | `@robota-sdk/agent-provider-google` | `src/provider.ts`        |
+| Type                                  | Owner                               | Location                     |
+| ------------------------------------- | ----------------------------------- | ---------------------------- |
+| `IGoogleProviderOptions`              | `@robota-sdk/agent-provider-google` | `src/types.ts`               |
+| `TGoogleProviderOptionValue`          | `@robota-sdk/agent-provider-google` | `src/types.ts`               |
+| `IGoogleModelConfig`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleGenerateContentRequest`       | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleStreamGenerateContentRequest` | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleContent`                      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGooglePart`                         | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleFunctionCall`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleFunctionResponse`             | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleTool`                         | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleFunctionDeclaration`          | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleFunctionParameters`           | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGooglePropertySchema`               | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleGenerateContentResponse`      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleCandidate`                    | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `TGoogleFinishReason`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleSafetyRating`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `TGoogleHarmCategory`                 | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `TGoogleHarmProbability`              | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleCitationMetadata`             | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleCitationSource`               | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGooglePromptFeedback`               | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `TGoogleBlockReason`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleUsageMetadata`                | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleStreamChunk`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleError`                        | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleErrorDetail`                  | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleLogData`                      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleToolCall`                     | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleMessageConversionResult`      | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `IGoogleStreamContext`                | `@robota-sdk/agent-provider-google` | `src/types/api-types.ts`     |
+| `GoogleProvider`                      | `@robota-sdk/agent-provider-google` | `src/provider.ts`            |
+| `createGeminiProviderDefinition`      | `@robota-sdk/agent-provider-google` | `src/provider-definition.ts` |
 
 Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniversalMessage`, `IChatOptions`, `IToolSchema`, `IAssistantMessage`, `IUserMessage`, `ISystemMessage`, `IToolMessage`, `TUniversalMessagePart`, `IImageGenerationProvider`, `IImageGenerationRequest`, `IImageEditRequest`, `IImageComposeRequest`, `IImageGenerationResult`, `IMediaOutputRef`, `TProviderMediaResult`, `IExecutor`, `TProviderOptionValueBase`.
 
 ## Public API Surface
 
-| Export                                      | Kind                        | Source                   | Description                                                                                                                                                                                                                                     |
-| ------------------------------------------- | --------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GoogleProvider`                            | class                       | `src/provider.ts`        | Google Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`. Methods: `chat()`, `chatStream()`, `generateImage()`, `editImage()`, `composeImage()`, `supportsTools()`, `validateConfig()`, `dispose()`.             |
-| `IGoogleProviderOptions`                    | interface                   | `src/types.ts`           | Configuration options for constructing `GoogleProvider`. Fields: `apiKey` (required), `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor`, plus index signature.                                |
-| `TGoogleProviderOptionValue`                | type alias                  | `src/types.ts`           | Union type for valid provider option values.                                                                                                                                                                                                    |
-| ~~All types from `src/types/api-types.ts`~~ | interfaces/types (internal) | `src/types/api-types.ts` | Google AI API type definitions (content, requests, responses, tools, safety, streaming, errors). **Not exported** — these types are internal-only and are not part of the public API surface. `src/types.ts` does not re-export `api-types.ts`. |
+| Export                                      | Kind                        | Source                       | Description                                                                                                                                                                                                                                     |
+| ------------------------------------------- | --------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GoogleProvider`                            | class                       | `src/provider.ts`            | Google Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`. Methods: `chat()`, `chatStream()`, `generateImage()`, `editImage()`, `composeImage()`, `supportsTools()`, `validateConfig()`, `dispose()`.             |
+| `createGeminiProviderDefinition`            | function                    | `src/provider-definition.ts` | Returns an `IProviderDefinition` with canonical type `gemini` and compatibility alias `google`.                                                                                                                                                 |
+| `DEFAULT_GEMINI_PROVIDER_MODEL`             | const                       | `src/provider-definition.ts` | Default CLI/setup model for Gemini provider profiles.                                                                                                                                                                                           |
+| `IGoogleProviderOptions`                    | interface                   | `src/types.ts`               | Configuration options for constructing `GoogleProvider`. Fields: `apiKey` (required), `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor`, plus index signature.                                |
+| `TGoogleProviderOptionValue`                | type alias                  | `src/types.ts`               | Union type for valid provider option values.                                                                                                                                                                                                    |
+| ~~All types from `src/types/api-types.ts`~~ | interfaces/types (internal) | `src/types/api-types.ts`     | Google AI API type definitions (content, requests, responses, tools, safety, streaming, errors). **Not exported** — these types are internal-only and are not part of the public API surface. `src/types.ts` does not re-export `api-types.ts`. |
 
 ## Extension Points
 
@@ -95,6 +101,7 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 - **Image-capable model allowlist**: `IGoogleProviderOptions.imageCapableModels` overrides the default model-name heuristic for image capability detection.
 - **Response format configuration**: `responseMimeType` and `responseSchema` options allow requesting structured JSON output from Gemini.
 - **AbstractAIProvider contract**: New lifecycle or capability methods added to `AbstractAIProvider` in `@robota-sdk/agent-core` can be overridden in `GoogleProvider`.
+- **Provider definition composition**: Consumers such as `agent-cli` can inject `createGeminiProviderDefinition()` alongside other provider definitions. Generic CLI/SDK code resolves `gemini` and alias `google` through `IProviderDefinition`, not hardcoded provider-name branches.
 
 ## Error Taxonomy
 
@@ -140,10 +147,11 @@ Google API errors are defined in `IGoogleError` with numeric `code`, string `sta
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                        | Adapter          | Location          |
-| ----------------------------------- | ---------------- | ----------------- |
-| `AbstractAIProvider` (agents)       | `GoogleProvider` | `src/provider.ts` |
-| `IImageGenerationProvider` (agents) | `GoogleProvider` | `src/provider.ts` |
+| Port (Owner)                        | Adapter                          | Location                     |
+| ----------------------------------- | -------------------------------- | ---------------------------- |
+| `AbstractAIProvider` (agents)       | `GoogleProvider`                 | `src/provider.ts`            |
+| `IImageGenerationProvider` (agents) | `GoogleProvider`                 | `src/provider.ts`            |
+| `IProviderDefinition` (agent-core)  | `createGeminiProviderDefinition` | `src/provider-definition.ts` |
 
 ## Test Strategy
 
@@ -151,12 +159,14 @@ Google API errors are defined in `IGoogleError` with numeric `code`, string `sta
   - `src/provider.spec.ts` — image-related functionality
   - `src/image-operations.test.ts` — image generation, edit, and compose operations
   - `src/message-converter.test.ts` — message format conversion utilities
+  - `src/provider-definition.test.ts` — provider definition defaults, aliases, and construction behavior
   - `src/provider-extended.test.ts` — extended provider behavior and edge cases
 - **Existing test coverage**:
   - Inline image output mapping from Gemini response to assistant `parts`.
   - Inline image input parts mapped correctly into Gemini `inlineData` request parts.
   - Error when IMAGE modality is requested with a non-image-capable model.
   - Error when `image_uri` message part type is used directly.
+  - Provider definition exposes canonical `gemini`, compatibility alias `google`, setup defaults, and clear missing-key errors.
 - **Recommended additional coverage**:
   - Unit tests for `GoogleProvider` constructor validation (apiKey vs executor).
   - Unit tests for text-only message format conversion (`convertToGeminiFormat`) across all roles (user, assistant, system, tool).
@@ -170,3 +180,7 @@ Google API errors are defined in `IGoogleError` with numeric `code`, string `sta
 - **Framework**: Vitest (configured in workspace).
 - **Test commands**: `pnpm test`, `pnpm test:watch`, `pnpm test:coverage`.
 - **Scenario verification**: `pnpm scenario:verify`, `pnpm scenario:record` (image dry-run scenarios).
+
+## Modernization Notes
+
+Official Gemini documentation recommends the Google GenAI SDK (`@google/genai`) and marks the legacy JavaScript SDK (`@google/generative-ai`) as not actively maintained. Direct Gemini transport uses `GoogleGenAI` and the `models.generateContent` / `models.generateContentStream` APIs. Request generation options and tools are sent through the `config` property, not the legacy `generationConfig` request property.

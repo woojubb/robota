@@ -80,6 +80,7 @@ Provider definition contract:
 | Field            | Owner                            | CLI behavior                                             |
 | ---------------- | -------------------------------- | -------------------------------------------------------- |
 | `type`           | Provider package or CLI assembly | Match settings profile type to a definition              |
+| `aliases`        | Provider package                 | Optional compatibility names resolved by generic lookup  |
 | `displayName`    | Provider package                 | Optional human-readable provider label for setup lists   |
 | `description`    | Provider package                 | Optional provider description for setup lists and errors |
 | `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values         |
@@ -88,7 +89,7 @@ Provider definition contract:
 | `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                      |
 | `createProvider` | Provider package                 | Build concrete provider instance                         |
 
-The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`.
+The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`. Compatibility provider names such as `google` for the canonical Gemini provider must be represented as provider-definition aliases, not as CLI provider-name branches.
 
 ### Provider Configuration UX
 

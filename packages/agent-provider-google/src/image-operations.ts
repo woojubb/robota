@@ -169,9 +169,16 @@ export function buildGenerationConfig(
       `Selected model "${options.model}" is not configured as image-capable for Google provider.`,
     );
   }
-  return {
-    temperature: options?.temperature,
-    maxOutputTokens: options?.maxTokens,
-    responseModalities,
-  };
+  const config: {
+    temperature?: number;
+    maxOutputTokens?: number;
+    responseModalities?: Array<'TEXT' | 'IMAGE'>;
+  } = { responseModalities };
+  if (typeof options?.temperature === 'number') {
+    config.temperature = options.temperature;
+  }
+  if (typeof options?.maxTokens === 'number') {
+    config.maxOutputTokens = options.maxTokens;
+  }
+  return config;
 }

@@ -14,13 +14,15 @@ export interface IGoogleModelConfig {
   stopSequences?: string[];
   candidateCount?: number;
   responseMimeType?: string;
+  responseModalities?: Array<'TEXT' | 'IMAGE'>;
+  tools?: IGoogleTool[];
 }
 
 export interface IGoogleGenerateContentRequest {
+  model: string;
   contents: IGoogleContent[];
-  tools?: IGoogleTool[];
   systemInstruction?: IGoogleContent;
-  generationConfig?: IGoogleModelConfig;
+  config?: IGoogleModelConfig;
 }
 
 export interface IGoogleStreamGenerateContentRequest extends IGoogleGenerateContentRequest {
@@ -35,16 +37,22 @@ export interface IGoogleContent {
 
 export interface IGooglePart {
   text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
   functionCall?: IGoogleFunctionCall;
   functionResponse?: IGoogleFunctionResponse;
 }
 
 export interface IGoogleFunctionCall {
+  id?: string;
   name: string;
   args: Record<string, string | number | boolean | object>;
 }
 
 export interface IGoogleFunctionResponse {
+  id?: string;
   name: string;
   response: Record<string, string | number | boolean | object>;
 }

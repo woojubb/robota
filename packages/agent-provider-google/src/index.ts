@@ -6,4 +6,5 @@
 
 // Main exports
 export * from './provider';
+export * from './provider-definition';
 export * from './types';
