@@ -11,6 +11,8 @@
       "@robota-sdk/agent-tools",
       "@robota-sdk/agent-provider-anthropic",
       "@robota-sdk/agent-provider-openai",
+      "@robota-sdk/agent-provider-openai-compatible",
+      "@robota-sdk/agent-provider-gemma",
       "@robota-sdk/agent-provider-google",
       "@robota-sdk/agent-provider-bytedance",
       "@robota-sdk/agent-transport-http",
