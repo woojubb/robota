@@ -62,6 +62,7 @@ agent-cli         ← product/UI layer: consumes SDK and selected command module
 **Rules:**
 
 - **No hardcoding of cross-cutting concerns.** Logging, persistence, analytics, and other side concerns MUST use the existing plugin/event architecture, not direct I/O (e.g., `fs.appendFileSync`, `console.log`). If no suitable plugin exists, create one or extend an existing one.
+- **No invented prompt/protocol directives.** Do not add arbitrary parser syntax, instruction strings, pseudo tool-call markers, model/provider heuristics, or magic command text in code or tests to force behavior. Protocol handling must come from an owned SPEC, a public external standard, or an injected adapter/strategy selected by composition.
 - **No layer skipping.** CLI must not directly use agent-core internals that should be wired through agent-sessions or agent-sdk. Each layer consumes only its direct dependency's public API.
 - **Composition over integration.** Features should be assembled from existing building blocks (plugins, event service, tool registry) rather than baked into a single class. A 500-line Session class with hardcoded file I/O is a design smell.
 - **Interface-first extension.** When adding a capability (e.g., session logging), define the interface in agent-core, implement in a plugin or session package, and wire in agent-sdk. Never implement directly in the consuming layer.

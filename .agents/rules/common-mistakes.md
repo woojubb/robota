@@ -35,3 +35,4 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 | 28  | Publishing only some packages (cherry-picking)                   | ALL non-private packages must be published together; see `publish.md`                      |
 | 29  | Modifying SPEC during verification to match code                 | NEVER. Fix code to match SPEC. SPEC is source of truth during verification.                |
 | 30  | Accumulating reusable runtime features inside SDK or CLI         | Extract reusable lifecycle/state/ports into composable packages and update structural docs |
+| 31  | Inventing hardcoded prompt/protocol syntax to force behavior     | Use an owned SPEC/public standard or inject a composable adapter; see `code-quality.md`    |

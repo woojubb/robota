@@ -132,6 +132,62 @@ describe('assembleOpenAICompatibleStream', () => {
     ]);
   });
 
+  it('applies an injected provider-owned text tool-call projector before text deltas', async () => {
+    const onTextDelta = vi.fn();
+    const projector = {
+      project: vi.fn((delta: string) => {
+        if (delta === 'provider native payload') {
+          return {
+            visibleText: '',
+            toolCalls: [
+              {
+                id: 'projected-call-1',
+                type: 'function' as const,
+                function: { name: 'InjectedTool', arguments: '{"value":"ok"}' },
+              },
+            ],
+            removedToolCallText: true,
+            rawToolCallText: delta,
+          };
+        }
+
+        return {
+          visibleText: delta,
+          toolCalls: [],
+          removedToolCallText: false,
+        };
+      }),
+      flush: vi.fn(() => ({
+        visibleText: '',
+        toolCalls: [],
+        removedToolCallText: false,
+      })),
+    };
+
+    const result = await assembleOpenAICompatibleStream({
+      stream: asyncIterableFrom([
+        createChunk('provider native payload'),
+        createChunk('visible', 'tool_calls'),
+      ]),
+      onTextDelta,
+      toolCallTextProjector: projector,
+    });
+
+    expect(onTextDelta).toHaveBeenCalledOnce();
+    expect(onTextDelta).toHaveBeenCalledWith('visible');
+    expect(result.content).toBe('visible');
+    expect(result.metadata?.['toolCallTextProjected']).toBe(true);
+    expect(result.metadata?.['rawToolCallText']).toBe('provider native payload');
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'projected-call-1',
+        type: 'function',
+        function: { name: 'InjectedTool', arguments: '{"value":"ok"}' },
+      },
+    ]);
+  });
+
   it('flushes projector-held text after the stream ends', async () => {
     const onTextDelta = vi.fn();
 

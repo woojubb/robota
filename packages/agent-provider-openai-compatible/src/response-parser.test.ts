@@ -46,6 +46,65 @@ describe('OpenAICompatibleResponseParser', () => {
     expect(result.metadata?.['finishReason']).toBe('stop');
   });
 
+  it('applies an injected provider-owned text tool-call projector to full responses', () => {
+    const parser = new OpenAICompatibleResponseParser({
+      toolCallTextProjector: {
+        project: (text: string) => ({
+          visibleText: text === 'provider native payload' ? '' : text,
+          toolCalls:
+            text === 'provider native payload'
+              ? [
+                  {
+                    id: 'projected-call-1',
+                    type: 'function' as const,
+                    function: { name: 'InjectedTool', arguments: '{"value":"ok"}' },
+                  },
+                ]
+              : [],
+          removedToolCallText: text === 'provider native payload',
+          ...(text === 'provider native payload' && { rawToolCallText: text }),
+        }),
+        flush: () => ({
+          visibleText: '',
+          toolCalls: [],
+          removedToolCallText: false,
+        }),
+      },
+    });
+    const response: OpenAI.Chat.ChatCompletion = {
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1,
+      model: 'local-model',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'provider native payload',
+            refusal: null,
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    };
+
+    const result = parser.parseResponse(response);
+
+    expect(result.content).toBe('');
+    expect(result.metadata?.['toolCallTextProjected']).toBe(true);
+    expect(result.metadata?.['rawToolCallText']).toBe('provider native payload');
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'projected-call-1',
+        type: 'function',
+        function: { name: 'InjectedTool', arguments: '{"value":"ok"}' },
+      },
+    ]);
+  });
+
   it('applies text projection while parsing streaming chunks', () => {
     const parser = new OpenAICompatibleResponseParser({
       textProjector: (text) => text.replace('[hidden]', ''),

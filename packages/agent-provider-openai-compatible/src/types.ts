@@ -1,5 +1,5 @@
 import type OpenAI from 'openai';
-import type { TTextDeltaCallback } from '@robota-sdk/agent-core';
+import type { IToolCall, TTextDeltaCallback } from '@robota-sdk/agent-core';
 
 export interface IOpenAICompatibleChatRequestParams {
   model: string;
@@ -36,11 +36,24 @@ export interface IOpenAICompatibleLogData {
 export type TOpenAICompatibleTextProjector = (text: string) => string;
 export type TOpenAICompatibleTextProjectorFlush = () => string;
 
+export interface IOpenAICompatibleToolCallTextProjection {
+  visibleText: string;
+  toolCalls: IToolCall[];
+  removedToolCallText: boolean;
+  rawToolCallText?: string | undefined;
+}
+
+export interface IOpenAICompatibleToolCallTextProjector {
+  project(text: string): IOpenAICompatibleToolCallTextProjection;
+  flush(): IOpenAICompatibleToolCallTextProjection;
+}
+
 export interface IOpenAICompatibleStreamAssemblyOptions {
   stream: AsyncIterable<OpenAI.Chat.ChatCompletionChunk>;
   onTextDelta?: TTextDeltaCallback;
   signal?: AbortSignal;
   textProjector?: TOpenAICompatibleTextProjector;
   textProjectorFlush?: TOpenAICompatibleTextProjectorFlush;
+  toolCallTextProjector?: IOpenAICompatibleToolCallTextProjector;
   metadata?: Record<string, string | number | boolean>;
 }

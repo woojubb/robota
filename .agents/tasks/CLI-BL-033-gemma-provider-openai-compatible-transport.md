@@ -26,6 +26,7 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 - [x] Add unit tests for Gemma reasoning marker parsing, streamed content projection, and provider composition with shared OpenAI-compatible transport.
 - [x] Add replay-style unit coverage using captured `.robota/logs` streamed delta samples where Gemma emits reasoning-channel markers.
 - [x] Update package SPEC files and user docs so provider selection and supported local-model behavior are clear.
+- [x] Add a provider-owned native tool-call text projector for documented Gemma/LM Studio template output without adding CLI/SDK model-specific branches.
 
 ## Decisions
 
@@ -37,6 +38,7 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 - Existing provider package names and boundaries may be changed in future migrations. The Gemma work should not assume today's `agent-provider-google` naming is permanent.
 - All providers use the same `IProviderDefinition` composition contract. CLI may assemble provider definitions, but generic CLI logic must not branch on provider type names, model names, or Gemma/OpenAI/Anthropic-specific defaults.
 - Shared core utilities follow the same rule: `agent-core` does not hardcode provider-name message conversion or API-key prefix policy. Provider packages inject conversion, setup, probing, and construction behavior through owned adapters/definitions.
+- Native tool-call text projection must be provider-owned and opt-in. Shared OpenAI-compatible primitives may expose an injected projector port, but they must not infer pseudo syntax, model names, or tool names.
 
 ## Recommended Package Boundary
 
@@ -76,6 +78,8 @@ This rename should not be bundled into the Gemma provider implementation. It sho
 - Given a local LM Studio endpoint is configured with the Gemma provider, when Robota creates a session, then tool schemas, streaming, and background subagent logging still work through the shared OpenAI-compatible transport layer.
 - Given shared transport code is extracted, when `agent-provider-openai` builds and tests run, then existing OpenAI-compatible behavior remains unchanged.
 - Given Gemma provider docs are generated, when a non-expert user follows the provider setup, then no manual prompt-template editing is required for the default supported path.
+- Given the Gemma/LM Studio template emits `<|tool_call>call:<tool>{...}<tool_call|>` as streamed text for a declared tool, when the Gemma provider is selected, then the provider converts it to universal `toolCalls`, removes the raw block from user-visible text, and preserves raw text in metadata.
+- Given a text block names a tool that was not declared in the request, when the Gemma provider receives it, then it remains visible text and is not executed.
 
 ## Progress
 
@@ -92,6 +96,8 @@ This rename should not be bundled into the Gemma provider implementation. It sho
 - Investigated the captured session that still displayed `<|channel>` markers and found it was started with `provider: openai` even though the model was `supergemma4-26b-uncensored-v2`; the Gemma provider projector was never on that path.
 - Removed the Gemma model default from the OpenAI provider definition, required an explicit OpenAI-compatible model during OpenAI setup, and updated local `.robota/settings.local.json` to use `currentProvider: gemma`.
 - Added a regression test for captured streamed deltas shaped like `<|channel>`, `s`, newline, `<channel|>` so the Gemma projector must suppress those tags before user-facing output.
+- Started the native tool-call projection fix after session logs showed Gemma/LM Studio sometimes returned tool-call-like text instead of OpenAI `tool_calls`; the fix must stay in provider/transport projection layers, not CLI/SDK command logic.
+- Added an injected text-tool-call projector port to shared OpenAI-compatible primitives and implemented `GemmaToolCallProjector` for the documented LM Studio/Gemma template block. The projection validates declared tool names, converts only valid blocks into universal `toolCalls`, keeps malformed or undeclared blocks visible, and avoids CLI/SDK model-specific branches.
 
 ## Blockers
 
