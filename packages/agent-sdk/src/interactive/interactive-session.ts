@@ -10,7 +10,12 @@
 
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
-import type { TUniversalMessage, IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  TUniversalMessage,
+  IContextWindowState,
+  IHistoryEntry,
+  TSessionEndReason,
+} from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
@@ -74,6 +79,11 @@ import type {
 } from './interactive-session-init.js';
 export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
+export interface IInteractiveSessionShutdownOptions {
+  reason?: TSessionEndReason;
+  message?: string;
+}
+
 export class InteractiveSession {
   private session: Session | null = null;
   private readonly commandExecutor: SystemCommandExecutor;
@@ -99,6 +109,8 @@ export class InteractiveSession {
   private forkSession: boolean;
   private backgroundTaskUnsubscribe: (() => void) | null = null;
   private readonly commandModules: readonly ICommandModule[];
+  private shuttingDown = false;
+  private shutdownPromise: Promise<void> | null = null;
 
   constructor(options: IInteractiveSessionOptions) {
     this.commandModules = 'commandModules' in options ? (options.commandModules ?? []) : [];
@@ -135,6 +147,7 @@ export class InteractiveSession {
     }
 
     if (this.initialized) this.subscribeBackgroundTaskEvents();
+    if (this.initialized) this.persistCurrentSession();
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -169,6 +182,7 @@ export class InteractiveSession {
     }
     this.initialized = true;
     this.subscribeBackgroundTaskEvents();
+    this.persistCurrentSession();
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -200,6 +214,7 @@ export class InteractiveSession {
 
   async submit(input: string, displayInput?: string, rawInput?: string): Promise<void> {
     await this.ensureInitialized();
+    if (this.shuttingDown) throw new Error('Interactive session is shutting down.');
     if (this.executing) {
       this.pendingPrompt = input;
       this.pendingDisplayInput = displayInput;
@@ -275,6 +290,24 @@ export class InteractiveSession {
     this.clearPendingQueue();
     this.session?.abort();
   }
+
+  shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.shuttingDown = true;
+    this.shutdownPromise = (async () => {
+      await this.ensureInitialized();
+      this.clearPendingQueue();
+      const session = this.session;
+      session?.abort();
+      await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
+      this.backgroundTaskUnsubscribe?.();
+      this.backgroundTaskUnsubscribe = null;
+      this.persistCurrentSession();
+      await session?.shutdown({ reason: options.reason ?? 'other' });
+    })();
+    return this.shutdownPromise;
+  }
+
   cancelQueue(): void {
     this.clearPendingQueue();
   }
@@ -454,14 +487,19 @@ export class InteractiveSession {
   }
 
   private getBackgroundTaskManagerOrThrow(): IBackgroundTaskManager {
-    const session = this.getSessionOrThrow();
-    const manager =
-      retrieveSessionBackgroundTaskManager(session) ??
-      retrieveAgentToolDeps(session)?.backgroundTaskManager;
+    const manager = this.getBackgroundTaskManager();
     if (!manager) {
       throw new Error('Background task manager is not available for this session.');
     }
     return manager;
+  }
+
+  private getBackgroundTaskManager(): IBackgroundTaskManager | undefined {
+    if (!this.session) return undefined;
+    return (
+      retrieveSessionBackgroundTaskManager(this.session) ??
+      retrieveAgentToolDeps(this.session)?.backgroundTaskManager
+    );
   }
 
   private getAgentToolDepsOrThrow(): NonNullable<ReturnType<typeof retrieveAgentToolDeps>> {
@@ -508,10 +546,8 @@ export class InteractiveSession {
 
   private recordBackgroundTaskEvent(event: TBackgroundTaskEvent): void {
     this.backgroundTasks = this.getBackgroundTaskSnapshots();
-    if (event.type !== 'background_task_text_delta') {
-      this.backgroundTaskEvents.push(event);
-      this.persistCurrentSession();
-    }
+    this.backgroundTaskEvents.push(event);
+    this.persistCurrentSession();
   }
 
   private getBackgroundTaskSnapshots(): IBackgroundTaskState[] {
@@ -549,7 +585,7 @@ export class InteractiveSession {
     this.executing = false;
     this.emit('thinking', false);
     this.persistCurrentSession();
-    if (this.pendingPrompt) {
+    if (!this.shuttingDown && this.pendingPrompt) {
       const queued = this.pendingPrompt;
       const queuedDisplay = this.pendingDisplayInput;
       const queuedRaw = this.pendingRawInput;
@@ -672,7 +708,7 @@ export class InteractiveSession {
       this.executing = false;
       this.emit('thinking', false);
       this.persistCurrentSession();
-      if (this.pendingPrompt) {
+      if (!this.shuttingDown && this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;
         const queuedRaw = this.pendingRawInput;

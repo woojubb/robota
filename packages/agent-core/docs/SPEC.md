@@ -387,7 +387,7 @@ AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `cal
 - **ExecutionService**: Checks `signal.aborted` at round loop boundaries. If aborted, the loop exits early and the result includes `interrupted: true`.
 - **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation.
 - **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
-- **streamWithAbort**: Checks `signal.aborted` after each yielded event, breaking out of the stream iteration loop.
+- **streamWithAbort**: Races `iterator.next()` against abort, checks `signal.aborted` before and after each yielded event, and calls `iterator.return()` when an abort stops the stream.
 - **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
 
 ### Tool Batch Concurrency
@@ -529,9 +529,10 @@ If `provider.chat()` throws an error (e.g., API 400 for context too large), `exe
 
 **Mechanism:**
 
-1. For each event from the source iterable, yields with a `setTimeout(0)` interleave to allow the event loop to process abort signals.
-2. Checks `signal.aborted` after each yield — breaks out of the loop if aborted.
-3. Providers wrap their SDK stream with `this.streamWithAbort(stream, signal)` in their `chatWithStreaming` implementation.
+1. Races each source `iterator.next()` against the supplied `AbortSignal`, so a stream waiting for the next provider chunk can settle when aborted.
+2. For each event from the source iterable, yields with a `setTimeout(0)` interleave to allow the event loop to process abort signals.
+3. Checks `signal.aborted` before yielding and calls `iterator.return()` when abort ends iteration.
+4. Providers wrap their SDK stream with `this.streamWithAbort(stream, signal)` in their `chatWithStreaming` implementation.
 
 **Usage pattern (in provider):**
 

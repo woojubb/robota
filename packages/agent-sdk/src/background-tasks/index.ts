@@ -34,5 +34,6 @@ export type {
   TBackgroundTaskMode,
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskStatus,
+  TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
 } from '@robota-sdk/agent-runtime';

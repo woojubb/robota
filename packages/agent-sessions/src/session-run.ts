@@ -134,6 +134,22 @@ export async function executeRun(
       stack: error instanceof Error ? (error.stack ?? '') : '',
       historyLength: ctx.robota.getHistory().length,
     });
+    runHooks(
+      ctx.hooks as THooksConfig | undefined,
+      'StopFailure',
+      {
+        session_id: ctx.sessionId,
+        cwd: ctx.cwd,
+        hook_event_name: 'StopFailure',
+        reason: error instanceof Error ? error.message : String(error),
+        stop_hook_active: false,
+        env: {
+          CLAUDE_PROJECT_DIR: ctx.cwd,
+          CLAUDE_SESSION_ID: ctx.sessionId,
+        },
+      },
+      ctx.hookTypeExecutors,
+    ).catch(() => {});
     throw error;
   }
 
@@ -181,6 +197,8 @@ export async function executeRun(
       cwd: ctx.cwd,
       hook_event_name: 'Stop',
       response: response.substring(0, 500),
+      last_assistant_message: response,
+      stop_hook_active: false,
       env: {
         CLAUDE_PROJECT_DIR: ctx.cwd,
         CLAUDE_SESSION_ID: ctx.sessionId,

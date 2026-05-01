@@ -5,6 +5,7 @@
 import type {
   IAIProvider,
   IToolWithEventService,
+  TSessionEndReason,
   TPermissionMode,
   TToolArgs,
 } from '@robota-sdk/agent-core';
@@ -19,6 +20,11 @@ import type {
 } from './permission-types.js';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
+
+/** Options for graceful session shutdown. */
+export interface ISessionShutdownOptions {
+  reason?: TSessionEndReason;
+}
 
 /** Options for constructing a Session */
 export interface ISessionOptions {

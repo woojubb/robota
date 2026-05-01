@@ -46,6 +46,7 @@ Types owned by this package (SSOT):
 | Type                         | Kind      | File                         | Description                                                                          |
 | ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------ |
 | `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, optional sessionId) |
+| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                      |
 | `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                  |
 | `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                         |
 | `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                            |
@@ -86,6 +87,7 @@ Types consumed from other packages (not owned here):
 | `FileSessionLogger`              | Class                | JSONL file-based session event logger                                                                          |
 | `SilentSessionLogger`            | Class                | No-op session logger                                                                                           |
 | `ISessionOptions`                | Interface            | Constructor options for Session                                                                                |
+| `ISessionShutdownOptions`        | Interface            | Graceful shutdown options for `Session.shutdown()`                                                             |
 | `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                            |
 | `TPermissionResult`              | Type                 | Permission decision result                                                                                     |
 | `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                       |
@@ -116,6 +118,7 @@ Types consumed from other packages (not owned here):
 | `getContextState`          | `() => IContextWindowState`                                          | Returns real-time context window usage (tokens, percentage).                                                                            |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                                                         | Cancels the currently running `run()` call. No-op if not running.                                                                       |
+| `shutdown`                 | `(options?: ISessionShutdownOptions) => Promise<void>`               | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                       |
 | `isRunning`                | `() => boolean`                                                      | Returns true if a `run()` call is in progress.                                                                                          |
 | `getSessionAllowedTools`   | `() => string[]`                                                     | Returns tools that were session-approved ("Allow always").                                                                              |
 | `clearSessionAllowedTools` | `() => void`                                                         | Clears all session-scoped allow rules.                                                                                                  |
@@ -134,8 +137,8 @@ Types consumed from other packages (not owned here):
 | `history`              | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
 | `systemPrompt`         | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
 | `toolSchemas`          | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
-| `backgroundTasks`      | `unknown[]` | No       | Latest persisted background task snapshots. Streaming chunks are not written here per token; snapshots point to append-only transcript/log files where available. |
-| `backgroundTaskEvents` | `unknown[]` | No       | Durable non-streaming background task lifecycle/progress events needed for resume/debugging. High-frequency text deltas belong in JSONL logs/transcripts.         |
+| `backgroundTasks`      | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
+| `backgroundTaskEvents` | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
 
 ### Session Data Migration
 
@@ -159,7 +162,18 @@ The session log records structured events to a JSONL file for diagnostics and re
 - **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, `webToolsEnabled` flag, full enriched input, and current message history before the model call.
 - **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
 - **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
+- **`session_shutdown` event** -- Recorded once when `Session.shutdown()` begins. Includes the Claude-compatible shutdown reason.
 - **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
+
+## Hook Lifecycle
+
+`Session` fires Claude Code-compatible lifecycle hooks through `runHooks`:
+
+- `SessionStart` fires once when a `Session` is constructed.
+- `UserPromptSubmit` fires before each model turn and may inject stdout into the next prompt.
+- `Stop` fires after each successful assistant response and includes `response`, `last_assistant_message`, and `stop_hook_active`.
+- `StopFailure` fires when a model turn errors and includes `reason`.
+- `SessionEnd` fires exactly once from `Session.shutdown()`, after local persistence, and includes the Claude-compatible `reason`.
 
 ## Extension Points
 

@@ -24,6 +24,10 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: () => ({ stop: (): void => {}, update: (): void => {} }),
 };
 
+type TSubagentSessionToolEvent = Parameters<
+  NonNullable<Parameters<typeof createSubagentSession>[0]['onToolExecution']>
+>[0];
+
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
 let running: Promise<void> = Promise.resolve();
@@ -52,21 +56,7 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       permissionMode: payload.permissionMode,
       hooks: payload.parentConfig.hooks,
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
-      onToolExecution: (event) => {
-        if (event.type === 'start') {
-          sendChildMessage({
-            type: 'tool_start',
-            toolName: event.toolName,
-            toolArgs: event.toolArgs,
-          });
-          return;
-        }
-        sendChildMessage({
-          type: 'tool_end',
-          toolName: event.toolName,
-          success: event.success ?? true,
-        });
-      },
+      onToolExecution: forwardToolExecution,
     });
     const output = await session.run(payload.request.prompt);
     if (cancelled) {
@@ -86,6 +76,14 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
   }
 }
 
+function forwardToolExecution(event: TSubagentSessionToolEvent): void {
+  if (event.type === 'start') {
+    sendChildMessage({ type: 'tool_start', toolName: event.toolName, toolArgs: event.toolArgs });
+    return;
+  }
+  sendChildMessage({ type: 'tool_end', toolName: event.toolName, success: event.success ?? true });
+}
+
 function runFollowUp(prompt: string): void {
   if (session === null) {
     sendChildMessage({ type: 'error', message: 'Subagent worker has not started' });
@@ -101,10 +99,11 @@ function runFollowUp(prompt: string): void {
   });
 }
 
-function cancelWorker(reason?: string): void {
+async function cancelWorker(reason?: string): Promise<void> {
   cancelled = true;
   session?.abort();
   sendChildMessage({ type: 'cancelled', reason });
+  await session?.shutdown({ reason: 'other' }).catch(() => undefined);
   setTimeout(() => process.exit(CANCEL_EXIT_CODE), 0);
 }
 
@@ -122,7 +121,7 @@ process.on('message', (message: TSubagentWorkerWireValue) => {
       runFollowUp(message.prompt);
       break;
     case 'cancel':
-      cancelWorker(message.reason);
+      void cancelWorker(message.reason);
       break;
     default:
       sendChildMessage({ type: 'error', message: 'Unhandled subagent worker parent message' });
@@ -132,6 +131,7 @@ process.on('message', (message: TSubagentWorkerWireValue) => {
 process.on('disconnect', () => {
   cancelled = true;
   session?.abort();
+  void session?.shutdown({ reason: 'other' }).catch(() => undefined);
 });
 
 sendChildMessage({ type: 'ready' });

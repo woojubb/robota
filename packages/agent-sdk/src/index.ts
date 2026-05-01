@@ -5,6 +5,7 @@
 export { InteractiveSession } from './interactive/index.js';
 export type {
   IInteractiveSessionOptions,
+  IInteractiveSessionShutdownOptions,
   IToolState,
   IDiffLine,
   IExecutionResult,
@@ -161,6 +162,7 @@ export type {
   TBackgroundTaskMode,
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskStatus,
+  TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
 } from './background-tasks/index.js';
 

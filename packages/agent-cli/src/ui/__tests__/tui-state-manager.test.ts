@@ -289,6 +289,29 @@ describe('TuiStateManager', () => {
     expect(mgr.backgroundTasks).toEqual([]);
   });
 
+  it('projects timeout reason and last activity for background tasks', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onBackgroundTaskEvent({
+      type: 'background_task_failed',
+      task: makeBackgroundTask({
+        id: 'agent_timeout',
+        status: 'failed',
+        lastActivityAt: '2026-05-01T00:00:10.000Z',
+        timeoutReason: 'idle',
+        error: {
+          category: 'timeout',
+          message: 'Background agent idle timeout',
+          recoverable: true,
+        },
+      }),
+    });
+
+    expect(mgr.backgroundTasks[0]!.statusLabel).toBe('timed out');
+    expect(mgr.backgroundTasks[0]!.timeoutReason).toBe('idle');
+    expect(mgr.backgroundTasks[0]!.lastActivityAt).toBe('2026-05-01T00:00:10.000Z');
+  });
+
   it('accumulates background text deltas and tool action previews', () => {
     const mgr = new TuiStateManager();
 

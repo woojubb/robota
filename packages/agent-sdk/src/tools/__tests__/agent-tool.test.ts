@@ -231,6 +231,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(
@@ -296,6 +297,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(
@@ -354,6 +356,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(
@@ -407,6 +410,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(

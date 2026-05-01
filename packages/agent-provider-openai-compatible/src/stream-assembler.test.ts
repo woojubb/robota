@@ -8,6 +8,25 @@ async function* asyncIterableFrom<T>(items: T[]): AsyncIterable<T> {
   }
 }
 
+function createHangingChunkStream(
+  onReturn: () => void,
+): AsyncIterable<OpenAI.Chat.ChatCompletionChunk> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<OpenAI.Chat.ChatCompletionChunk> {
+      return {
+        next: () => new Promise<IteratorResult<OpenAI.Chat.ChatCompletionChunk>>(() => {}),
+        return: () => {
+          onReturn();
+          return Promise.resolve({
+            done: true,
+            value: createChunk(''),
+          });
+        },
+      };
+    },
+  };
+}
+
 function createChunk(
   content: string,
   finishReason: OpenAI.Chat.ChatCompletionChunk.Choice['finish_reason'] = null,
@@ -126,5 +145,27 @@ describe('assembleOpenAICompatibleStream', () => {
     expect(result.content).toBe('Visible');
     expect(onTextDelta).toHaveBeenNthCalledWith(1, 'Visibl');
     expect(onTextDelta).toHaveBeenNthCalledWith(2, 'e');
+  });
+
+  it('settles when aborted while awaiting the next stream chunk', async () => {
+    const controller = new AbortController();
+    let returned = false;
+    const resultPromise = assembleOpenAICompatibleStream({
+      stream: createHangingChunkStream(() => {
+        returned = true;
+      }),
+      signal: controller.signal,
+    });
+
+    setTimeout(() => controller.abort(), 0);
+    const result = await Promise.race([
+      resultPromise,
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error('stream abort did not settle')), 100),
+      ),
+    ]);
+
+    expect(result.content).toBe('');
+    expect(returned).toBe(true);
   });
 });

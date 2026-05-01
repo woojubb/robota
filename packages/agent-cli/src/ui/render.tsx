@@ -46,7 +46,7 @@ export function renderApp(options: IRenderOptions): void {
   }
 
   const instance = render(<App {...options} />, {
-    exitOnCtrlC: true,
+    exitOnCtrlC: false,
   });
 
   instance

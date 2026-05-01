@@ -7,6 +7,7 @@ import type {
   TBackgroundPrimitive,
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskIsolation,
+  TBackgroundTaskTimeoutReason,
 } from '../background-tasks/index.js';
 
 export type TSubagentJobStatus =
@@ -34,6 +35,12 @@ export interface ISubagentSpawnRequest {
   allowedTools?: string[];
   disallowedTools?: string[];
   timeoutMs?: number;
+  idleTimeoutMs?: number;
+  maxRuntimeMs?: number;
+  outputLimitBytes?: number;
+  maxTextDeltas?: number;
+  repetitionWindow?: number;
+  repetitionThreshold?: number;
 }
 
 export interface ISubagentJobState {
@@ -56,6 +63,7 @@ export interface ISubagentJobState {
   startedAt?: string;
   updatedAt: string;
   completedAt?: string;
+  timeoutReason?: TBackgroundTaskTimeoutReason;
   result?: string;
   error?: string;
 }
@@ -95,6 +103,7 @@ export interface ISubagentManager {
   cancel(jobId: string, reason?: string): Promise<void>;
   close(jobId: string): Promise<void>;
   send(jobId: string, prompt: string): Promise<void>;
+  shutdown(reason?: string): Promise<void>;
 }
 
 export interface ISubagentManagerOptions {
@@ -105,4 +114,10 @@ export interface ISubagentManagerOptions {
   maxDepth?: number;
   now?: () => string;
   idFactory?: (request: IBackgroundTaskRequest) => string;
+  agentIdleTimeoutMs?: number;
+  agentMaxRuntimeMs?: number;
+  agentOutputLimitBytes?: number;
+  agentMaxTextDeltas?: number;
+  repetitionWindow?: number;
+  repetitionThreshold?: number;
 }

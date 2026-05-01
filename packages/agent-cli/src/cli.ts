@@ -231,6 +231,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     });
     session.attachTransport(transport);
     await transport.start();
+    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
     process.exit(transport.getExitCode());
   }
 
