@@ -7,6 +7,8 @@ import type {
 } from '@robota-sdk/agent-sdk';
 
 const BACKGROUND_PREVIEW_LENGTH = 120;
+const BACKGROUND_PREVIEW_WHITESPACE = /\s+/g;
+const BACKGROUND_PREVIEW_SEPARATOR = ' ';
 const SUCCESS_EXIT_CODE = 0;
 
 export interface IBackgroundTaskViewModel {
@@ -71,7 +73,9 @@ export function shouldHideAtNextUserTurn(state: IBackgroundTaskState): boolean {
 
 export function trimBackgroundPreview(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  return value.length > BACKGROUND_PREVIEW_LENGTH
-    ? `${value.slice(0, BACKGROUND_PREVIEW_LENGTH)}...`
-    : value;
+  const preview = value.trim().replace(BACKGROUND_PREVIEW_WHITESPACE, BACKGROUND_PREVIEW_SEPARATOR);
+  if (!preview) return undefined;
+  return preview.length > BACKGROUND_PREVIEW_LENGTH
+    ? `${preview.slice(0, BACKGROUND_PREVIEW_LENGTH)}...`
+    : preview;
 }
