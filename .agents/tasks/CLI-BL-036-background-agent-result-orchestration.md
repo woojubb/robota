@@ -1,6 +1,6 @@
 ---
 title: CLI-BL-036 Background Agent Result Orchestration
-status: backlog
+status: in-progress
 priority: high
 urgency: next
 created: 2026-05-01
@@ -67,7 +67,14 @@ The `/agent` command module should expose orchestration usage in its own command
 9. Add headless and WebSocket event projection for group lifecycle and group completion summaries.
 10. Keep raw agent logs out of parent context by default; parent continuation receives `ResultEnvelope` summaries and can fetch detailed logs only when asked.
 
-## Unit Test Plan
+## Progress
+
+### 2026-05-01
+
+- Started implementation after opening PR #107 for the current unmerged branch.
+- Updated `agent-sdk` and `agent-command-agent` specs so the first implementation slice has an SDK-owned background job orchestration contract and `/agent parallel` creates a `wait_all` group from command-owned metadata.
+
+## Test Plan
 
 - Given a group with two running jobs, when both complete successfully, then the orchestrator emits one `group_completed` event with both result envelopes.
 - Given a `wait_all` group where one job fails, when remaining jobs finish, then the group completes with mixed terminal state and preserves the failed envelope.

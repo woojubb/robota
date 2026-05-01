@@ -156,6 +156,52 @@ describe('InteractiveSession background task integration', () => {
     );
   });
 
+  it('persists and emits background job group events', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('summary')] });
+    const sessionStub = createSessionStub();
+    const sessionStore = createSessionStoreStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const interactiveSession = new InteractiveSession({
+      session: sessionStub,
+      sessionStore: sessionStore as never,
+    });
+    const events: string[] = [];
+
+    interactiveSession.on('background_job_group_event', (event) => {
+      events.push(event.type);
+    });
+
+    const first = await manager.spawn(createAgentRequest('first'));
+    const second = await manager.spawn(createAgentRequest('second'));
+    await manager.wait(first.id);
+    await manager.wait(second.id);
+
+    const group = interactiveSession.createBackgroundJobGroup({
+      waitPolicy: 'wait_all',
+      taskIds: [first.id, second.id],
+      label: 'agent parallel',
+    });
+    const completed = await interactiveSession.waitBackgroundJobGroup(group.id);
+
+    expect(completed.status).toBe('completed');
+    expect(events).toContain('background_job_group_created');
+    expect(events).toContain('background_job_group_completed');
+
+    const lastSaved = sessionStore.save.mock.calls.at(-1)?.[0] as {
+      backgroundJobGroups?: Array<{ id: string; status: string }>;
+      backgroundJobGroupEvents?: Array<{ type: string }>;
+    };
+    expect(lastSaved.backgroundJobGroups?.[0]).toMatchObject({
+      id: group.id,
+      status: 'completed',
+    });
+    expect(lastSaved.backgroundJobGroupEvents?.map((event) => event.type)).toContain(
+      'background_job_group_completed',
+    );
+  });
+
   it('shutdown cancels background tasks through the manager and ends the session once', async () => {
     let cancelReason = '';
     const runner: IBackgroundTaskRunner = {

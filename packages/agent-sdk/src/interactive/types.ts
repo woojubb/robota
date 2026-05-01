@@ -3,7 +3,7 @@
  */
 
 import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { TBackgroundTaskEvent } from '../background-tasks/index.js';
+import type { TBackgroundJobGroupEvent, TBackgroundTaskEvent } from '../background-tasks/index.js';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
@@ -57,6 +57,7 @@ export interface IInteractiveSessionEvents {
   context_update: (state: IContextWindowState) => void;
   interrupted: (result: IExecutionResult) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
+  background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

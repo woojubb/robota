@@ -1,4 +1,5 @@
 export { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
+export { BackgroundJobOrchestrator } from './background-job-orchestrator.js';
 export {
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
@@ -37,3 +38,14 @@ export type {
   TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
 } from '@robota-sdk/agent-runtime';
+export type {
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
+  IBackgroundJobOrchestratorOptions,
+  IBackgroundJobResultEnvelope,
+  TBackgroundJobGroupEvent,
+  TBackgroundJobGroupEventListener,
+  TBackgroundJobGroupIdFactory,
+  TBackgroundJobGroupStatus,
+  TBackgroundJobWaitPolicy,
+} from './background-job-orchestrator.js';
