@@ -42,7 +42,7 @@ describe('BackgroundTaskPanel', () => {
     expect(frame).not.toContain('failed agent:');
   });
 
-  it('keeps idle age, timeout reason, unread marker, and preview text', () => {
+  it('keeps idle age, timeout reason, and preview text without an unread marker', () => {
     const { lastFrame } = render(
       <BackgroundTaskPanel
         tasks={[
@@ -59,7 +59,8 @@ describe('BackgroundTaskPanel', () => {
     );
 
     const frame = lastFrame()!;
-    expect(frame).toContain('■ ! agent:general-purpose agent_1');
+    expect(frame).toContain('■ agent:general-purpose agent_1');
+    expect(frame).not.toContain('■ !');
     expect(frame).toContain('(idle)');
     expect(frame).toContain(' - Background agent produced no activity');
     expect(frame).not.toContain('timed out agent:');

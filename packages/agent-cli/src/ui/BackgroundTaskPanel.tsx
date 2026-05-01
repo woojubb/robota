@@ -49,7 +49,6 @@ export default function BackgroundTaskPanel({ tasks }: IProps): React.ReactEleme
         <Text key={task.id}>
           {'- '}
           <Text color={getStatusColor(task.status)}>{getStatusMarker(task.status)}</Text>
-          {task.unread ? <Text color="yellow"> !</Text> : null}
           {` ${task.kind}:${task.label} ${task.id}`}
           {task.status === 'running' && formatAge(task.lastActivityAt) ? (
             <Text dimColor>{` idle ${formatAge(task.lastActivityAt)}`}</Text>
