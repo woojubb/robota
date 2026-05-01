@@ -1,14 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  Content,
-  Part,
-  FunctionCall,
-  FunctionDeclaration,
-  EnhancedGenerateContentResponse,
-} from '@google/generative-ai';
+import type { Content, Part, FunctionCall, GenerateContentResponse } from '@google/genai';
 import type {
   TUniversalMessage,
-  IToolSchema,
   IAssistantMessage,
   IUserMessage,
   ISystemMessage,
@@ -18,6 +11,18 @@ import type {
 
 const RANDOM_ID_RADIX = 36;
 const RANDOM_ID_LENGTH = 9;
+
+type TGoogleJsonValue = string | number | boolean | null | TGoogleJsonValue[] | IGoogleJsonObject;
+
+interface IGoogleJsonObject {
+  readonly [key: string]: TGoogleJsonValue;
+}
+
+interface ICollectedGeminiParts {
+  textValues: string[];
+  messageParts: TUniversalMessagePart[];
+  functionCalls: FunctionCall[];
+}
 
 /**
  * Maps universal message parts to Gemini-compatible parts.
@@ -98,8 +103,9 @@ function convertAssistantMessage(assistantMsg: IAssistantMessage): Content {
     assistantMsg.toolCalls.forEach((tc) => {
       parts.push({
         functionCall: {
+          id: tc.id,
           name: tc.function.name,
-          args: JSON.parse(tc.function.arguments) as object,
+          args: parseToolCallArguments(tc.function.arguments),
         },
       });
     });
@@ -116,9 +122,7 @@ export function generateCallId(): string {
 }
 
 /** Converts a Gemini API response into a universal message. */
-export function convertFromGeminiResponse(
-  response: EnhancedGenerateContentResponse,
-): TUniversalMessage {
+export function convertFromGeminiResponse(response: GenerateContentResponse): TUniversalMessage {
   const candidate = response.candidates?.[0];
   if (!candidate) {
     throw new Error('No candidate in Gemini response');
@@ -129,64 +133,113 @@ export function convertFromGeminiResponse(
     throw new Error('No content in Gemini response');
   }
 
-  const textValues: string[] = [];
-  const messageParts: TUniversalMessagePart[] = [];
-  const collectedFunctionCalls: FunctionCall[] = [];
-
-  for (const p of content.parts) {
-    if (typeof p.text === 'string') {
-      textValues.push(p.text);
-      messageParts.push({ type: 'text', text: p.text });
-    }
-    if (p.inlineData && typeof p.inlineData.data === 'string') {
-      messageParts.push({
-        type: 'image_inline',
-        data: p.inlineData.data,
-        mimeType: p.inlineData.mimeType,
-      });
-    }
-    if (p.functionCall) {
-      collectedFunctionCalls.push(p.functionCall);
-    }
-  }
+  const collectedParts = collectGeminiParts(content.parts);
 
   const result: TUniversalMessage = {
     id: randomUUID(),
     state: 'complete' as const,
     role: 'assistant',
-    content: textValues.length > 0 ? textValues.join('') : null,
-    parts: messageParts,
+    content: collectedParts.textValues.length > 0 ? collectedParts.textValues.join('') : null,
+    parts: collectedParts.messageParts,
     timestamp: new Date(),
   };
 
-  if (collectedFunctionCalls.length > 0) {
+  if (collectedParts.functionCalls.length > 0) {
     const assistantResult = result as IAssistantMessage;
-    assistantResult.toolCalls = collectedFunctionCalls.map((fc) => ({
-      id: generateCallId(),
+    assistantResult.toolCalls = collectedParts.functionCalls.map((fc) => ({
+      id: fc.id ?? generateCallId(),
       type: 'function' as const,
       function: {
-        name: fc.name,
-        arguments: JSON.stringify(fc.args),
+        name: requireFunctionCallName(fc),
+        arguments: JSON.stringify(fc.args ?? {}),
       },
     }));
   }
 
-  if (response.usageMetadata) {
-    result.metadata = {
-      promptTokens: response.usageMetadata.promptTokenCount,
-      completionTokens: response.usageMetadata.candidatesTokenCount,
-      totalTokens: response.usageMetadata.totalTokenCount,
-    };
+  const usageMetadata = mapUsageMetadata(response);
+  if (usageMetadata) {
+    result.metadata = usageMetadata;
   }
 
   return result;
 }
 
-/** Converts tool schemas to Gemini function declarations. */
-export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclaration[] {
-  return tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.parameters as FunctionDeclaration['parameters'],
-  }));
+function collectGeminiParts(parts: Part[]): ICollectedGeminiParts {
+  const textValues: string[] = [];
+  const messageParts: TUniversalMessagePart[] = [];
+  const functionCalls: FunctionCall[] = [];
+
+  for (const part of parts) {
+    collectTextPart(part, textValues, messageParts);
+    collectInlineImagePart(part, messageParts);
+    if (part.functionCall) {
+      functionCalls.push(part.functionCall);
+    }
+  }
+
+  return { textValues, messageParts, functionCalls };
+}
+
+function collectTextPart(
+  part: Part,
+  textValues: string[],
+  messageParts: TUniversalMessagePart[],
+): void {
+  if (typeof part.text !== 'string') {
+    return;
+  }
+  textValues.push(part.text);
+  messageParts.push({ type: 'text', text: part.text });
+}
+
+function collectInlineImagePart(part: Part, messageParts: TUniversalMessagePart[]): void {
+  if (
+    !part.inlineData ||
+    typeof part.inlineData.data !== 'string' ||
+    typeof part.inlineData.mimeType !== 'string'
+  ) {
+    return;
+  }
+  messageParts.push({
+    type: 'image_inline',
+    data: part.inlineData.data,
+    mimeType: part.inlineData.mimeType,
+  });
+}
+
+function mapUsageMetadata(response: GenerateContentResponse): TUniversalMessage['metadata'] {
+  if (
+    !response.usageMetadata ||
+    typeof response.usageMetadata.promptTokenCount !== 'number' ||
+    typeof response.usageMetadata.candidatesTokenCount !== 'number' ||
+    typeof response.usageMetadata.totalTokenCount !== 'number'
+  ) {
+    return undefined;
+  }
+  return {
+    promptTokens: response.usageMetadata.promptTokenCount,
+    completionTokens: response.usageMetadata.candidatesTokenCount,
+    totalTokens: response.usageMetadata.totalTokenCount,
+  };
+}
+
+export { convertToolsToGeminiFormat } from './tool-schema-converter';
+
+function parseToolCallArguments(serializedArguments: string): IGoogleJsonObject {
+  const parsedArguments = JSON.parse(serializedArguments) as TGoogleJsonValue;
+  if (!isJsonObject(parsedArguments)) {
+    throw new Error('Google provider tool call arguments must be a JSON object.');
+  }
+  return parsedArguments;
+}
+
+function isJsonObject(value: TGoogleJsonValue): value is IGoogleJsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function requireFunctionCallName(functionCall: FunctionCall): string {
+  if (!functionCall.name || functionCall.name.trim().length === 0) {
+    throw new Error('Gemini function call is missing a function name.');
+  }
+  return functionCall.name;
 }

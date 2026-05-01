@@ -1,6 +1,6 @@
 # CLI-BL-037 CLI Version Update Check and Assisted Upgrade
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-01
 - **Branch**: feat/cli-version-update-check
 - **Scope**: packages/agent-cli, .agents/tasks, .agents/backlog
@@ -123,4 +123,4 @@ None.
 
 ## Result
 
-Implementation is complete and verified on branch `feat/cli-version-update-check`; PR #112 is open. The CLI now checks npm metadata for newer `@robota-sdk/agent-cli` versions, stores only operational cache in `~/.robota/update-check.json`, avoids writing update policy into `settings.json`, and uses npm global install as the update path.
+Completed and merged through PR #112. The CLI now checks npm metadata for newer `@robota-sdk/agent-cli` versions, stores only operational cache in `~/.robota/update-check.json`, avoids writing update policy into `settings.json`, and uses npm global install as the update path.

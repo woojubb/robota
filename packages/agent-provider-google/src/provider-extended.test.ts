@@ -6,42 +6,43 @@ import type { TUniversalMessage, IExecutor } from '@robota-sdk/agent-core';
 const generateContentMock = vi.fn();
 const generateContentStreamMock = vi.fn();
 
-vi.mock('@google/generative-ai', () => {
-  class GoogleGenerativeAI {
-    public constructor(_apiKey: string) {}
+vi.mock('@google/genai', () => {
+  class GoogleGenAI {
+    public readonly models = {
+      generateContent: generateContentMock,
+      generateContentStream: generateContentStreamMock,
+    };
 
-    public getGenerativeModel(_options: { model: string }): {
-      generateContent: typeof generateContentMock;
-      generateContentStream: typeof generateContentStreamMock;
-    } {
-      return {
-        generateContent: generateContentMock,
-        generateContentStream: generateContentStreamMock,
-      };
-    }
+    public constructor(_options: { apiKey: string }) {}
   }
-  return { GoogleGenerativeAI };
+  return {
+    GoogleGenAI,
+    Type: {
+      STRING: 'STRING',
+      NUMBER: 'NUMBER',
+      INTEGER: 'INTEGER',
+      BOOLEAN: 'BOOLEAN',
+      ARRAY: 'ARRAY',
+      OBJECT: 'OBJECT',
+    },
+  };
 });
 
 function makeTextResponse(text: string) {
   return {
-    response: {
-      candidates: [{ content: { parts: [{ text }] } }],
-    },
+    candidates: [{ content: { parts: [{ text }] } }],
   };
 }
 
 function makeImageResponse(text: string, mimeType: string, data: string) {
   return {
-    response: {
-      candidates: [
-        {
-          content: {
-            parts: [{ text }, { inlineData: { mimeType, data } }],
-          },
+    candidates: [
+      {
+        content: {
+          parts: [{ text }, { inlineData: { mimeType, data } }],
         },
-      ],
-    },
+      },
+    ],
   };
 }
 
@@ -151,9 +152,9 @@ describe('GoogleProvider - chat error paths', () => {
       },
     );
     const payload = generateContentMock.mock.calls[0]?.[0];
-    expect(payload.tools).toBeDefined();
-    expect(payload.tools[0].functionDeclarations).toHaveLength(1);
-    expect(payload.tools[0].functionDeclarations[0].name).toBe('search');
+    expect(payload.config.tools).toBeDefined();
+    expect(payload.config.tools[0].functionDeclarations).toHaveLength(1);
+    expect(payload.config.tools[0].functionDeclarations[0].name).toBe('search');
   });
 
   it('throws on IMAGE modality when response lacks image part', async () => {
@@ -186,12 +187,12 @@ describe('GoogleProvider - chatStream', () => {
   });
 
   it('yields streaming text chunks', async () => {
-    generateContentStreamMock.mockResolvedValue({
-      stream: (async function* () {
-        yield { text: () => 'Hello' };
-        yield { text: () => ' world' };
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'Hello' };
+        yield { text: ' world' };
       })(),
-    });
+    );
 
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
@@ -216,12 +217,12 @@ describe('GoogleProvider - chatStream', () => {
   });
 
   it('skips empty text chunks', async () => {
-    generateContentStreamMock.mockResolvedValue({
-      stream: (async function* () {
-        yield { text: () => '' };
-        yield { text: () => 'data' };
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: '' };
+        yield { text: 'data' };
       })(),
-    });
+    );
 
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
@@ -313,11 +314,11 @@ describe('GoogleProvider - chatStream', () => {
   });
 
   it('passes tools in streaming request', async () => {
-    generateContentStreamMock.mockResolvedValue({
-      stream: (async function* () {
-        yield { text: () => 'ok' };
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'ok' };
       })(),
-    });
+    );
     const provider = new GoogleProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
@@ -345,7 +346,7 @@ describe('GoogleProvider - chatStream', () => {
     }
     expect(chunks).toHaveLength(1);
     const payload = generateContentStreamMock.mock.calls[0]?.[0];
-    expect(payload.tools).toBeDefined();
+    expect(payload.config.tools).toBeDefined();
   });
 });
 

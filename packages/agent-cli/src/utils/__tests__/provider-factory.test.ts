@@ -11,6 +11,7 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
 import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
+import { GoogleProvider } from '@robota-sdk/agent-provider-google';
 
 vi.mock('@robota-sdk/agent-provider-anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -130,6 +131,36 @@ vi.mock('@robota-sdk/agent-provider-qwen', () => {
           apiKey: config.apiKey,
           ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
           ...(config.timeout !== undefined && { timeout: config.timeout }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
+
+vi.mock('@robota-sdk/agent-provider-google', () => {
+  const MockGoogleProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'google',
+    version: 'test',
+    options,
+  }));
+  return {
+    GoogleProvider: MockGoogleProvider,
+    createGeminiProviderDefinition: () => ({
+      type: 'gemini',
+      aliases: ['google'],
+      defaults: {
+        model: 'gemini-3-flash-preview',
+        apiKey: '$ENV:GEMINI_API_KEY',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+      }) =>
+        new MockGoogleProvider({
+          apiKey: config.apiKey,
           defaultModel: config.model,
         }),
     }),
@@ -350,6 +381,47 @@ describe('provider-factory', () => {
       baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
       timeout: 45_000,
       defaultModel: 'qwen-plus',
+    });
+  });
+
+  it('creates GoogleProvider for canonical Gemini provider profiles', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'gemini',
+      providers: {
+        gemini: {
+          type: 'gemini',
+          model: 'gemini-3-flash-preview',
+          apiKey: 'gemini-key',
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd);
+
+    expect(provider.name).toBe('google');
+    expect(GoogleProvider).toHaveBeenCalledWith({
+      apiKey: 'gemini-key',
+      defaultModel: 'gemini-3-flash-preview',
+    });
+  });
+
+  it('creates GoogleProvider for compatibility Google provider profiles through aliases', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'google',
+      providers: {
+        google: {
+          type: 'google',
+          model: 'gemini-3-flash-preview',
+          apiKey: 'gemini-key',
+        },
+      },
+    });
+
+    createProviderFromSettings(cwd);
+
+    expect(GoogleProvider).toHaveBeenCalledWith({
+      apiKey: 'gemini-key',
+      defaultModel: 'gemini-3-flash-preview',
     });
   });
 
