@@ -102,6 +102,8 @@ describe('assembleOpenAICompatibleStream', () => {
 
     const result = await assembleOpenAICompatibleStream({ stream });
 
+    expect(result.role).toBe('assistant');
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
     expect(result.toolCalls).toEqual([
       {
         id: 'call-1',
