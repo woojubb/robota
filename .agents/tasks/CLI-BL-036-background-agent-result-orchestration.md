@@ -13,7 +13,7 @@ packages:
   - agent-transport-ws
 related:
   - .agents/tasks/completed/CLI-BL-030-background-agent-jobs.md
-  - .agents/tasks/CLI-BL-032-agent-invocation-router.md
+  - .agents/tasks/completed/CLI-BL-032-agent-invocation-router.md
   - .agents/tasks/CLI-BL-035-background-agent-watchdogs.md
 ---
 

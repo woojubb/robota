@@ -1,6 +1,6 @@
 ---
 title: CLI-BL-032 Agent Invocation Router
-status: backlog
+status: completed
 priority: high
 urgency: next
 created: 2026-05-01
@@ -11,6 +11,10 @@ packages:
   - agent-transport-headless
   - agent-transport-ws
 spec: .agents/specs/agent-invocation-router.md
+merged_prs:
+  - 105
+  - 106
+  - 108
 ---
 
 ## Summary
@@ -111,9 +115,18 @@ pnpm harness:scan
 
 ## Acceptance Criteria
 
-- `system-prompt-builder` does not own operational guidance; prompt content comes from owner-provided sections and descriptors.
-- `/agent` is model-visible through injected descriptors and user-invocable through command parsing when the agent command module is composed.
-- SDK core can run without the agent command module.
-- Explicit `/agent` requests and model command tool calls create real runtime jobs.
-- Parallel background agent execution returns job IDs immediately.
-- Robota-owned execution status is backed by runtime evidence.
+- [x] `system-prompt-builder` does not own operational guidance; prompt content comes from owner-provided sections and descriptors.
+- [x] `/agent` is model-visible through injected descriptors and user-invocable through command parsing when the agent command module is composed.
+- [x] SDK core can run without the agent command module.
+- [x] Explicit `/agent` requests and model command tool calls create real runtime jobs.
+- [x] Parallel background agent execution returns job IDs and, by default, a wait_all group summary for same-turn consolidation.
+- [x] Robota-owned execution status is backed by runtime evidence.
+
+## Completion Notes
+
+### 2026-05-02
+
+- Confirmed the specification was introduced by PR #105.
+- Confirmed the composable `/agent` command module and model-visible command descriptor path were implemented through PR #106.
+- Confirmed background group orchestration and default `/agent parallel` consolidation were completed by PR #108.
+- Archived this backlog item because the implementation is present on `develop` and package specs now describe the command-module, background-task, and group-orchestration contracts.
