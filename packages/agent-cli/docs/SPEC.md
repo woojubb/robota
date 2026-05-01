@@ -11,7 +11,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
-- OWNS: AI provider creation (reads config, selects provider package, creates instance, passes to `InteractiveSession`)
+- OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
@@ -22,26 +22,119 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Import Rules
 
-| Source             | Allowed                       | Examples                                                                         |
-| ------------------ | ----------------------------- | -------------------------------------------------------------------------------- |
-| `agent-sdk`        | SDK-owned APIs                | `InteractiveSession`, `TInteractivePermissionHandler`                            |
-| `agent-core`       | Public types + utilities only | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`    |
-| `agent-core`       | ❌ Internal engine            | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                    |
-| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session and permission types                                |
-| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                   |
-| `agent-provider-*` | ✅ Provider creation only     | `AnthropicProvider` (CLI picks which to use; currently only anthropic supported) |
+| Source             | Allowed                              | Examples                                                                                    |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `agent-sdk`        | SDK-owned APIs                       | `InteractiveSession`, `TInteractivePermissionHandler`                                       |
+| `agent-core`       | Public types + utilities only        | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`               |
+| `agent-core`       | ❌ Internal engine                   | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                               |
+| `agent-sessions`   | ❌ Forbidden                         | SDK provides its own session and permission types                                           |
+| `agent-tools`      | ❌ Forbidden                         | SDK assembles tools internally                                                              |
+| `agent-provider-*` | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; provider packages own defaults and factories |
 
 ## Architecture
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
 
-1. Reads config to determine which provider to use.
-2. Creates the provider instance (e.g., `new AnthropicProvider(options)`).
-3. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
-4. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+1. Reads config to determine which provider profile to use.
+2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
+3. Creates the provider instance by calling `definition.createProvider(config)`.
+4. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
+5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+
+### Provider Profile Creation
+
+The CLI owns provider profile resolution and provider definition composition. It must not branch on provider type names to decide defaults, required fields, setup prompts, endpoint probes, or constructor behavior. Those values come from injected `IProviderDefinition` records.
+
+Settings may define an active provider profile:
+
+```json
+{
+  "currentProvider": "gemma",
+  "providers": {
+    "gemma": {
+      "type": "gemma",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
+    }
+  }
+}
+```
+
+Gemma-family local models served through LM Studio must use a `type: "gemma"` profile so the provider package can apply Gemma-specific channel-marker projection. `type: "openai"` remains model-family neutral and must not filter Gemma markers.
+
+Provider resolution order:
+
+1. `currentProvider` plus `providers[currentProvider]`
+2. Legacy `provider`
+3. Defaults supplied by the resolved provider definition
+
+Provider definition contract:
+
+| Field            | Owner                            | CLI behavior                                          |
+| ---------------- | -------------------------------- | ----------------------------------------------------- |
+| `type`           | Provider package or CLI assembly | Match settings profile type to a definition           |
+| `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values      |
+| `setupSteps`     | Provider package                 | Drive interactive setup prompts without type branches |
+| `requiresApiKey` | Provider package                 | Validate profiles consistently                        |
+| `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                   |
+| `createProvider` | Provider package                 | Build concrete provider instance                      |
+
+The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`.
+
+### Provider Configuration UX
+
+The CLI owns provider setup and provider profile writes. Default writes go to `~/.robota/settings.json`; `.claude/settings.json` compatibility is read-only for Robota-specific provider profile creation.
+
+Supported setup flags:
+
+| Flag                             | Behavior                                                            |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `--configure`                    | Run interactive provider setup and exit                             |
+| `--configure-provider <profile>` | Upsert a provider profile and exit unless a prompt is also provided |
+| `--provider <profile>`           | Select an existing provider profile for this invocation             |
+| `--set-current`                  | Persist the selected or configured profile as `currentProvider`     |
+| `--type <type>`                  | Provider implementation type used by `--configure-provider`         |
+| `--base-url <url>`               | Provider API base URL                                               |
+| `--api-key <value>`              | Store a literal API key                                             |
+| `--api-key-env <name>`           | Store `$ENV:<name>`, not the current environment value              |
+
+First-run setup must offer the injected provider definitions when stdin/stdout are TTYs. Non-interactive print/headless execution must not prompt; missing provider config must produce an actionable error that points to `robota --configure` and `robota --configure-provider`.
+
+Provider slash commands are TUI side effects:
+
+| Command                    | Behavior                                                    |
+| -------------------------- | ----------------------------------------------------------- |
+| `/provider`                | Show current provider and subcommands                       |
+| `/provider current`        | Show active profile, type, model, and baseURL               |
+| `/provider list`           | Show provider profiles from merged settings                 |
+| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session |
+| `/provider test [profile]` | Validate fields and optionally probe the endpoint           |
+
+Provider changes must follow the existing `/model` restart pattern: command returns structured data, TUI confirms, settings are written after confirmation, and the App remounts with a new provider instance.
+
+Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns setup steps, defaults, required-field validation, masked-field metadata, and final `IProviderSetupInput` construction. TUI components may only render the current prompt step and pass submitted values back to the flow module.
+
+TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
+
+Flow ownership:
+
+| Flow module                 | Owns                                                                        | Thin shell consumers                                     |
+| --------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                | `TextPrompt`, `ProviderSetupPrompt` through `TextPrompt` |
+| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling       | `ListPicker`, `MenuSelect`, choice prompt flows          |
+| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                 | `ConfirmPrompt`                                          |
+| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions           | `PermissionPrompt`                                       |
+| `input-area-flow.ts`        | slash autocomplete movement, command completion, queue cancel, paste labels | `InputArea`                                              |
+| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                           |
 
 ```
-bin.ts → cli.ts (arg parsing + provider creation)
+bin.ts → cli.ts (arg parsing + provider definition composition)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession({ cwd, provider })
@@ -68,7 +161,7 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            ├─→ agent-tools ────────────→ agent-core
   │            └─────────────────────────→ agent-core  (direct: types, utilities)
   ├──────────────────────────────────────→ agent-core  (direct: public types only)
-  └──────────────────────────────────────→ agent-provider-* (provider creation)
+  └──────────────────────────────────────→ agent-provider-* (provider definitions)
 ```
 
 ## StatusBar Display
@@ -289,10 +382,10 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
-1. Creates `InteractiveSession({ cwd, provider })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
+1. Creates `InteractiveSession({ cwd, provider, commandModules })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
-4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
+4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
 5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
 6. Manages the permission queue (serialises concurrent permission requests).
 
@@ -320,7 +413,9 @@ The `StreamingIndicator` (showing active tools) is rendered when `isThinking || 
 
 ## Command Registry Architecture
 
-The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, and `SkillCommandSource` are all owned by `@robota-sdk/agent-sdk`. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds only `PluginCommandSource`.
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, and `SkillCommandSource` are all owned by `@robota-sdk/agent-sdk`. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds `PluginCommandSource` and any injected `ICommandModule` sources generically.
+
+Reusable CLI/TUI code must not special-case command module names such as `/agent`. It accepts `commandModules` and registers them with the SDK registry. The package binary may choose product defaults by passing modules into `startCli()`.
 
 ### ICommandSource Interface
 
@@ -349,6 +444,7 @@ interface ISlashCommand {
 | Source   | Class                  | Owner                   | Description                                          |
 | -------- | ---------------------- | ----------------------- | ---------------------------------------------------- |
 | Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | Built-in commands with subcommands for /mode, /model |
+| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition     |
 | Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)   |
 | Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins          |
 
@@ -467,7 +563,7 @@ src/
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
-│   ├── provider-factory.ts          ← AI provider creation from settings
+│   ├── provider-factory.ts          ← AI provider resolution from injected definitions
 │   ├── tool-call-extractor.ts       ← Tool call display extraction from history
 │   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
@@ -480,6 +576,13 @@ src/
     │   ├── TuiStateManager.ts       ← Holds history: IHistoryEntry[]; syncs from getFullHistory();
     │   │                              manages windowing (MAX_RENDERED_MESSAGES) and local event entries
     │   └── usePluginCallbacks.ts    ← Plugin TUI callback wiring
+    ├── flows/
+    │   ├── text-prompt-flow.ts      ← Text prompt editing, validation, submit/cancel effects
+    │   ├── selection-flow.ts        ← Shared bounded/wrapping selection state machine
+    │   ├── confirm-prompt-flow.ts   ← Confirmation shortcuts and option selection
+    │   ├── permission-prompt-flow.ts← Permission shortcuts and decision mapping
+    │   ├── input-area-flow.ts       ← Slash autocomplete and paste-label input flow
+    │   └── cjk-text-input-flow.ts   ← CJK-aware text editing and paste flow
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
@@ -501,7 +604,7 @@ src/
     └── types.ts                     ← IPermissionRequest
 ```
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are all owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility, plus `slash-executor.ts` (plugin TUI handlers and IPluginCallbacks interface) and `skill-executor.ts` (fork/inject execution helpers). The CLI's `src/index.ts` exports only `startCli` and local CLI types.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility, plus `slash-executor.ts` (plugin TUI handlers and IPluginCallbacks interface) and `skill-executor.ts` (fork/inject execution helpers). The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 
 ## CLI Usage
 
@@ -527,7 +630,9 @@ robota --version                    # Version
 
 ### Print Mode and Headless Transport
 
-Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, and exits with `transport.getExitCode()`.
+Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, then calls `session.shutdown({ reason: 'prompt_input_exit' })` before exiting with `transport.getExitCode()`.
+
+Any command modules supplied to `startCli({ commandModules })` are passed to the same `InteractiveSession` in both print mode and TUI mode.
 
 **`--output-format`** controls how the response is written to stdout:
 
@@ -567,6 +672,10 @@ If both stdin and a positional argument are provided, stdin content is prepended
 | `--name <name>`     | Sets the session name. Can be combined with other flags                                                                                                       |
 
 When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
+
+### Session Storage
+
+The CLI constructs `SessionStore` with the current project path `.robota/sessions`, not the generic user-level default. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
 
 ## Tool Output Limits
 
@@ -686,15 +795,17 @@ System: Interrupted by user.   ← MessageList (abort only)
 - On complete/interrupt/error: `InteractiveSession.pushToolSummaryMessage()` inserts a formatted tool summary into the `messages` array BEFORE the Robota response. Then `activeTools` is cleared and `StreamingIndicator` disappears.
 - Result: Tool → Robota order is preserved in both real-time and final state. Tool information transitions from `StreamingIndicator` (live) to `MessageList` (permanent).
 
-### Ctrl+C — Process Exit
+### Ctrl+C — Graceful Shutdown
 
-Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtrlC: true` option at the render level, bypassing all `useInput` handlers. It works regardless of which UI overlay is active (PluginTUI, permission prompt, etc.).
+Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `useInteractiveSession.handleShutdown('prompt_input_exit')`. That delegates to `InteractiveSession.shutdown()`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
+
+Slash-command restarts and exits (`/exit`, provider/model/language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 
 ### ESC — Abort Execution
 
 ESC aborts the current execution gracefully (unlike Ctrl+C which kills the process):
 
-1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useInteractiveSession`)
+1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useInteractiveSession`). The App-level ESC listener remains mounted and guards permission, plugin, and session-picker overlays inside the handler instead of toggling `useInput({ isActive })`.
 2. `handleAbort` sets `isAborting: true` and calls `interactiveSession.abort()`
 3. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
 4. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
@@ -736,13 +847,13 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 
 **Architecture:**
 
-- Cursor-only manipulation — text is never modified, only `cursorRef` position changes
+- Cursor-only manipulation — text is never modified, only flow `cursor` position changes
 - External value sync with `cursorHint` — when parent sets value, cursor position is determined by `cursorHint` prop: `null` (default) moves cursor to end (tab completion, clear), a number moves cursor to that position (paste). `cursorHint` is consumed once and reset to `null` after use.
-- Two private helpers in `CjkTextInput.tsx` (no separate module):
+- Helpers in `cjk-text-input-flow.ts`:
   - `displayOffset(chars, charIndex, width)` → cumulative display column offset, accounting for CJK line-end gaps
   - `charIndexAtDisplayOffset(chars, targetOffset, width)` → char index closest to target offset
-- Up arrow: `cursorRef = charIndexAtDisplayOffset(chars, offset - availableWidth, width)`
-- Down arrow: `cursorRef = charIndexAtDisplayOffset(chars, offset + availableWidth, width)`
+- Up arrow: `cursor = charIndexAtDisplayOffset(chars, offset - availableWidth, width)`
+- Down arrow: `cursor = charIndexAtDisplayOffset(chars, offset + availableWidth, width)`
 - Uses `string-width` for CJK character support (2 columns per CJK character)
 
 **Available width calculation:**
@@ -768,7 +879,7 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 - Only enabled when `process.stdin.isTTY && process.stdout.isTTY`
 - Terminal wraps pasted content with `\x1b[200~` (start) and `\x1b[201~` (end) markers
 - Ink's CSI parser strips the ESC prefix, so `useInput` receives `[200~` and `[201~`
-- `CjkTextInput` detects these markers and buffers all input between them
+- `cjk-text-input-flow` detects these markers and buffers all input between them
 - On paste-end marker, the complete buffer is flushed with `\r\n`/`\r` normalized to `\n`
 - Deterministic boundary detection — no debounce or timing heuristics
 
@@ -806,9 +917,63 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ## Subagent Execution
 
-Subagent execution (Agent tool, fork sessions, agent definition loading) is managed entirely by `@robota-sdk/agent-sdk` internally. The CLI does not wire these components directly — `InteractiveSession` handles all subagent lifecycle.
+Subagent execution (Agent tool, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-sdk` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
 
-For implementation details of subagent execution (Agent tool, `context: fork` skills, agent definition scanning), see the agent-sdk SPEC.
+The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
+
+The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner starts a child Node worker and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
+
+`child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
+
+Agent command behavior is not owned by the TUI. The Robota binary can compose `@robota-sdk/agent-command-agent` as a default command module, but reusable CLI UI code only handles generic command modules.
+
+Child-process subagent runner responsibilities:
+
+- fork one worker process per subagent job
+- pass `ISubagentSpawnRequest`, agent definition, parent config/context, permission mode, and serialized provider profile over IPC
+- expose child `pid` on the background task state
+- forward worker text/tool IPC messages to `BackgroundTaskManager` progress events
+- create an append-only subagent transcript at `.robota/logs/PARENT_SESSION_ID/subagents/AGENT_ID.jsonl` and make `/agent read AGENT_ID` read that transcript while the worker is still running
+- forward cancellation to the worker and terminate it after a grace period
+- forward follow-up prompts to workers that support input
+- keep runtime-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter
+
+When an agent request sets `isolation: 'worktree'`, the CLI composes the runtime-owned `WorktreeSubagentRunner` exposed through SDK contracts around the child-process runner and injects a CLI-owned `GitWorktreeIsolationAdapter`.
+
+The runtime worktree runner owns worktree lifecycle orchestration:
+
+- delegate non-worktree requests unchanged
+- run isolated workers with `cwd` set to the prepared worktree path
+- remove clean worktrees on success or worker failure
+- preserve dirty worktrees and return `worktreePath` plus `branchName` in result metadata
+- fire SDK hook notifications for `WorktreeCreate` and `WorktreeRemove` when configured
+
+The CLI-owned Git adapter implements only local Git/filesystem I/O:
+
+- create a temporary branch and worktree before the worker starts
+- remove the worktree and branch when the worktree remains clean
+- report whether the worktree has local edits
+
+When a user invokes a skill slash command with `context: fork`, the CLI must call `interactiveSession.executeSkillCommand(...)`. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection. This keeps fork execution deterministic and preserves the CLI as a thin TUI shell.
+
+When a user asks in normal conversation to call or delegate to an agent, the request is handled by the model through the SDK-owned `Agent` tool. The CLI only displays the resulting tool execution events and final assistant response.
+
+Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the runtime-owned event union exposed as the SDK `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
+
+`TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
+
+`BackgroundTaskPanel` renders active and recently completed background tasks with a compact status marker, kind, label, task ID, and a short preview. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through SDK system commands:
+
+| Command                               | Behavior                       |
+| ------------------------------------- | ------------------------------ |
+| `/background` or `/background list`   | List current background tasks  |
+| `/background read <task-id> [offset]` | Read stdout/stderr log lines   |
+| `/background cancel <task-id>`        | Cancel one queued/running task |
+| `/background close <task-id>`         | Dismiss one terminal task      |
+
+For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
+
+Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
 
 ## Memory Management
 
@@ -856,17 +1021,22 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 ## Dependencies
 
-| Package                                | Purpose                                                                     |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)    |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)            |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                             |
-| `ink`, `react`                         | TUI rendering                                                               |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                     |
-| `ink-spinner`                          | Loading spinner                                                             |
-| `chalk`                                | Terminal colors                                                             |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                  |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                     |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                         |
-| `string-width`                         | Unicode-aware string width calculation                                      |
+`@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
+
+| Package                                | Purpose                                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                     |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management, re-exported runtime contracts |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                   |
+| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                               |
+| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                               |
+| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                               |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                            |
+| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                              |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                    |
+| `ink-spinner`                          | Loading spinner                                                                                            |
+| `chalk`                                | Terminal colors                                                                                            |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                 |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                    |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                                                        |
+| `string-width`                         | Unicode-aware string width calculation                                                                     |

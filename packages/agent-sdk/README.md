@@ -44,7 +44,7 @@ const response = await query('Analyze the code', {
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
 - **Streaming** — Real-time text delta callbacks via `onTextDelta`
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
-- **Config Loading** — 6-layer merge (CLI flags, local, project, Claude Code compat, user global, user global Claude Code compat) with `$ENV:VAR` substitution
+- **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider API keys
 - **Context Window Management** — Token tracking, auto-compaction at ~83.5%, manual `session.compact()`
 - **Bundle Plugin System** — Install and manage reusable extensions packaged as bundle plugins
 
@@ -273,7 +273,7 @@ import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
 
 ## Subagent Sessions
 
-`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk.
+`createSubagentSession()` creates an isolated child session for delegating subtasks. The subagent receives pre-resolved config and context from the parent — it does not load config files or context from disk. Callers may provide a stable `sessionId` and `sessionLogger` so the child session writes a durable transcript.
 
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-sdk';
@@ -295,6 +295,8 @@ Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Hai
 ### createAgentTool()
 
 `createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
+
+Background subagent lifecycle events are persisted through `InteractiveSession` when a `SessionStore` is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
 
 ## Hook Executors (SDK-Specific)
 
@@ -330,26 +332,40 @@ Manages plugin installation and uninstallation:
 
 ## Configuration
 
-Settings are loaded from (highest priority first):
+Settings are merged from lowest to highest priority:
 
-| Layer | Path                              | Scope                                |
-| ----- | --------------------------------- | ------------------------------------ |
-| 1     | CLI flags / environment variables | Invocation                           |
-| 2     | `.robota/settings.local.json`     | Project (local)                      |
-| 3     | `.robota/settings.json`           | Project                              |
-| 4     | `.claude/settings.json`           | Project (Claude Code compatible)     |
-| 5     | `~/.robota/settings.json`         | User global                          |
-| 6     | `~/.claude/settings.json`         | User global (Claude Code compatible) |
+| Layer | Path                          | Scope                                   |
+| ----- | ----------------------------- | --------------------------------------- |
+| 1     | `~/.robota/settings.json`     | User global                             |
+| 2     | `~/.claude/settings.json`     | User global (Claude Code compatible)    |
+| 3     | `.robota/settings.json`       | Project                                 |
+| 4     | `.robota/settings.local.json` | Project (local)                         |
+| 5     | `.claude/settings.json`       | Project (Claude Code compatible)        |
+| 6     | `.claude/settings.local.json` | Project (local, Claude Code compatible) |
 
-`$ENV:VAR` substitution is applied after merge.
+`$ENV:VAR` substitution is applied after merge for provider API keys.
 
 ```json
 {
   "defaultMode": "default",
-  "provider": {
-    "name": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "apiKey": "$ENV:ANTHROPIC_API_KEY"
+  "currentProvider": "gemma",
+  "providers": {
+    "gemma": {
+      "type": "gemma",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKey": "$ENV:ANTHROPIC_API_KEY"
+    }
   },
   "permissions": {
     "allow": ["Bash(pnpm *)"],
@@ -357,6 +373,8 @@ Settings are loaded from (highest priority first):
   }
 }
 ```
+
+`currentProvider` selects the active entry from `providers`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
 
 ## Permission Modes
 

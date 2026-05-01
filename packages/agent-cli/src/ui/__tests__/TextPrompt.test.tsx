@@ -50,6 +50,32 @@ describe('TextPrompt', () => {
     expect(submitted).toBe('hello');
   });
 
+  it('can submit an empty value when allowed', () => {
+    let submitted = 'not-called';
+    const { stdin } = render(
+      <TextPrompt
+        title="Enter"
+        allowEmpty
+        onSubmit={(v) => {
+          submitted = v;
+        }}
+        onCancel={() => {}}
+      />,
+    );
+    stdin.write('\r');
+    expect(submitted).toBe('');
+  });
+
+  it('masks typed values when requested', async () => {
+    const { stdin, lastFrame } = render(
+      <TextPrompt title="Secret" masked onSubmit={() => {}} onCancel={() => {}} />,
+    );
+    stdin.write('abc');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(lastFrame()!).toContain('***');
+    expect(lastFrame()!).not.toContain('abc');
+  });
+
   it('shows validation error and blocks submit', async () => {
     let submitted = false;
     const validate = (v: string) => (v.length < 3 ? 'Too short' : undefined);

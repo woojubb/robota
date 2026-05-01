@@ -7,6 +7,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import type { IResolvedConfig } from '../config/config-types.js';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -66,7 +70,7 @@ function createMockProvider() {
   } as never;
 }
 
-function baseConfig() {
+function baseConfig(): IResolvedConfig {
   return {
     defaultTrustLevel: 'moderate' as const,
     provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
@@ -213,5 +217,122 @@ describe('createSession — appendSystemPrompt option', () => {
     const systemMessage = opts.systemMessage as string;
     expect(systemMessage).toContain('\n\n' + extraText);
     expect(systemMessage.endsWith(extraText)).toBe(true);
+  });
+
+  it('does not include Agent tool or agent metadata unless agent runtime is enabled', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const systemMessage = opts.systemMessage as string;
+    expect(systemMessage).not.toContain('Agent — creates one isolated subagent job');
+    expect(systemMessage).not.toContain('general-purpose');
+  });
+
+  it('includes Agent tool and discovered agent metadata when agent runtime is enabled', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-agents-'));
+    const agentsDir = join(cwd, '.robota', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(
+      join(agentsDir, 'reviewer.md'),
+      [
+        '---',
+        'name: reviewer',
+        'description: Reviews code for risks and missing tests',
+        '---',
+        'Review code like an owner.',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', claudeMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+        enableAgentRuntime: true,
+      });
+
+      const opts = sessionCtorCalls[0]!;
+      const systemMessage = opts.systemMessage as string;
+      expect(systemMessage).toContain('Agent — creates one isolated subagent job');
+      expect(systemMessage).toContain('One Agent tool call corresponds to one subagent job');
+      expect(systemMessage).toContain('The tool returns terminal result data');
+      expect(systemMessage).not.toContain('<agent');
+      expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('createSession — provider timeout option', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('passes configured provider timeout to Session', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const config = baseConfig();
+    config.provider.timeout = 4321;
+
+    createSession({
+      config,
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]!['providerTimeout']).toBe(4321);
+  });
+
+  it('passes the SDK default provider timeout when config omits timeout', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]!['providerTimeout']).toBe(120000);
+  });
+});
+
+describe('createSession — subagent runner factory option', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('uses an injected subagent runner factory with the assembled agent tool dependencies', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const subagentRunnerFactory = vi.fn().mockReturnValue({
+      start: vi.fn(),
+    });
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: 'agent context', claudeMd: 'claude context' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      subagentRunnerFactory,
+      enableAgentRuntime: true,
+    });
+
+    expect(subagentRunnerFactory).toHaveBeenCalledTimes(1);
+    const deps = subagentRunnerFactory.mock.calls[0]![0];
+    expect(deps.config.provider.model).toBe('test-model');
+    expect(deps.context.agentsMd).toBe('agent context');
+    expect(deps.tools.map((tool: { getName: () => string }) => tool.getName())).toContain('Bash');
   });
 });

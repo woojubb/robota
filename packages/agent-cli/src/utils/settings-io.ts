@@ -5,6 +5,9 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
+
+export type TSettingsData = Record<string, TUniversalValue>;
 
 /** Get the user-global settings file path */
 export function getUserSettingsPath(): string {
@@ -13,11 +16,11 @@ export function getUserSettingsPath(): string {
 }
 
 /** Read settings from a JSON file. Returns empty object if file doesn't exist or is corrupt. */
-export function readSettings(path: string): Record<string, unknown> {
+export function readSettings(path: string): TSettingsData {
   if (!existsSync(path)) return {};
   const raw = readFileSync(path, 'utf8');
   try {
-    return JSON.parse(raw) as Record<string, unknown>;
+    return JSON.parse(raw) as TSettingsData;
   } catch {
     process.stderr.write(`Warning: corrupt settings file at ${path}, resetting to defaults\n`);
     return {};
@@ -25,7 +28,7 @@ export function readSettings(path: string): Record<string, unknown> {
 }
 
 /** Write settings to a JSON file, creating parent directories as needed. */
-export function writeSettings(path: string, settings: Record<string, unknown>): void {
+export function writeSettings(path: string, settings: TSettingsData): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', 'utf8');
 }
@@ -33,10 +36,28 @@ export function writeSettings(path: string, settings: Record<string, unknown>): 
 /** Update the provider.model field in a settings file. */
 export function updateModelInSettings(settingsPath: string, modelId: string): void {
   const settings = readSettings(settingsPath);
-  const provider = (settings.provider ?? {}) as Record<string, unknown>;
-  provider.model = modelId;
-  settings.provider = provider;
+  const currentProvider = settings.currentProvider;
+  const providers = settings.providers;
+  if (typeof currentProvider === 'string' && isSettingsData(providers)) {
+    const providerMap = providers as Record<string, TSettingsData | undefined>;
+    providerMap[currentProvider] = {
+      ...(isSettingsData(providerMap[currentProvider]) ? providerMap[currentProvider] : {}),
+      model: modelId,
+    };
+    settings.providers = providerMap;
+  } else {
+    settings.provider = {
+      ...(isSettingsData(settings.provider) ? settings.provider : {}),
+      model: modelId,
+    };
+  }
   writeSettings(settingsPath, settings);
+}
+
+function isSettingsData(value: TUniversalValue): value is TSettingsData {
+  return (
+    value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)
+  );
 }
 
 /** Delete a settings file if it exists. Returns true if deleted. */

@@ -18,6 +18,7 @@ describe('loadConfig', () => {
   let cwd: string;
   let projectDir: string;
   let userDir: string;
+  let claudeUserDir: string;
   let claudeProjectDir: string;
   const originalHome = process.env.HOME;
 
@@ -27,9 +28,11 @@ describe('loadConfig', () => {
     claudeProjectDir = join(cwd, '.claude');
     const homeBase = join(TMP_BASE, 'home-' + Math.random().toString(36).slice(2));
     userDir = join(homeBase, '.robota');
+    claudeUserDir = join(homeBase, '.claude');
     setupDir(cwd);
     setupDir(projectDir);
     setupDir(userDir);
+    setupDir(claudeUserDir);
     setupDir(claudeProjectDir);
     process.env.HOME = homeBase;
   });
@@ -61,6 +64,14 @@ describe('loadConfig', () => {
 
   it('loads user settings from ~/.robota/settings.json', async () => {
     writeJson(join(userDir, 'settings.json'), {
+      defaultTrustLevel: 'full',
+    });
+    const config = await loadConfig(cwd);
+    expect(config.defaultTrustLevel).toBe('full');
+  });
+
+  it('loads user Claude-compatible settings from ~/.claude/settings.json', async () => {
+    writeJson(join(claudeUserDir, 'settings.json'), {
       defaultTrustLevel: 'full',
     });
     const config = await loadConfig(cwd);
@@ -121,6 +132,119 @@ describe('loadConfig', () => {
     delete process.env.TEST_API_KEY_XYZ;
   });
 
+  it('resolves active provider profile from currentProvider and providers', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'openai',
+      providers: {
+        openai: {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+          baseURL: 'http://localhost:1234/v1',
+          timeout: 30000,
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider).toEqual({
+      name: 'openai',
+      model: 'supergemma4-26b-uncensored-v2',
+      apiKey: 'lm-studio',
+      baseURL: 'http://localhost:1234/v1',
+      timeout: 30000,
+    });
+  });
+
+  it('resolves $ENV: prefix in active provider profile apiKey', async () => {
+    process.env.TEST_OPENAI_COMPAT_KEY = 'sk-profile-value';
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'openai',
+      providers: {
+        openai: {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: '$ENV:TEST_OPENAI_COMPAT_KEY',
+          baseURL: 'http://localhost:1234/v1',
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider.apiKey).toBe('sk-profile-value');
+    delete process.env.TEST_OPENAI_COMPAT_KEY;
+  });
+
+  it('deep-merges provider profiles across settings layers', async () => {
+    writeJson(join(userDir, 'settings.json'), {
+      providers: {
+        openai: {
+          type: 'openai',
+          apiKey: 'lm-studio',
+        },
+      },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'openai',
+      providers: {
+        openai: {
+          model: 'supergemma4-26b-uncensored-v2',
+          baseURL: 'http://localhost:1234/v1',
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider).toMatchObject({
+      name: 'openai',
+      model: 'supergemma4-26b-uncensored-v2',
+      apiKey: 'lm-studio',
+      baseURL: 'http://localhost:1234/v1',
+    });
+  });
+
+  it('falls back to legacy provider when currentProvider is not configured', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      provider: {
+        name: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+      },
+      providers: {
+        openai: {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+          baseURL: 'http://localhost:1234/v1',
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider.name).toBe('anthropic');
+    expect(config.provider.model).toBe('claude-sonnet-4-6');
+    expect(config.provider.apiKey).toBe('sk-ant-test');
+  });
+
+  it('throws when currentProvider does not exist in providers', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'missing',
+      providers: {
+        openai: {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+        },
+      },
+    });
+
+    await expect(loadConfig(cwd)).rejects.toThrow('currentProvider "missing" was not found');
+  });
+
   // --- .claude/ path support ---
 
   it('loads settings from .claude/settings.json', async () => {
@@ -157,8 +281,9 @@ describe('loadConfig', () => {
     expect(config.provider.model).toBe('legacy-model');
   });
 
-  it('full 5-layer precedence: .claude/settings.local.json wins over all', async () => {
+  it('full 6-file precedence: .claude/settings.local.json wins over all', async () => {
     writeJson(join(userDir, 'settings.json'), { defaultTrustLevel: 'safe' });
+    writeJson(join(claudeUserDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(projectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(projectDir, 'settings.local.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(claudeProjectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
@@ -179,21 +304,26 @@ describe('loadConfig', () => {
     expect(config.hooks?.PreToolUse?.[0]?.matcher).toBe('Bash');
   });
 
-  it('hooks support all Phase 1 event types', async () => {
+  it('hooks support all configured lifecycle event types', async () => {
     const allEvents = {
       PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo pre' }] }],
       PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'echo post' }] }],
       SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo start' }] }],
+      SessionEnd: [{ matcher: '', hooks: [{ type: 'command', command: 'echo end' }] }],
       Stop: [{ matcher: '', hooks: [{ type: 'command', command: 'echo stop' }] }],
+      StopFailure: [{ matcher: '', hooks: [{ type: 'command', command: 'echo stop-fail' }] }],
       PreCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prec' }] }],
       PostCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'echo postc' }] }],
       UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: 'echo prompt' }] }],
-      Notification: [{ matcher: '', hooks: [{ type: 'command', command: 'echo notify' }] }],
+      SubagentStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo agent-start' }] }],
+      SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: 'echo agent-stop' }] }],
+      WorktreeCreate: [{ matcher: '', hooks: [{ type: 'command', command: 'echo wt-create' }] }],
+      WorktreeRemove: [{ matcher: '', hooks: [{ type: 'command', command: 'echo wt-remove' }] }],
     };
     writeJson(join(claudeProjectDir, 'settings.json'), { hooks: allEvents });
     const config = await loadConfig(cwd);
     expect(config.hooks).toBeDefined();
-    expect(Object.keys(config.hooks ?? {})).toHaveLength(8);
+    expect(Object.keys(config.hooks ?? {})).toHaveLength(13);
   });
 
   it('hooks support http hook type', async () => {
@@ -229,5 +359,19 @@ describe('loadConfig', () => {
     expect(config.extraKnownMarketplaces).toEqual({
       'my-market': { source: { type: 'github', repo: 'org/plugins' } },
     });
+  });
+
+  it('ignores incompatible extraKnownMarketplaces from Claude-compatible settings', async () => {
+    writeJson(join(claudeUserDir, 'settings.json'), {
+      defaultTrustLevel: 'full',
+      extraKnownMarketplaces: {
+        'external-market': { source: { repo: 'org/plugins' } },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.defaultTrustLevel).toBe('full');
+    expect(config.extraKnownMarketplaces).toBeUndefined();
   });
 });

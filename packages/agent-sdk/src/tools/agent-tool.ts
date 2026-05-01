@@ -1,9 +1,10 @@
 /**
  * AgentTool — spawn a sub-agent with isolated context.
  *
- * Uses `createSubagentSession` to assemble a child Session with filtered tools,
- * model resolution, and framework system prompt. The sub-agent shares the same
- * config and context but has its own conversation history.
+ * Uses `SubagentManager` with an in-process runner to assemble a child Session
+ * with filtered tools, model resolution, and framework system prompt. The
+ * sub-agent shares the same config and context but has its own conversation
+ * history.
  *
  * Each call to `createAgentTool(deps)` returns a fresh tool instance with deps
  * captured in closure, eliminating module-level mutable state and enabling
@@ -13,60 +14,86 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type {
-  IAIProvider,
-  IToolWithEventService,
-  IHookTypeExecutor,
-  TToolArgs,
-} from '@robota-sdk/agent-core';
-import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
-import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { SubagentManager } from '@robota-sdk/agent-runtime';
+import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+import type {
+  IInProcessSubagentRunnerDeps,
+  ISubagentManager,
+  ISubagentJobResult,
+  ISubagentSpawnRequest,
+} from '../subagents/index.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
+
+export const AGENT_TOOL_DESCRIPTION = [
+  'Creates one subagent job for delegated work in an isolated context.',
+  'One tool call creates one subagent job.',
+  'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested subagent job immediately.',
+  'Do not ask a follow-up question unless execution is impossible or unsafe.',
+  'For multiple or parallel agents, create one Agent tool call per requested role in the current turn.',
+  'Subagent jobs run as background tasks by default.',
+  'The tool waits for a terminal result and returns completed, failed, or timed-out outcome data to the parent conversation.',
+  'Execution is represented by a real tool call and runtime background task event.',
+].join(' ');
+
+export function createAgentToolPromptDescription(
+  agentDefinitions: readonly Pick<IAgentDefinition, 'name' | 'description'>[] = [],
+): string {
+  const availableAgents =
+    agentDefinitions.length > 0
+      ? ` Available agent types: ${agentDefinitions
+          .map((agent) => `${agent.name} (${agent.description})`)
+          .join(', ')}.`
+      : '';
+  return [
+    'Agent — creates one isolated subagent job.',
+    'One Agent tool call corresponds to one subagent job.',
+    'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested subagent job immediately.',
+    'Do not ask a follow-up question unless execution is impossible or unsafe.',
+    'For multiple or parallel agents, create one Agent tool call per requested role in the current turn.',
+    'The tool returns terminal result data.',
+    'Runtime mode is background.',
+    availableAgents,
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
 function asZodSchema(schema: z.ZodType): IZodSchema {
   return schema as IZodSchema;
 }
 
-const AgentSchema = z.object({
-  prompt: z.string().describe('The task for the subagent to perform'),
-  subagent_type: z
-    .string()
-    .optional()
-    .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
-  model: z.string().optional().describe('Optional model override'),
-});
+const AgentSchema = z
+  .object({
+    prompt: z.string().describe('The task for the subagent to perform'),
+    subagent_type: z
+      .string()
+      .optional()
+      .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
+    model: z.string().optional().describe('Optional model override'),
+    isolation: z
+      .enum(['none', 'worktree'])
+      .optional()
+      .describe('Optional runtime isolation mode. "worktree" runs in a Git worktree.'),
+  })
+  .passthrough();
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
 
 /** Dependencies injected at creation time via createAgentTool factory */
-export interface IAgentToolDeps {
-  config: IResolvedConfig;
-  context: ILoadedContext;
-  tools: IToolWithEventService[];
-  terminal: ITerminalOutput;
-  /** AI provider instance (passed from consumer). */
-  provider: IAIProvider;
-  /** Permission mode from parent session (bypassPermissions, acceptEdits, etc.). */
-  permissionMode?: TPermissionMode;
-  permissionHandler?: TPermissionHandler;
-  /** Plugin hooks configuration from parent session. */
-  hooks?: Record<string, unknown>;
-  /** Hook type executors from parent session (prompt, agent, etc.). */
-  hookTypeExecutors?: IHookTypeExecutor[];
-  onTextDelta?: (delta: string) => void;
-  onToolExecution?: (event: {
-    type: 'start' | 'end';
-    toolName: string;
-    toolArgs?: TToolArgs;
-    success?: boolean;
-  }) => void;
+export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
+  cwd?: string;
+  parentSessionId?: string;
+  subagentDepth?: number;
+  subagentManager?: ISubagentManager;
+  backgroundTaskManager?: IBackgroundTaskManager;
   /** Optional custom agent registry for resolving non-built-in agent types. */
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
+  /** Model-visible and command-visible agent definitions available to this session. */
+  agentDefinitions?: IAgentDefinition[];
 }
 
 /**
@@ -90,21 +117,100 @@ export function retrieveAgentToolDeps(key: object): IAgentToolDeps | undefined {
 
 /**
  * Resolve an agent type name to an IAgentDefinition.
- * Checks built-in agents first, then falls back to custom registry.
+ * Checks custom registry first so project/user definitions can override built-ins.
  */
 function resolveAgentDefinition(
   agentType: string,
   customRegistry?: (name: string) => IAgentDefinition | undefined,
 ): IAgentDefinition | undefined {
+  if (customRegistry) {
+    const custom = customRegistry(agentType);
+    if (custom) return custom;
+  }
   const builtIn = getBuiltInAgent(agentType);
   if (builtIn) return builtIn;
-  if (customRegistry) return customRegistry(agentType);
   return undefined;
 }
 
-/** Generate a unique agent ID for tracking. */
-function generateAgentId(): string {
-  return `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function createSubagentManager(deps: IAgentToolDeps): ISubagentManager {
+  return (
+    deps.subagentManager ??
+    new SubagentManager({
+      runner: createInProcessSubagentRunner(deps),
+    })
+  );
+}
+
+function createSpawnRequest(
+  args: TAgentArgs,
+  agentType: string,
+  agentDef: IAgentDefinition,
+  deps: IAgentToolDeps,
+): ISubagentSpawnRequest {
+  return {
+    type: agentType,
+    label: agentDef.name,
+    parentSessionId: deps.parentSessionId ?? 'unknown-session',
+    mode: 'background',
+    depth: deps.subagentDepth ?? 1,
+    cwd: deps.cwd ?? process.cwd(),
+    prompt: args.prompt,
+    model: args.model,
+    isolation: args.isolation,
+  };
+}
+
+function stringifyUnknownAgentType(agentType: string): string {
+  return JSON.stringify({
+    success: false,
+    output: '',
+    error: `Unknown agent type: ${agentType}`,
+  });
+}
+
+function stringifyAgentSuccess(result: ISubagentJobResult): string {
+  const worktreePath = result.metadata?.['worktreePath'];
+  const branchName = result.metadata?.['branchName'];
+  return JSON.stringify({
+    success: true,
+    output: result.output,
+    agentId: result.jobId,
+    metadata: result.metadata,
+    ...(typeof worktreePath === 'string' ? { worktreePath } : {}),
+    ...(typeof branchName === 'string' ? { branchName } : {}),
+  });
+}
+
+function stringifyAgentError(message: string, agentId?: string): string {
+  return JSON.stringify({
+    success: false,
+    output: '',
+    error: `Sub-agent error: ${message}`,
+    agentId,
+  });
+}
+
+async function runManagedAgent(
+  args: TAgentArgs,
+  deps: IAgentToolDeps,
+  manager: ISubagentManager,
+): Promise<string> {
+  const agentType = args.subagent_type ?? 'general-purpose';
+  const agentDef = resolveAgentDefinition(agentType, deps.customAgentRegistry);
+  if (!agentDef) {
+    return stringifyUnknownAgentType(agentType);
+  }
+
+  let agentId: string | undefined;
+  try {
+    const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
+    agentId = state.id;
+    const response = await manager.wait(state.id);
+    return stringifyAgentSuccess(response);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return stringifyAgentError(message, agentId);
+  }
 }
 
 /**
@@ -113,66 +219,24 @@ function generateAgentId(): string {
  * Each session gets its own tool instance — no shared mutable state.
  */
 export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZodFunctionTool> {
-  async function runAgent(args: TAgentArgs): Promise<string> {
-    const agentType = args.subagent_type ?? 'general-purpose';
-
-    // Resolve agent definition
-    const agentDef = resolveAgentDefinition(agentType, deps.customAgentRegistry);
-    if (!agentDef) {
-      return JSON.stringify({
-        success: false,
-        output: '',
-        error: `Unknown agent type: ${agentType}`,
-      });
-    }
-
-    // Override model if specified in tool args
-    const effectiveDef: IAgentDefinition = args.model
-      ? { ...agentDef, model: args.model }
-      : agentDef;
-
-    // Create subagent session
-    const session = createSubagentSession({
-      agentDefinition: effectiveDef,
-      parentConfig: deps.config,
-      parentContext: deps.context,
-      parentTools: deps.tools,
-      provider: deps.provider,
-      terminal: deps.terminal,
-      permissionMode: deps.permissionMode,
-      permissionHandler: deps.permissionHandler,
-      hooks: deps.hooks,
-      hookTypeExecutors: deps.hookTypeExecutors,
-      onTextDelta: deps.onTextDelta,
-      onToolExecution: deps.onToolExecution,
-    });
-
-    const agentId = generateAgentId();
-
-    try {
-      const response = await session.run(args.prompt);
-      return JSON.stringify({
-        success: true,
-        output: response,
-        agentId,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return JSON.stringify({
-        success: false,
-        output: '',
-        error: `Sub-agent error: ${message}`,
-        agentId,
-      });
-    }
-  }
+  const manager = createSubagentManager(deps);
 
   return createZodFunctionTool(
     'Agent',
-    'Launch a subagent to handle a task in an isolated context. The subagent gets its own context window and returns a result when done. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.',
+    AGENT_TOOL_DESCRIPTION,
     asZodSchema(AgentSchema),
     async (params) => {
-      return runAgent(params as TAgentArgs);
+      const args = params as TAgentArgs;
+      return runManagedAgent(
+        {
+          prompt: args.prompt,
+          ...(args.subagent_type !== undefined ? { subagent_type: args.subagent_type } : {}),
+          ...(args.model !== undefined ? { model: args.model } : {}),
+          ...(args.isolation !== undefined ? { isolation: args.isolation } : {}),
+        },
+        deps,
+        manager,
+      );
     },
   );
 }

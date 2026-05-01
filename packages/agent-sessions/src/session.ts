@@ -12,6 +12,7 @@ import { Robota, TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type {
   IAgentConfig,
   IAIProvider,
+  IToolSchema,
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
@@ -26,12 +27,23 @@ import type {
 } from './permission-types.js';
 import { ContextWindowTracker } from './context-window-tracker.js';
 import { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type { ISessionOptions } from './session-types.js';
+import type { ISessionOptions, ISessionShutdownOptions } from './session-types.js';
 import { executeRun } from './session-run.js';
 import { compact, persistSession } from './session-history-ops.js';
-import { configureProvider, fireSessionStartHook } from './session-lifecycle.js';
+import {
+  configureProvider,
+  fireSessionEndHook,
+  fireSessionStartHook,
+} from './session-lifecycle.js';
 
-export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner, ISessionOptions };
+export type {
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+  ISessionOptions,
+  ISessionShutdownOptions,
+};
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -51,9 +63,11 @@ export class Session {
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
   private readonly systemMessage: string;
+  private readonly toolSchemas: IToolSchema[];
   private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
+  private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly sessionLogger?: ISessionLogger;
   private readonly permissionEnforcer: PermissionEnforcer;
@@ -61,6 +75,7 @@ export class Session {
   private readonly compactionOrchestrator: CompactionOrchestrator;
   private messageCount = 0;
   private abortController: AbortController | null = null;
+  private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
 
@@ -70,10 +85,12 @@ export class Session {
     this.terminal = terminal;
     this.sessionStore = sessionStore;
     this.systemMessage = systemMessage;
+    this.toolSchemas = tools.map((tool) => tool.schema);
     this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;
+    this.onTextDeltaCallback = options.onTextDelta;
     this.onCompactCallback = options.onCompact;
     this.model = options.model ?? 'claude-sonnet-4-5';
     this.sessionId =
@@ -87,6 +104,8 @@ export class Session {
     this.log('session_init', {
       cwd: this.cwd,
       systemPromptLength: systemMessage.length,
+      systemPrompt: systemMessage,
+      toolSchemas: this.toolSchemas,
       model: this.model,
       provider: provider.name,
     });
@@ -130,6 +149,7 @@ export class Session {
       systemMessage,
       tools: wrappedTools,
       logging: { enabled: false },
+      ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
     };
 
     this.robota = new Robota(agentConfig);
@@ -168,6 +188,7 @@ export class Session {
           clearSessionStartStdout: () => {
             this.sessionStartStdout = '';
           },
+          onTextDelta: this.onTextDeltaCallback,
         },
         signal,
       );
@@ -189,6 +210,8 @@ export class Session {
     persistSession({
       sessionId: this.sessionId,
       cwd: this.cwd,
+      systemPrompt: this.systemMessage,
+      toolSchemas: this.toolSchemas,
       sessionStore: this.sessionStore,
       robota: this.robota,
       getFullHistory: () => this.getFullHistory(),
@@ -213,6 +236,16 @@ export class Session {
     return this.sessionId;
   }
 
+  /** Return the exact system prompt used by this session. */
+  getSystemMessage(): string {
+    return this.systemMessage;
+  }
+
+  /** Return tool schemas registered for this session. */
+  getToolSchemas(): IToolSchema[] {
+    return this.toolSchemas;
+  }
+
   /** Return the number of run() calls completed */
   getMessageCount(): number {
     return this.messageCount;
@@ -234,6 +267,25 @@ export class Session {
       this.abortController.abort();
       this.abortController = null;
     }
+  }
+
+  /** Gracefully end the session and fire SessionEnd hooks once. */
+  shutdown(options: ISessionShutdownOptions = {}): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    const reason = options.reason ?? 'other';
+    this.shutdownPromise = (async () => {
+      this.abort();
+      this.log('session_shutdown', { reason });
+      this.persistSessionInternal();
+      await fireSessionEndHook(
+        this.sessionId,
+        this.cwd,
+        reason,
+        this.hooks,
+        this.hookTypeExecutors,
+      );
+    })();
+    return this.shutdownPromise;
   }
 
   /** Whether a run() call is currently in progress. */

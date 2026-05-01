@@ -7,11 +7,13 @@
  * was loaded but never reached the API.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { Session } from '../session.js';
 
 // Capture the config passed to Robota constructor
 let capturedConfig: Record<string, unknown> | null = null;
+let mockRunResult = 'mock response';
+let mockRunDeltas: string[] = [];
 
 vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
@@ -20,7 +22,12 @@ vi.mock('@robota-sdk/agent-core', async () => {
     Robota: vi.fn().mockImplementation((config: Record<string, unknown>) => {
       capturedConfig = config;
       return {
-        run: vi.fn().mockResolvedValue('mock response'),
+        run: vi.fn().mockImplementation(async (_message: string, options?: unknown) => {
+          const onTextDelta = (options as { onTextDelta?: (delta: string) => void } | undefined)
+            ?.onTextDelta;
+          for (const delta of mockRunDeltas) onTextDelta?.(delta);
+          return mockRunResult;
+        }),
         getHistory: vi.fn().mockReturnValue([]),
         clearHistory: vi.fn(),
       };
@@ -42,13 +49,21 @@ const MOCK_PROVIDER = {
 
 const MOCK_TOOLS = [
   {
-    schema: { name: 'Bash' },
+    schema: {
+      name: 'Bash',
+      description: 'Execute shell commands',
+      parameters: { type: 'object', properties: {} },
+    },
     execute: vi.fn(),
     getName: () => 'Bash',
     setEventService: vi.fn(),
   },
   {
-    schema: { name: 'Read' },
+    schema: {
+      name: 'Read',
+      description: 'Read file contents',
+      parameters: { type: 'object', properties: {} },
+    },
     execute: vi.fn(),
     getName: () => 'Read',
     setEventService: vi.fn(),
@@ -68,6 +83,8 @@ const MOCK_TERMINAL = {
 describe('Session — system prompt delivery', () => {
   beforeEach(() => {
     capturedConfig = null;
+    mockRunResult = 'mock response';
+    mockRunDeltas = [];
   });
 
   it('should include AGENTS.md content in system prompt', () => {
@@ -169,5 +186,105 @@ describe('Session — system prompt delivery', () => {
 
     const topLevel = capturedConfig!['systemMessage'] as string;
     expect(topLevel).toContain('moderate');
+  });
+
+  it('should pass provider timeout into Robota agent config', () => {
+    new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'test system',
+      terminal: MOCK_TERMINAL,
+      providerTimeout: 1234,
+    });
+
+    expect(capturedConfig).not.toBeNull();
+    expect(capturedConfig!['timeout']).toBe(1234);
+  });
+
+  it('logs the complete system prompt and tool schemas at session initialization', () => {
+    const systemMessage = '## Capabilities\n- /agent <prompt>: Start a background agent job';
+    const logger = { log: vi.fn() };
+
+    new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
+      terminal: MOCK_TERMINAL,
+      sessionLogger: logger,
+    });
+
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'session_init',
+      expect.objectContaining({
+        systemPrompt: systemMessage,
+        systemPromptLength: systemMessage.length,
+        toolSchemas: [
+          {
+            name: 'Bash',
+            description: 'Execute shell commands',
+            parameters: { type: 'object', properties: {} },
+          },
+          {
+            name: 'Read',
+            description: 'Read file contents',
+            parameters: { type: 'object', properties: {} },
+          },
+        ],
+      }),
+    );
+  });
+
+  it('logs full assistant content without truncation', async () => {
+    const longResponse = `prefix-${'x'.repeat(700)}-suffix`;
+    mockRunResult = longResponse;
+    const logger = { log: vi.fn() };
+
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'System prompt',
+      terminal: MOCK_TERMINAL,
+      sessionLogger: logger,
+    });
+
+    await session.run('hello');
+
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'assistant',
+      expect.objectContaining({
+        content: longResponse,
+      }),
+    );
+  });
+
+  it('logs streaming text deltas before forwarding them to the callback', async () => {
+    mockRunDeltas = ['hello ', 'world'];
+    const forwarded: string[] = [];
+    const logger = { log: vi.fn() };
+
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'System prompt',
+      terminal: MOCK_TERMINAL,
+      sessionLogger: logger,
+      onTextDelta: (delta) => forwarded.push(delta),
+    });
+
+    await session.run('hello');
+
+    expect(forwarded).toEqual(['hello ', 'world']);
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'text_delta',
+      expect.objectContaining({ delta: 'hello ' }),
+    );
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'text_delta',
+      expect.objectContaining({ delta: 'world' }),
+    );
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-openai",
-  "version": "3.0.0-beta.55",
+  "version": "3.0.0-beta.56",
   "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/node/index.js",
@@ -90,6 +90,7 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
+    "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
     "openai": "^4.98.0"
   },
   "peerDependencies": {
@@ -107,6 +108,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": true
+  }
 }

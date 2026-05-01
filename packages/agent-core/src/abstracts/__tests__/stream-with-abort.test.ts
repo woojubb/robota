@@ -35,6 +35,20 @@ async function* fromArray<T>(items: T[]): AsyncGenerator<T> {
   }
 }
 
+function createHangingIterable(onReturn: () => void): AsyncIterable<string> {
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<string> {
+      return {
+        next: () => new Promise<IteratorResult<string>>(() => {}),
+        return: () => {
+          onReturn();
+          return Promise.resolve({ done: true, value: '' });
+        },
+      };
+    },
+  };
+}
+
 describe('BaseAIProvider.streamWithAbort', () => {
   const provider = new TestProvider();
 
@@ -74,6 +88,34 @@ describe('BaseAIProvider.streamWithAbort', () => {
     }
 
     expect(result).toHaveLength(0);
+  });
+
+  it('stops while waiting for the next stream item when signal aborts', async () => {
+    const controller = new AbortController();
+    let returned = false;
+    const result: string[] = [];
+    const consuming = (async (): Promise<void> => {
+      for await (const item of provider.testStreamWithAbort(
+        createHangingIterable(() => {
+          returned = true;
+        }),
+        controller.signal,
+      )) {
+        result.push(item);
+      }
+    })();
+
+    setTimeout(() => controller.abort(), 0);
+
+    await Promise.race([
+      consuming,
+      new Promise((_resolve, reject) =>
+        setTimeout(() => reject(new Error('stream abort did not settle')), 100),
+      ),
+    ]);
+
+    expect(result).toHaveLength(0);
+    expect(returned).toBe(true);
   });
 
   it('yields to macrotask queue periodically (allows abort between events)', async () => {

@@ -53,7 +53,6 @@ export const BUILT_IN_AGENTS: IAgentDefinition[] = [
     name: 'Explore',
     description: 'Read-only codebase exploration and analysis agent.',
     systemPrompt: EXPLORE_SYSTEM_PROMPT,
-    model: 'claude-haiku-4-5',
     disallowedTools: ['Write', 'Edit'],
   },
   {

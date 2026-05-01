@@ -31,7 +31,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API spec, runtime/orchestrator boundary                                            |
 | [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                           |
 | [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops, branch policy, worktree                                                   |
-| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | 29 observed failure patterns                                                       |
+| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | Observed failure patterns                                                          |
 | [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                               |
 | [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                     |
 | [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                              |
@@ -91,7 +91,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                      |
 | Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree                                       |
 | Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                 |
-| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | 29 observed failure patterns with correct approaches                                |
+| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                   |
 
 ## Skills Reference
 

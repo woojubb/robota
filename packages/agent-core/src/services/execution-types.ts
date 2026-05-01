@@ -2,7 +2,7 @@ import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { TMetadata } from '../interfaces/types';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
-import type { IChatOptions } from '../interfaces/provider';
+import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
 import type { TUniversalMessage } from '../interfaces/messages';
 
 /** Preview length for general content truncation */
@@ -103,6 +103,8 @@ export interface IExecutionContext {
   executionId: string;
   /** AbortSignal for cancelling execution */
   signal?: AbortSignal;
+  /** Per-run streaming text callback. */
+  onTextDelta?: TTextDeltaCallback;
 }
 
 /**

@@ -120,8 +120,9 @@ bun.lock
 scripts/audit/output/
 .playwright-mcp/
 
-# Harness session log (auto-generated per session)
-.agents/evals/harness-log/sessions.jsonl
+# Local eval metrics (auto-generated per agent session)
+.agents/evals/local-metrics/
+.agents/evals/harness-log/
 
 # Auto-generated API reference from docs:build (typedoc output)
 content/api-reference/

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IExecutionResult } from '@robota-sdk/agent-sdk';
+import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-sdk';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-sdk';
 import { createHeadlessRunner } from '../headless-runner.js';
 
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {
@@ -38,6 +40,7 @@ function createMockSession(behavior: 'complete' | 'interrupted' | 'error', respo
         }
       }
     }),
+    executeCommand: vi.fn().mockResolvedValue(null),
     getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
   } as unknown as InteractiveSession;
 }
@@ -100,6 +103,28 @@ describe('createHeadlessRunner (text format)', () => {
     await runner.run('my prompt');
 
     expect(session.submit).toHaveBeenCalledWith('my prompt');
+  });
+
+  it('executes /agent as a command without submitting to the model', async () => {
+    const session = {
+      ...createMockSession('complete', 'unused'),
+      executeCommand: vi.fn().mockResolvedValue({
+        message: 'Started agent job: agent_1',
+        success: true,
+        data: { agentId: 'agent_1' },
+      }),
+    } as unknown as InteractiveSession;
+    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+
+    const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
+
+    expect(exitCode).toBe(0);
+    expect(session.executeCommand).toHaveBeenCalledWith(
+      'agent',
+      'run Plan --background "draft architecture"',
+    );
+    expect(session.submit).not.toHaveBeenCalled();
+    expect(stdoutWriteSpy).toHaveBeenCalledWith('Started agent job: agent_1\n');
   });
 });
 
@@ -206,7 +231,9 @@ describe('createHeadlessRunner (stream-json format)', () => {
     expect(exitCode).toBe(0);
 
     const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
-    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
 
     // 2 stream_event lines + 1 final result line
     expect(parsed).toHaveLength(3);
@@ -269,7 +296,9 @@ describe('createHeadlessRunner (stream-json format)', () => {
     expect(exitCode).toBe(1);
 
     const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
-    const parsed = lines.map((line: string) => JSON.parse(line) as Record<string, unknown>);
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0]).toEqual({
@@ -277,6 +306,141 @@ describe('createHeadlessRunner (stream-json format)', () => {
       result: '',
       session_id: 'stream-session',
       subtype: 'error',
+    });
+  });
+
+  it('stream-json emits background task events before the final result', async () => {
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const session = {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event)!.push(handler);
+      }),
+      off: vi.fn(),
+      submit: vi.fn(),
+      executeCommand: vi.fn().mockImplementation(async () => {
+        for (const h of listeners.get('background_task_event') ?? []) {
+          h({
+            type: 'background_task_created',
+            task: {
+              id: 'agent_1',
+              kind: 'agent',
+              label: 'Plan',
+              status: 'running',
+              mode: 'background',
+              parentSessionId: 'stream-session',
+              depth: 1,
+              cwd: '/workspace',
+              updatedAt: '2026-05-01T00:00:00.000Z',
+              unread: false,
+              promptPreview: 'draft architecture',
+            },
+          } satisfies TBackgroundTaskEvent);
+        }
+        return {
+          message: 'Started agent job: agent_1',
+          success: true,
+          data: { agentId: 'agent_1' },
+        };
+      }),
+      getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
+    } as unknown as InteractiveSession;
+
+    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
+
+    expect(exitCode).toBe(0);
+
+    const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
+
+    expect(parsed).toHaveLength(2);
+    expect(session.submit).not.toHaveBeenCalled();
+    expect(session.executeCommand).toHaveBeenCalledWith(
+      'agent',
+      'run Plan --background "draft architecture"',
+    );
+    expect(parsed[0]).toMatchObject({
+      type: 'stream_event',
+      session_id: 'stream-session',
+      event: {
+        type: 'background_task_event',
+        background_task_event: {
+          type: 'background_task_created',
+        },
+      },
+    });
+    expect(parsed[1]).toEqual({
+      type: 'result',
+      result: 'Started agent job: agent_1',
+      session_id: 'stream-session',
+      subtype: 'success',
+    });
+  });
+
+  it('stream-json emits background job group events before the final result', async () => {
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const session = {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event)!.push(handler);
+      }),
+      off: vi.fn(),
+      submit: vi.fn(),
+      executeCommand: vi.fn().mockImplementation(async () => {
+        for (const h of listeners.get('background_job_group_event') ?? []) {
+          h({
+            type: 'background_job_group_completed',
+            group: {
+              id: 'group_1',
+              parentSessionId: 'stream-session',
+              waitPolicy: 'wait_all',
+              taskIds: ['agent_1'],
+              status: 'completed',
+              createdAt: '2026-05-01T00:00:00.000Z',
+              updatedAt: '2026-05-01T00:00:01.000Z',
+              completedAt: '2026-05-01T00:00:01.000Z',
+              results: [{ taskId: 'agent_1', label: 'Plan', status: 'completed' }],
+            },
+          } satisfies TBackgroundJobGroupEvent);
+        }
+        return {
+          message: 'Background job group group_1: completed',
+          success: true,
+          data: { groupId: 'group_1' },
+        };
+      }),
+      getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
+    } as unknown as InteractiveSession;
+
+    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const exitCode = await runner.run('/agent wait group_1');
+
+    expect(exitCode).toBe(0);
+
+    const lines = stdoutWriteSpy.mock.calls.map((call: unknown[]) => (call as [string])[0].trim());
+    const parsed: Array<Record<string, unknown>> = lines.map(
+      (line: string) => JSON.parse(line) as Record<string, unknown>,
+    );
+
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]).toMatchObject({
+      type: 'stream_event',
+      session_id: 'stream-session',
+      event: {
+        type: 'background_job_group_event',
+        background_job_group_event: {
+          type: 'background_job_group_completed',
+        },
+      },
+    });
+    expect(parsed[1]).toEqual({
+      type: 'result',
+      result: 'Background job group group_1: completed',
+      session_id: 'stream-session',
+      subtype: 'success',
     });
   });
 });

@@ -5,6 +5,7 @@
 export { InteractiveSession } from './interactive/index.js';
 export type {
   IInteractiveSessionOptions,
+  IInteractiveSessionShutdownOptions,
   IToolState,
   IDiffLine,
   IExecutionResult,
@@ -26,9 +27,27 @@ export {
   BuiltinCommandSource,
   SkillCommandSource,
   PluginCommandSource,
+  SystemCommandExecutor,
+  createSystemCommands,
   parseFrontmatter,
+  executeSkill,
 } from './commands/index.js';
-export type { ICommand, ICommandSource, ISystemCommand, ICommandResult } from './commands/index.js';
+export type {
+  ICapabilityDescriptor,
+  TCapabilityKind,
+  TCapabilitySafety,
+} from './capabilities/types.js';
+export type {
+  ICommand,
+  ICommandModule,
+  ICommandSource,
+  ISystemCommand,
+  ICommandResult,
+  IForkExecutionOptions,
+  ISkillExecutionCallbacks,
+  ISkillExecutionResult,
+  TCommandModuleSessionRequirement,
+} from './commands/index.js';
 
 // ── Skill prompt utilities ───────────────────────────────────
 export {
@@ -90,6 +109,7 @@ export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
 // ── Subagent (SDK-internal, exported for CLI fork execution) ─
 export {
+  createDefaultTools,
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
@@ -100,6 +120,88 @@ export {
 export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
+export { createCommandExecutionTool } from './tools/command-execution-tool.js';
+export type { ICommandExecutionToolDeps } from './tools/command-execution-tool.js';
+export { createBackgroundProcessTool } from './tools/background-process-tool.js';
+export type { IBackgroundProcessToolDeps } from './tools/background-process-tool.js';
+
+// ── Background task runtime contracts ──────────────────────
+export {
+  BackgroundTaskError,
+  BackgroundJobOrchestrator,
+  BackgroundTaskManager,
+  getBackgroundTaskTransitions,
+  isTerminalBackgroundTaskStatus,
+  summarizeBackgroundJobGroup,
+  transitionBackgroundTaskStatus,
+} from './background-tasks/index.js';
+export type {
+  IAgentBackgroundTaskRequest,
+  IBaseBackgroundTaskRequest,
+  IBackgroundTaskError,
+  IBackgroundTaskHandle,
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskManager,
+  IBackgroundTaskManagerOptions,
+  IBackgroundTaskRequest,
+  IBackgroundTaskResult,
+  IBackgroundTaskRunner,
+  IBackgroundTaskStart,
+  IBackgroundTaskState,
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupSummary,
+  IBackgroundJobGroupState,
+  IBackgroundJobOrchestratorOptions,
+  IBackgroundJobResultEnvelope,
+  IProcessBackgroundTaskRequest,
+  ISerializableProviderProfile,
+  TBackgroundTaskIdFactory,
+  TBackgroundPermissionPolicy,
+  TBackgroundPrimitive,
+  TBackgroundTaskErrorCategory,
+  TBackgroundTaskEvent,
+  TBackgroundTaskEventListener,
+  TBackgroundTaskKind,
+  TBackgroundTaskIsolation,
+  TBackgroundTaskMode,
+  TBackgroundTaskRunnerEvent,
+  TBackgroundTaskStatus,
+  TBackgroundTaskTimeoutReason,
+  TBackgroundTaskTransitionEvent,
+  TBackgroundJobGroupEvent,
+  TBackgroundJobGroupEventListener,
+  TBackgroundJobGroupIdFactory,
+  TBackgroundJobGroupStatus,
+  TBackgroundJobWaitPolicy,
+} from './background-tasks/index.js';
+
+// ── Subagent process manager contracts ─────────────────────
+export {
+  SubagentManager,
+  WorktreeSubagentRunner,
+  createWorktreeSubagentRunner,
+} from './subagents/index.js';
+export type {
+  IInProcessSubagentRunnerDeps,
+  IPreparedSubagentWorktree,
+  ISubagentJobHandle,
+  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentJobState,
+  ISubagentManager,
+  ISubagentManagerOptions,
+  ISubagentRunner,
+  ISubagentSpawnRequest,
+  ISubagentWorktreeAdapter,
+  ISubagentWorktreePrepareRequest,
+  IWorktreeSubagentRunnerOptions,
+  TSubagentRunnerFactory,
+  TSubagentJobMode,
+  TSubagentJobStatus,
+} from './subagents/index.js';
 
 // ── Hook executors ──────────────────────────────────────────
 export { PromptExecutor, AgentExecutor } from './hooks/index.js';
@@ -117,10 +219,7 @@ export { runHooks } from '@robota-sdk/agent-core';
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createSession()        — assembly factory
-//   createDefaultTools()   — tool assembly
 //   createProvider()       — REMOVED (provider comes from consumer)
 //   loadConfig()           — config loading (used by InteractiveSession internally)
 //   loadContext()          — context loading (used by InteractiveSession internally)
-//   SystemCommandExecutor  — embedded in InteractiveSession
-//   createSystemCommands() — embedded in InteractiveSession
 // ──────────────────────────────────────────────────────────────

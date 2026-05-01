@@ -6,7 +6,16 @@ import type { CommandRegistry } from '../commands/command-registry.js';
 import type { ISlashCommand } from '../commands/types.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
 import { expandPasteLabels } from '../utils/paste-labels.js';
-import { parseSlashInput, useAutocomplete } from './hooks/useAutocomplete.js';
+import { useAutocomplete } from './hooks/useAutocomplete.js';
+import {
+  createPasteLabelChange,
+  getAutocompletePopupAction,
+  getPendingPromptInputAction,
+  moveAutocompleteSelection,
+  resolveEnterCommandSelection,
+  resolveTabCompletion,
+  shouldSubmitInput,
+} from './flows/input-area-flow.js';
 
 interface IProps {
   onSubmit: (value: string) => void;
@@ -67,30 +76,23 @@ export default function InputArea({
     pasteIdRef.current += 1;
     const id = pasteIdRef.current;
     pasteStore.current.set(id, text);
-    const lineCount = text.split('\n').length;
-    const label = `[Pasted text #${id} +${lineCount} lines]`;
-    const newCursorPos = cursorPosition + label.length;
-    setCursorHint(newCursorPos);
-    setValue((prev) => prev.slice(0, cursorPosition) + label + prev.slice(cursorPosition));
+    setValue((prev) => {
+      const change = createPasteLabelChange(prev, cursorPosition, id, text);
+      setCursorHint(change.cursorHint);
+      return change.value;
+    });
   }, []);
 
   /** Tab: insert command into input field without executing */
   const tabCompleteCommand = useCallback(
     (cmd: ISlashCommand): void => {
-      const parsed = parseSlashInput(value);
-
-      if (parsed.parentCommand) {
-        setValue(`/${parsed.parentCommand} ${cmd.name} `);
-        return;
+      const result = resolveTabCompletion(value, cmd);
+      if (result.type === 'insert') {
+        setValue(result.value);
+        if (result.selectedIndex !== undefined) {
+          setSelectedIndex(result.selectedIndex);
+        }
       }
-
-      if (cmd.subcommands && cmd.subcommands.length > 0) {
-        setValue(`/${cmd.name} `);
-        setSelectedIndex(0);
-        return;
-      }
-
-      setValue(`/${cmd.name} `);
     },
     [value, setSelectedIndex],
   );
@@ -98,31 +100,23 @@ export default function InputArea({
   /** Enter: insert and execute command immediately */
   const enterSelectCommand = useCallback(
     (cmd: ISlashCommand): void => {
-      const parsed = parseSlashInput(value);
-
-      if (parsed.parentCommand) {
-        const fullCommand = `/${parsed.parentCommand} ${cmd.name}`;
-        setValue('');
-        onSubmit(fullCommand);
+      const result = resolveEnterCommandSelection(value, cmd);
+      if (result.type === 'insert') {
+        setValue(result.value);
+        if (result.selectedIndex !== undefined) {
+          setSelectedIndex(result.selectedIndex);
+        }
         return;
       }
-
-      if (cmd.subcommands && cmd.subcommands.length > 0) {
-        setValue(`/${cmd.name} `);
-        setSelectedIndex(0);
-        return;
-      }
-
       setValue('');
-      onSubmit(`/${cmd.name}`);
+      onSubmit(result.value);
     },
     [value, onSubmit, setSelectedIndex],
   );
 
   const handleSubmit = useCallback(
     (text: string): void => {
-      const trimmed = text.trim();
-      if (trimmed.length === 0) return;
+      if (!shouldSubmitInput(text)) return;
 
       if (showPopup && filteredCommands[selectedIndex]) {
         enterSelectCommand(filteredCommands[selectedIndex]);
@@ -130,7 +124,7 @@ export default function InputArea({
       }
 
       // Expand paste labels before submitting
-      const expanded = expandPasteLabels(trimmed, pasteStore.current);
+      const expanded = expandPasteLabels(text.trim(), pasteStore.current);
 
       setValue('');
       // Reset paste state
@@ -148,14 +142,14 @@ export default function InputArea({
       key: { upArrow: boolean; downArrow: boolean; escape: boolean; tab: boolean },
     ) => {
       if (!showPopup) return;
-
-      if (key.upArrow) {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filteredCommands.length - 1));
-      } else if (key.downArrow) {
-        setSelectedIndex((prev) => (prev < filteredCommands.length - 1 ? prev + 1 : 0));
-      } else if (key.escape) {
+      const action = getAutocompletePopupAction(key);
+      if (action === 'previous' || action === 'next') {
+        setSelectedIndex((prev) =>
+          moveAutocompleteSelection(prev, filteredCommands.length, action),
+        );
+      } else if (action === 'close') {
         setShowPopup(false);
-      } else if (key.tab) {
+      } else if (action === 'complete') {
         const cmd = filteredCommands[selectedIndex];
         if (cmd) tabCompleteCommand(cmd);
       }
@@ -166,7 +160,7 @@ export default function InputArea({
   // Backspace cancels queued prompt
   useInput(
     (_input, key) => {
-      if ((key.backspace || key.delete) && pendingPrompt) {
+      if (getPendingPromptInputAction(key) === 'cancelQueue' && pendingPrompt) {
         onCancelQueue?.();
       }
     },

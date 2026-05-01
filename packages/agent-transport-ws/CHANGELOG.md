@@ -1,5 +1,11 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.0.0-beta.56
+
+### Patch Changes
+
+- @robota-sdk/agent-sdk@3.0.0-beta.56
+
 ## 3.0.0-beta.55
 
 ### Patch Changes

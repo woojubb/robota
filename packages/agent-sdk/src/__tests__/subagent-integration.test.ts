@@ -133,7 +133,7 @@ describe('Subagent integration', () => {
 
     expect(mockSessionConstructor).toHaveBeenCalledTimes(1);
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
-    expect(passedOptions['model']).toBe('claude-haiku-4-5');
+    expect(passedOptions['model']).toBe('claude-sonnet-4-6');
   });
 
   it('Explore agent has read-only tools (Write and Edit filtered out)', () => {

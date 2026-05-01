@@ -3,10 +3,11 @@
  *
  * Precedence (lowest → highest):
  *   1. ~/.robota/settings.json       (user)
- *   2. .robota/settings.json         (project)
- *   3. .robota/settings.local.json   (project-local)
- *   4. .claude/settings.json         (project, Claude Code compat)
- *   5. .claude/settings.local.json   (project-local, highest priority)
+ *   2. ~/.claude/settings.json       (user, Claude Code compat)
+ *   3. .robota/settings.json         (project)
+ *   4. .robota/settings.local.json   (project-local)
+ *   5. .claude/settings.json         (project, Claude Code compat)
+ *   6. .claude/settings.local.json   (project-local, highest priority)
  */
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -73,16 +74,35 @@ function resolveEnvRef(value: string): string {
  * Apply env-ref resolution to all string fields in a settings object.
  */
 function resolveEnvRefs(settings: TSettings): TSettings {
-  if (settings.provider?.apiKey !== undefined) {
+  const provider =
+    settings.provider?.apiKey !== undefined
+      ? {
+          ...settings.provider,
+          apiKey: resolveEnvRef(settings.provider.apiKey),
+        }
+      : settings.provider;
+
+  if (settings.providers !== undefined) {
+    const providers = Object.fromEntries(
+      Object.entries(settings.providers).map(([name, profile]) => [
+        name,
+        {
+          ...profile,
+          ...(profile.apiKey !== undefined && { apiKey: resolveEnvRef(profile.apiKey) }),
+        },
+      ]),
+    );
     return {
       ...settings,
-      provider: {
-        ...settings.provider,
-        apiKey: resolveEnvRef(settings.provider.apiKey),
-      },
+      provider,
+      providers,
     };
   }
-  return settings;
+
+  return {
+    ...settings,
+    provider,
+  };
 }
 
 /**
@@ -110,6 +130,10 @@ function mergeSettings(layers: TSettings[]): TSettings {
         ...(merged.env ?? {}),
         ...(layer.env ?? {}),
       },
+      providers:
+        merged.providers !== undefined || layer.providers !== undefined
+          ? mergeProviders(merged.providers, layer.providers)
+          : undefined,
       enabledPlugins:
         merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
           ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
@@ -119,6 +143,47 @@ function mergeSettings(layers: TSettings[]): TSettings {
   }, {});
 }
 
+function mergeProviders(
+  base: TSettings['providers'],
+  override: TSettings['providers'],
+): TSettings['providers'] {
+  const result: NonNullable<TSettings['providers']> = { ...(base ?? {}) };
+  for (const [name, profile] of Object.entries(override ?? {})) {
+    result[name] = {
+      ...result[name],
+      ...profile,
+    };
+  }
+  return result;
+}
+
+function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
+  if (merged.currentProvider !== undefined) {
+    const profile = merged.providers?.[merged.currentProvider];
+    if (profile === undefined) {
+      throw new Error(`currentProvider "${merged.currentProvider}" was not found in providers`);
+    }
+    if (profile.type === undefined) {
+      throw new Error(`Provider profile "${merged.currentProvider}" is missing type`);
+    }
+    return {
+      name: profile.type,
+      model: profile.model ?? DEFAULTS.provider.model,
+      apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
+      ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
+      ...(profile.timeout !== undefined && { timeout: profile.timeout }),
+    };
+  }
+
+  return {
+    name: merged.provider?.name ?? DEFAULTS.provider.name,
+    model: merged.provider?.model ?? DEFAULTS.provider.model,
+    apiKey: merged.provider?.apiKey ?? DEFAULTS.provider.apiKey,
+    ...(merged.provider?.baseURL !== undefined && { baseURL: merged.provider.baseURL }),
+    ...(merged.provider?.timeout !== undefined && { timeout: merged.provider.timeout }),
+  };
+}
+
 /**
  * Convert merged TSettings into a fully-resolved IResolvedConfig with defaults.
  */
@@ -126,11 +191,8 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
   return {
     defaultTrustLevel: merged.defaultTrustLevel ?? DEFAULTS.defaultTrustLevel,
     language: merged.language,
-    provider: {
-      name: merged.provider?.name ?? DEFAULTS.provider.name,
-      model: merged.provider?.model ?? DEFAULTS.provider.model,
-      apiKey: merged.provider?.apiKey ?? DEFAULTS.provider.apiKey,
-    },
+    currentProvider: merged.currentProvider,
+    provider: resolveProvider(merged),
     permissions: {
       allow: merged.permissions?.allow ?? DEFAULTS.permissions.allow,
       deny: merged.permissions?.deny ?? DEFAULTS.permissions.deny,
@@ -149,6 +211,7 @@ function getSettingsPaths(cwd: string): string[] {
   const home = getHomeDir();
   return [
     join(home, '.robota', 'settings.json'), // 1. user (lowest)
+    join(home, '.claude', 'settings.json'), // 1b. user (Claude Code compat)
     join(cwd, '.robota', 'settings.json'), // 2. project
     join(cwd, '.robota', 'settings.local.json'), // 3. project-local
     join(cwd, '.claude', 'settings.json'), // 4. project, Claude Code compat

@@ -43,18 +43,19 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                                          |
-| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------ |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, optional sessionId) |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                  |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                         |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                            |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                               |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                          |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                      |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                             |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)  |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                    |
+| Type                         | Kind      | File                         | Description                                                                                           |
+| ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
+| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                       |
+| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
+| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                          |
+| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                             |
+| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                |
+| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                           |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)                   |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                                     |
 
 Types consumed from other packages (not owned here):
 
@@ -86,6 +87,7 @@ Types consumed from other packages (not owned here):
 | `FileSessionLogger`              | Class                | JSONL file-based session event logger                                                                          |
 | `SilentSessionLogger`            | Class                | No-op session logger                                                                                           |
 | `ISessionOptions`                | Interface            | Constructor options for Session                                                                                |
+| `ISessionShutdownOptions`        | Interface            | Graceful shutdown options for `Session.shutdown()`                                                             |
 | `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                            |
 | `TPermissionResult`              | Type                 | Permission decision result                                                                                     |
 | `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                       |
@@ -99,6 +101,8 @@ Types consumed from other packages (not owned here):
 ### Session Constructor — sessionId Parameter
 
 `ISessionOptions.sessionId` is an optional parameter. When provided, the Session reuses that ID. When omitted, a fresh UUID is generated (default). This allows the consuming layer to control whether a resumed session continues under the same file or creates a new one.
+
+`ISessionOptions.providerTimeout` is an optional provider idle timeout in milliseconds. When provided, `Session` forwards it to the underlying `Robota` `IAgentConfig.timeout`, where `agent-core` enforces it per provider call and refreshes the idle timer on streaming text deltas.
 
 ### Key Session Methods
 
@@ -116,6 +120,7 @@ Types consumed from other packages (not owned here):
 | `getContextState`          | `() => IContextWindowState`                                          | Returns real-time context window usage (tokens, percentage).                                                                            |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                                                         | Cancels the currently running `run()` call. No-op if not running.                                                                       |
+| `shutdown`                 | `(options?: ISessionShutdownOptions) => Promise<void>`               | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                       |
 | `isRunning`                | `() => boolean`                                                      | Returns true if a `run()` call is in progress.                                                                                          |
 | `getSessionAllowedTools`   | `() => string[]`                                                     | Returns tools that were session-approved ("Allow always").                                                                              |
 | `clearSessionAllowedTools` | `() => void`                                                         | Clears all session-scoped allow rules.                                                                                                  |
@@ -123,15 +128,19 @@ Types consumed from other packages (not owned here):
 
 ### ISessionRecord Fields
 
-| Field       | Type        | Required | Description                                                                                                                                              |
-| ----------- | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`        | `string`    | Yes      | Unique session identifier                                                                                                                                |
-| `cwd`       | `string`    | Yes      | Working directory where the session was created                                                                                                          |
-| `name`      | `string`    | No       | User-assigned session name for easy identification                                                                                                       |
-| `createdAt` | `string`    | Yes      | ISO timestamp of session creation                                                                                                                        |
-| `updatedAt` | `string`    | Yes      | ISO timestamp of last update                                                                                                                             |
-| `messages`  | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume. |
-| `history`   | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                       |
+| Field                  | Type        | Required | Description                                                                                                                                                       |
+| ---------------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | `string`    | Yes      | Unique session identifier                                                                                                                                         |
+| `cwd`                  | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
+| `name`                 | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
+| `createdAt`            | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
+| `updatedAt`            | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
+| `messages`             | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
+| `history`              | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
+| `systemPrompt`         | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
+| `toolSchemas`          | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
+| `backgroundTasks`      | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
+| `backgroundTaskEvents` | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
 
 ### Session Data Migration
 
@@ -148,12 +157,25 @@ Types consumed from other packages (not owned here):
 
 ## Session Logging
 
-The session log records structured events to a JSONL file for diagnostics and replay:
+The session log records structured events to a JSONL file for diagnostics and replay. Logs must preserve enough raw data to reconstruct what was sent to the model and what came back:
 
+- **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
-- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name and `webToolsEnabled` flag.
-- **`assistant` event** -- Recorded after each assistant response. Includes `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
+- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, `webToolsEnabled` flag, full enriched input, and current message history before the model call.
+- **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
+- **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
+- **`session_shutdown` event** -- Recorded once when `Session.shutdown()` begins. Includes the Claude-compatible shutdown reason.
 - **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
+
+## Hook Lifecycle
+
+`Session` fires Claude Code-compatible lifecycle hooks through `runHooks`:
+
+- `SessionStart` fires once when a `Session` is constructed.
+- `UserPromptSubmit` fires before each model turn and may inject stdout into the next prompt.
+- `Stop` fires after each successful assistant response and includes `response`, `last_assistant_message`, and `stop_hook_active`.
+- `StopFailure` fires when a model turn errors and includes `reason`.
+- `SessionEnd` fires exactly once from `Session.shutdown()`, after local persistence, and includes the Claude-compatible `reason`.
 
 ## Extension Points
 
@@ -169,7 +191,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 6. **`ISessionOptions.promptForApproval`** -- Alternative approval function that receives the terminal handle.
 
-7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI.
+7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI. `Session` stores this callback and passes it to `Robota.run()` as a per-run option; it MUST NOT mutate provider-level `onTextDelta` state because parent/subagent sessions may share the same provider instance.
 
 8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName }` when a tool begins and `{ type: 'end', toolName, success }` when it completes. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
 
@@ -268,10 +290,11 @@ None. Classes are standalone.
 ### Current Test Coverage
 
 - **Session system prompt delivery** -- 6 tests verifying system prompt is passed to Robota at both top-level and defaultModel.
+- **Session provider callback isolation** -- 1 regression test verifying two sessions sharing one provider keep `onTextDelta` output isolated per run.
 
 ### Gaps
 
-- **Session** -- `run()`, permission mode switching, hook integration, streaming callback wiring, and session persistence are untested.
+- **Session** -- permission mode switching, hook integration, and session persistence are untested.
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.

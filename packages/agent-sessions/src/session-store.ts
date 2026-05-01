@@ -1,12 +1,14 @@
 /**
  * SessionStore — persists conversation sessions as JSON files.
  *
- * Sessions are stored at `~/.robota/sessions/{id}.json`.
+ * Sessions are stored at `~/.robota/sessions/{id}.json` by default.
+ * Consumers can inject a project-local directory such as `.robota/sessions`.
  * The store directory is created on first write if it does not exist.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync } from 'fs';
 import { join } from 'path';
+import type { IToolSchema } from '@robota-sdk/agent-core';
 
 /** A persisted session record */
 export interface ISessionRecord {
@@ -24,6 +26,18 @@ export interface ISessionRecord {
   messages: unknown[];
   /** Full UI timeline (chat + events) for rendering restoration */
   history?: unknown[];
+  /** Exact system prompt used to create the session. */
+  systemPrompt?: string;
+  /** Tool schemas registered for the session. */
+  toolSchemas?: IToolSchema[];
+  /** Latest background task snapshots for resume/debugging. */
+  backgroundTasks?: unknown[];
+  /** Durable non-streaming background task events for resume/debugging. */
+  backgroundTaskEvents?: unknown[];
+  /** Latest background job group snapshots for resume/debugging. */
+  backgroundJobGroups?: unknown[];
+  /** Durable background job group events for resume/debugging. */
+  backgroundJobGroupEvents?: unknown[];
 }
 
 /**

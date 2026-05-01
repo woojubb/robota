@@ -99,7 +99,9 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 
 ### ISessionRecord
 
-`ISessionRecord` includes a required `history` field (`IHistoryEntry[]`) that stores the full conversation timeline for session persistence, resume, and fork operations. When a session is resumed, history entries are replayed via `Session.injectMessage()`.
+`ISessionRecord` includes a required `history` field (`IHistoryEntry[]`) that stores the full conversation timeline for session persistence, resume, and fork operations. It may also include `backgroundTasks` and `backgroundTaskEvents` so background work can be restored and debugged alongside the conversation. When a session is resumed, history entries are replayed via `Session.injectMessage()`.
+
+Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
 
 A migration script is available for upgrading session records from older formats. See the package source for details.
 

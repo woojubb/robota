@@ -8,6 +8,7 @@
 import { runHooks } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
+  TSessionEndReason,
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
@@ -21,16 +22,12 @@ import type { TSessionLogData } from './session-logger.js';
  */
 export function configureProvider(
   provider: IAIProvider,
-  options: ISessionOptions,
+  _options: ISessionOptions,
   log: (event: string, data: TSessionLogData) => void,
 ): void {
   // Enable Anthropic server web tools (web_search)
   if (provider.name === 'anthropic' && 'enableWebTools' in provider) {
     (provider as { enableWebTools: boolean }).enableWebTools = true;
-  }
-
-  if (options.onTextDelta && 'onTextDelta' in provider) {
-    (provider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
   }
 
   // Wire server tool logging
@@ -70,4 +67,25 @@ export function fireSessionStartHook(
       }
     })
     .catch(() => {});
+}
+
+/** Fire SessionEnd hook and wait for hook completion before process exit. */
+export async function fireSessionEndHook(
+  sessionId: string,
+  cwd: string,
+  reason: TSessionEndReason,
+  hooks: Record<string, unknown> | undefined,
+  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+): Promise<void> {
+  const hookInput: IHookInput = {
+    session_id: sessionId,
+    cwd,
+    hook_event_name: 'SessionEnd',
+    reason,
+    env: {
+      CLAUDE_PROJECT_DIR: cwd,
+      CLAUDE_SESSION_ID: sessionId,
+    },
+  };
+  await runHooks(hooks as THooksConfig | undefined, 'SessionEnd', hookInput, hookTypeExecutors);
 }

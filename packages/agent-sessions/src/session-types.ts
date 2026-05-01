@@ -5,6 +5,7 @@
 import type {
   IAIProvider,
   IToolWithEventService,
+  TSessionEndReason,
   TPermissionMode,
   TToolArgs,
 } from '@robota-sdk/agent-core';
@@ -19,6 +20,11 @@ import type {
 } from './permission-types.js';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
+
+/** Options for graceful session shutdown. */
+export interface ISessionShutdownOptions {
+  reason?: TSessionEndReason;
+}
 
 /** Options for constructing a Session */
 export interface ISessionOptions {
@@ -39,6 +45,8 @@ export interface ISessionOptions {
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
   /** Model name (for context window sizing and Robota config) */
   model?: string;
+  /** Provider idle timeout in milliseconds for each model call */
+  providerTimeout?: number;
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */

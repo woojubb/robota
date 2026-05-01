@@ -6,6 +6,8 @@ AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for proje
 
 ## Installation
 
+Requires Node.js 22+.
+
 ```bash
 # Global install
 npm install -g @robota-sdk/agent-cli
@@ -26,9 +28,9 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 
 ### Environment Variables
 
-| Variable            | Description       | Required |
-| ------------------- | ----------------- | -------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key | Yes      |
+| Variable            | Description                                    | Required       |
+| ------------------- | ---------------------------------------------- | -------------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
 
 Set your key before running:
 
@@ -107,12 +109,12 @@ git diff | robota -p "Summarize changes" --output-format stream-json
 
 ## First-Run Setup
 
-When no settings file exists, the CLI prompts for:
+When no usable settings file exists, the CLI prompts for:
 
 1. **Anthropic API key** (input masked with asterisks)
 2. **Response language** (ko/en/ja/zh, default: en)
 
-Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
+Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state. OpenAI-compatible local profiles, such as LM Studio, can be configured manually without using the first-run Anthropic prompt.
 
 ## Built-in Tools
 
@@ -267,26 +269,53 @@ The `/plugin` command opens an interactive TUI for managing bundle plugins:
 
 ## Configuration
 
-Settings are loaded from (highest priority first):
+Settings are merged in this order, from lowest to highest priority:
 
-1. `.robota/settings.local.json` (local, gitignored)
-2. `.robota/settings.json` (project, shared)
-3. `.claude/settings.json` (project, Claude Code compatible)
-4. `~/.robota/settings.json` (user global)
-5. `~/.claude/settings.json` (user global, Claude Code compatible)
+1. `~/.robota/settings.json` (user global)
+2. `~/.claude/settings.json` (user global, Claude Code compatible)
+3. `.robota/settings.json` (project, shared)
+4. `.robota/settings.local.json` (local, gitignored)
+5. `.claude/settings.json` (project, Claude Code compatible)
+6. `.claude/settings.local.json` (local, gitignored, Claude Code compatible)
 
 ```json
 {
   "defaultMode": "default",
   "language": "en",
-  "provider": {
-    "name": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "apiKey": "$ENV:ANTHROPIC_API_KEY"
+  "currentProvider": "gemma",
+  "providers": {
+    "gemma": {
+      "type": "gemma",
+      "model": "supergemma4-26b-uncensored-v2",
+      "apiKey": "lm-studio",
+      "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKey": "$ENV:ANTHROPIC_API_KEY"
+    }
   },
   "permissions": {
     "allow": ["Bash(pnpm *)"],
     "deny": ["Bash(rm -rf *)"]
+  }
+}
+```
+
+`currentProvider` selects a profile from `providers`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply Gemma filtering. The legacy single-provider shape remains supported:
+
+```json
+{
+  "provider": {
+    "name": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "apiKey": "$ENV:ANTHROPIC_API_KEY"
   }
 }
 ```
@@ -309,7 +338,9 @@ All context is assembled into the system prompt.
 
 ## Session Logging
 
-Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by default, capturing structured events for diagnostics and replay.
+Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by default, capturing structured events for diagnostics and replay. Background task lifecycle/progress events are logged there as they happen. Child-process subagents also write append-only transcripts to `.robota/logs/{sessionId}/subagents/{agentId}.jsonl`, including streaming text deltas while the local provider request is still running.
+
+Resumable session JSON is written to `.robota/sessions/{sessionId}.json` for the current project and includes messages, UI history, the exact system prompt, registered tool schemas, and background task snapshots. High-frequency streaming chunks stay in JSONL transcript files; the session JSON stores task state and transcript paths.
 
 ## Architecture
 
@@ -345,7 +376,7 @@ bin.ts → cli.ts (arg parsing)
 | `@robota-sdk/agent-sdk`                | Session factory, query, config, context    |
 | `@robota-sdk/agent-core`               | Types (TPermissionMode, TToolArgs)         |
 | `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`)      |
-| `ink`, `react`                         | TUI rendering                              |
+| `ink` 7, `react` 19.2+                 | TUI rendering                              |
 | `ink-select-input`                     | Arrow-key selection (permission prompt)    |
 | `ink-spinner`                          | Loading spinner                            |
 | `chalk`                                | Terminal colors                            |

@@ -30,6 +30,14 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - The `.claude/hooks/pre-push-check.sh` hook enforces this automatically for Claude Code tool calls. Running `git push` directly in the terminal bypasses the hook — you are responsible for running the checks manually in that case.
 - This rule exists because repeated CI-only failures waste CI minutes and slow down the feedback loop.
 
+### Behavioral Verification Before Push
+
+- Generic build, typecheck, lint, and unit tests are not sufficient when the changed behavior is runtime-observable.
+- Before pushing a runtime behavior change, verify the exact user-visible path affected by the change after the final code/doc diff is complete.
+- For LLM-driven tool calling, background work, streaming, session persistence, or resume behavior, verification must inspect structured runtime evidence such as tool-call records, background-job events, terminal states, persisted session data, or a headless scenario result. Assistant prose or markup does not count as execution proof.
+- A pre-push hook is a final safety net, not a substitute for intentional verification. Do not rely on push-time checks to discover whether the work is valid.
+- If feature-specific verification cannot be run locally, stop before pushing and report the blocker and residual risk to the user.
+
 ### Execution Safety
 
 - All execution paths must be deterministic and termination-safe.

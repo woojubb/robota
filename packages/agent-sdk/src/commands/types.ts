@@ -1,3 +1,5 @@
+import type { TCapabilitySafety } from '../capabilities/types.js';
+
 /** A command entry */
 export interface ICommand {
   /** Command name without slash (e.g., "mode") */
@@ -16,8 +18,12 @@ export interface ICommand {
   argumentHint?: string;
   /** When true, models cannot invoke this skill autonomously */
   disableModelInvocation?: boolean;
+  /** When true, models may invoke this command through the command execution tool */
+  modelInvocable?: boolean;
   /** When false, users cannot invoke this skill directly */
   userInvocable?: boolean;
+  /** Safety category for model-visible capability descriptors */
+  safety?: TCapabilitySafety;
   /** List of tools this skill is allowed to use */
   allowedTools?: string[];
   /** Preferred model for executing this skill */

@@ -28,6 +28,8 @@ function createMockSession(options?: {
     }),
     injectMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session-id'),
+    getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
+    getToolSchemas: vi.fn().mockReturnValue([]),
   };
 }
 
