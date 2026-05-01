@@ -27,6 +27,17 @@ const providerDefinitions: readonly IProviderDefinition[] = [
       throw new Error('not used');
     },
   },
+  {
+    type: 'qwen',
+    defaults: {
+      model: 'qwen-plus',
+      apiKey: '$ENV:DASHSCOPE_API_KEY',
+    },
+    requiresApiKey: true,
+    createProvider: () => {
+      throw new Error('not used');
+    },
+  },
 ];
 
 function writeJson(path: string, data: unknown): void {
@@ -35,6 +46,8 @@ function writeJson(path: string, data: unknown): void {
 
 describe('checkSettingsFile', () => {
   afterEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
@@ -59,6 +72,7 @@ describe('checkSettingsFile', () => {
   });
 
   it('accepts legacy provider config with an apiKey', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     mkdirSync(TMP_BASE, { recursive: true });
     const path = join(TMP_BASE, 'settings.json');
     writeJson(path, {
@@ -103,5 +117,40 @@ describe('checkSettingsFile', () => {
     });
 
     expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+  });
+
+  it('returns incomplete when a required API key environment reference is unset', () => {
+    mkdirSync(TMP_BASE, { recursive: true });
+    const path = join(TMP_BASE, 'settings.json');
+    writeJson(path, {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+
+    expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+  });
+
+  it('accepts a required API key environment reference when it resolves', () => {
+    process.env.DASHSCOPE_API_KEY = 'dashscope-key';
+    mkdirSync(TMP_BASE, { recursive: true });
+    const path = join(TMP_BASE, 'settings.json');
+    writeJson(path, {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+
+    expect(checkSettingsFile(path, providerDefinitions)).toBe('valid');
   });
 });

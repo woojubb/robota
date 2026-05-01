@@ -51,6 +51,47 @@ export function createProviderSetupFlow(
   };
 }
 
+export function formatProviderSetupSelectionPrompt(
+  providerDefinitions: readonly IProviderDefinition[],
+): string {
+  if (providerDefinitions.length === 0) {
+    return '  No providers are available.';
+  }
+  const lines = [
+    '  Select provider:',
+    ...providerDefinitions.map(
+      (definition, index) => `    ${index + 1}. ${formatProviderSetupChoiceLabel(definition)}`,
+    ),
+    `  Provider [1-${providerDefinitions.length}] (default: 1): `,
+  ];
+  return lines.join('\n');
+}
+
+export function resolveProviderSetupSelection(
+  rawValue: string,
+  providerDefinitions: readonly IProviderDefinition[],
+): TProviderSetupType {
+  const value = rawValue.trim();
+  const selectedValue = value.length > 0 ? value : '1';
+  const index = parseProviderSelectionIndex(selectedValue);
+  if (index !== undefined) {
+    const definition = providerDefinitions[index];
+    if (definition !== undefined) {
+      return definition.type;
+    }
+    throw new Error(
+      `Provider selection ${selectedValue} is out of range. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
+    );
+  }
+  const definition = findProviderDefinition(providerDefinitions, selectedValue);
+  if (definition === undefined) {
+    throw new Error(
+      `Unknown provider: ${selectedValue}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
+    );
+  }
+  return definition.type;
+}
+
 export function getProviderSetupStep(state: IProviderSetupFlowState): IProviderSetupPromptStep {
   const step = state.steps[state.stepIndex];
   if (step === undefined) {
@@ -106,6 +147,21 @@ export async function runProviderSetupPromptFlow(
 export function formatProviderSetupPromptLabel(step: IProviderSetupPromptStep): string {
   const suffix = step.defaultValue !== undefined ? ` (default: ${step.defaultValue})` : '';
   return `  ${step.title}${suffix}: `;
+}
+
+export function formatProviderSetupChoiceLabel(definition: IProviderDefinition): string {
+  const label =
+    definition.displayName !== undefined
+      ? `${definition.displayName} (${definition.type})`
+      : definition.type;
+  return definition.description !== undefined ? `${label} - ${definition.description}` : label;
+}
+
+function parseProviderSelectionIndex(value: string): number | undefined {
+  if (!/^\d+$/.test(value)) {
+    return undefined;
+  }
+  return Number(value) - 1;
 }
 
 export function validateProviderSetupValue(

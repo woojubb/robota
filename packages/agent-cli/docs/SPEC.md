@@ -77,14 +77,16 @@ Provider resolution order:
 
 Provider definition contract:
 
-| Field            | Owner                            | CLI behavior                                          |
-| ---------------- | -------------------------------- | ----------------------------------------------------- |
-| `type`           | Provider package or CLI assembly | Match settings profile type to a definition           |
-| `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values      |
-| `setupSteps`     | Provider package                 | Drive interactive setup prompts without type branches |
-| `requiresApiKey` | Provider package                 | Validate profiles consistently                        |
-| `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                   |
-| `createProvider` | Provider package                 | Build concrete provider instance                      |
+| Field            | Owner                            | CLI behavior                                             |
+| ---------------- | -------------------------------- | -------------------------------------------------------- |
+| `type`           | Provider package or CLI assembly | Match settings profile type to a definition              |
+| `displayName`    | Provider package                 | Optional human-readable provider label for setup lists   |
+| `description`    | Provider package                 | Optional provider description for setup lists and errors |
+| `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values         |
+| `setupSteps`     | Provider package                 | Drive interactive setup prompts without type branches    |
+| `requiresApiKey` | Provider package                 | Validate profiles consistently                           |
+| `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                      |
+| `createProvider` | Provider package                 | Build concrete provider instance                         |
 
 The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`.
 
@@ -105,34 +107,40 @@ Supported setup flags:
 | `--api-key <value>`              | Store a literal API key                                             |
 | `--api-key-env <name>`           | Store `$ENV:<name>`, not the current environment value              |
 
-First-run setup must offer the injected provider definitions when stdin/stdout are TTYs. Non-interactive print/headless execution must not prompt; missing provider config must produce an actionable error that points to `robota --configure` and `robota --configure-provider`.
+First-run setup must offer the injected provider definitions as a selectable list when stdin/stdout are TTYs. The list is generated from `IProviderDefinition[]` and may render `displayName`, `type`, and `description`, but it must not branch on concrete provider names. Selecting a provider starts the same provider setup flow used by runtime provider setup.
 
-Provider slash commands are TUI side effects:
+Non-interactive print/headless execution must not prompt. Missing provider config must produce an actionable error generated from the injected provider definitions, pointing to `robota --configure` and `robota --configure-provider` without hardcoded provider-specific examples.
 
-| Command                    | Behavior                                                    |
-| -------------------------- | ----------------------------------------------------------- |
-| `/provider`                | Show current provider and subcommands                       |
-| `/provider current`        | Show active profile, type, model, and baseURL               |
-| `/provider list`           | Show provider profiles from merged settings                 |
-| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session |
-| `/provider test [profile]` | Validate fields and optionally probe the endpoint           |
+Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider changes must follow the existing `/model` restart pattern: command returns structured data, TUI confirms, settings are written after confirmation, and the App remounts with a new provider instance.
+Provider slash commands are CLI side effects rendered through generic TUI interactions:
 
-Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns setup steps, defaults, required-field validation, masked-field metadata, and final `IProviderSetupInput` construction. TUI components may only render the current prompt step and pass submitted values back to the flow module.
+| Command                    | Behavior                                                                                                                                      |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/provider`                | Show current provider and subcommands                                                                                                         |
+| `/provider current`        | Show active profile, type, model, and baseURL                                                                                                 |
+| `/provider list`           | Show provider profiles from merged settings                                                                                                   |
+| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session                                                                                   |
+| `/provider add`            | Start provider setup without a selected type; the CLI setup controller emits a generic choice interaction generated from injected definitions |
+| `/provider add <type>`     | Start setup for the selected provider type                                                                                                    |
+| `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                             |
+
+Provider changes must follow the existing `/model` restart pattern: command returns structured data, CLI side-effect handlers perform settings writes after confirmation or setup completion, and the App remounts with a new provider instance.
+
+Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final `IProviderSetupInput` construction. `provider-setup-interaction` owns provider selection options and maps provider setup state into generic choice/text interaction descriptors. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic interaction descriptors and pass submitted values back to the CLI side-effect handler.
 
 TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
 
 Flow ownership:
 
-| Flow module                 | Owns                                                                        | Thin shell consumers                                     |
-| --------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                | `TextPrompt`, `ProviderSetupPrompt` through `TextPrompt` |
-| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling       | `ListPicker`, `MenuSelect`, choice prompt flows          |
-| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                 | `ConfirmPrompt`                                          |
-| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions           | `PermissionPrompt`                                       |
-| `input-area-flow.ts`        | slash autocomplete movement, command completion, queue cancel, paste labels | `InputArea`                                              |
-| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                           |
+| Flow module                 | Owns                                                                        | Thin shell consumers                                             |
+| --------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                | `TextPrompt`, `InteractivePrompt` text rendering                 |
+| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling       | `ListPicker`, `MenuSelect`, `InteractivePrompt` choice rendering |
+| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                 | `ConfirmPrompt`                                                  |
+| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions           | `PermissionPrompt`                                               |
+| `input-area-flow.ts`        | slash autocomplete movement, command completion, queue cancel, paste labels | `InputArea`                                                      |
+| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                                   |
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
@@ -565,6 +573,9 @@ src/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
 │   ├── provider-factory.ts          ← AI provider resolution from injected definitions
+│   ├── provider-setup-flow.ts       ← Provider setup field flow and final setup input construction
+│   ├── provider-setup-interaction.ts← Provider setup to generic choice/text interaction mapping
+│   ├── interactive-prompt.ts        ← Generic prompt descriptor types shared by CLI use cases and TUI rendering
 │   ├── tool-call-extractor.ts       ← Tool call display extraction from history
 │   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
@@ -595,6 +606,7 @@ src/
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
     ├── ListPicker.tsx               ← Generic list picker overlay (session resume, etc.)
+    ├── InteractivePrompt.tsx        ← Generic choice/text prompt renderer for CLI interactions
     ├── DiffBlock.tsx                ← Diff block rendering for Edit tool output display
     ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
     ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)

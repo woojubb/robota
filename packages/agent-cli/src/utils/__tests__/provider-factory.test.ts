@@ -153,6 +153,7 @@ describe('provider-factory', () => {
 
   afterEach(() => {
     delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
+    delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
@@ -350,6 +351,23 @@ describe('provider-factory', () => {
       timeout: 45_000,
       defaultModel: 'qwen-plus',
     });
+  });
+
+  it('fails before provider construction when an API key environment reference is unset', () => {
+    delete process.env.DASHSCOPE_API_KEY;
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+
+    expect(() => createProviderFromSettings(cwd)).toThrow('Provider qwen requires apiKey');
+    expect(QwenProvider).not.toHaveBeenCalled();
   });
 
   it('creates providers from injected definitions without adding factory branches', () => {

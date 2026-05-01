@@ -18,6 +18,7 @@ import {
   type IProviderConfig,
   type IProviderDefinition,
 } from './provider-definition.js';
+import { resolveEnvReference } from './env-ref.js';
 
 export type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
 
@@ -162,27 +163,19 @@ function normalizeProviderConfig(
   if (!model) {
     throw new Error(`Provider ${settings.name} requires model`);
   }
+  const apiKeyReference = settings.apiKey ?? defaults.apiKey;
   return {
     name: settings.name,
     model,
-    apiKey: settings.apiKey !== undefined ? resolveEnvRef(settings.apiKey) : defaults.apiKey,
+    apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
   };
 }
 
-function resolveEnvRef(value: string): string {
-  const envPrefix = '$ENV:';
-  if (!value.startsWith(envPrefix)) {
-    return value;
-  }
-  const envName = value.slice(envPrefix.length);
-  return process.env[envName] ?? value;
-}
-
 function resolveProfileApiKey(profile: ISerializableProviderProfile): string | undefined {
   if (profile.apiKey !== undefined) {
-    return profile.apiKey;
+    return resolveEnvReference(profile.apiKey);
   }
   if (profile.apiKeyEnv !== undefined) {
     return process.env[profile.apiKeyEnv];
