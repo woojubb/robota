@@ -129,7 +129,7 @@ Events contain cloned task snapshots or primitive progress data. Consumers may p
 `BackgroundTaskManager` owns provider-neutral watchdog semantics for long-running agent tasks:
 
 - `idleTimeoutMs` means no new runner progress event has arrived within the configured window. Text deltas, tool start/end events, and permission requests all refresh `lastActivityAt`.
-- `maxRuntimeMs` is a separate wall-clock cap. Legacy agent `timeoutMs` maps to `idleTimeoutMs`; process `timeoutMs` remains the runner-owned wall-clock process timeout.
+- `maxRuntimeMs` is a separate wall-clock cap. The default is `0`, so background agents do not have a default wall-clock cap; consumers may opt in per request or manager configuration. Legacy agent `timeoutMs` maps to `idleTimeoutMs`; process `timeoutMs` remains the runner-owned wall-clock process timeout.
 - Agent requests may set `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold` to stop runaway streams.
 - Watchdog failures set `IBackgroundTaskState.timeoutReason` to `idle`, `max_runtime`, `output_limit`, `repetition`, or `stale_worker`, cancel the runner handle when possible, and fail the task with `BackgroundTaskError` category `timeout`.
 - Terminal task records, logs, and transcript paths remain in the registry until `close()` is called.

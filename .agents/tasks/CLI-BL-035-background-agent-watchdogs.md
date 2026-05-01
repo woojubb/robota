@@ -225,15 +225,15 @@ Rules:
 
 Default values should be conservative and configurable:
 
-| Setting                 |          Default | Reason                                                                             |
-| ----------------------- | ---------------: | ---------------------------------------------------------------------------------- |
-| `agentIdleTimeoutMs`    |        `120_000` | Long enough for local models and tool pauses, short enough to catch stuck streams. |
-| `agentMaxRuntimeMs`     |        `900_000` | Hard stop after 15 minutes even if text keeps flowing.                             |
-| `agentOutputLimitBytes` |        `256_000` | Prevent runaway transcript growth while preserving useful logs.                    |
-| `agentMaxTextDeltas`    |         `20_000` | Stops pathological tiny-token streams.                                             |
-| `repetitionWindow`      |            `800` | Check repeated suffixes over recent generated text.                                |
-| `repetitionThreshold`   |              `8` | Stop if the same meaningful phrase repeats too many times.                         |
-| `killGraceMs`           | existing `2_000` | Preserve current graceful-cancel window before process kill.                       |
+| Setting                 |          Default | Reason                                                                                   |
+| ----------------------- | ---------------: | ---------------------------------------------------------------------------------------- |
+| `agentIdleTimeoutMs`    |        `240_000` | Gives local models and parallel agent jobs more room while still catching stuck streams. |
+| `agentMaxRuntimeMs`     |              `0` | No default wall-clock cap; long agentic work continues under idle/runaway guards.        |
+| `agentOutputLimitBytes` |        `256_000` | Prevent runaway transcript growth while preserving useful logs.                          |
+| `agentMaxTextDeltas`    |         `20_000` | Stops pathological tiny-token streams.                                                   |
+| `repetitionWindow`      |            `800` | Check repeated suffixes over recent generated text.                                      |
+| `repetitionThreshold`   |              `8` | Stop if the same meaningful phrase repeats too many times.                               |
+| `killGraceMs`           | existing `2_000` | Preserve current graceful-cancel window before process kill.                             |
 
 Configuration ownership:
 

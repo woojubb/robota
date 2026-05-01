@@ -42,3 +42,4 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 | 35  | Treating assistant markup or prose as actual tool execution      | Report execution only from structured runtime results or events                                                       |
 | 36  | Testing agent spawn without completion or timeout follow-up      | Assert terminal result or timeout plus the parent-turn continuation path                                              |
 | 37  | Declaring orchestration fixed without session-log verification   | Inspect persisted session data for descriptors, tool calls, background events, terminal state, and final follow-up    |
+| 38  | Pushing runtime behavior changes after only generic checks       | Run feature-specific behavioral verification first; push-time hooks are not a substitute for local proof              |
