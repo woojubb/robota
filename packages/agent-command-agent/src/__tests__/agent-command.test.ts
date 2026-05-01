@@ -74,17 +74,20 @@ describe('agent command module', () => {
   it('contributes /agent without changing SDK core commands', () => {
     const coreExecutor = new SystemCommandExecutor(createSystemCommands());
     expect(coreExecutor.hasCommand('agent')).toBe(false);
+    const coreModelCommands = coreExecutor
+      .listModelInvocableCommands()
+      .map((command) => command.name);
 
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([
       ...createSystemCommands(),
       ...(module.systemCommands ?? []),
     ]);
+    const modelCommands = executor.listModelInvocableCommands().map((command) => command.name);
 
     expect(executor.hasCommand('agent')).toBe(true);
-    expect(executor.listModelInvocableCommands().map((command) => command.name)).toEqual([
-      '/agent',
-    ]);
+    expect(modelCommands).toEqual([...coreModelCommands, '/agent']);
+    expect(coreModelCommands).not.toContain('/agent');
   });
 
   it('requests agent runtime wiring through the command module contract', () => {
