@@ -28,6 +28,16 @@ function createMockSession(overrides?: Record<string, unknown>): InteractiveSess
       updatedAt: '2026-05-01T00:00:00.000Z',
     }),
     waitAgentJob: vi.fn(),
+    createBackgroundJobGroup: vi.fn().mockReturnValue({
+      id: 'group_1',
+      parentSessionId: 'test-session-id',
+      waitPolicy: 'wait_all',
+      taskIds: ['agent_1', 'agent_2'],
+      status: 'running',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+      results: [],
+    }),
     sendAgentJob: vi.fn(),
     cancelAgentJob: vi.fn(),
     closeAgentJob: vi.fn(),
@@ -79,8 +89,6 @@ describe('agent command module', () => {
     expect(agent?.description).toContain('subagent jobs');
     expect(agent?.description).toContain('ExecuteCommand');
     expect(agent?.description).toContain('choose one backlog');
-    expect(agent?.description).toContain('Korean example');
-    expect(agent?.description).toContain('백로그 중에 하나');
     expect(agent?.description).toContain('ExecuteCommand tool');
     expect(agent?.description).not.toContain('<agent>');
     expect(agent?.description).not.toContain('XML/HTML');
@@ -96,7 +104,7 @@ describe('agent command module', () => {
     ]);
     const session = createMockSession();
 
-    const result = await executor.execute('agent', session, '이 백로그를 분석해');
+    const result = await executor.execute('agent', session, 'analyze the selected task');
 
     expect(result?.success).toBe(true);
     expect(result?.data?.agentId).toBe('agent_1');
@@ -106,7 +114,7 @@ describe('agent command module', () => {
       agentType: 'general-purpose',
       label: 'general-purpose',
       mode: 'background',
-      prompt: '이 백로그를 분석해',
+      prompt: 'analyze the selected task',
     });
     expect(
       (session as unknown as { waitAgentJob: ReturnType<typeof vi.fn> }).waitAgentJob,
@@ -163,7 +171,7 @@ describe('agent command module', () => {
     ]);
     const session = createMockSession();
 
-    const result = await executor.execute('agent', session, 'run "이걸로 분석해"');
+    const result = await executor.execute('agent', session, 'run "analyze this task"');
 
     expect(result?.success).toBe(true);
     expect(result?.data?.agentId).toBe('agent_1');
@@ -173,7 +181,7 @@ describe('agent command module', () => {
       agentType: 'general-purpose',
       label: 'general-purpose',
       mode: 'background',
-      prompt: '이걸로 분석해',
+      prompt: 'analyze this task',
     });
   });
 
@@ -185,7 +193,7 @@ describe('agent command module', () => {
     ]);
     const session = createMockSession();
 
-    const result = await executor.execute('agent', session, 'run 이걸로 분석해');
+    const result = await executor.execute('agent', session, 'run analyze this task');
 
     expect(result?.success).toBe(true);
     expect(
@@ -194,7 +202,7 @@ describe('agent command module', () => {
       agentType: 'general-purpose',
       label: 'general-purpose',
       mode: 'background',
-      prompt: '이걸로 분석해',
+      prompt: 'analyze this task',
     });
   });
 
@@ -256,6 +264,15 @@ describe('agent command module', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.data?.agentIds).toEqual(['agent_1', 'agent_2']);
+    expect(result?.data?.groupId).toBe('group_1');
+    expect(
+      (session as unknown as { createBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .createBackgroundJobGroup,
+    ).toHaveBeenCalledWith({
+      waitPolicy: 'wait_all',
+      taskIds: ['agent_1', 'agent_2'],
+      label: 'agent parallel',
+    });
     expect(callOrder).toEqual(['spawn:developer', 'spawn:designer']);
   });
 

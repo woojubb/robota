@@ -13,8 +13,10 @@ import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
+  IBackgroundJobGroupState,
   IBackgroundTaskRunner,
   IBackgroundTaskState,
+  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
   TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
@@ -232,6 +234,8 @@ export function loadSessionRecord(
   pendingRestoreMessages: unknown[] | null;
   backgroundTasks: IBackgroundTaskState[];
   backgroundTaskEvents: TBackgroundTaskEvent[];
+  backgroundJobGroups: IBackgroundJobGroupState[];
+  backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -241,6 +245,8 @@ export function loadSessionRecord(
       pendingRestoreMessages: null,
       backgroundTasks: [],
       backgroundTaskEvents: [],
+      backgroundJobGroups: [],
+      backgroundJobGroupEvents: [],
     };
   }
 
@@ -248,6 +254,9 @@ export function loadSessionRecord(
   const restoredBackgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
   const restoredBackgroundTaskEvents = (record.backgroundTaskEvents ??
     []) as TBackgroundTaskEvent[];
+  const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
+  const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
+    []) as TBackgroundJobGroupEvent[];
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
@@ -267,7 +276,15 @@ export function loadSessionRecord(
     }
   }
 
-  return { history, sessionName, pendingRestoreMessages, backgroundTasks, backgroundTaskEvents };
+  return {
+    history,
+    sessionName,
+    pendingRestoreMessages,
+    backgroundTasks,
+    backgroundTaskEvents,
+    backgroundJobGroups,
+    backgroundJobGroupEvents,
+  };
 }
 
 function reconcileRestoredBackgroundTasks(

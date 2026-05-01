@@ -266,8 +266,6 @@ describe('createSession — appendSystemPrompt option', () => {
       expect(systemMessage).toContain('Agent — launch an isolated agent');
       expect(systemMessage).toContain('one Agent tool call per role');
       expect(systemMessage).toContain('choose one backlog');
-      expect(systemMessage).toContain('Korean example');
-      expect(systemMessage).toContain('백로그 중에 하나');
       expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {

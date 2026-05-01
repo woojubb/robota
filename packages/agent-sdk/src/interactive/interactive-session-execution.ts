@@ -9,7 +9,12 @@ import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-c
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { IExecutionResult, IToolSummary } from './types.js';
-import type { IBackgroundTaskState, TBackgroundTaskEvent } from '../background-tasks/index.js';
+import type {
+  IBackgroundJobGroupState,
+  IBackgroundTaskState,
+  TBackgroundJobGroupEvent,
+  TBackgroundTaskEvent,
+} from '../background-tasks/index.js';
 
 /** Detect whether an error represents an abort/cancel action. */
 export function isAbortError(err: unknown): boolean {
@@ -99,6 +104,8 @@ export function persistSession(
   backgroundState?: {
     tasks: readonly IBackgroundTaskState[];
     events: readonly TBackgroundTaskEvent[];
+    groups?: readonly IBackgroundJobGroupState[];
+    groupEvents?: readonly TBackgroundJobGroupEvent[];
   },
 ): void {
   try {
@@ -118,6 +125,8 @@ export function persistSession(
         ? {
             backgroundTasks: [...backgroundState.tasks],
             backgroundTaskEvents: [...backgroundState.events],
+            backgroundJobGroups: [...(backgroundState.groups ?? [])],
+            backgroundJobGroupEvents: [...(backgroundState.groupEvents ?? [])],
           }
         : {}),
     });

@@ -432,26 +432,42 @@ Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reportin
 
 Background task runtime exports:
 
-| Export                           | Kind      | Description                                                            |
-| -------------------------------- | --------- | ---------------------------------------------------------------------- |
-| `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler               |
-| `BackgroundTaskError`            | class     | Typed background task error with category and recoverability           |
-| `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send |
-| `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters                      |
-| `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers                |
-| `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task                        |
-| `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests          |
-| `IBackgroundTaskResult`          | interface | Completed background task output                                       |
-| `TBackgroundTaskEvent`           | type      | Runtime-owned lifecycle/progress event union                           |
-| `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs                     |
-| `TBackgroundTaskMode`            | type      | `foreground` or `background`                                           |
-| `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                                     |
-| `TBackgroundTaskTimeoutReason`   | type      | Watchdog reason union projected onto failed task state                 |
-| `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                                     |
+| Export                           | Kind      | Description                                                             |
+| -------------------------------- | --------- | ----------------------------------------------------------------------- |
+| `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler                |
+| `BackgroundTaskError`            | class     | Typed background task error with category and recoverability            |
+| `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
+| `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters                       |
+| `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers                 |
+| `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task                         |
+| `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests           |
+| `IBackgroundTaskResult`          | interface | Completed background task output                                        |
+| `TBackgroundTaskEvent`           | type      | Runtime-owned lifecycle/progress event union                            |
+| `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs                      |
+| `TBackgroundTaskMode`            | type      | `foreground` or `background`                                            |
+| `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                                      |
+| `TBackgroundTaskTimeoutReason`   | type      | Watchdog reason union projected onto failed task state                  |
+| `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                                      |
+| `BackgroundJobOrchestrator`      | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
+| `IBackgroundJobGroupState`       | interface | Parent-session-scoped background task group snapshot                    |
+| `TBackgroundJobWaitPolicy`       | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
 
 Background agent watchdog configuration is provider-neutral. Agent requests may set `idleTimeoutMs`, `maxRuntimeMs`, `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold`; the runtime refreshes `lastActivityAt` from runner progress events and fails runaway jobs with `timeoutReason`.
 
 `InteractiveSession` subscribes to background task events, persists every event including streaming text deltas into the session record for local debugging/resume, and emits `background_task_event` for transports and TUI state projection. It also maps background agent lifecycle events into Claude Code-compatible `SubagentStart` and `SubagentStop` hooks.
+
+`BackgroundJobOrchestrator` is the SDK-owned layer above `BackgroundTaskManager` for parent-request orchestration. It groups related task IDs, applies a wait policy, emits group lifecycle events, and produces result envelopes with task IDs, labels, terminal status, concise output summaries, output references, and errors. The orchestrator does not run processes, own provider calls, mutate TUI state, or inject hardcoded prompt instructions.
+
+`InteractiveSession` exposes background job group controls:
+
+| API                                 | Behavior                                                       |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `createBackgroundJobGroup(request)` | Create a parent-session-scoped group over existing task IDs    |
+| `listBackgroundJobGroups()`         | Return cloned group snapshots                                  |
+| `getBackgroundJobGroup(groupId)`    | Return one cloned group snapshot                               |
+| `waitBackgroundJobGroup(groupId)`   | Resolve when the group's wait policy reaches a terminal result |
+
+`InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 
 `SubagentManager` and its associated types are exported for clients that need to compose managed subagent execution. It is now a compatibility facade over `BackgroundTaskManager` for `kind: 'agent'` tasks, preserving the existing subagent API while moving lifecycle semantics to the shared background layer.
 

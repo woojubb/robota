@@ -57,7 +57,7 @@ References:
 5. Add a model-callable command execution tool that exposes only `modelInvocable` command descriptors and calls the same handlers as slash input.
 6. Add `InteractiveSession` agent job APIs backed by the existing `SubagentManager` and `BackgroundTaskManager`.
 7. Implement `/agent <prompt>`, `/agent run`, and `/agent parallel` as deterministic background spawn paths.
-8. Make the `Agent` tool description and `/agent` command descriptor state the standardized execution protocol: call the tool/command bridge, spawn background jobs by default, use one same-turn tool call per parallel role, include backlog/task target selection inside the delegated prompt when needed, include a short Korean example for the observed local-model phrasing, and avoid tag-shaped examples that local models may copy as assistant text.
+8. Make the `Agent` tool description and `/agent` command descriptor state the standardized execution protocol: call the tool/command bridge, spawn background jobs by default, use one same-turn tool call per parallel role, include backlog/task target selection inside the delegated prompt when needed, and avoid tag-shaped examples that local models may copy as assistant text.
 9. Default omitted `Agent.background` to background execution while keeping explicit `background: false` as a foreground compatibility path.
 10. Add runtime evidence reporting checks so Robota-owned execution state cannot report agents running without `agentId` or background task events.
 11. Wire TUI slash input, headless slash input, structured transports, and model command tool calls through the same command handler path.
