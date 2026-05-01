@@ -71,6 +71,8 @@ Agent spawn commands are background-first. The user-facing syntax does not requi
 
 Model-routed command execution must call the generic `ExecuteCommand` tool with `command: "agent"` and natural command arguments. Assistant text is not command execution and must not be emitted as a substitute for the tool call.
 
+The `/agent` model-visible descriptor must state that explicit user requests to create, run, spawn, delegate to, or use agents/subagents should start the requested agent command immediately. The descriptor must also state that follow-up questions are allowed only when execution is impossible or unsafe. If the target backlog/task/item is unspecified, the descriptor should route target selection into the agent prompt rather than delaying execution in the parent turn.
+
 For parallel delegation, the `/agent` descriptor should guide the model to give each agent a self-contained task and request a concise final summary from each agent. `parallel` is the default same-turn orchestration path and returns the consolidated SDK group summary. Detached background orchestration must be requested explicitly with `parallel --detach ...`, which returns `groupId` for later `/agent wait GROUP_ID`. That guidance belongs to this command descriptor, not to `system-prompt-builder` or SDK core prompt code.
 
 When the user enters `/agent run <natural-language prompt>`, the first unflagged token is treated as an agent type only if it matches an available agent definition or was supplied through `--agent`/`--type`. Otherwise the whole phrase remains the prompt and the command defaults to `general-purpose`. This keeps arbitrary natural-language prompts from being misread as unknown agent names.

@@ -162,7 +162,7 @@ The command must not be part of the SDK's unconditional core command set. It bec
 Recommended descriptor shape:
 
 ```text
-/agent — Subagent jobs command. Natural-language arguments start one background agent job. The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present. list, wait, read, send, stop, close, and open manage existing agent jobs.
+/agent — Subagent jobs command. Natural-language arguments start one background agent job. When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, execute the requested agent command immediately and do not ask a follow-up question unless execution is impossible or unsafe. If the target item is unspecified, include target selection inside the agent prompt instead of delaying execution. The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present. list, wait, read, send, stop, close, and open manage existing agent jobs.
 ```
 
 ### Required Subcommands
@@ -263,6 +263,8 @@ The model-visible `Agent` tool description should stay tool-local, but it must b
 Rules:
 
 - One direct `Agent` tool call creates one background subagent job.
+- When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, the `Agent` tool description must tell the model to start the requested job immediately and not ask a follow-up question unless execution is impossible or unsafe.
+- If a user asks for multiple or parallel agents, the `Agent` tool description must tell the model to create one tool call per requested role in the current turn.
 - Direct `Agent` tool execution always waits for completed, failed, or timed-out terminal result data before returning to the parent conversation.
 - Direct `Agent` tool schema must not expose `background` or `detach`; detached fire-and-return orchestration belongs to `/agent ... --detach` command/runtime APIs.
 - Tag-like assistant markup is not a substitute for a tool call.

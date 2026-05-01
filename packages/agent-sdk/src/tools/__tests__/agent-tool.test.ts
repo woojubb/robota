@@ -126,10 +126,12 @@ describe('Agent tool', () => {
     expect(schema.description).toContain('terminal result');
     expect(schema.description).toContain('terminal result');
     expect(schema.description).toContain('tool call');
+    expect(schema.description).toContain('When the user explicitly asks');
+    expect(schema.description).toContain('start the requested subagent job immediately');
+    expect(schema.description).toContain('Do not ask a follow-up question');
+    expect(schema.description).toContain('one Agent tool call per requested role');
     expect(schema.description).not.toContain('<agent');
     expect(schema.description).not.toContain('pseudo-tags');
-    expect(schema.description).not.toContain('Use this');
-    expect(schema.description).not.toContain('same assistant turn');
     // Verify parameters include prompt, subagent_type, model
     const props = schema.parameters.properties;
     expect(props).toHaveProperty('prompt');

@@ -113,8 +113,10 @@ describe('agent command module', () => {
     expect(agent?.description).toContain('Subagent jobs');
     expect(agent?.description).toContain('parallel');
     expect(agent?.description).toContain('consolidated');
-    expect(agent?.description).not.toContain('Use this');
-    expect(agent?.description).not.toContain('call the');
+    expect(agent?.description).toContain('When the user explicitly asks');
+    expect(agent?.description).toContain('start the requested agent command immediately');
+    expect(agent?.description).toContain('do not ask a follow-up question');
+    expect(agent?.description).toContain('target selection inside the agent prompt');
     expect(agent?.description).not.toContain('<agent>');
     expect(agent?.description).not.toContain('XML/HTML');
     expect(agent?.argumentHint).toContain('PROMPT');
