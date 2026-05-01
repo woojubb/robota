@@ -47,6 +47,11 @@ export interface ICheckForCliUpdateOptions {
   fetchImpl?: typeof fetch;
 }
 
+export interface IStartupCliUpdatePolicyInput {
+  printMode: boolean;
+  disableUpdateCheck: boolean;
+}
+
 interface INpmPackageMetadata {
   'dist-tags'?: {
     latest?: TJsonValue;
@@ -143,6 +148,10 @@ export async function getStartupCliUpdateNotice(
 ): Promise<ICliUpdateNotice | undefined> {
   const result = await checkForCliUpdate(options);
   return result.status === 'update_available' ? result.notice : undefined;
+}
+
+export function shouldRunStartupCliUpdateCheck(input: IStartupCliUpdatePolicyInput): boolean {
+  return input.printMode === false && input.disableUpdateCheck === false;
 }
 
 export function formatCliUpdateNotice(notice: ICliUpdateNotice): string {
