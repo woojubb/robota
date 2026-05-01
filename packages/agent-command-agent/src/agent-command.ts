@@ -99,13 +99,18 @@ async function executeParallel(
   } catch (error) {
     return { message: formatError(error), success: false };
   }
+  const group = session.createBackgroundJobGroup({
+    waitPolicy: 'wait_all',
+    taskIds: states.map((state) => state.id),
+    label: 'agent parallel',
+  });
 
   return {
     message: ['Started agent jobs:', ...states.map((state) => `${state.label}: ${state.id}`)].join(
       '\n',
     ),
     success: true,
-    data: { agentIds: states.map((state) => state.id) },
+    data: { agentIds: states.map((state) => state.id), groupId: group.id },
   };
 }
 

@@ -7,7 +7,8 @@ import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robota-sdk/agent-core';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
   updateModelInSettings,
@@ -32,6 +33,7 @@ interface IUseSideEffectsOptions {
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
+  providerDefinitions: readonly IProviderDefinition[];
 }
 
 interface IUseSideEffectsResult {
@@ -56,6 +58,7 @@ export function useSideEffects({
   addEntry,
   baseHandleSubmit,
   setSessionName,
+  providerDefinitions,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
@@ -66,6 +69,16 @@ export function useSideEffects({
     useState<TProviderSetupType | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(false);
+
+  const requestShutdown = useCallback(
+    (reason: TSessionEndReason, message: string): void => {
+      addEntry(messageToHistoryEntry(createSystemMessage('Shutting down...')));
+      setTimeout(() => {
+        void interactiveSession.shutdown({ reason, message }).finally(() => exit());
+      }, EXIT_DELAY_MS);
+    },
+    [interactiveSession, addEntry, exit],
+  );
 
   const handleSubmit = useCallback(
     async (input: string): Promise<void> => {
@@ -91,7 +104,7 @@ export function useSideEffects({
         addEntry(
           messageToHistoryEntry(createSystemMessage(`Language set to "${lang}". Restarting...`)),
         );
-        setTimeout(() => exit(), EXIT_DELAY_MS);
+        requestShutdown('other', 'Language change restart');
         return;
       }
 
@@ -120,13 +133,13 @@ export function useSideEffects({
         } else {
           addEntry(messageToHistoryEntry(createSystemMessage('No user settings found.')));
         }
-        setTimeout(() => exit(), EXIT_DELAY_MS);
+        requestShutdown('other', 'Reset settings restart');
         return;
       }
 
       if (sideEffects._exitRequested) {
         delete sideEffects._exitRequested;
-        setTimeout(() => exit(), EXIT_DELAY_MS);
+        requestShutdown('prompt_input_exit', 'User requested exit');
         return;
       }
 
@@ -150,7 +163,7 @@ export function useSideEffects({
         return;
       }
     },
-    [interactiveSession, baseHandleSubmit, addEntry, exit, setSessionName],
+    [interactiveSession, baseHandleSubmit, addEntry, requestShutdown, setSessionName],
   );
 
   const handleModelConfirm = useCallback(
@@ -167,7 +180,7 @@ export function useSideEffects({
               createSystemMessage(`Model changed to ${getModelName(modelId)}. Restarting...`),
             ),
           );
-          setTimeout(() => exit(), EXIT_DELAY_MS);
+          requestShutdown('other', 'Model change restart');
         } catch (err) {
           addEntry(
             messageToHistoryEntry(
@@ -179,7 +192,7 @@ export function useSideEffects({
         addEntry(messageToHistoryEntry(createSystemMessage('Model change cancelled.')));
       }
     },
-    [addEntry, exit],
+    [addEntry, requestShutdown],
   );
 
   const handleProviderConfirm = useCallback(
@@ -198,7 +211,7 @@ export function useSideEffects({
               createSystemMessage(`Provider changed to ${profile}. Restarting...`),
             ),
           );
-          setTimeout(() => exit(), EXIT_DELAY_MS);
+          requestShutdown('other', 'Provider change restart');
         } catch (err) {
           addEntry(
             messageToHistoryEntry(
@@ -210,7 +223,7 @@ export function useSideEffects({
         addEntry(messageToHistoryEntry(createSystemMessage('Provider change cancelled.')));
       }
     },
-    [cwd, addEntry, exit],
+    [cwd, addEntry, requestShutdown],
   );
 
   const handleProviderSetupSubmit = useCallback(
@@ -218,13 +231,13 @@ export function useSideEffects({
       setPendingProviderSetupType(null);
       try {
         const settingsPath = getUserSettingsPath();
-        applyProviderConfiguration(settingsPath, input);
+        applyProviderConfiguration(settingsPath, input, { providerDefinitions });
         addEntry(
           messageToHistoryEntry(
             createSystemMessage(`Provider ${input.profile} configured. Restarting...`),
           ),
         );
-        setTimeout(() => exit(), EXIT_DELAY_MS);
+        requestShutdown('other', 'Provider setup restart');
       } catch (err) {
         addEntry(
           messageToHistoryEntry(
@@ -233,7 +246,7 @@ export function useSideEffects({
         );
       }
     },
-    [addEntry, exit],
+    [addEntry, requestShutdown, providerDefinitions],
   );
 
   const handleProviderSetupCancel = useCallback(() => {

@@ -4,6 +4,7 @@
 export { Session } from './session.js';
 export type {
   ISessionOptions,
+  ISessionShutdownOptions,
   TPermissionHandler,
   TPermissionResult,
   ITerminalOutput,

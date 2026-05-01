@@ -90,6 +90,7 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
+    "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
     "openai": "^4.98.0"
   },
   "peerDependencies": {

@@ -34,6 +34,10 @@ export interface ISessionRecord {
   backgroundTasks?: unknown[];
   /** Durable non-streaming background task events for resume/debugging. */
   backgroundTaskEvents?: unknown[];
+  /** Latest background job group snapshots for resume/debugging. */
+  backgroundJobGroups?: unknown[];
+  /** Durable background job group events for resume/debugging. */
+  backgroundJobGroupEvents?: unknown[];
 }
 
 /**

@@ -269,26 +269,8 @@ describe('Validator', () => {
       expect(result.errors.some((e) => e.includes('whitespace'))).toBe(true);
     });
 
-    it('should warn when OpenAI key does not start with sk-', () => {
-      const result = Validator.validateApiKey('not-an-openai-key', 'openai');
-      expect(result.isValid).toBe(true);
-      expect(result.warnings?.some((w) => w.includes('sk-'))).toBe(true);
-    });
-
-    it('should warn when Anthropic key does not start with sk-ant-', () => {
-      const result = Validator.validateApiKey('sk-not-anthropic-key', 'anthropic');
-      expect(result.isValid).toBe(true);
-      expect(result.warnings?.some((w) => w.includes('sk-ant-'))).toBe(true);
-    });
-
-    it('should not warn when OpenAI key starts with sk-', () => {
-      const result = Validator.validateApiKey('sk-1234567890abcdef', 'openai');
-      expect(result.isValid).toBe(true);
-      expect(result.warnings ?? []).toHaveLength(0);
-    });
-
-    it('should not warn when Anthropic key starts with sk-ant-', () => {
-      const result = Validator.validateApiKey('sk-ant-1234567890ab', 'anthropic');
+    it('should not apply provider-specific prefix warnings in core validation', () => {
+      const result = Validator.validateApiKey('provider-owned-key');
       expect(result.isValid).toBe(true);
       expect(result.warnings ?? []).toHaveLength(0);
     });

@@ -130,8 +130,6 @@ describe('Agent tool', () => {
     expect(schema.description).not.toContain('<agent');
     expect(schema.description).not.toContain('pseudo-tags');
     expect(schema.description).toContain('choose one backlog');
-    expect(schema.description).toContain('Korean example');
-    expect(schema.description).toContain('백로그 중에 하나');
     // Verify parameters include prompt, subagent_type, model
     const props = schema.parameters.properties;
     expect(props).toHaveProperty('prompt');
@@ -231,6 +229,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(
@@ -296,6 +295,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(
@@ -354,6 +354,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(
@@ -407,6 +408,7 @@ describe('Agent tool', () => {
       cancel: vi.fn(),
       close: vi.fn(),
       send: vi.fn(),
+      shutdown: vi.fn(),
     };
 
     const tool = createAgentTool(

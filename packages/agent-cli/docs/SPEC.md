@@ -11,7 +11,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
-- OWNS: AI provider creation (reads config, selects provider package, creates instance, passes to `InteractiveSession`)
+- OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
@@ -22,56 +22,70 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Import Rules
 
-| Source             | Allowed                       | Examples                                                                      |
-| ------------------ | ----------------------------- | ----------------------------------------------------------------------------- |
-| `agent-sdk`        | SDK-owned APIs                | `InteractiveSession`, `TInteractivePermissionHandler`                         |
-| `agent-core`       | Public types + utilities only | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName` |
-| `agent-core`       | ❌ Internal engine            | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                 |
-| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session and permission types                             |
-| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                |
-| `agent-provider-*` | ✅ Provider creation only     | `AnthropicProvider`, `OpenAIProvider` (CLI picks which to use from settings)  |
+| Source             | Allowed                              | Examples                                                                                    |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `agent-sdk`        | SDK-owned APIs                       | `InteractiveSession`, `TInteractivePermissionHandler`                                       |
+| `agent-core`       | Public types + utilities only        | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`               |
+| `agent-core`       | ❌ Internal engine                   | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                               |
+| `agent-sessions`   | ❌ Forbidden                         | SDK provides its own session and permission types                                           |
+| `agent-tools`      | ❌ Forbidden                         | SDK assembles tools internally                                                              |
+| `agent-provider-*` | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; provider packages own defaults and factories |
 
 ## Architecture
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
 
 1. Reads config to determine which provider profile to use.
-2. Creates the provider instance (e.g., `new AnthropicProvider(options)` or `new OpenAIProvider(options)`).
-3. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
-4. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
+3. Creates the provider instance by calling `definition.createProvider(config)`.
+4. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
+5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ### Provider Profile Creation
 
-The CLI owns concrete provider construction. Settings may define an active provider profile:
+The CLI owns provider profile resolution and provider definition composition. It must not branch on provider type names to decide defaults, required fields, setup prompts, endpoint probes, or constructor behavior. Those values come from injected `IProviderDefinition` records.
+
+Settings may define an active provider profile:
 
 ```json
 {
-  "currentProvider": "openai",
+  "currentProvider": "gemma",
   "providers": {
-    "openai": {
-      "type": "openai",
+    "gemma": {
+      "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
+    },
+    "openai": {
+      "type": "openai",
+      "model": "<openai-compatible-model>",
+      "apiKey": "$ENV:OPENAI_API_KEY"
     }
   }
 }
 ```
 
+Gemma-family local models served through LM Studio must use a `type: "gemma"` profile so the provider package can apply Gemma-specific channel-marker projection. `type: "openai"` remains model-family neutral and must not filter Gemma markers.
+
 Provider resolution order:
 
 1. `currentProvider` plus `providers[currentProvider]`
 2. Legacy `provider`
-3. Provider-specific field defaults for omitted profile fields
+3. Defaults supplied by the resolved provider definition
 
-Supported provider profile types:
+Provider definition contract:
 
-| Type        | Provider class      | Required settings                     | Notes                                           |
-| ----------- | ------------------- | ------------------------------------- | ----------------------------------------------- |
-| `anthropic` | `AnthropicProvider` | `apiKey`, `model`                     | Existing Claude-compatible CLI path             |
-| `openai`    | `OpenAIProvider`    | `apiKey`, `model`, optional `baseURL` | Used for OpenAI and OpenAI-compatible endpoints |
+| Field            | Owner                            | CLI behavior                                          |
+| ---------------- | -------------------------------- | ----------------------------------------------------- |
+| `type`           | Provider package or CLI assembly | Match settings profile type to a definition           |
+| `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values      |
+| `setupSteps`     | Provider package                 | Drive interactive setup prompts without type branches |
+| `requiresApiKey` | Provider package                 | Validate profiles consistently                        |
+| `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                   |
+| `createProvider` | Provider package                 | Build concrete provider instance                      |
 
-LM Studio is represented as `type: "openai"` with `baseURL: "http://localhost:1234/v1"`. The CLI must not use LM Studio native `/api/v1/*` APIs or Anthropic-compatible endpoints for this path.
+The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`.
 
 ### Provider Configuration UX
 
@@ -90,7 +104,7 @@ Supported setup flags:
 | `--api-key <value>`              | Store a literal API key                                             |
 | `--api-key-env <name>`           | Store `$ENV:<name>`, not the current environment value              |
 
-First-run setup must offer Anthropic and LM Studio/OpenAI-compatible choices when stdin/stdout are TTYs. Non-interactive print/headless execution must not prompt; missing provider config must produce an actionable error that points to `robota --configure` and `robota --configure-provider`.
+First-run setup must offer the injected provider definitions when stdin/stdout are TTYs. Non-interactive print/headless execution must not prompt; missing provider config must produce an actionable error that points to `robota --configure` and `robota --configure-provider`.
 
 Provider slash commands are TUI side effects:
 
@@ -120,7 +134,7 @@ Flow ownership:
 | `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                           |
 
 ```
-bin.ts → cli.ts (arg parsing + provider creation)
+bin.ts → cli.ts (arg parsing + provider definition composition)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession({ cwd, provider })
@@ -147,7 +161,7 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            ├─→ agent-tools ────────────→ agent-core
   │            └─────────────────────────→ agent-core  (direct: types, utilities)
   ├──────────────────────────────────────→ agent-core  (direct: public types only)
-  └──────────────────────────────────────→ agent-provider-* (provider creation)
+  └──────────────────────────────────────→ agent-provider-* (provider definitions)
 ```
 
 ## StatusBar Display
@@ -370,8 +384,8 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 1. Creates `InteractiveSession({ cwd, provider, commandModules })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
-4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
+4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
 5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
 6. Manages the permission queue (serialises concurrent permission requests).
 
@@ -549,7 +563,7 @@ src/
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
-│   ├── provider-factory.ts          ← AI provider creation from settings
+│   ├── provider-factory.ts          ← AI provider resolution from injected definitions
 │   ├── tool-call-extractor.ts       ← Tool call display extraction from history
 │   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
@@ -616,7 +630,7 @@ robota --version                    # Version
 
 ### Print Mode and Headless Transport
 
-Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, and exits with `transport.getExitCode()`.
+Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, then calls `session.shutdown({ reason: 'prompt_input_exit' })` before exiting with `transport.getExitCode()`.
 
 Any command modules supplied to `startCli({ commandModules })` are passed to the same `InteractiveSession` in both print mode and TUI mode.
 
@@ -781,9 +795,11 @@ System: Interrupted by user.   ← MessageList (abort only)
 - On complete/interrupt/error: `InteractiveSession.pushToolSummaryMessage()` inserts a formatted tool summary into the `messages` array BEFORE the Robota response. Then `activeTools` is cleared and `StreamingIndicator` disappears.
 - Result: Tool → Robota order is preserved in both real-time and final state. Tool information transitions from `StreamingIndicator` (live) to `MessageList` (permanent).
 
-### Ctrl+C — Process Exit
+### Ctrl+C — Graceful Shutdown
 
-Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtrlC: true` option at the render level, bypassing all `useInput` handlers. It works regardless of which UI overlay is active (PluginTUI, permission prompt, etc.).
+Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `useInteractiveSession.handleShutdown('prompt_input_exit')`. That delegates to `InteractiveSession.shutdown()`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
+
+Slash-command restarts and exits (`/exit`, provider/model/language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 
 ### ESC — Abort Execution
 
@@ -907,6 +923,8 @@ The CLI owns Node runtime process adapters. It injects `createManagedShellProces
 
 The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner starts a child Node worker and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
 
+`child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
+
 Agent command behavior is not owned by the TUI. The Robota binary can compose `@robota-sdk/agent-command-agent` as a default command module, but reusable CLI UI code only handles generic command modules.
 
 Child-process subagent runner responsibilities:
@@ -1008,8 +1026,9 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                     |
 | `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                   |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)                                           |
-| `@robota-sdk/agent-provider-openai`    | OpenAI/OpenAI-compatible provider creation (including LM Studio via baseURL)                               |
+| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                               |
+| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                               |
+| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                               |
 | `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                            |
 | `ink` 7, `react` 19.2+                 | TUI rendering                                                                                              |
 | `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                    |

@@ -13,9 +13,12 @@ import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
+  IBackgroundJobGroupState,
   IBackgroundTaskRunner,
   IBackgroundTaskState,
+  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
+  TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { ICommandModule, ICommandResult } from '../commands/index.js';
@@ -231,6 +234,8 @@ export function loadSessionRecord(
   pendingRestoreMessages: unknown[] | null;
   backgroundTasks: IBackgroundTaskState[];
   backgroundTaskEvents: TBackgroundTaskEvent[];
+  backgroundJobGroups: IBackgroundJobGroupState[];
+  backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -240,12 +245,22 @@ export function loadSessionRecord(
       pendingRestoreMessages: null,
       backgroundTasks: [],
       backgroundTaskEvents: [],
+      backgroundJobGroups: [],
+      backgroundJobGroupEvents: [],
     };
   }
 
   const history = (record.history ?? []) as IHistoryEntry[];
-  const backgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
-  const backgroundTaskEvents = (record.backgroundTaskEvents ?? []) as TBackgroundTaskEvent[];
+  const restoredBackgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
+  const restoredBackgroundTaskEvents = (record.backgroundTaskEvents ??
+    []) as TBackgroundTaskEvent[];
+  const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
+  const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
+    []) as TBackgroundJobGroupEvent[];
+  const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
+    restoredBackgroundTasks,
+    restoredBackgroundTaskEvents,
+  );
   const sessionName = record.name;
   let pendingRestoreMessages: unknown[] | null = null;
 
@@ -261,5 +276,47 @@ export function loadSessionRecord(
     }
   }
 
-  return { history, sessionName, pendingRestoreMessages, backgroundTasks, backgroundTaskEvents };
+  return {
+    history,
+    sessionName,
+    pendingRestoreMessages,
+    backgroundTasks,
+    backgroundTaskEvents,
+    backgroundJobGroups,
+    backgroundJobGroupEvents,
+  };
+}
+
+function reconcileRestoredBackgroundTasks(
+  tasks: IBackgroundTaskState[],
+  events: TBackgroundTaskEvent[],
+): { backgroundTasks: IBackgroundTaskState[]; backgroundTaskEvents: TBackgroundTaskEvent[] } {
+  const now = new Date().toISOString();
+  const syntheticEvents: TBackgroundTaskEvent[] = [];
+  const backgroundTasks = tasks.map((task) => {
+    if (isRestoredTerminalStatus(task.status)) return task;
+    const reconciled: IBackgroundTaskState = {
+      ...task,
+      status: 'failed',
+      timeoutReason: 'stale_worker',
+      error: {
+        category: 'timeout',
+        message: 'Restored background task is stale; worker cannot be reattached',
+        recoverable: true,
+      },
+      unread: true,
+      completedAt: now,
+      updatedAt: now,
+    };
+    syntheticEvents.push({ type: 'background_task_failed', task: reconciled });
+    return reconciled;
+  });
+  return {
+    backgroundTasks,
+    backgroundTaskEvents: [...events, ...syntheticEvents],
+  };
+}
+
+function isRestoredTerminalStatus(status: TBackgroundTaskStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled';
 }

@@ -10,7 +10,12 @@
 
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
-import type { TUniversalMessage, IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  TUniversalMessage,
+  IContextWindowState,
+  IHistoryEntry,
+  TSessionEndReason,
+} from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
@@ -36,15 +41,19 @@ import type {
   ITransportAdapter,
 } from './types.js';
 import type {
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskState,
+  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
   TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
+import { BackgroundJobOrchestrator } from '../background-tasks/index.js';
 import type {
   ISubagentJobResult,
   ISubagentJobState,
@@ -74,6 +83,11 @@ import type {
 } from './interactive-session-init.js';
 export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
+export interface IInteractiveSessionShutdownOptions {
+  reason?: TSessionEndReason;
+  message?: string;
+}
+
 export class InteractiveSession {
   private session: Session | null = null;
   private readonly commandExecutor: SystemCommandExecutor;
@@ -95,10 +109,16 @@ export class InteractiveSession {
   private pendingRestoreMessages: unknown[] | null = null;
   private backgroundTasks: IBackgroundTaskState[] = [];
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
+  private backgroundJobGroups: IBackgroundJobGroupState[] = [];
+  private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
   private resumeSessionId?: string;
   private forkSession: boolean;
   private backgroundTaskUnsubscribe: (() => void) | null = null;
+  private backgroundJobUnsubscribe: (() => void) | null = null;
+  private backgroundJobOrchestrator: BackgroundJobOrchestrator | null = null;
   private readonly commandModules: readonly ICommandModule[];
+  private shuttingDown = false;
+  private shutdownPromise: Promise<void> | null = null;
 
   constructor(options: IInteractiveSessionOptions) {
     this.commandModules = 'commandModules' in options ? (options.commandModules ?? []) : [];
@@ -131,10 +151,13 @@ export class InteractiveSession {
       if (restored.sessionName) this.sessionName = restored.sessionName;
       this.backgroundTasks = restored.backgroundTasks;
       this.backgroundTaskEvents = restored.backgroundTaskEvents;
+      this.backgroundJobGroups = restored.backgroundJobGroups;
+      this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
 
     if (this.initialized) this.subscribeBackgroundTaskEvents();
+    if (this.initialized) this.persistCurrentSession();
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -169,6 +192,7 @@ export class InteractiveSession {
     }
     this.initialized = true;
     this.subscribeBackgroundTaskEvents();
+    this.persistCurrentSession();
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -200,6 +224,7 @@ export class InteractiveSession {
 
   async submit(input: string, displayInput?: string, rawInput?: string): Promise<void> {
     await this.ensureInitialized();
+    if (this.shuttingDown) throw new Error('Interactive session is shutting down.');
     if (this.executing) {
       this.pendingPrompt = input;
       this.pendingDisplayInput = displayInput;
@@ -275,6 +300,28 @@ export class InteractiveSession {
     this.clearPendingQueue();
     this.session?.abort();
   }
+
+  shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.shuttingDown = true;
+    this.shutdownPromise = (async () => {
+      await this.ensureInitialized();
+      this.clearPendingQueue();
+      const session = this.session;
+      session?.abort();
+      await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
+      this.backgroundTaskUnsubscribe?.();
+      this.backgroundTaskUnsubscribe = null;
+      this.backgroundJobUnsubscribe?.();
+      this.backgroundJobUnsubscribe = null;
+      this.backgroundJobOrchestrator?.dispose();
+      this.backgroundJobOrchestrator = null;
+      this.persistCurrentSession();
+      await session?.shutdown({ reason: options.reason ?? 'other' });
+    })();
+    return this.shutdownPromise;
+  }
+
   cancelQueue(): void {
     this.clearPendingQueue();
   }
@@ -344,6 +391,29 @@ export class InteractiveSession {
   ): Promise<IBackgroundTaskLogPage> {
     await this.ensureInitialized();
     return this.getBackgroundTaskManagerOrThrow().readLog(taskId, cursor);
+  }
+
+  createBackgroundJobGroup(
+    input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
+  ): IBackgroundJobGroupState {
+    const orchestrator = this.getBackgroundJobOrchestratorOrThrow();
+    return orchestrator.createGroup({
+      ...input,
+      parentSessionId: this.getSessionOrThrow().getSessionId(),
+    });
+  }
+
+  listBackgroundJobGroups(): IBackgroundJobGroupState[] {
+    return this.getBackgroundJobOrchestratorOrThrow().listGroups();
+  }
+
+  getBackgroundJobGroup(groupId: string): IBackgroundJobGroupState | undefined {
+    return this.getBackgroundJobOrchestratorOrThrow().getGroup(groupId);
+  }
+
+  async waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState> {
+    await this.ensureInitialized();
+    return this.getBackgroundJobOrchestratorOrThrow().waitGroup(groupId);
   }
 
   listAgentDefinitions(): Array<{ name: string; description: string }> {
@@ -454,14 +524,30 @@ export class InteractiveSession {
   }
 
   private getBackgroundTaskManagerOrThrow(): IBackgroundTaskManager {
-    const session = this.getSessionOrThrow();
-    const manager =
-      retrieveSessionBackgroundTaskManager(session) ??
-      retrieveAgentToolDeps(session)?.backgroundTaskManager;
+    const manager = this.getBackgroundTaskManager();
     if (!manager) {
       throw new Error('Background task manager is not available for this session.');
     }
     return manager;
+  }
+
+  private getBackgroundTaskManager(): IBackgroundTaskManager | undefined {
+    if (!this.session) return undefined;
+    return (
+      retrieveSessionBackgroundTaskManager(this.session) ??
+      retrieveAgentToolDeps(this.session)?.backgroundTaskManager
+    );
+  }
+
+  private getBackgroundJobOrchestratorOrThrow(): BackgroundJobOrchestrator {
+    if (this.backgroundJobOrchestrator) return this.backgroundJobOrchestrator;
+    const manager = this.getBackgroundTaskManagerOrThrow();
+    this.backgroundJobOrchestrator = new BackgroundJobOrchestrator({
+      manager,
+      initialGroups: this.backgroundJobGroups,
+    });
+    this.subscribeBackgroundJobGroupEvents();
+    return this.backgroundJobOrchestrator;
   }
 
   private getAgentToolDepsOrThrow(): NonNullable<ReturnType<typeof retrieveAgentToolDeps>> {
@@ -506,12 +592,24 @@ export class InteractiveSession {
     });
   }
 
+  private subscribeBackgroundJobGroupEvents(): void {
+    if (this.backgroundJobUnsubscribe || !this.backgroundJobOrchestrator) return;
+    this.backgroundJobUnsubscribe = this.backgroundJobOrchestrator.subscribe((event) => {
+      this.recordBackgroundJobGroupEvent(event);
+      this.emit('background_job_group_event', event);
+    });
+  }
+
   private recordBackgroundTaskEvent(event: TBackgroundTaskEvent): void {
     this.backgroundTasks = this.getBackgroundTaskSnapshots();
-    if (event.type !== 'background_task_text_delta') {
-      this.backgroundTaskEvents.push(event);
-      this.persistCurrentSession();
-    }
+    this.backgroundTaskEvents.push(event);
+    this.persistCurrentSession();
+  }
+
+  private recordBackgroundJobGroupEvent(event: TBackgroundJobGroupEvent): void {
+    this.backgroundJobGroups = this.getBackgroundJobGroupSnapshots();
+    this.backgroundJobGroupEvents.push(event);
+    this.persistCurrentSession();
   }
 
   private getBackgroundTaskSnapshots(): IBackgroundTaskState[] {
@@ -522,9 +620,18 @@ export class InteractiveSession {
     }
   }
 
+  private getBackgroundJobGroupSnapshots(): IBackgroundJobGroupState[] {
+    try {
+      return this.backgroundJobOrchestrator?.listGroups() ?? this.backgroundJobGroups;
+    } catch {
+      return this.backgroundJobGroups;
+    }
+  }
+
   private persistCurrentSession(): void {
     if (!this.sessionStore || !this.session) return;
     this.backgroundTasks = this.getBackgroundTaskSnapshots();
+    this.backgroundJobGroups = this.getBackgroundJobGroupSnapshots();
     persistSession(
       this.sessionStore,
       this.session,
@@ -534,6 +641,8 @@ export class InteractiveSession {
       {
         tasks: this.backgroundTasks,
         events: this.backgroundTaskEvents,
+        groups: this.backgroundJobGroups,
+        groupEvents: this.backgroundJobGroupEvents,
       },
     );
   }
@@ -549,7 +658,7 @@ export class InteractiveSession {
     this.executing = false;
     this.emit('thinking', false);
     this.persistCurrentSession();
-    if (this.pendingPrompt) {
+    if (!this.shuttingDown && this.pendingPrompt) {
       const queued = this.pendingPrompt;
       const queuedDisplay = this.pendingDisplayInput;
       const queuedRaw = this.pendingRawInput;
@@ -672,7 +781,7 @@ export class InteractiveSession {
       this.executing = false;
       this.emit('thinking', false);
       this.persistCurrentSession();
-      if (this.pendingPrompt) {
+      if (!this.shuttingDown && this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;
         const queuedRaw = this.pendingRawInput;

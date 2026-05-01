@@ -69,9 +69,13 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 const provider = new OpenAIProvider({
   apiKey: 'lm-studio',
   baseURL: 'http://localhost:1234/v1',
-  defaultModel: 'supergemma4-26b-uncensored-v2',
+  defaultModel: '<local-openai-compatible-model>',
 });
 ```
+
+Gemma-family local models should use `@robota-sdk/agent-provider-gemma` instead of this
+OpenAI provider so Gemma chat-template channel markers are projected out of user-facing
+streamed text.
 
 ### Streaming Responses
 

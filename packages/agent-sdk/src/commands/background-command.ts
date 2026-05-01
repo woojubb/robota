@@ -12,8 +12,10 @@ function formatBackgroundTask(task: IBackgroundTaskState): string {
   const preview = task.promptPreview ?? task.commandPreview ?? '';
   const unread = task.unread ? ' unread' : '';
   const action = task.currentAction ? ` (${task.currentAction})` : '';
+  const timeout = task.timeoutReason ? ` timeout=${task.timeoutReason}` : '';
+  const activity = task.lastActivityAt ? ` lastActivityAt=${task.lastActivityAt}` : '';
   const suffix = preview ? ` — ${preview}` : '';
-  return `${task.id} [${task.status}${unread}] ${task.kind}:${task.label}${action}${suffix}`;
+  return `${task.id} [${task.status}${unread}${timeout}${activity}] ${task.kind}:${task.label}${action}${suffix}`;
 }
 
 function formatBackgroundTaskList(tasks: IBackgroundTaskState[]): string {

@@ -7,14 +7,18 @@ describe('Hook types', () => {
       'PreToolUse',
       'PostToolUse',
       'SessionStart',
+      'SessionEnd',
       'Stop',
+      'StopFailure',
       'PreCompact',
       'PostCompact',
       'UserPromptSubmit',
+      'SubagentStart',
+      'SubagentStop',
       'WorktreeCreate',
       'WorktreeRemove',
     ];
-    expect(events).toHaveLength(9);
+    expect(events).toHaveLength(13);
   });
 
   it('should support discriminated union for hook definitions', () => {

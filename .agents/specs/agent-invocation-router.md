@@ -269,7 +269,7 @@ Rules:
 - The assistant must not say an agent is running unless the tool result returned an `agentId` or an equivalent runtime event exists.
 - Role naming should prefer available agent definitions. Developer, implementation, and engineering requests map to `general-purpose` when no more specific agent exists. Designer, planning, and architecture requests map to `Plan` when available.
 - If the user asks to analyze one backlog/task/item, the assistant may choose a reasonable target when visible context lists candidates. If no candidate is currently visible, it should include target selection/discovery inside each subagent prompt instead of first replying with an inspection plan.
-- Tool and command descriptors may include short multilingual examples for common local usage patterns when they materially improve model reliability. For Korean, phrases such as "백로그 중에 하나를 분석할건데..." must be interpreted as an immediate execution request when the sentence also asks to create/run subagents.
+- Tool and command descriptors may include short examples only when the relevant SPEC or command/tool contract owns them. Examples must be generic and language-neutral; do not copy ad hoc phrasing from user conversations into model-facing guidance.
 
 The `Agent` tool MUST be registered only when an injected command module requests the `agent-runtime` session requirement.
 
