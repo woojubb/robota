@@ -9,7 +9,7 @@ import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robot
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
-import type { ISideEffects } from './useInteractiveSession.js';
+import type { ISideEffects } from './side-effects-types.js';
 import { handleProviderCommand } from '../../utils/provider-command.js';
 
 type TSessionWithEffects = InteractiveSession & ISideEffects;
@@ -81,8 +81,8 @@ async function routeProviderCommand(
     getEffects(interactiveSession)._pendingProviderProfile = providerSwitch.profile;
   }
   const providerSetup = result.data?.providerSetup;
-  if (providerSetup?.type) {
-    getEffects(interactiveSession)._pendingProviderSetupType = providerSetup.type;
+  if (providerSetup !== undefined) {
+    getEffects(interactiveSession)._pendingProviderSetup = providerSetup;
   }
 }
 

@@ -19,6 +19,8 @@ export type { TQwenProviderRegion } from './defaults';
 export function createQwenProviderDefinition(): IProviderDefinition {
   return {
     type: 'qwen',
+    displayName: 'Qwen',
+    description: 'Alibaba Cloud Model Studio OpenAI-compatible endpoint',
     defaults: {
       model: DEFAULT_QWEN_PROVIDER_MODEL,
       apiKey: DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE,

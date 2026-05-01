@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { IProviderDefinition } from './provider-definition.js';
+import { formatSupportedProviderTypes, type IProviderDefinition } from './provider-definition.js';
 import type { IParsedCliArgs } from './cli-args.js';
 import { checkSettingsFile } from './settings-check.js';
 import { getUserSettingsPath, readSettings, writeSettings } from './settings-io.js';
@@ -9,9 +9,10 @@ import { readMergedProviderSettings } from './provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import { type IProviderSetupInput } from './provider-settings.js';
 import {
+  formatProviderSetupSelectionPrompt,
+  resolveProviderSetupSelection,
   runProviderSetupPromptFlow,
   type TPromptInput,
-  type TProviderSetupType,
 } from './provider-setup-flow.js';
 
 export function getSettingsPathForScope(cwd: string, scope: string | undefined): string {
@@ -61,7 +62,7 @@ export async function ensureConfig(
     return;
   }
   if (!isInteractiveTerminal()) {
-    throw new Error(formatMissingProviderConfigMessage());
+    throw new Error(formatMissingProviderConfigMessage(providerDefinitions));
   }
   await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
 }
@@ -72,12 +73,8 @@ export async function runInteractiveProviderSetup(
   promptInput: TPromptInput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): Promise<void> {
-  const defaultProviderType = providerDefinitions[0]?.type ?? '';
-  const supportedTypes = providerDefinitions.map((definition) => definition.type).join('/');
-  const providerChoice =
-    (await promptInput(`  Provider (${supportedTypes}, default: ${defaultProviderType}): `)) ||
-    defaultProviderType;
-  const type = parseProviderSetupType(providerChoice);
+  const providerChoice = await promptInput(formatProviderSetupSelectionPrompt(providerDefinitions));
+  const type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
   const settingsPath = getSettingsPathForScope(cwd, args.settingsScope);
   const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions);
   applyProviderConfiguration(settingsPath, input, {
@@ -90,10 +87,6 @@ export async function runInteractiveProviderSetup(
     writeSettings(settingsPath, settings);
   }
   process.stdout.write(`\n  Config saved to ${settingsPath}\n\n`);
-}
-
-function parseProviderSetupType(value: string): TProviderSetupType {
-  return value.trim();
 }
 
 function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
@@ -127,11 +120,25 @@ function isInteractiveTerminal(): boolean {
   return process.stdin.isTTY === true && process.stdout.isTTY === true;
 }
 
-export function formatMissingProviderConfigMessage(): string {
+export function formatMissingProviderConfigMessage(
+  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
+): string {
   return [
     'No provider configuration found.',
     'Run `robota --configure` in an interactive terminal, or configure a provider:',
-    '  robota --configure-provider gemma --type gemma --base-url http://localhost:1234/v1 --model supergemma4-26b-uncensored-v2 --api-key lm-studio --set-current',
-    '  robota --configure-provider openai --type openai --model <openai-compatible-model> --api-key-env OPENAI_API_KEY --set-current',
+    `Supported providers: ${formatSupportedProviderTypes(providerDefinitions)}`,
+    ...providerDefinitions.map(formatConfigureProviderExample),
   ].join('\n');
+}
+
+function formatConfigureProviderExample(definition: IProviderDefinition): string {
+  const flags = [
+    `robota --configure-provider ${definition.type}`,
+    `--type ${definition.type}`,
+    ...(definition.defaults?.baseURL !== undefined ? ['--base-url <url>'] : []),
+    '--model <model>',
+    ...(definition.requiresApiKey === true ? ['--api-key-env <ENV_NAME>'] : []),
+    '--set-current',
+  ];
+  return `  ${flags.join(' ')}`;
 }

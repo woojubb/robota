@@ -7,8 +7,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robota-sdk/agent-core';
-import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
   updateModelInSettings,
@@ -21,36 +20,20 @@ import {
   applyProviderSwitch,
 } from '../../utils/provider-configuration.js';
 import { readMergedProviderSettings } from '../../utils/provider-factory.js';
+import {
+  startProviderSetupInteraction,
+  submitProviderSetupInteractionValue,
+  type TProviderSetupInteractionState,
+} from '../../utils/provider-setup-interaction.js';
 import type { IProviderSetupInput } from '../../utils/provider-settings.js';
-import type { TProviderSetupType } from '../../utils/provider-setup-flow.js';
-import type { ISideEffects } from './useInteractiveSession.js';
+import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
+import type {
+  ISideEffects,
+  IUseSideEffectsOptions,
+  IUseSideEffectsResult,
+} from './side-effects-types.js';
 
 const EXIT_DELAY_MS = 500;
-
-interface IUseSideEffectsOptions {
-  cwd: string;
-  interactiveSession: InteractiveSession;
-  addEntry: (entry: IHistoryEntry) => void;
-  baseHandleSubmit: (input: string) => Promise<void>;
-  setSessionName: (name: string) => void;
-  providerDefinitions: readonly IProviderDefinition[];
-}
-
-interface IUseSideEffectsResult {
-  handleSubmit: (input: string) => Promise<void>;
-  pendingModelId: string | null;
-  pendingProviderProfile: string | null;
-  pendingProviderSetupType: TProviderSetupType | null;
-  showPluginTUI: boolean;
-  showSessionPicker: boolean;
-  setPendingModelId: (id: string | null) => void;
-  setShowPluginTUI: (show: boolean) => void;
-  setShowSessionPicker: (show: boolean) => void;
-  handleModelConfirm: (index: number) => void;
-  handleProviderConfirm: (index: number) => void;
-  handleProviderSetupSubmit: (input: IProviderSetupInput) => void;
-  handleProviderSetupCancel: () => void;
-}
 
 export function useSideEffects({
   cwd,
@@ -65,8 +48,9 @@ export function useSideEffects({
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingProviderProfile, setPendingProviderProfile] = useState<string | null>(null);
   const pendingProviderProfileRef = useRef<string | null>(null);
-  const [pendingProviderSetupType, setPendingProviderSetupType] =
-    useState<TProviderSetupType | null>(null);
+  const [pendingInteractionPrompt, setPendingInteractionPrompt] =
+    useState<TInteractivePrompt | null>(null);
+  const providerSetupInteractionRef = useRef<TProviderSetupInteractionState | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(false);
 
@@ -116,10 +100,14 @@ export function useSideEffects({
         return;
       }
 
-      if (sideEffects._pendingProviderSetupType) {
-        const type = sideEffects._pendingProviderSetupType;
-        delete sideEffects._pendingProviderSetupType;
-        setPendingProviderSetupType(type);
+      if (sideEffects._pendingProviderSetup !== undefined) {
+        const setup = sideEffects._pendingProviderSetup;
+        delete sideEffects._pendingProviderSetup;
+        const result = startProviderSetupInteraction(providerDefinitions, setup.type);
+        if (result.status === 'prompt') {
+          providerSetupInteractionRef.current = result.state;
+          setPendingInteractionPrompt(result.prompt);
+        }
         return;
       }
 
@@ -163,7 +151,14 @@ export function useSideEffects({
         return;
       }
     },
-    [interactiveSession, baseHandleSubmit, addEntry, requestShutdown, setSessionName],
+    [
+      interactiveSession,
+      baseHandleSubmit,
+      addEntry,
+      requestShutdown,
+      setSessionName,
+      providerDefinitions,
+    ],
   );
 
   const handleModelConfirm = useCallback(
@@ -226,9 +221,10 @@ export function useSideEffects({
     [cwd, addEntry, requestShutdown],
   );
 
-  const handleProviderSetupSubmit = useCallback(
-    (input: IProviderSetupInput) => {
-      setPendingProviderSetupType(null);
+  const completeProviderSetup = useCallback(
+    (input: IProviderSetupInput): void => {
+      providerSetupInteractionRef.current = null;
+      setPendingInteractionPrompt(null);
       try {
         const settingsPath = getUserSettingsPath();
         applyProviderConfiguration(settingsPath, input, { providerDefinitions });
@@ -249,8 +245,37 @@ export function useSideEffects({
     [addEntry, requestShutdown, providerDefinitions],
   );
 
-  const handleProviderSetupCancel = useCallback(() => {
-    setPendingProviderSetupType(null);
+  const handleInteractionSubmit = useCallback(
+    (value: string) => {
+      const state = providerSetupInteractionRef.current;
+      if (state === null) {
+        setPendingInteractionPrompt(null);
+        return;
+      }
+      try {
+        const result = submitProviderSetupInteractionValue(state, value);
+        if (result.status === 'complete') {
+          completeProviderSetup(result.input);
+          return;
+        }
+        providerSetupInteractionRef.current = result.state;
+        setPendingInteractionPrompt(result.prompt);
+      } catch (err) {
+        providerSetupInteractionRef.current = null;
+        setPendingInteractionPrompt(null);
+        addEntry(
+          messageToHistoryEntry(
+            createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
+          ),
+        );
+      }
+    },
+    [addEntry, completeProviderSetup],
+  );
+
+  const handleInteractionCancel = useCallback(() => {
+    providerSetupInteractionRef.current = null;
+    setPendingInteractionPrompt(null);
     addEntry(messageToHistoryEntry(createSystemMessage('Provider setup cancelled.')));
   }, [addEntry]);
 
@@ -258,7 +283,7 @@ export function useSideEffects({
     handleSubmit,
     pendingModelId,
     pendingProviderProfile,
-    pendingProviderSetupType,
+    pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     setPendingModelId,
@@ -266,7 +291,7 @@ export function useSideEffects({
     setShowSessionPicker,
     handleModelConfirm,
     handleProviderConfirm,
-    handleProviderSetupSubmit,
-    handleProviderSetupCancel,
+    handleInteractionSubmit,
+    handleInteractionCancel,
   };
 }

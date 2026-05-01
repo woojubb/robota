@@ -41,6 +41,8 @@ export interface IProviderSetupStepDefinition {
 
 export interface IProviderDefinition {
   type: string;
+  displayName?: string;
+  description?: string;
   defaults?: IProviderProfileDefaults;
   setupSteps?: readonly IProviderSetupStepDefinition[];
   requiresApiKey?: boolean;

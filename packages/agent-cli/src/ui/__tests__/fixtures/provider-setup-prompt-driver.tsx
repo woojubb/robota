@@ -1,9 +1,15 @@
 import React from 'react';
 import { writeFileSync } from 'node:fs';
 import { render, useApp } from 'ink';
-import ProviderSetupPrompt from '../../ProviderSetupPrompt.js';
+import InteractivePrompt from '../../InteractivePrompt.js';
 import type { TProviderSetupType } from '../../../utils/provider-setup-flow.js';
 import type { IProviderDefinition } from '../../../utils/provider-definition.js';
+import {
+  startProviderSetupInteraction,
+  submitProviderSetupInteractionValue,
+  type TProviderSetupInteractionState,
+} from '../../../utils/provider-setup-interaction.js';
+import type { TInteractivePrompt } from '../../../utils/interactive-prompt.js';
 
 const openaiDefaults = {
   model: 'supergemma4-26b-uncensored-v2',
@@ -61,14 +67,26 @@ if (!outputPath || (rawType !== 'openai' && rawType !== 'anthropic')) {
 
 function Driver({ type }: { type: TProviderSetupType }): React.ReactElement {
   const { exit } = useApp();
+  const initial = startProviderSetupInteraction(providerDefinitions, type);
+  if (initial.status !== 'prompt') {
+    throw new Error('provider setup interaction did not start with a prompt');
+  }
+  const [state, setState] = React.useState<TProviderSetupInteractionState>(initial.state);
+  const [prompt, setPrompt] = React.useState<TInteractivePrompt>(initial.prompt);
+
   return (
-    <ProviderSetupPrompt
-      type={type}
-      providerDefinitions={providerDefinitions}
-      onSubmit={(input) => {
-        writeFileSync(outputPath, JSON.stringify(input), 'utf8');
-        exit();
-        setTimeout(() => process.exit(0), 0);
+    <InteractivePrompt
+      prompt={prompt}
+      onSubmit={(value) => {
+        const result = submitProviderSetupInteractionValue(state, value);
+        if (result.status === 'complete') {
+          writeFileSync(outputPath, JSON.stringify(result.input), 'utf8');
+          exit();
+          setTimeout(() => process.exit(0), 0);
+          return;
+        }
+        setState(result.state);
+        setPrompt(result.prompt);
       }}
       onCancel={() => {
         exit();
