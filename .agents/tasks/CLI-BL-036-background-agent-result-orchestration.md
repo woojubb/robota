@@ -88,6 +88,12 @@ The `/agent` command module should expose orchestration usage in its own command
 - Identified the fragile contract behind the reported failure mode: only `parallel --wait` was tested as a consolidation path. Plain `parallel` remained detached, so if a local model omitted `--wait`, completion events were persisted but no same-turn consolidated command result was guaranteed.
 - Changed `/agent parallel` to wait for the SDK group summary by default while keeping every spawned agent as a background job. Added explicit `--detach` for intentionally fire-and-return groups.
 
+### 2026-05-01 direct Agent tool diagnosis
+
+- Inspected the next persisted session and found the model did not use `/agent parallel`; it emitted three direct `Agent` tool calls. The tool returned `{ background: true, status: "running" }` immediately for each call, then the parent turn ended before any subagent terminal result was available.
+- Confirmed the terminal events were persisted later: one subagent failed with idle timeout and two reached completed states. Because no group or wait contract existed for direct `Agent` tool calls, completed/failed outcomes did not trigger a parent continuation.
+- Updated the direct `Agent` tool contract so background runtime mode still waits for a terminal result by default. Completed, failed, and timed-out results now flow back through the tool result channel and trigger the normal parent model continuation. Explicit `detach: true` is required for fire-and-return behavior.
+
 ## Test Plan
 
 - Given a group with two running jobs, when both complete successfully, then the orchestrator emits one `group_completed` event with both result envelopes.
@@ -98,6 +104,9 @@ The `/agent` command module should expose orchestration usage in its own command
 - Given `/agent parallel ...`, when all grouped background agents finish, then the command returns the SDK group summary by default.
 - Given `/agent parallel --wait ...`, when all grouped background agents finish, then the command returns the SDK group summary as a compatibility alias.
 - Given `/agent parallel --detach ...`, when grouped agents are started, then the command returns `agentId` values and `groupId` immediately without waiting.
+- Given a direct `Agent` tool call omits `detach`, when the background subagent completes, then the tool result contains the terminal output and the parent conversation can continue.
+- Given a direct `Agent` tool call omits `detach`, when the background subagent fails or times out, then the tool result contains the terminal failure with `agentId` so the parent conversation can explain or recover.
+- Given a direct `Agent` tool call includes `detach: true`, when the subagent starts, then the tool result returns `agentId` immediately and no parent continuation is guaranteed until later collection.
 - Given `/agent wait GROUP_ID`, when the group exists, then the command waits for completion and returns the same SDK group summary.
 - Given `stream-json` is running, when a background job group event fires, then headless output emits `background_job_group_event`.
 - Given a WebSocket client is connected, when a group event fires or a group query is received, then the transport forwards SDK group events/snapshots without deriving orchestration state.

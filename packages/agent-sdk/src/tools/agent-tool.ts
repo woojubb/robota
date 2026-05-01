@@ -31,9 +31,10 @@ export const AGENT_TOOL_DESCRIPTION = [
   'Use this tool in the same assistant turn when the user explicitly asks to create, spawn, run, delegate to, or use agents/subagents.',
   'For multiple or parallel roles, emit one Agent tool call per role in the same assistant turn.',
   'If the user asks to choose one backlog, task, or item, include that target-selection instruction inside each subagent prompt and start the agents instead of first replying with an inspection plan.',
-  'Subagent jobs are background-first: omit background or set background: true unless the user explicitly asks to wait in the foreground.',
+  'Subagent jobs run as background tasks by default, and the tool waits for each terminal result so the parent conversation can continue with completed, failed, or timed-out outcomes.',
+  'Use detach only when the user explicitly asks to leave work running for later collection.',
   'Execution requires the tool-call channel; assistant text does not start a subagent job.',
-  'The result returned by the agent is not visible to the user, so summarize completed foreground results for the user when needed.',
+  'The result returned by the agent is not directly visible to the user, so summarize terminal results for the user when needed.',
 ].join(' ');
 
 export function createAgentToolPromptDescription(
@@ -48,9 +49,9 @@ export function createAgentToolPromptDescription(
   return [
     'Agent — launch an isolated agent for delegated work.',
     'Call the Agent tool in the same assistant turn for explicit subagent requests.',
-    'For parallel work, emit one Agent tool call per role with background: true.',
+    'For parallel work, emit one Agent tool call per role and let each call wait for a terminal result.',
     'If needed, choose one backlog/task/item inside the agent prompt instead of delaying launch.',
-    'background defaults to true; use background: false only for explicit foreground/wait requests.',
+    'background defaults to true as the runtime mode; use detach only for explicit fire-and-return work.',
     'Execution requires the tool-call channel; assistant text alone does not start a subagent job.',
     availableAgents,
   ]
@@ -75,7 +76,13 @@ const AgentSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      'Defaults to true. When true or omitted, start the subagent as a background task and return immediately. Use false only when the user explicitly asks to wait in the foreground.',
+      'Defaults to true as the runtime mode. The tool still waits for a terminal result unless detach is true. Use false only when the user explicitly asks for foreground runtime mode.',
+    ),
+  detach: z
+    .boolean()
+    .optional()
+    .describe(
+      'Defaults to false. When true, start the subagent and return immediately for later collection.',
     ),
   isolation: z
     .enum(['none', 'worktree'])
@@ -217,7 +224,7 @@ async function runManagedAgent(
   try {
     const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
     agentId = state.id;
-    if (args.background !== false) {
+    if (args.detach === true) {
       return stringifyBackgroundAgentStarted(state.id, state.status);
     }
     const response = await manager.wait(state.id);

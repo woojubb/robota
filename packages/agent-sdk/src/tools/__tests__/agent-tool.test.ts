@@ -125,7 +125,9 @@ describe('Agent tool', () => {
     expect(schema.description).toContain('subagent');
     expect(schema.description).toContain('same assistant turn');
     expect(schema.description).toContain('one Agent tool call per role');
-    expect(schema.description).toContain('background: true');
+    expect(schema.description).toContain('terminal result');
+    expect(schema.description).toContain('timed-out outcomes');
+    expect(schema.description).toContain('detach');
     expect(schema.description).toContain('tool-call channel');
     expect(schema.description).not.toContain('<agent');
     expect(schema.description).not.toContain('pseudo-tags');
@@ -136,10 +138,12 @@ describe('Agent tool', () => {
     expect(props).toHaveProperty('subagent_type');
     expect(props).toHaveProperty('model');
     expect(props).toHaveProperty('background');
+    expect(props).toHaveProperty('detach');
     expect(props).toHaveProperty('isolation');
     expect((props.background as { description?: string }).description).toContain(
       'Defaults to true',
     );
+    expect((props.detach as { description?: string }).description).toContain('return immediately');
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -334,7 +338,7 @@ describe('Agent tool', () => {
     });
   });
 
-  it('should default to background mode and return immediately when background is omitted', async () => {
+  it('should default to background mode and wait when background is omitted', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_background_1',
@@ -348,7 +352,10 @@ describe('Agent tool', () => {
         promptPreview: 'Find files',
         updatedAt: '2026-04-30T00:00:00.000Z',
       }),
-      wait: vi.fn(),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_background_1',
+        output: 'background output',
+      }),
       list: vi.fn(),
       get: vi.fn(),
       cancel: vi.fn(),
@@ -378,20 +385,74 @@ describe('Agent tool', () => {
         prompt: 'Find files',
       }),
     );
-    expect(subagentManager.wait).not.toHaveBeenCalled();
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_background_1');
     expect(result).toEqual({
       success: true,
-      background: true,
-      output: '',
+      output: 'background output',
       agentId: 'agent_background_1',
-      status: 'running',
     });
   });
 
-  it('should return immediately when background mode is explicitly requested', async () => {
+  it('should wait for terminal result when background mode is explicitly requested', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
         id: 'agent_background_2',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Find files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi.fn().mockResolvedValue({
+        jobId: 'agent_background_2',
+        output: 'explicit background output',
+      }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Find files',
+      subagent_type: 'Explore',
+      background: true,
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'Explore',
+        mode: 'background',
+        prompt: 'Find files',
+      }),
+    );
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_background_2');
+    expect(result).toEqual({
+      success: true,
+      output: 'explicit background output',
+      agentId: 'agent_background_2',
+    });
+  });
+
+  it('should return immediately only when detach is explicitly requested', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_detached_1',
         type: 'Explore',
         label: 'Explore',
         parentSessionId: 'session_parent',
@@ -422,7 +483,7 @@ describe('Agent tool', () => {
     const toolResult = await tool.execute({
       prompt: 'Find files',
       subagent_type: 'Explore',
-      background: true,
+      detach: true,
     });
     const result = parseToolResult(toolResult);
 
@@ -438,9 +499,54 @@ describe('Agent tool', () => {
       success: true,
       background: true,
       output: '',
-      agentId: 'agent_background_2',
+      agentId: 'agent_detached_1',
       status: 'running',
     });
+  });
+
+  it('should return a failed terminal result when a background subagent times out', async () => {
+    const subagentManager = {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_timeout_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Find files',
+        updatedAt: '2026-04-30T00:00:00.000Z',
+      }),
+      wait: vi
+        .fn()
+        .mockRejectedValue(new Error('Background agent produced no activity for 120000ms')),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      prompt: 'Find files',
+      subagent_type: 'Explore',
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_timeout_1');
+    expect(result['success']).toBe(false);
+    expect(result['agentId']).toBe('agent_timeout_1');
+    expect(result['error']).toContain('Background agent produced no activity');
   });
 
   it('should return error for unknown agent type', async () => {

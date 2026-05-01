@@ -179,7 +179,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background execution, and assistant text alone is not execution.
+- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background task runtime mode, the tool waits for terminal completed/failed/timed-out results by default, explicit `detach` is required for fire-and-return execution, and assistant text alone is not execution.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
 ### Web Search
@@ -892,7 +892,7 @@ When enabled, the `Agent` tool is part of the available tool set and is describe
 
 The `Agent` tool routes execution through a per-session `SubagentManager`, which delegates to the shared `BackgroundTaskManager` for `kind: 'agent'` tasks. It resolves unknown agent types before spawning so existing error results remain compatible.
 
-Foreground mode calls `spawn()` and `wait()` and returns the existing JSON shape: `{ success, output, agentId }`. Background mode sets `mode: 'background'`, returns immediately with `{ success, background: true, output: '', agentId, status }`, and emits lifecycle updates through `background_task_event`.
+Foreground mode calls `spawn()` and `wait()` and returns the existing JSON shape: `{ success, output, agentId }`. Background mode sets `mode: 'background'`, emits lifecycle updates through `background_task_event`, and still waits for terminal task completion by default so direct model-emitted `Agent` tool calls trigger a parent continuation with completed, failed, or timed-out results. Explicit `detach: true` is the only Agent tool path that returns immediately with `{ success, background: true, output: '', agentId, status }` for later collection.
 
 ### Skill Execution Semantics
 
