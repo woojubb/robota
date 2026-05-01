@@ -3,10 +3,10 @@ import type { TTrustLevel } from '../types.js';
 import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
 
-const TRUST_LEVEL_DESCRIPTIONS: Record<TTrustLevel, string> = {
-  safe: 'safe (read-only / plan mode - only read-access tools are available)',
-  moderate: 'moderate (default mode - write and bash tools require approval)',
-  full: 'full (acceptEdits mode - file writes are auto-approved; bash requires approval)',
+const TRUST_LEVEL_LABELS: Record<TTrustLevel, string> = {
+  safe: 'safe',
+  moderate: 'moderate',
+  full: 'full',
 };
 
 function createSection(
@@ -19,23 +19,9 @@ function createSection(
   return { id, title, priority, content, source };
 }
 
-export function createFrameworkSection(language?: string): ISystemPromptSection {
-  const lines = [
-    'You are an AI coding assistant with access to tools that let you read and modify code.',
-    'You help developers understand, write, and improve their codebase.',
-    'Always be precise, follow existing code conventions, and prefer minimal changes.',
-  ];
-  if (language) {
-    lines.push(
-      `Always respond in ${language}. Use ${language} for all explanations and communications.`,
-    );
-  }
-  return createSection('framework-role', 'Role', 10, lines.join('\n'), 'framework');
-}
-
 export function createWorkingDirectorySection(cwd?: string): ISystemPromptSection | undefined {
   if (!cwd) return undefined;
-  return createSection('runtime-cwd', 'Working Directory', 20, `\`${cwd}\``, 'runtime');
+  return createSection('runtime-cwd', 'Working Directory', 30, `\`${cwd}\``, 'runtime');
 }
 
 export function createProjectSection(info: IProjectInfo): ISystemPromptSection {
@@ -52,17 +38,22 @@ export function createProjectSection(info: IProjectInfo): ISystemPromptSection {
   if (info.packageManager !== undefined) {
     lines.push(`- **Package manager:** ${info.packageManager}`);
   }
-  return createSection('runtime-project', 'Current Project', 30, lines.join('\n'), 'runtime');
+  return createSection('runtime-project', 'Current Project', 40, lines.join('\n'), 'runtime');
 }
 
 export function createPermissionSection(trustLevel: TTrustLevel): ISystemPromptSection {
   return createSection(
     'permission-mode',
     'Permission Mode',
-    35,
-    `Your current trust level is **${TRUST_LEVEL_DESCRIPTIONS[trustLevel]}**.`,
+    50,
+    `- **Trust level:** ${TRUST_LEVEL_LABELS[trustLevel]}`,
     'permissions',
   );
+}
+
+export function createResponseLanguageSection(language?: string): ISystemPromptSection | undefined {
+  if (language === undefined || language.trim().length === 0) return undefined;
+  return createSection('runtime-response-language', 'Response Language', 45, language, 'runtime');
 }
 
 export function createAgentsMdSection(agentsMd: string): ISystemPromptSection | undefined {
@@ -70,7 +61,7 @@ export function createAgentsMdSection(agentsMd: string): ISystemPromptSection | 
   return createSection(
     'project-agents-md',
     'Agent Instructions',
-    40,
+    10,
     agentsMd,
     'project-instructions',
   );
@@ -78,21 +69,7 @@ export function createAgentsMdSection(agentsMd: string): ISystemPromptSection | 
 
 export function createClaudeMdSection(claudeMd: string): ISystemPromptSection | undefined {
   if (claudeMd.trim().length === 0) return undefined;
-  return createSection('project-claude-md', 'Project Notes', 41, claudeMd, 'project-instructions');
-}
-
-export function createProviderWebSearchSection(): ISystemPromptSection {
-  return createSection(
-    'provider-web-search',
-    'Web Search',
-    50,
-    [
-      'You have access to web search. When the user asks to search, look up, or find current/latest information,',
-      'you MUST use the web_search tool. Do NOT answer from training data when the user explicitly asks to search.',
-      'Always prefer web search for: news, latest versions, current events, live documentation.',
-    ].join('\n'),
-    'provider',
-  );
+  return createSection('project-claude-md', 'Project Notes', 20, claudeMd, 'project-instructions');
 }
 
 export function createToolDescriptionSection(
@@ -111,6 +88,43 @@ export function createToolDescriptionSection(
 function formatCapability(descriptor: ICapabilityDescriptor): string {
   const arg = descriptor.argumentHint ? ` ${descriptor.argumentHint}` : '';
   return `- ${descriptor.name}${arg}: ${descriptor.description}`;
+}
+
+function createCapabilityKindSection(
+  kind: ICapabilityDescriptor['kind'],
+  title: string,
+  priority: number,
+  source: ISystemPromptSection['source'],
+  descriptors: readonly ICapabilityDescriptor[],
+): ISystemPromptSection | undefined {
+  const content = descriptors
+    .filter((descriptor) => descriptor.modelInvocable && descriptor.kind === kind)
+    .map(formatCapability)
+    .join('\n');
+  if (content.trim().length === 0) return undefined;
+  return createSection(`capability-${kind}`, title, priority, content, source);
+}
+
+export function createCapabilitySections(
+  descriptors: readonly ICapabilityDescriptor[],
+): ISystemPromptSection[] {
+  const sections: ISystemPromptSection[] = [];
+  const commandSection = createCapabilityKindSection(
+    'builtin-command',
+    'Built-in Commands',
+    70,
+    'command',
+    descriptors,
+  );
+  const skillSection = createCapabilityKindSection('skill', 'Skills', 80, 'skill', descriptors);
+  const agentSection = createCapabilityKindSection('agent', 'Agents', 90, 'agent', descriptors);
+  const toolSection = createCapabilityKindSection('tool', 'Tools', 100, 'tool', descriptors);
+
+  if (commandSection) sections.push(commandSection);
+  if (skillSection) sections.push(skillSection);
+  if (agentSection) sections.push(agentSection);
+  if (toolSection) sections.push(toolSection);
+  return sections;
 }
 
 export function createCapabilitySection(

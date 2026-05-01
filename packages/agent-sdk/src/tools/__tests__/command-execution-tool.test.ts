@@ -2,18 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { createCommandExecutionTool } from '../command-execution-tool.js';
 
 describe('command execution tool', () => {
-  it('describes tool execution as the required path instead of assistant text', () => {
+  it('describes command execution without imperative prompt text', () => {
     const tool = createCommandExecutionTool({
       isModelInvocable: () => true,
       execute: vi.fn(),
     });
 
-    expect(tool.schema.description).toContain('Use this tool when command execution is required');
-    expect(tool.schema.description).toContain('assistant text does not execute');
+    expect(tool.schema.description).toContain('registered model-invocable Robota command');
+    expect(tool.schema.description).toContain('command registry');
+    expect(tool.schema.description).not.toContain('Use this');
+    expect(tool.schema.description).not.toContain('assistant text');
     expect(tool.schema.description).not.toContain('pseudo-tags');
     expect(tool.schema.description).not.toContain('<agent');
-    expect(tool.schema.description).toContain('JSON arguments');
-    expect(tool.schema.description).toContain('"command":"agent"');
   });
 
   it('executes only model-invocable commands through the injected command handler', async () => {

@@ -132,6 +132,7 @@ export {
   BackgroundTaskManager,
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
+  summarizeBackgroundJobGroup,
   transitionBackgroundTaskStatus,
 } from './background-tasks/index.js';
 export type {
@@ -151,6 +152,7 @@ export type {
   IBackgroundTaskStart,
   IBackgroundTaskState,
   IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupSummary,
   IBackgroundJobGroupState,
   IBackgroundJobOrchestratorOptions,
   IBackgroundJobResultEnvelope,

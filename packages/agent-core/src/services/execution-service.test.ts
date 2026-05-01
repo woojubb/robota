@@ -627,6 +627,117 @@ describe('ExecutionService', () => {
       expect(chatSpy).toHaveBeenCalledTimes(11);
     });
 
+    it('should force a summary when the provider returns an empty assistant after tool results', async () => {
+      setupToolMocks();
+      const config = makeConfig();
+
+      const chatSpy = vi
+        .fn()
+        .mockResolvedValueOnce(makeToolCallResponse(1))
+        .mockResolvedValueOnce({
+          id: 'msg-empty-after-tool',
+          role: 'assistant',
+          content: '',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        })
+        .mockResolvedValueOnce({
+          id: 'msg-summary',
+          role: 'assistant',
+          content: 'Recovered summary after empty response.',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        });
+      mockProvider.chat = chatSpy;
+
+      const result = await executionService.execute('Run a tool and summarize', [], config, {
+        conversationId: 'test-agent',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe('Recovered summary after empty response.');
+      expect(chatSpy).toHaveBeenCalledTimes(3);
+      expect(
+        result.messages.some(
+          (message) =>
+            message.role === 'assistant' &&
+            message.content === '' &&
+            (!('toolCalls' in message) || !message.toolCalls?.length),
+        ),
+      ).toBe(false);
+    });
+
+    it('should fail the provider round when no provider activity arrives before timeout', async () => {
+      mockProvider.chat = vi.fn(
+        () =>
+          new Promise<TUniversalMessage>(() => {
+            // Intentionally never resolves; execution must be released by timeout.
+          }),
+      );
+
+      const result = await executionService.execute(
+        'Hello',
+        [],
+        {
+          name: 'test-agent',
+          aiProviders: [mockProvider],
+          defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            systemMessage: 'You are a helpful assistant.',
+          },
+          timeout: 10,
+        },
+        {
+          conversationId: 'provider-timeout-test',
+        },
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
+    });
+
+    it('should refresh provider idle timeout when streaming deltas arrive', async () => {
+      const streamed = 'still working';
+      mockProvider.chat = vi.fn(
+        (_messages: TUniversalMessage[], options?: IChatOptions) =>
+          new Promise<TUniversalMessage>((resolve) => {
+            setTimeout(() => options?.onTextDelta?.('still '), 10);
+            setTimeout(() => options?.onTextDelta?.('working'), 25);
+            setTimeout(() => {
+              resolve({
+                id: 'msg-streaming',
+                role: 'assistant',
+                content: streamed,
+                state: 'complete' as const,
+                timestamp: new Date(),
+              });
+            }, 40);
+          }),
+      );
+
+      const result = await executionService.execute(
+        'Hello',
+        [],
+        {
+          name: 'test-agent',
+          aiProviders: [mockProvider],
+          defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            systemMessage: 'You are a helpful assistant.',
+          },
+          timeout: 30,
+        },
+        {
+          conversationId: 'provider-timeout-refresh-test',
+        },
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe(streamed);
+    });
+
     it('should inject synthetic user message with correct content', async () => {
       setupToolMocks();
       const config = makeConfig();

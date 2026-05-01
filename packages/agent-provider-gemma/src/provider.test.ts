@@ -60,6 +60,7 @@ function createDeclaredToolSchema(): IToolSchema {
       type: 'object',
       properties: {
         prompt: { type: 'string' },
+        mode: { type: 'string' },
         background: { type: 'boolean' },
       },
       required: ['prompt'],
@@ -275,6 +276,135 @@ describe('GemmaProvider', () => {
         function: {
           name: 'DeclaredTool',
           arguments: '{"prompt":"analyze"}',
+        },
+      },
+    ]);
+  });
+
+  it('encapsulates XML-like declared tool tags as tool calls in non-streaming chat', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue({
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1,
+      model: 'supergemma4',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content:
+              '<tool-launch-sequence>prepare tools</tool-launch-sequence><DeclaredTool prompt="analyze backlog" mode="plan" />',
+            refusal: null,
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    });
+
+    const result = await provider.chat([createUserMessage('Launch tools')], {
+      model: 'supergemma4',
+      tools: [createDeclaredToolSchema()],
+    });
+
+    expect(result.content).toBe('');
+    expect(result.metadata?.['toolCallTextProjected']).toBe(true);
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'gemma_call_0',
+        type: 'function',
+        function: {
+          name: 'DeclaredTool',
+          arguments: '{"prompt":"analyze backlog","mode":"plan"}',
+        },
+      },
+    ]);
+  });
+
+  it('does not synthesize tool calls from command-like text inside XML wrappers', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue({
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1,
+      model: 'supergemma4',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: [
+              '<tool-launch>',
+              'parallel',
+              ' worker=DeclaredTool:"Analyze implementation."',
+              ' reviewer=DeclaredTool:"Analyze architecture."',
+              '</tool-launch>',
+            ].join('\n'),
+            refusal: null,
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    });
+
+    const result = await provider.chat([createUserMessage('Launch tools')], {
+      model: 'supergemma4',
+      tools: [createDeclaredToolSchema()],
+    });
+
+    expect(result.content).toBe('');
+    expect(result.metadata?.['toolCallTextProjected']).toBe(true);
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toBeUndefined();
+  });
+
+  it('encapsulates split XML-like declared tool tags during streaming assembly', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([
+        createChunk('<tool-launch-sequence>prepare'),
+        createChunk(' tools</tool-launch-sequence><DeclaredTool prompt="analyze backlog"'),
+        createChunk(' mode="worker" />'),
+        createChunk('', 'tool_calls'),
+      ]),
+    );
+    const onTextDelta = vi.fn();
+
+    const result = await provider.chat([createUserMessage('Launch tools')], {
+      model: 'supergemma4',
+      tools: [createDeclaredToolSchema()],
+      onTextDelta,
+    });
+
+    expect(onTextDelta).not.toHaveBeenCalled();
+    expect(result.content).toBe('');
+    expect(result.metadata?.['toolCallTextProjected']).toBe(true);
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'gemma_call_0',
+        type: 'function',
+        function: {
+          name: 'DeclaredTool',
+          arguments: '{"prompt":"analyze backlog","mode":"worker"}',
         },
       },
     ]);

@@ -4,12 +4,11 @@ import type { IProjectInfo } from './project-detector.js';
 import { composeSystemPrompt } from './system-prompt-composer.js';
 import {
   createAgentsMdSection,
-  createCapabilitySection,
+  createCapabilitySections,
   createClaudeMdSection,
-  createFrameworkSection,
   createPermissionSection,
   createProjectSection,
-  createProviderWebSearchSection,
+  createResponseLanguageSection,
   createToolDescriptionSection,
   createWorkingDirectorySection,
 } from './system-prompt-section-providers.js';
@@ -79,18 +78,16 @@ function buildCapabilityDescriptors(params: ISystemPromptParams): ICapabilityDes
 }
 
 export function buildSystemPrompt(params: ISystemPromptParams): string {
-  const sections: ISystemPromptSection[] = [
-    createFrameworkSection(params.language),
-    createProjectSection(params.projectInfo),
-    createPermissionSection(params.trustLevel),
-    createProviderWebSearchSection(),
-  ];
+  const sections: ISystemPromptSection[] = [];
 
-  appendOptionalSection(sections, createWorkingDirectorySection(params.cwd));
   appendOptionalSection(sections, createAgentsMdSection(params.agentsMd));
   appendOptionalSection(sections, createClaudeMdSection(params.claudeMd));
+  appendOptionalSection(sections, createWorkingDirectorySection(params.cwd));
+  sections.push(createProjectSection(params.projectInfo));
+  appendOptionalSection(sections, createResponseLanguageSection(params.language));
+  sections.push(createPermissionSection(params.trustLevel));
   appendOptionalSection(sections, createToolDescriptionSection(params.toolDescriptions));
-  appendOptionalSection(sections, createCapabilitySection(buildCapabilityDescriptors(params)));
+  sections.push(...createCapabilitySections(buildCapabilityDescriptors(params)));
 
   return composeSystemPrompt(sections);
 }

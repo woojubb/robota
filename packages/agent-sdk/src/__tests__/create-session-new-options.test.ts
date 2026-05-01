@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import type { IResolvedConfig } from '../config/config-types.js';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -69,7 +70,7 @@ function createMockProvider() {
   } as never;
 }
 
-function baseConfig() {
+function baseConfig(): IResolvedConfig {
   return {
     defaultTrustLevel: 'moderate' as const,
     provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
@@ -230,7 +231,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
     const opts = sessionCtorCalls[0]!;
     const systemMessage = opts.systemMessage as string;
-    expect(systemMessage).not.toContain('Agent — launch an isolated agent');
+    expect(systemMessage).not.toContain('Agent — creates one isolated subagent job');
     expect(systemMessage).not.toContain('general-purpose');
   });
 
@@ -263,14 +264,48 @@ describe('createSession — appendSystemPrompt option', () => {
 
       const opts = sessionCtorCalls[0]!;
       const systemMessage = opts.systemMessage as string;
-      expect(systemMessage).toContain('Agent — launch an isolated agent');
-      expect(systemMessage).toContain('one Agent tool call per role');
-      expect(systemMessage).toContain('choose one backlog');
+      expect(systemMessage).toContain('Agent — creates one isolated subagent job');
+      expect(systemMessage).toContain('One Agent tool call corresponds to one subagent job');
+      expect(systemMessage).toContain('The tool returns terminal result data');
       expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+});
+
+describe('createSession — provider timeout option', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('passes configured provider timeout to Session', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const config = baseConfig();
+    config.provider.timeout = 4321;
+
+    createSession({
+      config,
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]!['providerTimeout']).toBe(4321);
+  });
+
+  it('passes the SDK default provider timeout when config omits timeout', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]!['providerTimeout']).toBe(120000);
   });
 });
 

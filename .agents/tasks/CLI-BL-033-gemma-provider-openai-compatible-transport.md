@@ -27,6 +27,7 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 - [x] Add replay-style unit coverage using captured `.robota/logs` streamed delta samples where Gemma emits reasoning-channel markers.
 - [x] Update package SPEC files and user docs so provider selection and supported local-model behavior are clear.
 - [x] Add a provider-owned native tool-call text projector for documented Gemma/LM Studio template output without adding CLI/SDK model-specific branches.
+- [x] Encapsulate Gemma XML-like execution artifacts inside `agent-provider-gemma` using generic XML projection that matches only declared tool schemas.
 
 ## Decisions
 
@@ -38,7 +39,7 @@ Robota should not solve this by asking every user to manually edit LM Studio tem
 - Existing provider package names and boundaries may be changed in future migrations. The Gemma work should not assume today's `agent-provider-google` naming is permanent.
 - All providers use the same `IProviderDefinition` composition contract. CLI may assemble provider definitions, but generic CLI logic must not branch on provider type names, model names, or Gemma/OpenAI/Anthropic-specific defaults.
 - Shared core utilities follow the same rule: `agent-core` does not hardcode provider-name message conversion or API-key prefix policy. Provider packages inject conversion, setup, probing, and construction behavior through owned adapters/definitions.
-- Native tool-call text projection must be provider-owned and opt-in. Shared OpenAI-compatible primitives may expose an injected projector port, but they must not infer pseudo syntax, model names, or tool names.
+- Native tool-call text and Gemma XML-like execution artifact projection must be provider-owned and opt-in. Shared OpenAI-compatible primitives may expose an injected projector port, but they must not infer pseudo syntax, model names, domain tools, command names, or tool names that were not declared in the request.
 
 ## Recommended Package Boundary
 
@@ -80,6 +81,7 @@ This rename should not be bundled into the Gemma provider implementation. It sho
 - Given Gemma provider docs are generated, when a non-expert user follows the provider setup, then no manual prompt-template editing is required for the default supported path.
 - Given the Gemma/LM Studio template emits `<|tool_call>call:<tool>{...}<tool_call|>` as streamed text for a declared tool, when the Gemma provider is selected, then the provider converts it to universal `toolCalls`, removes the raw block from user-visible text, and preserves raw text in metadata.
 - Given a text block names a tool that was not declared in the request, when the Gemma provider receives it, then it remains visible text and is not executed.
+- Given Gemma emits XML-like execution artifacts for a declared tool, when the Gemma provider receives them, then the provider converts valid declared calls to universal `toolCalls`, removes XML artifact wrappers from user-visible text, and keeps CLI/TUI/runtime domain concepts out of the provider.
 
 ## Progress
 
@@ -98,6 +100,7 @@ This rename should not be bundled into the Gemma provider implementation. It sho
 - Added a regression test for captured streamed deltas shaped like `<|channel>`, `s`, newline, `<channel|>` so the Gemma projector must suppress those tags before user-facing output.
 - Started the native tool-call projection fix after session logs showed Gemma/LM Studio sometimes returned tool-call-like text instead of OpenAI `tool_calls`; the fix must stay in provider/transport projection layers, not CLI/SDK command logic.
 - Added an injected text-tool-call projector port to shared OpenAI-compatible primitives and implemented `GemmaToolCallProjector` for the documented LM Studio/Gemma template block. The projection validates declared tool names, converts only valid blocks into universal `toolCalls`, keeps malformed or undeclared blocks visible, and avoids CLI/SDK model-specific branches.
+- Added provider-owned projection for observed Gemma XML-like execution artifacts from `.robota` sessions. The projector strips XML artifact wrappers, converts declared tool tags and JSON command envelopes to universal tool calls only when they match request-declared tool schemas, supports streamed split tags, and keeps the behavior inside `agent-provider-gemma`.
 
 ## Blockers
 

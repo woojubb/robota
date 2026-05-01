@@ -31,6 +31,7 @@ export interface IZodSchemaDef {
   type?: IZodSchema;
   values?: TUniversalValue[];
   description?: string;
+  unknownKeys?: 'passthrough' | 'strip' | 'strict';
 }
 
 export interface IZodSchema {

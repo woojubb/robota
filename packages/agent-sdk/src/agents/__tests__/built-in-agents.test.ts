@@ -26,6 +26,12 @@ describe('Built-in agents', () => {
     expect(plan.disallowedTools).toContain('Edit');
   });
 
+  it('built-in agents inherit the parent provider model by default', () => {
+    expect(getBuiltInAgent('general-purpose')!.model).toBeUndefined();
+    expect(getBuiltInAgent('Explore')!.model).toBeUndefined();
+    expect(getBuiltInAgent('Plan')!.model).toBeUndefined();
+  });
+
   it('returns undefined for unknown agent', () => {
     expect(getBuiltInAgent('nonexistent')).toBeUndefined();
   });

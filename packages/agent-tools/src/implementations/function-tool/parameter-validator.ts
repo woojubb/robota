@@ -85,6 +85,7 @@ export function getValidationErrors(
   parameters: TToolParameters,
   schemaRequired: string[],
   schemaProperties: Record<string, IParameterSchema>,
+  additionalProperties?: boolean | IParameterSchema,
 ): string[] {
   const errors: string[] = [];
 
@@ -99,6 +100,14 @@ export function getValidationErrors(
   for (const [key, value] of Object.entries(parameters)) {
     const paramSchema = schemaProperties[key];
     if (!paramSchema) {
+      if (additionalProperties === true) {
+        continue;
+      }
+      if (additionalProperties && typeof additionalProperties === 'object') {
+        const additionalTypeError = validateParameterType(key, value, additionalProperties);
+        if (additionalTypeError) errors.push(additionalTypeError);
+        continue;
+      }
       errors.push(`Unknown parameter: ${key}`);
       continue;
     }
@@ -119,8 +128,14 @@ export function validateToolParameters(
   parameters: TToolParameters,
   schemaRequired: string[],
   schemaProperties: Record<string, IParameterSchema>,
+  additionalProperties?: boolean | IParameterSchema,
 ): IParameterValidationResult {
-  const errors = getValidationErrors(parameters, schemaRequired, schemaProperties);
+  const errors = getValidationErrors(
+    parameters,
+    schemaRequired,
+    schemaProperties,
+    additionalProperties,
+  );
   return {
     isValid: errors.length === 0,
     errors,
