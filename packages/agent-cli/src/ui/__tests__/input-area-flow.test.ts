@@ -1,14 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendPromptHistory,
   createPasteLabelChange,
+  createPromptHistoryNavigationState,
+  extractPromptHistory,
   getAutocompletePopupAction,
+  getPromptHistoryInputAction,
   getPendingPromptInputAction,
   moveAutocompleteSelection,
+  navigatePromptHistory,
   resolveEnterCommandSelection,
   resolveTabCompletion,
   shouldSubmitInput,
 } from '../flows/input-area-flow.js';
 import type { ISlashCommand } from '../../commands/types.js';
+import {
+  createAssistantMessage,
+  createSystemMessage,
+  createUserMessage,
+  messageToHistoryEntry,
+} from '@robota-sdk/agent-core';
 
 const command = (name: string, subcommands?: ISlashCommand[]): ISlashCommand => ({
   name,
@@ -69,5 +80,73 @@ describe('input area flow', () => {
   it('Given blank prompt When checked Then submit is rejected', () => {
     expect(shouldSubmitInput('   ')).toBe(false);
     expect(shouldSubmitInput(' hello ')).toBe(true);
+  });
+
+  it('Given prompt history key info When mapped Then history actions are produced', () => {
+    expect(getPromptHistoryInputAction({ upArrow: true })).toBe('previous');
+    expect(getPromptHistoryInputAction({ downArrow: true })).toBe('next');
+    expect(getPromptHistoryInputAction({ escape: true })).toBeUndefined();
+  });
+
+  it('Given empty prompt history When navigating Then input is unchanged', () => {
+    const result = navigatePromptHistory(
+      'draft',
+      [],
+      createPromptHistoryNavigationState(),
+      'previous',
+    );
+
+    expect(result).toEqual({
+      value: 'draft',
+      cursorHint: 5,
+      state: createPromptHistoryNavigationState(),
+    });
+  });
+
+  it('Given draft and history When pressing up Then latest prompt is recalled and draft is saved', () => {
+    const result = navigatePromptHistory(
+      'draft text',
+      ['first', 'second'],
+      createPromptHistoryNavigationState(),
+      'previous',
+    );
+
+    expect(result).toEqual({
+      value: 'second',
+      cursorHint: 6,
+      state: { selectedIndex: 1, draft: 'draft text' },
+    });
+  });
+
+  it('Given history navigation When pressing down past latest Then draft is restored', () => {
+    const result = navigatePromptHistory(
+      'second',
+      ['first', 'second'],
+      { selectedIndex: 1, draft: 'draft text' },
+      'next',
+    );
+
+    expect(result).toEqual({
+      value: 'draft text',
+      cursorHint: 10,
+      state: createPromptHistoryNavigationState(),
+    });
+  });
+
+  it('Given prompt submit When appended Then blank and consecutive duplicates are ignored', () => {
+    expect(appendPromptHistory(['first'], 'second')).toEqual(['first', 'second']);
+    expect(appendPromptHistory(['first'], 'first')).toEqual(['first']);
+    expect(appendPromptHistory(['first'], '   ')).toEqual(['first']);
+  });
+
+  it('Given history entries When extracted Then only user chat content is included', () => {
+    const entries = [
+      messageToHistoryEntry(createUserMessage('first')),
+      messageToHistoryEntry(createAssistantMessage('answer')),
+      messageToHistoryEntry(createSystemMessage('system')),
+      messageToHistoryEntry(createUserMessage('second')),
+    ];
+
+    expect(extractPromptHistory(entries)).toEqual(['first', 'second']);
   });
 });

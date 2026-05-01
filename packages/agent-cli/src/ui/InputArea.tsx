@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
 import type { CommandRegistry } from '../commands/command-registry.js';
@@ -8,10 +9,15 @@ import SlashAutocomplete from './SlashAutocomplete.js';
 import { expandPasteLabels } from '../utils/paste-labels.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
 import {
+  appendPromptHistory,
   createPasteLabelChange,
+  createPromptHistoryNavigationState,
+  extractPromptHistory,
   getAutocompletePopupAction,
   getPendingPromptInputAction,
+  getPromptHistoryInputAction,
   moveAutocompleteSelection,
+  navigatePromptHistory,
   resolveEnterCommandSelection,
   resolveTabCompletion,
   shouldSubmitInput,
@@ -25,6 +31,7 @@ interface IProps {
   pendingPrompt?: string | null;
   registry?: CommandRegistry;
   sessionName?: string;
+  history?: readonly IHistoryEntry[];
 }
 
 /**
@@ -54,9 +61,21 @@ export default function InputArea({
   pendingPrompt,
   registry,
   sessionName,
+  history,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
+  const [historyState, setHistoryState] = useState(createPromptHistoryNavigationState);
+  const [localPromptHistory, setLocalPromptHistory] = useState<string[]>([]);
+  const restoredPromptHistory = useMemo(() => extractPromptHistory(history ?? []), [history]);
+  const promptHistory = useMemo(
+    () =>
+      localPromptHistory.reduce<string[]>(
+        (prompts, prompt) => appendPromptHistory(prompts, prompt),
+        restoredPromptHistory,
+      ),
+    [restoredPromptHistory, localPromptHistory],
+  );
   const pasteStore = useRef<Map<number, string>>(new Map());
   const { stdout } = useStdout();
   const terminalColumns = stdout?.columns ?? 80;
@@ -82,6 +101,23 @@ export default function InputArea({
       return change.value;
     });
   }, []);
+
+  const resetHistoryNavigation = useCallback(() => {
+    setHistoryState(createPromptHistoryNavigationState());
+  }, []);
+
+  const recordPromptHistory = useCallback((prompt: string): void => {
+    setLocalPromptHistory((prev) => appendPromptHistory(prev, prompt));
+  }, []);
+
+  const submitPrompt = useCallback(
+    (prompt: string): void => {
+      recordPromptHistory(prompt);
+      resetHistoryNavigation();
+      onSubmit(prompt);
+    },
+    [onSubmit, recordPromptHistory, resetHistoryNavigation],
+  );
 
   /** Tab: insert command into input field without executing */
   const tabCompleteCommand = useCallback(
@@ -109,9 +145,9 @@ export default function InputArea({
         return;
       }
       setValue('');
-      onSubmit(result.value);
+      submitPrompt(result.value);
     },
-    [value, onSubmit, setSelectedIndex],
+    [value, submitPrompt, setSelectedIndex],
   );
 
   const handleSubmit = useCallback(
@@ -131,9 +167,9 @@ export default function InputArea({
       pasteStore.current.clear();
       pasteIdRef.current = 0;
 
-      onSubmit(expanded);
+      submitPrompt(expanded);
     },
-    [showPopup, filteredCommands, selectedIndex, onSubmit, enterSelectCommand],
+    [showPopup, filteredCommands, selectedIndex, enterSelectCommand, submitPrompt],
   );
 
   useInput(
@@ -155,6 +191,18 @@ export default function InputArea({
       }
     },
     { isActive: showPopup && !isDisabled },
+  );
+
+  useInput(
+    (_input, key) => {
+      const action = getPromptHistoryInputAction(key);
+      if (!action) return;
+      const result = navigatePromptHistory(value, promptHistory, historyState, action);
+      setValue(result.value);
+      setCursorHint(result.cursorHint);
+      setHistoryState(result.state);
+    },
+    { isActive: !showPopup && !isDisabled && !pendingPrompt },
   );
 
   // Backspace cancels queued prompt
@@ -228,6 +276,7 @@ export default function InputArea({
               value={value}
               onChange={(v) => {
                 setValue(v);
+                resetHistoryNavigation();
                 setCursorHint(null); // reset after normal typing
               }}
               onSubmit={handleSubmit}
@@ -235,6 +284,7 @@ export default function InputArea({
               placeholder="Type a message or /help"
               availableWidth={availableWidth}
               cursorHint={cursorHint}
+              enableVerticalNavigation={false}
             />
           </Box>
         )}
