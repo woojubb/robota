@@ -118,6 +118,7 @@ export interface IAgentConfig {
 
   // Performance and limits
   timeout?: number;
+  maxExecutionRounds?: number;
   retryAttempts?: number;
   rateLimiting?: {
     enabled?: boolean;
@@ -166,6 +167,11 @@ export interface IRunOptions {
   signal?: AbortSignal;
   /** Per-run streaming text callback. Prefer this over mutating provider callback state. */
   onTextDelta?: TTextDeltaCallback;
+  /**
+   * Maximum model/tool rounds for this run.
+   * Use 0 for no core round cap.
+   */
+  maxExecutionRounds?: number;
 }
 
 /**
@@ -215,6 +221,7 @@ export interface IExtendedRunContext {
   maxTokens?: number;
   stream?: boolean;
   toolChoice?: 'auto' | 'none' | string;
+  maxExecutionRounds?: number;
   sessionId?: string;
   userId?: string;
   metadata?: TMetadata;

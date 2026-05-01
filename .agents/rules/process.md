@@ -11,5 +11,6 @@ This file routes to detailed rule documents. Each linked file contains the full 
 | [tdd-and-planning.md](tdd-and-planning.md) | TDD red-green-refactor, planning requirements, plan documentation                                      |
 | [verification.md](verification.md)         | Build requirements, browser verification, harness verification                                         |
 | [publish.md](publish.md)                   | Foundation dependency rule, publish safety gate, publish scope approval                                |
-| [operational.md](operational.md)           | No fallback policy, idea capture, prior art research, feature documentation                            |
+| [research.md](research.md)                 | Research-first implementation, documentation-only prior art, recommendation authority                  |
+| [operational.md](operational.md)           | No fallback policy, idea capture, feature documentation                                                |
 | [learning-loop.md](learning-loop.md)       | Convert repeated lessons into rules, hooks, harness checks, or tested automation                       |
