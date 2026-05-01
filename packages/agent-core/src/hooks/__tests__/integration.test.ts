@@ -139,6 +139,63 @@ describe('Hook flow integration', () => {
     expect(writeResult.blocked).toBe(false);
   });
 
+  it('should match SessionEnd hooks by reason', async () => {
+    const inputs: IHookInput[] = [];
+    const executor: IHookTypeExecutor = {
+      type: 'command',
+      async execute(_definition, input) {
+        inputs.push(input);
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    };
+    const config: THooksConfig = {
+      SessionEnd: [{ matcher: 'prompt_input_exit', hooks: [{ type: 'command', command: 'noop' }] }],
+    };
+
+    await runHooks(
+      config,
+      'SessionEnd',
+      {
+        session_id: 'integration-test',
+        cwd: process.cwd(),
+        hook_event_name: 'SessionEnd',
+        reason: 'prompt_input_exit',
+      },
+      [executor],
+    );
+
+    expect(inputs).toHaveLength(1);
+  });
+
+  it('should match subagent lifecycle hooks by agent type', async () => {
+    const inputs: IHookInput[] = [];
+    const executor: IHookTypeExecutor = {
+      type: 'command',
+      async execute(_definition, input) {
+        inputs.push(input);
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    };
+    const config: THooksConfig = {
+      SubagentStart: [{ matcher: 'designer', hooks: [{ type: 'command', command: 'noop' }] }],
+    };
+
+    await runHooks(
+      config,
+      'SubagentStart',
+      {
+        session_id: 'integration-test',
+        cwd: process.cwd(),
+        hook_event_name: 'SubagentStart',
+        agent_id: 'agent_1',
+        agent_type: 'designer',
+      },
+      [executor],
+    );
+
+    expect(inputs).toHaveLength(1);
+  });
+
   it('should return not blocked when config is undefined', async () => {
     const result = await runHooks(undefined, 'PreToolUse', baseInput);
     expect(result.blocked).toBe(false);

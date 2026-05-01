@@ -350,6 +350,10 @@ session.abort();
 // Cancel queued prompt without aborting current execution
 session.cancelQueue();
 
+// Graceful shutdown: reject new prompts, abort foreground work, cancel managed background tasks,
+// persist final session state, and fire SessionEnd through agent-sessions.
+await session.shutdown({ reason: 'prompt_input_exit', message: 'User requested exit' });
+
 // State queries
 session.isExecuting();       // boolean
 session.getPendingPrompt();  // string | null
@@ -396,6 +400,7 @@ interface IInteractiveSessionEvents {
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;
   interrupted: (result: IExecutionResult) => void;
+  background_task_event: (event: TBackgroundTaskEvent) => void;
 }
 ```
 
@@ -421,27 +426,32 @@ Common interface for all transport adapters. Defined in `src/interactive/types.t
 
 ### Background and Subagent Runtime Exports
 
-`BackgroundTaskManager` is re-exported from `agent-runtime` as the generic runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, terminal close/dismiss, optional send/log controls, and immutable state snapshots.
+`BackgroundTaskManager` is re-exported from `agent-runtime` as the generic runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, shutdown, terminal close/dismiss, optional send/log controls, watchdogs, and immutable state snapshots.
 
 Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reporting. The manager stamps task IDs onto runner events, updates `currentAction` for tool start/end events, and forwards the resulting `TBackgroundTaskEvent` to subscribers.
 
 Background task runtime exports:
 
-| Export                           | Kind      | Description                                                   |
-| -------------------------------- | --------- | ------------------------------------------------------------- |
-| `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler      |
-| `BackgroundTaskError`            | class     | Typed background task error with category and recoverability  |
-| `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/send |
-| `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters             |
-| `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers       |
-| `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task               |
-| `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests |
-| `IBackgroundTaskResult`          | interface | Completed background task output                              |
-| `TBackgroundTaskEvent`           | type      | Runtime-owned lifecycle/progress event union                  |
-| `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs            |
-| `TBackgroundTaskMode`            | type      | `foreground` or `background`                                  |
-| `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                            |
-| `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                            |
+| Export                           | Kind      | Description                                                            |
+| -------------------------------- | --------- | ---------------------------------------------------------------------- |
+| `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler               |
+| `BackgroundTaskError`            | class     | Typed background task error with category and recoverability           |
+| `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send |
+| `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters                      |
+| `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers                |
+| `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task                        |
+| `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests          |
+| `IBackgroundTaskResult`          | interface | Completed background task output                                       |
+| `TBackgroundTaskEvent`           | type      | Runtime-owned lifecycle/progress event union                           |
+| `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs                     |
+| `TBackgroundTaskMode`            | type      | `foreground` or `background`                                           |
+| `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                                     |
+| `TBackgroundTaskTimeoutReason`   | type      | Watchdog reason union projected onto failed task state                 |
+| `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                                     |
+
+Background agent watchdog configuration is provider-neutral. Agent requests may set `idleTimeoutMs`, `maxRuntimeMs`, `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold`; the runtime refreshes `lastActivityAt` from runner progress events and fails runaway jobs with `timeoutReason`.
+
+`InteractiveSession` subscribes to background task events, persists every event including streaming text deltas into the session record for local debugging/resume, and emits `background_task_event` for transports and TUI state projection. It also maps background agent lifecycle events into Claude Code-compatible `SubagentStart` and `SubagentStop` hooks.
 
 `SubagentManager` and its associated types are exported for clients that need to compose managed subagent execution. It is now a compatibility facade over `BackgroundTaskManager` for `kind: 'agent'` tasks, preserving the existing subagent API while moving lifecycle semantics to the shared background layer.
 

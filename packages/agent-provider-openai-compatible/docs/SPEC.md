@@ -41,14 +41,14 @@ The package is a functional core for provider transport logic. Concrete provider
 
 ## Public API Surface
 
-| Export                              | Kind         | Description                                                                            |
-| ----------------------------------- | ------------ | -------------------------------------------------------------------------------------- |
-| `convertToOpenAICompatibleMessages` | function     | Converts `TUniversalMessage[]` to OpenAI Chat Completions messages.                    |
-| `convertToOpenAICompatibleTools`    | function     | Converts Robota `IToolSchema[]` to OpenAI function tools.                              |
-| `OpenAICompatibleResponseParser`    | class        | Parses full responses and streaming chunks into `TUniversalMessage`.                   |
-| `assembleOpenAICompatibleStream`    | function     | Assembles streaming chunks into one assistant message and emits projected text deltas. |
-| `probeOpenAICompatibleProfile`      | function     | Probes a profile's `/models` endpoint without making concrete provider assumptions.    |
-| types from `types.ts`               | type exports | Transport request, logging, error, and projection contracts.                           |
+| Export                              | Kind         | Description                                                                                                               |
+| ----------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `convertToOpenAICompatibleMessages` | function     | Converts `TUniversalMessage[]` to OpenAI Chat Completions messages.                                                       |
+| `convertToOpenAICompatibleTools`    | function     | Converts Robota `IToolSchema[]` to OpenAI function tools.                                                                 |
+| `OpenAICompatibleResponseParser`    | class        | Parses full responses and streaming chunks into `TUniversalMessage`.                                                      |
+| `assembleOpenAICompatibleStream`    | function     | Assembles streaming chunks into one assistant message, emits projected text deltas, and exits deterministically on abort. |
+| `probeOpenAICompatibleProfile`      | function     | Probes a profile's `/models` endpoint without making concrete provider assumptions.                                       |
+| types from `types.ts`               | type exports | Transport request, logging, error, and projection contracts.                                                              |
 
 ## Extension Points
 
@@ -69,7 +69,7 @@ The package is a functional core for provider transport logic. Concrete provider
 
 - Unit tests cover message conversion for user, assistant, system, tool, and function tools.
 - Unit tests cover full response parsing and streaming chunk parsing.
-- Unit tests cover stream assembly with text delta callbacks, tool-call assembly, abort handling, optional projection, and projector flush behavior.
+- Unit tests cover stream assembly with text delta callbacks, tool-call assembly, abort handling while awaiting the next chunk, optional projection, and projector flush behavior.
 - Unit tests cover endpoint probe skip, success, and HTTP failure behavior.
 - Provider packages must add integration tests proving they compose this package without changing their public behavior.
 

@@ -7,12 +7,25 @@ export type THookEvent =
   | 'PreToolUse'
   | 'PostToolUse'
   | 'SessionStart'
+  | 'SessionEnd'
   | 'Stop'
+  | 'StopFailure'
   | 'PreCompact'
   | 'PostCompact'
   | 'UserPromptSubmit'
+  | 'SubagentStart'
+  | 'SubagentStop'
   | 'WorktreeCreate'
   | 'WorktreeRemove';
+
+/** Claude Code compatible session end reasons. */
+export type TSessionEndReason =
+  | 'clear'
+  | 'resume'
+  | 'logout'
+  | 'prompt_input_exit'
+  | 'bypass_permissions_disabled'
+  | 'other';
 
 /** Command hook — executes a shell command */
 export interface ICommandHookDefinition {
@@ -81,6 +94,20 @@ export interface IHookInput {
   prompt?: string;
   /** Assistant response text (Stop only) */
   response?: string;
+  /** Last assistant message text (StopFailure only) */
+  last_assistant_message?: string;
+  /** Stop hook recursion guard (Stop/StopFailure only) */
+  stop_hook_active?: boolean;
+  /** Session end reason (SessionEnd only) */
+  reason?: TSessionEndReason | string;
+  /** Session transcript path when available (SessionEnd/SubagentStop only) */
+  transcript_path?: string;
+  /** Subagent identifier (SubagentStart/SubagentStop only) */
+  agent_id?: string;
+  /** Subagent type/name (SubagentStart/SubagentStop only) */
+  agent_type?: string;
+  /** Subagent transcript path when available (SubagentStop only) */
+  agent_transcript_path?: string;
   /** Additional environment variables to pass to hook child processes */
   env?: Record<string, string>;
 }

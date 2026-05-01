@@ -217,6 +217,7 @@ export {
 // Hooks
 export type {
   THookEvent,
+  TSessionEndReason,
   THooksConfig,
   IHookGroup,
   ICommandHookDefinition,

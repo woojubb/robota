@@ -1,8 +1,8 @@
 # CLI-BL-035 Background Agent Watchdogs
 
-- **Status**: todo
+- **Status**: completed
 - **Created**: 2026-05-01
-- **Branch**: TBD
+- **Branch**: feat/gemma-provider-transport
 - **Scope**: packages/agent-core, packages/agent-sessions, packages/agent-runtime, packages/agent-sdk, packages/agent-cli, packages/agent-provider-openai-compatible, packages/agent-provider-gemma, packages/agent-provider-openai
 
 ## Objective
@@ -483,6 +483,13 @@ pnpm harness:scan
 - Added implementation, test, logging, TUI, and resume reconciliation requirements.
 - Added SDK-owned shutdown requirements so Ctrl+C and other host exits terminate managed background agents/processes without putting lifecycle logic in CLI.
 - Aligned shutdown hooks with Claude Code hook events and ordering, including `SessionEnd`, `SubagentStart`, `SubagentStop`, `Stop`, and `StopFailure`.
+- Implemented runtime agent watchdogs for idle timeout, hard max runtime, output byte/delta budget, repeated-output detection, and legacy agent `timeoutMs` compatibility.
+- Implemented `BackgroundTaskManager.shutdown()` and `InteractiveSession.shutdown()` so queued/running managed tasks are cancelled through SDK/runtime lifecycle before host exit.
+- Added `SessionEnd`, `StopFailure`, `SubagentStart`, and `SubagentStop` hook events and wired background task lifecycle to subagent hooks.
+- Updated CLI TUI, `/exit`, setup/restart paths, headless mode, Ctrl+C, `SIGINT`, and `SIGTERM` to call SDK shutdown instead of bypassing managed background cleanup.
+- Persisted background text deltas and reconciled restored non-terminal background tasks to `stale_worker` when live reattachment is unavailable.
+- Hardened OpenAI-compatible stream assembly and the core provider stream wrapper so abort can settle even while awaiting the next provider chunk.
+- Updated affected package SPEC files and split new manager/runner helper modules to keep changed runtime/CLI files within the package structure rules.
 
 ## Blockers
 
@@ -490,4 +497,4 @@ pnpm harness:scan
 
 ## Result
 
-Pending implementation.
+Implemented and verified. `pnpm harness:scan` exits successfully; it still reports the repository's existing file-size backlog warnings for unrelated and previously large files.

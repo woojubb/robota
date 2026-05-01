@@ -384,8 +384,8 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 1. Creates `InteractiveSession({ cwd, provider, commandModules })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
-4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
+4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
 5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
 6. Manages the permission queue (serialises concurrent permission requests).
 
@@ -630,7 +630,7 @@ robota --version                    # Version
 
 ### Print Mode and Headless Transport
 
-Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, and exits with `transport.getExitCode()`.
+Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, then calls `session.shutdown({ reason: 'prompt_input_exit' })` before exiting with `transport.getExitCode()`.
 
 Any command modules supplied to `startCli({ commandModules })` are passed to the same `InteractiveSession` in both print mode and TUI mode.
 
@@ -795,9 +795,11 @@ System: Interrupted by user.   ← MessageList (abort only)
 - On complete/interrupt/error: `InteractiveSession.pushToolSummaryMessage()` inserts a formatted tool summary into the `messages` array BEFORE the Robota response. Then `activeTools` is cleared and `StreamingIndicator` disappears.
 - Result: Tool → Robota order is preserved in both real-time and final state. Tool information transitions from `StreamingIndicator` (live) to `MessageList` (permanent).
 
-### Ctrl+C — Process Exit
+### Ctrl+C — Graceful Shutdown
 
-Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtrlC: true` option at the render level, bypassing all `useInput` handlers. It works regardless of which UI overlay is active (PluginTUI, permission prompt, etc.).
+Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `useInteractiveSession.handleShutdown('prompt_input_exit')`. That delegates to `InteractiveSession.shutdown()`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
+
+Slash-command restarts and exits (`/exit`, provider/model/language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 
 ### ESC — Abort Execution
 
@@ -920,6 +922,8 @@ Subagent execution (Agent tool, fork sessions, agent definition loading) is mana
 The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
 
 The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner starts a child Node worker and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
+
+`child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
 
 Agent command behavior is not owned by the TUI. The Robota binary can compose `@robota-sdk/agent-command-agent` as a default command module, but reusable CLI UI code only handles generic command modules.
 

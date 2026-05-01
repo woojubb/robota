@@ -24,6 +24,8 @@ function createSessionStub(): Session {
       usedPercentage: 0,
       remainingPercentage: 100,
     }),
+    abort: vi.fn(),
+    shutdown: vi.fn().mockResolvedValue(undefined),
   } as unknown as Session;
 }
 
@@ -31,7 +33,9 @@ function createSessionStoreStub() {
   const records = new Map<string, unknown>();
   return {
     load: vi.fn((id: string) => records.get(id)),
-    save: vi.fn((record: { id: string }) => records.set(record.id, record)),
+    save: vi.fn((record: { id: string } & Record<string, unknown>) =>
+      records.set(record.id, record),
+    ),
     list: vi.fn(() => [...records.values()]),
     delete: vi.fn((id: string) => records.delete(id)),
   };
@@ -108,7 +112,7 @@ describe('InteractiveSession background task integration', () => {
     expect(interactiveSession.listBackgroundTasks()).toHaveLength(0);
   });
 
-  it('persists background task snapshots while keeping streaming deltas out of session JSON', async () => {
+  it('persists background task snapshots and streaming deltas into session JSON', async () => {
     const runner: IBackgroundTaskRunner = {
       kind: 'agent',
       start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
@@ -147,8 +151,94 @@ describe('InteractiveSession background task integration', () => {
     expect(lastSaved.backgroundTaskEvents?.map((event) => event.type)).toContain(
       'background_task_completed',
     );
-    expect(lastSaved.backgroundTaskEvents?.map((event) => event.type)).not.toContain(
+    expect(lastSaved.backgroundTaskEvents?.map((event) => event.type)).toContain(
       'background_task_text_delta',
     );
+  });
+
+  it('shutdown cancels background tasks through the manager and ends the session once', async () => {
+    let cancelReason = '';
+    const runner: IBackgroundTaskRunner = {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        return {
+          taskId: task.taskId,
+          result: new Promise<IBackgroundTaskResult>(() => {}),
+          cancel: (reason?: string) => {
+            cancelReason = reason ?? '';
+            return Promise.resolve();
+          },
+        };
+      },
+    };
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const interactiveSession = new InteractiveSession({ session: sessionStub });
+
+    const created = await manager.spawn(createAgentRequest('Find files'));
+    await interactiveSession.shutdown({
+      reason: 'prompt_input_exit',
+      message: 'Ctrl-C shutdown',
+    });
+    await interactiveSession.shutdown({ reason: 'other', message: 'ignored' });
+
+    expect(cancelReason).toBe('Ctrl-C shutdown');
+    expect(manager.get(created.id)?.status).toBe('cancelled');
+    expect(sessionStub.abort).toHaveBeenCalledTimes(1);
+    expect(sessionStub.shutdown).toHaveBeenCalledTimes(1);
+    expect(sessionStub.shutdown).toHaveBeenCalledWith({ reason: 'prompt_input_exit' });
+  });
+
+  it('marks restored running background tasks as stale when they cannot be reattached', () => {
+    const sessionStub = createSessionStub();
+    const sessionStore = createSessionStoreStub();
+    sessionStore.save({
+      id: 'session_stale',
+      cwd: '/workspace',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+      messages: [],
+      history: [],
+      backgroundTasks: [
+        {
+          id: 'agent_stale',
+          kind: 'agent',
+          label: 'Explore',
+          agentType: 'Explore',
+          status: 'running',
+          mode: 'background',
+          parentSessionId: 'session_stale',
+          depth: 1,
+          cwd: '/workspace',
+          updatedAt: '2026-05-01T00:00:00.000Z',
+          unread: false,
+          promptPreview: 'Find files',
+        },
+      ],
+      backgroundTaskEvents: [],
+    });
+
+    new InteractiveSession({
+      session: sessionStub,
+      sessionStore: sessionStore as never,
+      resumeSessionId: 'session_stale',
+    });
+
+    const lastSaved = sessionStore.save.mock.calls.at(-1)?.[0] as {
+      backgroundTasks?: Array<{ id: string; status: string; timeoutReason?: string }>;
+      backgroundTaskEvents?: Array<{ type: string; task?: { id: string } }>;
+    };
+    expect(lastSaved.backgroundTasks?.[0]).toMatchObject({
+      id: 'agent_stale',
+      status: 'failed',
+      timeoutReason: 'stale_worker',
+    });
+    expect(lastSaved.backgroundTaskEvents?.at(-1)).toMatchObject({
+      type: 'background_task_failed',
+      task: { id: 'agent_stale' },
+    });
   });
 });

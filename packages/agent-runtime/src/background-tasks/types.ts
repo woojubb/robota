@@ -14,6 +14,13 @@ export type TBackgroundTaskStatus =
 
 export type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
 
+export type TBackgroundTaskTimeoutReason =
+  | 'idle'
+  | 'max_runtime'
+  | 'output_limit'
+  | 'repetition'
+  | 'stale_worker';
+
 export type TBackgroundTaskErrorCategory =
   | 'validation'
   | 'capacity'
@@ -63,6 +70,8 @@ export interface IBaseBackgroundTaskRequest {
   depth: number;
   cwd: string;
   timeoutMs?: number;
+  idleTimeoutMs?: number;
+  maxRuntimeMs?: number;
 }
 
 export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
@@ -75,6 +84,10 @@ export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest 
   disallowedTools?: string[];
   permissionPolicy: TBackgroundPermissionPolicy;
   providerProfile?: ISerializableProviderProfile;
+  outputLimitBytes?: number;
+  maxTextDeltas?: number;
+  repetitionWindow?: number;
+  repetitionThreshold?: number;
 }
 
 export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
@@ -111,6 +124,7 @@ export interface IBackgroundTaskState {
   pid?: number;
   startedAt?: string;
   updatedAt: string;
+  lastActivityAt?: string;
   completedAt?: string;
   promptPreview?: string;
   commandPreview?: string;
@@ -123,6 +137,7 @@ export interface IBackgroundTaskState {
   transcriptPath?: string;
   worktreePath?: string;
   branchName?: string;
+  timeoutReason?: TBackgroundTaskTimeoutReason;
 }
 
 export interface IBackgroundTaskInput {
@@ -222,6 +237,7 @@ export interface IBackgroundTaskManager {
   get(taskId: string): IBackgroundTaskState | undefined;
   cancel(taskId: string, reason?: string): Promise<void>;
   close(taskId: string): Promise<void>;
+  shutdown(reason?: string): Promise<void>;
   send(taskId: string, input: IBackgroundTaskInput): Promise<void>;
   readLog(taskId: string, cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
   subscribe(listener: TBackgroundTaskEventListener): () => void;
@@ -234,4 +250,10 @@ export interface IBackgroundTaskManagerOptions {
   now?: () => string;
   idFactory?: TBackgroundTaskIdFactory;
   eventSink?: TBackgroundTaskEventListener;
+  agentIdleTimeoutMs?: number;
+  agentMaxRuntimeMs?: number;
+  agentOutputLimitBytes?: number;
+  agentMaxTextDeltas?: number;
+  repetitionWindow?: number;
+  repetitionThreshold?: number;
 }

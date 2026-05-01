@@ -37,6 +37,7 @@ function makeManager(spawn = vi.fn()): IBackgroundTaskManager {
     close: vi.fn(),
     send: vi.fn(),
     readLog: vi.fn(),
+    shutdown: vi.fn(),
     subscribe: vi.fn(),
   };
 }
