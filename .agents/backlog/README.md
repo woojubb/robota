@@ -19,3 +19,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |
 | [openai-provider-modernization.md](openai-provider-modernization.md)           | OpenAI provider modernization                                 |
 | [qwen-api-provider.md](qwen-api-provider.md)                                   | Qwen API provider support                                     |
+| [scoped-verification-hooks-and-ci.md](scoped-verification-hooks-and-ci.md)     | Scoped verification hooks and CI                              |

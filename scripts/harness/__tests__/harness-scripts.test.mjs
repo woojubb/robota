@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, it, expect } from 'vitest';
 import {
   parseScopeArgs,
   classifyScopeChanges,
+  classifyPackageManifestChange,
   mapFilesToScopes,
+  resolveBaseRef,
   resolveRequestedScopes,
 } from '../shared.mjs';
 
@@ -40,6 +44,11 @@ describe('parseScopeArgs', () => {
     expect(result.includeScenarios).toBe(true);
   });
 
+  it('parses --skip-repository-checks flag', () => {
+    const result = parseScopeArgs(['--skip-repository-checks']);
+    expect(result.skipRepositoryChecks).toBe(true);
+  });
+
   it('parses --report-file path and --report-format json', () => {
     const result = parseScopeArgs(['--report-file', 'output.json', '--report-format', 'json']);
     expect(result.reportFile).toBe('output.json');
@@ -70,14 +79,141 @@ describe('parseScopeArgs', () => {
     expect(result).toEqual({
       scopeTokens: [],
       dryRun: false,
+      skipBuild: false,
       skipTests: false,
       skipLint: false,
       skipTypecheck: false,
       includeScenarios: false,
+      skipRecordCheck: false,
+      skipRepositoryChecks: false,
       reportFile: null,
       reportFormat: null,
       baseRef: null,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pre-push hook
+// ---------------------------------------------------------------------------
+describe('pre-push hook', () => {
+  it('delegates to harness:pre-push without hardcoding origin/main or dist scan', () => {
+    const content = readFileSync('.husky/pre-push', 'utf8');
+
+    expect(content).toContain('pnpm harness:pre-push');
+    expect(content).not.toContain('origin/main');
+    expect(content).not.toContain('harness:scan:dist');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveBaseRef
+// ---------------------------------------------------------------------------
+describe('resolveBaseRef', () => {
+  it('uses an explicit base ref without probing fallback refs', () => {
+    const result = resolveBaseRef({
+      explicitBaseRef: 'origin/custom',
+      env: {},
+      refExists: () => false,
+    });
+
+    expect(result).toBe('origin/custom');
+  });
+
+  it('uses HARNESS_BASE_REF before GitHub base refs', () => {
+    const result = resolveBaseRef({
+      explicitBaseRef: null,
+      env: {
+        HARNESS_BASE_REF: 'origin/release',
+        GITHUB_BASE_REF: 'main',
+      },
+      refExists: (ref) => ref === 'origin/release' || ref === 'origin/main',
+    });
+
+    expect(result).toBe('origin/release');
+  });
+
+  it('prefers origin GitHub base refs when running in pull request context', () => {
+    const result = resolveBaseRef({
+      explicitBaseRef: null,
+      env: {
+        GITHUB_BASE_REF: 'main',
+      },
+      refExists: (ref) => ref === 'origin/main',
+    });
+
+    expect(result).toBe('origin/main');
+  });
+
+  it('defaults feature branch development to origin/develop when available', () => {
+    const result = resolveBaseRef({
+      explicitBaseRef: null,
+      env: {},
+      refExists: (ref) => ref === 'origin/develop' || ref === 'origin/main',
+    });
+
+    expect(result).toBe('origin/develop');
+  });
+
+  it('falls back to main only when develop refs are unavailable', () => {
+    const result = resolveBaseRef({
+      explicitBaseRef: null,
+      env: {},
+      refExists: (ref) => ref === 'main',
+    });
+
+    expect(result).toBe('main');
+  });
+
+  it('returns null when no candidate refs exist', () => {
+    const result = resolveBaseRef({
+      explicitBaseRef: null,
+      env: {},
+      refExists: () => false,
+    });
+
+    expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyPackageManifestChange
+// ---------------------------------------------------------------------------
+describe('classifyPackageManifestChange', () => {
+  it('detects version-only package manifest changes', () => {
+    const result = classifyPackageManifestChange({
+      before: { name: '@robota-sdk/agent-core', version: '1.0.0' },
+      after: { name: '@robota-sdk/agent-core', version: '1.0.1' },
+    });
+
+    expect(result.kind).toBe('version-only');
+    expect(result.hasVersionOnlyChanges).toBe(true);
+    expect(result.needsSourceHeavyChecks).toBe(false);
+  });
+
+  it('detects dependency package manifest changes', () => {
+    const result = classifyPackageManifestChange({
+      before: { name: '@robota-sdk/agent-core', dependencies: { zod: '^3.0.0' } },
+      after: { name: '@robota-sdk/agent-core', dependencies: { zod: '^4.0.0' } },
+    });
+
+    expect(result.kind).toBe('dependency');
+    expect(result.hasDependencyChanges).toBe(true);
+    expect(result.needsSourceHeavyChecks).toBe(true);
+  });
+
+  it('detects public surface package manifest changes', () => {
+    const result = classifyPackageManifestChange({
+      before: { name: '@robota-sdk/agent-core', exports: { '.': './dist/index.js' } },
+      after: {
+        name: '@robota-sdk/agent-core',
+        exports: { '.': './dist/index.js', './tools': './dist/tools.js' },
+      },
+    });
+
+    expect(result.kind).toBe('public-surface');
+    expect(result.hasPublicSurfaceChanges).toBe(true);
+    expect(result.needsSourceHeavyChecks).toBe(true);
   });
 });
 
@@ -93,14 +229,15 @@ describe('classifyScopeChanges', () => {
     hasTsconfig: true,
   };
 
-  it('detects source changes for files in src/', () => {
+  it('detects production source changes for files in src/', () => {
     const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.ts'], false);
     expect(result.hasSourceChanges).toBe(true);
   });
 
-  it('detects test changes for .test.ts files', () => {
+  it('detects test changes for .test.ts files without classifying them as production source', () => {
     const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.test.ts'], false);
     expect(result.hasTestChanges).toBe(true);
+    expect(result.hasSourceChanges).toBe(false);
   });
 
   it('detects test changes for files in __tests__/', () => {
@@ -138,9 +275,36 @@ describe('classifyScopeChanges', () => {
     expect(result.needsBuild).toBe(true);
   });
 
-  it('sets needsBuild = true when config changes exist', () => {
-    const result = classifyScopeChanges(scope, ['packages/agent-core/package.json'], false);
+  it('does not run source-heavy checks for version-only package manifest changes', () => {
+    const manifestChange = classifyPackageManifestChange({
+      before: { name: '@robota-sdk/agent-core', version: '1.0.0' },
+      after: { name: '@robota-sdk/agent-core', version: '1.0.1' },
+    });
+    const result = classifyScopeChanges(scope, ['packages/agent-core/package.json'], false, {
+      manifestChange,
+    });
+
+    expect(result.hasVersionOnlyManifestChanges).toBe(true);
+    expect(result.needsBuild).toBe(false);
+    expect(result.needsTest).toBe(false);
+    expect(result.needsLint).toBe(false);
+    expect(result.needsTypecheck).toBe(false);
+  });
+
+  it('runs build and typecheck for dependency package manifest changes', () => {
+    const manifestChange = classifyPackageManifestChange({
+      before: { name: '@robota-sdk/agent-core', dependencies: { zod: '^3.0.0' } },
+      after: { name: '@robota-sdk/agent-core', dependencies: { zod: '^4.0.0' } },
+    });
+    const result = classifyScopeChanges(scope, ['packages/agent-core/package.json'], false, {
+      manifestChange,
+    });
+
+    expect(result.hasDependencyManifestChanges).toBe(true);
     expect(result.needsBuild).toBe(true);
+    expect(result.needsTypecheck).toBe(true);
+    expect(result.needsTest).toBe(false);
+    expect(result.needsLint).toBe(false);
   });
 
   it('sets needsTest = true when source changes exist', () => {
@@ -179,10 +343,9 @@ describe('classifyScopeChanges', () => {
     expect(result.needsTypecheck).toBe(true);
   });
 
-  it('sets needsBuild = true when test files are under src/', () => {
-    // Test files under src/ trigger hasSourceChanges, so needsBuild is true
+  it('sets needsBuild = false when test files are under src/', () => {
     const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.test.ts'], false);
-    expect(result.needsBuild).toBe(true);
+    expect(result.needsBuild).toBe(false);
   });
 
   it('sets needsBuild = false when test files are only in __tests__/', () => {
