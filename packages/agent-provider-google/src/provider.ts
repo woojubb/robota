@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import type { IGoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import type {
@@ -33,7 +33,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
   override readonly name = 'google';
   override readonly version = '1.0.0';
 
-  private readonly client?: GoogleGenerativeAI;
+  private readonly client?: GoogleGenAI;
   private readonly options: IGoogleProviderOptions;
 
   constructor(options: IGoogleProviderOptions) {
@@ -45,7 +45,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     if (!this.executor) {
-      this.client = new GoogleGenerativeAI(options.apiKey);
+      this.client = new GoogleGenAI({ apiKey: options.apiKey });
     }
   }
 

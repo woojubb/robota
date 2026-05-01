@@ -146,9 +146,9 @@ describe('convertToGeminiFormat', () => {
     const result = convertToGeminiFormat(messages);
     expect(result[0]?.role).toBe('model');
     expect(result[0]?.parts).toHaveLength(2);
-    expect(result[0]?.parts[0]).toEqual({ text: 'Let me check' });
-    expect(result[0]?.parts[1]).toEqual({
-      functionCall: { name: 'get_weather', args: { city: 'Seoul' } },
+    expect(result[0]?.parts?.[0]).toEqual({ text: 'Let me check' });
+    expect(result[0]?.parts?.[1]).toEqual({
+      functionCall: { id: 'call_1', name: 'get_weather', args: { city: 'Seoul' } },
     });
   });
 
@@ -174,7 +174,7 @@ describe('convertToGeminiFormat', () => {
     expect(result[0]?.role).toBe('model');
     // Should have only the function call part since content is null
     expect(result[0]?.parts).toHaveLength(1);
-    expect(result[0]?.parts[0]).toHaveProperty('functionCall');
+    expect(result[0]?.parts?.[0]).toHaveProperty('functionCall');
   });
 
   it('converts tool messages with role "user"', () => {
@@ -330,6 +330,7 @@ describe('convertFromGeminiResponse', () => {
             parts: [
               {
                 functionCall: {
+                  id: 'gemini-call-1',
                   name: 'get_weather',
                   args: { city: 'Seoul' },
                 },
@@ -345,7 +346,28 @@ describe('convertFromGeminiResponse', () => {
     expect(result.toolCalls![0]?.function.name).toBe('get_weather');
     expect(result.toolCalls![0]?.function.arguments).toBe('{"city":"Seoul"}');
     expect(result.toolCalls![0]?.type).toBe('function');
-    expect(result.toolCalls![0]?.id).toMatch(/^call_/);
+    expect(result.toolCalls![0]?.id).toBe('gemini-call-1');
+  });
+
+  it('generates a fallback function call id when Gemini response omits one', () => {
+    const response = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                functionCall: {
+                  name: 'get_weather',
+                  args: { city: 'Seoul' },
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const result = convertFromGeminiResponse(response as never) as IAssistantMessage;
+    expect(result.toolCalls?.[0]?.id).toMatch(/^call_/);
   });
 
   it('handles mixed text and function call parts', () => {
@@ -507,7 +529,13 @@ describe('convertToolsToGeminiFormat', () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe('get_weather');
     expect(result[0]?.description).toBe('Get weather information');
-    expect(result[0]?.parameters).toEqual(tools[0]?.parameters);
+    expect(result[0]?.parameters).toEqual({
+      type: 'OBJECT',
+      properties: {
+        city: { type: 'STRING', description: 'City name' },
+      },
+      required: ['city'],
+    });
   });
 
   it('converts multiple tools', () => {

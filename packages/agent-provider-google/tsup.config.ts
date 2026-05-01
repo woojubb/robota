@@ -26,7 +26,7 @@ export default defineConfig([
     external: [
       // External dependencies that should not be bundled
       /^@robota-sdk\/.*/, // All @robota-sdk packages
-      '@google/generative-ai',
+      '@google/genai',
     ],
   },
   // Browser build
@@ -39,7 +39,7 @@ export default defineConfig([
     external: [
       // External dependencies that should not be bundled
       /^@robota-sdk\/.*/, // All @robota-sdk packages
-      '@google/generative-ai',
+      '@google/genai',
     ],
     define: {
       'process.env.NODE_ENV': '"production"',

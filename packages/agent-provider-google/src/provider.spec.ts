@@ -3,6 +3,7 @@ import { GoogleProvider } from './provider';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 interface IGenerateContentInput {
+  model: string;
   contents: Array<{
     role: 'user' | 'model';
     parts: Array<{
@@ -12,12 +13,13 @@ interface IGenerateContentInput {
         data: string;
       };
       functionCall?: {
+        id?: string;
         name: string;
-        args: Record<string, any>;
+        args: Record<string, string | number | boolean | object>;
       };
     }>;
   }>;
-  generationConfig?: {
+  config?: {
     temperature?: number;
     maxOutputTokens?: number;
     responseModalities?: Array<'TEXT' | 'IMAGE'>;
@@ -27,39 +29,42 @@ interface IGenerateContentInput {
 const generateContentMock = vi.fn<
   [IGenerateContentInput],
   Promise<{
-    response: {
-      candidates: Array<{
-        content: {
-          parts: Array<{
-            text?: string;
-            inlineData?: {
-              mimeType: string;
-              data: string;
-            };
-          }>;
-        };
-      }>;
-    };
+    candidates: Array<{
+      content: {
+        parts: Array<{
+          text?: string;
+          inlineData?: {
+            mimeType: string;
+            data: string;
+          };
+        }>;
+      };
+    }>;
   }>
 >();
 
-vi.mock('@google/generative-ai', () => {
-  class GoogleGenerativeAI {
-    public constructor(_apiKey: string) {}
+vi.mock('@google/genai', () => {
+  class GoogleGenAI {
+    public readonly models = {
+      generateContent: generateContentMock,
+      async *generateContentStream(): AsyncIterable<{ text: string }> {
+        yield { text: '' };
+      },
+    };
 
-    public getGenerativeModel(_options: { model: string }): {
-      generateContent: (input: IGenerateContentInput) => ReturnType<typeof generateContentMock>;
-      generateContentStream: () => AsyncIterable<{ text: () => string }>;
-    } {
-      return {
-        generateContent: generateContentMock,
-        async *generateContentStream(): AsyncIterable<{ text: () => string }> {
-          yield { text: () => '' };
-        },
-      };
-    }
+    public constructor(_options: { apiKey: string }) {}
   }
-  return { GoogleGenerativeAI };
+  return {
+    GoogleGenAI,
+    Type: {
+      STRING: 'STRING',
+      NUMBER: 'NUMBER',
+      INTEGER: 'INTEGER',
+      BOOLEAN: 'BOOLEAN',
+      ARRAY: 'ARRAY',
+      OBJECT: 'OBJECT',
+    },
+  };
 });
 
 describe('GoogleProvider image support', () => {
@@ -69,23 +74,21 @@ describe('GoogleProvider image support', () => {
 
   it('maps inline image output from Gemini response to assistant parts', async () => {
     generateContentMock.mockResolvedValue({
-      response: {
-        candidates: [
-          {
-            content: {
-              parts: [
-                { text: 'created' },
-                {
-                  inlineData: {
-                    mimeType: 'image/png',
-                    data: 'ZmFrZS1pbWFnZS1kYXRh',
-                  },
+      candidates: [
+        {
+          content: {
+            parts: [
+              { text: 'created' },
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'ZmFrZS1pbWFnZS1kYXRh',
                 },
-              ],
-            },
+              },
+            ],
           },
-        ],
-      },
+        },
+      ],
     });
 
     const provider = new GoogleProvider({ apiKey: 'test-key' });
@@ -112,23 +115,21 @@ describe('GoogleProvider image support', () => {
 
   it('maps inline image input parts into Gemini inlineData request parts', async () => {
     generateContentMock.mockResolvedValue({
-      response: {
-        candidates: [
-          {
-            content: {
-              parts: [
-                { text: 'ok' },
-                {
-                  inlineData: {
-                    mimeType: 'image/png',
-                    data: 'ZmFrZS1pbWFnZS1kYXRh',
-                  },
+      candidates: [
+        {
+          content: {
+            parts: [
+              { text: 'ok' },
+              {
+                inlineData: {
+                  mimeType: 'image/png',
+                  data: 'ZmFrZS1pbWFnZS1kYXRh',
                 },
-              ],
-            },
+              },
+            ],
           },
-        ],
-      },
+        },
+      ],
     });
 
     const provider = new GoogleProvider({ apiKey: 'test-key' });
@@ -160,7 +161,7 @@ describe('GoogleProvider image support', () => {
     const calledPayload = generateContentMock.mock.calls[0]?.[0];
     expect(calledPayload.contents[0]?.parts[0]?.inlineData?.mimeType).toBe('image/png');
     expect(calledPayload.contents[0]?.parts[1]?.text).toBe('edit this image');
-    expect(calledPayload.generationConfig?.responseModalities).toEqual(['TEXT', 'IMAGE']);
+    expect(calledPayload.config?.responseModalities).toEqual(['TEXT', 'IMAGE']);
   });
 
   it('throws when image modality is requested with non-image model', async () => {
