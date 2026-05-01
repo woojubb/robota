@@ -1,0 +1,99 @@
+import type { ICommandResult } from './system-command.js';
+import type { InteractiveSession } from '../interactive/interactive-session.js';
+import {
+  ProjectMemoryStore,
+  isMemoryType,
+  type TMemoryType,
+} from '../memory/project-memory-store.js';
+
+const SUBCOMMAND_INDEX = 0;
+const TYPE_INDEX = 1;
+const TOPIC_INDEX = 2;
+const TEXT_START_INDEX = 3;
+
+function usage(): ICommandResult {
+  return {
+    message:
+      'Usage: memory list | memory show [topic] | memory add <user|feedback|project|reference> <topic> <text>',
+    success: false,
+  };
+}
+
+function formatList(store: ProjectMemoryStore): ICommandResult {
+  const summary = store.list();
+  const topics =
+    summary.topics.length > 0
+      ? summary.topics.map((topic) => `- ${topic.name}: ${topic.path}`).join('\n')
+      : '(none)';
+
+  return {
+    message: [
+      `Memory index: ${summary.indexPath}`,
+      `Topics directory: ${summary.topicsPath}`,
+      'Topics:',
+      topics,
+    ].join('\n'),
+    success: true,
+    data: {
+      indexPath: summary.indexPath,
+      topicsPath: summary.topicsPath,
+      topicCount: summary.topics.length,
+    },
+  };
+}
+
+function formatShow(store: ProjectMemoryStore, topic?: string): ICommandResult {
+  if (!topic || topic === 'index') {
+    const memory = store.loadStartupMemory();
+    return {
+      message: memory.content || '(empty memory index)',
+      success: true,
+      data: {
+        path: memory.path,
+        lineCount: memory.lineCount,
+        truncated: memory.truncated,
+      },
+    };
+  }
+
+  const content = store.readTopic(topic);
+  return {
+    message: content || `(empty memory topic: ${topic})`,
+    success: true,
+    data: { topic },
+  };
+}
+
+function parseAdd(args: string[]): { type: TMemoryType; topic: string; text: string } | undefined {
+  const type = args[TYPE_INDEX];
+  const topic = args[TOPIC_INDEX];
+  const text = args.slice(TEXT_START_INDEX).join(' ').trim();
+
+  if (!type || !isMemoryType(type) || !topic || text.length === 0) return undefined;
+  return { type, topic, text };
+}
+
+export function executeMemoryCommand(session: InteractiveSession, rawArgs: string): ICommandResult {
+  const args = rawArgs.trim().split(/\s+/).filter(Boolean);
+  const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
+  const store = new ProjectMemoryStore(session.getCwd());
+
+  if (subcommand === 'list') return formatList(store);
+  if (subcommand === 'show') return formatShow(store, args[TYPE_INDEX]);
+  if (subcommand === 'add') {
+    const input = parseAdd(args);
+    if (!input) return usage();
+    const result = store.append(input);
+    return {
+      message: `Saved ${input.type} memory to ${result.topicPath}`,
+      success: true,
+      data: {
+        indexPath: result.indexPath,
+        topicPath: result.topicPath,
+        topic: result.topic,
+      },
+    };
+  }
+
+  return usage();
+}

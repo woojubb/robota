@@ -7,6 +7,7 @@ import {
   createCapabilitySections,
   createClaudeMdSection,
   createPermissionSection,
+  createProjectMemorySection,
   createProjectSection,
   createResponseLanguageSection,
   createToolDescriptionSection,
@@ -19,6 +20,8 @@ export interface ISystemPromptParams {
   agentsMd: string;
   /** Concatenated CLAUDE.md content (may be empty string) */
   claudeMd: string;
+  /** Startup project memory index loaded from .robota/memory/MEMORY.md */
+  memoryMd?: string;
   /** Human-readable tool descriptions, one per entry */
   toolDescriptions: string[];
   /** Active trust level governing permission checks */
@@ -82,6 +85,7 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
 
   appendOptionalSection(sections, createAgentsMdSection(params.agentsMd));
   appendOptionalSection(sections, createClaudeMdSection(params.claudeMd));
+  appendOptionalSection(sections, createProjectMemorySection(params.memoryMd));
   appendOptionalSection(sections, createWorkingDirectorySection(params.cwd));
   sections.push(createProjectSection(params.projectInfo));
   appendOptionalSection(sections, createResponseLanguageSection(params.language));

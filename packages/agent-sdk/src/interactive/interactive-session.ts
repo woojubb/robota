@@ -358,6 +358,9 @@ export class InteractiveSession {
   getName(): string | undefined {
     return this.sessionName;
   }
+  getCwd(): string {
+    return this.cwd ?? process.cwd();
+  }
   getSession(): Session {
     return this.getSessionOrThrow();
   }

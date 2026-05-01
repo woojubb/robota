@@ -42,6 +42,15 @@ describe('loadContext', () => {
     expect(result.claudeMd).toContain('# Root CLAUDE');
   });
 
+  it('loads project memory index when .robota/memory/MEMORY.md exists', async () => {
+    setupDir(join(rootDir, '.robota', 'memory'));
+    writeFileSync(join(rootDir, '.robota', 'memory', 'MEMORY.md'), '- Remember pnpm\n');
+
+    const result = await loadContext(rootDir);
+
+    expect(result.memoryMd).toBe('- Remember pnpm');
+  });
+
   it('walks up directory tree and concatenates AGENTS.md files root-first', async () => {
     // root/AGENTS.md
     writeFileSync(join(rootDir, 'AGENTS.md'), '# Root');

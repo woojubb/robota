@@ -14,6 +14,7 @@ export function projectPaths(cwd: string): {
   settingsLocal: string;
   logs: string;
   sessions: string;
+  memory: string;
 } {
   const base = join(cwd, '.robota');
   return {
@@ -21,6 +22,7 @@ export function projectPaths(cwd: string): {
     settingsLocal: join(base, 'settings.local.json'),
     logs: join(base, 'logs'),
     sessions: join(base, 'sessions'),
+    memory: join(base, 'memory'),
   };
 }
 

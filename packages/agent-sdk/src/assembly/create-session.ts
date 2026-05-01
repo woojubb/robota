@@ -261,6 +261,7 @@ export function createSession(options: ICreateSessionOptions): Session {
   const systemMessage = buildPrompt({
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
+    memoryMd: options.context.memoryMd,
     toolDescriptions:
       options.toolDescriptions ??
       (backgroundProcessToolDeps

@@ -76,6 +76,21 @@ export type { TToolArgs, IPermissionLists } from '@robota-sdk/agent-core';
 export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 export type { IAIProvider } from '@robota-sdk/agent-core';
 
+// ── Project memory ─────────────────────────────────────────
+export {
+  ProjectMemoryStore,
+  MEMORY_INDEX_MAX_LINES,
+  MEMORY_INDEX_MAX_BYTES,
+  isMemoryType,
+} from './memory/project-memory-store.js';
+export type {
+  IAppendMemoryInput,
+  IAppendMemoryResult,
+  IProjectMemorySummary,
+  IStartupMemory,
+  TMemoryType,
+} from './memory/project-memory-store.js';
+
 // ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
