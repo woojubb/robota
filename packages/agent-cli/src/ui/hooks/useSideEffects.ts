@@ -32,6 +32,7 @@ import type {
   IUseSideEffectsOptions,
   IUseSideEffectsResult,
 } from './side-effects-types.js';
+import { applyPendingStatusLinePatch } from './statusline-side-effect.js';
 
 const EXIT_DELAY_MS = 500;
 
@@ -41,6 +42,7 @@ export function useSideEffects({
   addEntry,
   baseHandleSubmit,
   setSessionName,
+  setStatusLineSettings,
   providerDefinitions,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
@@ -150,6 +152,8 @@ export function useSideEffects({
         setSessionName(name);
         return;
       }
+
+      if (applyPendingStatusLinePatch(sideEffects, setStatusLineSettings)) return;
     },
     [
       interactiveSession,
@@ -157,6 +161,7 @@ export function useSideEffects({
       addEntry,
       requestShutdown,
       setSessionName,
+      setStatusLineSettings,
       providerDefinitions,
     ],
   );

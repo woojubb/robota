@@ -17,6 +17,8 @@ interface IProps {
   contextUsedTokens: number;
   contextMaxTokens: number;
   sessionName?: string;
+  gitBranch?: string;
+  showGitBranch?: boolean;
 }
 
 /** Return the color for the context percentage indicator */
@@ -36,8 +38,11 @@ export default function StatusBar({
   contextUsedTokens,
   contextMaxTokens,
   sessionName,
+  gitBranch,
+  showGitBranch = true,
 }: IProps): React.ReactElement {
   const contextColor = getContextColor(contextPercentage);
+  const shouldShowGitBranch = showGitBranch && gitBranch !== undefined && gitBranch.length > 0;
 
   return (
     <Box
@@ -56,6 +61,12 @@ export default function StatusBar({
           <>
             {'  |  '}
             <Text color="magenta">{sessionName}</Text>
+          </>
+        )}
+        {shouldShowGitBranch && (
+          <>
+            {'  |  '}
+            <Text dimColor>git: {gitBranch}</Text>
           </>
         )}
         {'  |  '}
