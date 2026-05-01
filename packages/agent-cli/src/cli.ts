@@ -28,8 +28,8 @@ import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 import {
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
-  formatCliUpdateNotice,
   getStartupCliUpdateNotice,
+  shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
 
 /** Read version from package.json at runtime. */
@@ -138,9 +138,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const cwd = process.cwd();
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
-  const startupUpdateNoticePromise = args.disableUpdateCheck
-    ? undefined
-    : getStartupCliUpdateNotice({ currentVersion: version });
+  const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
+    ? getStartupCliUpdateNotice({ currentVersion: version })
+    : undefined;
 
   if (args.configure) {
     await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
@@ -199,14 +199,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // Print mode (-p): one-shot prompt via headless transport, then exit
   if (args.printMode) {
-    void startupUpdateNoticePromise
-      ?.then((notice) => {
-        if (notice !== undefined) {
-          process.stderr.write(`${formatCliUpdateNotice(notice)}\n`);
-        }
-      })
-      .catch(() => undefined);
-
     let prompt = args.positional.join(' ').trim();
 
     // Stdin pipe: read from stdin if no positional args and stdin is piped

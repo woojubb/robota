@@ -11,6 +11,7 @@ import {
   getUserUpdateCheckCachePath,
   isNewerSemverVersion,
   readUpdateCheckCache,
+  shouldRunStartupCliUpdateCheck,
 } from '../update-check.js';
 
 const TEST_DIR = join(tmpdir(), `robota-update-check-test-${process.pid}`);
@@ -166,5 +167,34 @@ describe('formatCliUpdateCheckMessage', () => {
         errorMessage: 'registry unavailable',
       }),
     ).toContain('registry unavailable');
+  });
+});
+
+describe('shouldRunStartupCliUpdateCheck', () => {
+  it('runs automatic startup checks for interactive startup', () => {
+    expect(
+      shouldRunStartupCliUpdateCheck({
+        printMode: false,
+        disableUpdateCheck: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not run automatic startup checks for headless print mode', () => {
+    expect(
+      shouldRunStartupCliUpdateCheck({
+        printMode: true,
+        disableUpdateCheck: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps disable-update-check as an interactive startup opt-out', () => {
+    expect(
+      shouldRunStartupCliUpdateCheck({
+        printMode: false,
+        disableUpdateCheck: true,
+      }),
+    ).toBe(false);
   });
 });

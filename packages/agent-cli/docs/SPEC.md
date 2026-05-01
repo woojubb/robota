@@ -639,7 +639,7 @@ robota --output-format <fmt>        # text | json | stream-json (print mode only
 robota --system-prompt <text>       # Replace system prompt (print mode only)
 robota --append-system-prompt <text> # Append to system prompt (print mode only)
 robota --check-update               # Check npm for the latest CLI version and exit
-robota --disable-update-check        # Skip startup update check for this invocation
+robota --disable-update-check        # Skip interactive startup update check for this invocation
 robota --version                    # Version
 ```
 
@@ -683,14 +683,14 @@ The CLI owns package-version update checks because they are distribution UX, not
 
 Update-check behavior:
 
-- Startup checks are enabled by default and rate-limited by a product-level TTL constant.
+- Startup checks are enabled by default only for interactive TUI startup and rate-limited by a product-level TTL constant.
 - The default cache TTL is 24 hours.
 - Registry lookup uses the npm package metadata endpoint for `@robota-sdk/agent-cli`.
 - Registry URL, timeout, package name, and TTL are CLI-owned constants. They are not written into `settings.json` during startup.
 - Registry lookup failure must never prevent interactive, print, or headless startup.
 - Update notices must not be written into project session history.
 - TUI notices are rendered as transient UI outside `MessageList`.
-- Print/headless startup notices, when shown, are written to stderr so stdout result formats remain stable.
+- Print/headless execution (`robota -p`, JSON output, and streaming JSON output) must not schedule automatic startup update checks and must not emit startup update notices. This keeps automation, pipes, and structured stdout/stderr contracts deterministic without requiring `--disable-update-check`.
 - The CLI may show the command `npm install -g @robota-sdk/agent-cli@latest`, but it must not execute install/update commands without explicit user confirmation.
 
 Operational cache lives in `~/.robota/update-check.json` and is not part of `.robota/sessions`. Cache fields include package name, checked timestamp, current version, latest version, and the last non-fatal error message if a registry lookup failed.
@@ -701,7 +701,7 @@ Operational cache lives in `~/.robota/update-check.json` and is not part of `.ro
 - already-current notice;
 - registry failure message.
 
-`robota --disable-update-check` disables only the current invocation. Persistent policy storage is not part of the first implementation.
+`robota --disable-update-check` disables only the current interactive startup invocation. Persistent policy storage is not part of the first implementation.
 
 ### Session Resolution Logic
 
