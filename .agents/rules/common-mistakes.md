@@ -39,3 +39,6 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 | 32  | Copying user-session examples into model-facing guidance         | Use generic, language-neutral examples owned by the relevant SPEC or contract                                         |
 | 33  | Letting a provider know Robota domain tools or slash commands    | Providers translate wire formats only by declared tool schemas; domain behavior belongs to commands/tools/runtime     |
 | 34  | Treating neutral prompt section headings as forbidden injection  | Section titles and descriptor lists are allowed metadata; imperative behavior text still belongs to owner descriptors |
+| 35  | Treating assistant markup or prose as actual tool execution      | Report execution only from structured runtime results or events                                                       |
+| 36  | Testing agent spawn without completion or timeout follow-up      | Assert terminal result or timeout plus the parent-turn continuation path                                              |
+| 37  | Declaring orchestration fixed without session-log verification   | Inspect persisted session data for descriptors, tool calls, background events, terminal state, and final follow-up    |
