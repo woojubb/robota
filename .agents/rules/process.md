@@ -12,3 +12,4 @@ This file routes to detailed rule documents. Each linked file contains the full 
 | [verification.md](verification.md)         | Build requirements, browser verification, harness verification                                         |
 | [publish.md](publish.md)                   | Foundation dependency rule, publish safety gate, publish scope approval                                |
 | [operational.md](operational.md)           | No fallback policy, idea capture, prior art research, feature documentation                            |
+| [learning-loop.md](learning-loop.md)       | Convert repeated lessons into rules, hooks, harness checks, or tested automation                       |
