@@ -23,8 +23,14 @@ function createAgentSubcommands(): ICommand[] {
 export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
-    description:
-      'Subagent jobs command. Natural-language arguments start one background agent job. The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present. list, wait, read, send, stop, close, and open manage existing agent jobs.',
+    description: [
+      'Subagent jobs command.',
+      'Natural-language arguments start one background agent job.',
+      'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested agent command immediately and do not ask a follow-up question unless execution is impossible or unsafe.',
+      'If the target item is unspecified, include target selection inside the agent prompt instead of delaying execution.',
+      'The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present.',
+      'list, wait, read, send, stop, close, and open manage existing agent jobs.',
+    ].join(' '),
     source: 'agent',
     modelInvocable: true,
     argumentHint:

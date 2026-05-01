@@ -29,6 +29,9 @@ import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates one subagent job for delegated work in an isolated context.',
   'One tool call creates one subagent job.',
+  'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested subagent job immediately.',
+  'Do not ask a follow-up question unless execution is impossible or unsafe.',
+  'For multiple or parallel agents, create one Agent tool call per requested role in the current turn.',
   'Subagent jobs run as background tasks by default.',
   'The tool waits for a terminal result and returns completed, failed, or timed-out outcome data to the parent conversation.',
   'Execution is represented by a real tool call and runtime background task event.',
@@ -46,6 +49,9 @@ export function createAgentToolPromptDescription(
   return [
     'Agent — creates one isolated subagent job.',
     'One Agent tool call corresponds to one subagent job.',
+    'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested subagent job immediately.',
+    'Do not ask a follow-up question unless execution is impossible or unsafe.',
+    'For multiple or parallel agents, create one Agent tool call per requested role in the current turn.',
     'The tool returns terminal result data.',
     'Runtime mode is background.',
     availableAgents,
