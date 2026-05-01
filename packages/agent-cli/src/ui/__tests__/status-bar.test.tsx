@@ -52,4 +52,18 @@ describe('StatusBar', () => {
     const frame = lastFrame()!;
     expect(frame).toContain('Thinking');
   });
+
+  it('renders git branch when provided', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} gitBranch="feat/status-line" />);
+    const frame = lastFrame()!;
+    expect(frame).toContain('feat/status-line');
+  });
+
+  it('does not render git branch when visibility is disabled', () => {
+    const { lastFrame } = render(
+      <StatusBar {...baseProps} gitBranch="feat/status-line" showGitBranch={false} />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).not.toContain('feat/status-line');
+  });
 });

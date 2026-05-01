@@ -11,8 +11,9 @@ import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robot
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
+import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import MessageList from './MessageList.js';
-import StatusBar from './StatusBar.js';
+import SessionStatusBar from './SessionStatusBar.js';
 import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
 import InteractivePrompt from './InteractivePrompt.js';
@@ -103,6 +104,7 @@ function AppInner(
   const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();
+  const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
 
   const {
     handleSubmit,
@@ -123,6 +125,7 @@ function AppInner(
     addEntry,
     baseHandleSubmit,
     setSessionName,
+    setStatusLineSettings,
     providerDefinitions,
   });
 
@@ -259,16 +262,16 @@ function AppInner(
           }}
         />
       )}
-      <StatusBar
+      <SessionStatusBar
+        cwd={cwd}
         permissionMode={permissionMode}
-        modelName={props.modelId ? getModelName(props.modelId) : ''}
+        modelId={props.modelId}
         sessionId={sessionId}
         messageCount={history.length}
         isThinking={isThinking}
-        contextPercentage={contextState.percentage}
-        contextUsedTokens={contextState.usedTokens}
-        contextMaxTokens={contextState.maxTokens}
+        contextState={contextState}
         sessionName={sessionName}
+        settings={statusLineSettings}
       />
       <InputArea
         onSubmit={handleSubmit}

@@ -229,6 +229,8 @@ export async function executeSlashCommand(
       return { handled: false }; // TUI routes provider commands with settings side effects
     case 'background':
       return { handled: false }; // Route to SDK system command (background task controls)
+    case 'memory':
+      return { handled: false }; // Route to SDK system command (project memory controls)
     case 'exit':
       return { handled: true, exitRequested: true };
     case 'plugin':

@@ -1,6 +1,10 @@
 import type { IProviderDefinition, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
+import type {
+  IStatusLineSettings,
+  TStatusLineSettingsPatch,
+} from '../../utils/statusline-settings.js';
 
 /** Side-effect flags for TUI-specific actions */
 export interface ISideEffects {
@@ -15,6 +19,7 @@ export interface ISideEffects {
   _pendingProviderSetup?: {
     type?: string;
   };
+  _statusLinePatch?: TStatusLineSettingsPatch;
 }
 
 export interface IUseSideEffectsOptions {
@@ -23,6 +28,7 @@ export interface IUseSideEffectsOptions {
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
+  setStatusLineSettings: (settings: IStatusLineSettings) => void;
   providerDefinitions: readonly IProviderDefinition[];
 }
 
