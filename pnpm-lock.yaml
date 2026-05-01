@@ -567,6 +567,9 @@ importers:
       '@robota-sdk/agent-provider-openai':
         specifier: workspace:*
         version: link:../agent-provider-openai
+      '@robota-sdk/agent-provider-qwen':
+        specifier: workspace:*
+        version: link:../agent-provider-qwen
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -1180,6 +1183,40 @@ importers:
 
   packages/agent-provider-openai-compatible:
     dependencies:
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(zod@3.25.76)
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-provider-qwen:
+    dependencies:
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
       openai:
         specifier: ^4.98.0
         version: 4.104.0(zod@3.25.76)

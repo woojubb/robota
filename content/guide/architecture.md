@@ -17,7 +17,7 @@ agent-sdk                ← Assembly layer: InteractiveSession, SystemCommandEx
   ↓
 agent-sessions    ← Session lifecycle: permissions, hooks, compaction, persistence
 agent-tools       ← Tool infrastructure + 8 built-in CLI tools
-agent-providers   ← AI provider implementations (Anthropic, OpenAI, Google)
+agent-providers   ← AI provider implementations (Anthropic, OpenAI-compatible, Google)
   ↓
 agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugins
 ```
@@ -29,7 +29,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 | **agent-core**               | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                           | Foundation   |
 | **agent-tools**              | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                    | General      |
 | **agent-sessions**           | Session class with permission enforcement, context tracking, compaction                                                                                    | General      |
-| **agent-providers**          | AnthropicProvider, OpenAIProvider, GoogleProvider                                                                                                          | General      |
+| **agent-providers**          | Provider packages for Anthropic, OpenAI/OpenAI-compatible model families, Qwen, Google, and future integrations                                            | General      |
 | **agent-sdk**                | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, query() | SDK-specific |
 | **agent-cli**                | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                   | Transport    |
 | **agent-transport-http**     | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                              | Transport    |

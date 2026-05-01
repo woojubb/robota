@@ -105,6 +105,8 @@ export interface IExecutionContext {
   signal?: AbortSignal;
   /** Per-run streaming text callback. */
   onTextDelta?: TTextDeltaCallback;
+  /** Per-run model/tool round limit. Use 0 for no core round cap. */
+  maxExecutionRounds?: number;
 }
 
 /**

@@ -104,6 +104,8 @@ Types consumed from other packages (not owned here):
 
 `ISessionOptions.providerTimeout` is an optional provider idle timeout in milliseconds. When provided, `Session` forwards it to the underlying `Robota` `IAgentConfig.timeout`, where `agent-core` enforces it per provider call and refreshes the idle timer on streaming text deltas.
 
+`ISessionOptions.maxTurns` is an optional maximum number of model/tool rounds for one `Session.run()` call. When provided, `Session` forwards it to `Robota.run()` as `maxExecutionRounds`. When omitted, `Session` forwards `maxExecutionRounds: 0`, which means the session run has no core round cap and is instead bounded by abort, context-window checks, provider idle timeout, and runtime-level controls.
+
 ### Key Session Methods
 
 | Method                     | Signature                                                            | Description                                                                                                                             |
@@ -199,7 +201,9 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
 
-11. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+11. **`ISessionOptions.maxTurns`** -- Optional model/tool round cap passed to the underlying Robota run. Omitted means unlimited for the session layer.
+
+12. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Abort Behavior
 

@@ -123,8 +123,14 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 
 ```json
 {
-  "currentProvider": "openai",
+  "currentProvider": "qwen",
   "providers": {
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    },
     "openai": {
       "type": "openai",
       "model": "supergemma4-26b-uncensored-v2",
@@ -153,7 +159,7 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 }
 ```
 
-`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. LM Studio and other OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`; the legacy single `provider` object remains supported when no active profile is configured.
+`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`; generic OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`. The legacy single `provider` object remains supported when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 
