@@ -86,7 +86,7 @@ robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
-robota --disable-update-check        # Skip startup update check for this run
+robota --disable-update-check        # Skip interactive startup update check for this run
 robota --version                    # Show version
 ```
 
@@ -104,7 +104,7 @@ When an update is available, Robota prints the npm global install command:
 npm install -g '@robota-sdk/agent-cli@latest'
 ```
 
-Robota does not implement its own updater and does not modify `~/.robota/settings.json` for update checks. Startup checks use a user-level operational cache at `~/.robota/update-check.json` and can be skipped for one run with `--disable-update-check`.
+Robota does not implement its own updater and does not modify `~/.robota/settings.json` for update checks. Interactive startup checks use a user-level operational cache at `~/.robota/update-check.json` and can be skipped for one run with `--disable-update-check`. Print/headless mode (`robota -p`) does not perform automatic startup update checks so scripted stdout and stderr remain deterministic.
 
 ### Print Mode Output Formats
 
