@@ -32,6 +32,7 @@ export interface IRunContext {
   persistSession: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
+  maxTurns?: number;
   onTextDelta?: TTextDeltaCallback;
 }
 
@@ -120,6 +121,7 @@ export async function executeRun(
 
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
+      maxExecutionRounds: ctx.maxTurns ?? 0,
       ...(onTextDelta && { onTextDelta }),
     });
 

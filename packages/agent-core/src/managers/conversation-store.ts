@@ -43,7 +43,6 @@ interface IStreamingState {
  */
 export class ConversationStore implements IConversationHistory {
   private history: SimpleConversationHistory;
-  private toolCallIds: Set<string> = new Set<string>();
   private pendingAssistant: IStreamingState | null = null;
 
   constructor(maxMessages: number = 100) {
@@ -93,12 +92,6 @@ export class ConversationStore implements IConversationHistory {
     metadata?: TUniversalMessageMetadata,
     parts?: TUniversalMessagePart[],
   ): void {
-    if (this.toolCallIds.has(toolCallId)) {
-      throw new Error(
-        `Duplicate tool message detected for toolCallId: ${toolCallId}. Tool messages must have unique toolCallIds.`,
-      );
-    }
-    this.toolCallIds.add(toolCallId);
     this.history.addToolMessageWithId(content, toolCallId, toolName, metadata, parts);
   }
 
@@ -222,6 +215,5 @@ export class ConversationStore implements IConversationHistory {
 
   clear(): void {
     this.history.clear();
-    this.toolCallIds.clear();
   }
 }

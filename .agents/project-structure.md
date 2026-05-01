@@ -15,6 +15,7 @@ packages/
 ├── agent-provider-openai/       # OpenAI provider shell
 ├── agent-provider-openai-compatible/ # Reusable OpenAI-compatible transport primitives
 ├── agent-provider-gemma/        # Gemma provider shell using OpenAI-compatible endpoints
+├── agent-provider-qwen/         # Qwen provider shell using Model Studio OpenAI-compatible endpoints
 ├── agent-provider-google/       # Google provider
 ├── agent-provider-bytedance/    # ByteDance provider
 ├── agent-team/                  # Team collaboration (assignTask relay tools)

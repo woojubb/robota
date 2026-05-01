@@ -31,6 +31,9 @@ function buildRunContext(
     ...(options.metadata && { metadata: options.metadata }),
     ...(options.signal && { signal: options.signal }),
     ...(options.onTextDelta && { onTextDelta: options.onTextDelta }),
+    ...(options.maxExecutionRounds !== undefined && {
+      maxExecutionRounds: options.maxExecutionRounds,
+    }),
   };
 }
 

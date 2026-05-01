@@ -369,17 +369,20 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                              | Description                                                       |
-| ---------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`             | Allows callers to cancel execution of `Robota.run()`              |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback` | Per-run streaming callback forwarded through execution context    |
-| `IChatOptions`               | `signal?: AbortSignal`             | Passed to provider `chat()` / `chatStream()` for cancelling calls |
-| `IAgentConfig`               | `timeout?: number`                 | Provider idle timeout in milliseconds for a model call            |
-| `IExecutionContext`          | `signal?: AbortSignal`             | Threaded through the execution context for round-level checks     |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback` | Run-scoped callback used before provider-level callback fallback  |
-| `IExecutionResult`           | `interrupted?: boolean`            | Indicates the execution was aborted before natural completion     |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`             | Allows skipping queued tool executions when abort is signalled    |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`          | Bounds active tool executions when batch mode is `parallel`       |
+| Interface                    | Field                              | Description                                                          |
+| ---------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`             | Allows callers to cancel execution of `Robota.run()`                 |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback` | Per-run streaming callback forwarded through execution context       |
+| `IRunOptions`                | `maxExecutionRounds?: number`      | Maximum model/tool rounds for one run. `0` means unlimited.          |
+| `IChatOptions`               | `signal?: AbortSignal`             | Passed to provider `chat()` / `chatStream()` for cancelling calls    |
+| `IAgentConfig`               | `timeout?: number`                 | Provider idle timeout in milliseconds for a model call               |
+| `IAgentConfig`               | `maxExecutionRounds?: number`      | Default maximum model/tool rounds for each run. `0` means unlimited. |
+| `IExecutionContext`          | `signal?: AbortSignal`             | Threaded through the execution context for round-level checks        |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback` | Run-scoped callback used before provider-level callback fallback     |
+| `IExecutionContext`          | `maxExecutionRounds?: number`      | Run-scoped override for execution round limit                        |
+| `IExecutionResult`           | `interrupted?: boolean`            | Indicates the execution was aborted before natural completion        |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`             | Allows skipping queued tool executions when abort is signalled       |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`          | Bounds active tool executions when batch mode is `parallel`          |
 
 ### Signal Propagation
 
@@ -472,9 +475,20 @@ The `executeRound` function manages streaming through `ConversationStore`:
 
 1. `beginAssistant()` initializes pending state before the provider call.
 2. The run-scoped `onTextDelta` callback is preferred over provider-level callback state, then wrapped to call `appendStreaming(delta)` on each delta.
-3. After the provider returns: tool calls are added via `appendToolCall(toolCall)`.
+3. After the provider returns: tool calls are added via `appendToolCall(toolCall)` without rewriting provider-supplied IDs.
 4. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
 5. Single commit path — no branching between normal and abort flows.
+
+### Provider Tool Call ID Ownership
+
+Provider adapters own the `tool_call.id` value. Core treats it as the provider transcript token that links an assistant tool call to the corresponding tool message.
+
+- Core must not branch on provider names, model names, or transport packages.
+- Core must preserve provider-supplied tool call IDs in committed assistant `toolCalls` and recorded tool message `toolCallId`.
+- Conversation history must not require provider tool call IDs to be unique across the whole conversation. Some OpenAI-compatible providers reuse IDs such as `call_0` in later assistant turns.
+- If an internal subsystem needs a globally unique execution/event identifier, it must use an internal ID or owner path and keep the provider `toolCallId` as transcript data.
+
+Regression coverage must include a multi-round execution where the provider returns `call_0` in more than one assistant response and execution preserves both provider IDs without throwing duplicate tool message errors.
 
 ## Extension Points
 
@@ -508,6 +522,8 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 `ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
 
 ### Execution Loop Error Handling
+
+The default core execution round limit is 10 model/tool rounds. Callers can override it with `IRunOptions.maxExecutionRounds`, `IExecutionContext.maxExecutionRounds`, or `IAgentConfig.maxExecutionRounds`. Run-scoped values win over config defaults. A value of `0` means the execution loop has no round cap and relies on abort, context-window checks, provider idle timeout, and runtime-level controls to stop runaway execution.
 
 When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 

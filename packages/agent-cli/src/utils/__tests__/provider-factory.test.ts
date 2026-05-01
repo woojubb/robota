@@ -10,6 +10,7 @@ import {
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
+import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
 
 vi.mock('@robota-sdk/agent-provider-anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -94,6 +95,38 @@ vi.mock('@robota-sdk/agent-provider-gemma', () => {
         timeout?: number;
       }) =>
         new MockGemmaProvider({
+          apiKey: config.apiKey,
+          ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+          ...(config.timeout !== undefined && { timeout: config.timeout }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
+
+vi.mock('@robota-sdk/agent-provider-qwen', () => {
+  const MockQwenProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'qwen',
+    version: 'test',
+    options,
+  }));
+  return {
+    QwenProvider: MockQwenProvider,
+    createQwenProviderDefinition: () => ({
+      type: 'qwen',
+      defaults: {
+        model: 'qwen-plus',
+        apiKey: '$ENV:DASHSCOPE_API_KEY',
+        baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+      }) =>
+        new MockQwenProvider({
           apiKey: config.apiKey,
           ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
           ...(config.timeout !== undefined && { timeout: config.timeout }),
@@ -291,6 +324,31 @@ describe('provider-factory', () => {
       baseURL: 'http://localhost:1234/v1',
       timeout: 12_000,
       defaultModel: 'worker-gemma',
+    });
+  });
+
+  it('creates QwenProvider for a Qwen OpenAI-compatible profile', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: 'dashscope-key',
+          baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+          timeout: 45_000,
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd);
+
+    expect(provider.name).toBe('qwen');
+    expect(QwenProvider).toHaveBeenCalledWith({
+      apiKey: 'dashscope-key',
+      baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+      timeout: 45_000,
+      defaultModel: 'qwen-plus',
     });
   });
 

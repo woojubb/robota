@@ -31,6 +31,7 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 | Variable            | Description                                    | Required       |
 | ------------------- | ---------------------------------------------- | -------------- |
 | `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
+| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
 
 Set your key before running:
 
@@ -300,8 +301,14 @@ Settings are merged in this order, from lowest to highest priority:
 {
   "defaultMode": "default",
   "language": "en",
-  "currentProvider": "gemma",
+  "currentProvider": "qwen",
   "providers": {
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    },
     "gemma": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
@@ -326,7 +333,7 @@ Settings are merged in this order, from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects a profile from `providers`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply Gemma filtering. The legacy single-provider shape remains supported:
+`currentProvider` selects a profile from `providers`. Qwen Model Studio profiles use `type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as `$ENV:DASHSCOPE_API_KEY`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply provider-specific projection. The legacy single-provider shape remains supported:
 
 ```json
 {
