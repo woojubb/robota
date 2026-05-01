@@ -1,11 +1,11 @@
 # @robota-sdk/agent-provider-google
 
-Google Gemini provider for the Robota SDK. Implements `AbstractAIProvider` and `IImageGenerationProvider` with support for Gemini models, streaming, tool calling, and multimodal image generation.
+Google Gemini provider for the Robota SDK. The canonical provider profile type is `gemini`; `google` remains a compatibility alias through the provider-definition contract.
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-provider-google @google/generative-ai
+npm install @robota-sdk/agent-provider-google @google/genai
 ```
 
 Peer dependency: `@robota-sdk/agent-core`
@@ -14,18 +14,18 @@ Peer dependency: `@robota-sdk/agent-core`
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { GoogleProvider } from '@robota-sdk/agent-provider-google';
+import { GoogleProvider, createGeminiProviderDefinition } from '@robota-sdk/agent-provider-google';
 
 const provider = new GoogleProvider({
-  apiKey: process.env.GOOGLE_API_KEY,
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 const agent = new Robota({
   name: 'Assistant',
   aiProviders: [provider],
   defaultModel: {
-    provider: 'google',
-    model: 'gemini-1.5-pro',
+    provider: 'gemini',
+    model: 'gemini-3-flash-preview',
     systemMessage: 'You are a helpful assistant.',
   },
 });
@@ -33,10 +33,17 @@ const agent = new Robota({
 const response = await agent.run('Hello!');
 ```
 
+`createGeminiProviderDefinition()` returns setup metadata for CLI/SDK composition:
+
+```typescript
+const definition = createGeminiProviderDefinition();
+// definition.type === 'gemini'
+// definition.aliases includes 'google'
+```
+
 ## Supported Models
 
-- `gemini-1.5-pro` — most capable for complex tasks
-- `gemini-1.5-flash` — fast and efficient
+- `gemini-3-flash-preview` — default current setup model
 - `gemini-2.5-flash-image` (or equivalent) — image generation and composition
 
 ## Features
@@ -44,7 +51,7 @@ const response = await agent.run('Hello!');
 ### Streaming
 
 ```typescript
-const stream = provider.chatStream(messages, { model: 'gemini-1.5-flash' });
+const stream = provider.chatStream(messages, { model: 'gemini-3-flash-preview' });
 for await (const chunk of stream) {
   process.stdout.write(chunk.content ?? '');
 }
@@ -98,11 +105,12 @@ const provider = new GoogleProvider({
 
 ### Exports
 
-| Export                       | Kind      | Description                                                                                                                        |
-| ---------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `GoogleProvider`             | class     | Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`                                                   |
-| `IGoogleProviderOptions`     | interface | Constructor options: `apiKey`, `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor` |
-| `TGoogleProviderOptionValue` | type      | Union type for valid provider option values                                                                                        |
+| Export                           | Kind      | Description                                                                                                                        |
+| -------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GoogleProvider`                 | class     | Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`                                                   |
+| `createGeminiProviderDefinition` | function  | Returns provider setup/creation metadata with canonical `gemini` type and `google` compatibility alias                             |
+| `IGoogleProviderOptions`         | interface | Constructor options: `apiKey`, `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor` |
+| `TGoogleProviderOptionValue`     | type      | Union type for valid provider option values                                                                                        |
 
 `api-types.ts` is an internal module and is not part of the public API.
 
@@ -121,7 +129,7 @@ const provider = new GoogleProvider({
 
 ## Crypto Dependency
 
-This package uses the Web Crypto API (`globalThis.crypto`) for internal operations — no `node:crypto` dependency.
+This package uses `node:crypto` `randomUUID()` for message identifiers.
 
 ## Package Examples
 
@@ -135,10 +143,12 @@ Both support `DRY_RUN=1` for local smoke testing without API calls.
 ## Environment Variables
 
 ```bash
-GOOGLE_API_KEY=your_google_ai_api_key_here
-# Backward-compatible alias:
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+## Modernization Note
+
+Google's current documentation recommends `@google/genai` for new Gemini API work. This package uses `@google/genai` for direct Gemini transport while preserving the existing `GoogleProvider` public class and `google` compatibility alias.
 
 ## License
 

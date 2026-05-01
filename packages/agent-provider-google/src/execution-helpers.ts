@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { GoogleGenAI } from '@google/genai';
+import type { Content, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
 import type { IGoogleProviderOptions } from './types';
 import type {
   TUniversalMessage,
@@ -23,7 +24,7 @@ import {
  * Execute a direct (non-streaming) chat request against the Gemini API.
  */
 export async function executeDirect(
-  client: GoogleGenerativeAI,
+  client: GoogleGenAI,
   providerOptions: IGoogleProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
@@ -34,7 +35,6 @@ export async function executeDirect(
     );
   }
 
-  const model = client.getGenerativeModel({ model: options.model as string });
   const geminiMessages = convertToGeminiFormat(messages);
   const genConfig = buildGenerationConfig(
     messages,
@@ -43,15 +43,11 @@ export async function executeDirect(
     options,
   );
 
-  const result = await model.generateContent({
-    contents: geminiMessages,
-    generationConfig: genConfig,
-    ...(options?.tools && {
-      tools: [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }],
-    }),
-  });
+  const result = await client.models.generateContent(
+    buildGenerateContentRequest(options.model as string, geminiMessages, genConfig, options),
+  );
 
-  const convertedResponse = convertFromGeminiResponse(result.response);
+  const convertedResponse = convertFromGeminiResponse(result);
   const responseModalities = buildResponseModalities(
     messages,
     providerOptions.defaultResponseModalities,
@@ -69,7 +65,7 @@ export async function executeDirect(
  * Execute a streaming chat request against the Gemini API.
  */
 export async function* executeDirectStream(
-  client: GoogleGenerativeAI,
+  client: GoogleGenAI,
   providerOptions: IGoogleProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
@@ -88,7 +84,6 @@ export async function* executeDirectStream(
     );
   }
 
-  const model = client.getGenerativeModel({ model: options.model as string });
   const geminiMessages = convertToGeminiFormat(messages);
   const genConfig = buildGenerationConfig(
     messages,
@@ -97,16 +92,12 @@ export async function* executeDirectStream(
     options,
   );
 
-  const result = await model.generateContentStream({
-    contents: geminiMessages,
-    generationConfig: genConfig,
-    ...(options?.tools && {
-      tools: [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }],
-    }),
-  });
+  const stream = await client.models.generateContentStream(
+    buildGenerateContentRequest(options.model as string, geminiMessages, genConfig, options),
+  );
 
-  for await (const chunk of result.stream) {
-    const text = chunk.text();
+  for await (const chunk of stream) {
+    const text = extractStreamText(chunk);
     if (text) {
       yield {
         id: randomUUID(),
@@ -117,6 +108,30 @@ export async function* executeDirectStream(
       };
     }
   }
+}
+
+function buildGenerateContentRequest(
+  model: string,
+  contents: Content[],
+  generationOptions: GenerateContentParameters['config'],
+  options?: IChatOptions,
+): GenerateContentParameters {
+  const config: GenerateContentParameters['config'] = { ...generationOptions };
+  if (options?.tools && options.tools.length > 0) {
+    config.tools = [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }];
+  }
+  return {
+    model,
+    contents,
+    config,
+  };
+}
+
+function extractStreamText(
+  chunk: GenerateContentResponse | { readonly text?: () => string },
+): string | undefined {
+  const textValue = chunk.text;
+  return typeof textValue === 'function' ? textValue() : textValue;
 }
 
 /**

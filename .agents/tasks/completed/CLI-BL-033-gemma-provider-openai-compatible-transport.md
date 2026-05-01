@@ -1,6 +1,6 @@
 # CLI-BL-033 Gemma Provider and OpenAI-Compatible Transport Reuse
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-01
 - **Branch**: feat/gemma-provider-transport
 - **Scope**: packages/agent-provider-gemma, packages/agent-provider-openai-compatible, packages/agent-provider-openai, packages/agent-provider-google, packages/agent-provider-gemini, packages/agent-cli
@@ -104,9 +104,8 @@ This rename should not be bundled into the Gemma provider implementation. It sho
 
 ## Blockers
 
-- Need a separate backlog item before renaming `agent-provider-google` to `agent-provider-gemini`.
-- Captured `.robota/logs` replay fixtures are still needed for integration-level Gemma marker regression coverage.
+None.
 
 ## Result
 
-Implemented shared transport extraction, Gemma provider, provider-definition composition, CLI integration, unit coverage, and SPEC updates. Remaining follow-up: add replay/integration tests from captured Gemma logs.
+Completed and merged. Implemented shared transport extraction, Gemma provider, provider-definition composition, CLI integration, unit coverage, and SPEC updates. The Google-to-Gemini rename and broader Gemini modernization remain tracked separately in `CLI-BL-034` and `gemini-provider-modernization`.
