@@ -213,6 +213,18 @@ export async function executeRound(
     logger,
   );
 
+  const responseHasText =
+    typeof assistantResponse.content === 'string' && assistantResponse.content.trim().length > 0;
+  if (assistantToolCalls.length === 0 && !responseHasText) {
+    logger.warn('[ROUND] Provider returned empty assistant response without tool calls', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+    });
+    conversationStore.discardPending();
+    return true;
+  }
+
   const inputTokens =
     typeof assistantResponse.metadata?.['inputTokens'] === 'number'
       ? assistantResponse.metadata['inputTokens']

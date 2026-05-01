@@ -364,6 +364,23 @@ describe('BackgroundTaskManager', () => {
     expect(controlled.started[0]?.cancelReason).toContain('produced no activity');
   });
 
+  it('uses a four minute default idle timeout for inactive agents', async () => {
+    vi.useFakeTimers();
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+    });
+
+    const created = await manager.spawn(createAgentRequest('Use default timeout'));
+    await vi.advanceTimersByTimeAsync(120_001);
+    expect(manager.get(created.id)?.status).toBe('running');
+
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    await expect(manager.wait(created.id)).rejects.toThrow('produced no activity for 240000ms');
+    expect(manager.get(created.id)?.timeoutReason).toBe('idle');
+  });
+
   it('keeps timeout failure terminal when runner result rejects during watchdog cancel', async () => {
     vi.useFakeTimers();
     const controlled = createRejectingCancelRunner();
@@ -419,6 +436,27 @@ describe('BackgroundTaskManager', () => {
 
     await expect(manager.wait(created.id)).rejects.toThrow('exceeded max runtime');
     expect(manager.get(created.id)?.timeoutReason).toBe('max_runtime');
+  });
+
+  it('does not enforce a default max runtime cap while an agent remains active', async () => {
+    vi.useFakeTimers();
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+    });
+
+    const created = await manager.spawn(createAgentRequest('Work for a long time'));
+    for (let i = 0; i < 4; i += 1) {
+      await vi.advanceTimersByTimeAsync(230_000);
+      controlled.started[0]?.emit?.({
+        type: 'background_task_text_delta',
+        delta: `still active ${i}`,
+      });
+    }
+
+    expect(manager.get(created.id)?.status).toBe('running');
+
+    await manager.cancel(created.id, 'test cleanup');
   });
 
   it('fails a streaming agent that exceeds output limits', async () => {

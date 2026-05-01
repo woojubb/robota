@@ -962,7 +962,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 `TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
 
-`BackgroundTaskPanel` renders active and recently completed background tasks with status, kind, label, task ID, unread marker, and a short preview. User controls are routed through SDK system commands:
+`BackgroundTaskPanel` renders active and recently completed background tasks with a compact status marker, kind, label, task ID, and a short preview. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through SDK system commands:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
@@ -972,6 +972,8 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 | `/background close <task-id>`         | Dismiss one terminal task      |
 
 For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
+
+Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
 
 ## Memory Management
 

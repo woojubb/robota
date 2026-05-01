@@ -4,11 +4,13 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createWsHandler } from '../ws-handler.js';
-import type { TServerMessage } from '../ws-handler.js';
+import type { TServerMessage } from '../ws-protocol.js';
 import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   InteractiveSession,
+  IBackgroundJobGroupState,
+  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-sdk';
 
@@ -33,6 +35,17 @@ const backgroundTaskLogPage: IBackgroundTaskLogPage = {
   lines: ['line one'],
 };
 
+const backgroundJobGroup: IBackgroundJobGroupState = {
+  id: 'group_1',
+  parentSessionId: 'session_1',
+  waitPolicy: 'wait_all',
+  taskIds: ['task_1'],
+  status: 'running',
+  createdAt: '2026-05-01T00:00:00.000Z',
+  updatedAt: '2026-05-01T00:00:00.000Z',
+  results: [],
+};
+
 function createMockSession() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   return {
@@ -47,6 +60,14 @@ function createMockSession() {
     getPendingPrompt: vi.fn().mockReturnValue(null),
     listBackgroundTasks: vi.fn().mockReturnValue([backgroundTask]),
     getBackgroundTask: vi.fn().mockReturnValue(backgroundTask),
+    listBackgroundJobGroups: vi.fn().mockReturnValue([backgroundJobGroup]),
+    getBackgroundJobGroup: vi.fn().mockReturnValue(backgroundJobGroup),
+    waitBackgroundJobGroup: vi.fn().mockResolvedValue({
+      ...backgroundJobGroup,
+      status: 'completed',
+      completedAt: '2026-05-01T00:00:01.000Z',
+      results: [{ taskId: 'task_1', label: 'Explore', status: 'completed', summary: 'done' }],
+    }),
     cancelBackgroundTask: vi.fn().mockResolvedValue(undefined),
     closeBackgroundTask: vi.fn().mockResolvedValue(undefined),
     sendBackgroundTask: vi.fn().mockResolvedValue(undefined),
@@ -147,6 +168,49 @@ describe('WebSocket Transport Handler', () => {
     expect(
       (session as unknown as { getBackgroundTask: ReturnType<typeof vi.fn> }).getBackgroundTask,
     ).toHaveBeenCalledWith('task_1');
+  });
+
+  it('get-background-job-groups sends group snapshots', () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'get-background-job-groups' }));
+
+    expect(sent[0]).toEqual({ type: 'background_job_groups', groups: [backgroundJobGroup] });
+    expect(
+      (session as unknown as { listBackgroundJobGroups: ReturnType<typeof vi.fn> })
+        .listBackgroundJobGroups,
+    ).toHaveBeenCalled();
+  });
+
+  it('get-background-job-group sends one group snapshot', () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'get-background-job-group', groupId: 'group_1' }));
+
+    expect(sent[0]).toEqual({
+      type: 'background_job_group',
+      groupId: 'group_1',
+      group: backgroundJobGroup,
+    });
+    expect(
+      (session as unknown as { getBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .getBackgroundJobGroup,
+    ).toHaveBeenCalledWith('group_1');
+  });
+
+  it('wait-background-job-group waits and sends the completed group', async () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'wait-background-job-group', groupId: 'group_1' }));
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).toHaveBeenCalledWith('group_1');
+    expect(sent[0]).toMatchObject({
+      type: 'background_job_group',
+      groupId: 'group_1',
+      group: { id: 'group_1', status: 'completed' },
+    });
   });
 
   it('cancel-background-task maps to session control and emits control result', async () => {
@@ -276,9 +340,23 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]).toEqual({ type: 'background_task_event', event });
   });
 
+  it('forwards background job group events to the client', () => {
+    const { session, sent } = setup();
+    const event: TBackgroundJobGroupEvent = {
+      type: 'background_job_group_completed',
+      group: { ...backgroundJobGroup, status: 'completed' },
+    };
+    (session as unknown as { _emit: (e: string, ...args: unknown[]) => void })._emit(
+      'background_job_group_event',
+      event,
+    );
+
+    expect(sent[0]).toEqual({ type: 'background_job_group_event', event });
+  });
+
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(8);
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(9);
   });
 });

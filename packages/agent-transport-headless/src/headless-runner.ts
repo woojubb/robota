@@ -3,6 +3,7 @@ import type {
   InteractiveSession,
   IExecutionResult,
   ICommandResult,
+  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-sdk';
 
@@ -21,6 +22,10 @@ type TStreamJsonEvent =
   | {
       type: 'background_task_event';
       background_task_event: TBackgroundTaskEvent;
+    }
+  | {
+      type: 'background_job_group_event';
+      background_job_group_event: TBackgroundJobGroupEvent;
     };
 
 interface ISlashCommandExecution {
@@ -144,51 +149,7 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
 
 function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
-    const cleanup = (): void => {
-      session.off('text_delta', onTextDelta);
-      session.off('background_task_event', onBackgroundTaskEvent);
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-
-    const onTextDelta = (text: string): void => {
-      writeStreamJsonEvent(session, {
-        type: 'content_block_delta',
-        delta: { type: 'text_delta', text },
-      });
-    };
-
-    const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void => {
-      writeStreamJsonEvent(session, {
-        type: 'background_task_event',
-        background_task_event: event,
-      });
-    };
-
-    const onComplete = (result: IExecutionResult): void => {
-      cleanup();
-      writeJsonResult(getSessionId(session), result.response, 'success');
-      resolve(0);
-    };
-
-    const onInterrupted = (result: IExecutionResult): void => {
-      cleanup();
-      writeJsonResult(getSessionId(session), result.response, 'success');
-      resolve(0);
-    };
-
-    const onError = (_error: Error): void => {
-      cleanup();
-      writeJsonResult(getSessionId(session), '', 'error');
-      resolve(1);
-    };
-
-    session.on('text_delta', onTextDelta);
-    session.on('background_task_event', onBackgroundTaskEvent);
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
+    const cleanup = subscribeStreamJsonEvents(session, resolve);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
       if (commandExecution.isSlashCommand && commandExecution.result) {
@@ -204,6 +165,83 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
       void session.submit(prompt);
     });
   });
+}
+
+function subscribeStreamJsonEvents(
+  session: InteractiveSession,
+  resolve: (exitCode: number) => void,
+): () => void {
+  const onTextDelta = (text: string): void => {
+    writeStreamJsonEvent(session, {
+      type: 'content_block_delta',
+      delta: { type: 'text_delta', text },
+    });
+  };
+  const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
+    writeStreamJsonEvent(session, { type: 'background_task_event', background_task_event: event });
+  const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
+    writeStreamJsonEvent(session, {
+      type: 'background_job_group_event',
+      background_job_group_event: event,
+    });
+  const cleanup = (): void =>
+    unsubscribeStreamJsonEvents(session, {
+      onTextDelta,
+      onBackgroundTaskEvent,
+      onBackgroundJobGroupEvent,
+      onComplete,
+      onInterrupted,
+      onError,
+    });
+  const onComplete = (result: IExecutionResult): void =>
+    completeStream(session, cleanup, result, resolve);
+  const onInterrupted = (result: IExecutionResult): void =>
+    completeStream(session, cleanup, result, resolve);
+  const onError = (_error: Error): void => {
+    cleanup();
+    writeJsonResult(getSessionId(session), '', 'error');
+    resolve(1);
+  };
+
+  session.on('text_delta', onTextDelta);
+  session.on('background_task_event', onBackgroundTaskEvent);
+  session.on('background_job_group_event', onBackgroundJobGroupEvent);
+  session.on('complete', onComplete);
+  session.on('interrupted', onInterrupted);
+  session.on('error', onError);
+  return cleanup;
+}
+
+interface IStreamJsonHandlers {
+  onTextDelta: (text: string) => void;
+  onBackgroundTaskEvent: (event: TBackgroundTaskEvent) => void;
+  onBackgroundJobGroupEvent: (event: TBackgroundJobGroupEvent) => void;
+  onComplete: (result: IExecutionResult) => void;
+  onInterrupted: (result: IExecutionResult) => void;
+  onError: (error: Error) => void;
+}
+
+function unsubscribeStreamJsonEvents(
+  session: InteractiveSession,
+  handlers: IStreamJsonHandlers,
+): void {
+  session.off('text_delta', handlers.onTextDelta);
+  session.off('background_task_event', handlers.onBackgroundTaskEvent);
+  session.off('background_job_group_event', handlers.onBackgroundJobGroupEvent);
+  session.off('complete', handlers.onComplete);
+  session.off('interrupted', handlers.onInterrupted);
+  session.off('error', handlers.onError);
+}
+
+function completeStream(
+  session: InteractiveSession,
+  cleanup: () => void,
+  result: IExecutionResult,
+  resolve: (exitCode: number) => void,
+): void {
+  cleanup();
+  writeJsonResult(getSessionId(session), result.response, 'success');
+  resolve(0);
 }
 
 function runTextFormat(session: InteractiveSession, prompt: string): Promise<number> {

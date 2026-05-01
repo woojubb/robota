@@ -73,7 +73,7 @@ Writes newline-delimited JSON events to stdout during execution:
 
 **Background task events:**
 
-When `InteractiveSession` emits `background_task_event`, `stream-json` writes it as a normal stream event:
+When `InteractiveSession` emits `background_task_event` or `background_job_group_event`, `stream-json` writes it as a normal stream event:
 
 ```json
 {
@@ -90,6 +90,8 @@ When `InteractiveSession` emits `background_task_event`, `stream-json` writes it
   "uuid": "<uuid>"
 }
 ```
+
+Background job group events use the same wrapper shape with `type: "background_job_group_event"` and a `background_job_group_event` payload. Headless transport does not own group waiting logic; slash commands such as default `/agent parallel`, compatibility `/agent parallel --wait`, explicit `/agent parallel --detach`, and `/agent wait GROUP_ID` call SDK-owned command/session APIs.
 
 Headless transport does not expose interactive background controls. Non-interactive callers should use the emitted events plus SDK/transport-specific control surfaces outside this one-shot runner.
 

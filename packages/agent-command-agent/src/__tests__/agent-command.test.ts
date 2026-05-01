@@ -38,6 +38,30 @@ function createMockSession(overrides?: Record<string, unknown>): InteractiveSess
       updatedAt: '2026-05-01T00:00:00.000Z',
       results: [],
     }),
+    waitBackgroundJobGroup: vi.fn().mockResolvedValue({
+      id: 'group_1',
+      parentSessionId: 'test-session-id',
+      waitPolicy: 'wait_all',
+      taskIds: ['agent_1', 'agent_2'],
+      status: 'completed',
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:02.000Z',
+      completedAt: '2026-05-01T00:00:02.000Z',
+      results: [
+        {
+          taskId: 'agent_1',
+          label: 'developer',
+          status: 'completed',
+          summary: 'developer summary',
+        },
+        {
+          taskId: 'agent_2',
+          label: 'designer',
+          status: 'completed',
+          summary: 'designer summary',
+        },
+      ],
+    }),
     sendAgentJob: vi.fn(),
     cancelAgentJob: vi.fn(),
     closeAgentJob: vi.fn(),
@@ -86,10 +110,13 @@ describe('agent command module', () => {
       modelInvocable: true,
       safety: 'background-agent',
     });
-    expect(agent?.description).toContain('subagent jobs');
-    expect(agent?.description).toContain('ExecuteCommand');
-    expect(agent?.description).toContain('choose one backlog');
-    expect(agent?.description).toContain('ExecuteCommand tool');
+    expect(agent?.description).toContain('Subagent jobs');
+    expect(agent?.description).toContain('parallel');
+    expect(agent?.description).toContain('consolidated');
+    expect(agent?.description).toContain('When the user explicitly asks');
+    expect(agent?.description).toContain('start the requested agent command immediately');
+    expect(agent?.description).toContain('do not ask a follow-up question');
+    expect(agent?.description).toContain('target selection inside the agent prompt');
     expect(agent?.description).not.toContain('<agent>');
     expect(agent?.description).not.toContain('XML/HTML');
     expect(agent?.argumentHint).toContain('PROMPT');
@@ -254,6 +281,20 @@ describe('agent command module', () => {
         callOrder.push(`wait:${jobId}`);
         return Promise.resolve({ jobId, output: 'done' });
       }),
+      waitBackgroundJobGroup: vi.fn().mockImplementation((groupId: string) => {
+        callOrder.push(`wait-group:${groupId}`);
+        return Promise.resolve({
+          id: groupId,
+          parentSessionId: 'test-session-id',
+          waitPolicy: 'wait_all',
+          taskIds: ['agent_1', 'agent_2'],
+          status: 'completed',
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:02.000Z',
+          completedAt: '2026-05-01T00:00:02.000Z',
+          results: [],
+        });
+      }),
     });
 
     const result = await executor.execute(
@@ -273,7 +314,7 @@ describe('agent command module', () => {
       taskIds: ['agent_1', 'agent_2'],
       label: 'agent parallel',
     });
-    expect(callOrder).toEqual(['spawn:developer', 'spawn:designer']);
+    expect(callOrder).toEqual(['spawn:developer', 'spawn:designer', 'wait-group:group_1']);
   });
 
   it('supports simple parallel label prompt syntax with default agent type', async () => {
@@ -305,5 +346,93 @@ describe('agent command module', () => {
       mode: 'background',
       prompt: 'architecture boundaries',
     });
+  });
+
+  it('waits for a parallel group when --wait is requested', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'parallel --wait developer:"implementation risks" designer=Plan:"architecture boundaries"',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Background job group group_1: completed');
+    expect(result?.message).toContain('[completed] developer agent_1: developer summary');
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).toHaveBeenCalledWith('group_1');
+  });
+
+  it('waits for a parallel group by default so model-routed calls produce a consolidated result', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'parallel developer:"implementation risks" designer=Plan:"architecture boundaries"',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Background job group group_1: completed');
+    expect(result?.message).toContain('[completed] developer agent_1: developer summary');
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).toHaveBeenCalledWith('group_1');
+  });
+
+  it('detaches a parallel group only when --detach is explicit', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute(
+      'agent',
+      session,
+      'parallel --detach developer:"implementation risks" designer=Plan:"architecture boundaries"',
+    );
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Started agent jobs:');
+    expect(result?.data?.groupId).toBe('group_1');
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('waits for an existing agent group by id', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'wait group_1');
+
+    expect(result?.success).toBe(true);
+    expect(result?.data?.groupId).toBe('group_1');
+    expect(result?.message).toContain('[completed] designer agent_2: designer summary');
+    expect(
+      (session as unknown as { waitBackgroundJobGroup: ReturnType<typeof vi.fn> })
+        .waitBackgroundJobGroup,
+    ).toHaveBeenCalledWith('group_1');
   });
 });

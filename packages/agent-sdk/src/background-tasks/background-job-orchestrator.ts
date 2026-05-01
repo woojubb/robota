@@ -37,6 +37,17 @@ export interface IBackgroundJobGroupState {
   results: IBackgroundJobResultEnvelope[];
 }
 
+export interface IBackgroundJobGroupSummary {
+  groupId: string;
+  status: TBackgroundJobGroupStatus;
+  total: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  pending: number;
+  lines: string[];
+}
+
 export interface IBackgroundJobGroupCreateRequest {
   parentSessionId: string;
   waitPolicy: TBackgroundJobWaitPolicy;
@@ -232,6 +243,40 @@ function summarizeOutput(output: string): string {
   const trimmed = output.trim();
   if (trimmed.length <= DEFAULT_SUMMARY_LENGTH) return trimmed;
   return `${trimmed.slice(0, DEFAULT_SUMMARY_LENGTH)}...`;
+}
+
+export function summarizeBackgroundJobGroup(
+  group: IBackgroundJobGroupState,
+): IBackgroundJobGroupSummary {
+  const completed = countResults(group, 'completed');
+  const failed = countResults(group, 'failed');
+  const cancelled = countResults(group, 'cancelled');
+  return {
+    groupId: group.id,
+    status: group.status,
+    total: group.taskIds.length,
+    completed,
+    failed,
+    cancelled,
+    pending: Math.max(group.taskIds.length - group.results.length, 0),
+    lines: group.results.map((result) => formatResultLine(result)),
+  };
+}
+
+function countResults(group: IBackgroundJobGroupState, status: TBackgroundTaskStatus): number {
+  return group.results.filter((result) => result.status === status).length;
+}
+
+function formatResultLine(result: IBackgroundJobResultEnvelope): string {
+  const detail = normalizeResultDetail(result);
+  const output = result.outputRef && result.summary ? ` (output: ${result.outputRef})` : '';
+  return `[${result.status}] ${result.label} ${result.taskId}: ${detail}${output}`;
+}
+
+function normalizeResultDetail(result: IBackgroundJobResultEnvelope): string {
+  const detail = result.error?.message ?? result.summary ?? '';
+  const normalized = detail.replace(/\s+/g, ' ').trim();
+  return normalized.length > 0 ? normalized : '(no summary)';
 }
 
 function cloneGroup(group: IBackgroundJobGroupState): IBackgroundJobGroupState {

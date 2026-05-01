@@ -179,13 +179,13 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit subagent requests require a same-turn `Agent` tool call, parallel roles require one tool call per role, omitted `background` means background execution, and assistant text alone is not execution.
+- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit user requests to create, run, spawn, delegate to, or use agents/subagents should start `Agent` tool calls immediately unless impossible or unsafe; one `Agent` tool call creates one background subagent job and waits for terminal completed/failed/timed-out result data before returning to the parent conversation.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
 ### Web Search
 
 - **Implementation**: Anthropic server tool (`web_search_20250305`), not a `FunctionTool`
-- **Behavior**: Enabled automatically when the provider is Anthropic. The system prompt includes an instruction that the agent must use `web_search` when the user asks to search the web.
+- **Behavior**: Enabled automatically when the provider is Anthropic. Provider capability text must come from the provider adapter or tool descriptor; the system prompt composer must not inject hardcoded web-search behavior instructions.
 - **Activation**: `enableWebTools` is set as a property on the AnthropicProvider instance by `Session.configureProvider()`. No tool registration is required because the tool is server-managed.
 - **Callback**: `onServerToolUse` fires during streaming when the server tool executes, allowing the UI to display search status.
 
@@ -271,20 +271,20 @@ Gemma-family local models should be configured through `type: "gemma"` so provid
 
 Resolved provider fields:
 
-| Field     | Description                                                                 |
-| --------- | --------------------------------------------------------------------------- |
-| `name`    | Provider type used by session model config (`anthropic`, `openai`, `gemma`) |
-| `model`   | Active model id                                                             |
-| `apiKey`  | API key or local placeholder token                                          |
-| `baseURL` | Optional OpenAI-compatible endpoint override                                |
-| `timeout` | Optional provider request timeout in milliseconds                           |
+| Field     | Description                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------------- |
+| `name`    | Provider type used by session model config (`anthropic`, `openai`, `gemma`)                         |
+| `model`   | Active model id                                                                                     |
+| `apiKey`  | API key or local placeholder token                                                                  |
+| `baseURL` | Optional OpenAI-compatible endpoint override                                                        |
+| `timeout` | Optional provider idle timeout in milliseconds. Also passed to provider construction when supported |
 
 ### Context Loading (SDK-Specific)
 
 - **Package**: `agent-sdk/context/`
 - **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
 - **Implementation**: Directory traversal from cwd to root, project type/language detection, system prompt assembly
-- **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is injected into the system prompt via `buildSystemPrompt()`. Persists across compaction because system message is preserved.
+- **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
 - **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project) and `~/.robota/skills/*/SKILL.md` (user). Used by agent-cli's `SkillCommandSource` for slash command autocomplete
 
@@ -450,22 +450,24 @@ Background task runtime exports:
 | `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                                      |
 | `BackgroundJobOrchestrator`      | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
 | `IBackgroundJobGroupState`       | interface | Parent-session-scoped background task group snapshot                    |
+| `IBackgroundJobGroupSummary`     | interface | Presentation-neutral group completion counts and result lines           |
 | `TBackgroundJobWaitPolicy`       | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
 
 Background agent watchdog configuration is provider-neutral. Agent requests may set `idleTimeoutMs`, `maxRuntimeMs`, `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold`; the runtime refreshes `lastActivityAt` from runner progress events and fails runaway jobs with `timeoutReason`.
 
 `InteractiveSession` subscribes to background task events, persists every event including streaming text deltas into the session record for local debugging/resume, and emits `background_task_event` for transports and TUI state projection. It also maps background agent lifecycle events into Claude Code-compatible `SubagentStart` and `SubagentStop` hooks.
 
-`BackgroundJobOrchestrator` is the SDK-owned layer above `BackgroundTaskManager` for parent-request orchestration. It groups related task IDs, applies a wait policy, emits group lifecycle events, and produces result envelopes with task IDs, labels, terminal status, concise output summaries, output references, and errors. The orchestrator does not run processes, own provider calls, mutate TUI state, or inject hardcoded prompt instructions.
+`BackgroundJobOrchestrator` is the SDK-owned layer above `BackgroundTaskManager` for parent-request orchestration. It groups related task IDs, applies a wait policy, emits group lifecycle events, and produces result envelopes with task IDs, labels, terminal status, concise output summaries, output references, and errors. It also exposes presentation-neutral summary helpers for command/transport/UI adapters. The orchestrator does not run processes, own provider calls, mutate TUI state, or inject hardcoded prompt instructions.
 
 `InteractiveSession` exposes background job group controls:
 
-| API                                 | Behavior                                                       |
-| ----------------------------------- | -------------------------------------------------------------- |
-| `createBackgroundJobGroup(request)` | Create a parent-session-scoped group over existing task IDs    |
-| `listBackgroundJobGroups()`         | Return cloned group snapshots                                  |
-| `getBackgroundJobGroup(groupId)`    | Return one cloned group snapshot                               |
-| `waitBackgroundJobGroup(groupId)`   | Resolve when the group's wait policy reaches a terminal result |
+| API                                  | Behavior                                                       |
+| ------------------------------------ | -------------------------------------------------------------- |
+| `createBackgroundJobGroup(request)`  | Create a parent-session-scoped group over existing task IDs    |
+| `listBackgroundJobGroups()`          | Return cloned group snapshots                                  |
+| `getBackgroundJobGroup(groupId)`     | Return one cloned group snapshot                               |
+| `waitBackgroundJobGroup(groupId)`    | Resolve when the group's wait policy reaches a terminal result |
+| `summarizeBackgroundJobGroup(group)` | Return counts and concise result lines for an existing group   |
 
 `InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 
@@ -836,17 +838,17 @@ Provider resolution order:
 
 Provider profile schema:
 
-| Field     | Description                                                  |
-| --------- | ------------------------------------------------------------ |
-| `type`    | Provider implementation type such as `anthropic` or `openai` |
-| `model`   | Default model ID for the profile                             |
-| `apiKey`  | Literal key or `$ENV:<name>` reference                       |
-| `baseURL` | Optional OpenAI-compatible or provider-specific endpoint     |
-| `timeout` | Optional request timeout                                     |
+| Field     | Description                                                                     |
+| --------- | ------------------------------------------------------------------------------- |
+| `type`    | Provider implementation type such as `anthropic` or `openai`                    |
+| `model`   | Default model ID for the profile                                                |
+| `apiKey`  | Literal key or `$ENV:<name>` reference                                          |
+| `baseURL` | Optional OpenAI-compatible or provider-specific endpoint                        |
+| `timeout` | Optional provider idle timeout and provider construction timeout when supported |
 
 `currentProvider` must point to an existing profile. Missing profiles and profiles without `type` are configuration errors. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
 
-The SDK remains provider-neutral: it resolves provider metadata for session assembly, but consumers such as `agent-cli` still construct concrete provider instances.
+The SDK remains provider-neutral: it resolves provider metadata for session assembly, but consumers such as `agent-cli` still construct concrete provider instances. During session assembly, `config.provider.timeout` is forwarded to `Session.providerTimeout`; when omitted, SDK assembly uses a 120-second provider idle timeout so headless/TUI sessions cannot wait forever for a stalled provider call.
 
 ## Bundle Plugin System
 
@@ -890,7 +892,7 @@ When enabled, the `Agent` tool is part of the available tool set and is describe
 
 The `Agent` tool routes execution through a per-session `SubagentManager`, which delegates to the shared `BackgroundTaskManager` for `kind: 'agent'` tasks. It resolves unknown agent types before spawning so existing error results remain compatible.
 
-Foreground mode calls `spawn()` and `wait()` and returns the existing JSON shape: `{ success, output, agentId }`. Background mode sets `mode: 'background'`, returns immediately with `{ success, background: true, output: '', agentId, status }`, and emits lifecycle updates through `background_task_event`.
+The direct `Agent` tool always sets `mode: 'background'`, emits lifecycle updates through `background_task_event`, waits for terminal task completion, and returns `{ success, output, agentId }` or a failed terminal result. Detached fire-and-return agent orchestration belongs to command/runtime APIs such as `/agent parallel --detach`, not to direct model-emitted `Agent` tool parameters.
 
 ### Skill Execution Semantics
 
@@ -1070,23 +1072,24 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 **Built-in agents:**
 
-| Name              | Model Override     | Tool Restrictions   | Purpose                     |
-| ----------------- | ------------------ | ------------------- | --------------------------- |
-| `general-purpose` | (parent)           | None (inherits all) | Full-capability task agent  |
-| `Explore`         | `claude-haiku-4-5` | Denies Write, Edit  | Read-only code exploration  |
-| `Plan`            | (parent)           | Denies Write, Edit  | Read-only planning/research |
+| Name              | Model Override | Tool Restrictions   | Purpose                     |
+| ----------------- | -------------- | ------------------- | --------------------------- |
+| `general-purpose` | (parent)       | None (inherits all) | Full-capability task agent  |
+| `Explore`         | (parent)       | Denies Write, Edit  | Read-only code exploration  |
+| `Plan`            | (parent)       | Denies Write, Edit  | Read-only planning/research |
 
 ### Model-Requested Agent Invocation
 
 The parent session exposes an `Agent` function tool with parameters:
 
-| Parameter       | Type                   | Required | Description                                              |
-| --------------- | ---------------------- | -------- | -------------------------------------------------------- |
-| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session               |
-| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted   |
-| `model`         | `string`               | No       | Optional model override for this invocation              |
-| `background`    | `boolean`              | No       | Start as background task and return metadata immediately |
-| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree  |
+| Parameter       | Type                   | Required | Description                                             |
+| --------------- | ---------------------- | -------- | ------------------------------------------------------- |
+| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session              |
+| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted  |
+| `model`         | `string`               | No       | Optional model override for this invocation             |
+| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree |
+
+Unknown extra tool-call arguments are tolerated by the Agent tool runtime for provider compatibility, but they are not part of the public Agent parameter contract.
 
 The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
 

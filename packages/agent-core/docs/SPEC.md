@@ -84,7 +84,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `IProviderProbeResult`      | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                |
 | `TMessageFormatConverter`   | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                           |
 | `TMessageConverterRegistry` | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                         |
-| `IToolSchema`               | `interfaces/provider.ts`            | Tool schema contract                                                                                                                                                                                                  |
+| `IToolSchema`               | `interfaces/provider.ts`            | Tool schema contract, including root object `additionalProperties` for tools that intentionally tolerate unknown parameters                                                                                           |
 | `TToolParameters`           | `interfaces/types.ts`               | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                            |
 | `IEventService`             | `event-service/interfaces.ts`       | Event emission contract                                                                                                                                                                                               |
 | `IOwnerPathSegment`         | `event-service/interfaces.ts`       | Execution path tracking                                                                                                                                                                                               |
@@ -374,6 +374,7 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IRunOptions`                | `signal?: AbortSignal`             | Allows callers to cancel execution of `Robota.run()`              |
 | `IRunOptions`                | `onTextDelta?: TTextDeltaCallback` | Per-run streaming callback forwarded through execution context    |
 | `IChatOptions`               | `signal?: AbortSignal`             | Passed to provider `chat()` / `chatStream()` for cancelling calls |
+| `IAgentConfig`               | `timeout?: number`                 | Provider idle timeout in milliseconds for a model call            |
 | `IExecutionContext`          | `signal?: AbortSignal`             | Threaded through the execution context for round-level checks     |
 | `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback` | Run-scoped callback used before provider-level callback fallback  |
 | `IExecutionResult`           | `interrupted?: boolean`            | Indicates the execution was aborted before natural completion     |
@@ -385,7 +386,7 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
 
 - **ExecutionService**: Checks `signal.aborted` at round loop boundaries. If aborted, the loop exits early and the result includes `interrupted: true`.
-- **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation.
+- **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation. When `IAgentConfig.timeout` is set, it also enforces a provider idle timeout that resets on each `onTextDelta` callback and aborts/reports a provider error if no activity arrives before the timeout.
 - **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
 - **streamWithAbort**: Races `iterator.next()` against abort, checks `signal.aborted` before and after each yielded event, and calls `iterator.return()` when an abort stops the stream.
 - **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).

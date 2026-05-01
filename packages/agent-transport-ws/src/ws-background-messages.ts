@@ -1,14 +1,18 @@
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { TClientMessage, TServerMessage } from './ws-handler.js';
-
-type TBackgroundControlAction = 'cancel' | 'close' | 'send';
+import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './ws-protocol.js';
 
 export function handleBackgroundQueryMessage(
   session: InteractiveSession,
   send: (message: TServerMessage) => void,
   msg: Extract<
     TClientMessage,
-    { type: 'get-background-tasks' | 'get-background-task' | 'read-background-task-log' }
+    | { type: 'get-background-tasks' | 'get-background-task' | 'read-background-task-log' }
+    | {
+        type:
+          | 'get-background-job-groups'
+          | 'get-background-job-group'
+          | 'wait-background-job-group';
+      }
   >,
 ): void {
   if (msg.type === 'get-background-tasks') {
@@ -17,6 +21,18 @@ export function handleBackgroundQueryMessage(
   }
   if (msg.type === 'get-background-task') {
     sendBackgroundTaskSnapshot(session, send, msg);
+    return;
+  }
+  if (msg.type === 'get-background-job-groups') {
+    send({ type: 'background_job_groups', groups: session.listBackgroundJobGroups() });
+    return;
+  }
+  if (msg.type === 'get-background-job-group') {
+    sendBackgroundJobGroupSnapshot(session, send, msg);
+    return;
+  }
+  if (msg.type === 'wait-background-job-group') {
+    sendBackgroundJobGroupWaitResult(session, send, msg);
     return;
   }
   sendBackgroundTaskLogPage(session, send, msg);
@@ -82,6 +98,37 @@ function sendBackgroundTaskLogPage(
   }
   session.readBackgroundTaskLog(msg.taskId, msg.cursor).then(
     (page) => send({ type: 'background_task_log', taskId: msg.taskId, page }),
+    (error: Error) => send({ type: 'protocol_error', message: error.message }),
+  );
+}
+
+function sendBackgroundJobGroupSnapshot(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+  msg: Extract<TClientMessage, { type: 'get-background-job-group' }>,
+): void {
+  if (!msg.groupId) {
+    send({ type: 'protocol_error', message: 'groupId is required' });
+    return;
+  }
+  send({
+    type: 'background_job_group',
+    groupId: msg.groupId,
+    group: session.getBackgroundJobGroup(msg.groupId) ?? null,
+  });
+}
+
+function sendBackgroundJobGroupWaitResult(
+  session: InteractiveSession,
+  send: (message: TServerMessage) => void,
+  msg: Extract<TClientMessage, { type: 'wait-background-job-group' }>,
+): void {
+  if (!msg.groupId) {
+    send({ type: 'protocol_error', message: 'groupId is required' });
+    return;
+  }
+  session.waitBackgroundJobGroup(msg.groupId).then(
+    (group) => send({ type: 'background_job_group', groupId: msg.groupId, group }),
     (error: Error) => send({ type: 'protocol_error', message: error.message }),
   );
 }

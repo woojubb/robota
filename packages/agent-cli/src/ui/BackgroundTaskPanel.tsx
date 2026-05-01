@@ -17,6 +17,11 @@ function getStatusColor(status: IBackgroundTaskViewModel['status']): string {
   return 'cyan';
 }
 
+function getStatusMarker(status: IBackgroundTaskViewModel['status']): string {
+  if (status === 'queued' || status === 'running') return '□';
+  return '■';
+}
+
 function getTaskPreview(task: IBackgroundTaskViewModel): string {
   return task.errorPreview ?? task.resultPreview ?? task.currentAction ?? task.preview;
 }
@@ -43,8 +48,7 @@ export default function BackgroundTaskPanel({ tasks }: IProps): React.ReactEleme
       {tasks.map((task) => (
         <Text key={task.id}>
           {'- '}
-          <Text color={getStatusColor(task.status)}>{task.statusLabel}</Text>
-          {task.unread ? <Text color="yellow"> !</Text> : null}
+          <Text color={getStatusColor(task.status)}>{getStatusMarker(task.status)}</Text>
           {` ${task.kind}:${task.label} ${task.id}`}
           {task.status === 'running' && formatAge(task.lastActivityAt) ? (
             <Text dimColor>{` idle ${formatAge(task.lastActivityAt)}`}</Text>

@@ -22,9 +22,17 @@ describe('buildSystemPrompt', () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('includes base role description', () => {
+  it('does not inject framework role instructions from composer code', () => {
     const result = buildSystemPrompt(BASE_PARAMS);
-    expect(result).toMatch(/assistant|agent|coding/i);
+    expect(result).not.toContain('## Role');
+    expect(result).not.toContain('You are an AI coding assistant');
+    expect(result).not.toContain('Always be precise');
+  });
+
+  it('does not inject provider behavior instructions from composer code', () => {
+    const result = buildSystemPrompt(BASE_PARAMS);
+    expect(result).not.toContain('## Web Search');
+    expect(result).not.toContain('MUST use the web_search tool');
   });
 
   it('includes AGENTS.md content when provided', () => {
@@ -50,10 +58,17 @@ describe('buildSystemPrompt', () => {
 
   it('includes trust level', () => {
     const resultSafe = buildSystemPrompt({ ...BASE_PARAMS, trustLevel: 'safe' });
-    expect(resultSafe).toMatch(/safe|plan|read.?only/i);
+    expect(resultSafe).toContain('- **Trust level:** safe');
 
     const resultFull = buildSystemPrompt({ ...BASE_PARAMS, trustLevel: 'full' });
-    expect(resultFull).toMatch(/full|acceptEdits/i);
+    expect(resultFull).toContain('- **Trust level:** full');
+  });
+
+  it('includes response language as metadata when provided', () => {
+    const result = buildSystemPrompt({ ...BASE_PARAMS, language: 'ko' });
+    expect(result).toContain('## Response Language');
+    expect(result).toContain('ko');
+    expect(result).not.toContain('Always respond in ko');
   });
 
   it('includes project name and type in output', () => {
@@ -95,6 +110,16 @@ describe('buildSystemPrompt', () => {
     expect(agentsIdx).toBeLessThan(claudeIdx);
   });
 
+  it('starts with project instruction content when AGENTS.md is provided', () => {
+    const result = buildSystemPrompt({
+      ...BASE_PARAMS,
+      agentsMd: 'AGENTS_MARKER',
+      claudeMd: 'CLAUDE_MARKER',
+    });
+
+    expect(result.startsWith('## Agent Instructions\nAGENTS_MARKER')).toBe(true);
+  });
+
   describe('System prompt skill injection', () => {
     it('should include skill list in system prompt', () => {
       const result = buildSystemPrompt({
@@ -105,19 +130,19 @@ describe('buildSystemPrompt', () => {
         ],
       });
 
-      expect(result).toContain('## Capabilities');
+      expect(result).toContain('## Skills');
       expect(result).toContain('my-skill: Does useful things');
       expect(result).not.toContain('hidden');
     });
 
     it('should not include skills section when no skills provided', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS });
-      expect(result).not.toContain('## Capabilities');
+      expect(result).not.toContain('## Skills');
     });
 
     it('should not include skills section when skills array is empty', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS, skills: [] });
-      expect(result).not.toContain('## Capabilities');
+      expect(result).not.toContain('## Skills');
     });
 
     it('should not include skills section when all skills are model-invocation disabled', () => {
@@ -125,7 +150,7 @@ describe('buildSystemPrompt', () => {
         ...BASE_PARAMS,
         skills: [{ name: 'hidden', description: 'Secret', disableModelInvocation: true }],
       });
-      expect(result).not.toContain('## Capabilities');
+      expect(result).not.toContain('## Skills');
     });
 
     it('should include multiple invocable skills', () => {
@@ -149,9 +174,40 @@ describe('buildSystemPrompt', () => {
       });
 
       const toolsIdx = result.indexOf('## Available Tools');
-      const skillsIdx = result.indexOf('## Capabilities');
+      const skillsIdx = result.indexOf('## Skills');
       expect(toolsIdx).toBeGreaterThanOrEqual(0);
       expect(skillsIdx).toBeGreaterThan(toolsIdx);
+    });
+
+    it('separates built-in commands from skills and agents with structural headings', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        commandDescriptors: [
+          {
+            name: '/agent',
+            kind: 'builtin-command',
+            description: 'Subagent job command',
+            userInvocable: true,
+            modelInvocable: true,
+            argumentHint: 'parallel LABEL:"PROMPT"',
+            safety: 'background-agent',
+          },
+        ],
+        skills: [{ name: 'review', description: 'Review code' }],
+        agents: [{ name: 'Plan', description: 'Planning agent' }],
+      });
+
+      const commandsIdx = result.indexOf('## Built-in Commands');
+      const skillsIdx = result.indexOf('## Skills');
+      const agentsIdx = result.indexOf('## Agents');
+
+      expect(commandsIdx).toBeGreaterThanOrEqual(0);
+      expect(skillsIdx).toBeGreaterThan(commandsIdx);
+      expect(agentsIdx).toBeGreaterThan(skillsIdx);
+      expect(result).not.toContain('## Capabilities');
+      expect(result).toContain('- /agent parallel LABEL:"PROMPT": Subagent job command');
+      expect(result).toContain('- review: Review code');
+      expect(result).toContain('- Plan: Planning agent');
     });
   });
 
@@ -165,14 +221,14 @@ describe('buildSystemPrompt', () => {
         ],
       });
 
-      expect(result).toContain('## Capabilities');
+      expect(result).toContain('## Agents');
       expect(result).toContain('- general-purpose: General task execution');
       expect(result).toContain('- Explore: Read-only exploration');
     });
 
     it('should not include agents section when no agents are provided', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS, agents: [] });
-      expect(result).not.toContain('## Capabilities');
+      expect(result).not.toContain('## Agents');
     });
   });
 });
