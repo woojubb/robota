@@ -7,6 +7,7 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:scan`
 - `pnpm harness:scan:consistency`
 - `pnpm harness:scan:specs`
+- `pnpm harness:scan:coverage-scripts`
 - `pnpm harness:plan -- --changed-file <path> [--changed-file <path>] [--base-ref <git-ref>]`
 - `pnpm harness:pre-push`
 - `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]`
@@ -27,6 +28,7 @@ These scripts are the executable layer of the Robota harness.
 ### `pnpm harness:scan`
 
 - runs consistency, spec ownership, and docs structure scans as one gate
+- verifies that testable workspace packages expose `test:coverage` without running coverage
 - is the default repository-wide pre-review harness command
 
 ### `scan-consistency.mjs`
@@ -39,6 +41,13 @@ These scripts are the executable layer of the Robota harness.
 - fails when a workspace owns `examples/` but does not expose `scenario:record`
 - fails when a workspace owns `examples/` but does not keep `examples/scenarios/*.record.json`
 - validates that authoritative scenario records align one-to-one with the current owner scenario command set
+
+### `check-test-coverage-scripts.mjs`
+
+- statically verifies that every workspace package with a Vitest or Jest `test` script exposes `test:coverage`
+- verifies that the root package exposes `test:coverage`, `test:coverage:packages`, and `test:coverage:apps`
+- verifies that `harness:scan` includes the static coverage script check
+- does not run coverage; package coverage remains an explicit opt-in command
 
 ### `audit-spec-coverage.mjs`
 
