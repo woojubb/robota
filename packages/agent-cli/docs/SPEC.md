@@ -915,6 +915,7 @@ Child-process subagent runner responsibilities:
 - pass `ISubagentSpawnRequest`, agent definition, parent config/context, permission mode, and serialized provider profile over IPC
 - expose child `pid` on the background task state
 - forward worker text/tool IPC messages to `BackgroundTaskManager` progress events
+- create an append-only subagent transcript at `.robota/logs/PARENT_SESSION_ID/subagents/AGENT_ID.jsonl` and make `/agent read AGENT_ID` read that transcript while the worker is still running
 - forward cancellation to the worker and terminate it after a grace period
 - forward follow-up prompts to workers that support input
 - keep runtime-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter

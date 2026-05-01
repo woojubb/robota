@@ -42,6 +42,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskState,
+  TBackgroundTaskEvent,
   TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
 import type {
@@ -92,6 +93,8 @@ export class InteractiveSession {
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: unknown[] | null = null;
+  private backgroundTasks: IBackgroundTaskState[] = [];
+  private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private resumeSessionId?: string;
   private forkSession: boolean;
   private backgroundTaskUnsubscribe: (() => void) | null = null;
@@ -126,6 +129,8 @@ export class InteractiveSession {
       );
       if (restored.history.length > 0) this.history = restored.history;
       if (restored.sessionName) this.sessionName = restored.sessionName;
+      this.backgroundTasks = restored.backgroundTasks;
+      this.backgroundTaskEvents = restored.backgroundTaskEvents;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
 
@@ -496,8 +501,41 @@ export class InteractiveSession {
       retrieveAgentToolDeps(this.session)?.backgroundTaskManager;
     if (!manager) return;
     this.backgroundTaskUnsubscribe = manager.subscribe((event) => {
+      this.recordBackgroundTaskEvent(event);
       this.emit('background_task_event', event);
     });
+  }
+
+  private recordBackgroundTaskEvent(event: TBackgroundTaskEvent): void {
+    this.backgroundTasks = this.getBackgroundTaskSnapshots();
+    if (event.type !== 'background_task_text_delta') {
+      this.backgroundTaskEvents.push(event);
+      this.persistCurrentSession();
+    }
+  }
+
+  private getBackgroundTaskSnapshots(): IBackgroundTaskState[] {
+    try {
+      return this.getBackgroundTaskManagerOrThrow().list();
+    } catch {
+      return this.backgroundTasks;
+    }
+  }
+
+  private persistCurrentSession(): void {
+    if (!this.sessionStore || !this.session) return;
+    this.backgroundTasks = this.getBackgroundTaskSnapshots();
+    persistSession(
+      this.sessionStore,
+      this.session,
+      this.sessionName,
+      this.cwd ?? '',
+      this.history,
+      {
+        tasks: this.backgroundTasks,
+        events: this.backgroundTaskEvents,
+      },
+    );
   }
 
   private startForkSkillExecution(displayInput: string): void {
@@ -510,15 +548,7 @@ export class InteractiveSession {
   private finishForkSkillExecution(): void {
     this.executing = false;
     this.emit('thinking', false);
-    if (this.sessionStore && this.session) {
-      persistSession(
-        this.sessionStore,
-        this.session,
-        this.sessionName,
-        this.cwd ?? '',
-        this.history,
-      );
-    }
+    this.persistCurrentSession();
     if (this.pendingPrompt) {
       const queued = this.pendingPrompt;
       const queuedDisplay = this.pendingDisplayInput;
@@ -641,15 +671,7 @@ export class InteractiveSession {
     } finally {
       this.executing = false;
       this.emit('thinking', false);
-      if (this.sessionStore && this.session) {
-        persistSession(
-          this.sessionStore,
-          this.session,
-          this.sessionName,
-          this.cwd ?? '',
-          this.history,
-        );
-      }
+      this.persistCurrentSession();
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;

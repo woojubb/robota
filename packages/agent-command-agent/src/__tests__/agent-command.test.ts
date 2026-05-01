@@ -81,8 +81,11 @@ describe('agent command module', () => {
     expect(agent?.description).toContain('choose one backlog');
     expect(agent?.description).toContain('Korean example');
     expect(agent?.description).toContain('백로그 중에 하나');
-    expect(agent?.description).toContain('<agent>');
-    expect(agent?.argumentHint).toContain('<prompt>');
+    expect(agent?.description).toContain('ExecuteCommand tool');
+    expect(agent?.description).not.toContain('<agent>');
+    expect(agent?.description).not.toContain('XML/HTML');
+    expect(agent?.argumentHint).toContain('PROMPT');
+    expect(agent?.argumentHint).not.toContain('<');
   });
 
   it('spawns a background agent from direct natural-language /agent input', async () => {
@@ -108,6 +111,23 @@ describe('agent command module', () => {
     expect(
       (session as unknown as { waitAgentJob: ReturnType<typeof vi.fn> }).waitAgentJob,
     ).not.toHaveBeenCalled();
+  });
+
+  it('uses plain placeholder names in usage errors', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const runResult = await executor.execute('agent', session, 'run');
+    const parallelResult = await executor.execute('agent', session, 'parallel');
+
+    expect(runResult?.message).toContain('AGENT_NAME');
+    expect(parallelResult?.message).toContain('LABEL');
+    expect(runResult?.message).not.toContain('<');
+    expect(parallelResult?.message).not.toContain('<');
   });
 
   it('spawns a named background agent from direct /agent input', async () => {

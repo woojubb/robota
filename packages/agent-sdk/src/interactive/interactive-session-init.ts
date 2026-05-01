@@ -12,7 +12,11 @@ import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type {
+  IBackgroundTaskRunner,
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
+} from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { ICommandModule, ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -225,13 +229,23 @@ export function loadSessionRecord(
   history: IHistoryEntry[];
   sessionName: string | undefined;
   pendingRestoreMessages: unknown[] | null;
+  backgroundTasks: IBackgroundTaskState[];
+  backgroundTaskEvents: TBackgroundTaskEvent[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
-    return { history: [], sessionName: undefined, pendingRestoreMessages: null };
+    return {
+      history: [],
+      sessionName: undefined,
+      pendingRestoreMessages: null,
+      backgroundTasks: [],
+      backgroundTaskEvents: [],
+    };
   }
 
   const history = (record.history ?? []) as IHistoryEntry[];
+  const backgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
+  const backgroundTaskEvents = (record.backgroundTaskEvents ?? []) as TBackgroundTaskEvent[];
   const sessionName = record.name;
   let pendingRestoreMessages: unknown[] | null = null;
 
@@ -247,5 +261,5 @@ export function loadSessionRecord(
     }
   }
 
-  return { history, sessionName, pendingRestoreMessages };
+  return { history, sessionName, pendingRestoreMessages, backgroundTasks, backgroundTaskEvents };
 }

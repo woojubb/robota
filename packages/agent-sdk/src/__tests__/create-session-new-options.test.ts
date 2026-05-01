@@ -268,7 +268,7 @@ describe('createSession — appendSystemPrompt option', () => {
       expect(systemMessage).toContain('choose one backlog');
       expect(systemMessage).toContain('Korean example');
       expect(systemMessage).toContain('백로그 중에 하나');
-      expect(systemMessage).toContain('<agent');
+      expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {
       rmSync(cwd, { recursive: true, force: true });

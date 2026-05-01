@@ -111,9 +111,16 @@ export async function executeRun(
 
   let response: string;
   try {
+    const onTextDelta = ctx.onTextDelta
+      ? (delta: string): void => {
+          ctx.log('text_delta', { delta });
+          ctx.onTextDelta?.(delta);
+        }
+      : undefined;
+
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
-      ...(ctx.onTextDelta && { onTextDelta: ctx.onTextDelta }),
+      ...(onTextDelta && { onTextDelta }),
     });
 
     // If execution was interrupted (abort fired during execution),

@@ -140,12 +140,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
   const backgroundTaskRunners = [createManagedShellProcessRunner()];
+  const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
     providerConfig: { ...providerSettings, model: modelId },
+    logsDir: paths.logs,
   });
 
   // Session management
-  const sessionStore = new SessionStore(projectPaths(cwd).sessions);
+  const sessionStore = new SessionStore(paths.sessions);
   let resumeSessionId: string | undefined;
 
   if (args.continueMode) {

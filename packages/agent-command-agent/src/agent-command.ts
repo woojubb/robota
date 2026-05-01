@@ -59,7 +59,7 @@ async function executeRun(
   const request = parseRunRequest(tokens, getAvailableAgentNames(session));
   if (!request) {
     return {
-      message: 'Usage: agent run [<agent>] [--agent <agent>] <prompt>',
+      message: 'Usage: agent run [AGENT_NAME] [--agent AGENT_NAME] PROMPT',
       success: false,
     };
   }
@@ -83,7 +83,7 @@ async function executeParallel(
 
   if (jobs.length === 0) {
     return {
-      message: 'Usage: agent parallel <label>:"<prompt>" [<label>=<agent>:"<prompt>"]',
+      message: 'Usage: agent parallel LABEL:"PROMPT" [LABEL=AGENT_NAME:"PROMPT"]',
       success: false,
     };
   }
@@ -114,7 +114,7 @@ async function executeRead(
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId, offset] = tokens;
-  if (!agentId) return { message: 'Usage: agent read <agent-id> [offset]', success: false };
+  if (!agentId) return { message: 'Usage: agent read AGENT_ID [OFFSET]', success: false };
   const cursor = offset ? { offset: Number.parseInt(offset, 10) } : undefined;
   const page = await session.readBackgroundTaskLog(agentId, cursor);
   const next = page.nextCursor ? `\nNext offset: ${page.nextCursor.offset}` : '';
@@ -132,7 +132,7 @@ async function executeSend(
   const [agentId, ...promptParts] = tokens;
   const prompt = promptParts.join(' ').trim();
   if (!agentId || !prompt) {
-    return { message: 'Usage: agent send <agent-id> <prompt>', success: false };
+    return { message: 'Usage: agent send AGENT_ID PROMPT', success: false };
   }
   await session.sendAgentJob(agentId, prompt);
   return { message: `Sent input to agent job: ${agentId}`, success: true, data: { agentId } };
@@ -143,7 +143,7 @@ async function executeStop(
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId, ...reasonParts] = tokens;
-  if (!agentId) return { message: 'Usage: agent stop <agent-id> [reason]', success: false };
+  if (!agentId) return { message: 'Usage: agent stop AGENT_ID [REASON]', success: false };
   await session.cancelAgentJob(agentId, reasonParts.join(' ') || undefined);
   return { message: `Agent job stopped: ${agentId}`, success: true, data: { agentId } };
 }
@@ -153,7 +153,7 @@ async function executeClose(
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId] = tokens;
-  if (!agentId) return { message: 'Usage: agent close <agent-id>', success: false };
+  if (!agentId) return { message: 'Usage: agent close AGENT_ID', success: false };
   await session.closeAgentJob(agentId);
   return { message: `Agent job closed: ${agentId}`, success: true, data: { agentId } };
 }
