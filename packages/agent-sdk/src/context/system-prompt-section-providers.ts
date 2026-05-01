@@ -8,6 +8,7 @@ const TRUST_LEVEL_LABELS: Record<TTrustLevel, string> = {
   moderate: 'moderate',
   full: 'full',
 };
+const PROJECT_MEMORY_PRIORITY = Number('25');
 
 function createSection(
   id: string,
@@ -70,6 +71,17 @@ export function createAgentsMdSection(agentsMd: string): ISystemPromptSection | 
 export function createClaudeMdSection(claudeMd: string): ISystemPromptSection | undefined {
   if (claudeMd.trim().length === 0) return undefined;
   return createSection('project-claude-md', 'Project Notes', 20, claudeMd, 'project-instructions');
+}
+
+export function createProjectMemorySection(memoryMd?: string): ISystemPromptSection | undefined {
+  if (memoryMd === undefined || memoryMd.trim().length === 0) return undefined;
+  return createSection(
+    'project-memory',
+    'Project Memory',
+    PROJECT_MEMORY_PRIORITY,
+    memoryMd,
+    'project-instructions',
+  );
 }
 
 export function createToolDescriptionSection(

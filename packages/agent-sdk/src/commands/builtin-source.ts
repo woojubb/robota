@@ -72,6 +72,7 @@ function createBuiltinCommands(): ICommand[] {
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
+    { name: 'memory', description: 'Manage project memory', source: 'builtin' },
     {
       name: 'provider',
       description: 'Manage provider profiles',
