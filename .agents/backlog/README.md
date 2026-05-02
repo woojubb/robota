@@ -13,7 +13,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 | File                                                                                           | Topic                                                         |
 | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [cli-tui-background-work-tree-display.md](cli-tui-background-work-tree-display.md)             | CLI TUI background work tree display                          |
 | [cli-tui-command-output-transcript-collapse.md](cli-tui-command-output-transcript-collapse.md) | CLI TUI command output transcript collapse                    |
 | [cli-tui-status-activity-indicator.md](cli-tui-status-activity-indicator.md)                   | CLI TUI status activity indicator                             |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)                           | Gemini API provider modernization                             |
