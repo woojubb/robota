@@ -8,7 +8,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-sdk';
 import { type TProviderSettingsDocument } from './provider-settings.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
@@ -126,6 +126,7 @@ function resolveActiveProvider(
         apiKey: profile.apiKey,
         baseURL: profile.baseURL,
         timeout: profile.timeout,
+        options: profile.options,
       },
       providerDefinitions,
     );
@@ -140,6 +141,7 @@ function resolveActiveProvider(
         apiKey: provider.apiKey,
         baseURL: provider.baseURL,
         timeout: provider.timeout,
+        options: provider.options,
       },
       providerDefinitions,
     );
@@ -155,6 +157,7 @@ function normalizeProviderConfig(
     apiKey?: string;
     baseURL?: string;
     timeout?: number;
+    options?: Record<string, TUniversalValue>;
   },
   providerDefinitions: readonly IProviderDefinition[],
 ): IProviderConfig {
@@ -164,12 +167,14 @@ function normalizeProviderConfig(
     throw new Error(`Provider ${settings.name} requires model`);
   }
   const apiKeyReference = settings.apiKey ?? defaults.apiKey;
+  const options = settings.options ?? defaults.options;
   return {
     name: settings.name,
     model,
     apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
+    ...(options !== undefined && { options }),
   };
 }
 
@@ -226,6 +231,7 @@ export function createProviderFromProfile(
         apiKey: resolveProfileApiKey(profile),
         baseURL: profile.baseURL,
         timeout: profile.timeout,
+        options: profile.options,
       },
       providerDefinitions,
     ),

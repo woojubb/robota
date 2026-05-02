@@ -1,3 +1,5 @@
+import type { TUniversalValue } from '@robota-sdk/agent-core';
+
 export type TBackgroundTaskKind = 'agent' | 'process';
 
 export type TBackgroundTaskMode = 'foreground' | 'background';
@@ -59,6 +61,7 @@ export interface ISerializableProviderProfile {
   apiKeyEnv?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export interface IBaseBackgroundTaskRequest {

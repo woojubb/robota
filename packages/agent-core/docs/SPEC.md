@@ -80,7 +80,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `IAgentConfig`              | `interfaces/agent.ts`               | Agent configuration contract                                                                                                                                                                                          |
 | `IAIProvider`               | `interfaces/provider.ts`            | Provider integration contract                                                                                                                                                                                         |
 | `IProviderDefinition`       | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with display metadata, compatibility aliases, defaults, setup prompts, validation requirements, probe hooks, and `createProvider()` factories.       |
-| `IProviderConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions.                                                                                                                                                   |
+| `IProviderConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions, including a provider-owned `options` bag that generic layers pass through without interpreting.                                                   |
 | `IProviderProbeResult`      | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                |
 | `TMessageFormatConverter`   | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                           |
 | `TMessageConverterRegistry` | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                         |
@@ -128,18 +128,18 @@ Provider packages import these types. They must not re-declare them.
 
 ### Core
 
-| Export                         | Kind           | Description                                                                                       |
-| ------------------------------ | -------------- | ------------------------------------------------------------------------------------------------- |
-| `Robota`                       | class          | Main agent facade                                                                                 |
-| `AbstractAgent`                | abstract class | Base agent lifecycle                                                                              |
-| `AbstractAIProvider`           | abstract class | Base for provider implementations                                                                 |
-| `AbstractPlugin`               | abstract class | Base for plugin extensions                                                                        |
-| `AbstractTool`                 | abstract class | Base for tool implementations                                                                     |
-| `AbstractExecutor`             | abstract class | Base for execution strategies                                                                     |
-| `LocalExecutor`                | class          | Local provider execution                                                                          |
-| `IProviderDefinition`          | interface      | Provider assembly definition, including optional setup display metadata and compatibility aliases |
-| `findProviderDefinition`       | function       | Resolve an injected provider definition by canonical type or alias                                |
-| `formatSupportedProviderTypes` | function       | Format injected provider types and aliases for generic errors                                     |
+| Export                         | Kind           | Description                                                                                                                          |
+| ------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Robota`                       | class          | Main agent facade                                                                                                                    |
+| `AbstractAgent`                | abstract class | Base agent lifecycle                                                                                                                 |
+| `AbstractAIProvider`           | abstract class | Base for provider implementations                                                                                                    |
+| `AbstractPlugin`               | abstract class | Base for plugin extensions                                                                                                           |
+| `AbstractTool`                 | abstract class | Base for tool implementations                                                                                                        |
+| `AbstractExecutor`             | abstract class | Base for execution strategies                                                                                                        |
+| `LocalExecutor`                | class          | Local provider execution                                                                                                             |
+| `IProviderDefinition`          | interface      | Provider assembly definition, including optional setup display metadata, compatibility aliases, defaults, and provider-owned options |
+| `findProviderDefinition`       | function       | Resolve an injected provider definition by canonical type or alias                                                                   |
+| `formatSupportedProviderTypes` | function       | Format injected provider types and aliases for generic errors                                                                        |
 
 ### Tools
 

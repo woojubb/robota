@@ -1,4 +1,5 @@
 import type { IAIProvider } from './provider';
+import type { TUniversalValue } from './types';
 
 export interface IProviderConfig {
   name: string;
@@ -6,6 +7,7 @@ export interface IProviderConfig {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export interface IProviderProfileDefaults {
@@ -13,6 +15,7 @@ export interface IProviderProfileDefaults {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export interface IProviderProfileConfig {
@@ -21,6 +24,7 @@ export interface IProviderProfileConfig {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export interface IProviderProbeResult {

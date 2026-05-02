@@ -264,12 +264,25 @@ Provider profile shape:
       "type": "openai",
       "model": "<openai-compatible-model>",
       "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen3.6-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "options": {
+        "builtInWebTools": {
+          "webSearch": true,
+          "webFetch": true
+        }
+      }
     }
   }
 }
 ```
 
 Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
+
+Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys.
 
 Resolved provider fields:
 
@@ -280,6 +293,7 @@ Resolved provider fields:
 | `apiKey`  | API key or local placeholder token                                                                  |
 | `baseURL` | Optional OpenAI-compatible endpoint override                                                        |
 | `timeout` | Optional provider idle timeout in milliseconds. Also passed to provider construction when supported |
+| `options` | Optional provider-owned options bag preserved for CLI/provider composition                          |
 
 ### Context Loading (SDK-Specific)
 
