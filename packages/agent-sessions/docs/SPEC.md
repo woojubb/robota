@@ -179,6 +179,11 @@ The session log records structured events to a JSONL file for diagnostics and re
 - **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
 - **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, `webToolsEnabled` flag, full enriched input, and current message history before the model call.
+- **`provider_request` event** -- Recorded before each provider call. Includes the provider-neutral request envelope: provider, model, messages, tool schemas/options, round, and execution identifiers.
+- **`provider_response_normalized` event** -- Recorded immediately after the provider adapter returns a `TUniversalMessage`. Includes the normalized assistant message, tool call count, provider/model metadata, round, and execution identifiers.
+- **`tool_batch_started` event** -- Recorded before a tool batch executes. Includes batch mode, max concurrency, request count, ordered tool names, round, and execution identifiers.
+- **`tool_execution_request` event** -- Recorded for each parsed tool request. Includes tool name, toolCallId/executionId, parsed parameters, batch index, owner path, round, and execution identifiers.
+- **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, batch index, round, and execution identifiers.
 - **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
 - **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
 - **`session_shutdown` event** -- Recorded once when `Session.shutdown()` begins. Includes the Claude-compatible shutdown reason.

@@ -27,11 +27,11 @@ import type {
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 
 export const AGENT_TOOL_DESCRIPTION = [
-  'Creates one subagent job for delegated work in an isolated context.',
-  'One tool call creates one subagent job.',
+  'Creates delegated subagent jobs in isolated contexts.',
+  'Without jobs, one tool call creates one subagent job from prompt.',
+  'For explicit multi-agent or parallel-agent requests, use one Agent tool call with jobs containing one entry per requested role.',
   'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested subagent job immediately.',
   'Do not ask a follow-up question unless execution is impossible or unsafe.',
-  'For multiple or parallel agents, create one Agent tool call per requested role in the current turn.',
   'Subagent jobs run as background tasks by default.',
   'The tool waits for a terminal result and returns completed, failed, or timed-out outcome data to the parent conversation.',
   'Execution is represented by a real tool call and runtime background task event.',
@@ -47,11 +47,11 @@ export function createAgentToolPromptDescription(
           .join(', ')}.`
       : '';
   return [
-    'Agent — creates one isolated subagent job.',
-    'One Agent tool call corresponds to one subagent job.',
+    'Agent — creates isolated subagent jobs.',
+    'Without jobs, one Agent tool call corresponds to one subagent job.',
+    'For explicit multi-agent or parallel-agent requests, use one Agent tool call with jobs containing one entry per requested role.',
     'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested subagent job immediately.',
     'Do not ask a follow-up question unless execution is impossible or unsafe.',
-    'For multiple or parallel agents, create one Agent tool call per requested role in the current turn.',
     'The tool returns terminal result data.',
     'Runtime mode is background.',
     availableAgents,
@@ -68,7 +68,10 @@ function asZodSchema(schema: z.ZodType): IZodSchema {
 
 const AgentSchema = z
   .object({
-    prompt: z.string().describe('The task for the subagent to perform'),
+    prompt: z
+      .string()
+      .optional()
+      .describe('The task for a single subagent to perform. Required when jobs is omitted.'),
     subagent_type: z
       .string()
       .optional()
@@ -78,10 +81,25 @@ const AgentSchema = z
       .enum(['none', 'worktree'])
       .optional()
       .describe('Optional runtime isolation mode. "worktree" runs in a Git worktree.'),
+    jobs: z
+      .array(
+        z
+          .object({
+            prompt: z.string().describe('The task for this subagent to perform'),
+            subagent_type: z.string().optional().describe('Agent type for this job'),
+            model: z.string().optional().describe('Optional model override for this job'),
+            isolation: z.enum(['none', 'worktree']).optional().describe('Isolation for this job'),
+          })
+          .passthrough(),
+      )
+      .optional()
+      .describe('Batch of subagent jobs to start in one Agent tool call'),
   })
   .passthrough();
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
+type TAgentJobArgs = NonNullable<TAgentArgs['jobs']>[number];
+type TSingleAgentArgs = TAgentArgs & { prompt: string };
 
 /** Dependencies injected at creation time via createAgentTool factory */
 export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
@@ -142,7 +160,7 @@ function createSubagentManager(deps: IAgentToolDeps): ISubagentManager {
 }
 
 function createSpawnRequest(
-  args: TAgentArgs,
+  args: TSingleAgentArgs | TAgentJobArgs,
   agentType: string,
   agentDef: IAgentDefinition,
   deps: IAgentToolDeps,
@@ -190,11 +208,44 @@ function stringifyAgentError(message: string, agentId?: string): string {
   });
 }
 
+function stringifyAgentBatchResult(input: {
+  groupId: string;
+  jobs: Array<{
+    index: number;
+    success: boolean;
+    agentId?: string;
+    subagent_type: string;
+    output?: string;
+    error?: string;
+    metadata?: ISubagentJobResult['metadata'];
+  }>;
+}): string {
+  const successfulJobs = input.jobs.filter((job) => job.success);
+  const agentIds = input.jobs
+    .map((job) => job.agentId)
+    .filter((agentId): agentId is string => typeof agentId === 'string' && agentId.length > 0);
+  return JSON.stringify({
+    success: input.jobs.every((job) => job.success),
+    output: successfulJobs
+      .map((job) => job.output ?? '')
+      .filter(Boolean)
+      .join('\n\n'),
+    groupId: input.groupId,
+    agentIds,
+    jobs: input.jobs,
+  });
+}
+
 async function runManagedAgent(
   args: TAgentArgs,
   deps: IAgentToolDeps,
   manager: ISubagentManager,
 ): Promise<string> {
+  if (typeof args.prompt !== 'string' || args.prompt.length === 0) {
+    return stringifyAgentError('prompt is required when jobs is omitted');
+  }
+
+  const singleArgs: TSingleAgentArgs = { ...args, prompt: args.prompt };
   const agentType = args.subagent_type ?? 'general-purpose';
   const agentDef = resolveAgentDefinition(agentType, deps.customAgentRegistry);
   if (!agentDef) {
@@ -203,7 +254,7 @@ async function runManagedAgent(
 
   let agentId: string | undefined;
   try {
-    const state = await manager.spawn(createSpawnRequest(args, agentType, agentDef, deps));
+    const state = await manager.spawn(createSpawnRequest(singleArgs, agentType, agentDef, deps));
     agentId = state.id;
     const response = await manager.wait(state.id);
     return stringifyAgentSuccess(response);
@@ -211,6 +262,88 @@ async function runManagedAgent(
     const message = err instanceof Error ? err.message : String(err);
     return stringifyAgentError(message, agentId);
   }
+}
+
+function createBatchGroupId(): string {
+  return `agent_group_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function runManagedAgentBatch(
+  jobs: TAgentJobArgs[],
+  deps: IAgentToolDeps,
+  manager: ISubagentManager,
+): Promise<string> {
+  const groupId = createBatchGroupId();
+  const resolvedJobs = jobs.map((job, index) => {
+    const agentType = job.subagent_type ?? 'general-purpose';
+    const agentDef = resolveAgentDefinition(agentType, deps.customAgentRegistry);
+    return { index, job, agentType, agentDef };
+  });
+
+  const invalidJobs = resolvedJobs
+    .filter((job) => job.agentDef === undefined)
+    .map((job) => ({
+      index: job.index,
+      success: false,
+      subagent_type: job.agentType,
+      error: `Unknown agent type: ${job.agentType}`,
+    }));
+
+  const validJobs = resolvedJobs.filter(
+    (job): job is typeof job & { agentDef: IAgentDefinition } => job.agentDef !== undefined,
+  );
+
+  const startedJobs = await Promise.all(
+    validJobs.map(async (job) => {
+      try {
+        const state = await manager.spawn(
+          createSpawnRequest(job.job, job.agentType, job.agentDef, deps),
+        );
+        return { ...job, agentId: state.id, spawnError: undefined };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { ...job, agentId: undefined, spawnError: message };
+      }
+    }),
+  );
+
+  const terminalJobs = await Promise.all(
+    startedJobs.map(async (job) => {
+      if (job.spawnError || !job.agentId) {
+        return {
+          index: job.index,
+          success: false,
+          subagent_type: job.agentType,
+          error: `Sub-agent error: ${job.spawnError ?? 'missing agent id'}`,
+        };
+      }
+      try {
+        const result = await manager.wait(job.agentId);
+        return {
+          index: job.index,
+          success: true,
+          agentId: result.jobId,
+          subagent_type: job.agentType,
+          output: result.output,
+          metadata: result.metadata,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          index: job.index,
+          success: false,
+          agentId: job.agentId,
+          subagent_type: job.agentType,
+          error: `Sub-agent error: ${message}`,
+        };
+      }
+    }),
+  );
+
+  const batchJobs = [...invalidJobs, ...terminalJobs].sort(
+    (left, right) => left.index - right.index,
+  );
+  return stringifyAgentBatchResult({ groupId, jobs: batchJobs });
 }
 
 /**
@@ -227,6 +360,9 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
     asZodSchema(AgentSchema),
     async (params) => {
       const args = params as TAgentArgs;
+      if (Array.isArray(args.jobs) && args.jobs.length > 0) {
+        return runManagedAgentBatch(args.jobs, deps, manager);
+      }
       return runManagedAgent(
         {
           prompt: args.prompt,

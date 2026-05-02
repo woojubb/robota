@@ -1,5 +1,10 @@
 # Session Event Log Replay
 
+- **Status**: in-progress
+- **Created**: 2026-05-02
+- **Branch**: feat/session-replay-agent-parallel
+- **Scope**: packages/agent-sessions, packages/agent-core, packages/agent-sdk
+
 ## What
 
 Make `.robota/logs/*.jsonl` the append-only source of truth for session replay so `/resume` can reconstruct a session from raw execution events without relying on incomplete snapshots or inferred state.
@@ -100,9 +105,29 @@ The exact schema should be finalized in the spec before implementation, but the 
 | Existing sessions cannot replay fully      | Mark legacy logs as snapshot-only and migrate only what can be proven              |
 | Core gains provider-specific behavior      | Log provider-neutral envelopes in core and raw provider-owned payloads in adapters |
 
+## Test Plan
+
+- Add unit coverage for `agent-sessions` forwarding core execution boundary events into the append-only session logger.
+- Add targeted `agent-core` coverage for provider request/response and tool batch/request/result event ordering as the replay schema expands.
+- Add replay fixture tests for multi-tool and Agent batch turns before marking this task complete.
+- Run affected `agent-core`, `agent-sessions`, and `agent-sdk` typecheck/build targets after each replay-event contract change.
+
 ## Promotion Path
 
 1. Assign a backlog ID, for example `SDK-BL-0XX-session-event-log-replay`.
 2. Move this file to `.agents/tasks/<ID>-session-event-log-replay.md`.
 3. Update `packages/agent-sessions/docs/SPEC.md`, `packages/agent-core/docs/SPEC.md`, and `packages/agent-sdk/docs/SPEC.md` before code changes.
 4. Implement with TDD around replay, multi-tool turns, and parallel `Agent` tool-call provenance.
+
+## Progress
+
+### 2026-05-02
+
+- Promoted from backlog to active task as `SDK-BL-005`.
+- Started on branch `feat/session-replay-agent-parallel`.
+- Updated `agent-sessions`, `agent-core`, and `agent-sdk` specs with replay-grade execution boundary events.
+- Added `IRunOptions.onExecutionEvent` / `IExecutionContext.onExecutionEvent` so core execution can emit append-only session events without depending on session storage.
+- Added core event emission for provider request envelopes, normalized provider responses, assistant commits, tool batch starts, tool execution requests, and tool execution results.
+- Wired `agent-sessions` run execution to persist core execution events through the existing session log path.
+- Added session test coverage for forwarding core execution boundary events into session logs.
+- Remaining work: raw provider responses/stream chunks, content-addressed payload references, redaction policy, deterministic `/resume` replay, history mutation events, validator command.
