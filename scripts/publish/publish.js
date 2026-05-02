@@ -30,7 +30,8 @@ const packages = [
   'agent-core', // @robota-sdk/agent-core
   'agent-provider-openai', // @robota-sdk/agent-provider-openai
   'agent-provider-anthropic', // @robota-sdk/agent-provider-anthropic
-  'agent-provider-google', // @robota-sdk/agent-provider-google
+  'agent-provider-gemini', // @robota-sdk/agent-provider-gemini
+  'agent-provider-google', // @robota-sdk/agent-provider-google compatibility wrapper
   'agent-team', // @robota-sdk/agent-team (assignTask MCP tool collection; team creation removed)
   'agent-sessions', // @robota-sdk/agent-sessions
 ];

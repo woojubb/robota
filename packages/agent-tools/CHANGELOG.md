@@ -1,5 +1,28 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- 95721ff: Preserve existing target mode bits during atomic Write and Edit file replacements.
+  - @robota-sdk/agent-core@3.0.0-beta.59
+
+## 3.0.0-beta.58
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.58
+
+## 3.0.0-beta.57
+
+### Patch Changes
+
+- 822a78b: Add self-hosting verification planning and atomic UTF-8 writes for built-in file mutation tools.
+- Updated dependencies [16c3b6f]
+- Updated dependencies [f61e2cb]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

@@ -129,7 +129,7 @@ describe('Agent tool', () => {
     expect(schema.description).toContain('When the user explicitly asks');
     expect(schema.description).toContain('start the requested subagent job immediately');
     expect(schema.description).toContain('Do not ask a follow-up question');
-    expect(schema.description).toContain('one Agent tool call per requested role');
+    expect(schema.description).toContain('one Agent tool call with jobs');
     expect(schema.description).not.toContain('<agent');
     expect(schema.description).not.toContain('pseudo-tags');
     // Verify parameters include prompt, subagent_type, model
@@ -645,6 +645,87 @@ describe('Agent tool', () => {
     expect(timedOut['success']).toBe(false);
     expect(timedOut['agentId']).toBe('agent_parallel_3');
     expect(timedOut['error']).toContain('Background agent produced no activity');
+  });
+
+  it('should start all jobs in one batch Agent tool call before waiting', async () => {
+    const subagentManager = {
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'agent_batch_1',
+          type: 'Explore',
+          label: 'Explore',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Developer analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce({
+          id: 'agent_batch_2',
+          type: 'Plan',
+          label: 'Plan',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Designer analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        }),
+      wait: vi
+        .fn()
+        .mockResolvedValueOnce({ jobId: 'agent_batch_1', output: 'developer complete' })
+        .mockResolvedValueOnce({ jobId: 'agent_batch_2', output: 'designer complete' }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      jobs: [
+        { prompt: 'Developer analysis', subagent_type: 'Explore' },
+        { prompt: 'Designer analysis', subagent_type: 'Plan' },
+      ],
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledTimes(2);
+    expect(subagentManager.wait).toHaveBeenCalledTimes(2);
+    expect(subagentManager.spawn.mock.invocationCallOrder[1]).toBeLessThan(
+      subagentManager.wait.mock.invocationCallOrder[0]!,
+    );
+    expect(result['success']).toBe(true);
+    expect(result['agentIds']).toEqual(['agent_batch_1', 'agent_batch_2']);
+    expect(result['jobs']).toEqual([
+      expect.objectContaining({
+        index: 0,
+        success: true,
+        agentId: 'agent_batch_1',
+        subagent_type: 'Explore',
+        output: 'developer complete',
+      }),
+      expect.objectContaining({
+        index: 1,
+        success: true,
+        agentId: 'agent_batch_2',
+        subagent_type: 'Plan',
+        output: 'designer complete',
+      }),
+    ]);
   });
 
   it('should ignore undeclared model-emitted orchestration hints without changing single-call execution', async () => {

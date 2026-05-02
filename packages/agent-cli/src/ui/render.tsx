@@ -14,6 +14,7 @@ import type {
   ICommandModule,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
+import type { ICliUpdateNotice } from '../utils/update-check.js';
 
 export interface IRenderOptions {
   cwd: string;
@@ -31,6 +32,7 @@ export interface IRenderOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
+  startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
 export function renderApp(options: IRenderOptions): void {
@@ -41,10 +43,6 @@ export function renderApp(options: IRenderOptions): void {
     }
   });
 
-  if (process.stdin.isTTY && process.stdout.isTTY) {
-    process.stdout.write('\x1b[?2004h');
-  }
-
   const instance = render(<App {...options} />, {
     exitOnCtrlC: false,
   });
@@ -52,9 +50,6 @@ export function renderApp(options: IRenderOptions): void {
   instance
     .waitUntilExit()
     .then(() => {
-      if (process.stdout.isTTY) {
-        process.stdout.write('\x1b[?2004l');
-      }
       process.exit(0);
     })
     .catch((err) => {

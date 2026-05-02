@@ -8,5 +8,7 @@ describe('projectPaths', () => {
 
     expect(projectPaths(cwd).logs).toBe(join(cwd, '.robota', 'logs'));
     expect(projectPaths(cwd).sessions).toBe(join(cwd, '.robota', 'sessions'));
+    expect(projectPaths(cwd).memory).toBe(join(cwd, '.robota', 'memory'));
+    expect(projectPaths(cwd).checkpoints).toBe(join(cwd, '.robota', 'checkpoints'));
   });
 });

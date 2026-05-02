@@ -13,7 +13,7 @@ const baseConfig = {
   clean: true,
   treeshake: true,
   minify: true,
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/client.ts'],
   external: [
     /^@robota-sdk\/.*/,
     'react',

@@ -1,5 +1,78 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- @robota-sdk/agent-sdk@3.0.0-beta.59
+- @robota-sdk/agent-command-agent@3.0.0-beta.59
+- @robota-sdk/agent-transport-headless@3.0.0-beta.59
+- @robota-sdk/agent-core@3.0.0-beta.59
+- @robota-sdk/agent-sessions@3.0.0-beta.59
+- @robota-sdk/agent-provider-anthropic@3.0.0-beta.59
+- @robota-sdk/agent-provider-openai@3.0.0-beta.59
+- @robota-sdk/agent-provider-gemma@3.0.0-beta.59
+- @robota-sdk/agent-provider-gemini@3.0.0-beta.59
+- @robota-sdk/agent-provider-qwen@3.0.0-beta.59
+
+## 3.0.0-beta.58
+
+### Patch Changes
+
+- Refresh package docs and robota.io content for the beta 57 feature set.
+- Updated dependencies
+  - @robota-sdk/agent-command-agent@3.0.0-beta.58
+  - @robota-sdk/agent-core@3.0.0-beta.58
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.58
+  - @robota-sdk/agent-provider-gemma@3.0.0-beta.58
+  - @robota-sdk/agent-provider-qwen@3.0.0-beta.58
+  - @robota-sdk/agent-sdk@3.0.0-beta.58
+  - @robota-sdk/agent-sessions@3.0.0-beta.58
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.58
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.58
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.58
+
+## 3.0.0-beta.57
+
+### Minor Changes
+
+- b80e51e: Add SDK-owned automatic project memory capture, approval review, bounded retrieval, and session-log provenance.
+- f61e2cb: Add Qwen provider-owned Responses API support for built-in web search/fetch tools and pass provider-owned profile options through generic CLI/runtime configuration.
+
+### Patch Changes
+
+- 16c3b6f: Persist and render provider-neutral per-turn usage summaries with pre-send context updates in CLI sessions.
+- d3bcc0e: Move the active status indicator into the primary status-bar scan path with deterministic tool, thinking, background, queued, and idle priority.
+- 4eca470: Render command tool output as bounded transcript previews and persist tool result metadata in SDK tool summaries.
+- 1cfdce9: Add SDK-owned edit checkpointing for Write/Edit tool mutations with `/rewind` list and code restore commands.
+- 90a2802: Render Edit tool summaries as context-aware diff hunks with structured truncation metadata.
+- 26a1718: Preserve and render Edit tool diff metadata in persisted CLI tool summaries.
+- 3509f1d: Add canonical Gemini provider package and keep the Google provider package as a compatibility wrapper.
+- 8e056b1: Adopt Ink 7 paste and window-size hooks for CJK-aware input handling.
+- 7e9e81c: Render background work as compact one-level tree rows with shared formatting and bounded previews.
+- Updated dependencies [16c3b6f]
+- Updated dependencies [b80e51e]
+- Updated dependencies [4eca470]
+- Updated dependencies [1cfdce9]
+- Updated dependencies [90a2802]
+- Updated dependencies [26a1718]
+- Updated dependencies [3509f1d]
+- Updated dependencies [e504d30]
+- Updated dependencies [f61e2cb]
+- Updated dependencies [0e0e533]
+- Updated dependencies [822a78b]
+- Updated dependencies [9817f99]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+  - @robota-sdk/agent-sessions@3.0.0-beta.57
+  - @robota-sdk/agent-sdk@3.0.0-beta.57
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.57
+  - @robota-sdk/agent-provider-qwen@3.0.0-beta.57
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.57
+  - @robota-sdk/agent-provider-gemma@3.0.0-beta.57
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.57
+  - @robota-sdk/agent-command-agent@3.0.0-beta.57
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

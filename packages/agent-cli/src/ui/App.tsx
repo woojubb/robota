@@ -11,18 +11,19 @@ import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robot
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
+import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import MessageList from './MessageList.js';
-import StatusBar from './StatusBar.js';
+import SessionStatusBar from './SessionStatusBar.js';
 import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
-import ProviderSetupPrompt from './ProviderSetupPrompt.js';
+import InteractivePrompt from './InteractivePrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
-
+import UpdateNotice from './UpdateNotice.js';
+import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 interface IProps {
@@ -40,11 +41,9 @@ interface IProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
+  startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
-/**
- * Outer wrapper that manages session switching via React key remounting.
- */
 export default function App(props: IProps): React.ReactElement {
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
 
@@ -62,7 +61,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
-  const providerDefinitions = props.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const providerDefinitions = props.providerDefinitions ?? [];
 
   const {
     interactiveSession,
@@ -100,26 +99,32 @@ function AppInner(
   const pluginCallbacks = usePluginCallbacks(cwd);
   const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
+  const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();
+  const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
+  const activeBackgroundTaskCount = backgroundTasks.filter(
+    (task) => task.status === 'queued' || task.status === 'running',
+  ).length;
 
   const {
     handleSubmit,
     pendingModelId,
     pendingProviderProfile,
-    pendingProviderSetupType,
+    pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
     handleProviderConfirm,
-    handleProviderSetupSubmit,
-    handleProviderSetupCancel,
+    handleInteractionSubmit,
+    handleInteractionCancel,
   } = useSideEffects({
     cwd,
     interactiveSession,
     addEntry,
     baseHandleSubmit,
     setSessionName,
+    setStatusLineSettings,
     providerDefinitions,
   });
 
@@ -128,6 +133,22 @@ function AppInner(
     const name = interactiveSession?.getName?.();
     if (name && !sessionName) setSessionName(name);
   }, [interactiveSession, sessionName]);
+
+  useEffect(() => {
+    let isMounted = true;
+    props.startupUpdateNoticePromise
+      ?.then((notice) => {
+        if (isMounted && notice !== undefined) {
+          setUpdateNotice(notice);
+        }
+      })
+      .catch(() => {
+        // Startup update checks are best-effort and must not disrupt the TUI.
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [props.startupUpdateNoticePromise]);
 
   // Update terminal title
   useEffect(() => {
@@ -184,6 +205,7 @@ function AppInner(
 `}</Text>
         <Text dimColor> v{props.version ?? '0.0.0'}</Text>
       </Box>
+      {updateNotice && <UpdateNotice message={formatCliUpdateNotice(updateNotice)} />}
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList history={history} />
         {isShuttingDown && (
@@ -211,12 +233,11 @@ function AppInner(
           onSelect={handleProviderConfirm}
         />
       )}
-      {pendingProviderSetupType && (
-        <ProviderSetupPrompt
-          type={pendingProviderSetupType}
-          providerDefinitions={providerDefinitions}
-          onSubmit={handleProviderSetupSubmit}
-          onCancel={handleProviderSetupCancel}
+      {pendingInteractionPrompt && (
+        <InteractivePrompt
+          prompt={pendingInteractionPrompt}
+          onSubmit={handleInteractionSubmit}
+          onCancel={handleInteractionCancel}
         />
       )}
       {showPluginTUI && (
@@ -240,16 +261,19 @@ function AppInner(
           }}
         />
       )}
-      <StatusBar
+      <SessionStatusBar
+        cwd={cwd}
         permissionMode={permissionMode}
-        modelName={props.modelId ? getModelName(props.modelId) : ''}
+        modelId={props.modelId}
         sessionId={sessionId}
         messageCount={history.length}
         isThinking={isThinking}
-        contextPercentage={contextState.percentage}
-        contextUsedTokens={contextState.usedTokens}
-        contextMaxTokens={contextState.maxTokens}
+        activeToolCount={activeTools.length}
+        activeBackgroundTaskCount={activeBackgroundTaskCount}
+        hasPendingPrompt={pendingPrompt !== null}
+        contextState={contextState}
         sessionName={sessionName}
+        settings={statusLineSettings}
       />
       <InputArea
         onSubmit={handleSubmit}
@@ -259,13 +283,14 @@ function AppInner(
           showPluginTUI ||
           showSessionPicker ||
           isShuttingDown ||
-          !!pendingProviderSetupType ||
+          pendingInteractionPrompt !== null ||
           (isThinking && !!pendingPrompt)
         }
         isAborting={isAborting}
         pendingPrompt={pendingPrompt}
         registry={registry}
         sessionName={sessionName}
+        history={history}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}
       <Text> </Text>

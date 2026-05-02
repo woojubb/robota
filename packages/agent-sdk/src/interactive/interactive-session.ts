@@ -15,6 +15,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   TSessionEndReason,
+  TToolArgs,
 } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
@@ -64,6 +65,7 @@ import {
   isAbortError,
   buildResult,
   buildInterruptedResult,
+  createUsageSummaryEntry,
   persistSession,
 } from './interactive-session-execution.js';
 import {
@@ -72,6 +74,7 @@ import {
   applyToolStart,
   applyToolEnd,
 } from './interactive-session-streaming.js';
+import { loadConfig } from '../config/config-loader.js';
 import {
   createInteractiveSession,
   injectSavedMessage,
@@ -81,6 +84,12 @@ import type {
   IInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-init.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type {
+  IEditCheckpointRestoreResult,
+  IEditCheckpointSummary,
+} from '../checkpoints/edit-checkpoint-types.js';
 export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -111,6 +120,9 @@ export class InteractiveSession {
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private backgroundJobGroups: IBackgroundJobGroupState[] = [];
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
+  private memoryEvents: IMemoryEvent[] = [];
+  private usedMemoryReferences: IMemoryReference[] = [];
+  private editCheckpointStore: EditCheckpointStore | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
   private backgroundTaskUnsubscribe: (() => void) | null = null;
@@ -129,6 +141,9 @@ export class InteractiveSession {
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
+    if ('session' in options && options.session && this.cwd) {
+      this.editCheckpointStore = new EditCheckpointStore({ cwd: this.cwd });
+    }
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
 
@@ -153,6 +168,8 @@ export class InteractiveSession {
       this.backgroundTaskEvents = restored.backgroundTaskEvents;
       this.backgroundJobGroups = restored.backgroundJobGroups;
       this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
+      this.memoryEvents = restored.memoryEvents;
+      this.usedMemoryReferences = restored.usedMemoryReferences;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
 
@@ -161,15 +178,19 @@ export class InteractiveSession {
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
+    const config = await loadConfig(options.cwd);
+    this.editCheckpointStore = new EditCheckpointStore({ cwd: options.cwd });
     this.session = await createInteractiveSession({
       cwd: options.cwd,
       provider: options.provider,
+      config,
       permissionMode: options.permissionMode,
       maxTurns: options.maxTurns,
       permissionHandler: options.permissionHandler,
       resumeSessionId: this.resumeSessionId,
       forkSession: this.forkSession,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
+      onContextUpdate: (state) => this.emit('context_update', state),
       onToolExecution: (event) => this.handleToolExecution(event),
       bare: options.bare,
       allowedTools: options.allowedTools,
@@ -177,6 +198,7 @@ export class InteractiveSession {
       backgroundTaskRunners: options.backgroundTaskRunners,
       subagentRunnerFactory: options.subagentRunnerFactory,
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
+      editCheckpointRecorder: this.editCheckpointStore,
       commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
       ...(this.commandExecutor.listModelInvocableCommands().length > 0
         ? {
@@ -358,8 +380,41 @@ export class InteractiveSession {
   getName(): string | undefined {
     return this.sessionName;
   }
+  getCwd(): string {
+    return this.cwd ?? process.cwd();
+  }
   getSession(): Session {
     return this.getSessionOrThrow();
+  }
+
+  listEditCheckpoints(): IEditCheckpointSummary[] {
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    return this.getEditCheckpointStore().list(sessionId);
+  }
+
+  async restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+    await this.ensureInitialized();
+    if (this.executing) {
+      throw new Error('Cannot restore edit checkpoint while a prompt is running.');
+    }
+    const result = await this.getEditCheckpointStore().restoreToCheckpoint(
+      this.getSessionOrThrow().getSessionId(),
+      checkpointId,
+    );
+    this.history.push(
+      messageToHistoryEntry(createSystemMessage(`Restored edit checkpoint: ${checkpointId}`)),
+    );
+    this.persistCurrentSession();
+    return result;
+  }
+
+  getUsedMemoryReferences(): IMemoryReference[] {
+    return [...this.usedMemoryReferences];
+  }
+
+  recordMemoryEvent(event: IMemoryEvent): void {
+    this.memoryEvents.push(event);
+    this.persistCurrentSession();
   }
 
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[] {
@@ -644,6 +699,10 @@ export class InteractiveSession {
         groups: this.backgroundJobGroups,
         groupEvents: this.backgroundJobGroupEvents,
       },
+      {
+        events: this.memoryEvents,
+        usedReferences: this.usedMemoryReferences,
+      },
     );
   }
 
@@ -739,8 +798,10 @@ export class InteractiveSession {
     this.history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
 
     const historyBefore = this.getSessionOrThrow().getHistory().length;
+    this.usedMemoryReferences = [];
 
     try {
+      await this.beginEditCheckpointTurn(displayInput ?? input);
       const response = await this.getSessionOrThrow().run(input, rawInput);
       this.flushStreaming();
       pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
@@ -753,6 +814,7 @@ export class InteractiveSession {
         this.getContextState(),
       );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+      if (result.usage) this.history.push(createUsageSummaryEntry(result.usage));
       this.emit('complete', result);
       this.emit('context_update', this.getContextState());
     } catch (err) {
@@ -768,6 +830,7 @@ export class InteractiveSession {
         this.clearStreaming();
         if (result.response)
           this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+        if (result.usage) this.history.push(createUsageSummaryEntry(result.usage));
         this.history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
         this.emit('interrupted', result);
       } else {
@@ -778,6 +841,7 @@ export class InteractiveSession {
         this.emit('error', err instanceof Error ? err : new Error(errMsg));
       }
     } finally {
+      await this.finalizeEditCheckpointTurn();
       this.executing = false;
       this.emit('thinking', false);
       this.persistCurrentSession();
@@ -788,6 +852,34 @@ export class InteractiveSession {
         this.clearPendingQueue();
         setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
+    }
+  }
+
+  private getEditCheckpointStore(): EditCheckpointStore {
+    if (!this.editCheckpointStore) {
+      this.editCheckpointStore = new EditCheckpointStore({ cwd: this.getCwd() });
+    }
+    return this.editCheckpointStore;
+  }
+
+  private async beginEditCheckpointTurn(prompt: string): Promise<void> {
+    if (!this.editCheckpointStore) return;
+    await this.editCheckpointStore.beginTurn({
+      sessionId: this.getSessionOrThrow().getSessionId(),
+      prompt,
+    });
+  }
+
+  private async finalizeEditCheckpointTurn(): Promise<void> {
+    if (!this.editCheckpointStore) return;
+    try {
+      await this.editCheckpointStore.finalizeTurn();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.history.push(
+        messageToHistoryEntry(createSystemMessage(`Checkpoint error: ${err.message}`)),
+      );
+      this.emit('error', err);
     }
   }
 
@@ -804,7 +896,7 @@ export class InteractiveSession {
   private handleToolExecution(event: {
     type: 'start' | 'end';
     toolName: string;
-    toolArgs?: Record<string, unknown>;
+    toolArgs?: TToolArgs;
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;

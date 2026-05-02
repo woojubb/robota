@@ -4,9 +4,11 @@ import { ConversationHistory, ConversationStore } from '../managers/conversation
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
-import type { TUniversalMessage } from '../interfaces/messages';
+import type { IAssistantMessage, IToolMessage, TUniversalMessage } from '../interfaces/messages';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
+import type { TToolParameters } from '../interfaces/tool';
+import type { ToolExecutionService } from './tool-execution-service';
 
 // Mock dependencies
 vi.mock('../utils/logger', () => {
@@ -373,6 +375,125 @@ describe('ExecutionService', () => {
       expect(addToolMessageWithIdSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('should preserve repeated provider tool call IDs across execution rounds', async () => {
+      const config: IAgentConfig = {
+        name: 'test-agent',
+        aiProviders: [mockProvider],
+        defaultModel: {
+          provider: 'openai',
+          model: 'gpt-4',
+          systemMessage: 'You are a helpful assistant.',
+        },
+      };
+
+      mockProvider.chat = vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'assistant-round-1',
+          role: 'assistant',
+          content: '',
+          state: 'complete' as const,
+          toolCalls: [
+            {
+              id: 'call_0',
+              type: 'function',
+              function: {
+                name: 'testTool',
+                arguments: JSON.stringify({ param: 'first' }),
+              },
+            },
+          ],
+          timestamp: new Date(),
+        })
+        .mockResolvedValueOnce({
+          id: 'assistant-round-2',
+          role: 'assistant',
+          content: '',
+          state: 'complete' as const,
+          toolCalls: [
+            {
+              id: 'call_0',
+              type: 'function',
+              function: {
+                name: 'testTool',
+                arguments: JSON.stringify({ param: 'second' }),
+              },
+            },
+          ],
+          timestamp: new Date(),
+        })
+        .mockResolvedValueOnce({
+          id: 'assistant-final',
+          role: 'assistant',
+          content: 'Both tool rounds completed.',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        });
+
+      const mockToolExecutionService: Pick<
+        ToolExecutionService,
+        'createExecutionRequestsWithContext' | 'executeTools'
+      > = {
+        createExecutionRequestsWithContext: vi.fn((toolCalls, context) =>
+          toolCalls.map((toolCall) => {
+            const parameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
+            return {
+              toolName: toolCall.function.name,
+              parameters,
+              executionId: toolCall.id,
+              ownerType: 'tool',
+              ownerId: toolCall.id,
+              ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
+              metadata: context.metadataFactory?.(toolCall),
+            };
+          }),
+        ),
+        executeTools: vi.fn((batchContext) =>
+          Promise.resolve({
+            results: batchContext.requests.map((request) => ({
+              success: true,
+              toolName: request.toolName,
+              result: JSON.stringify({ ok: true, executionId: request.executionId }),
+              executionId: request.executionId,
+              duration: 1,
+            })),
+            errors: [],
+          }),
+        ),
+      };
+      (
+        executionService as unknown as {
+          toolExecutionService: Pick<
+            ToolExecutionService,
+            'createExecutionRequestsWithContext' | 'executeTools'
+          >;
+        }
+      ).toolExecutionService = mockToolExecutionService;
+
+      const result = await executionService.execute('Run two tools', [], config, {
+        conversationId: 'repeated-tool-call-id-test',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe('Both tool rounds completed.');
+
+      const assistantMessages = result.messages.filter(
+        (message): message is IAssistantMessage => message.role === 'assistant',
+      );
+      const toolMessages = result.messages.filter(
+        (message): message is IToolMessage => message.role === 'tool',
+      );
+      const assistantToolCallIds = assistantMessages.flatMap((message) =>
+        (message.toolCalls ?? []).map((toolCall) => toolCall.id),
+      );
+      const toolMessageIds = toolMessages.map((message) => message.toolCallId);
+
+      expect(toolMessages).toHaveLength(2);
+      expect(assistantToolCallIds).toEqual(toolMessageIds);
+      expect(toolMessageIds).toEqual(['call_0', 'call_0']);
+      expect(mockProvider.chat).toHaveBeenCalledTimes(3);
+    });
+
     it('should handle errors during execution', async () => {
       const errorInput = 'Hello';
       const errorMessages: TUniversalMessage[] = [];
@@ -598,6 +719,35 @@ describe('ExecutionService', () => {
         },
       };
     }
+
+    it('should honor config maxExecutionRounds before forcing summary', async () => {
+      setupToolMocks();
+      const config = {
+        ...makeConfig(),
+        maxExecutionRounds: 12,
+      };
+
+      const chatSpy = vi.fn();
+      for (let i = 0; i < 11; i++) {
+        chatSpy.mockResolvedValueOnce(makeToolCallResponse(i + 1));
+      }
+      chatSpy.mockResolvedValueOnce({
+        id: 'msg-final-after-custom-limit',
+        role: 'assistant',
+        content: 'Completed after extended tool rounds.',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      mockProvider.chat = chatSpy;
+
+      const result = await executionService.execute('Run extended tools', [], config, {
+        conversationId: 'test-agent',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toBe('Completed after extended tool rounds.');
+      expect(chatSpy).toHaveBeenCalledTimes(12);
+    });
 
     it('should make forced summary call when maxRounds exhausted with only tool calls', async () => {
       setupToolMocks();

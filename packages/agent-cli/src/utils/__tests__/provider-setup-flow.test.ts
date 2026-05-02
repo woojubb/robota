@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createProviderSetupFlow,
+  formatProviderSetupSelectionPrompt,
   formatProviderSetupPromptLabel,
   getProviderSetupStep,
+  resolveProviderSetupSelection,
   runProviderSetupPromptFlow,
   submitProviderSetupValue,
 } from '../provider-setup-flow.js';
@@ -17,6 +19,8 @@ const openaiDefaults = {
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',
+    displayName: 'OpenAI Compatible',
+    description: 'Use OpenAI or an OpenAI-compatible endpoint',
     defaults: openaiDefaults,
     setupSteps: [
       {
@@ -43,6 +47,8 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   },
   {
     type: 'anthropic',
+    displayName: 'Anthropic',
+    description: 'Use Claude models through Anthropic',
     defaults: { model: 'claude-sonnet-4-6' },
     setupSteps: [
       { key: 'apiKey', title: 'Anthropic API key', required: true, masked: true },
@@ -56,6 +62,26 @@ const providerDefinitions: readonly IProviderDefinition[] = [
 ];
 
 describe('provider setup prompt flow', () => {
+  it('formats provider selection prompts from injected provider definitions', () => {
+    expect(formatProviderSetupSelectionPrompt(providerDefinitions)).toBe(
+      [
+        '  Select provider:',
+        '    1. OpenAI Compatible (openai) - Use OpenAI or an OpenAI-compatible endpoint',
+        '    2. Anthropic (anthropic) - Use Claude models through Anthropic',
+        '  Provider [1-2] (default: 1): ',
+      ].join('\n'),
+    );
+  });
+
+  it('resolves provider selection by index or type without provider-specific branches', () => {
+    expect(resolveProviderSetupSelection('2', providerDefinitions)).toBe('anthropic');
+    expect(resolveProviderSetupSelection('openai', providerDefinitions)).toBe('openai');
+    expect(resolveProviderSetupSelection('', providerDefinitions)).toBe('openai');
+    expect(() => resolveProviderSetupSelection('gemma', providerDefinitions)).toThrow(
+      'Unknown provider: gemma',
+    );
+  });
+
   it('builds OpenAI-compatible setup input from defaulted prompt submissions', () => {
     let state = createProviderSetupFlow('openai', providerDefinitions);
     expect(getProviderSetupStep(state)).toMatchObject({

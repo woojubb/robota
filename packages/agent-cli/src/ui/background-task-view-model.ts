@@ -26,6 +26,8 @@ export interface IBackgroundTaskViewModel {
   startedAt?: string;
   lastActivityAt?: string;
   timeoutReason?: TBackgroundTaskTimeoutReason;
+  exitCode?: number;
+  signalCode?: string;
 }
 
 export function toBackgroundTaskViewModel(
@@ -47,6 +49,8 @@ export function toBackgroundTaskViewModel(
     startedAt: state.startedAt,
     lastActivityAt: state.lastActivityAt,
     timeoutReason: state.timeoutReason,
+    exitCode: state.result?.exitCode,
+    signalCode: state.result?.signalCode,
   };
 }
 

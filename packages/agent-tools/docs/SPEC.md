@@ -27,6 +27,7 @@ types/
   tool-result.ts        -- TToolResult: result type for CLI tool invocations
 builtins/
   index.ts              -- Re-exports all 8 built-in CLI tools
+  atomic-file-write.ts  -- Same-directory temp write + atomic rename helper for UTF-8 file replacement
   bash-tool.ts          -- Bash: execute shell commands
   read-tool.ts          -- Read: read file contents with line numbers
   write-tool.ts         -- Write: write content to a file
@@ -92,6 +93,8 @@ Each built-in tool is an `IToolWithEventService`-compatible object with `getName
 
 **WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
 
+**Atomic write semantics**: `Write` and `Edit` replace UTF-8 file content by writing to a temporary file in the same directory and then renaming it into place. When replacing an existing target, the temporary file is assigned the target's existing mode bits before the rename so executable scripts and other permission-sensitive files keep their permissions. The temporary file is removed after failed writes when possible. This keeps built-in filesystem mutations provider-agnostic while preventing partially written target files during self-hosting edit/build/verify loops.
+
 ### TToolResult Shape
 
 ```typescript
@@ -144,15 +147,16 @@ None. `FunctionTool` and `OpenAPITool` implement their respective interfaces dir
 
 ### Current Test Coverage
 
-| File                                     | Scope | Description                                         |
-| ---------------------------------------- | ----- | --------------------------------------------------- |
-| `src/__tests__/function-tool.test.ts`    | Unit  | FunctionTool creation, execution, schema validation |
-| `src/__tests__/schema-converter.test.ts` | Unit  | Zod-to-JSON-Schema conversion                       |
-| `src/__tests__/tool-registry.test.ts`    | Unit  | ToolRegistry registration, lookup, listing          |
+| File                                      | Scope | Description                                                             |
+| ----------------------------------------- | ----- | ----------------------------------------------------------------------- |
+| `src/__tests__/atomic-file-write.test.ts` | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff |
+| `src/__tests__/function-tool.test.ts`     | Unit  | FunctionTool creation, execution, schema validation                     |
+| `src/__tests__/schema-converter.test.ts`  | Unit  | Zod-to-JSON-Schema conversion                                           |
+| `src/__tests__/tool-registry.test.ts`     | Unit  | ToolRegistry registration, lookup, listing                              |
 
 ### Gaps
 
-- **Built-in tools** -- No unit tests for `bashTool`, `readTool`, `writeTool`, `editTool`, `globTool`, or `grepTool`.
+- **Built-in tools** -- No unit tests for `bashTool`, `readTool`, `globTool`, or `grepTool`.
 - **OpenAPITool** -- No unit tests for OpenAPI tool creation or execution.
 - **TToolResult** -- No tests verifying the result shape contract.
 

@@ -1,5 +1,35 @@
 # @robota-sdk/dag-orchestrator-server
 
+## 3.0.1-beta.15
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.59
+- @robota-sdk/dag-cost@3.0.0-beta.59
+- @robota-sdk/dag-adapters-local@3.0.0-beta.59
+- @robota-sdk/dag-api@3.0.0-beta.59
+- @robota-sdk/dag-orchestrator@3.0.0-beta.59
+
+## 3.0.1-beta.14
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.58
+- @robota-sdk/dag-cost@3.0.0-beta.58
+- @robota-sdk/dag-adapters-local@3.0.0-beta.58
+- @robota-sdk/dag-api@3.0.0-beta.58
+- @robota-sdk/dag-orchestrator@3.0.0-beta.58
+
+## 3.0.1-beta.13
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.57
+- @robota-sdk/dag-cost@3.0.0-beta.57
+- @robota-sdk/dag-adapters-local@3.0.0-beta.57
+- @robota-sdk/dag-api@3.0.0-beta.57
+- @robota-sdk/dag-orchestrator@3.0.0-beta.57
+
 ## 3.0.1-beta.12
 
 ### Patch Changes

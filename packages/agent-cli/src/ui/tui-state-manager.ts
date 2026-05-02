@@ -8,7 +8,7 @@
  * and reads state for rendering.
  */
 
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IToolState,
   IExecutionResult,
@@ -151,6 +151,14 @@ export class TuiStateManager {
     this.streamingText = '';
     this.activeTools = [];
     this.notify();
+  };
+
+  onContextUpdate = (state: IContextWindowState): void => {
+    this.setContextState({
+      percentage: state.usedPercentage,
+      usedTokens: state.usedTokens,
+      maxTokens: state.maxTokens,
+    });
   };
 
   onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void => {

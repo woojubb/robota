@@ -9,6 +9,8 @@ export const DEFAULT_GEMMA_PROVIDER_BASE_URL = 'http://localhost:1234/v1';
 export function createGemmaProviderDefinition(): IProviderDefinition {
   return {
     type: 'gemma',
+    displayName: 'Gemma',
+    description: 'Gemma-family local models through an OpenAI-compatible endpoint',
     defaults: {
       model: DEFAULT_GEMMA_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMMA_PROVIDER_API_KEY,

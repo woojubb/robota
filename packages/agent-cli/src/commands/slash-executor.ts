@@ -78,6 +78,7 @@ export const HELP_TEXT = [
   '  /cost              — Show session info',
   '  /resume            — Resume a previous session',
   '  /background        — List/cancel/close background tasks',
+  '  /rewind            — List or restore edit checkpoints',
   '  /rename <name>     — Rename the current session',
   '  /reset             — Delete settings and exit',
   '  /exit              — Exit CLI',
@@ -229,6 +230,10 @@ export async function executeSlashCommand(
       return { handled: false }; // TUI routes provider commands with settings side effects
     case 'background':
       return { handled: false }; // Route to SDK system command (background task controls)
+    case 'memory':
+      return { handled: false }; // Route to SDK system command (project memory controls)
+    case 'rewind':
+      return { handled: false }; // Route to SDK system command (edit checkpoint controls)
     case 'exit':
       return { handled: true, exitRequested: true };
     case 'plugin':

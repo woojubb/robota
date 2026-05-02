@@ -13,7 +13,7 @@ export interface IProviderCommandData {
     profile: string;
   };
   providerSetup?: {
-    type: string;
+    type?: string;
   };
   providerTest?: {
     profile: string;
@@ -124,7 +124,14 @@ function buildProviderSetup(
   type: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
 ): IProviderCommandResult {
-  if (!type || findProviderDefinition(providerDefinitions, type) === undefined) {
+  if (!type) {
+    return {
+      message: 'Provider setup requested. Select a provider to continue.',
+      success: true,
+      data: { providerSetup: {} },
+    };
+  }
+  if (findProviderDefinition(providerDefinitions, type) === undefined) {
     return {
       message: `Usage: provider add <type>. Supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
       success: false,

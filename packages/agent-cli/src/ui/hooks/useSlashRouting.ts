@@ -6,11 +6,16 @@
 import { useCallback } from 'react';
 import { randomUUID } from 'node:crypto';
 import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robota-sdk/agent-sdk';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  createSystemMessage,
+  messageToHistoryEntry,
+  type TUniversalValue,
+} from '@robota-sdk/agent-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
-import type { ISideEffects } from './useInteractiveSession.js';
+import type { ISideEffects } from './side-effects-types.js';
 import { handleProviderCommand } from '../../utils/provider-command.js';
+import type { TStatusLineSettingsPatch } from '../../utils/statusline-settings.js';
 
 type TSessionWithEffects = InteractiveSession & ISideEffects;
 
@@ -81,12 +86,12 @@ async function routeProviderCommand(
     getEffects(interactiveSession)._pendingProviderProfile = providerSwitch.profile;
   }
   const providerSetup = result.data?.providerSetup;
-  if (providerSetup?.type) {
-    getEffects(interactiveSession)._pendingProviderSetupType = providerSetup.type;
+  if (providerSetup !== undefined) {
+    getEffects(interactiveSession)._pendingProviderSetup = providerSetup;
   }
 }
 
-function applySystemCommandResult(
+export function applySystemCommandResult(
   result: ICommandResult,
   interactiveSession: InteractiveSession,
   manager: TuiStateManager,
@@ -113,6 +118,11 @@ function applySystemCommandResult(
   }
   if (typeof data?.name === 'string') {
     effects._sessionName = data.name;
+    return;
+  }
+  const statusLinePatch = data?.statuslinePatch as TUniversalValue;
+  if (isStatusLineSettingsPatch(statusLinePatch)) {
+    effects._statusLinePatch = statusLinePatch;
     return;
   }
 
@@ -172,4 +182,20 @@ function routeTuiCommand(cmd: string, interactiveSession: InteractiveSession): b
 
 function getEffects(interactiveSession: InteractiveSession): TSessionWithEffects {
   return interactiveSession as TSessionWithEffects;
+}
+
+function isStatusLineSettingsPatch(value: TUniversalValue): value is TStatusLineSettingsPatch {
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    value instanceof Date
+  ) {
+    return false;
+  }
+  const candidate = value as Record<string, TUniversalValue>;
+  return (
+    (candidate.enabled === undefined || typeof candidate.enabled === 'boolean') &&
+    (candidate.gitBranch === undefined || typeof candidate.gitBranch === 'boolean')
+  );
 }

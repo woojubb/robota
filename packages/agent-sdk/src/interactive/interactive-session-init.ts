@@ -11,7 +11,9 @@ import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskRunner,
@@ -25,6 +27,7 @@ import type { ICommandModule, ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
+import type { IResolvedConfig } from '../config/config-types.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
 import { BundlePluginLoader } from '../plugins/index.js';
@@ -33,6 +36,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -63,6 +68,8 @@ export interface IInteractiveSessionStandardOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
+  config?: IResolvedConfig;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -96,10 +103,11 @@ export interface IInitOptions {
   resumeSessionId?: string;
   forkSession?: boolean;
   onTextDelta: (delta: string) => void;
+  onContextUpdate?: (state: IContextWindowState) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
-    toolArgs?: Record<string, unknown>;
+    toolArgs?: TToolArgs;
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
@@ -122,6 +130,10 @@ export interface IInitOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
+  config?: IResolvedConfig;
+  /** Recorder used to snapshot files before Write/Edit tools mutate them. */
+  editCheckpointRecorder?: IEditCheckpointRecorder;
 }
 
 /**
@@ -133,7 +145,7 @@ export interface IInitOptions {
 export async function createInteractiveSession(options: IInitOptions): Promise<Session> {
   const cwd = options.cwd;
   const [config, context, projectInfo] = await Promise.all([
-    loadConfig(cwd),
+    options.config ? Promise.resolve(options.config) : loadConfig(cwd),
     options.bare ? Promise.resolve({ agentsMd: '', claudeMd: '' }) : loadContext(cwd),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
@@ -180,6 +192,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     permissionHandler: options.permissionHandler,
     provider: options.provider,
     onTextDelta: options.onTextDelta,
+    onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,
@@ -201,6 +214,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
       : {}),
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
+    editCheckpointRecorder: options.editCheckpointRecorder,
   });
 }
 
@@ -236,6 +250,8 @@ export function loadSessionRecord(
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
   backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
+  memoryEvents: IMemoryEvent[];
+  usedMemoryReferences: IMemoryReference[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -247,6 +263,8 @@ export function loadSessionRecord(
       backgroundTaskEvents: [],
       backgroundJobGroups: [],
       backgroundJobGroupEvents: [],
+      memoryEvents: [],
+      usedMemoryReferences: [],
     };
   }
 
@@ -257,6 +275,8 @@ export function loadSessionRecord(
   const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
   const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
     []) as TBackgroundJobGroupEvent[];
+  const memoryEvents = (record.memoryEvents ?? []) as IMemoryEvent[];
+  const usedMemoryReferences = (record.usedMemoryReferences ?? []) as IMemoryReference[];
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
@@ -284,6 +304,8 @@ export function loadSessionRecord(
     backgroundTaskEvents,
     backgroundJobGroups,
     backgroundJobGroupEvents,
+    memoryEvents,
+    usedMemoryReferences,
   };
 }
 

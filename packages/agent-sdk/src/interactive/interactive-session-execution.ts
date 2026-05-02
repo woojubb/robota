@@ -4,17 +4,20 @@
  * Contains abort detection, tool-summary extraction, and session persistence utilities.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
+import { collectAssistantUsageMetadata } from '@robota-sdk/agent-core';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
-import type { IExecutionResult, IToolSummary } from './types.js';
+import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 
 /** Detect whether an error represents an abort/cancel action. */
 export function isAbortError(err: unknown): boolean {
@@ -59,11 +62,13 @@ export function buildResult(
   contextState: IContextWindowState,
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
   return {
     response,
     history: interactiveHistory,
     toolSummaries,
     contextState,
+    ...(usage && { usage }),
   };
 }
 
@@ -83,11 +88,56 @@ export function buildInterruptedResult(
     const msg = sessionHistory[i];
     if (msg?.role === 'assistant' && msg.content) parts.push(msg.content);
   }
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
   return {
     response: parts.join('\n\n'),
     history: interactiveHistory,
     toolSummaries,
     contextState,
+    ...(usage && { usage }),
+  };
+}
+
+export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IUsageSnapshot> {
+  return {
+    id: `usage_${randomUUID()}`,
+    timestamp: new Date(),
+    category: 'event',
+    type: 'usage-summary',
+    data: usage,
+  };
+}
+
+function extractTurnUsage(
+  sessionHistory: TUniversalMessage[],
+  historyBefore: number,
+  contextState: IContextWindowState,
+): IUsageSnapshot | undefined {
+  const turnMessages = sessionHistory.slice(historyBefore);
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let foundUsage = false;
+
+  for (const message of turnMessages) {
+    if (message.role !== 'assistant') continue;
+    const usage = collectAssistantUsageMetadata(message);
+    if (!usage) continue;
+    foundUsage = true;
+    promptTokens += usage.inputTokens;
+    completionTokens += usage.outputTokens;
+  }
+
+  if (!foundUsage) return undefined;
+  return {
+    kind: 'exact',
+    scope: 'turn',
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+    contextUsedTokens: contextState.usedTokens,
+    contextMaxTokens: contextState.maxTokens,
+    contextUsedPercentage: contextState.usedPercentage,
+    costStatus: 'unknown',
   };
 }
 
@@ -106,6 +156,10 @@ export function persistSession(
     events: readonly TBackgroundTaskEvent[];
     groups?: readonly IBackgroundJobGroupState[];
     groupEvents?: readonly TBackgroundJobGroupEvent[];
+  },
+  memoryState?: {
+    events: readonly IMemoryEvent[];
+    usedReferences: readonly IMemoryReference[];
   },
 ): void {
   try {
@@ -127,6 +181,12 @@ export function persistSession(
             backgroundTaskEvents: [...backgroundState.events],
             backgroundJobGroups: [...(backgroundState.groups ?? [])],
             backgroundJobGroupEvents: [...(backgroundState.groupEvents ?? [])],
+          }
+        : {}),
+      ...(memoryState
+        ? {
+            memoryEvents: [...memoryState.events],
+            usedMemoryReferences: [...memoryState.usedReferences],
           }
         : {}),
     });

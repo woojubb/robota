@@ -561,17 +561,23 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-gemini':
+        specifier: workspace:*
+        version: link:../agent-provider-gemini
       '@robota-sdk/agent-provider-gemma':
         specifier: workspace:*
         version: link:../agent-provider-gemma
       '@robota-sdk/agent-provider-openai':
         specifier: workspace:*
         version: link:../agent-provider-openai
+      '@robota-sdk/agent-provider-qwen':
+        specifier: workspace:*
+        version: link:../agent-provider-qwen
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
       '@robota-sdk/agent-sessions':
-        specifier: workspace:3.0.0-beta.55
+        specifier: workspace:3.0.0-beta.59
         version: link:../agent-sessions
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
@@ -1079,6 +1085,37 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/agent-provider-gemini:
+    dependencies:
+      '@google/genai':
+        specifier: ^1.51.0
+        version: 1.51.0(@modelcontextprotocol/sdk@1.29.0)
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/agent-provider-gemma:
     dependencies:
       '@robota-sdk/agent-provider-openai-compatible':
@@ -1115,9 +1152,9 @@ importers:
 
   packages/agent-provider-google:
     dependencies:
-      '@google/generative-ai':
-        specifier: ^0.20.0
-        version: 0.20.0
+      '@robota-sdk/agent-provider-gemini':
+        specifier: workspace:*
+        version: link:../agent-provider-gemini
     devDependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
@@ -1180,6 +1217,40 @@ importers:
 
   packages/agent-provider-openai-compatible:
     dependencies:
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(zod@3.25.76)
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-provider-qwen:
+    dependencies:
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
       openai:
         specifier: ^4.98.0
         version: 4.104.0(zod@3.25.76)
@@ -1555,12 +1626,6 @@ importers:
         specifier: ^3.24.6
         version: 3.24.6(zod@3.25.76)
     devDependencies:
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../dag-node
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -4644,12 +4709,28 @@ packages:
     dev: false
     optional: true
 
-  /@google/generative-ai@0.20.0:
+  /@google/genai@1.51.0(@modelcontextprotocol/sdk@1.29.0):
     resolution:
       {
-        integrity: sha512-uJQNDr1sihvBJ9w8B0ESpNdX9aEueAMXgwnTuhTo+LnI7DD0M1KHnOWzxb2l6cM1rRHzvkdgJNNfeybcqg7uVg==,
+        integrity: sha512-vTZZF3CSimN7cn2zsLpW2p5WF0eZa5Gz69ITMPCNHpPrDlAstOfGifSfi0p/s9Z9400f7xJRkgvkQNrcM7pJ6w==,
       }
-    engines: { node: '>=18.0.0' }
+    engines: { node: '>=20.0.0' }
+    requiresBuild: true
+    peerDependencies:
+      '@modelcontextprotocol/sdk': ^1.25.2
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      google-auth-library: 10.6.2
+      p-retry: 4.6.2
+      protobufjs: 8.0.1
+      ws: 8.20.0
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
     dev: false
 
   /@grpc/grpc-js@1.13.4:
@@ -8591,6 +8672,13 @@ packages:
     dev: false
     optional: true
 
+  /@types/retry@0.12.0:
+    resolution:
+      {
+        integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==,
+      }
+    dev: false
+
   /@types/sax@1.2.7:
     resolution:
       {
@@ -10480,7 +10568,6 @@ packages:
       }
     requiresBuild: true
     dev: false
-    optional: true
 
   /birpc@2.5.0:
     resolution:
@@ -11578,6 +11665,14 @@ packages:
         integrity: sha512-sdQSFB7+llfUcQHUQO3+B8ERRj0Oa4w9POWMI/puGtuf7gFywGmkaLCElnudfTiKZV+NvHqL0ifzdrI8Ro7ESA==,
       }
     dev: true
+
+  /data-uri-to-buffer@4.0.1:
+    resolution:
+      {
+        integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==,
+      }
+    engines: { node: '>= 12' }
+    dev: false
 
   /data-urls@5.0.0:
     resolution:
@@ -13598,6 +13693,17 @@ packages:
       }
     dev: false
 
+  /fetch-blob@3.2.0:
+    resolution:
+      {
+        integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==,
+      }
+    engines: { node: ^12.20 || >= 14.13 }
+    dependencies:
+      node-domexception: 1.0.0
+      web-streams-polyfill: 3.3.3
+    dev: false
+
   /figures@6.1.0:
     resolution:
       {
@@ -13901,6 +14007,16 @@ packages:
       web-streams-polyfill: 4.0.0-beta.3
     dev: false
 
+  /formdata-polyfill@4.0.10:
+    resolution:
+      {
+        integrity: sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==,
+      }
+    engines: { node: '>=12.20.0' }
+    dependencies:
+      fetch-blob: 3.2.0
+    dev: false
+
   /forwarded@0.2.0:
     resolution:
       {
@@ -14048,6 +14164,20 @@ packages:
     dev: false
     optional: true
 
+  /gaxios@7.1.4:
+    resolution:
+      {
+        integrity: sha512-bTIgTsM2bWn3XklZISBTQX7ZSddGW+IO3bMdGaemHZ3tbqExMENHLx6kKZ/KlejgrMtj8q7wBItt51yegqalrA==,
+      }
+    engines: { node: '>=18' }
+    dependencies:
+      extend: 3.0.2
+      https-proxy-agent: 7.0.6
+      node-fetch: 3.3.2
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+
   /gcp-metadata@6.1.1:
     resolution:
       {
@@ -14064,6 +14194,20 @@ packages:
       - supports-color
     dev: false
     optional: true
+
+  /gcp-metadata@8.1.2:
+    resolution:
+      {
+        integrity: sha512-zV/5HKTfCeKWnxG0Dmrw51hEWFGfcF2xiXqcA3+J90WDuP0SvoiSO5ORvcBsifmx/FoIjgQN3oNOGaQ5PhLFkg==,
+      }
+    engines: { node: '>=18' }
+    dependencies:
+      gaxios: 7.1.4
+      google-logging-utils: 1.1.3
+      json-bigint: 1.0.0
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
 
   /gensync@1.0.0-beta.2:
     resolution:
@@ -14299,6 +14443,23 @@ packages:
       slash: 3.0.0
     dev: true
 
+  /google-auth-library@10.6.2:
+    resolution:
+      {
+        integrity: sha512-e27Z6EThmVNNvtYASwQxose/G57rkRuaRbQyxM2bvYLLX/GqWZ5chWq2EBoUchJbCc57eC9ArzO5wMsEmWftCw==,
+      }
+    engines: { node: '>=18' }
+    dependencies:
+      base64-js: 1.5.1
+      ecdsa-sig-formatter: 1.0.11
+      gaxios: 7.1.4
+      gcp-metadata: 8.1.2
+      google-logging-utils: 1.1.3
+      jws: 4.0.1
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+
   /google-auth-library@9.15.1:
     resolution:
       {
@@ -14354,6 +14515,14 @@ packages:
     requiresBuild: true
     dev: false
     optional: true
+
+  /google-logging-utils@1.1.3:
+    resolution:
+      {
+        integrity: sha512-eAmLkjDjAFCVXg7A1unxHsLf961m6y17QFqXqAXGj/gVkKFrEICfStRfwUlGNfeCEjNRa32JEWOUTlYXPyyKvA==,
+      }
+    engines: { node: '>=14' }
+    dev: false
 
   /gopd@1.2.0:
     resolution:
@@ -16467,7 +16636,6 @@ packages:
     dependencies:
       bignumber.js: 9.3.1
     dev: false
-    optional: true
 
   /json-buffer@3.0.1:
     resolution:
@@ -16628,7 +16796,6 @@ packages:
       ecdsa-sig-formatter: 1.0.11
       safe-buffer: 5.2.1
     dev: false
-    optional: true
 
   /jwks-rsa@3.2.0:
     resolution:
@@ -16667,7 +16834,6 @@ packages:
       jwa: 2.0.1
       safe-buffer: 5.2.1
     dev: false
-    optional: true
 
   /keyv@4.5.4:
     resolution:
@@ -18546,6 +18712,18 @@ packages:
     dependencies:
       whatwg-url: 5.0.0
 
+  /node-fetch@3.3.2:
+    resolution:
+      {
+        integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==,
+      }
+    engines: { node: ^12.20.0 || ^14.13.1 || >=16.0.0 }
+    dependencies:
+      data-uri-to-buffer: 4.0.1
+      fetch-blob: 3.2.0
+      formdata-polyfill: 4.0.10
+    dev: false
+
   /node-forge@1.4.0:
     resolution:
       {
@@ -19025,6 +19203,17 @@ packages:
     dependencies:
       eventemitter3: 5.0.1
       p-timeout: 7.0.1
+    dev: false
+
+  /p-retry@4.6.2:
+    resolution:
+      {
+        integrity: sha512-312Id396EbJdvRONlngUx0NydfrIQ5lsYu0znKVUzVvArzEIt08V1qhtyESbGVd1FGX7UKtiFp5uwKZdM8wIuQ==,
+      }
+    engines: { node: '>=8' }
+    dependencies:
+      '@types/retry': 0.12.0
+      retry: 0.13.1
     dev: false
 
   /p-timeout@7.0.1:
@@ -20312,7 +20501,6 @@ packages:
     engines: { node: '>= 4' }
     requiresBuild: true
     dev: false
-    optional: true
 
   /reusify@1.1.0:
     resolution:
@@ -23196,6 +23384,14 @@ packages:
       {
         integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==,
       }
+    dev: false
+
+  /web-streams-polyfill@3.3.3:
+    resolution:
+      {
+        integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==,
+      }
+    engines: { node: '>= 8' }
     dev: false
 
   /web-streams-polyfill@4.0.0-beta.3:

@@ -1,6 +1,6 @@
 # Operational Rules
 
-Rules for day-to-day development practices: error handling, research, documentation, and task management.
+Rules for day-to-day development practices: error handling, documentation, and task management.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### No Fallback Policy
@@ -26,21 +26,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - For each option, evaluate and state the impact: affected files/packages, risk level, migration effort.
 - Format: options → recommendation → impact assessment. Never present options without a clear recommendation.
 
-### Prior Art Research Requirement
-
-- Before implementing any new feature or capability, research whether equivalent solutions already exist in established products (e.g., Claude Code, VS Code, Cursor, Warp, etc.).
-- The research MUST be completed BEFORE writing implementation code or finalizing a spec.
-- Research deliverables:
-  1. **Identify prior art** — which products have this feature, how they implement it.
-  2. **Document findings** — save to `.agents/backlog/<item>.md` or the task file under a `## Prior Art Research` section.
-  3. **Extract spec decisions** — use research to inform parameter names, UX patterns, edge cases, and defaults.
-- If no prior art is found, document that fact explicitly ("No known prior art found").
-- A feature implementation that skips prior art research when equivalent solutions obviously exist is a process violation.
-- This applies to CLI features, SDK APIs, tool behaviors, and UX patterns — not to internal refactoring or bug fixes.
-
 ### Feature Documentation Requirement
 
 - When a new feature is implemented (new tool, new API, new command, new capability), documentation MUST be updated in the same commit or PR.
+- Follow [documentation-sync.md](documentation-sync.md) for the exact package README and robota.io source paths that must be checked.
 - Required documentation updates:
   1. **SPEC.md** of the affected package — add or update the feature description.
   2. **README.md** of the affected package — add usage examples if the package is published.

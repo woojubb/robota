@@ -2,8 +2,6 @@
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
 
-**Version**: 3.0.0-beta.40
-
 ## Installation
 
 Requires Node.js 22+.
@@ -31,6 +29,7 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 | Variable            | Description                                    | Required       |
 | ------------------- | ---------------------------------------------- | -------------- |
 | `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
+| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
 
 Set your key before running:
 
@@ -41,11 +40,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Development Setup (Monorepo)
 
 ```bash
-# 1. Copy .env.example and add your Anthropic API key
-cp packages/agent-cli/.env.example packages/agent-cli/.env
-# Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
-
-# 2. Build dependencies and CLI
+# Build dependencies and CLI
 pnpm build:deps
 pnpm --filter @robota-sdk/agent-cli build
 ```
@@ -56,7 +51,7 @@ pnpm --filter @robota-sdk/agent-cli build
 # From monorepo root
 cd packages/agent-cli
 
-# Development mode (no build needed, auto-loads .env)
+# Development mode (no build needed)
 pnpm dev
 
 # Production mode (requires build)
@@ -84,8 +79,26 @@ robota --output-format <fmt>        # text | json | stream-json (print mode)
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --reset                      # Delete user settings and exit
+robota --check-update               # Check npm for a newer CLI version and exit
+robota --disable-update-check        # Skip interactive startup update check for this run
 robota --version                    # Show version
 ```
+
+### CLI Updates
+
+Robota can check npm for a newer `@robota-sdk/agent-cli` version:
+
+```bash
+robota --check-update
+```
+
+When an update is available, Robota prints the npm global install command:
+
+```bash
+npm install -g '@robota-sdk/agent-cli@latest'
+```
+
+Robota does not implement its own updater and does not modify `~/.robota/settings.json` for update checks. Interactive startup checks use a user-level operational cache at `~/.robota/update-check.json` and can be skipped for one run with `--disable-update-check`. Print/headless mode (`robota -p`) does not perform automatic startup update checks so scripted stdout and stderr remain deterministic.
 
 ### Print Mode Output Formats
 
@@ -111,10 +124,15 @@ git diff | robota -p "Summarize changes" --output-format stream-json
 
 When no usable settings file exists, the CLI prompts for:
 
-1. **Anthropic API key** (input masked with asterisks)
-2. **Response language** (ko/en/ja/zh, default: en)
+1. **Provider selection** from the providers assembled into the CLI binary
+2. **Provider-specific setup fields** such as model, base URL, and masked API key
+3. **Response language** (ko/en/ja/zh, default: en)
 
-Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state. OpenAI-compatible local profiles, such as LM Studio, can be configured manually without using the first-run Anthropic prompt.
+Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
+
+Provider setup is generated from provider definitions. The default CLI build includes Anthropic, OpenAI-compatible, Gemma, and Qwen providers; other embeddings can inject their own provider definitions.
+
+Non-interactive/headless mode never prompts. Configure a provider ahead of time with `robota --configure` in an interactive terminal, or use `robota --configure-provider <profile> --type <type> ... --set-current`.
 
 ## Built-in Tools
 
@@ -128,6 +146,15 @@ The AI agent can invoke 6 tools:
 | `Edit`  | Replace a string in a file           | `filePath`       |
 | `Glob`  | Find files matching a pattern        | `pattern`        |
 | `Grep`  | Search file contents with regex      | `pattern`        |
+
+## Recent TUI Capabilities
+
+- Provider setup is generated from provider definitions, so the default CLI build can configure Anthropic, OpenAI-compatible, Gemma, and Qwen profiles without provider-specific UI branches.
+- Interactive startup can check npm for newer CLI versions; print/headless mode skips startup update checks to keep scripted output deterministic.
+- Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
+- Edit results render as context hunks with markdown-friendly diff blocks.
+- Background subagents are real runtime jobs with transcripts and resumable task snapshots.
+- Explicit multi-agent requests can use the Agent tool `jobs` batch path through the SDK runtime.
 
 ## Permission System
 
@@ -282,8 +309,14 @@ Settings are merged in this order, from lowest to highest priority:
 {
   "defaultMode": "default",
   "language": "en",
-  "currentProvider": "gemma",
+  "currentProvider": "qwen",
   "providers": {
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    },
     "gemma": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
@@ -308,7 +341,7 @@ Settings are merged in this order, from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects a profile from `providers`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply Gemma filtering. The legacy single-provider shape remains supported:
+`currentProvider` selects a profile from `providers`. Qwen Model Studio profiles use `type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as `$ENV:DASHSCOPE_API_KEY`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply provider-specific projection. The legacy single-provider shape remains supported:
 
 ```json
 {

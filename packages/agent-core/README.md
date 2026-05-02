@@ -45,6 +45,7 @@ console.log(response);
 - **Model definitions**: Central `CLAUDE_MODELS` registry with context windows, output limits, and human-readable names
 - **callProviderWithCache**: Accepts `Partial<IChatOptions>` overrides for per-call configuration
 - **AbortSignal propagation**: Signal flows through the entire execution chain (Session -> Robota -> Provider)
+- **Execution boundary events**: `Robota.run()` can emit provider/tool provenance events through `onExecutionEvent`
 - **Type safety**: Strict TypeScript, zero `any` in production code
 
 ## Robota API
@@ -62,6 +63,19 @@ agent.clearHistory();
 // Switch provider/model mid-conversation
 agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 ```
+
+### Execution Boundary Events
+
+`run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:
+
+- `provider_request`
+- `provider_response_normalized`
+- `assistant_message_committed`
+- `tool_batch_started`
+- `tool_execution_request`
+- `tool_execution_result`
+
+Raw provider payload/chunk storage remains provider/session logging follow-up work so `agent-core` does not gain provider-specific branches.
 
 ## IAgentConfig
 

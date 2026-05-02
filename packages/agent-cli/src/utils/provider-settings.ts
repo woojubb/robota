@@ -1,5 +1,6 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import { findProviderDefinition, type IProviderDefinition } from './provider-definition.js';
+import { hasUsableSecretReference } from './env-ref.js';
 
 export interface IProviderProfileSettings {
   [key: string]: TUniversalValue;
@@ -8,6 +9,7 @@ export interface IProviderProfileSettings {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export interface ILegacyProviderSettings {
@@ -17,6 +19,7 @@ export interface ILegacyProviderSettings {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export type TProviderSettingsDocument = Record<string, TUniversalValue> & {
@@ -86,8 +89,7 @@ export function validateProviderProfile(
   const definition = findProviderDefinition(options.providerDefinitions ?? [], profile.type);
   if (
     definition?.requiresApiKey === true &&
-    !profile.apiKey &&
-    definition.defaults?.apiKey === undefined
+    !hasUsableSecretReference(profile.apiKey ?? definition.defaults?.apiKey)
   ) {
     throw new Error(`Provider profile "${profileName}" is missing apiKey`);
   }

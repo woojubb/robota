@@ -8,6 +8,7 @@ export type {
   IDiffLine,
   IExecutionResult,
   IToolSummary,
+  IUsageSnapshot,
   TPermissionResultValue,
   TInteractivePermissionHandler,
   TInteractiveEventName,

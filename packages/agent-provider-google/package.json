@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-provider-google",
-  "version": "3.0.0-beta.56",
-  "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
+  "version": "3.0.0-beta.59",
+  "description": "Compatibility wrapper for the renamed @robota-sdk/agent-provider-gemini package",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -47,41 +47,21 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "scenario:verify": "pnpm --filter @robota-sdk/agent-core build && DRY_RUN=1 GEMINI_IMAGE_MODEL=gemini-2.0-flash-exp-image-generation pnpm exec tsx examples/example-generate-image.ts && DRY_RUN=1 GEMINI_IMAGE_MODEL=gemini-2.0-flash-exp-image-generation pnpm exec tsx examples/example-compose-image.ts",
-    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-provider-google --output examples/scenarios/google-image-dry-run.record.json -- pnpm scenario:verify",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "keywords": [
     "ai",
     "agent",
-    "llm",
-    "google",
     "gemini",
-    "gemini-pro",
-    "gemini-flash",
-    "palm",
-    "google-ai",
-    "function-calling",
+    "google",
+    "compatibility",
     "typescript",
-    "javascript",
-    "chatbot",
-    "conversational-ai",
-    "artificial-intelligence",
-    "machine-learning",
-    "nlp",
-    "natural-language-processing",
-    "sdk",
-    "library",
-    "tool-integration",
-    "robota",
-    "google-api",
-    "ai-integration",
-    "generative-ai"
+    "robota"
   ],
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "@google/generative-ai": "^0.20.0"
+    "@robota-sdk/agent-provider-gemini": "workspace:*"
   },
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*"
@@ -99,5 +79,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true
+  "private": false
 }

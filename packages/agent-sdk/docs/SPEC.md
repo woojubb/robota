@@ -129,7 +129,11 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   └── types.ts                ← ICommand, ICommandSource
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
-├── src/context/                ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
+├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
+│   └── task-context.ts         ← active `.agents/tasks/*.md` discovery, selection, formatting, and status updates
+├── src/memory/                 ← project memory store, reusable capture policy, retrieval services
+├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
+├── src/self-hosting/           ← self-hosting verification planner + lifecycle state machine
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
 ├── src/subagents/              ← SDK in-process runner + explicit compatibility exports from agent-runtime
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
@@ -180,7 +184,28 @@ agent-cli (Ink TUI — CLI-specific)
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 - **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit user requests to create, run, spawn, delegate to, or use agents/subagents should start `Agent` tool calls immediately unless impossible or unsafe; one `Agent` tool call creates one background subagent job and waits for terminal completed/failed/timed-out result data before returning to the parent conversation.
+- **Edit checkpoint wrapper**: `agent-sdk/checkpoints/edit-checkpoint-tools.ts` wraps `Write` and `Edit` at SDK session assembly time. The underlying tool package stays generic; the SDK wrapper snapshots the target file before the first mutation in each prompt turn.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
+
+### Edit Checkpointing
+
+- **Package**: `agent-sdk/checkpoints/` (SDK-specific session safety layer)
+- **Storage**: Project-local `.robota/checkpoints/{session-id}/{turn-id}/manifest.json` plus copied pre-image files under `files/`.
+- **Turn model**: Every cwd-backed `InteractiveSession.submit()` prompt starts a turn-level checkpoint. The checkpoint is finalized after the run finishes, even when no file was edited, so prompt turns can be listed consistently. Injected sessions without `cwd` do not implicitly create project checkpoints; they must provide `cwd` or use explicit checkpoint APIs.
+- **Capture model**: `Write` and `Edit` tools are wrapped during `createSession()` assembly when an `IEditCheckpointRecorder` is present. A file is captured once per turn before the first tool mutation. Repeated edits to the same file in the same turn reuse the first pre-image.
+- **Restore model**: `restoreToCheckpoint(sessionId, checkpointId)` rolls back later checkpoints in reverse sequence order, restores copied pre-images, deletes files that did not exist at capture time, and removes later checkpoint directories. This provides code-only rewind to the selected prompt turn.
+- **Boundary**: `agent-tools` does not know about sessions, prompts, `.robota`, or checkpoints. CLI/TUI does not implement checkpoint algorithms; it only exposes SDK command output and future picker UI.
+- **Current scope**: `Write` and `Edit` mutations are tracked. Shell-side filesystem changes from `Bash` are not tracked by this layer.
+
+### Self-Hosting Verification
+
+- **Package**: `agent-sdk/self-hosting/` (SDK-specific planning layer)
+- **Purpose**: Describes the safe edit/build/verify loop for Robota modifying its own source tree without replacing the currently running process.
+- **Planner**: `planSelfHostingVerification()` returns ordered steps for checkpoint creation, atomic file mutation, external process handoff, targeted package verification, harness verification, and rollback recovery.
+- **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
+- **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
+- **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-sdk/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
+- **Verification defaults**: For supplied package scopes, the default plan includes `test`, `typecheck`, and `build` commands before `pnpm harness:verify -- --base-ref <ref> --skip-record-check`. The harness verification step is always present.
 
 ### Web Search
 
@@ -201,16 +226,17 @@ agent-cli (Ink TUI — CLI-specific)
 - **Pattern**: Composition over Session (holds a `Session` instance, does not extend it)
 - **Constructor**: Accepts `{ cwd, provider }` plus optional composition inputs such as `commandModules`. Config and context are loaded internally from `cwd`.
 - **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, full history management (`IHistoryEntry[]`), embedded command execution
-- **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. The `tool-summary` entry (aggregated) is still pushed at execution completion for backward compatibility.
+- **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. For completed Edit tools, `IToolState` also carries `diffFile` and `diffLines` derived from the Edit tool arguments plus the tool result `startLine`. For completed command tools, `IToolState` carries `toolResultData` so transports can render bounded command output previews while raw tool messages remain persisted. The `tool-summary` entry (aggregated) is still pushed at execution completion and preserves the same per-tool metadata for persisted UI rendering.
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
 - **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Core commands are always present; additional command modules may contribute more commands.
+- **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
-- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
-- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
+- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
+- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). Memory event history and the last used memory references are restored for `/memory used` and debugging. This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
@@ -225,7 +251,9 @@ agent-cli (Ink TUI — CLI-specific)
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `resume`, `rename`, `reset`
+- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
+- **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
+- **`/rewind`**: User-invocable code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
 
 ### Slash Command Registry (SDK-Specific)
@@ -262,12 +290,25 @@ Provider profile shape:
       "type": "openai",
       "model": "<openai-compatible-model>",
       "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen3.6-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "options": {
+        "builtInWebTools": {
+          "webSearch": true,
+          "webFetch": true
+        }
+      }
     }
   }
 }
 ```
 
 Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
+
+Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys.
 
 Resolved provider fields:
 
@@ -278,15 +319,42 @@ Resolved provider fields:
 | `apiKey`  | API key or local placeholder token                                                                  |
 | `baseURL` | Optional OpenAI-compatible endpoint override                                                        |
 | `timeout` | Optional provider idle timeout in milliseconds. Also passed to provider construction when supported |
+| `options` | Optional provider-owned options bag preserved for CLI/provider composition                          |
 
 ### Context Loading (SDK-Specific)
 
 - **Package**: `agent-sdk/context/`
 - **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
-- **Implementation**: Directory traversal from cwd to root, project type/language detection, system prompt assembly
+- **Implementation**: Directory traversal from cwd to root, project type/language detection, `.robota/memory/MEMORY.md` startup memory loading, active task context loading, system prompt assembly
 - **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
 - **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project) and `~/.robota/skills/*/SKILL.md` (user). Used by agent-cli's `SkillCommandSource` for slash command autocomplete
+
+### Active Task Context (SDK-Specific)
+
+- **Package**: `agent-sdk/context/task-context.ts`
+- **Purpose**: Treat active `.agents/tasks/*.md` files as bounded working-memory metadata for the current session.
+- **Discovery**: Only direct Markdown files under `.agents/tasks/` are eligible. `README.md` and files under `.agents/tasks/completed/` are excluded.
+- **Selection**: Task selection is bounded. Matching `- **Branch**:` metadata for the current git branch takes precedence, followed by `in-progress`, `todo`, then unknown status. Completed tasks are excluded.
+- **Formatting**: `formatTaskContext()` renders selected task metadata as neutral Markdown under `Active Task Context`. It includes path, title, status, branch, scope, objective, and unchecked completion items. It must not add behavior instructions.
+- **Prompt integration**: `loadContext()` stores formatted task context in `ILoadedContext.taskContext`; `buildSystemPrompt()` renders it after project memory and before runtime metadata. Compaction preserves it because the system message is preserved.
+- **Status synchronization**: `updateTaskFileStatus()` updates or inserts the task status metadata and appends a dated progress entry when a progress message is supplied. The function accepts an injected clock for deterministic tests.
+
+### Project Memory (SDK-Specific)
+
+- **Package**: `agent-sdk/memory/`
+- **Storage**: `.robota/memory/MEMORY.md` is the project memory index; `.robota/memory/topics/*.md` stores topic details.
+- **Startup injection**: `loadContext()` reads the memory index into `ILoadedContext.memoryMd`; `buildSystemPrompt()` renders it under the neutral `Project Memory` section. Topic files are not injected at startup.
+- **Caps**: Startup memory is capped to the first 200 lines and at most 25KB.
+- **Command-driven access**: `/memory` is the model-visible project memory interface. It is exposed through the `ExecuteCommand` tool using the built-in command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
+- **Sensitive data policy**: Candidate policy must skip obvious secret, token, password, private-key, payment-card, and national-ID style content instead of silently saving it. Additional extractors may be composed later, but they must feed the same policy/store contracts.
+- **No hidden turn side effects**: `InteractiveSession` must not automatically prepend topic memory to user prompts and must not create pending memory candidates after a completed turn. Topic retrieval and memory writes happen through explicit `/memory` command execution, whether user-invoked or model-invoked.
+- **Reusable retrieval/capture internals**: `MemoryRetrievalService`, `MemoryCandidateExtractor`, `MemoryPolicyEvaluator`, and `PendingMemoryStore` remain reusable building blocks for explicit commands or future command modules. They are not wired as implicit session lifecycle side effects.
+- **Deduplication**: `ProjectMemoryStore.append()` returns `deduplicated` and must avoid repeating the same normalized topic entry.
+- **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used`.
+- **Audit trail**: `/memory approve`, `/memory reject`, and future explicit memory workflows append memory events to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
+- **Ownership**: SDK owns the store and command behavior. CLI only renders slash command results and autocomplete metadata.
+- **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
 
 ### Context Window Management
 
@@ -364,6 +432,46 @@ session.getStreamingText();  // string (accumulated so far)
 session.getActiveTools();    // IToolState[]
 ```
 
+### Self-Hosting Verification Planner
+
+The SDK exports pure planning/state helpers for clients that need to drive a safe edit/build/verify loop without coupling to CLI or TUI rendering.
+
+```typescript
+import { planSelfHostingVerification, transitionSelfHostingLoop } from '@robota-sdk/agent-sdk';
+
+const plan = planSelfHostingVerification({
+  changedFiles: ['packages/agent-sdk/src/index.ts'],
+  packageScopes: ['@robota-sdk/agent-sdk'],
+  baseRef: 'origin/develop',
+});
+
+let state = transitionSelfHostingLoop('idle', 'checkpoint_created');
+state = transitionSelfHostingLoop(state, 'edits_started');
+state = transitionSelfHostingLoop(state, 'edits_applied');
+state = transitionSelfHostingLoop(state, 'verify_passed');
+```
+
+`plan.steps` is an ordered, provider-neutral command plan. Consumers execute commands in child processes and keep the current SDK process alive as the old runtime. The planner does not write files, restore checkpoints, or render UI.
+
+### Task Context Helpers
+
+The SDK exports pure helpers for discovering, selecting, formatting, and updating active task files.
+
+```typescript
+import { loadTaskContext, updateTaskFileStatus } from '@robota-sdk/agent-sdk';
+
+const taskContext = loadTaskContext(process.cwd(), {
+  currentBranch: 'feat/context-injection-task-files',
+  maxTasks: 3,
+});
+
+updateTaskFileStatus('.agents/tasks/CLI-BL-017-context-injection-from-task-files.md', 'completed', {
+  progressMessage: 'Verified task context injection.',
+});
+```
+
+These helpers operate on Markdown files under `.agents/tasks/`. They do not render UI and do not inject behavior instructions into the prompt; the formatted task context is neutral metadata.
+
 **IToolState:**
 
 ```typescript
@@ -374,8 +482,11 @@ interface IToolState {
   result?: 'success' | 'error' | 'denied';
   diffLines?: IDiffLine[];
   diffFile?: string;
+  toolResultData?: string;
 }
 ```
+
+`diffLines` is structured Edit tool display metadata. For completed Edit tools, `InteractiveSession` derives it from the Edit arguments, tool result `startLine`, and the modified file contents when readable. Diff lines may include `type: 'hunk'`, `context`, `remove`, and `add`. `toolResultData` is the already-truncated tool result payload emitted by the permission/session layer; transports may derive bounded previews from it, but SDK/session records remain the source for full transcript recovery. The SDK persists this metadata so all transports can replay the same tool summary; CLI owns visual rendering only.
 
 **IExecutionResult:**
 
@@ -385,8 +496,27 @@ interface IExecutionResult {
   history: IHistoryEntry[]; // Full history including chat + event entries
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
+  usage?: IUsageSnapshot;
 }
 ```
+
+`IUsageSnapshot` is the SDK-owned provider-neutral execution usage record:
+
+```typescript
+interface IUsageSnapshot {
+  kind: 'exact' | 'estimated';
+  scope: 'turn';
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
+  contextUsedPercentage: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
+}
+```
+
+`InteractiveSession` appends a `usage-summary` event entry after the assistant response when exact provider usage is available. The entry is persisted in `IHistoryEntry[]` so `/resume`, headless transports, and debugging can display usage without reparsing assistant prose.
 
 **IInteractiveSessionEvents:**
 
@@ -539,7 +669,38 @@ Exported subagent runtime types:
   timestamp: Date;
   category: 'event';
   type: 'tool-summary';
-  data: { toolSummaries: IToolSummary[] };
+  data: {
+    summary: string;
+    tools: Array<{
+      toolName: string;
+      firstArg: string;
+      isRunning: boolean;
+      result?: 'success' | 'error' | 'denied';
+      diffLines?: IDiffLine[];
+      diffFile?: string;
+      toolResultData?: string;
+    }>;
+  }
+}
+```
+
+**Usage summary entry** (appended by `InteractiveSession` after each completed turn when usage exists):
+
+```typescript
+{
+  category: 'event',
+  type: 'usage-summary',
+  data: {
+    kind: 'exact',
+    scope: 'turn',
+    promptTokens: 1000,
+    completionTokens: 200,
+    totalTokens: 1200,
+    contextUsedTokens: 1200,
+    contextMaxTokens: 200000,
+    contextUsedPercentage: 0.6,
+    costStatus: 'unknown',
+  }
 }
 ```
 
@@ -590,6 +751,7 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `cost`        | Session ID and message count                                                          |
 | `context`     | Token usage: used / max / percentage                                                  |
 | `permissions` | Current mode and session-approved tools                                               |
+| `memory`      | List/show/add/review project memory and report used memory references                 |
 | `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
 | `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
 | `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |
@@ -751,7 +913,7 @@ These rules define which packages each layer is allowed to import from. Violatio
 | `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                 |
 | `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly |
 | `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                            |
-| `agent-provider-*` | Provider creation only        | AnthropicProvider, GoogleProvider (CLI picks which to use)                |
+| `agent-provider-*` | Provider creation only        | AnthropicProvider, GeminiProvider (CLI picks which to use)                |
 
 ### SDK (`agent-sdk`)
 
@@ -1088,10 +1250,13 @@ The parent session exposes an `Agent` function tool with parameters:
 | `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted  |
 | `model`         | `string`               | No       | Optional model override for this invocation             |
 | `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree |
+| `jobs`          | `AgentJob[]`           | No       | Batch of subagent jobs to start in one tool call        |
+
+When `jobs` is present and non-empty, the Agent tool runs in batch mode. Each `AgentJob` contains `prompt` plus optional `subagent_type`, `model`, and `isolation`. Batch mode starts all valid jobs before waiting for terminal results, returns one structured result per requested job, and includes a shared `groupId`/`agentIds` provenance envelope. The single-job fields remain supported for backwards compatibility.
 
 Unknown extra tool-call arguments are tolerated by the Agent tool runtime for provider compatibility, but they are not part of the public Agent parameter contract.
 
-The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
+The parent model may call this tool when the user asks for an agent to be called or asks for delegation. For explicit multi-agent or parallel-agent requests, the canonical model-invocable path is one batch `Agent` tool call with `jobs`. The tool result is private to the model; the parent model must summarize the returned output for the user and must not claim that parallel execution happened unless the batch result shows the jobs were started.
 
 When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O.
 

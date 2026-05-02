@@ -5,60 +5,201 @@ on:
     branches: [main, develop]
 
 jobs:
-  # ─── Build once, shared by quality and compat ─────────────────────────────
   build:
+    name: build
     runs-on: ubuntu-latest
     outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
+      package_dist_required: ${{ steps.build_requirement.outputs.required }}
 
     steps:
+      - name: Skip duplicate build for main PR
+        if: github.base_ref == 'main'
+        run: echo "build is covered by release-grade verification"
+
       - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
+        with:
+          fetch-depth: 50
 
       - name: Install pnpm
+        if: github.base_ref != 'main'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: github.base_ref != 'main'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
 
-      - name: Compute build cache key
-        id: cache-key
-        run: echo "key=build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/*/src/**', 'packages/dag-nodes/*/src/**', 'tsconfig*.json') }}" >> $GITHUB_OUTPUT
+      - name: Fetch base branch
+        if: github.base_ref != 'main'
+        run: git fetch origin ${{ github.base_ref }} --depth=50
 
-      - name: Restore build cache
-        id: build-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            packages/*/dist
-            packages/dag-nodes/*/dist
-          key: ${{ steps.cache-key.outputs.key }}
-          restore-keys: build-${{ runner.os }}-
+      - name: Show verification plan
+        if: github.base_ref != 'main'
+        run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
 
-      - name: Build packages
-        if: steps.build-cache.outputs.cache-hit != 'true'
-        run: pnpm run build:deps
-
-      - name: Upload dist artifacts
+      - name: Upload verification plan
+        if: github.base_ref != 'main'
         uses: actions/upload-artifact@v4
         with:
-          name: dist-artifacts
-          path: |
-            packages/*/dist
-            packages/dag-nodes/*/dist
+          name: verification-plan
+          path: .agents/evals/local-metrics/ci-plan.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Detect build requirement
+        id: build_requirement
+        if: github.base_ref != 'main'
+        run: |
+          node --input-type=module <<'EOF'
+          import { appendFileSync, readFileSync } from 'node:fs';
+
+          const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/ci-plan.json', 'utf8'));
+          const required = plan.scopes.some((scope) => scope.checks.includes('build'));
+          appendFileSync(process.env.GITHUB_OUTPUT, `required=${required ? 'true' : 'false'}\n`);
+
+          if (required) {
+            console.log('Package or app build checks require the root monorepo build.');
+          } else {
+            console.log('No package or app build checks required.');
+          }
+          EOF
+
+      - name: Build monorepo
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        run: pnpm build
+
+      - name: Archive package build output
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
+
+      - name: Upload package build output
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-dist
+          path: package-dist.tgz
+          if-no-files-found: error
           retention-days: 1
 
-  # ─── Quality checks (Node 22) ─────────────────────────────────────────────
+      - name: Skip monorepo build when no package build is required
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required != 'true'
+        run: echo "No package or app build checks required."
+
   quality:
+    name: quality
     runs-on: ubuntu-latest
     needs: build
+
+    steps:
+      - name: Skip duplicate quality checks for main PR
+        if: github.base_ref == 'main'
+        run: echo "quality is covered by release-grade verification"
+
+      - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        if: github.base_ref != 'main'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        if: github.base_ref != 'main'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: github.base_ref != 'main'
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch base branch
+        if: github.base_ref != 'main'
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Download package build output
+        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore package build output
+        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        run: tar -xzf .artifacts/package-dist/package-dist.tgz
+
+      - name: Verify affected quality checks
+        if: github.base_ref != 'main'
+        run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
+
+  security-audit:
+    name: security audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip duplicate audit for main PR
+        if: github.base_ref == 'main'
+        run: echo "security audit is covered by release-grade verification"
+
+      - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
+        with:
+          fetch-depth: 50
+
+      - name: Fetch base branch
+        if: github.base_ref != 'main'
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Detect dependency graph changes
+        id: dependency_changes
+        if: github.base_ref != 'main'
+        run: |
+          changed_files="$(git diff --name-only --diff-filter=ACMRD origin/${{ github.base_ref }}...HEAD)"
+          if printf '%s\n' "$changed_files" | grep -Eq '(^pnpm-lock.yaml$|(^|/)package.json$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No package manifest or lockfile changes; skipping pnpm audit."
+          fi
+
+      - name: Install pnpm
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies for audit
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run audit only for dependency graph changes
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
+        run: pnpm audit --audit-level high
+
+  release-grade-verify:
+    name: release-grade verification
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'main'
 
     steps:
       - uses: actions/checkout@v4
@@ -79,42 +220,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download dist artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-artifacts
-          path: packages
-
-      - name: Type check
-        run: pnpm run typecheck
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Harness scan
-        run: pnpm run harness:scan
-
-      - name: Fetch base branch for harness diff
-        run: git fetch origin ${{ github.base_ref }} --depth=1
-
-      - name: Harness verify changed scopes
-        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-record-check --skip-build --skip-tests --skip-lint --skip-typecheck
-
-      - name: Test with coverage
-        run: pnpm run test -- --coverage --coverage.thresholds.lines=80
+      - name: Run release-grade verification
+        run: pnpm harness:verify:release
 
       - name: Security audit
         run: pnpm audit --audit-level high
 
-  # ─── Node 18 compatibility check ──────────────────────────────────────────
   compat-node18:
+    name: compat-node18
     runs-on: ubuntu-latest
-    needs: build
+    if: github.base_ref == 'main'
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 50
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -130,11 +250,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download dist artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-artifacts
-          path: packages
+      - name: Build packages
+        run: pnpm run build:deps
 
       - name: Test with coverage (excludes packages requiring Node 20+)
         run: pnpm --filter !@robota-sdk/agent-cli run test -- --coverage --coverage.thresholds.lines=80

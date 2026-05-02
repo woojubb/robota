@@ -49,6 +49,10 @@ function buildFullExecutionContext(
     ...(context?.metadata && { metadata: context.metadata }),
     ...(context?.signal && { signal: context.signal }),
     ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
+    ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
+    ...(context?.maxExecutionRounds !== undefined && {
+      maxExecutionRounds: context.maxExecutionRounds,
+    }),
   };
 }
 

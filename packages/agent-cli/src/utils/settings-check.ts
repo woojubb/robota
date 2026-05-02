@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { findProviderDefinition, type IProviderDefinition } from './provider-definition.js';
+import { hasUsableSecretReference } from './env-ref.js';
 
 /** Result of checking a settings file. */
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
@@ -52,7 +53,7 @@ function isUsableProviderProfile(
   if (!profile) {
     return false;
   }
-  if (profile.apiKey) {
+  if (hasUsableSecretReference(profile.apiKey)) {
     return true;
   }
   if (!type) {
@@ -62,5 +63,7 @@ function isUsableProviderProfile(
   if (definition === undefined) {
     return false;
   }
-  return definition.requiresApiKey !== true || definition.defaults?.apiKey !== undefined;
+  return (
+    definition.requiresApiKey !== true || hasUsableSecretReference(definition.defaults?.apiKey)
+  );
 }

@@ -47,6 +47,17 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('Use pnpm.');
   });
 
+  it('includes project memory when provided without adding memory behavior instructions', () => {
+    const result = buildSystemPrompt({
+      ...BASE_PARAMS,
+      memoryMd: '- Use pnpm for scripts.',
+    });
+
+    expect(result).toContain('## Project Memory');
+    expect(result).toContain('- Use pnpm for scripts.');
+    expect(result).not.toContain('automatically save');
+  });
+
   it('includes tool descriptions', () => {
     const result = buildSystemPrompt({
       ...BASE_PARAMS,
@@ -208,6 +219,32 @@ describe('buildSystemPrompt', () => {
       expect(result).toContain('- /agent parallel LABEL:"PROMPT": Subagent job command');
       expect(result).toContain('- review: Review code');
       expect(result).toContain('- Plan: Planning agent');
+    });
+
+    it('renders model-visible memory command guidance from the descriptor only', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        commandDescriptors: [
+          {
+            name: '/memory',
+            kind: 'builtin-command',
+            description:
+              'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.',
+            userInvocable: true,
+            modelInvocable: true,
+            argumentHint:
+              'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used',
+            safety: 'write',
+          },
+        ],
+      });
+
+      expect(result).toContain('## Built-in Commands');
+      expect(result).toContain('/memory list | show [topic]');
+      expect(result).toContain('inspect project memory when stored context may help');
+      expect(result).toContain('Do not store secrets');
+      expect(result).not.toContain('## Memory Behavior');
+      expect(result).not.toContain('always save memory');
     });
   });
 

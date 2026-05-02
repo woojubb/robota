@@ -61,7 +61,7 @@ const provider = new AnthropicProvider({
 
 Supported models: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 
-### OpenAI (not yet published)
+### OpenAI
 
 ```typescript
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
@@ -71,13 +71,13 @@ const provider = new OpenAIProvider({
 });
 ```
 
-### Google (not yet published)
+### Gemini
 
 ```typescript
-import { GoogleProvider } from '@robota-sdk/agent-provider-google';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 
-const provider = new GoogleProvider({
-  apiKey: process.env.GOOGLE_API_KEY,
+const provider = new GeminiProvider({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 ```
 
@@ -86,12 +86,13 @@ const provider = new GoogleProvider({
 ```typescript
 const agent = new Robota({
   name: 'FlexAgent',
-  aiProviders: [anthropicProvider, openaiProvider, googleProvider],
+  aiProviders: [anthropicProvider, openaiProvider, geminiProvider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 });
 
 // Switch at any time
 agent.setModel({ provider: 'openai', model: 'gpt-4o' });
+agent.setModel({ provider: 'gemini', model: 'gemini-2.5-pro' });
 ```
 
 ## Tools

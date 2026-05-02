@@ -10,6 +10,8 @@ import {
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
+import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 
 vi.mock('@robota-sdk/agent-provider-anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -103,7 +105,77 @@ vi.mock('@robota-sdk/agent-provider-gemma', () => {
   };
 });
 
+vi.mock('@robota-sdk/agent-provider-qwen', () => {
+  const MockQwenProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'qwen',
+    version: 'test',
+    options,
+  }));
+  return {
+    QwenProvider: MockQwenProvider,
+    createQwenProviderDefinition: () => ({
+      type: 'qwen',
+      defaults: {
+        model: 'qwen-plus',
+        apiKey: '$ENV:DASHSCOPE_API_KEY',
+        baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+        options?: Record<string, unknown>;
+      }) =>
+        new MockQwenProvider({
+          apiKey: config.apiKey,
+          ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+          ...(config.timeout !== undefined && { timeout: config.timeout }),
+          ...(config.options?.['responsesBaseURL'] !== undefined && {
+            responsesBaseURL: config.options['responsesBaseURL'],
+          }),
+          ...(config.options?.['builtInWebTools'] !== undefined && {
+            builtInWebTools: config.options['builtInWebTools'],
+          }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
+
+vi.mock('@robota-sdk/agent-provider-gemini', () => {
+  const MockGeminiProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'gemini',
+    version: 'test',
+    options,
+  }));
+  return {
+    GeminiProvider: MockGeminiProvider,
+    createGeminiProviderDefinition: () => ({
+      type: 'gemini',
+      aliases: ['google'],
+      defaults: {
+        model: 'gemini-3-flash-preview',
+        apiKey: '$ENV:GEMINI_API_KEY',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+      }) =>
+        new MockGeminiProvider({
+          apiKey: config.apiKey,
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
+
 const TMP_BASE = join(tmpdir(), `robota-provider-factory-test-${process.pid}`);
+const ORIGINAL_HOME = process.env.HOME;
 
 function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
@@ -115,11 +187,14 @@ describe('provider-factory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     cwd = join(TMP_BASE, Math.random().toString(36).slice(2));
+    process.env.HOME = join(cwd, 'home');
     mkdirSync(join(cwd, '.robota'), { recursive: true });
   });
 
   afterEach(() => {
+    process.env.HOME = ORIGINAL_HOME;
     delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
+    delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
@@ -224,8 +299,16 @@ describe('provider-factory', () => {
     });
   });
 
-  it('keeps legacy Anthropic provider creation working', () => {
+  it('keeps Anthropic provider creation working when legacy settings are present', () => {
     writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: 'sk-ant-test',
+        },
+      },
       provider: {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
@@ -245,6 +328,14 @@ describe('provider-factory', () => {
   it('resolves env references in provider api keys', () => {
     process.env.ROBOTA_TEST_ANTHROPIC_API_KEY = 'sk-ant-from-env';
     writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: '$ENV:ROBOTA_TEST_ANTHROPIC_API_KEY',
+        },
+      },
       provider: {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
@@ -292,6 +383,137 @@ describe('provider-factory', () => {
       timeout: 12_000,
       defaultModel: 'worker-gemma',
     });
+  });
+
+  it('creates QwenProvider for a Qwen OpenAI-compatible profile', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: 'dashscope-key',
+          baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+          timeout: 45_000,
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd);
+
+    expect(provider.name).toBe('qwen');
+    expect(QwenProvider).toHaveBeenCalledWith({
+      apiKey: 'dashscope-key',
+      baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+      timeout: 45_000,
+      defaultModel: 'qwen-plus',
+    });
+  });
+
+  it('passes provider-owned options through the generic provider config bag', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen3.6-plus',
+          apiKey: 'dashscope-key',
+          options: {
+            responsesBaseURL:
+              'https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1',
+            builtInWebTools: {
+              webSearch: true,
+              webFetch: true,
+              enableThinking: true,
+            },
+          },
+        },
+      },
+    });
+
+    const settings = readProviderSettings(cwd);
+    const provider = createProviderFromSettings(cwd);
+
+    expect(settings.options).toEqual({
+      responsesBaseURL:
+        'https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1',
+      builtInWebTools: {
+        webSearch: true,
+        webFetch: true,
+        enableThinking: true,
+      },
+    });
+    expect(provider.name).toBe('qwen');
+    expect(QwenProvider).toHaveBeenCalledWith({
+      apiKey: 'dashscope-key',
+      baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+      responsesBaseURL:
+        'https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1',
+      builtInWebTools: {
+        webSearch: true,
+        webFetch: true,
+        enableThinking: true,
+      },
+      defaultModel: 'qwen3.6-plus',
+    });
+  });
+
+  it('creates GeminiProvider for canonical Gemini provider profiles', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'gemini',
+      providers: {
+        gemini: {
+          type: 'gemini',
+          model: 'gemini-3-flash-preview',
+          apiKey: 'gemini-key',
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd);
+
+    expect(provider.name).toBe('gemini');
+    expect(GeminiProvider).toHaveBeenCalledWith({
+      apiKey: 'gemini-key',
+      defaultModel: 'gemini-3-flash-preview',
+    });
+  });
+
+  it('creates GeminiProvider for compatibility Google provider profiles through aliases', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'google',
+      providers: {
+        google: {
+          type: 'google',
+          model: 'gemini-3-flash-preview',
+          apiKey: 'gemini-key',
+        },
+      },
+    });
+
+    createProviderFromSettings(cwd);
+
+    expect(GeminiProvider).toHaveBeenCalledWith({
+      apiKey: 'gemini-key',
+      defaultModel: 'gemini-3-flash-preview',
+    });
+  });
+
+  it('fails before provider construction when an API key environment reference is unset', () => {
+    delete process.env.DASHSCOPE_API_KEY;
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+
+    expect(() => createProviderFromSettings(cwd)).toThrow('Provider qwen requires apiKey');
+    expect(QwenProvider).not.toHaveBeenCalled();
   });
 
   it('creates providers from injected definitions without adding factory branches', () => {

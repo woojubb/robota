@@ -6,14 +6,14 @@
 import { readFileSync } from 'node:fs';
 
 export interface IDiffLine {
-  type: 'add' | 'remove' | 'context';
+  type: 'add' | 'remove' | 'context' | 'hunk';
   text: string;
   /** Absolute line number in the file */
   lineNumber: number;
 }
 
 /** Number of context lines to show before and after the change */
-const CONTEXT_LINES = 2;
+const CONTEXT_LINES = 3;
 
 /**
  * Generate diff lines from old and new strings with absolute line numbers.
@@ -65,29 +65,45 @@ export function generateDiffLinesWithContext(
     return diffLines; // Can't read file — return without context
   }
 
-  const result: IDiffLine[] = [];
-
   // Context BEFORE: lines before startLine in the file
   const contextStart = Math.max(0, startLine - 1 - CONTEXT_LINES);
+  const beforeContext: IDiffLine[] = [];
   for (let i = contextStart; i < startLine - 1; i++) {
     if (i < fileLines.length) {
-      result.push({ type: 'context', text: fileLines[i], lineNumber: i + 1 });
+      beforeContext.push({ type: 'context', text: fileLines[i], lineNumber: i + 1 });
     }
   }
-
-  // The diff lines (remove + add)
-  result.push(...diffLines);
 
   // Context AFTER: lines after the new content in the modified file
   const newLineCount = newStr.split('\n').length;
   const afterStart = startLine - 1 + newLineCount;
+  const afterContext: IDiffLine[] = [];
   for (let i = afterStart; i < afterStart + CONTEXT_LINES; i++) {
     if (i < fileLines.length) {
-      result.push({ type: 'context', text: fileLines[i], lineNumber: i + 1 });
+      afterContext.push({ type: 'context', text: fileLines[i], lineNumber: i + 1 });
     }
   }
 
-  return result;
+  const hunkStart =
+    beforeContext[0]?.lineNumber ??
+    diffLines[0]?.lineNumber ??
+    afterContext[0]?.lineNumber ??
+    startLine;
+  const oldLineCount = oldStr.split('\n').length;
+  const newLineCountInHunk = newStr.split('\n').length;
+  const oldHunkLineCount = beforeContext.length + oldLineCount + afterContext.length;
+  const newHunkLineCount = beforeContext.length + newLineCountInHunk + afterContext.length;
+
+  return [
+    {
+      type: 'hunk',
+      text: `@@ -${hunkStart},${oldHunkLineCount} +${hunkStart},${newHunkLineCount} @@`,
+      lineNumber: hunkStart,
+    },
+    ...beforeContext,
+    ...diffLines,
+    ...afterContext,
+  ];
 }
 
 /**

@@ -11,12 +11,16 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
+- Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only render command output and notices
+- Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
+- OWNS: CLI package-version update checks and user-level update-check cache
+- OWNS: CLI-only command modules for terminal UI configuration, including `/statusline`
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -61,6 +65,17 @@ Settings may define an active provider profile:
       "type": "openai",
       "model": "<openai-compatible-model>",
       "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen3.6-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "options": {
+        "builtInWebTools": {
+          "webSearch": true,
+          "webFetch": true
+        }
+      }
     }
   }
 }
@@ -74,18 +89,24 @@ Provider resolution order:
 2. Legacy `provider`
 3. Defaults supplied by the resolved provider definition
 
+Provider profiles may include `options`. The CLI passes this bag through to `definition.createProvider(config)` without interpreting provider-specific keys. Provider packages own the shape, validation, defaults, and behavior for their options.
+
 Provider definition contract:
 
-| Field            | Owner                            | CLI behavior                                          |
-| ---------------- | -------------------------------- | ----------------------------------------------------- |
-| `type`           | Provider package or CLI assembly | Match settings profile type to a definition           |
-| `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values      |
-| `setupSteps`     | Provider package                 | Drive interactive setup prompts without type branches |
-| `requiresApiKey` | Provider package                 | Validate profiles consistently                        |
-| `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                   |
-| `createProvider` | Provider package                 | Build concrete provider instance                      |
+| Field              | Owner                            | CLI behavior                                                       |
+| ------------------ | -------------------------------- | ------------------------------------------------------------------ |
+| `type`             | Provider package or CLI assembly | Match settings profile type to a definition                        |
+| `aliases`          | Provider package                 | Optional compatibility names resolved by generic lookup            |
+| `displayName`      | Provider package                 | Optional human-readable provider label for setup lists             |
+| `description`      | Provider package                 | Optional provider description for setup lists and errors           |
+| `defaults`         | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values                   |
+| `defaults.options` | Provider package                 | Optional provider-owned option defaults passed through generically |
+| `setupSteps`       | Provider package                 | Drive interactive setup prompts without type branches              |
+| `requiresApiKey`   | Provider package                 | Validate profiles consistently                                     |
+| `probeProfile`     | Provider package                 | Optional endpoint/profile test hook                                |
+| `createProvider`   | Provider package                 | Build concrete provider instance                                   |
 
-The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`.
+The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`. Compatibility provider names such as `google` for the canonical Gemini provider must be represented as provider-definition aliases, not as CLI provider-name branches.
 
 ### Provider Configuration UX
 
@@ -104,37 +125,44 @@ Supported setup flags:
 | `--api-key <value>`              | Store a literal API key                                             |
 | `--api-key-env <name>`           | Store `$ENV:<name>`, not the current environment value              |
 
-First-run setup must offer the injected provider definitions when stdin/stdout are TTYs. Non-interactive print/headless execution must not prompt; missing provider config must produce an actionable error that points to `robota --configure` and `robota --configure-provider`.
+First-run setup must offer the injected provider definitions as a selectable list when stdin/stdout are TTYs. The list is generated from `IProviderDefinition[]` and may render `displayName`, `type`, and `description`, but it must not branch on concrete provider names. Selecting a provider starts the same provider setup flow used by runtime provider setup.
 
-Provider slash commands are TUI side effects:
+Non-interactive print/headless execution must not prompt. Missing provider config must produce an actionable error generated from the injected provider definitions, pointing to `robota --configure` and `robota --configure-provider` without hardcoded provider-specific examples.
 
-| Command                    | Behavior                                                    |
-| -------------------------- | ----------------------------------------------------------- |
-| `/provider`                | Show current provider and subcommands                       |
-| `/provider current`        | Show active profile, type, model, and baseURL               |
-| `/provider list`           | Show provider profiles from merged settings                 |
-| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session |
-| `/provider test [profile]` | Validate fields and optionally probe the endpoint           |
+Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider changes must follow the existing `/model` restart pattern: command returns structured data, TUI confirms, settings are written after confirmation, and the App remounts with a new provider instance.
+Provider slash commands are CLI side effects rendered through generic TUI interactions:
 
-Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns setup steps, defaults, required-field validation, masked-field metadata, and final `IProviderSetupInput` construction. TUI components may only render the current prompt step and pass submitted values back to the flow module.
+| Command                    | Behavior                                                                                                                                      |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/provider`                | Show current provider and subcommands                                                                                                         |
+| `/provider current`        | Show active profile, type, model, and baseURL                                                                                                 |
+| `/provider list`           | Show provider profiles from merged settings                                                                                                   |
+| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session                                                                                   |
+| `/provider add`            | Start provider setup without a selected type; the CLI setup controller emits a generic choice interaction generated from injected definitions |
+| `/provider add <type>`     | Start setup for the selected provider type                                                                                                    |
+| `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                             |
+
+Provider changes must follow the existing `/model` restart pattern: command returns structured data, CLI side-effect handlers perform settings writes after confirmation or setup completion, and the App remounts with a new provider instance.
+
+Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final `IProviderSetupInput` construction. `provider-setup-interaction` owns provider selection options and maps provider setup state into generic choice/text interaction descriptors. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic interaction descriptors and pass submitted values back to the CLI side-effect handler.
 
 TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
 
 Flow ownership:
 
-| Flow module                 | Owns                                                                        | Thin shell consumers                                     |
-| --------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                | `TextPrompt`, `ProviderSetupPrompt` through `TextPrompt` |
-| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling       | `ListPicker`, `MenuSelect`, choice prompt flows          |
-| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                 | `ConfirmPrompt`                                          |
-| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions           | `PermissionPrompt`                                       |
-| `input-area-flow.ts`        | slash autocomplete movement, command completion, queue cancel, paste labels | `InputArea`                                              |
-| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects       | `CjkTextInput`                                           |
+| Flow module                 | Owns                                                                                        | Thin shell consumers                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `text-prompt-flow.ts`       | text prompt editing, submit/cancel effects, validation state                                | `TextPrompt`, `InteractivePrompt` text rendering                 |
+| `selection-flow.ts`         | bounded/wrapping selection, select/cancel effects, viewport scrolling                       | `ListPicker`, `MenuSelect`, `InteractivePrompt` choice rendering |
+| `confirm-prompt-flow.ts`    | confirmation shortcuts and option selection                                                 | `ConfirmPrompt`                                                  |
+| `permission-prompt-flow.ts` | permission shortcuts and `true`/`allow-session`/`false` decisions                           | `PermissionPrompt`                                               |
+| `input-area-flow.ts`        | slash autocomplete movement, command completion, prompt history, queue cancel, paste labels | `InputArea`                                                      |
+| `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects                       | `CjkTextInput`                                                   |
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
+              ├── createStatusLineCommandModule() (CLI-owned command module)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession({ cwd, provider })
@@ -149,7 +177,8 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
                     │   └── session.executeCommand()  (slash commands routed via SDK)
                     ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                     ├── InputArea.tsx          (bottom input area, slash detection)
-                    ├── StatusBar.tsx          (status bar, shows "Thinking..." during run())
+                    ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
+                    ├── StatusBar.tsx          (pure status bar renderer, shows primary activity state)
                     ├── PermissionPrompt.tsx   (arrow-key selection)
                     └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
@@ -170,7 +199,7 @@ The StatusBar shows real-time session information:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12  |  my-project │
+│ Activity: Thinking  |  Mode: default  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -178,10 +207,37 @@ The StatusBar shows real-time session information:
 | -------- | ------------------------------------------ | ----------------------------------------------------- |
 | Mode     | `session.getPermissionMode()`              | Current permission mode                               |
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
+| Git      | `resolveGitBranch(cwd)`                    | Current git branch when available and enabled         |
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
 | msgs     | message count                              | Number of messages in conversation                    |
 | Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
-| Thinking | isThinking state                           | Shown during `session.run()` execution                |
+| Activity | CLI-derived display state                  | Left-side primary activity label                      |
+
+Activity priority is deterministic and renderer-owned:
+
+1. active tool calls (`Tools xN`)
+2. foreground model waiting (`Thinking`)
+3. active background work (`Background xN`)
+4. queued prompt (`Queued`)
+5. idle (`Idle`)
+
+When a prompt is queued behind foreground work, the activity row keeps the active work as primary and appends `queued` as secondary metadata. SDK session state remains the source of truth; `StatusBar` receives derived display counts and does not infer provider or execution semantics.
+
+### `/statusline` Slash Command
+
+`/statusline` is a CLI-owned `ICommandModule`, not an SDK core built-in. The CLI composes it into `InteractiveSession` alongside other command modules so the SDK only sees the generic `ICommandModule` interface.
+
+Supported commands:
+
+| Command               | Behavior                                                       |
+| --------------------- | -------------------------------------------------------------- |
+| `/statusline on`      | Persist `statusline.enabled=true` in `~/.robota/settings.json` |
+| `/statusline off`     | Persist `statusline.enabled=false`                             |
+| `/statusline git on`  | Persist `statusline.gitBranch=true`                            |
+| `/statusline git off` | Persist `statusline.gitBranch=false`                           |
+| `/statusline reset`   | Restore default status line fields                             |
+
+Defaults are `enabled=true` and `gitBranch=true`. The command returns structured data, `useSlashRouting` converts it into a CLI side-effect flag, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
 ### Session Name Display
 
@@ -203,6 +259,84 @@ Session name appears in three locations when set (via `--name` or `/rename`):
 | 0-69%  | Green  | Healthy                         |
 | 70-89% | Yellow | Approaching limit               |
 | 90%+   | Red    | Near limit, compaction imminent |
+
+## TUI Visual Grammar
+
+The CLI TUI renders structured session/runtime data. It must not parse assistant prose to infer state, and it must not add provider/model-specific presentation branches. Rendering components may format data they receive, but ownership of the data remains in the SDK/session/runtime layer.
+
+### Output Surface Ownership
+
+| Surface                      | Owner                                 | Data Source                            | Rendering Contract                                                                |
+| ---------------------------- | ------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
+| Chat messages                | `MessageList`                         | `IHistoryEntry[]` chat entries         | Show stable role labels and markdown-rendered assistant content                   |
+| Tool summaries               | `MessageList`                         | structured `tool-summary` event data   | Show compact one-line tool rows plus structured details such as diffs/output      |
+| Streaming assistant response | `StreamingIndicator`                  | SDK text deltas                        | Show current assistant text without persisting duplicate rendered state           |
+| Live tool execution          | `StreamingIndicator`                  | SDK tool state events                  | Show current tool state using the shared status marker set                        |
+| Background work              | `BackgroundTaskPanel`                 | SDK background task events             | Show a one-level tree of running and retained terminal jobs                       |
+| Status/activity              | `StatusBar` and `SessionStatusBar`    | session state, context state, settings | Show current activity and session metadata in the primary scan path               |
+| Diff blocks                  | `ToolDiffBlock` and markdown renderer | structured diff lines                  | Render diff bodies through fenced `diff` markdown; keep metadata outside the body |
+| Setup/permission prompts     | prompt components                     | CLI flow descriptors                   | Render generic interactions only; prompt semantics remain in flow modules         |
+
+### Shared Markers
+
+| State              | Marker | Meaning                                            |
+| ------------------ | ------ | -------------------------------------------------- |
+| Running/queued     | `□`    | Work exists but is not terminal                    |
+| Completed/success  | `■`    | Work reached a successful terminal state           |
+| Failed/error       | `■`    | Work reached an error state, colored as error      |
+| Cancelled/denied   | `■`    | Work ended by user or policy decision              |
+| Omitted transcript | `...`  | Additional persisted output is hidden from preview |
+
+Colors remain renderer-owned: green for success/healthy state, yellow for warning or user-decision state, red for error/near-limit state, cyan for active assistant work, and dim text for secondary metadata.
+
+### Layout Rules
+
+- Prefer one-level trees for grouped activity: a short group label followed by aligned child rows.
+- Keep labels human-readable. Avoid raw class names, untrimmed JSON, or provider-specific implementation names in user-facing rows.
+- Keep previews bounded and whitespace-normalized. Long output must show a transcript/omitted-lines hint instead of expanding indefinitely.
+- Keep persistent raw data in session/log records even when the TUI renders a compact preview.
+- Place active state in the primary scan path. Passive metadata may remain dim or right-aligned, but model/tool/background activity must be visible without scanning the far edge of the terminal.
+- Keep code/diff colorization centralized through markdown rendering or dedicated formatting helpers, not ad hoc line coloring in each component.
+
+### Testing Requirements
+
+- Pure formatting helpers must have unit tests for status markers, truncation, omitted-line counts, and narrow-output labels.
+- Ink components must have render tests for the same states using representative structured data.
+- Changes that add a new output surface must update this section or explain why an existing surface owns the behavior.
+
+### Command Output Summary Rendering
+
+Command-like tool summaries render a compact command row plus a bounded output preview. The contract is:
+
+- Applies only to command execution tools (`Bash`, `BackgroundProcess`) that provide `toolResultData`.
+- The visible preview shows at most four output lines.
+- If output has additional lines, render `... +N lines (full output in session transcript)`.
+- Non-zero command `exitCode`, `success=false`, or tool `result=error` renders the tool row as failed even when the tool transport itself completed.
+- Structured `stdout` and `stderr` are kept distinct; stderr preview lines are prefixed with `[stderr]`.
+- Empty successful output shows only the compact command row.
+- Full result data remains in SDK/session records; the TUI renders only the bounded projection.
+
+### Edit Diff Hunk Rendering
+
+Edit tool summaries render context-aware hunks rather than isolated changed lines. The rendering contract is:
+
+- Default context is three unchanged lines before and after the edited span when the modified file can be read.
+- Diff bodies are fenced as `diff` markdown and rendered through the shared markdown renderer.
+- Hunk headers, context lines, additions, and removals are represented as structured diff line data before rendering.
+- File path, truncation state, and omitted-line counts remain outside the markdown body.
+- If file context is unavailable, the renderer falls back to changed lines only rather than failing the tool summary.
+- Large diffs are truncated by visible hunk groups when possible, preserving the first changed hunk before omitting additional lines.
+
+### Usage Summary Rendering
+
+Usage summary rows render persisted SDK `usage-summary` history entries. The CLI must:
+
+- Render usage near the assistant turn that produced it rather than in a detached dashboard.
+- Show whether usage is exact or estimated.
+- Show prompt, completion, and total token counts when available.
+- Label monetary cost as unknown unless the SDK provides exact or configured pricing data.
+- Avoid provider/model branches; all display data comes from the SDK-owned `IUsageSnapshot`.
+- Subscribe to `context_update` so the status bar refreshes when a request is sent and again after provider usage reconciliation.
 
 ## Context Management (CLI Layer)
 
@@ -277,6 +411,9 @@ Tool: [5 tools]
 | `/cost`                   | Show session info                                             |
 | `/context`                | Context window info                                           |
 | `/permissions`            | Permission rules                                              |
+| `/memory`                 | Route project memory commands to SDK                          |
+| `/rewind`                 | Route edit checkpoint list/restore commands to SDK            |
+| `/background`             | Route background task controls to SDK                         |
 | `/plugin [subcommand]`    | Plugin management                                             |
 | `/resume`                 | Show session picker to resume a saved session                 |
 | `/rename <name>`          | Rename the current session (name displayed in StatusBar)      |
@@ -564,6 +701,9 @@ src/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
 │   ├── provider-factory.ts          ← AI provider resolution from injected definitions
+│   ├── provider-setup-flow.ts       ← Provider setup field flow and final setup input construction
+│   ├── provider-setup-interaction.ts← Provider setup to generic choice/text interaction mapping
+│   ├── interactive-prompt.ts        ← Generic prompt descriptor types shared by CLI use cases and TUI rendering
 │   ├── tool-call-extractor.ts       ← Tool call display extraction from history
 │   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
@@ -581,12 +721,13 @@ src/
     │   ├── selection-flow.ts        ← Shared bounded/wrapping selection state machine
     │   ├── confirm-prompt-flow.ts   ← Confirmation shortcuts and option selection
     │   ├── permission-prompt-flow.ts← Permission shortcuts and decision mapping
-    │   ├── input-area-flow.ts       ← Slash autocomplete and paste-label input flow
+    │   ├── input-area-flow.ts       ← Slash autocomplete, prompt history, and paste-label input flow
     │   └── cjk-text-input-flow.ts   ← CJK-aware text editing and paste flow
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
-    ├── StatusBar.tsx                ← Mode, model, context %, message count, Thinking
+    ├── SessionStatusBar.tsx         ← Statusline settings + git branch adapter
+    ├── StatusBar.tsx                ← Mode, model, git branch, context %, message count, Thinking
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
     ├── StreamingIndicator.tsx       ← Real-time Tools:/Robota: display during run()
     ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
@@ -594,7 +735,8 @@ src/
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
     ├── ListPicker.tsx               ← Generic list picker overlay (session resume, etc.)
-    ├── DiffBlock.tsx                ← Diff block rendering for Edit tool output display
+    ├── InteractivePrompt.tsx        ← Generic choice/text prompt renderer for CLI interactions
+    ├── ToolDiffBlock.tsx            ← Tool diff metadata shell with Markdown diff body rendering
     ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
     ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)
     ├── TextPrompt.tsx               ← Text input prompt component (Plugin TUI)
@@ -625,6 +767,8 @@ robota --max-turns <n>              # Limit turns
 robota --output-format <fmt>        # text | json | stream-json (print mode only)
 robota --system-prompt <text>       # Replace system prompt (print mode only)
 robota --append-system-prompt <text> # Append to system prompt (print mode only)
+robota --check-update               # Check npm for the latest CLI version and exit
+robota --disable-update-check        # Skip interactive startup update check for this invocation
 robota --version                    # Version
 ```
 
@@ -661,6 +805,32 @@ If both stdin and a positional argument are provided, stdin content is prepended
 | ---- | ---------------------- |
 | 0    | Success or interrupted |
 | 1    | Error during execution |
+
+### CLI Update Check
+
+The CLI owns package-version update checks because they are distribution UX, not SDK agent behavior. This feature is exclusive to `@robota-sdk/agent-cli`. The SDK, providers, session store, and command modules must not know about npm, package manager commands, or CLI release cadence.
+
+Update-check behavior:
+
+- Startup checks are enabled by default only for interactive TUI startup and rate-limited by a product-level TTL constant.
+- The default cache TTL is 24 hours.
+- Registry lookup uses the npm package metadata endpoint for `@robota-sdk/agent-cli`.
+- Registry URL, timeout, package name, and TTL are CLI-owned constants. They are not written into `settings.json` during startup.
+- Registry lookup failure must never prevent interactive, print, or headless startup.
+- Update notices must not be written into project session history.
+- TUI notices are rendered as transient UI outside `MessageList`.
+- Print/headless execution (`robota -p`, JSON output, and streaming JSON output) must not schedule automatic startup update checks and must not emit startup update notices. This keeps automation, pipes, and structured stdout/stderr contracts deterministic without requiring `--disable-update-check`.
+- The CLI may show the command `npm install -g @robota-sdk/agent-cli@latest`, but it must not execute install/update commands without explicit user confirmation.
+
+Operational cache lives in `~/.robota/update-check.json` and is not part of `.robota/sessions`. Cache fields include package name, checked timestamp, current version, latest version, and the last non-fatal error message if a registry lookup failed.
+
+`robota --check-update` forces a registry lookup and exits after printing one of:
+
+- update available notice with the install command;
+- already-current notice;
+- registry failure message.
+
+`robota --disable-update-check` disables only the current interactive startup invocation. Persistent policy storage is not part of the first implementation.
 
 ### Session Resolution Logic
 
@@ -731,30 +901,54 @@ Plugin skills show the plugin hint before the description:
 - Format: `/skill-name (plugin-name) description`
 - Example: `/audit (rulebased-harness) Audits your project's harness setup`
 
+### Assistant Markdown Diff Rendering
+
+Assistant responses are rendered as Markdown through `render-markdown.ts`. A fenced code block with the `diff` language identifier is the canonical way for the assistant to show proposed code changes inside normal prose:
+
+````markdown
+```diff
+- const oldValue = true;
++ const newValue = true;
+```
+````
+
+**Rules:**
+
+- `render-markdown.ts` owns assistant Markdown diff rendering.
+- `diff` fenced blocks receive line-level terminal colors: removed lines red, added lines green, hunk headers cyan, diff metadata dim.
+- Color is controlled by renderer options and terminal color environment. With color disabled, the same diff text remains readable without ANSI escape codes.
+- General fenced code blocks continue through `marked-terminal`; only `diff` fenced blocks take the Robota line-level path.
+- Tool execution summaries use the same Markdown diff body rendering path while keeping file path, truncation, permissions, and streaming status as structured UI metadata outside the fenced block.
+
 ### Edit Diff Display
 
-When the Edit tool completes successfully, a compact diff is shown below the tool line. This gives the user immediate visibility into what changed without inspecting the file.
+When an Edit tool summary includes diff lines, the CLI shows a compact diff below the tool line. This gives the user immediate visibility into what changed without inspecting the file.
 
 **Source:** `old_string` and `new_string` from the Edit tool arguments.
 
+**Ownership:** `tool-diff-summary.ts` converts structured `IDiffLine[]` data into a Markdown fenced `diff` body. `ToolDiffBlock.tsx` renders structured metadata around that body and delegates the diff body itself to `renderMarkdown()`. There must not be a second bespoke diff-coloring policy for tool summaries.
+
 **Display format:**
 
-```
-  ✓ Edit(src/provider.ts)
-    │ src/provider.ts
-    │ - const DEFAULT_MAX_TOKENS = 4096;
-    │ + const maxTokens = getModelMaxOutput(modelId);
+```markdown
+✓ Edit(src/provider.ts)
+│ src/provider.ts
+`diff
+    - 42 | const DEFAULT_MAX_TOKENS = 4096;
+    + 42 | const maxTokens = getModelMaxOutput(modelId);
+    `
 ```
 
 **Rules:**
 
 - Show the file path as a header line.
-- Removed lines in **red** with `-` prefix.
-- Added lines in **green** with `+` prefix.
-- Context lines (surrounding unchanged file content) shown in **dim white** — 2 lines before and after the changed region.
-- **Max display lines: 12.** If the diff exceeds 12 lines, show the first 10 lines + `... and N more lines`.
+- Diff body lines use Markdown `diff` prefixes: `-` for removed, `+` for added, and a leading space for context lines.
+- Line numbers are included inside the diff body text as `PREFIX NN | content` so they remain readable with colors disabled.
+- File path is structured metadata outside the Markdown diff body.
+- Truncation is structured metadata outside the Markdown diff body: **max display lines: 12**. If the diff exceeds 12 lines, render the first 10 lines plus `... and N more lines`.
 - If `old_string` and `new_string` are identical (no-op edit), show nothing.
 - Diff is shown in both the real-time streaming indicator (after tool completes) and the post-execution summary.
+- Post-execution `tool-summary` entries must render from structured `data.tools` when present so persisted `diffFile` and `diffLines` are not lost. The plain `summary` string is a fallback for legacy entries only.
 
 **Permission prompt integration (future):**
 
@@ -841,9 +1035,20 @@ System:                         ← in MessageList
 
 Tool → Robota order preserved. StreamingIndicator is cleared (activeTools = []).
 
+### Prompt History Navigation
+
+In `InputArea`, up/down arrows follow shell-style prompt history navigation:
+
+- Up recalls the newest submitted prompt first, then moves toward older prompts.
+- Down moves toward newer prompts and restores the in-progress draft after the newest history item.
+- Empty prompts and consecutive duplicates are not added to prompt history.
+- Restored session history contributes user chat entries to the prompt history list.
+- The behavior is owned by `input-area-flow.ts`; `InputArea` applies returned value/cursor/state changes.
+- `InputArea` disables `CjkTextInput` vertical arrow handling so the parent prompt-history flow owns up/down semantics.
+
 ### Up/Down Arrows — Visual Line Navigation
 
-When input text wraps across multiple visual lines (exceeds terminal width), up/down arrows move the cursor between visual lines using display offset arithmetic.
+`CjkTextInput` can move the cursor between wrapped visual lines when `enableVerticalNavigation=true`. `InputArea` sets this to `false` because its product-level up/down semantics are prompt history navigation.
 
 **Architecture:**
 
@@ -858,29 +1063,28 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 
 **Available width calculation:**
 
-- `InputArea` computes `availableWidth` from `useStdout().columns` minus layout constants
+- `InputArea` computes `availableWidth` from Ink 7 `useWindowSize().columns` minus layout constants
 - `availableWidth = terminalColumns - BORDER_HORIZONTAL - PADDING_LEFT - PROMPT_WIDTH`
 - Named constants (no magic numbers): `BORDER_HORIZONTAL = 2`, `PADDING_LEFT = 1`, `PROMPT_WIDTH = 2` ("> ")
 - Layout constants are co-located with InputArea (the component that owns the layout)
-- `availableWidth` is passed to `CjkTextInput` as a prop
+- `availableWidth` is passed to `CjkTextInput` as a prop when visual navigation is enabled
 
 **Behavior:**
 
 - Up arrow when already on first visual line: no-op (target offset < 0)
 - Down arrow when already on last visual line: no-op (target offset exceeds text)
 - Column position is preserved across line moves via offset arithmetic
-- Terminal resize recalculates available width via `useStdout()`
+- Terminal resize recalculates available width via `useWindowSize()`
 
 ### Paste Handling
 
-**Bracketed paste mode (DECSET 2004):**
+**Paste event lifecycle:**
 
-- `render.tsx` enables on startup (`\x1b[?2004h`), disables on exit (`\x1b[?2004l`)
-- Only enabled when `process.stdin.isTTY && process.stdout.isTTY`
-- Terminal wraps pasted content with `\x1b[200~` (start) and `\x1b[201~` (end) markers
-- Ink's CSI parser strips the ESC prefix, so `useInput` receives `[200~` and `[201~`
-- `cjk-text-input-flow` detects these markers and buffers all input between them
-- On paste-end marker, the complete buffer is flushed with `\r\n`/`\r` normalized to `\n`
+- `CjkTextInput` uses Ink 7 `usePaste`, which owns bracketed paste enable/disable while the input is focused
+- `render.tsx` must not globally toggle DECSET 2004; paste lifecycle belongs to the active input hook, not the app renderer
+- `usePaste` delivers the complete pasted string to `cjk-text-input-flow` as a single event, separate from `useInput`
+- `cjk-text-input-flow` normalizes `\r\n`/`\r` to `\n` before deciding whether to insert text or emit a paste-label effect
+- Legacy bracketed paste marker handling remains in the flow as a fallback for callers that receive `[200~`/`[201~` through `useInput`
 - Deterministic boundary detection — no debounce or timing heuristics
 
 **Single-line vs multiline paste:**
@@ -962,7 +1166,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 `TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
 
-`BackgroundTaskPanel` renders active and recently completed background tasks with a compact status marker, kind, label, task ID, and a short preview. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through SDK system commands:
+`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time or timeout reason, and a short whitespace-normalized preview. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through SDK system commands:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
@@ -976,6 +1180,38 @@ For implementation details of subagent/background execution (Agent tool, `contex
 Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
 
 ## Memory Management
+
+### Project Memory Review Surface
+
+Project memory behavior is SDK-owned. The CLI and TUI must not extract memory candidates, select relevant topics, decide approval policy, or write `.robota/memory` files directly. They route `/memory` commands through `session.executeCommand()` and render returned messages/data.
+
+Supported SDK-owned project memory commands exposed through the CLI:
+
+| Command                | CLI responsibility                                              |
+| ---------------------- | --------------------------------------------------------------- |
+| `/memory list`         | Render memory index/topic paths returned by the SDK             |
+| `/memory show [topic]` | Render memory index or topic content returned by the SDK        |
+| `/memory add ...`      | Pass arguments to the SDK command; render save/dedup result     |
+| `/memory pending`      | Render pending automatic candidates returned by the SDK         |
+| `/memory approve ID`   | Pass the selected candidate ID to the SDK; render save result   |
+| `/memory reject ID`    | Pass the selected candidate ID to the SDK; render reject result |
+| `/memory used`         | Render SDK-reported memory references used in the latest turn   |
+
+Pending-memory notices emitted into `InteractiveSession` history are presentation data only. TUI components may style or position them, but must not infer candidate IDs or mutate memory state outside SDK commands.
+
+## Edit Checkpointing
+
+Edit checkpoint behavior is SDK-owned. The CLI and TUI must not snapshot files, restore files, inspect checkpoint manifests directly, or decide rollback ordering. They route `/rewind` commands through `session.executeCommand()` and render returned messages/data.
+
+Supported SDK-owned edit checkpoint commands exposed through the CLI:
+
+| Command                        | CLI responsibility                                    |
+| ------------------------------ | ----------------------------------------------------- |
+| `/rewind list`                 | Render checkpoint summaries returned by the SDK       |
+| `/rewind restore <checkpoint>` | Pass the selected checkpoint ID to the SDK            |
+| `/rewind code <checkpoint>`    | Alias for SDK code restore; render the restore result |
+
+Future Esc Esc or picker UI is terminal chrome only. The picker must call SDK APIs or commands; it must not duplicate checkpoint storage or restore algorithms.
 
 ### Message Windowing
 
@@ -1017,7 +1253,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 ## Known Limitations
 
 - **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
-- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and visual-line-aware up/down arrow navigation for wrapped text.
+- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and optional visual-line-aware up/down arrow navigation for wrapped text.
 
 ## Dependencies
 
