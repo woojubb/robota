@@ -250,6 +250,50 @@ Session name appears in three locations when set (via `--name` or `/rename`):
 | 70-89% | Yellow | Approaching limit               |
 | 90%+   | Red    | Near limit, compaction imminent |
 
+## TUI Visual Grammar
+
+The CLI TUI renders structured session/runtime data. It must not parse assistant prose to infer state, and it must not add provider/model-specific presentation branches. Rendering components may format data they receive, but ownership of the data remains in the SDK/session/runtime layer.
+
+### Output Surface Ownership
+
+| Surface                      | Owner                                 | Data Source                            | Rendering Contract                                                                |
+| ---------------------------- | ------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
+| Chat messages                | `MessageList`                         | `IHistoryEntry[]` chat entries         | Show stable role labels and markdown-rendered assistant content                   |
+| Tool summaries               | `MessageList`                         | structured `tool-summary` event data   | Show compact one-line tool rows plus structured details such as diffs             |
+| Streaming assistant response | `StreamingIndicator`                  | SDK text deltas                        | Show current assistant text without persisting duplicate rendered state           |
+| Live tool execution          | `StreamingIndicator`                  | SDK tool state events                  | Show current tool state using the shared status marker set                        |
+| Background work              | `BackgroundTaskPanel`                 | SDK background task events             | Show a one-level tree of running and retained terminal jobs                       |
+| Status/activity              | `StatusBar` and `SessionStatusBar`    | session state, context state, settings | Show current activity and session metadata in the primary scan path               |
+| Diff blocks                  | `ToolDiffBlock` and markdown renderer | structured diff lines                  | Render diff bodies through fenced `diff` markdown; keep metadata outside the body |
+| Setup/permission prompts     | prompt components                     | CLI flow descriptors                   | Render generic interactions only; prompt semantics remain in flow modules         |
+
+### Shared Markers
+
+| State              | Marker | Meaning                                            |
+| ------------------ | ------ | -------------------------------------------------- |
+| Running/queued     | `□`    | Work exists but is not terminal                    |
+| Completed/success  | `■`    | Work reached a successful terminal state           |
+| Failed/error       | `■`    | Work reached an error state, colored as error      |
+| Cancelled/denied   | `■`    | Work ended by user or policy decision              |
+| Omitted transcript | `...`  | Additional persisted output is hidden from preview |
+
+Colors remain renderer-owned: green for success/healthy state, yellow for warning or user-decision state, red for error/near-limit state, cyan for active assistant work, and dim text for secondary metadata.
+
+### Layout Rules
+
+- Prefer one-level trees for grouped activity: a short group label followed by aligned child rows.
+- Keep labels human-readable. Avoid raw class names, untrimmed JSON, or provider-specific implementation names in user-facing rows.
+- Keep previews bounded and whitespace-normalized. Long output must show a transcript/omitted-lines hint instead of expanding indefinitely.
+- Keep persistent raw data in session/log records even when the TUI renders a compact preview.
+- Place active state in the primary scan path. Passive metadata may remain dim or right-aligned, but model/tool/background activity must be visible without scanning the far edge of the terminal.
+- Keep code/diff colorization centralized through markdown rendering or dedicated formatting helpers, not ad hoc line coloring in each component.
+
+### Testing Requirements
+
+- Pure formatting helpers must have unit tests for status markers, truncation, omitted-line counts, and narrow-output labels.
+- Ink components must have render tests for the same states using representative structured data.
+- Changes that add a new output surface must update this section or explain why an existing surface owns the behavior.
+
 ## Context Management (CLI Layer)
 
 ### `/compact` Slash Command
