@@ -629,7 +629,7 @@ src/
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
     ├── ListPicker.tsx               ← Generic list picker overlay (session resume, etc.)
     ├── InteractivePrompt.tsx        ← Generic choice/text prompt renderer for CLI interactions
-    ├── DiffBlock.tsx                ← Diff block rendering for Edit tool output display
+    ├── ToolDiffBlock.tsx            ← Tool diff metadata shell with Markdown diff body rendering
     ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
     ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)
     ├── TextPrompt.tsx               ← Text input prompt component (Plugin TUI)
@@ -811,30 +811,34 @@ Assistant responses are rendered as Markdown through `render-markdown.ts`. A fen
 - `diff` fenced blocks receive line-level terminal colors: removed lines red, added lines green, hunk headers cyan, diff metadata dim.
 - Color is controlled by renderer options and terminal color environment. With color disabled, the same diff text remains readable without ANSI escape codes.
 - General fenced code blocks continue through `marked-terminal`; only `diff` fenced blocks take the Robota line-level path.
-- This path is for assistant prose. Tool execution summaries keep their compact structured display until the Edit tool diff format can be migrated without losing line numbers, truncation, and permission prompt integration.
+- Tool execution summaries use the same Markdown diff body rendering path while keeping file path, truncation, permissions, and streaming status as structured UI metadata outside the fenced block.
 
 ### Edit Diff Display
 
-When the Edit tool completes successfully, a compact diff is shown below the tool line. This gives the user immediate visibility into what changed without inspecting the file.
+When an Edit tool summary includes diff lines, the CLI shows a compact diff below the tool line. This gives the user immediate visibility into what changed without inspecting the file.
 
 **Source:** `old_string` and `new_string` from the Edit tool arguments.
 
+**Ownership:** `tool-diff-summary.ts` converts structured `IDiffLine[]` data into a Markdown fenced `diff` body. `ToolDiffBlock.tsx` renders structured metadata around that body and delegates the diff body itself to `renderMarkdown()`. There must not be a second bespoke diff-coloring policy for tool summaries.
+
 **Display format:**
 
-```
-  ✓ Edit(src/provider.ts)
-    │ src/provider.ts
-    │ - const DEFAULT_MAX_TOKENS = 4096;
-    │ + const maxTokens = getModelMaxOutput(modelId);
-```
+````markdown
+✓ Edit(src/provider.ts)
+│ src/provider.ts
+`diff
+    - 42 | const DEFAULT_MAX_TOKENS = 4096;
+    + 42 | const maxTokens = getModelMaxOutput(modelId);
+    `
+````
 
 **Rules:**
 
 - Show the file path as a header line.
-- Removed lines in **red** with `-` prefix.
-- Added lines in **green** with `+` prefix.
-- Context lines (surrounding unchanged file content) shown in **dim white** — 2 lines before and after the changed region.
-- **Max display lines: 12.** If the diff exceeds 12 lines, show the first 10 lines + `... and N more lines`.
+- Diff body lines use Markdown `diff` prefixes: `-` for removed, `+` for added, and a leading space for context lines.
+- Line numbers are included inside the diff body text as `PREFIX NN | content` so they remain readable with colors disabled.
+- File path is structured metadata outside the Markdown diff body.
+- Truncation is structured metadata outside the Markdown diff body: **max display lines: 12**. If the diff exceeds 12 lines, render the first 10 lines plus `... and N more lines`.
 - If `old_string` and `new_string` are identical (no-op edit), show nothing.
 - Diff is shown in both the real-time streaming indicator (after tool completes) and the post-execution summary.
 
