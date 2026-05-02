@@ -57,6 +57,10 @@ const agent = new Robota({
 | `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)      |
 | `webSearchTool` | WebSearch | Web search via Brave Search API                  |
 
+## Edit and Write Safety
+
+Recent file tool updates keep write/edit behavior atomic and make Edit tool results easier for higher layers to display. The Edit tool returns line metadata for changed regions, allowing the CLI to render concise context hunks instead of dumping full files or opaque summaries.
+
 ## Tool Infrastructure
 
 | Export                  | Description                                            |

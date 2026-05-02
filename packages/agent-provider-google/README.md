@@ -13,3 +13,9 @@ const provider = new GoogleProvider({
 ```
 
 The provider profile type remains `gemini`; existing settings that use `type: "google"` continue through the provider-definition alias.
+
+## Migration Guidance
+
+- Prefer `@robota-sdk/agent-provider-gemini` for all new code.
+- Keep this package only for existing `GoogleProvider` imports during the migration window.
+- Use `type: "gemini"` in new provider profiles; `type: "google"` remains accepted as an alias.

@@ -99,6 +99,7 @@ robota -p "Explain this project"    # Print mode
 - **Type-Safe**: Strict TypeScript with zero `any` in production code
 - **Multi-Provider**: Anthropic Claude, OpenAI, Google — same API, seamless switching
 - **Tool Calling**: Zod-based schema validation for type-safe function calls
+- **Subagents**: Runtime-managed background jobs, transcripts, and batch Agent tool requests
 - **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
 - **Streaming**: Real-time text delta streaming from all providers
 - **CLI Ready**: Built-in coding assistant CLI with permission system and context management
@@ -107,6 +108,7 @@ robota -p "Explain this project"    # Print mode
 
 ```
 agent-cli              ← Interactive terminal AI coding assistant
+agent-command-agent    ← /agent command module for background subagent control
 agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp    ← MCP transport (Model Context Protocol server)
 agent-transport-ws     ← WebSocket transport (framework-agnostic)
@@ -114,8 +116,9 @@ agent-transport-ws     ← WebSocket transport (framework-agnostic)
 agent-sdk              ← Assembly layer: InteractiveSession, config, context, query()
   ↓
 agent-sessions         ← Session lifecycle: permissions, hooks, compaction
+agent-runtime          ← Background task and subagent lifecycle primitives
 agent-tools            ← Tool infrastructure + 8 built-in tools
-agent-provider-*       ← AI provider implementations (anthropic, openai, google)
+agent-provider-*       ← AI provider implementations (anthropic, openai, gemini, gemma, qwen)
   ↓ (all three depend on)
 agent-core             ← Foundation: Robota engine, abstractions, plugins
 ```
@@ -127,8 +130,12 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-core`](./packages/agent-core/)                             | Core agent runtime, abstractions, and plugin system                    |
 | [`@robota-sdk/agent-tools`](./packages/agent-tools/)                           | Tool registry, FunctionTool, and 8 built-in tools                      |
 | [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction                        |
+| [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                       | Background task and subagent lifecycle primitives                      |
 | [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and query()                 |
 | [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/) | Anthropic Claude provider                                              |
+| [`@robota-sdk/agent-provider-gemini`](./packages/agent-provider-gemini/)       | Canonical Google Gemini provider                                       |
+| [`@robota-sdk/agent-provider-gemma`](./packages/agent-provider-gemma/)         | Gemma-family local provider for LM Studio/OpenAI-compatible endpoints  |
+| [`@robota-sdk/agent-provider-qwen`](./packages/agent-provider-qwen/)           | Qwen/DashScope provider with optional provider-side web tools          |
 | [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant                               |
 | [`@robota-sdk/agent-transport-http`](./packages/agent-transport-http/)         | HTTP/REST transport adapter (Hono; Cloudflare Workers / Node / Lambda) |
 | [`@robota-sdk/agent-transport-mcp`](./packages/agent-transport-mcp/)           | MCP transport adapter (Model Context Protocol server)                  |
@@ -139,6 +146,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 - [Getting Started](./getting-started/) — Installation and first steps
 - [Guide](./guide/) — Architecture, building agents, SDK, CLI
+- [Release Notes: 2026-05-02](./guide/release-2026-05-02.md) — Latest 48-hour develop snapshot
 - [Examples](./examples/) — Working code samples
 - [Development](./development/) — Contributing and monorepo setup
 
