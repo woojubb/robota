@@ -36,6 +36,10 @@ export interface ISystemCommand {
 }
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+const MEMORY_COMMAND_DESCRIPTION =
+  'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
+const MEMORY_COMMAND_ARGUMENT_HINT =
+  'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used';
 
 /** Built-in system commands. */
 export function createSystemCommands(): ISystemCommand[] {
@@ -201,10 +205,9 @@ export function createSystemCommands(): ISystemCommand[] {
     },
     {
       name: 'memory',
-      description: 'Manage project memory, including pending automatic memory candidates.',
+      description: MEMORY_COMMAND_DESCRIPTION,
       modelInvocable: true,
-      argumentHint:
-        'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
+      argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
       safety: 'write',
       execute: executeMemoryCommand,
     },
