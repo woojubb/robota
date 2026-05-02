@@ -485,6 +485,8 @@ interface IToolState {
 }
 ```
 
+`diffLines` is structured Edit tool display metadata. For completed Edit tools, `InteractiveSession` derives it from the Edit arguments, tool result `startLine`, and the modified file contents when readable. Diff lines may include `type: 'hunk'`, `context`, `remove`, and `add`. The SDK persists this metadata so all transports can replay the same edit summary; CLI owns visual rendering only.
+
 **IExecutionResult:**
 
 ```typescript

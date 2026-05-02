@@ -1,5 +1,10 @@
 # CLI Diff Context Hunk Rendering
 
+- **Status**: completed
+- **Created**: 2026-05-02
+- **Branch**: feat/cli-diff-context-hunks
+- **Scope**: packages/agent-cli, packages/agent-sdk
+
 ## Priority
 
 P0 — edit visibility is a safety-critical CLI behavior.
@@ -54,14 +59,32 @@ Use documentation and product behavior observations only; do not copy source cod
 
 ## Acceptance Criteria
 
-- [ ] Edit tool summaries show changed lines plus surrounding context.
-- [ ] Revert/deletion edits display removed and added lines with enough context to verify location.
-- [ ] Large diffs are truncated predictably without hiding all changed lines.
-- [ ] `renderMarkdown()` remains the only line-coloring implementation for diff bodies.
-- [ ] Unit tests cover the hunk and truncation cases listed above.
+- [x] Edit tool summaries show changed lines plus surrounding context.
+- [x] Revert/deletion edits display removed and added lines with enough context to verify location.
+- [x] Large diffs are truncated predictably without hiding all changed lines.
+- [x] `renderMarkdown()` remains the only line-coloring implementation for diff bodies.
+- [x] Unit tests cover the hunk and truncation cases listed above.
 
-## Promotion Path
+## Progress
 
-1. Move to `.agents/tasks/CLI-BL-0XX-cli-diff-context-hunk-rendering.md`.
-2. Complete diff-format research before implementation.
-3. Update `agent-cli` SPEC first, then implement under TDD.
+### 2026-05-02
+
+- Researched GNU diff context/unified defaults and current Codex/Claude compact tool-summary behavior.
+- Updated `agent-cli` SPEC with context-hunk rendering behavior.
+- Added failing tests for three-line context, hunk headers, SDK-persisted context lines, and hunk-aware truncation.
+- Implemented context-aware edit diff generation and hunk-aware markdown summary rendering.
+
+## Decisions
+
+- Use three context lines by default, matching common unified diff behavior.
+- Keep diff colorization through fenced `diff` markdown only.
+- Keep file path and truncation metadata outside the fenced diff body.
+- Let SDK-persisted tool summaries include context when the edited file can be read; CLI legacy extraction follows the same display behavior.
+
+## Blockers
+
+- None.
+
+## Result
+
+Edit tool summaries now include a compact hunk header, surrounding context lines where available, and deterministic hunk-aware truncation metadata.

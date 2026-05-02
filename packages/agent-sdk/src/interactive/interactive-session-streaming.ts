@@ -6,9 +6,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { IToolState } from './types.js';
+import type { IDiffLine, IToolState } from './types.js';
 
 /** Max chars to display from first tool argument. */
 export const TOOL_ARG_DISPLAY_MAX = 80;
@@ -18,6 +19,7 @@ export const MAX_COMPLETED_TOOLS = 50;
 /** Streaming text flush interval (ms) — ~60fps. */
 export const STREAMING_FLUSH_INTERVAL_MS = 16;
 const DEFAULT_START_LINE = 1;
+const EDIT_DIFF_CONTEXT_LINES = 3;
 
 /** Extract a short display string from the first tool argument. */
 export function extractFirstArg(toolArgs?: TToolArgs): string {
@@ -71,19 +73,76 @@ function buildEditDiffState(event: IToolEndEvent): Pick<IToolState, 'diffFile' |
   const startLine = parseStartLine(event.toolResultData);
   return {
     diffFile: filePath,
-    diffLines: [
-      ...oldString.split('\n').map((text, index) => ({
-        type: 'remove' as const,
-        text,
-        lineNumber: startLine + index,
-      })),
-      ...newString.split('\n').map((text, index) => ({
-        type: 'add' as const,
-        text,
-        lineNumber: startLine + index,
-      })),
-    ],
+    diffLines: buildEditDiffLinesWithContext(oldString, newString, startLine, filePath),
   };
+}
+
+function buildEditDiffLines(oldString: string, newString: string, startLine: number): IDiffLine[] {
+  return [
+    ...oldString.split('\n').map((text, index) => ({
+      type: 'remove' as const,
+      text,
+      lineNumber: startLine + index,
+    })),
+    ...newString.split('\n').map((text, index) => ({
+      type: 'add' as const,
+      text,
+      lineNumber: startLine + index,
+    })),
+  ];
+}
+
+function buildEditDiffLinesWithContext(
+  oldString: string,
+  newString: string,
+  startLine: number,
+  filePath: string,
+): IDiffLine[] {
+  const diffLines = buildEditDiffLines(oldString, newString, startLine);
+
+  let fileLines: string[];
+  try {
+    fileLines = readFileSync(filePath, 'utf8').split('\n');
+  } catch {
+    return diffLines;
+  }
+
+  const beforeContext: IDiffLine[] = [];
+  const contextStart = Math.max(0, startLine - 1 - EDIT_DIFF_CONTEXT_LINES);
+  for (let index = contextStart; index < startLine - 1; index++) {
+    if (index < fileLines.length) {
+      beforeContext.push({ type: 'context', text: fileLines[index], lineNumber: index + 1 });
+    }
+  }
+
+  const afterContext: IDiffLine[] = [];
+  const afterStart = startLine - 1 + newString.split('\n').length;
+  for (let index = afterStart; index < afterStart + EDIT_DIFF_CONTEXT_LINES; index++) {
+    if (index < fileLines.length) {
+      afterContext.push({ type: 'context', text: fileLines[index], lineNumber: index + 1 });
+    }
+  }
+
+  const hunkStart =
+    beforeContext[0]?.lineNumber ??
+    diffLines[0]?.lineNumber ??
+    afterContext[0]?.lineNumber ??
+    startLine;
+  const oldLineCount = oldString.split('\n').length;
+  const newLineCount = newString.split('\n').length;
+  const oldHunkLineCount = beforeContext.length + oldLineCount + afterContext.length;
+  const newHunkLineCount = beforeContext.length + newLineCount + afterContext.length;
+
+  return [
+    {
+      type: 'hunk',
+      text: `@@ -${hunkStart},${oldHunkLineCount} +${hunkStart},${newHunkLineCount} @@`,
+      lineNumber: hunkStart,
+    },
+    ...beforeContext,
+    ...diffLines,
+    ...afterContext,
+  ];
 }
 
 /** Build a tool-summary history entry from current active tools and push it into history. */
