@@ -1,6 +1,6 @@
 # Using the SDK
 
-`@robota-sdk/agent-sdk` is the assembly layer that composes `agent-core`, `agent-tools`, `agent-sessions`, and `agent-provider-anthropic` into a cohesive experience. It provides configuration loading, project context discovery, and the `InteractiveSession` primary entry point along with the `query()` convenience API.
+`@robota-sdk/agent-sdk` is the provider-neutral assembly layer that composes `agent-core`, `agent-tools`, `agent-sessions`, runtime services, commands, context loading, and transports into a cohesive experience. It exposes `InteractiveSession` as the primary entry point and `createQuery()` as the one-shot convenience API. Consumers create the provider instance and pass it in.
 
 ## InteractiveSession — Primary Entry Point
 
@@ -8,15 +8,22 @@
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  provider,
   permissionMode: 'default',
-  onTextDelta: (delta) => process.stdout.write(delta),
 });
 
+session.on('text_delta', (delta) => process.stdout.write(delta));
+
 // Submit a prompt (queued automatically if a run is in progress)
-session.submit('Refactor the auth module');
+await session.submit('Refactor the auth module');
 
 // Abort the in-flight run (partial response saved as 'interrupted')
 session.abort();
@@ -55,35 +62,38 @@ Event types include: `tool-start` (individual tool execution began), `tool-end` 
 
 ### Command Discovery
 
-`InteractiveSession` integrates a `CommandRegistry` that aggregates two sources:
+The SDK owns `CommandRegistry` and the command sources used by clients:
 
-- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/exit`, `/plugin`, `/reload-plugins`, `/language`, `/resume`, `/rename`
+- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/memory`, `/rewind`, `/provider`, `/resume`, `/background`, `/rename`, `/plugin`, `/reload-plugins`, `/language`, `/reset`, `/exit`
 - **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
+- **`PluginCommandSource`** — commands contributed by loaded plugins
 
-Calling `session.getCommands()` returns the merged list for autocomplete.
+Clients such as the CLI compose these sources into a registry for autocomplete. `InteractiveSession.listCommands()` returns executable system commands for transports and direct command execution, while skill commands discovered through `SkillCommandSource` are executed with `session.executeSkillCommand()`.
 
 ### System Commands
 
 `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers access commands through `session.executeCommand(name, args)` and `session.listCommands()` — the executor is not independently exported.
 
-Before each submitted prompt, the session checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
+Before each submitted prompt, the session checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the underlying `Session.run()`.
 
 Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover available commands and `session.executeCommand()` to execute them.
 
 ## createQuery() — Convenience API
 
-`createQuery({ provider })` is a lightweight factory that builds a one-shot query function pre-configured for a specific provider. Use it when you want `query()`-style simplicity but need to reuse a configured instance across multiple calls.
+`createQuery({ provider })` is a lightweight factory that builds a one-shot query function pre-configured for a specific provider. Use it when you want simple prompt-in/response-out calls but need to reuse a configured provider instance across multiple calls.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const ask = createQuery({ provider: 'anthropic' });
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const ask = createQuery({ provider });
 const response = await ask('List all TypeScript files in this project');
 ```
 
-## query() — One-Shot API
+## One-Shot Usage
 
-The simplest way to interact with Robota. Handles config, context, session creation, and cleanup automatically.
+The simplest way to interact with Robota is to create a query function and call it with a prompt. `createQuery()` builds an `InteractiveSession` internally, loads settings and project context from the working directory, and cleans up after each prompt.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-sdk';
@@ -159,36 +169,36 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 }
 ```
 
-`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`; generic OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`. The legacy single `provider` object remains supported when no active profile is configured.
+`InteractiveSession` loads these settings for permissions, hooks, project context, skills, and session behavior. Provider profile resolution is performed by the consumer shell before creating the SDK session; the CLI uses `currentProvider` and `providers` to construct the active provider instance, then passes that instance to `InteractiveSession`. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`; generic OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`. The legacy single `provider` object remains supported by CLI/provider-settings compatibility code when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 
 ## Context Discovery
 
-`loadContext()` walks up from the working directory to find project context:
+`InteractiveSession` walks up from the working directory to find project context during initialization:
 
 - **AGENTS.md** — Project-level agent instructions and rules
 - **CLAUDE.md** — Additional agent instructions (Claude Code compatible)
 - **Compact Instructions** — Extracted from CLAUDE.md for use during context compaction
 
 ```typescript
-const context = await loadContext('/path/to/project');
-// { agentsMd: string, claudeMd: string, compactInstructions?: string }
+const session = new InteractiveSession({
+  cwd: '/path/to/project',
+  provider,
+});
 ```
+
+Use `bare: true` when you need a session without AGENTS.md/CLAUDE.md loading or plugin discovery.
 
 ## System Prompt
 
-`buildSystemPrompt()` assembles the system prompt from context, tools, and trust level:
+The SDK assembles the system prompt internally from loaded project context, tool descriptions, command descriptors, trust level, active task context, and optional appended instructions.
 
 ```typescript
-import { buildSystemPrompt } from '@robota-sdk/agent-sdk';
-
-const systemMessage = buildSystemPrompt({
-  agentsMd: context.agentsMd,
-  claudeMd: context.claudeMd,
-  toolDescriptions: ['Bash — execute shell commands', 'Read — read file contents'],
-  trustLevel: 'moderate',
-  projectInfo: { type: 'node', language: 'typescript' },
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  appendSystemPrompt: 'Prefer concise responses.',
 });
 ```
 
@@ -318,12 +328,12 @@ All transport adapters implement the `ITransportAdapter` interface (exported fro
 
 ## Assembly vs Direct Usage
 
-| Use case                       | Approach                                                           |
-| ------------------------------ | ------------------------------------------------------------------ |
-| Quick one-shot                 | `query()` / `createQuery({ provider })` — handles everything       |
-| Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling     |
-| Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`      |
-| Non-interactive / headless     | `agent-transport-headless` — text, JSON, or stream-JSON output     |
-| Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                     |
-| Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                          |
-| Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider |
+| Use case                       | Approach                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| Quick one-shot                 | `createQuery({ provider })` — creates an `InteractiveSession` internally |
+| Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling           |
+| Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`            |
+| Non-interactive / headless     | `agent-transport-headless` — text, JSON, or stream-JSON output           |
+| Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                           |
+| Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                                |
+| Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider       |

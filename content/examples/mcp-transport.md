@@ -6,9 +6,11 @@ Expose InteractiveSession as a Model Context Protocol server.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const session = new InteractiveSession({ cwd: process.cwd(), provider });
 
 const transport = createMcpTransport({
@@ -25,7 +27,7 @@ await transport.getServer().connect(new StdioServerTransport());
 
 ## MCP Tools
 
-The server exposes these tools to MCP clients:
+The server exposes `submit` plus one `command_<name>` MCP tool for each command returned by `session.listCommands()`:
 
 | Tool            | Input                | Description                        |
 | --------------- | -------------------- | ---------------------------------- |
@@ -36,8 +38,10 @@ The server exposes these tools to MCP clients:
 | command_mode    | `{ args?: string }`  | Show/change permission mode        |
 | command_model   | `{ args?: string }`  | Change AI model                    |
 | command_context | `{ args?: string }`  | Context window info                |
+| command_resume  | `{ args?: string }`  | Resume a previous session          |
+| command_rename  | `{ args?: string }`  | Rename the current session         |
 
-System commands are auto-discovered via `session.listCommands()`.
+Other auto-discovered commands, such as `memory`, `rewind`, `provider`, `background`, `plugin`, `reload-plugins`, and command-module entries like `agent`, are exposed the same way when they are available on the session.
 
 ## Advanced: Direct MCP Server
 

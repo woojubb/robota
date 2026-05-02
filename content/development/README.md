@@ -21,7 +21,7 @@ pnpm test
 ## Commands
 
 ```bash
-pnpm build              # Build all packages
+pnpm build              # Build the package workspace once from the repo root
 pnpm test               # Run all tests
 pnpm typecheck          # TypeScript strict check
 pnpm lint               # ESLint
@@ -50,9 +50,9 @@ packages/
 ├── agent-provider-google/      ← Gemini compatibility wrapper
 ├── agent-provider-gemma/       ← Gemma local model provider
 ├── agent-provider-qwen/        ← Qwen/DashScope provider
-├── agent-plugin-*/             ← 8 extracted plugins
+├── agent-plugin-*/             ← 9 extracted plugins
 ├── agent-team/                 ← Multi-agent task assignment
-├── agent-remote/               ← Remote execution
+├── agent-remote-client/        ← HTTP client for remote agents
 ├── agent-tool-mcp/             ← MCP tool protocol
 └── dag-*/                      ← DAG workflow (separate domain)
 ```
@@ -71,20 +71,20 @@ See [AGENTS.md](https://github.com/woojubb/robota/blob/main/AGENTS.md) for the c
 
 ## Publishing
 
-Robota publishes every non-private package together with one coordinated version.
+Robota publishes every non-private package together with one coordinated version. The current beta.59 package set has 18 publishable `@robota-sdk/*` packages; private app, plugin, DAG, and internal packages are not published by the beta script.
 
 ```bash
 pnpm harness:verify:release
 pnpm publish:beta
 ```
 
-`pnpm publish:beta` runs the npm authentication preflight first, performs a recursive dry-run, then prompts for OTP only after the dry-run succeeds. If npm authentication fails, run:
+`pnpm harness:verify:release` uses the root monorepo build instead of rebuilding each package independently. `pnpm publish:beta` runs the npm authentication preflight first, performs one recursive dry-run, prompts for OTP only after the dry-run succeeds, publishes all non-private packages with `pnpm publish -r`, syncs the `beta` dist-tag to the same version, and verifies both `latest` and `beta` dist-tags. If npm authentication fails, run:
 
 ```bash
 npm login --registry https://registry.npmjs.org/
 ```
 
-Never publish individual packages with `--filter`. Always use `pnpm publish:beta`; it resolves `workspace:*` dependencies correctly and keeps the monorepo package set on one version.
+Never publish individual packages with `--filter`. Always use `pnpm publish:beta`; it resolves `workspace:*` dependencies correctly, avoids sequential per-package publishes, and keeps the monorepo package set on one version.
 
 ## Documentation Sync
 

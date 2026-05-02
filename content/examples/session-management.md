@@ -7,8 +7,10 @@ Multi-turn sessions with permissions, context tracking, and compaction.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const sessionStore = new SessionStore();
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
@@ -43,32 +45,33 @@ const forked = new InteractiveSession({
 });
 ```
 
-## Using Session Directly (Advanced)
+## Using InteractiveSession Events
 
 ```typescript
-import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const cwd = process.cwd();
-const [config, context, projectInfo] = await Promise.all([
-  loadConfig(cwd),
-  loadContext(cwd),
-  detectProject(cwd),
-]);
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const session = createSession({
-  config,
-  context,
-  terminal,
-  projectInfo,
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
   permissionMode: 'default',
-  onTextDelta: (delta) => process.stdout.write(delta),
-  onCompact: (summary) => console.log('\n[Context compacted]'),
 });
 
-// Multi-turn conversation
-await session.run('What is the architecture of this project?');
-await session.run('Show me the main entry point.');
-await session.run('What tests exist?');
+session.on('text_delta', (delta) => process.stdout.write(delta));
+session.on('context_update', (state) => {
+  console.log(`Context: ${state.usedPercentage.toFixed(1)}% used`);
+});
+session.on('complete', ({ response }) => {
+  console.log('\n--- Complete response ---');
+  console.log(response);
+});
+
+// Multi-turn conversation. submit() queues automatically if a run is active.
+await session.submit('What is the architecture of this project?');
+await session.submit('Show me the main entry point.');
+await session.submit('What tests exist?');
 
 // Check context usage
 const state = session.getContextState();
@@ -76,16 +79,15 @@ console.log(`Context: ${state.usedPercentage.toFixed(1)}% used`);
 
 // Manual compaction with focus
 if (state.usedPercentage > 70) {
-  await session.compact('Focus on the architecture discussion');
+  await session.executeCommand('compact', 'Focus on the architecture discussion');
 }
 
 // Session metadata
-console.log(`Session: ${session.getSessionId()}`);
-console.log(`Messages: ${session.getMessageCount()}`);
-console.log(`Mode: ${session.getPermissionMode()}`);
+console.log(`Messages: ${session.getFullHistory().length}`);
+console.log(`Mode: ${session.getSession().getPermissionMode()}`);
 
 // Change permission mode
-session.setPermissionMode('acceptEdits');
+session.getSession().setPermissionMode('acceptEdits');
 
 // Abort a long-running request
 setTimeout(() => session.abort(), 30000);
@@ -94,19 +96,21 @@ setTimeout(() => session.abort(), 30000);
 ## Session Persistence
 
 ```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const store = new SessionStore();
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Sessions auto-persist when a store is provided
-const session = createSession({
-  config,
-  context,
-  terminal,
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
   sessionStore: store,
 });
 
-await session.run('Hello');
+await session.submit('Hello');
 
 // Later — list and resume sessions
 const sessions = store.list();
@@ -121,10 +125,10 @@ robota -c
 
 # Resume specific session (by name or ID)
 robota -r my-feature
-robota --resume
 
 # Fork from existing session (new ID, same context)
 robota -c --fork-session
+robota -r my-feature --fork-session
 
 # Name a session
 robota --name "auth-refactor"
