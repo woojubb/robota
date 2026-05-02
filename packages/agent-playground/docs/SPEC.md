@@ -2,14 +2,14 @@
 
 ## Scope
 
-Owns the Robota Playground UI package: React components, hooks, executor logic, plugins, and tool catalog for interactive agent experimentation in the browser. Provides `PlaygroundApp` and `PlaygroundDemo` components, `PlaygroundExecutor` for managing Robota agents via `RemoteExecutor`, and statistics/history plugins for real-time visualization.
+Owns the Robota Playground UI package: React components, hooks, executor logic, plugins, and tool catalog for interactive agent experimentation in the browser. Provides `PlaygroundApp` and `PlaygroundDemo` components, a browser-safe `@robota-sdk/agent-playground/client` component entry, `PlaygroundExecutor` for managing Robota agents via `RemoteExecutor`, and statistics/history plugins for real-time visualization.
 
 ## Boundaries
 
 - Does not own core agent contracts (`IExecutor`, `IAIProvider`, `TUniversalMessage`); imports from `@robota-sdk/agent-core`.
 - Does not own remote transport contracts; imports `RemoteExecutor` from `@robota-sdk/agent-remote`.
 - Does not own WebSocket message types; imports `IPlaygroundWebSocketMessage` from `@robota-sdk/agent-remote`.
-- Does not define deployment or hosting behavior; that belongs to `apps/web`.
+- Does not define deployment or hosting behavior; that belongs to `apps/agent-web`.
 
 ## Architecture Overview
 
@@ -38,6 +38,8 @@ This package is SSOT for:
 | `PlaygroundDemo`        | React component | Demo-mode playground                                             |
 | `PlaygroundExecutor`    | class           | Agent lifecycle and execution facade (re-exported from services) |
 | ~~`usePlaygroundBoot`~~ | hook (internal) | Boot state management — not exported from package entry          |
+
+Browser consumers that only render the React playground must import `PlaygroundApp` and `PlaygroundDemo` from `@robota-sdk/agent-playground/client`. The root entry also exports service-layer APIs for server/runtime consumers and must not be used as the browser page entry.
 
 Note: `usePlaygroundData`, `useRobotaExecution`, `useChatInput`, and `ToolRegistry` are used internally by the package's own components and are not exported from the public entry point (`src/index.ts → src/playground/index.ts`).
 
