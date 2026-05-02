@@ -265,6 +265,23 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 // ── Paths ───────────────────────────────────────────────────
 export { projectPaths, userPaths } from './paths.js';
 
+// ── Task context ───────────────────────────────────────────
+export {
+  discoverTaskFiles,
+  formatTaskContext,
+  loadTaskContext,
+  parseTaskFile,
+  readCurrentGitBranch,
+  selectRelevantTasks,
+  updateTaskFileStatus,
+} from './context/task-context.js';
+export type {
+  ITaskContextFile,
+  ITaskSelectionOptions,
+  IUpdateTaskFileStatusOptions,
+  TTaskFileStatus,
+} from './context/task-context.js';
+
 // ── Permissions (from agent-core) ───────────────────────────
 export { evaluatePermission } from '@robota-sdk/agent-core';
 export { promptForApproval } from './permissions/permission-prompt.js';

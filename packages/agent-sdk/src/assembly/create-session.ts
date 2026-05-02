@@ -268,6 +268,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
     memoryMd: options.context.memoryMd,
+    taskContext: options.context.taskContext,
     toolDescriptions:
       options.toolDescriptions ??
       (backgroundProcessToolDeps
