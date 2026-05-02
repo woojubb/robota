@@ -38,6 +38,8 @@ export interface IInProcessSubagentRunnerDeps {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }

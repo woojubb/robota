@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 import type { IToolState } from './types.js';
 
 /** Max chars to display from first tool argument. */
@@ -16,9 +17,10 @@ const TAIL_KEEP = 30;
 export const MAX_COMPLETED_TOOLS = 50;
 /** Streaming text flush interval (ms) — ~60fps. */
 export const STREAMING_FLUSH_INTERVAL_MS = 16;
+const DEFAULT_START_LINE = 1;
 
 /** Extract a short display string from the first tool argument. */
-export function extractFirstArg(toolArgs?: Record<string, unknown>): string {
+export function extractFirstArg(toolArgs?: TToolArgs): string {
   if (!toolArgs) return '';
   const firstVal = Object.values(toolArgs)[0];
   const raw = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal ?? '');
@@ -31,6 +33,57 @@ export function extractFirstArg(toolArgs?: Record<string, unknown>): string {
 export interface IStreamingState {
   activeTools: IToolState[];
   history: IHistoryEntry[];
+}
+
+interface IToolEndEvent {
+  type?: 'start' | 'end';
+  toolName: string;
+  toolArgs?: TToolArgs;
+  success?: boolean;
+  denied?: boolean;
+  toolResultData?: string;
+}
+
+function getStringArg(args: TToolArgs | undefined, snake: string, camel: string): string | null {
+  const value = args?.[snake] ?? args?.[camel];
+  return typeof value === 'string' ? value : null;
+}
+
+function parseStartLine(toolResultData: string | undefined): number {
+  if (!toolResultData) return DEFAULT_START_LINE;
+  try {
+    const parsed = JSON.parse(toolResultData) as Partial<{ startLine: number }>;
+    return typeof parsed.startLine === 'number' && Number.isFinite(parsed.startLine)
+      ? parsed.startLine
+      : DEFAULT_START_LINE;
+  } catch {
+    return DEFAULT_START_LINE;
+  }
+}
+
+function buildEditDiffState(event: IToolEndEvent): Pick<IToolState, 'diffFile' | 'diffLines'> {
+  if (event.toolName !== 'Edit') return {};
+  const filePath = getStringArg(event.toolArgs, 'file_path', 'filePath');
+  const oldString = getStringArg(event.toolArgs, 'old_string', 'oldString');
+  const newString = getStringArg(event.toolArgs, 'new_string', 'newString');
+  if (!filePath || oldString === null || newString === null || oldString === newString) return {};
+
+  const startLine = parseStartLine(event.toolResultData);
+  return {
+    diffFile: filePath,
+    diffLines: [
+      ...oldString.split('\n').map((text, index) => ({
+        type: 'remove' as const,
+        text,
+        lineNumber: startLine + index,
+      })),
+      ...newString.split('\n').map((text, index) => ({
+        type: 'add' as const,
+        text,
+        lineNumber: startLine + index,
+      })),
+    ],
+  };
 }
 
 /** Build a tool-summary history entry from current active tools and push it into history. */
@@ -60,6 +113,8 @@ export function pushToolSummaryToHistory(state: IStreamingState): void {
         firstArg: t.firstArg,
         isRunning: t.isRunning,
         result: t.result,
+        diffFile: t.diffFile,
+        diffLines: t.diffLines,
       })),
       summary,
     },
@@ -85,7 +140,7 @@ export function trimCompletedTools(activeTools: IToolState[]): IToolState[] {
 /** Process a tool-start event: add to activeTools and push to history. */
 export function applyToolStart(
   state: IStreamingState,
-  event: { toolName: string; toolArgs?: Record<string, unknown> },
+  event: { toolName: string; toolArgs?: TToolArgs },
 ): IToolState {
   const firstArg = extractFirstArg(event.toolArgs);
   const toolState: IToolState = { toolName: event.toolName, firstArg, isRunning: true };
@@ -103,14 +158,7 @@ export function applyToolStart(
 }
 
 /** Process a tool-end event: mark the tool finished and push to history. Returns updated tool or null. */
-export function applyToolEnd(
-  state: IStreamingState,
-  event: {
-    toolName: string;
-    success?: boolean;
-    denied?: boolean;
-  },
-): IToolState | null {
+export function applyToolEnd(state: IStreamingState, event: IToolEndEvent): IToolState | null {
   const result: IToolState['result'] = event.denied
     ? 'denied'
     : event.success === false
@@ -120,7 +168,12 @@ export function applyToolEnd(
   const idx = state.activeTools.findIndex((t) => t.toolName === event.toolName && t.isRunning);
   if (idx === -1) return null;
 
-  const finished: IToolState = { ...state.activeTools[idx]!, isRunning: false, result };
+  const finished: IToolState = {
+    ...state.activeTools[idx]!,
+    ...buildEditDiffState(event),
+    isRunning: false,
+    result,
+  };
   state.activeTools[idx] = finished;
   state.activeTools = trimCompletedTools(state.activeTools);
 

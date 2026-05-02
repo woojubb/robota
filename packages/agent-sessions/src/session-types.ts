@@ -69,6 +69,8 @@ export interface ISessionOptions {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
