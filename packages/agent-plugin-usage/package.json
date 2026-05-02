@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-usage",
-  "version": "3.0.0-beta.58",
+  "version": "3.0.0-beta.59",
   "description": "Usage tracking plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

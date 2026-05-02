@@ -17,14 +17,16 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - `pnpm publish:beta` runs `scripts/publish/publish-packages.sh` which:
   1. Detects version from agent-core/package.json
   2. Runs `pnpm publish -r --dry-run` (all packages at once, ~4 seconds)
-  3. Prompts for OTP (AFTER dry-run so it doesn't expire)
+  3. Prompts for OTP (AFTER dry-run so it doesn't expire before publish)
   4. Runs `pnpm publish -r --otp <otp>` (all packages at once, ~4 seconds)
+  5. Syncs `beta` dist-tags for all published packages to the same version
+  6. Verifies both `latest` and `beta` dist-tags point to the published version
 - **NEVER** use any of these:
   - `pnpm publish --filter` (sequential per-package = minutes, OTP expires)
   - `pnpm publish` (without -r)
   - `pnpm changeset publish`
   - `npm publish`
-- **No `--tag` flag**: npm automatically sets `latest` to the newly published version. No manual dist-tag sync needed. This eliminates the dist-tag drift problem entirely.
+- **No `--tag` flag on publish**: npm automatically sets `latest` to the newly published version. The publish script explicitly syncs and verifies `beta` afterward to prevent dist-tag drift.
 
 ### pnpm publish only — npm publish is blocked (non-negotiable)
 
@@ -43,7 +45,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 - Build and test must pass BEFORE running `pnpm publish:beta`. The script does NOT run build/test internally — the agent must verify these before asking for OTP.
 - npm authentication must be verified BEFORE dry-run and BEFORE asking for OTP. Run `npm whoami --registry https://registry.npmjs.org/` or rely on `pnpm publish:beta` to run the same preflight. If this fails, tell the user to log in and do not ask for OTP. The agent may run `npm login --registry https://registry.npmjs.org/` to start the browser-based login flow, then rerun the authentication preflight after the user completes login.
-- OTP must be requested ONLY after dry-run succeeds. OTP expires in 30 seconds.
+- OTP must be requested ONLY after dry-run succeeds. OTP expires in 30 seconds. If publish consumes the first OTP window, the script may prompt for a fresh OTP before `beta` dist-tag sync.
 - `pnpm publish:beta` MUST run in an interactive TTY when the agent expects the script to prompt for OTP. Non-TTY execution makes `read -rp` fail after dry-run and exits before publish. If TTY stdin is unavailable, use the script's explicit OTP argument only after the user provides a fresh OTP.
 - If `pnpm publish:beta` exits after printing only the filtered dry-run package list, do not infer the cause from that filtered output. Immediately rerun `pnpm publish -r --no-git-checks --dry-run` with full unfiltered output in the same permission context to identify the real failure.
 - Treat sandbox, network, and npm cache errors as environment failures until confirmed otherwise. Re-run npm registry preflight and full dry-run outside the restricted sandbox when the first failure includes `ENOTFOUND`, registry fetch failures, npm cache permission errors, or missing npm log output.
