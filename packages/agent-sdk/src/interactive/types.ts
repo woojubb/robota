@@ -17,6 +17,7 @@ export interface IToolState {
   result?: 'success' | 'error' | 'denied';
   diffLines?: IDiffLine[];
   diffFile?: string;
+  toolResultData?: string;
 }
 
 /** A single diff line for Edit tool display. */

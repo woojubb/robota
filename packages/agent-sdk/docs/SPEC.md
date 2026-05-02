@@ -226,7 +226,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Pattern**: Composition over Session (holds a `Session` instance, does not extend it)
 - **Constructor**: Accepts `{ cwd, provider }` plus optional composition inputs such as `commandModules`. Config and context are loaded internally from `cwd`.
 - **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, full history management (`IHistoryEntry[]`), embedded command execution
-- **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. For completed Edit tools, `IToolState` also carries `diffFile` and `diffLines` derived from the Edit tool arguments plus the tool result `startLine`. The `tool-summary` entry (aggregated) is still pushed at execution completion and preserves the same per-tool metadata for persisted UI rendering.
+- **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. For completed Edit tools, `IToolState` also carries `diffFile` and `diffLines` derived from the Edit tool arguments plus the tool result `startLine`. For completed command tools, `IToolState` carries `toolResultData` so transports can render bounded command output previews while raw tool messages remain persisted. The `tool-summary` entry (aggregated) is still pushed at execution completion and preserves the same per-tool metadata for persisted UI rendering.
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
 - **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Core commands are always present; additional command modules may contribute more commands.
@@ -482,10 +482,11 @@ interface IToolState {
   result?: 'success' | 'error' | 'denied';
   diffLines?: IDiffLine[];
   diffFile?: string;
+  toolResultData?: string;
 }
 ```
 
-`diffLines` is structured Edit tool display metadata. For completed Edit tools, `InteractiveSession` derives it from the Edit arguments, tool result `startLine`, and the modified file contents when readable. Diff lines may include `type: 'hunk'`, `context`, `remove`, and `add`. The SDK persists this metadata so all transports can replay the same edit summary; CLI owns visual rendering only.
+`diffLines` is structured Edit tool display metadata. For completed Edit tools, `InteractiveSession` derives it from the Edit arguments, tool result `startLine`, and the modified file contents when readable. Diff lines may include `type: 'hunk'`, `context`, `remove`, and `add`. `toolResultData` is the already-truncated tool result payload emitted by the permission/session layer; transports may derive bounded previews from it, but SDK/session records remain the source for full transcript recovery. The SDK persists this metadata so all transports can replay the same tool summary; CLI owns visual rendering only.
 
 **IExecutionResult:**
 
@@ -677,6 +678,7 @@ Exported subagent runtime types:
       result?: 'success' | 'error' | 'denied';
       diffLines?: IDiffLine[];
       diffFile?: string;
+      toolResultData?: string;
     }>;
   }
 }

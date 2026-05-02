@@ -174,6 +174,7 @@ export function pushToolSummaryToHistory(state: IStreamingState): void {
         result: t.result,
         diffFile: t.diffFile,
         diffLines: t.diffLines,
+        toolResultData: t.toolResultData,
       })),
       summary,
     },
@@ -232,6 +233,7 @@ export function applyToolEnd(state: IStreamingState, event: IToolEndEvent): IToo
     ...buildEditDiffState(event),
     isRunning: false,
     result,
+    toolResultData: event.toolResultData,
   };
   state.activeTools[idx] = finished;
   state.activeTools = trimCompletedTools(state.activeTools);
@@ -246,6 +248,7 @@ export function applyToolEnd(state: IStreamingState, event: IToolEndEvent): IToo
       firstArg: finished.firstArg,
       isRunning: false,
       result,
+      toolResultData: event.toolResultData,
     },
   });
 
