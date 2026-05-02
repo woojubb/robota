@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { ProjectMemoryStore } from '../memory/project-memory-store.js';
+import { loadTaskContext } from './task-context.js';
 
 export interface ILoadedContext {
   /** Concatenated content of all AGENTS.md files found (root-first) */
@@ -14,6 +15,8 @@ export interface ILoadedContext {
   claudeMd: string;
   /** Startup project memory index loaded from .robota/memory/MEMORY.md, if present */
   memoryMd?: string;
+  /** Formatted active task context loaded from .agents/tasks/*.md, if present */
+  taskContext?: string;
   /** Extracted "Compact Instructions" section from CLAUDE.md, if present */
   compactInstructions?: string;
 }
@@ -97,6 +100,8 @@ export async function loadContext(cwd: string): Promise<ILoadedContext> {
   const compactInstructions = extractCompactInstructions(claudeMd);
   const startupMemory = new ProjectMemoryStore(cwd).loadStartupMemory();
   const memoryMd = startupMemory.content || undefined;
+  const loadedTaskContext = loadTaskContext(cwd);
+  const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;
 
-  return { agentsMd, claudeMd, memoryMd, compactInstructions };
+  return { agentsMd, claudeMd, memoryMd, taskContext, compactInstructions };
 }
