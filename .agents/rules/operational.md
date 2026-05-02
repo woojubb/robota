@@ -29,6 +29,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 ### Feature Documentation Requirement
 
 - When a new feature is implemented (new tool, new API, new command, new capability), documentation MUST be updated in the same commit or PR.
+- Follow [documentation-sync.md](documentation-sync.md) for the exact package README and robota.io source paths that must be checked.
 - Required documentation updates:
   1. **SPEC.md** of the affected package — add or update the feature description.
   2. **README.md** of the affected package — add usage examples if the package is published.
