@@ -117,6 +117,10 @@ export {
 } from './managers/agent-factory';
 export { AgentTemplates, type ITemplateApplicationResult } from './managers/agent-templates';
 export { ConversationHistory, ConversationStore } from './managers/conversation-history-manager';
+export {
+  collectAssistantUsageMetadata,
+  type IAssistantUsageMetadata,
+} from './services/execution-usage';
 
 // Core types
 export type { IAgent, IAgentConfig, IAgentTemplate, IRunOptions } from './interfaces/agent';

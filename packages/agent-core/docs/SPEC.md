@@ -192,6 +192,13 @@ This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextD
 
 These types are consumed by `@robota-sdk/agent-sessions` to track cumulative token usage and context window state across conversation turns.
 
+Provider response usage is normalized before assistant messages are committed:
+
+- `inputTokens`/`outputTokens` metadata is the canonical history form for context accounting.
+- Provider-normalized `promptTokens`/`completionTokens`/`totalTokens` metadata and assistant `usage` payloads are accepted and converted to the same canonical metadata.
+- Core must not branch on provider names to perform this conversion.
+- If no exact provider usage exists, context accounting falls back to deterministic character-based estimation.
+
 ### History Entry Helpers
 
 | Export                  | Kind      | Description                                                                                                 |

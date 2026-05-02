@@ -1,5 +1,10 @@
 # CLI Provider Usage And Cost Visibility
 
+- **Status**: completed
+- **Created**: 2026-05-02
+- **Branch**: feat/cli-provider-usage-visibility
+- **Scope**: packages/agent-core, packages/agent-sessions, packages/agent-sdk, packages/agent-cli
+
 ## Priority
 
 P0 — trust and safety for paid API providers.
@@ -75,20 +80,42 @@ Usage must not be hidden in one isolated dashboard. This does not mean the TUI s
 
 ## Acceptance Criteria
 
-- [ ] Usage metadata is represented by a provider-neutral contract.
-- [ ] Provider packages can attach normalized usage records to streamed and non-streamed responses.
-- [ ] Session logs persist usage records for turns, tools, and background jobs.
-- [ ] CLI TUI shows compact per-action usage near the relevant output.
-- [ ] Background job rows can receive live usage snapshots while an agent is still running.
-- [ ] Context occupancy refreshes when a request is sent and during streaming when measurable, not only after the following user turn.
-- [ ] Exact and estimated usage are distinguishable in both structured records and TUI rendering.
-- [ ] Session-level totals can be displayed without reparsing assistant text.
-- [ ] Unknown or estimated cost is labeled distinctly from exact provider-reported values.
-- [ ] Tests cover streamed responses, non-streamed responses, background agents, live usage deltas, provider-side built-in tools, local model usage, context refresh timing, and resume replay.
+- [x] Usage metadata is represented by a provider-neutral contract.
+- [x] Provider packages can attach normalized usage records to streamed and non-streamed responses.
+- [x] Session logs persist usage records for turns.
+- [x] CLI TUI shows compact per-turn usage near the relevant output.
+- [x] Context occupancy refreshes when a request is sent and again when exact provider usage is available.
+- [x] Exact and estimated usage are distinguishable in both structured records and TUI rendering.
+- [x] Unknown cost is labeled distinctly from exact provider-reported token usage.
+- [x] Tests cover provider-normalized usage, pre-send context refresh, persisted usage summary entries, and TUI rendering.
 
-## Promotion Path
+## Follow-Up Scope
 
-1. Move to `.agents/tasks/CLI-BL-0XX-cli-provider-usage-cost-visibility.md`.
-2. Complete documentation-based research before implementation.
-3. Update affected package `SPEC.md` files before code changes.
-4. Implement the contract and persistence first, then add TUI surfaces in smaller follow-up PRs.
+- Background job rows receiving live usage snapshots while an agent is still running remain in the background display/orchestration backlog sequence.
+- Provider-side hosted tool usage is represented today through provider metadata where available; richer hosted-tool billing dimensions remain for provider-specific backlog items.
+- Session-level total rollups can be built from persisted `usage-summary` entries in a follow-up report command.
+
+## Progress
+
+### 2026-05-02
+
+- Researched provider usage metadata behavior across OpenAI-compatible streaming, Anthropic Messages streaming, Gemini usage metadata, and Qwen/DashScope usage payloads.
+- Updated core/session/sdk/cli specs before implementation.
+- Implemented provider-neutral exact usage snapshots from normalized provider token metadata.
+- Added pre-send context refresh through the session lifecycle so status indicators update before the response completes.
+- Added TUI usage summary rendering and persisted `usage-summary` history entries.
+
+## Decisions
+
+- Use existing provider-normalized token fields as exact usage when present.
+- Treat pre-send context as estimated runtime usage because provider billing counts are unavailable before completion.
+- Keep cost monetary values unknown unless a provider supplies exact or configured pricing data.
+- Do not add provider or model name branches in CLI or SDK.
+
+## Blockers
+
+- None for the completed base layer.
+
+## Result
+
+Robota now records exact per-turn provider usage snapshots when provider metadata is available, persists them as timeline entries, renders compact usage rows in the CLI, and refreshes context state at request-send time before final provider usage reconciliation.

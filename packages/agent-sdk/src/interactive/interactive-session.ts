@@ -65,6 +65,7 @@ import {
   isAbortError,
   buildResult,
   buildInterruptedResult,
+  createUsageSummaryEntry,
   persistSession,
 } from './interactive-session-execution.js';
 import {
@@ -189,6 +190,7 @@ export class InteractiveSession {
       resumeSessionId: this.resumeSessionId,
       forkSession: this.forkSession,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
+      onContextUpdate: (state) => this.emit('context_update', state),
       onToolExecution: (event) => this.handleToolExecution(event),
       bare: options.bare,
       allowedTools: options.allowedTools,
@@ -812,6 +814,7 @@ export class InteractiveSession {
         this.getContextState(),
       );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+      if (result.usage) this.history.push(createUsageSummaryEntry(result.usage));
       this.emit('complete', result);
       this.emit('context_update', this.getContextState());
     } catch (err) {
@@ -827,6 +830,7 @@ export class InteractiveSession {
         this.clearStreaming();
         if (result.response)
           this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+        if (result.usage) this.history.push(createUsageSummaryEntry(result.usage));
         this.history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
         this.emit('interrupted', result);
       } else {

@@ -29,6 +29,7 @@ import {
   validateAndExtractResponse,
 } from './execution-round-provider';
 import { executeAndRecordToolCalls } from './execution-round-tools';
+import { collectAssistantUsageMetadata } from './execution-usage';
 export type { IToolResultsOutcome } from './execution-round-tools';
 export {
   computeRoundThinkingContext,
@@ -225,14 +226,8 @@ export async function executeRound(
     return true;
   }
 
-  const inputTokens =
-    typeof assistantResponse.metadata?.['inputTokens'] === 'number'
-      ? assistantResponse.metadata['inputTokens']
-      : 0;
-  const outputTokens =
-    typeof assistantResponse.metadata?.['outputTokens'] === 'number'
-      ? assistantResponse.metadata['outputTokens']
-      : 0;
+  const usageMetadata = collectAssistantUsageMetadata(assistantResponse);
+  const inputTokens = usageMetadata?.inputTokens ?? 0;
 
   if (inputTokens > 0) {
     roundState.cumulativeInputTokens = inputTokens;
@@ -249,11 +244,7 @@ export async function executeRound(
   const messageState: TMessageState = fullContext.signal?.aborted ? 'interrupted' : 'complete';
   conversationStore.commitAssistant(messageState, {
     round: currentRound,
-    ...(inputTokens > 0 && { inputTokens }),
-    ...(outputTokens > 0 && { outputTokens }),
-    ...((inputTokens > 0 || outputTokens > 0) && {
-      usage: { totalTokens: inputTokens + outputTokens, inputTokens, outputTokens },
-    }),
+    ...(usageMetadata ?? {}),
   });
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
