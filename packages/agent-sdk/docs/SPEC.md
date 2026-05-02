@@ -131,7 +131,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
 │   └── task-context.ts         ← active `.agents/tasks/*.md` discovery, selection, formatting, and status updates
-├── src/memory/                 ← project memory store, automatic capture policy, retrieval services
+├── src/memory/                 ← project memory store, reusable capture policy, retrieval services
 ├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
 ├── src/self-hosting/           ← self-hosting verification planner + lifecycle state machine
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
@@ -252,7 +252,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
 - **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
-- **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can persist project memory via the generic command execution bridge. The descriptor owns usage metadata; the system prompt composer must not add separate behavior instructions.
+- **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`/rewind`**: User-invocable code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
 
@@ -346,14 +346,15 @@ Resolved provider fields:
 - **Storage**: `.robota/memory/MEMORY.md` is the project memory index; `.robota/memory/topics/*.md` stores topic details.
 - **Startup injection**: `loadContext()` reads the memory index into `ILoadedContext.memoryMd`; `buildSystemPrompt()` renders it under the neutral `Project Memory` section. Topic files are not injected at startup.
 - **Caps**: Startup memory is capped to the first 200 lines and at most 25KB.
-- **Automatic capture**: `InteractiveSession` owns the SDK memory pipeline. After each completed turn, `MemoryCandidateExtractor` emits durable candidates, `MemoryPolicyEvaluator` applies `disabled | approval_required | auto_save`, and `PendingMemoryStore` queues review records in `.robota/memory/pending.json` when approval is required.
+- **Command-driven access**: `/memory` is the model-visible project memory interface. It is exposed through the `ExecuteCommand` tool using the built-in command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
 - **Sensitive data policy**: Candidate policy must skip obvious secret, token, password, private-key, payment-card, and national-ID style content instead of silently saving it. Additional extractors may be composed later, but they must feed the same policy/store contracts.
-- **Relevant retrieval**: Before a new prompt, `MemoryRetrievalService` scores topic files against the user input, injects only the selected capped topic content as a neutral `<project-memory>` block, and records topic/path provenance in `usedMemoryReferences`.
+- **No hidden turn side effects**: `InteractiveSession` must not automatically prepend topic memory to user prompts and must not create pending memory candidates after a completed turn. Topic retrieval and memory writes happen through explicit `/memory` command execution, whether user-invoked or model-invoked.
+- **Reusable retrieval/capture internals**: `MemoryRetrievalService`, `MemoryCandidateExtractor`, `MemoryPolicyEvaluator`, and `PendingMemoryStore` remain reusable building blocks for explicit commands or future command modules. They are not wired as implicit session lifecycle side effects.
 - **Deduplication**: `ProjectMemoryStore.append()` returns `deduplicated` and must avoid repeating the same normalized topic entry.
 - **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used`.
-- **Audit trail**: Automatic extraction, queue, save, skip, approve, reject, and retrieval events are appended to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
+- **Audit trail**: `/memory approve`, `/memory reject`, and future explicit memory workflows append memory events to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
 - **Ownership**: SDK owns the store and command behavior. CLI only renders slash command results and autocomplete metadata.
-- **Automatic extraction**: Passive sidecar extraction is intentionally not part of this phase because comparable products require explicit user approval for background-generated memories.
+- **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
 
 ### Context Window Management
 

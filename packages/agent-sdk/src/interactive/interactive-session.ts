@@ -82,17 +82,7 @@ import type {
   IInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-init.js';
-import {
-  AutomaticMemoryController,
-  normalizeAutomaticMemoryConfig,
-  renderRetrievedMemory,
-  createMemoryRetrievedEvent,
-} from '../memory/automatic-memory-controller.js';
-import type {
-  IMemoryEvent,
-  IMemoryReference,
-  IMemoryRetrievalResult,
-} from '../memory/automatic-memory-types.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
   IEditCheckpointRestoreResult,
@@ -130,7 +120,6 @@ export class InteractiveSession {
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
   private memoryEvents: IMemoryEvent[] = [];
   private usedMemoryReferences: IMemoryReference[] = [];
-  private memoryController: AutomaticMemoryController | null = null;
   private editCheckpointStore: EditCheckpointStore | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
@@ -188,10 +177,6 @@ export class InteractiveSession {
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
     const config = await loadConfig(options.cwd);
-    this.memoryController = new AutomaticMemoryController({
-      cwd: options.cwd,
-      config: normalizeAutomaticMemoryConfig(config.memory),
-    });
     this.editCheckpointStore = new EditCheckpointStore({ cwd: options.cwd });
     this.session = await createInteractiveSession({
       cwd: options.cwd,
@@ -810,12 +795,11 @@ export class InteractiveSession {
     this.history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
 
     const historyBefore = this.getSessionOrThrow().getHistory().length;
-    const memoryRetrieval = this.retrieveMemoryForPrompt(rawInput ?? input);
-    const runInput = this.composeInputWithMemory(input, memoryRetrieval);
+    this.usedMemoryReferences = [];
 
     try {
       await this.beginEditCheckpointTurn(displayInput ?? input);
-      const response = await this.getSessionOrThrow().run(runInput, rawInput);
+      const response = await this.getSessionOrThrow().run(input, rawInput);
       this.flushStreaming();
       pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
       this.clearStreaming();
@@ -827,7 +811,6 @@ export class InteractiveSession {
         this.getContextState(),
       );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-      this.captureMemoryAfterTurn(rawInput ?? input, result.response);
       this.emit('complete', result);
       this.emit('context_update', this.getContextState());
     } catch (err) {
@@ -864,41 +847,6 @@ export class InteractiveSession {
         this.clearPendingQueue();
         setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
-    }
-  }
-
-  private retrieveMemoryForPrompt(input: string): IMemoryRetrievalResult {
-    const empty: IMemoryRetrievalResult = { content: '', references: [], truncated: false };
-    if (!this.memoryController) return empty;
-    const retrieval = this.memoryController.retrieve(input);
-    this.usedMemoryReferences = retrieval.references;
-    if (retrieval.references.length > 0) {
-      this.memoryEvents.push(createMemoryRetrievedEvent(retrieval.references));
-    }
-    return retrieval;
-  }
-
-  private composeInputWithMemory(input: string, retrieval: IMemoryRetrievalResult): string {
-    const memoryBlock = renderRetrievedMemory(retrieval);
-    return memoryBlock ? `${memoryBlock}\n\n${input}` : input;
-  }
-
-  private captureMemoryAfterTurn(userMessage: string, assistantMessage: string): void {
-    if (!this.memoryController) return;
-    const sessionId = this.getSessionOrThrow().getSessionId();
-    const result = this.memoryController.capture({
-      sessionId,
-      turnId: `${sessionId}:turn:${this.history.length}`,
-      userMessage,
-      assistantMessage,
-    });
-    this.memoryEvents.push(...result.events);
-    if (result.queued.length > 0) {
-      this.history.push(
-        messageToHistoryEntry(
-          createSystemMessage(`Memory candidates pending review: ${result.queued.length}`),
-        ),
-      );
     }
   }
 
