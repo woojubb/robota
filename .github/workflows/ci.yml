@@ -10,31 +10,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Skip duplicate build for main PR
+        if: github.base_ref == 'main'
+        run: echo "build is covered by release-grade verification"
+
       - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
         with:
           fetch-depth: 50
 
       - name: Install pnpm
+        if: github.base_ref != 'main'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: github.base_ref != 'main'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
 
       - name: Fetch base branch
+        if: github.base_ref != 'main'
         run: git fetch origin ${{ github.base_ref }} --depth=50
 
       - name: Show verification plan
+        if: github.base_ref != 'main'
         run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
 
       - name: Upload verification plan
+        if: github.base_ref != 'main'
         uses: actions/upload-artifact@v4
         with:
           name: verification-plan
@@ -42,36 +53,69 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build affected scopes
-        run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-tests --skip-lint --skip-typecheck --skip-record-check --skip-repository-checks
+      - name: Detect build requirement
+        id: build_requirement
+        if: github.base_ref != 'main'
+        run: |
+          node --input-type=module <<'EOF'
+          import { appendFileSync, readFileSync } from 'node:fs';
+
+          const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/ci-plan.json', 'utf8'));
+          const required = plan.scopes.some((scope) => scope.checks.includes('build'));
+          appendFileSync(process.env.GITHUB_OUTPUT, `required=${required ? 'true' : 'false'}\n`);
+
+          if (required) {
+            console.log('Package or app build checks require the root monorepo build.');
+          } else {
+            console.log('No package or app build checks required.');
+          }
+          EOF
+
+      - name: Build monorepo
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        run: pnpm build
+
+      - name: Skip monorepo build when no package build is required
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required != 'true'
+        run: echo "No package or app build checks required."
 
   quality:
     name: quality
     runs-on: ubuntu-latest
 
     steps:
+      - name: Skip duplicate quality checks for main PR
+        if: github.base_ref == 'main'
+        run: echo "quality is covered by release-grade verification"
+
       - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
         with:
           fetch-depth: 50
 
       - name: Install pnpm
+        if: github.base_ref != 'main'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: github.base_ref != 'main'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
 
       - name: Fetch base branch
+        if: github.base_ref != 'main'
         run: git fetch origin ${{ github.base_ref }} --depth=50
 
       - name: Verify affected quality checks
+        if: github.base_ref != 'main'
         run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
 
   security-audit:
@@ -79,35 +123,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Skip duplicate audit for main PR
+        if: github.base_ref == 'main'
+        run: echo "security audit is covered by release-grade verification"
+
       - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
         with:
           fetch-depth: 50
 
+      - name: Fetch base branch
+        if: github.base_ref != 'main'
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Detect dependency graph changes
+        id: dependency_changes
+        if: github.base_ref != 'main'
+        run: |
+          changed_files="$(git diff --name-only --diff-filter=ACMRD origin/${{ github.base_ref }}...HEAD)"
+          if printf '%s\n' "$changed_files" | grep -Eq '(^pnpm-lock.yaml$|(^|/)package.json$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No package manifest or lockfile changes; skipping pnpm audit."
+          fi
+
       - name: Install pnpm
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
-      - name: Install dependencies
+      - name: Install dependencies for audit
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }} --depth=50
-
       - name: Run audit only for dependency graph changes
-        run: |
-          changed_files="$(git diff --name-only --diff-filter=ACMRD origin/${{ github.base_ref }}...HEAD)"
-          if printf '%s\n' "$changed_files" | grep -Eq '(^pnpm-lock.yaml$|(^|/)package.json$)'; then
-            pnpm audit --audit-level high
-          else
-            echo "No package manifest or lockfile changes; skipping pnpm audit."
-          fi
+        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
+        run: pnpm audit --audit-level high
 
   release-grade-verify:
     name: release-grade verification
