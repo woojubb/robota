@@ -27,6 +27,7 @@ export interface IPreparedSubagentWorktree {
 export interface ISubagentWorktreeAdapter {
   prepare(request: ISubagentWorktreePrepareRequest): IPreparedSubagentWorktree;
   isClean(worktree: IPreparedSubagentWorktree): boolean;
+  getStatus?(worktree: IPreparedSubagentWorktree): string;
   remove(worktree: IPreparedSubagentWorktree): void;
 }
 
@@ -130,8 +131,11 @@ function finalizeWorktreeResult(
     ...result,
     metadata: mergeMetadata(result.metadata, {
       isolation: 'worktree',
+      worktreeRemoved: false,
       worktreePath: worktree.worktreePath,
       branchName: worktree.branchName,
+      worktreeStatus: getWorktreeStatus(options, worktree),
+      worktreeNextAction: formatWorktreeNextAction(worktree),
     }),
   };
 }
@@ -145,6 +149,17 @@ function cleanupCleanWorktree(
   options.worktreeAdapter.remove(worktree);
   fireWorktreeHook(options, 'WorktreeRemove', job, worktree, true);
   return true;
+}
+
+function getWorktreeStatus(
+  options: IWorktreeSubagentRunnerOptions,
+  worktree: IPreparedSubagentWorktree,
+): string {
+  return options.worktreeAdapter.getStatus?.(worktree).trim() || '(dirty worktree)';
+}
+
+function formatWorktreeNextAction(worktree: IPreparedSubagentWorktree): string {
+  return `Review ${worktree.worktreePath}, then merge or delete branch ${worktree.branchName}.`;
 }
 
 function mergeMetadata(

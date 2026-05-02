@@ -92,4 +92,40 @@ describe('InteractiveSession edit checkpointing', () => {
       firstCheckpoint!.id,
     ]);
   });
+
+  it('Given the model edits a file When rolling back the checkpoint Then the selected turn is reverted', async () => {
+    const cwd = makeProject();
+    const filePath = join(cwd, 'example.txt');
+    writeFileSync(filePath, 'initial', 'utf8');
+    const provider = createProvider([
+      assistantMessage('', [
+        {
+          id: 'call_1',
+          type: 'function',
+          function: {
+            name: 'Write',
+            arguments: JSON.stringify({ filePath, content: 'first edit' }),
+          },
+        },
+      ]),
+      assistantMessage('first done'),
+    ]);
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      bare: true,
+      permissionMode: 'acceptEdits',
+      allowedTools: ['Write'],
+    });
+
+    await session.submit('write first version');
+    const [firstCheckpoint] = session.listEditCheckpoints();
+
+    expect(readFileSync(filePath, 'utf8')).toBe('first edit');
+
+    await session.rollbackEditCheckpoint(firstCheckpoint!.id);
+
+    expect(readFileSync(filePath, 'utf8')).toBe('initial');
+    expect(session.listEditCheckpoints()).toEqual([]);
+  });
 });

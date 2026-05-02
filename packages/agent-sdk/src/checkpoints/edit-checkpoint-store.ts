@@ -127,6 +127,40 @@ export class EditCheckpointStore {
     };
   }
 
+  async rollbackThroughCheckpoint(
+    sessionId: string,
+    checkpointId: string,
+  ): Promise<IEditCheckpointRestoreResult> {
+    const manifests = this.loadManifests(sessionId);
+    const target = manifests.find((manifest) => manifest.id === checkpointId);
+    if (!target) {
+      throw new Error(`Unknown edit checkpoint: ${checkpointId}`);
+    }
+
+    const rollbackRange = manifests
+      .filter((manifest) => manifest.sequence >= target.sequence)
+      .sort((a, b) => b.sequence - a.sequence);
+
+    let restoredFileCount = 0;
+    for (const manifest of rollbackRange) {
+      for (const file of manifest.files) {
+        await this.restoreFile(sessionId, manifest.id, file);
+        restoredFileCount += 1;
+      }
+    }
+
+    for (const manifest of rollbackRange) {
+      await rm(this.checkpointDir(sessionId, manifest.id), { recursive: true, force: true });
+    }
+
+    return {
+      target: toSummary(target),
+      restoredCheckpointCount: rollbackRange.length,
+      restoredFileCount,
+      removedCheckpointCount: rollbackRange.length,
+    };
+  }
+
   private async createFileRecord(
     originalPath: string,
     active: IActiveEditCheckpointTurn,

@@ -19,6 +19,7 @@ const session = new Session({
   systemMessage: 'You are a helpful assistant.',
   terminal,
   permissions: { allow: ['Read(*)'], deny: [] },
+  autoCompactThreshold: 0.75,
 });
 
 const response = await session.run('Hello!');
@@ -37,7 +38,7 @@ await session.compact('Focus on the API changes');
 | -------------------------- | ------------------------------------------------------------------------------------------------------ |
 | **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                 |
 | **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                   |
-| **Context tracking**       | Token usage from provider metadata, auto-compact at ~83.5%                                             |
+| **Context tracking**       | Token usage from provider metadata, configurable auto-compact threshold (default ~83.5%)               |
 | **Compaction**             | LLM-generated conversation summary to free context space                                               |
 | **Persistence**            | `SessionStore` for JSON file-based session save/load                                                   |
 | **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller |
@@ -53,6 +54,7 @@ await session.compact('Focus on the API changes');
 | `injectMessage(message)`                          | Inject a message into history without running the agent  |
 | `compact(instructions?)`                          | Compress conversation via LLM summary                    |
 | `getContextState()`                               | Token usage: `{ usedTokens, maxTokens, usedPercentage }` |
+| `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled  |
 | `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                              |
 | `getHistory()` / `clearHistory()`                 | Access or clear conversation history                     |
 | `abort()`                                         | Cancel running execution                                 |
@@ -74,6 +76,7 @@ await session.compact('Focus on the API changes');
 | `FileSessionLogger`      | Class     | JSONL file-based session event logger                        |
 | `SilentSessionLogger`    | Class     | No-op session logger                                         |
 | `ISessionOptions`        | Interface | Constructor options for Session                              |
+| `TAutoCompactThreshold`  | Type      | Auto-compact threshold fraction, or `false` to disable       |
 | `TPermissionHandler`     | Type      | Custom permission approval callback                          |
 | `TPermissionResult`      | Type      | Permission decision result (`boolean \| 'allow-session'`)    |
 | `ITerminalOutput`        | Interface | Terminal I/O abstraction (write, prompt, select, spinner)    |

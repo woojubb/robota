@@ -13,12 +13,20 @@ const PERCENT = 100;
 /** Auto-compact when context usage reaches this fraction */
 export const AUTO_COMPACT_THRESHOLD = 0.835;
 
+export type TAutoCompactThreshold = number | false;
+
 export class ContextWindowTracker {
   private contextUsedTokens = 0;
   private readonly contextMaxTokens: number;
+  private readonly autoCompactThreshold: TAutoCompactThreshold;
 
-  constructor(model: string, contextMaxTokens?: number) {
+  constructor(
+    model: string,
+    contextMaxTokens?: number,
+    autoCompactThreshold?: TAutoCompactThreshold,
+  ) {
     this.contextMaxTokens = contextMaxTokens ?? getModelContextWindow(model);
+    this.autoCompactThreshold = normalizeAutoCompactThreshold(autoCompactThreshold);
   }
 
   /** Get current context window state */
@@ -37,7 +45,15 @@ export class ContextWindowTracker {
 
   /** Whether auto-compaction threshold has been exceeded */
   shouldAutoCompact(): boolean {
-    return this.getContextState().usedPercentage >= AUTO_COMPACT_THRESHOLD * PERCENT;
+    if (this.autoCompactThreshold === false) {
+      return false;
+    }
+    return this.getContextState().usedPercentage >= this.autoCompactThreshold * PERCENT;
+  }
+
+  /** The auto-compaction policy for this tracker. */
+  getAutoCompactThreshold(): TAutoCompactThreshold {
+    return this.autoCompactThreshold;
   }
 
   /**
@@ -81,4 +97,23 @@ export class ContextWindowTracker {
   reset(): void {
     this.contextUsedTokens = 0;
   }
+}
+
+function normalizeAutoCompactThreshold(
+  autoCompactThreshold: TAutoCompactThreshold | undefined,
+): TAutoCompactThreshold {
+  if (autoCompactThreshold === undefined) {
+    return AUTO_COMPACT_THRESHOLD;
+  }
+  if (autoCompactThreshold === false) {
+    return false;
+  }
+  if (
+    !Number.isFinite(autoCompactThreshold) ||
+    autoCompactThreshold <= 0 ||
+    autoCompactThreshold > 1
+  ) {
+    throw new RangeError('autoCompactThreshold must be a number greater than 0 and at most 1.');
+  }
+  return autoCompactThreshold;
 }

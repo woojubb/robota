@@ -62,6 +62,7 @@ describe('GitWorktreeIsolationAdapter', () => {
       writeFileSync(join(worktree.worktreePath, 'dirty.txt'), 'dirty\n');
 
       expect(adapter.isClean(worktree)).toBe(false);
+      expect(adapter.getStatus(worktree)).toContain('?? dirty.txt');
     },
     TEST_TIMEOUT_MS,
   );

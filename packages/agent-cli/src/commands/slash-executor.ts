@@ -100,23 +100,6 @@ export function handleClear(
   return { handled: true };
 }
 
-export async function handleCompact(
-  args: string,
-  session: ISlashSession,
-  addMessage: TAddMessage,
-): Promise<ISlashResult> {
-  const instructions = args.trim() || undefined;
-  const before = session.getContextState().usedPercentage;
-  addMessage({ role: 'system', content: 'Compacting context...' });
-  await session.compact(instructions);
-  const after = session.getContextState().usedPercentage;
-  addMessage({
-    role: 'system',
-    content: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
-  });
-  return { handled: true };
-}
-
 export function handleMode(
   arg: string | undefined,
   session: ISlashSession,
@@ -211,7 +194,7 @@ export async function executeSlashCommand(
     case 'clear':
       return handleClear(addMessage, clearMessages, session);
     case 'compact':
-      return handleCompact(args, session, addMessage);
+      return { handled: false }; // Route to SDK system command (context compaction)
     case 'mode':
       return handleMode(args.split(/\s+/)[0] || undefined, session, addMessage);
     case 'model':

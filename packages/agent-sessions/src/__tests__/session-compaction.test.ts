@@ -215,6 +215,35 @@ describe('Session compaction', () => {
     expect(mockRunCalls).toContain('next question');
   });
 
+  it('auto-compact uses a configured threshold', async () => {
+    const session = createSession({ contextMaxTokens: 100, autoCompactThreshold: 0.5 });
+
+    mockHistory = [
+      { role: 'user', content: 'hello', metadata: { inputTokens: 40, outputTokens: 20 } },
+    ];
+
+    await session.run('next question');
+
+    expect(mockClearCount).toBeGreaterThanOrEqual(1);
+    expect(mockInjectCalls[1].content).toContain('[Context Summary]');
+    expect(mockRunCalls).toContain('next question');
+  });
+
+  it('auto-compact can be disabled for sessions that manage compaction externally', async () => {
+    const session = createSession({ contextMaxTokens: 100, autoCompactThreshold: false });
+
+    mockHistory = [
+      { role: 'user', content: 'hello', metadata: { inputTokens: 90, outputTokens: 10 } },
+      { role: 'assistant', content: 'response', metadata: { inputTokens: 90, outputTokens: 10 } },
+    ];
+
+    await session.run('next question');
+
+    expect(mockClearCount).toBe(0);
+    expect(mockInjectCalls).toHaveLength(0);
+    expect(mockRunCalls).toContain('next question');
+  });
+
   it('run() logs error and re-throws when robota.run() fails', async () => {
     // Create a session with a provider whose chat will work for compaction
     const session = createSession();

@@ -2,7 +2,11 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { applyProviderConfiguration, applyProviderSwitch } from '../provider-configuration.js';
+import {
+  applyActiveModelChange,
+  applyProviderConfiguration,
+  applyProviderSwitch,
+} from '../provider-configuration.js';
 
 const TMP_BASE = join(tmpdir(), `robota-provider-configuration-test-${process.pid}`);
 
@@ -101,5 +105,46 @@ describe('provider configuration writes', () => {
     const settings = readJson(settingsPath);
     expect(settings.currentProvider).toBe('openai');
     expect(settings.providers).toBeUndefined();
+  });
+
+  it('updates the highest-precedence active provider profile model', () => {
+    const userPath = join(TMP_BASE, '.robota', 'settings.json');
+    const projectPath = join(TMP_BASE, 'project', '.robota', 'settings.local.json');
+    mkdirSync(join(TMP_BASE, '.robota'), { recursive: true });
+    mkdirSync(join(TMP_BASE, 'project', '.robota'), { recursive: true });
+    writeFileSync(
+      userPath,
+      JSON.stringify({
+        currentProvider: 'anthropic',
+        providers: {
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      projectPath,
+      JSON.stringify({
+        currentProvider: 'qwen',
+        providers: {
+          qwen: { type: 'qwen', model: 'qwen3.6-plus-2026-04-02', apiKey: 'sk-qwen' },
+        },
+      }),
+      'utf8',
+    );
+
+    const result = applyActiveModelChange(join(TMP_BASE, 'project'), 'qwen-plus', {
+      settingsPaths: [userPath, projectPath],
+    });
+
+    expect(result.settingsPath).toBe(projectPath);
+    const userSettings = readJson(userPath);
+    const projectSettings = readJson(projectPath);
+    expect(
+      (userSettings.providers as Record<string, Record<string, unknown>>).anthropic?.model,
+    ).toBe('claude-sonnet-4-6');
+    expect((projectSettings.providers as Record<string, Record<string, unknown>>).qwen?.model).toBe(
+      'qwen-plus',
+    );
   });
 });

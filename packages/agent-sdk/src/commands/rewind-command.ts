@@ -9,7 +9,8 @@ const ELLIPSIS_LENGTH = 3;
 
 function usage(): ICommandResult {
   return {
-    message: 'Usage: rewind [list] | rewind restore <checkpoint-id> | rewind code <checkpoint-id>',
+    message:
+      'Usage: rewind [list] | rewind restore <checkpoint-id> | rewind code <checkpoint-id> | rewind rollback <checkpoint-id>',
     success: false,
   };
 }
@@ -64,6 +65,32 @@ async function restore(session: InteractiveSession, checkpointId: string | undef
   }
 }
 
+async function rollback(session: InteractiveSession, checkpointId: string | undefined) {
+  if (!checkpointId) return usage();
+  try {
+    const result = await session.rollbackEditCheckpoint(checkpointId);
+    return {
+      message: [
+        `Rolled back code through ${result.target.id}.`,
+        `Restored files: ${result.restoredFileCount}`,
+        `Removed checkpoints: ${result.removedCheckpointCount}`,
+      ].join('\n'),
+      success: true,
+      data: {
+        target: result.target,
+        restoredCheckpointCount: result.restoredCheckpointCount,
+        restoredFileCount: result.restoredFileCount,
+        removedCheckpointCount: result.removedCheckpointCount,
+      },
+    };
+  } catch (error) {
+    return {
+      message: error instanceof Error ? error.message : String(error),
+      success: false,
+    };
+  }
+}
+
 export async function executeRewindCommand(
   session: InteractiveSession,
   rawArgs: string,
@@ -77,6 +104,10 @@ export async function executeRewindCommand(
 
   if (subcommand === 'restore' || subcommand === 'code') {
     return restore(session, args[CHECKPOINT_ID_INDEX]);
+  }
+
+  if (subcommand === 'rollback') {
+    return rollback(session, args[CHECKPOINT_ID_INDEX]);
   }
 
   return usage();

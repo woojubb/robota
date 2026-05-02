@@ -1149,14 +1149,14 @@ The runtime worktree runner owns worktree lifecycle orchestration:
 - delegate non-worktree requests unchanged
 - run isolated workers with `cwd` set to the prepared worktree path
 - remove clean worktrees on success or worker failure
-- preserve dirty worktrees and return `worktreePath` plus `branchName` in result metadata
+- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` in result metadata
 - fire SDK hook notifications for `WorktreeCreate` and `WorktreeRemove` when configured
 
 The CLI-owned Git adapter implements only local Git/filesystem I/O:
 
 - create a temporary branch and worktree before the worker starts
 - remove the worktree and branch when the worktree remains clean
-- report whether the worktree has local edits
+- report whether the worktree has local edits and expose `git status --porcelain` output for preserved worktree handoff
 
 When a user invokes a skill slash command with `context: fork`, the CLI must call `interactiveSession.executeSkillCommand(...)`. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection. This keeps fork execution deterministic and preserves the CLI as a thin TUI shell.
 
@@ -1205,11 +1205,12 @@ Edit checkpoint behavior is SDK-owned. The CLI and TUI must not snapshot files, 
 
 Supported SDK-owned edit checkpoint commands exposed through the CLI:
 
-| Command                        | CLI responsibility                                    |
-| ------------------------------ | ----------------------------------------------------- |
-| `/rewind list`                 | Render checkpoint summaries returned by the SDK       |
-| `/rewind restore <checkpoint>` | Pass the selected checkpoint ID to the SDK            |
-| `/rewind code <checkpoint>`    | Alias for SDK code restore; render the restore result |
+| Command                         | CLI responsibility                                        |
+| ------------------------------- | --------------------------------------------------------- |
+| `/rewind list`                  | Render checkpoint summaries returned by the SDK           |
+| `/rewind restore <checkpoint>`  | Pass the selected checkpoint ID to the SDK                |
+| `/rewind code <checkpoint>`     | Alias for SDK code restore; render the restore result     |
+| `/rewind rollback <checkpoint>` | Pass the selected checkpoint ID to SDK inclusive rollback |
 
 Future Esc Esc or picker UI is terminal chrome only. The picker must call SDK APIs or commands; it must not duplicate checkpoint storage or restore algorithms.
 

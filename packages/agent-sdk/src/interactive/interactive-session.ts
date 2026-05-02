@@ -408,6 +408,22 @@ export class InteractiveSession {
     return result;
   }
 
+  async rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+    await this.ensureInitialized();
+    if (this.executing) {
+      throw new Error('Cannot rollback edit checkpoint while a prompt is running.');
+    }
+    const result = await this.getEditCheckpointStore().rollbackThroughCheckpoint(
+      this.getSessionOrThrow().getSessionId(),
+      checkpointId,
+    );
+    this.history.push(
+      messageToHistoryEntry(createSystemMessage(`Rolled back edit checkpoint: ${checkpointId}`)),
+    );
+    this.persistCurrentSession();
+    return result;
+  }
+
   getUsedMemoryReferences(): IMemoryReference[] {
     return [...this.usedMemoryReferences];
   }
