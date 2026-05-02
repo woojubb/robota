@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-qwen",
-  "version": "3.0.0-beta.56",
+  "version": "3.0.0-beta.57",
   "description": "Qwen provider for Robota using Alibaba Cloud Model Studio OpenAI-compatible Chat Completions",
   "type": "module",
   "main": "dist/node/index.js",

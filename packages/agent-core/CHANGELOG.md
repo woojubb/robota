@@ -1,5 +1,15 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.57
+
+### Minor Changes
+
+- f61e2cb: Add Qwen provider-owned Responses API support for built-in web search/fetch tools and pass provider-owned profile options through generic CLI/runtime configuration.
+
+### Patch Changes
+
+- 16c3b6f: Persist and render provider-neutral per-turn usage summaries with pre-send context updates in CLI sessions.
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

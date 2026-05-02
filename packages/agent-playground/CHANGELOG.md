@@ -1,5 +1,20 @@
 # @robota-sdk/agent-playground
 
+## 3.0.0-beta.57
+
+### Patch Changes
+
+- Updated dependencies [16c3b6f]
+- Updated dependencies [f61e2cb]
+- Updated dependencies [822a78b]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+  - @robota-sdk/agent-tools@3.0.0-beta.57
+  - @robota-sdk/agent-event-service@3.0.0-beta.57
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.57
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.57
+  - @robota-sdk/agent-remote-client@3.0.0-beta.57
+  - @robota-sdk/agent-team@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

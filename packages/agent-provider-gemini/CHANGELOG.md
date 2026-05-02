@@ -1,5 +1,17 @@
 # @robota-sdk/agent-provider-gemini
 
+## 3.0.0-beta.57
+
+### Minor Changes
+
+- 3509f1d: Add canonical Gemini provider package and keep the Google provider package as a compatibility wrapper.
+
+### Patch Changes
+
+- Updated dependencies [16c3b6f]
+- Updated dependencies [f61e2cb]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes
