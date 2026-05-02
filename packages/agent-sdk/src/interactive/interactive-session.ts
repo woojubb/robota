@@ -72,6 +72,7 @@ import {
   applyToolStart,
   applyToolEnd,
 } from './interactive-session-streaming.js';
+import { loadConfig } from '../config/config-loader.js';
 import {
   createInteractiveSession,
   injectSavedMessage,
@@ -81,6 +82,17 @@ import type {
   IInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-init.js';
+import {
+  AutomaticMemoryController,
+  normalizeAutomaticMemoryConfig,
+  renderRetrievedMemory,
+  createMemoryRetrievedEvent,
+} from '../memory/automatic-memory-controller.js';
+import type {
+  IMemoryEvent,
+  IMemoryReference,
+  IMemoryRetrievalResult,
+} from '../memory/automatic-memory-types.js';
 export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -111,6 +123,9 @@ export class InteractiveSession {
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private backgroundJobGroups: IBackgroundJobGroupState[] = [];
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
+  private memoryEvents: IMemoryEvent[] = [];
+  private usedMemoryReferences: IMemoryReference[] = [];
+  private memoryController: AutomaticMemoryController | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
   private backgroundTaskUnsubscribe: (() => void) | null = null;
@@ -153,6 +168,8 @@ export class InteractiveSession {
       this.backgroundTaskEvents = restored.backgroundTaskEvents;
       this.backgroundJobGroups = restored.backgroundJobGroups;
       this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
+      this.memoryEvents = restored.memoryEvents;
+      this.usedMemoryReferences = restored.usedMemoryReferences;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
 
@@ -161,9 +178,15 @@ export class InteractiveSession {
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
+    const config = await loadConfig(options.cwd);
+    this.memoryController = new AutomaticMemoryController({
+      cwd: options.cwd,
+      config: normalizeAutomaticMemoryConfig(config.memory),
+    });
     this.session = await createInteractiveSession({
       cwd: options.cwd,
       provider: options.provider,
+      config,
       permissionMode: options.permissionMode,
       maxTurns: options.maxTurns,
       permissionHandler: options.permissionHandler,
@@ -363,6 +386,15 @@ export class InteractiveSession {
   }
   getSession(): Session {
     return this.getSessionOrThrow();
+  }
+
+  getUsedMemoryReferences(): IMemoryReference[] {
+    return [...this.usedMemoryReferences];
+  }
+
+  recordMemoryEvent(event: IMemoryEvent): void {
+    this.memoryEvents.push(event);
+    this.persistCurrentSession();
   }
 
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[] {
@@ -647,6 +679,10 @@ export class InteractiveSession {
         groups: this.backgroundJobGroups,
         groupEvents: this.backgroundJobGroupEvents,
       },
+      {
+        events: this.memoryEvents,
+        usedReferences: this.usedMemoryReferences,
+      },
     );
   }
 
@@ -742,9 +778,11 @@ export class InteractiveSession {
     this.history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
 
     const historyBefore = this.getSessionOrThrow().getHistory().length;
+    const memoryRetrieval = this.retrieveMemoryForPrompt(rawInput ?? input);
+    const runInput = this.composeInputWithMemory(input, memoryRetrieval);
 
     try {
-      const response = await this.getSessionOrThrow().run(input, rawInput);
+      const response = await this.getSessionOrThrow().run(runInput, rawInput);
       this.flushStreaming();
       pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
       this.clearStreaming();
@@ -756,6 +794,7 @@ export class InteractiveSession {
         this.getContextState(),
       );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+      this.captureMemoryAfterTurn(rawInput ?? input, result.response);
       this.emit('complete', result);
       this.emit('context_update', this.getContextState());
     } catch (err) {
@@ -791,6 +830,41 @@ export class InteractiveSession {
         this.clearPendingQueue();
         setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
+    }
+  }
+
+  private retrieveMemoryForPrompt(input: string): IMemoryRetrievalResult {
+    const empty: IMemoryRetrievalResult = { content: '', references: [], truncated: false };
+    if (!this.memoryController) return empty;
+    const retrieval = this.memoryController.retrieve(input);
+    this.usedMemoryReferences = retrieval.references;
+    if (retrieval.references.length > 0) {
+      this.memoryEvents.push(createMemoryRetrievedEvent(retrieval.references));
+    }
+    return retrieval;
+  }
+
+  private composeInputWithMemory(input: string, retrieval: IMemoryRetrievalResult): string {
+    const memoryBlock = renderRetrievedMemory(retrieval);
+    return memoryBlock ? `${memoryBlock}\n\n${input}` : input;
+  }
+
+  private captureMemoryAfterTurn(userMessage: string, assistantMessage: string): void {
+    if (!this.memoryController) return;
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    const result = this.memoryController.capture({
+      sessionId,
+      turnId: `${sessionId}:turn:${this.history.length}`,
+      userMessage,
+      assistantMessage,
+    });
+    this.memoryEvents.push(...result.events);
+    if (result.queued.length > 0) {
+      this.history.push(
+        messageToHistoryEntry(
+          createSystemMessage(`Memory candidates pending review: ${result.queued.length}`),
+        ),
+      );
     }
   }
 

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
 import type { ICommandModule } from '../command-module.js';
+import { PendingMemoryStore } from '../../memory/pending-memory-store.js';
 
 const TMP_BASE = join(tmpdir(), `robota-system-command-${process.pid}`);
 
@@ -74,6 +75,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     sendAgentJob: underlying.sendAgentJob,
     cancelAgentJob: underlying.cancelAgentJob,
     closeAgentJob: underlying.closeAgentJob,
+    ...overrides,
     _underlying: underlying,
     getCwd: () => cwd,
   } as unknown as InteractiveSession;
@@ -289,12 +291,139 @@ describe('SystemCommandExecutor', () => {
     expect(executor.listModelInvocableCommands()).toContainEqual({
       name: '/memory',
       kind: 'builtin-command',
-      description: 'Manage project memory index and topic files.',
+      description: 'Manage project memory, including pending automatic memory candidates.',
       userInvocable: true,
       modelInvocable: true,
-      argumentHint: 'list | show [topic] | add TYPE TOPIC TEXT',
+      argumentHint:
+        'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
       safety: 'write',
     });
+  });
+
+  it('memory pending lists queued automatic memory candidates', async () => {
+    const cwd = makeProject();
+    const pendingStore = new PendingMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+    pendingStore.upsert(
+      {
+        id: 'mem_123',
+        type: 'project',
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+        sourceMessageIds: ['turn-1:user'],
+        confidence: 0.9,
+        createdAt: '2026-05-02T00:00:00.000Z',
+        reason: 'explicit-memory-cue',
+      },
+      'pending',
+      'approval-required',
+    );
+    const executor = new SystemCommandExecutor();
+
+    const result = await executor.execute('memory', createMockSession({}, cwd), 'pending');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('mem_123');
+    expect(result!.message).toContain('project/build');
+    expect(result!.message).toContain('Use pnpm for package scripts.');
+  });
+
+  it('memory approve saves a pending candidate and records an approval event', async () => {
+    const cwd = makeProject();
+    const recordMemoryEvent = vi.fn();
+    const pendingStore = new PendingMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+    pendingStore.upsert(
+      {
+        id: 'mem_123',
+        type: 'project',
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+        sourceMessageIds: ['turn-1:user'],
+        confidence: 0.9,
+        createdAt: '2026-05-02T00:00:00.000Z',
+        reason: 'explicit-memory-cue',
+      },
+      'pending',
+      'approval-required',
+    );
+    const executor = new SystemCommandExecutor();
+
+    const result = await executor.execute(
+      'memory',
+      createMockSession({ recordMemoryEvent }, cwd),
+      'approve mem_123',
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('Saved memory candidate mem_123');
+    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      '(project/build) Use pnpm for package scripts.',
+    );
+    expect(new PendingMemoryStore(cwd).get('mem_123')?.status).toBe('saved');
+    expect(recordMemoryEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'memory_candidate_approved', candidateId: 'mem_123' }),
+    );
+  });
+
+  it('memory reject marks a pending candidate rejected', async () => {
+    const cwd = makeProject();
+    const recordMemoryEvent = vi.fn();
+    const pendingStore = new PendingMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+    pendingStore.upsert(
+      {
+        id: 'mem_123',
+        type: 'project',
+        topic: 'build',
+        text: 'Use pnpm for package scripts.',
+        sourceMessageIds: ['turn-1:user'],
+        confidence: 0.9,
+        createdAt: '2026-05-02T00:00:00.000Z',
+        reason: 'explicit-memory-cue',
+      },
+      'pending',
+      'approval-required',
+    );
+    const executor = new SystemCommandExecutor();
+
+    const result = await executor.execute(
+      'memory',
+      createMockSession({ recordMemoryEvent }, cwd),
+      'reject mem_123',
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('Rejected memory candidate mem_123');
+    expect(new PendingMemoryStore(cwd).get('mem_123')?.status).toBe('rejected');
+    expect(recordMemoryEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'memory_candidate_rejected', candidateId: 'mem_123' }),
+    );
+  });
+
+  it('memory used reports references from the current turn', async () => {
+    const cwd = makeProject();
+    const executor = new SystemCommandExecutor();
+    const session = createMockSession(
+      {
+        getUsedMemoryReferences: vi.fn().mockReturnValue([
+          {
+            topic: 'build',
+            path: join(cwd, '.robota', 'memory', 'topics', 'build.md'),
+            score: 5,
+            truncated: false,
+          },
+        ]),
+      },
+      cwd,
+    );
+
+    const result = await executor.execute('memory', session, 'used');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('build');
+    expect(result!.message).toContain(join(cwd, '.robota', 'memory', 'topics', 'build.md'));
   });
 
   it('rename returns name in data', async () => {
@@ -352,10 +481,11 @@ describe('SystemCommandExecutor', () => {
       {
         name: '/memory',
         kind: 'builtin-command',
-        description: 'Manage project memory index and topic files.',
+        description: 'Manage project memory, including pending automatic memory candidates.',
         userInvocable: true,
         modelInvocable: true,
-        argumentHint: 'list | show [topic] | add TYPE TOPIC TEXT',
+        argumentHint:
+          'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
         safety: 'write',
       },
       {

@@ -41,6 +41,7 @@ export interface IAppendMemoryResult {
   indexPath: string;
   topicPath: string;
   topic: string;
+  deduplicated: boolean;
 }
 
 const INDEX_FILENAME = 'MEMORY.md';
@@ -89,6 +90,10 @@ function formatEntry(date: Date, input: IAppendMemoryInput, topic: string): stri
   const day = date.toISOString().slice(0, DATE_LENGTH);
   const text = input.text.trim().replace(/\s+/g, ' ');
   return `[${day}] (${input.type}/${topic}) ${text}`;
+}
+
+function normalizeMemoryText(text: string): string {
+  return text.trim().replace(/\s+/g, ' ');
 }
 
 export class ProjectMemoryStore {
@@ -163,6 +168,11 @@ export class ProjectMemoryStore {
     const topicPath = join(topicsPath, `${topic}${TOPIC_EXTENSION}`);
     const entry = formatEntry(this.now(), input, topic);
     const topicHeader = existsSync(topicPath) ? '' : `# ${topic}\n\n`;
+    const normalizedText = normalizeMemoryText(input.text);
+
+    if (existsSync(topicPath) && readFileSync(topicPath, 'utf8').includes(`) ${normalizedText}`)) {
+      return { indexPath, topicPath, topic, deduplicated: true };
+    }
 
     if (!existsSync(indexPath)) {
       mkdirSync(root, { recursive: true });
@@ -172,6 +182,6 @@ export class ProjectMemoryStore {
     appendFileSync(indexPath, `- ${entry}\n`, 'utf8');
     appendFileSync(topicPath, `${topicHeader}- ${entry}\n`, 'utf8');
 
-    return { indexPath, topicPath, topic };
+    return { indexPath, topicPath, topic, deduplicated: false };
   }
 }

@@ -11,6 +11,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
+- Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only render command output and notices
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
@@ -1087,6 +1088,24 @@ For implementation details of subagent/background execution (Agent tool, `contex
 Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
 
 ## Memory Management
+
+### Project Memory Review Surface
+
+Project memory behavior is SDK-owned. The CLI and TUI must not extract memory candidates, select relevant topics, decide approval policy, or write `.robota/memory` files directly. They route `/memory` commands through `session.executeCommand()` and render returned messages/data.
+
+Supported SDK-owned project memory commands exposed through the CLI:
+
+| Command                | CLI responsibility                                              |
+| ---------------------- | --------------------------------------------------------------- |
+| `/memory list`         | Render memory index/topic paths returned by the SDK             |
+| `/memory show [topic]` | Render memory index or topic content returned by the SDK        |
+| `/memory add ...`      | Pass arguments to the SDK command; render save/dedup result     |
+| `/memory pending`      | Render pending automatic candidates returned by the SDK         |
+| `/memory approve ID`   | Pass the selected candidate ID to the SDK; render save result   |
+| `/memory reject ID`    | Pass the selected candidate ID to the SDK; render reject result |
+| `/memory used`         | Render SDK-reported memory references used in the latest turn   |
+
+Pending-memory notices emitted into `InteractiveSession` history are presentation data only. TUI components may style or position them, but must not infer candidate IDs or mutate memory state outside SDK commands.
 
 ### Message Windowing
 
