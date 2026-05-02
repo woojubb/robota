@@ -131,6 +131,22 @@ describe('pre-push hook', () => {
 });
 
 // ---------------------------------------------------------------------------
+// release verification
+// ---------------------------------------------------------------------------
+describe('release verification script', () => {
+  it('builds before running harness:scan so dist freshness has artifacts in clean CI', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+    const releaseScript = rootPackage.scripts['harness:verify:release'];
+
+    expect(releaseScript).toContain('pnpm build:deps');
+    expect(releaseScript).toContain('pnpm harness:scan');
+    expect(releaseScript.indexOf('pnpm build:deps')).toBeLessThan(
+      releaseScript.indexOf('pnpm harness:scan'),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // resolveBaseRef
 // ---------------------------------------------------------------------------
 describe('resolveBaseRef', () => {

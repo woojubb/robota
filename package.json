@@ -56,7 +56,7 @@
     "harness:plan": "node scripts/harness/plan-change.mjs",
     "harness:pre-push": "node scripts/harness/pre-push.mjs",
     "harness:verify": "node scripts/harness/verify-change.mjs",
-    "harness:verify:release": "pnpm harness:scan && pnpm build:deps && pnpm test && pnpm typecheck && pnpm lint",
+    "harness:verify:release": "pnpm build:deps && pnpm harness:scan && pnpm test && pnpm typecheck && pnpm lint",
     "harness:record": "node scripts/harness/record-change.mjs",
     "harness:review": "node scripts/harness/review-change.mjs",
     "harness:self-check": "node scripts/harness/self-check.mjs",
