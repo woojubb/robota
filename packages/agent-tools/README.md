@@ -59,7 +59,7 @@ const agent = new Robota({
 
 ## Edit and Write Safety
 
-Recent file tool updates keep write/edit behavior atomic and make Edit tool results easier for higher layers to display. The Edit tool returns line metadata for changed regions, allowing the CLI to render concise context hunks instead of dumping full files or opaque summaries.
+Recent file tool updates keep write/edit behavior atomic and make Edit tool results easier for higher layers to display. Atomic replacements preserve existing target mode bits, so executable scripts remain executable after Write or Edit updates. The Edit tool returns line metadata for changed regions, allowing the CLI to render concise context hunks instead of dumping full files or opaque summaries.
 
 ## Tool Infrastructure
 
