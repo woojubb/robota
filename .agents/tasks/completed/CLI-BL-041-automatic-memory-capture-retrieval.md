@@ -18,6 +18,18 @@ related:
 
 Extend the existing project memory foundation into a real automatic memory system. The current implementation provides `.robota/memory` storage, startup index injection, and `/memory list|show|add`; this follow-up adds automatic candidate extraction, approval/policy controls, relevant-topic retrieval, and session-log evidence.
 
+## Superseded Contract (2026-05-02)
+
+This task's automatic prompt-time retrieval/capture contract was superseded by `CLI-BL-045 Memory Command Driven Orchestration`.
+
+Current Robota behavior is command-driven:
+
+- `.robota/memory/MEMORY.md` remains neutral startup context.
+- Topic retrieval, memory writes, pending review, and provenance reporting happen through `/memory`, whether user-invoked or model-invoked through `ExecuteCommand`.
+- `InteractiveSession` must not automatically prepend topic memory to prompts or create pending memory candidates after a turn.
+- SDK settings no longer expose `memory.policy` or retrieval caps as active user configuration.
+- Automatic extraction/retrieval classes remain internal building blocks for future explicit command modules, not a public top-level SDK feature.
+
 ## Problem
 
 The completed `CLI-BL-010` work created the storage and command foundation, but it does not yet behave like automatic memory. A useful memory system must learn from repeated user feedback, project-specific facts, and durable workflow preferences without requiring the user to manually run `/memory add` every time. It also must retrieve only relevant memory instead of dumping every topic into the system prompt.
@@ -93,7 +105,7 @@ The SDK owns memory capture/retrieval logic because context loading, session per
 
 ## Result
 
-Implemented SDK-owned automatic memory capture/retrieval with approval-required default policy, review commands, bounded topic retrieval, duplicate-safe memory storage, and session-log provenance. Added unit and integration coverage for extraction, policy, storage, retrieval, command review, session persistence, and prompt retrieval injection.
+Implemented the first automatic memory pipeline slice, then superseded its hidden lifecycle wiring with the `CLI-BL-045` command-driven contract. The retained behavior is project memory storage, `/memory` command review/write/provenance, duplicate-safe memory storage, and session-log memory events for explicit command workflows.
 
 ## Test Plan
 

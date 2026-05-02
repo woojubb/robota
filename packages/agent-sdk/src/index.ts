@@ -90,24 +90,6 @@ export type {
   IStartupMemory,
   TMemoryType,
 } from './memory/project-memory-store.js';
-export {
-  AutomaticMemoryController,
-  DEFAULT_AUTOMATIC_MEMORY_CONFIG,
-  normalizeAutomaticMemoryConfig,
-} from './memory/automatic-memory-controller.js';
-export type {
-  IAutomaticMemoryConfig,
-  IMemoryCandidate,
-  IMemoryDecision,
-  IMemoryEvent,
-  IMemoryPendingRecord,
-  IMemoryReference,
-  IMemoryRetrievalResult,
-  TMemoryCandidateStatus,
-  TMemoryDecisionAction,
-  TMemoryPolicyMode,
-} from './memory/automatic-memory-types.js';
-
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {

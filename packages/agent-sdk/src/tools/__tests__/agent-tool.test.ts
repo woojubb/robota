@@ -86,7 +86,6 @@ function makeConfig(overrides?: Partial<IResolvedConfig>): IResolvedConfig {
     defaultTrustLevel: 'moderate',
     provider: { name: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'test-key' },
     permissions: { allow: [], deny: [] },
-    memory: { policy: 'approval_required', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
     env: {},
     ...overrides,
   };
