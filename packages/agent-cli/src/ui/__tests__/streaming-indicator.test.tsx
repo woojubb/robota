@@ -44,6 +44,13 @@ describe('StreamingIndicator', () => {
     expect(frame).not.toContain('Tools:');
   });
 
+  it('preserves CJK and emoji text in streaming output', () => {
+    const text = '긴 한국어 응답과 emoji 🎉 를 스트리밍합니다';
+    const { lastFrame } = render(<StreamingIndicator text={text} activeTools={[]} />);
+
+    expect(lastFrame()).toContain(text);
+  });
+
   it('shows Tools: before Robota: when both present', () => {
     const { lastFrame } = render(
       <StreamingIndicator

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyCjkTextInput,
+  applyCjkTextPaste,
   createCjkTextInputFlowState,
   syncCjkTextInputFlowState,
 } from '../flows/cjk-text-input-flow.js';
@@ -47,6 +48,24 @@ describe('cjk text input flow', () => {
     );
 
     expect(result.effect).toEqual({ type: 'paste', text: 'a\nb', cursor: 0 });
+  });
+
+  it('Given Ink usePaste single-line text When applied Then text is inserted at cursor', () => {
+    const state = { ...createCjkTextInputFlowState('ab'), cursor: 1 };
+
+    const result = applyCjkTextPaste(state, '한글', { canPaste: true });
+
+    expect(result.state).toMatchObject({ value: 'a한글b', cursor: 3 });
+    expect(result.effect).toEqual({ type: 'change', value: 'a한글b' });
+  });
+
+  it('Given Ink usePaste multiline text When applied Then normalized paste effect is emitted', () => {
+    const state = { ...createCjkTextInputFlowState('ab'), cursor: 1 };
+
+    const result = applyCjkTextPaste(state, 'x\r\ny\rz', { canPaste: true });
+
+    expect(result.state).toBe(state);
+    expect(result.effect).toEqual({ type: 'paste', text: 'x\ny\nz', cursor: 1 });
   });
 
   it('Given bracketed multiline paste When end marker arrives Then buffered paste is emitted', () => {

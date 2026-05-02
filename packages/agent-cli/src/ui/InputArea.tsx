@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Box, Text, useInput, useStdout } from 'ink';
+import { Box, Text, useInput, useWindowSize } from 'ink';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
@@ -52,6 +52,7 @@ const BORDER_HORIZONTAL = 2;
 const PADDING_LEFT = 1;
 const PROMPT_WIDTH = 2;
 const INPUT_AREA_OVERHEAD = BORDER_HORIZONTAL + PADDING_LEFT + PROMPT_WIDTH;
+const DEFAULT_TERMINAL_COLUMNS = 80;
 
 export default function InputArea({
   onSubmit,
@@ -77,8 +78,8 @@ export default function InputArea({
     [restoredPromptHistory, localPromptHistory],
   );
   const pasteStore = useRef<Map<number, string>>(new Map());
-  const { stdout } = useStdout();
-  const terminalColumns = stdout?.columns ?? 80;
+  const { columns } = useWindowSize();
+  const terminalColumns = columns > 0 ? columns : DEFAULT_TERMINAL_COLUMNS;
   const availableWidth = Math.max(1, terminalColumns - INPUT_AREA_OVERHEAD);
   const pasteIdRef = useRef(0);
 

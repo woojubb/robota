@@ -974,7 +974,7 @@ In `InputArea`, up/down arrows follow shell-style prompt history navigation:
 
 **Available width calculation:**
 
-- `InputArea` computes `availableWidth` from `useStdout().columns` minus layout constants
+- `InputArea` computes `availableWidth` from Ink 7 `useWindowSize().columns` minus layout constants
 - `availableWidth = terminalColumns - BORDER_HORIZONTAL - PADDING_LEFT - PROMPT_WIDTH`
 - Named constants (no magic numbers): `BORDER_HORIZONTAL = 2`, `PADDING_LEFT = 1`, `PROMPT_WIDTH = 2` ("> ")
 - Layout constants are co-located with InputArea (the component that owns the layout)
@@ -985,18 +985,17 @@ In `InputArea`, up/down arrows follow shell-style prompt history navigation:
 - Up arrow when already on first visual line: no-op (target offset < 0)
 - Down arrow when already on last visual line: no-op (target offset exceeds text)
 - Column position is preserved across line moves via offset arithmetic
-- Terminal resize recalculates available width via `useStdout()`
+- Terminal resize recalculates available width via `useWindowSize()`
 
 ### Paste Handling
 
-**Bracketed paste mode (DECSET 2004):**
+**Paste event lifecycle:**
 
-- `render.tsx` enables on startup (`\x1b[?2004h`), disables on exit (`\x1b[?2004l`)
-- Only enabled when `process.stdin.isTTY && process.stdout.isTTY`
-- Terminal wraps pasted content with `\x1b[200~` (start) and `\x1b[201~` (end) markers
-- Ink's CSI parser strips the ESC prefix, so `useInput` receives `[200~` and `[201~`
-- `cjk-text-input-flow` detects these markers and buffers all input between them
-- On paste-end marker, the complete buffer is flushed with `\r\n`/`\r` normalized to `\n`
+- `CjkTextInput` uses Ink 7 `usePaste`, which owns bracketed paste enable/disable while the input is focused
+- `render.tsx` must not globally toggle DECSET 2004; paste lifecycle belongs to the active input hook, not the app renderer
+- `usePaste` delivers the complete pasted string to `cjk-text-input-flow` as a single event, separate from `useInput`
+- `cjk-text-input-flow` normalizes `\r\n`/`\r` to `\n` before deciding whether to insert text or emit a paste-label effect
+- Legacy bracketed paste marker handling remains in the flow as a fallback for callers that receive `[200~`/`[201~` through `useInput`
 - Deterministic boundary detection — no debounce or timing heuristics
 
 **Single-line vs multiline paste:**
