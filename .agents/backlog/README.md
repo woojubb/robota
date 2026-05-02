@@ -14,7 +14,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | File                                                                                           | Topic                                                         |
 | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [cli-tui-command-output-transcript-collapse.md](cli-tui-command-output-transcript-collapse.md) | CLI TUI command output transcript collapse                    |
-| [cli-tui-status-activity-indicator.md](cli-tui-status-activity-indicator.md)                   | CLI TUI status activity indicator                             |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)                           | Gemini API provider modernization                             |
 | [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)                         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md)                 | OpenAI-compatible provider web search/fetch support           |

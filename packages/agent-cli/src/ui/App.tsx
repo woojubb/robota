@@ -24,7 +24,6 @@ import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import UpdateNotice from './UpdateNotice.js';
 import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
-
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 interface IProps {
@@ -45,9 +44,6 @@ interface IProps {
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
-/**
- * Outer wrapper that manages session switching via React key remounting.
- */
 export default function App(props: IProps): React.ReactElement {
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
 
@@ -105,6 +101,9 @@ function AppInner(
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
+  const activeBackgroundTaskCount = backgroundTasks.filter(
+    (task) => task.status === 'queued' || task.status === 'running',
+  ).length;
 
   const {
     handleSubmit,
@@ -269,6 +268,9 @@ function AppInner(
         sessionId={sessionId}
         messageCount={history.length}
         isThinking={isThinking}
+        activeToolCount={activeTools.length}
+        activeBackgroundTaskCount={activeBackgroundTaskCount}
+        hasPendingPrompt={pendingPrompt !== null}
         contextState={contextState}
         sessionName={sessionName}
         settings={statusLineSettings}

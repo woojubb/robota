@@ -12,6 +12,9 @@ interface IProps {
   sessionId: string;
   messageCount: number;
   isThinking: boolean;
+  activeToolCount: number;
+  activeBackgroundTaskCount: number;
+  hasPendingPrompt: boolean;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   sessionName?: string;
   settings: IStatusLineSettings;
@@ -24,6 +27,9 @@ export default function SessionStatusBar({
   sessionId,
   messageCount,
   isThinking,
+  activeToolCount,
+  activeBackgroundTaskCount,
+  hasPendingPrompt,
   contextState,
   sessionName,
   settings,
@@ -38,6 +44,9 @@ export default function SessionStatusBar({
       sessionId={sessionId}
       messageCount={messageCount}
       isThinking={isThinking}
+      activeToolCount={activeToolCount}
+      activeBackgroundTaskCount={activeBackgroundTaskCount}
+      hasPendingPrompt={hasPendingPrompt}
       contextPercentage={contextState.percentage}
       contextUsedTokens={contextState.usedTokens}
       contextMaxTokens={contextState.maxTokens}
