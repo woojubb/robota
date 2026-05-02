@@ -1,5 +1,10 @@
 # CLI TUI Output Visual Grammar Audit
 
+- **Status**: completed
+- **Created**: 2026-05-02
+- **Branch**: docs/cli-tui-visual-grammar
+- **Scope**: packages/agent-cli
+
 ## Priority
 
 P0 — umbrella audit before broad TUI changes.
@@ -44,13 +49,29 @@ Recent CLI work added background jobs, agent orchestration, markdown diff render
 
 ## Acceptance Criteria
 
-- [ ] Audit document lists every current CLI output surface and its owner.
-- [ ] Visual grammar defines plan, tool, background, command, diff, status, warning, and error presentation.
-- [ ] Each later TUI implementation task references this grammar instead of inventing local formatting.
-- [ ] Tests are identified for both pure formatting modules and Ink render snapshots.
+- [x] Audit document lists every current CLI output surface and its owner.
+- [x] Visual grammar defines plan, tool, background, command, diff, status, warning, and error presentation.
+- [x] Each later TUI implementation task references this grammar instead of inventing local formatting.
+- [x] Tests are identified for both pure formatting modules and Ink render snapshots.
 
-## Promotion Path
+## Progress
 
-1. Move to `.agents/tasks/CLI-BL-0XX-cli-tui-output-visual-grammar-audit.md`.
-2. Complete documentation-based research before implementation.
-3. Update `packages/agent-cli/docs/SPEC.md` with the approved grammar before code changes.
+### 2026-05-02
+
+- Completed documentation-based research against Codex CLI, Claude Code status/subagent/focus surfaces, and GNU diff context behavior.
+- Added the visual grammar owner contract to `packages/agent-cli/docs/SPEC.md`.
+- Converted this backlog into a completed task so implementation follow-ups can reference the package SPEC.
+
+## Decisions
+
+- Treat the CLI TUI as a renderer for structured runtime/session events, not a parser of assistant prose.
+- Use one-level tree rows, compact status markers, bounded previews, and explicit transcript/context hints as the baseline visual vocabulary.
+- Keep provider/model-specific behavior outside generic TUI formatting.
+
+## Blockers
+
+- None.
+
+## Result
+
+The visual grammar is now documented in `packages/agent-cli/docs/SPEC.md`. Follow-up CLI TUI tasks must reuse this grammar instead of inventing local formatting.
