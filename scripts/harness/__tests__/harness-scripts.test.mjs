@@ -103,9 +103,27 @@ describe('CI build workflow', () => {
     expect(content).toContain('run: pnpm build');
     expect(content).toContain('Detect build requirement');
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
+    expect(content).toContain(
+      'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
+    );
+    expect(content).toContain(
+      'package_dist_required: ${{ steps.build_requirement.outputs.required }}',
+    );
     expect(content).not.toContain('Build affected scopes');
     expect(content).not.toContain('--skip-tests --skip-lint --skip-typecheck');
     expect(content).not.toContain('<scope>^...');
+  });
+
+  it('restores root build output before skip-build quality verification', () => {
+    const content = readFileSync('.github/workflows/ci.yml', 'utf8');
+    const restoreIndex = content.indexOf('Restore package build output');
+    const verifyIndex = content.indexOf('Verify affected quality checks');
+
+    expect(content).toContain('needs: build');
+    expect(content).toContain("needs.build.outputs.package_dist_required == 'true'");
+    expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
+    expect(restoreIndex).toBeGreaterThanOrEqual(0);
+    expect(verifyIndex).toBeGreaterThan(restoreIndex);
   });
 
   it('keeps main PR duplicate jobs as fast successful no-ops', () => {
@@ -122,6 +140,64 @@ describe('CI build workflow', () => {
 
     expect(diffIndex).toBeGreaterThanOrEqual(0);
     expect(installIndex).toBeGreaterThan(diffIndex);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deploy workflow build shape
+// ---------------------------------------------------------------------------
+describe('deploy workflow', () => {
+  it('uses one root package build and reuses package dist artifacts for Vercel deploys', () => {
+    const content = readFileSync('.github/workflows/deploy.yml', 'utf8');
+
+    expect(content).toContain('run: pnpm build');
+    expect(content).toContain('package-dist.tgz');
+    expect(content).toContain(
+      'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
+    );
+    expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
+    expect(content).not.toContain('@robota-sdk/agent-playground... build');
+  });
+
+  it('points deploy artifacts and Vercel working directories at apps/agent-web', () => {
+    const content = readFileSync('.github/workflows/deploy.yml', 'utf8');
+
+    expect(content).toContain('apps/agent-web/coverage/lcov.info');
+    expect(content).toContain('working-directory: apps/agent-web');
+    expect(content).not.toContain('apps/web');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// agent-web deploy import shape
+// ---------------------------------------------------------------------------
+describe('agent-web deploy imports', () => {
+  it('uses the browser-safe agent-playground client entry in playground routes', () => {
+    const playgroundPage = readFileSync('apps/agent-web/src/app/playground/page.tsx', 'utf8');
+    const demoPage = readFileSync('apps/agent-web/src/app/playground/demo/page.tsx', 'utf8');
+
+    expect(playgroundPage).toContain('@robota-sdk/agent-playground/client');
+    expect(demoPage).toContain('@robota-sdk/agent-playground/client');
+    expect(playgroundPage).not.toContain("import('@robota-sdk/agent-playground')");
+    expect(demoPage).not.toContain("import('@robota-sdk/agent-playground')");
+  });
+
+  it('declares an agent-playground client subpath export', () => {
+    const packageJson = JSON.parse(readFileSync('packages/agent-playground/package.json', 'utf8'));
+
+    expect(packageJson.exports['./client']).toMatchObject({
+      types: './dist/browser/client.d.ts',
+      import: './dist/browser/client.js',
+      default: './dist/browser/client.js',
+    });
+  });
+
+  it('blocks Node builtin polyfills from the agent-web browser bundle', () => {
+    const content = readFileSync('apps/agent-web/next.config.ts', 'utf8');
+
+    expect(content).toContain('if (!isServer)');
+    expect(content).toContain('fs: false');
+    expect(content).toContain('child_process: false');
   });
 });
 

@@ -8,6 +8,8 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    outputs:
+      package_dist_required: ${{ steps.build_requirement.outputs.required }}
 
     steps:
       - name: Skip duplicate build for main PR
@@ -75,6 +77,19 @@ jobs:
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
         run: pnpm build
 
+      - name: Archive package build output
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
+
+      - name: Upload package build output
+        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-dist
+          path: package-dist.tgz
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Skip monorepo build when no package build is required
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required != 'true'
         run: echo "No package or app build checks required."
@@ -82,6 +97,7 @@ jobs:
   quality:
     name: quality
     runs-on: ubuntu-latest
+    needs: build
 
     steps:
       - name: Skip duplicate quality checks for main PR
@@ -113,6 +129,17 @@ jobs:
       - name: Fetch base branch
         if: github.base_ref != 'main'
         run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Download package build output
+        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore package build output
+        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        run: tar -xzf .artifacts/package-dist/package-dist.tgz
 
       - name: Verify affected quality checks
         if: github.base_ref != 'main'
