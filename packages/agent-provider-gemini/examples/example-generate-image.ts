@@ -1,12 +1,15 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { GoogleProvider } from '../src/provider';
+import { GeminiProvider } from '../src/provider';
 import type { IAssistantMessage } from '@robota-sdk/agent-core';
 
 function resolveApiKey(): string {
-  const apiKey = process.env.GOOGLE_API_KEY ?? process.env.GOOGLE_AI_API_KEY;
+  const apiKey =
+    process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? process.env.GOOGLE_AI_API_KEY;
   if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error('Set GOOGLE_API_KEY (or GOOGLE_AI_API_KEY) before running this example.');
+    throw new Error(
+      'Set GEMINI_API_KEY, GOOGLE_API_KEY, or GOOGLE_AI_API_KEY before running this example.',
+    );
   }
   return apiKey;
 }
@@ -24,7 +27,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const provider = new GoogleProvider({
+  const provider = new GeminiProvider({
     apiKey: resolveApiKey(),
     imageCapableModels: [model],
     defaultResponseModalities: ['TEXT', 'IMAGE'],

@@ -1,6 +1,6 @@
 # CLI-BL-043 Gemini Provider Package Rename Compatibility Migration
 
-- **Status**: backlog
+- **Status**: completed
 - **Created**: 2026-05-02
 - **Scope**: packages/agent-provider-google, packages/agent-provider-gemini, packages/agent-cli, docs, publish registry
 - **Related**: .agents/tasks/completed/CLI-BL-034-google-provider-gemini-rename.md
@@ -42,15 +42,15 @@ Use a compatibility-wrapper migration:
 
 ## Plan
 
-- [ ] Update package specs before code changes for both canonical and compatibility packages.
-- [ ] Add `packages/agent-provider-gemini` with the canonical implementation and public exports.
-- [ ] Convert `packages/agent-provider-google` into a compatibility package that re-exports canonical behavior without duplicating implementation.
-- [ ] Preserve `GoogleProvider` compatibility export and add canonical `GeminiProvider`.
-- [ ] Keep `createGeminiProviderDefinition()` canonical and preserve `google` alias.
-- [ ] Update CLI composition root to import the canonical package without provider-name-specific branches.
-- [ ] Update project structure, publish registry, README files, and migration notes.
-- [ ] Add tests proving both old and new import paths work and resolve equivalent provider definitions.
-- [ ] Run package builds, typecheck, lint, targeted tests, publish scan, and full harness scan.
+- [x] Update package specs before code changes for both canonical and compatibility packages.
+- [x] Add `packages/agent-provider-gemini` with the canonical implementation and public exports.
+- [x] Convert `packages/agent-provider-google` into a compatibility package that re-exports canonical behavior without duplicating implementation.
+- [x] Preserve `GoogleProvider` compatibility export and add canonical `GeminiProvider`.
+- [x] Keep `createGeminiProviderDefinition()` canonical and preserve `google` alias.
+- [x] Update CLI composition root to import the canonical package without provider-name-specific branches.
+- [x] Update project structure, publish registry, README files, and migration notes.
+- [x] Add tests proving both old and new import paths work and resolve equivalent provider definitions.
+- [x] Run package builds, typecheck, lint, targeted tests, publish scan, and full harness scan.
 
 ## Test Plan
 
@@ -73,6 +73,13 @@ Use a compatibility-wrapper migration:
 
 None.
 
+## Progress Notes
+
+- 2026-05-02: Moved the Gemini API implementation into canonical `packages/agent-provider-gemini` and renamed the public class to `GeminiProvider`.
+- 2026-05-02: Recreated `packages/agent-provider-google` as a compatibility package with explicit exports, `GoogleProvider` subclass, and Google-named type aliases.
+- 2026-05-02: Updated CLI default provider composition to import `createGeminiProviderDefinition()` from the canonical package while preserving `google` alias resolution through provider definitions.
+- 2026-05-02: Added the new publishable package to the fixed changeset group, publish registry, publish helper list, workspace lockfile, and project structure docs.
+
 ## Result
 
-Pending.
+Completed. `@robota-sdk/agent-provider-gemini` is now the canonical Gemini API package. `@robota-sdk/agent-provider-google` remains as an explicit compatibility wrapper without pass-through wildcard re-exports.

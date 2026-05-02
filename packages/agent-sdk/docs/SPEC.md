@@ -764,7 +764,7 @@ These rules define which packages each layer is allowed to import from. Violatio
 | `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                 |
 | `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly |
 | `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                            |
-| `agent-provider-*` | Provider creation only        | AnthropicProvider, GoogleProvider (CLI picks which to use)                |
+| `agent-provider-*` | Provider creation only        | AnthropicProvider, GeminiProvider (CLI picks which to use)                |
 
 ### SDK (`agent-sdk`)
 

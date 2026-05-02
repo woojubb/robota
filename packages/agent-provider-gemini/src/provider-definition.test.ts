@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GoogleProvider } from './provider';
+import { GeminiProvider } from './provider';
 import {
   DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,
   DEFAULT_GEMINI_PROVIDER_MODEL,
@@ -45,7 +45,7 @@ describe('createGeminiProviderDefinition', () => {
       apiKey: 'gemini-key',
     });
 
-    expect(provider).toBeInstanceOf(GoogleProvider);
+    expect(provider).toBeInstanceOf(GeminiProvider);
   });
 
   it('fails clearly when apiKey is missing', () => {
