@@ -6,13 +6,13 @@ Working code samples for common Robota SDK use cases.
 
 - [Basic Conversation](./basic-conversation.md) — Simple agent with conversation history
 - [Tool Calling](./tool-calling.md) — Agents that call functions
-- [Multi-Provider](./multi-provider.md) — Switching between Anthropic, OpenAI, Google
+- [Multi-Provider](./multi-provider.md) — Switching between Anthropic, OpenAI, Gemini, Gemma, and Qwen
 - [Streaming](./streaming.md) — Real-time text output
 
 ## SDK
 
-- [One-Shot Query](./one-shot-query.md) — Using `query()` for single-turn interactions
-- [Session Management](./session-management.md) — Multi-turn sessions with `createSession()`
+- [One-Shot Query](./one-shot-query.md) — Using `createQuery()` for single-turn interactions
+- [Session Management](./session-management.md) — Multi-turn sessions with `InteractiveSession`
 
 ## CLI
 

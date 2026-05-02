@@ -35,16 +35,15 @@ console.log(response);
 ## With Sessions (SDK)
 
 ```typescript
-import { createSession, loadConfig, loadContext } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
 
-const session = createSession({
-  config: await loadConfig(process.cwd()),
-  context: await loadContext(process.cwd()),
-  terminal,
-  onTextDelta: (delta) => process.stdout.write(delta),
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
 });
 
-await session.run('Explain the architecture of this project');
+session.on('text_delta', (delta) => process.stdout.write(delta));
+await session.submit('Explain the architecture of this project');
 ```
 
-The `onTextDelta` option on `createSession()` is wired to the provider automatically.
+The `text_delta` event streams output from the underlying provider while `submit()` is running.

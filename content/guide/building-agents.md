@@ -81,18 +81,47 @@ const provider = new GeminiProvider({
 });
 ```
 
+### Gemma
+
+```typescript
+import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
+
+const provider = new GemmaProvider({
+  apiKey: 'lm-studio',
+  baseURL: 'http://localhost:1234/v1',
+  defaultModel: 'gemma-local-model',
+});
+```
+
+Use the Gemma provider for Gemma-family local models served through LM Studio or another OpenAI-compatible endpoint. It owns Gemma-specific reasoning marker filtering and native tool-call text projection.
+
+### Qwen
+
+```typescript
+import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
+
+const provider = new QwenProvider({
+  apiKey: process.env.DASHSCOPE_API_KEY,
+  defaultModel: 'qwen-plus',
+});
+```
+
+Qwen can also enable provider-side hosted web search and extraction through `builtInWebTools`; those tools are separate from Robota local tools and do not bypass local permission checks.
+
 ### Switching Providers
 
 ```typescript
 const agent = new Robota({
   name: 'FlexAgent',
-  aiProviders: [anthropicProvider, openaiProvider, geminiProvider],
+  aiProviders: [anthropicProvider, openaiProvider, geminiProvider, gemmaProvider, qwenProvider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 });
 
 // Switch at any time
 agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 agent.setModel({ provider: 'gemini', model: 'gemini-2.5-pro' });
+agent.setModel({ provider: 'gemma', model: 'gemma-local-model' });
+agent.setModel({ provider: 'qwen', model: 'qwen-plus' });
 ```
 
 ## Tools
@@ -317,13 +346,13 @@ try {
 
 ## Changes from v2.0.0
 
-| v2.0.0                                     | v3.0.0                                                    |
-| ------------------------------------------ | --------------------------------------------------------- |
-| Plugins built into `agent-core`            | 9 plugins extracted to `agent-plugin-*` packages          |
-| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                        |
-| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                        |
-| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                     |
-| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core` |
-| No session management                      | `Session` class in `agent-sessions` with compaction       |
-| No CLI                                     | `agent-cli` with Ink TUI                                  |
-| No SDK layer                               | `agent-sdk` with config/context loading and `query()`     |
+| v2.0.0                                     | v3.0.0                                                      |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| Plugins built into `agent-core`            | 9 plugins extracted to `agent-plugin-*` packages            |
+| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
+| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
+| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                       |
+| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`   |
+| No session management                      | `Session` class in `agent-sessions` with compaction         |
+| No CLI                                     | `agent-cli` with Ink TUI                                    |
+| No SDK layer                               | `agent-sdk` with config/context loading and `createQuery()` |
