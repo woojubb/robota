@@ -4,7 +4,7 @@ import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
 import { renderMarkdown } from './render-markdown.js';
 import type { IToolCallSummary } from '../utils/tool-call-extractor.js';
-import DiffBlock from './DiffBlock.js';
+import ToolDiffBlock from './ToolDiffBlock.js';
 
 interface IProps {
   history: IHistoryEntry[];
@@ -78,7 +78,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
               {'✓'} {s.line}
             </Text>
             {s.diffLines && s.diffLines.length > 0 && (
-              <DiffBlock file={s.diffFile} lines={s.diffLines} />
+              <ToolDiffBlock file={s.diffFile} lines={s.diffLines} />
             )}
           </Box>
         ))}

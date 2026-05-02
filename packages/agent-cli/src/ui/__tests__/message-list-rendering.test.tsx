@@ -17,6 +17,7 @@ import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
+  createToolMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 
@@ -109,6 +110,35 @@ describe('MessageList rendering', () => {
     expect(output).toContain('Patch preview:');
     expect(output).toContain('- const oldValue = true;');
     expect(output).toContain('+ const newValue = true;');
+  });
+
+  it('tool message diff summary renders through markdown diff body format', () => {
+    const toolSummary = [
+      {
+        line: 'Edit(/src/index.ts)',
+        diffFile: '/src/index.ts',
+        diffLines: [
+          { type: 'remove', lineNumber: 1, text: 'const oldValue = true;' },
+          { type: 'add', lineNumber: 1, text: 'const newValue = true;' },
+        ],
+      },
+    ];
+    const history: IHistoryEntry[] = [
+      messageToHistoryEntry(
+        createToolMessage(JSON.stringify(toolSummary), {
+          toolCallId: 'call_1',
+          name: 'tools',
+        }),
+      ),
+    ];
+
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('/src/index.ts');
+    expect(output).toContain('- 1 | const oldValue = true;');
+    expect(output).toContain('+ 1 | const newValue = true;');
+    expect(output).not.toContain('│ 1 - const oldValue = true;');
   });
 
   it('system message renders with "System:" label', () => {
