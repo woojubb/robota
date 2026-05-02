@@ -101,4 +101,37 @@ describe('interactive-session-streaming edit diffs', () => {
       ],
     });
   });
+
+  it('persists command tool result data for collapsed transcript rendering', () => {
+    const state = createState();
+    applyToolStart(state, {
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test' },
+    });
+
+    const toolResultData = JSON.stringify({
+      success: true,
+      output: 'line-1\nline-2',
+      exitCode: 0,
+    });
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test' },
+      success: true,
+      toolResultData,
+    });
+
+    expect(finished?.toolResultData).toBe(toolResultData);
+    pushToolSummaryToHistory(state);
+    expect(state.history[2]?.data).toMatchObject({
+      tools: [
+        {
+          toolName: 'Bash',
+          firstArg: 'pnpm test',
+          toolResultData,
+        },
+      ],
+    });
+  });
 });
