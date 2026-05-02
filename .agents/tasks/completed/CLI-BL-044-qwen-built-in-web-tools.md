@@ -1,7 +1,8 @@
 # CLI-BL-044 Qwen Built-in Web Tools
 
-- **Status**: backlog
+- **Status**: completed
 - **Created**: 2026-05-02
+- **Branch**: feat/qwen-built-in-web-tools
 - **Scope**: packages/agent-provider-qwen, packages/agent-provider-openai-compatible, packages/agent-core, packages/agent-cli
 - **Related**: .agents/tasks/completed/CLI-BL-038-qwen-api-provider.md
 
@@ -69,14 +70,23 @@ Do not implement `code_interpreter` in the first slice. It executes provider-hos
 
 ## Plan
 
-- [ ] Update `agent-provider-qwen` SPEC with built-in web tools ownership and Responses API boundary.
-- [ ] Define a provider-side built-in tool capability contract that generic layers can observe without provider-name branching.
-- [ ] Add Qwen Responses API request and response/event parsing for `web_search` and `web_extractor`.
-- [ ] Add provider fixtures for non-streaming and streaming Responses API output with provider-side web tool events.
-- [ ] Add session-log metadata for provider-side built-in tool usage.
-- [ ] Add CLI docs/settings guidance for enabling Qwen built-in web tools.
-- [ ] Keep `code_interpreter` documented as a future separate backlog item.
-- [ ] Run targeted Qwen provider tests, typecheck, build, lint, and harness scan.
+- [x] Update `agent-provider-qwen` SPEC with built-in web tools ownership and Responses API boundary.
+- [x] Define a provider-side built-in tool capability contract that generic layers can observe without provider-name branching.
+- [x] Add Qwen Responses API request and response/event parsing for `web_search` and `web_extractor`.
+- [x] Add provider fixtures for non-streaming and streaming Responses API output with provider-side web tool events.
+- [x] Add session-log metadata for provider-side built-in tool usage.
+- [x] Add CLI docs/settings guidance for enabling Qwen built-in web tools.
+- [x] Keep `code_interpreter` documented as a future separate backlog item.
+- [x] Run targeted Qwen provider tests, typecheck, build, lint, and harness scan.
+
+## Progress
+
+### 2026-05-02
+
+- Added provider-owned Qwen Responses API support for `web_search` and `web_extractor`.
+- Added a generic provider `options` bag through provider definitions, CLI settings, SDK config loading, and runtime serialization so provider-owned capabilities can be injected without CLI/SDK provider-name branches.
+- Added Qwen provider tests for Responses API request construction, streaming output assembly, provider-side tool provenance, and local function-tool separation.
+- Updated package specs and README guidance for enabling Qwen built-in web tools and deferring provider-hosted code interpreter support.
 
 ## Test Plan
 
@@ -103,4 +113,4 @@ None.
 
 ## Result
 
-Pending.
+Implemented Qwen provider-side WebSearch/WebFetch-equivalent support through the Alibaba Cloud Model Studio OpenAI-compatible Responses API. Generic layers preserve provider-owned options without knowing Qwen-specific settings, and Qwen provider metadata records enabled/used built-in tools separately from local Robota tool calls.

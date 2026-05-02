@@ -157,6 +157,36 @@ describe('loadConfig', () => {
     });
   });
 
+  it('preserves provider-owned options in active provider profiles', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen3.6-plus',
+          apiKey: 'dashscope-key',
+          options: {
+            builtInWebTools: {
+              webSearch: true,
+              webFetch: true,
+              enableThinking: true,
+            },
+          },
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider.options).toEqual({
+      builtInWebTools: {
+        webSearch: true,
+        webFetch: true,
+        enableThinking: true,
+      },
+    });
+  });
+
   it('resolves $ENV: prefix in active provider profile apiKey', async () => {
     process.env.TEST_OPENAI_COMPAT_KEY = 'sk-profile-value';
     writeJson(join(projectDir, 'settings.json'), {
