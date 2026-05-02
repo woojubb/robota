@@ -31,6 +31,16 @@ VERSION=$(node -p "require('./packages/agent-core/package.json').version")
 echo "📦 Version: $VERSION"
 echo ""
 
+# ── Auth preflight ────────────────────────────────────────────
+echo "🔐 Checking npm authentication..."
+if ! NPM_USER=$(npm whoami --registry https://registry.npmjs.org/ 2>/dev/null); then
+  echo "❌ npm authentication required before publish."
+  echo "   Run: npm login --registry https://registry.npmjs.org/"
+  exit 1
+fi
+echo "✓ npm user: $NPM_USER"
+echo ""
+
 # ── Dry-run ───────────────────────────────────────────────────
 echo "🔍 Dry-run publish..."
 pnpm publish -r --no-git-checks --dry-run 2>&1 | grep -E "^\+ @robota-sdk"
