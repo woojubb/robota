@@ -55,7 +55,7 @@ Types owned by this package (SSOT):
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
 | `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)                   |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                                     |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, diagnostic extension fields)        |
 
 Types consumed from other packages (not owned here):
 
@@ -104,6 +104,10 @@ Types consumed from other packages (not owned here):
 
 `ISessionOptions.providerTimeout` is an optional provider idle timeout in milliseconds. When provided, `Session` forwards it to the underlying `Robota` `IAgentConfig.timeout`, where `agent-core` enforces it per provider call and refreshes the idle timer on streaming text deltas.
 
+`ISessionOptions.maxTurns` is an optional maximum number of model/tool rounds for one `Session.run()` call. When provided, `Session` forwards it to `Robota.run()` as `maxExecutionRounds`. When omitted, `Session` forwards `maxExecutionRounds: 0`, which means the session run has no core round cap and is instead bounded by abort, context-window checks, provider idle timeout, and runtime-level controls.
+
+`ISessionOptions.onContextUpdate` is an optional callback fired from the session runtime whenever `ContextWindowTracker` is refreshed. It fires before the provider call using the assembled request history estimate and again after the provider response is committed with exact provider usage when available. Consumers such as `InteractiveSession` forward it as `context_update`.
+
 ### Key Session Methods
 
 | Method                     | Signature                                                            | Description                                                                                                                             |
@@ -126,21 +130,34 @@ Types consumed from other packages (not owned here):
 | `clearSessionAllowedTools` | `() => void`                                                         | Clears all session-scoped allow rules.                                                                                                  |
 | `injectMessage`            | `(role: 'user' \| 'assistant' \| 'system', content: string) => void` | Injects a message into conversation history without triggering an AI response. Used for restoring context on session resume.            |
 
+### Usage And Context Refresh
+
+`Session.run()` performs two context refreshes per successful prompt:
+
+1. **Pre-send estimate** -- after hooks and request payload assembly, `ContextWindowTracker.updateFromHistory()` receives the current history plus the enriched user message. This emits estimated context usage before the provider responds.
+2. **Post-response reconciliation** -- after the assistant response is committed, `ContextWindowTracker.updateFromHistory()` reads exact provider token metadata when available and emits the reconciled context state.
+
+The callback payload is provider-neutral `IContextWindowState`; provider-specific usage details remain in message metadata and are interpreted by higher layers only through normalized token fields.
+
 ### ISessionRecord Fields
 
-| Field                  | Type        | Required | Description                                                                                                                                                       |
-| ---------------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                   | `string`    | Yes      | Unique session identifier                                                                                                                                         |
-| `cwd`                  | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
-| `name`                 | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
-| `createdAt`            | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
-| `updatedAt`            | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
-| `messages`             | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
-| `history`              | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
-| `systemPrompt`         | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
-| `toolSchemas`          | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
-| `backgroundTasks`      | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
-| `backgroundTaskEvents` | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
+| Field                      | Type        | Required | Description                                                                                                                                                       |
+| -------------------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | `string`    | Yes      | Unique session identifier                                                                                                                                         |
+| `cwd`                      | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
+| `name`                     | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
+| `createdAt`                | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
+| `updatedAt`                | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
+| `messages`                 | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
+| `history`                  | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
+| `systemPrompt`             | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
+| `toolSchemas`              | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
+| `backgroundTasks`          | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
+| `backgroundTaskEvents`     | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
+| `backgroundJobGroups`      | `unknown[]` | No       | Latest persisted background job group snapshots for agent/runtime orchestration resume.                                                                           |
+| `backgroundJobGroupEvents` | `unknown[]` | No       | Durable background job group lifecycle events needed for resume/debugging.                                                                                        |
+| `memoryEvents`             | `unknown[]` | No       | SDK-owned automatic memory audit events such as extracted, queued, saved, skipped, approved, rejected, and retrieved.                                             |
+| `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
 
 ### Session Data Migration
 
@@ -162,6 +179,11 @@ The session log records structured events to a JSONL file for diagnostics and re
 - **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
 - **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, `webToolsEnabled` flag, full enriched input, and current message history before the model call.
+- **`provider_request` event** -- Recorded before each provider call. Includes the provider-neutral request envelope: provider, model, messages, tool schemas/options, round, and execution identifiers.
+- **`provider_response_normalized` event** -- Recorded immediately after the provider adapter returns a `TUniversalMessage`. Includes the normalized assistant message, tool call count, provider/model metadata, round, and execution identifiers.
+- **`tool_batch_started` event** -- Recorded before a tool batch executes. Includes batch mode, max concurrency, request count, ordered tool names, round, and execution identifiers.
+- **`tool_execution_request` event** -- Recorded for each parsed tool request. Includes tool name, toolCallId/executionId, parsed parameters, batch index, owner path, round, and execution identifiers.
+- **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, batch index, round, and execution identifiers.
 - **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
 - **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
 - **`session_shutdown` event** -- Recorded once when `Session.shutdown()` begins. Includes the Claude-compatible shutdown reason.
@@ -193,13 +215,15 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI. `Session` stores this callback and passes it to `Robota.run()` as a per-run option; it MUST NOT mutate provider-level `onTextDelta` state because parent/subagent sessions may share the same provider instance.
 
-8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName }` when a tool begins and `{ type: 'end', toolName, success }` when it completes. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
+8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName, toolArgs }` when a tool begins and `{ type: 'end', toolName, toolArgs, success, denied?, toolResultData? }` when it completes. `toolResultData` is the serialized, possibly truncated tool result payload used by higher layers for display metadata such as Edit start lines. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
 
 9. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
 
 10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
 
-11. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+11. **`ISessionOptions.maxTurns`** -- Optional model/tool round cap passed to the underlying Robota run. Omitted means unlimited for the session layer.
+
+12. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Abort Behavior
 

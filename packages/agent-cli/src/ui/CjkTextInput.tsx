@@ -12,10 +12,11 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { Text, useInput } from 'ink';
+import { Text, useInput, usePaste } from 'ink';
 import chalk from 'chalk';
 import {
   applyCjkTextInput,
+  applyCjkTextPaste,
   createCjkTextInputFlowState,
   syncCjkTextInputFlowState,
   type ICjkTextInputFlowState,
@@ -33,6 +34,19 @@ interface IProps {
   availableWidth?: number;
   /** Cursor position hint for external value changes. null = end (default). */
   cursorHint?: number | null;
+  /** When false, parent flows own up/down arrow behavior. */
+  enableVerticalNavigation?: boolean;
+}
+
+interface IInputHandlerOptions {
+  stateRef: React.MutableRefObject<ICjkTextInputFlowState>;
+  onChange: (value: string) => void;
+  onSubmit?: (value: string) => void;
+  onPaste?: (text: string, cursorPosition: number) => void;
+  availableWidth?: number;
+  focus: boolean;
+  enableVerticalNavigation: boolean;
+  forceRender: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export default function CjkTextInput({
@@ -45,6 +59,7 @@ export default function CjkTextInput({
   showCursor = true,
   availableWidth,
   cursorHint = null,
+  enableVerticalNavigation = true,
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
@@ -54,22 +69,16 @@ export default function CjkTextInput({
   // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
   stateRef.current = syncCjkTextInputFlowState(stateRef.current, value, cursorHint);
 
-  useInput(
-    (input, key) => {
-      try {
-        const result = applyCjkTextInput(stateRef.current, input, key, {
-          availableWidth,
-          canPaste: onPaste !== undefined,
-        });
-        stateRef.current = result.state;
-        applyCjkTextInputEffect(result.effect, onChange, onSubmit, onPaste, forceRender);
-      } catch {
-        // Swallow IME-related errors to prevent terminal crash.
-        // Korean IME in raw mode can produce unexpected byte sequences.
-      }
-    },
-    { isActive: focus },
-  );
+  useCjkTextInputHandlers({
+    stateRef,
+    onChange,
+    onSubmit,
+    onPaste,
+    availableWidth,
+    focus,
+    enableVerticalNavigation,
+    forceRender,
+  });
 
   // Do NOT call setCursorPosition() — passing y:0 moves the real terminal cursor
   // to the top of the entire ink output (logo area), which causes Terminal.app to
@@ -90,6 +99,57 @@ export default function CjkTextInput({
       )}
     </Text>
   );
+}
+
+function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
+  usePaste(
+    (text) => {
+      applyCjkFlowSafely(options, () =>
+        applyCjkTextPaste(options.stateRef.current, text, createFlowOptions(options)),
+      );
+    },
+    { isActive: options.focus },
+  );
+
+  useInput(
+    (input, key) => {
+      applyCjkFlowSafely(options, () =>
+        applyCjkTextInput(options.stateRef.current, input, key, createFlowOptions(options)),
+      );
+    },
+    { isActive: options.focus },
+  );
+}
+
+function createFlowOptions(options: IInputHandlerOptions): {
+  availableWidth?: number;
+  canPaste: boolean;
+  enableVerticalNavigation: boolean;
+} {
+  return {
+    availableWidth: options.availableWidth,
+    canPaste: options.onPaste !== undefined,
+    enableVerticalNavigation: options.enableVerticalNavigation,
+  };
+}
+
+function applyCjkFlowSafely(
+  options: IInputHandlerOptions,
+  run: () => ReturnType<typeof applyCjkTextInput>,
+): void {
+  try {
+    const result = run();
+    options.stateRef.current = result.state;
+    applyCjkTextInputEffect(
+      result.effect,
+      options.onChange,
+      options.onSubmit,
+      options.onPaste,
+      options.forceRender,
+    );
+  } catch {
+    // Korean IME in raw mode can produce unexpected byte sequences.
+  }
 }
 
 function applyCjkTextInputEffect(

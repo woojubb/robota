@@ -49,7 +49,48 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('moderate');
     expect(config.permissions.allow).toEqual([]);
     expect(config.permissions.deny).toEqual([]);
+    expect('memory' in config).toBe(false);
     expect(config.env).toEqual({});
+  });
+
+  it('ignores obsolete automatic memory settings', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      memory: {
+        policy: 'auto_save',
+        retrieval: {
+          maxTopics: 5,
+          maxTopicChars: 2000,
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect('memory' in config).toBe(false);
+  });
+
+  it('does not merge obsolete automatic memory settings across layers', async () => {
+    writeJson(join(userDir, 'settings.json'), {
+      memory: {
+        policy: 'disabled',
+        retrieval: {
+          maxTopics: 2,
+          maxTopicChars: 1000,
+        },
+      },
+    });
+    writeJson(join(projectDir, 'settings.json'), {
+      memory: {
+        policy: 'approval_required',
+        retrieval: {
+          maxTopicChars: 4000,
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect('memory' in config).toBe(false);
   });
 
   it('loads project settings from .robota/settings.json', async () => {
@@ -154,6 +195,36 @@ describe('loadConfig', () => {
       apiKey: 'lm-studio',
       baseURL: 'http://localhost:1234/v1',
       timeout: 30000,
+    });
+  });
+
+  it('preserves provider-owned options in active provider profiles', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen3.6-plus',
+          apiKey: 'dashscope-key',
+          options: {
+            builtInWebTools: {
+              webSearch: true,
+              webFetch: true,
+              enableThinking: true,
+            },
+          },
+        },
+      },
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.provider.options).toEqual({
+      builtInWebTools: {
+        webSearch: true,
+        webFetch: true,
+        enableThinking: true,
+      },
     });
   });
 

@@ -42,6 +42,7 @@ await session.compact('Focus on the API changes');
 | **Persistence**            | `SessionStore` for JSON file-based session save/load                                                   |
 | **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller |
 | **Session logging**        | `FileSessionLogger` writes JSONL event logs                                                            |
+| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs          |
 
 ## Key Methods
 
@@ -102,6 +103,19 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 `ISessionRecord` includes a required `history` field (`IHistoryEntry[]`) that stores the full conversation timeline for session persistence, resume, and fork operations. It may also include `backgroundTasks` and `backgroundTaskEvents` so background work can be restored and debugged alongside the conversation. When a session is resumed, history entries are replayed via `Session.injectMessage()`.
 
 Streaming text deltas are written to append-only JSONL session logs as `text_delta` events. Consumers should store high-frequency streaming chunks in JSONL logs/transcripts and keep session JSON focused on resumable snapshots and references.
+
+### Replay-Oriented JSONL Events
+
+`Session.run()` forwards core execution events into the session logger through `onExecutionEvent`. Current events include:
+
+- `provider_request`
+- `provider_response_normalized`
+- `assistant_message_committed`
+- `tool_batch_started`
+- `tool_execution_request`
+- `tool_execution_result`
+
+These events provide provenance for debugging and future deterministic `/resume` replay. Full replay still requires raw provider payload/chunk storage, redaction rules, content-addressed payload references, history mutation events, and validator tooling.
 
 A migration script is available for upgrading session records from older formats. See the package source for details.
 

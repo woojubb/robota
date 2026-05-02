@@ -26,28 +26,23 @@ describe('ConversationStore', () => {
       expect(isToolMessage(messages[0]) && messages[0].toolCallId).toBe('tool-call-1');
     });
 
-    it('should throw error when adding tool message with duplicate toolCallId', () => {
+    it('should preserve provider toolCallId when it repeats in later turns', () => {
       const session = new ConversationStore();
 
-      // Add first tool message
       session.addToolMessageWithId('First tool result', 'tool-call-1', 'testTool', {
         success: true,
       });
 
-      // Attempt to add second tool message with same toolCallId
-      expect(() => {
-        session.addToolMessageWithId(
-          'Second tool result',
-          'tool-call-1', // Same toolCallId
-          'testTool',
-          { success: true },
-        );
-      }).toThrow('Duplicate tool message detected for toolCallId: tool-call-1');
+      session.addToolMessageWithId('Second tool result', 'tool-call-1', 'testTool', {
+        success: true,
+      });
 
-      // Verify only one message was added
       const messages = session.getMessages();
-      expect(messages).toHaveLength(1);
+      expect(messages).toHaveLength(2);
       expect(messages[0].content).toBe('First tool result');
+      expect(messages[1].content).toBe('Second tool result');
+      expect(isToolMessage(messages[0]) && messages[0].toolCallId).toBe('tool-call-1');
+      expect(isToolMessage(messages[1]) && messages[1].toolCallId).toBe('tool-call-1');
     });
 
     it('should allow different toolCallIds', () => {

@@ -64,6 +64,8 @@ export interface ISubagentOptions {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
   }) => void;
 }
 

@@ -10,6 +10,7 @@ export type {
   IDiffLine,
   IExecutionResult,
   IToolSummary,
+  IUsageSnapshot,
   TPermissionResultValue,
   TInteractivePermissionHandler,
   TInteractiveEventName,
@@ -75,6 +76,42 @@ export {
 export type { TToolArgs, IPermissionLists } from '@robota-sdk/agent-core';
 export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 export type { IAIProvider } from '@robota-sdk/agent-core';
+
+// ── Project memory ─────────────────────────────────────────
+export {
+  ProjectMemoryStore,
+  MEMORY_INDEX_MAX_LINES,
+  MEMORY_INDEX_MAX_BYTES,
+  isMemoryType,
+} from './memory/project-memory-store.js';
+export type {
+  IAppendMemoryInput,
+  IAppendMemoryResult,
+  IProjectMemorySummary,
+  IStartupMemory,
+  TMemoryType,
+} from './memory/project-memory-store.js';
+// ── Edit checkpointing ─────────────────────────────────────
+export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
+export type {
+  IEditCheckpointFileRecord,
+  IEditCheckpointManifest,
+  IEditCheckpointRecorder,
+  IEditCheckpointRestoreResult,
+  IEditCheckpointSummary,
+  IEditCheckpointTurnInput,
+} from './checkpoints/index.js';
+
+// ── Self-hosting verification ─────────────────────────────
+export { planSelfHostingVerification, transitionSelfHostingLoop } from './self-hosting/index.js';
+export type {
+  ISelfHostingVerificationPlan,
+  ISelfHostingVerificationPlanInput,
+  ISelfHostingVerificationStep,
+  TSelfHostingLoopEvent,
+  TSelfHostingLoopState,
+  TSelfHostingVerificationPhase,
+} from './self-hosting/index.js';
 
 // ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
@@ -210,6 +247,23 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 
 // ── Paths ───────────────────────────────────────────────────
 export { projectPaths, userPaths } from './paths.js';
+
+// ── Task context ───────────────────────────────────────────
+export {
+  discoverTaskFiles,
+  formatTaskContext,
+  loadTaskContext,
+  parseTaskFile,
+  readCurrentGitBranch,
+  selectRelevantTasks,
+  updateTaskFileStatus,
+} from './context/task-context.js';
+export type {
+  ITaskContextFile,
+  ITaskSelectionOptions,
+  IUpdateTaskFileStatusOptions,
+  TTaskFileStatus,
+} from './context/task-context.js';
 
 // ── Permissions (from agent-core) ───────────────────────────
 export { evaluatePermission } from '@robota-sdk/agent-core';

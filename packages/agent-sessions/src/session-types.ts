@@ -4,6 +4,7 @@
 
 import type {
   IAIProvider,
+  IContextWindowState,
   IToolWithEventService,
   TSessionEndReason,
   TPermissionMode,
@@ -57,6 +58,8 @@ export interface ISessionOptions {
   permissionHandler?: TPermissionHandler;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
+  /** Callback when context window usage is refreshed */
+  onContextUpdate?: (state: IContextWindowState) => void;
   /** Custom prompt-for-approval function (injected from CLI) */
   promptForApproval?: (
     terminal: ITerminalOutput,
@@ -69,6 +72,8 @@ export interface ISessionOptions {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;

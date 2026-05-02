@@ -264,8 +264,10 @@ describe('createSession — appendSystemPrompt option', () => {
 
       const opts = sessionCtorCalls[0]!;
       const systemMessage = opts.systemMessage as string;
-      expect(systemMessage).toContain('Agent — creates one isolated subagent job');
-      expect(systemMessage).toContain('One Agent tool call corresponds to one subagent job');
+      expect(systemMessage).toContain('Agent — creates isolated subagent jobs');
+      expect(systemMessage).toContain(
+        'For explicit multi-agent or parallel-agent requests, use one Agent tool call with jobs',
+      );
       expect(systemMessage).toContain('The tool returns terminal result data');
       expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');

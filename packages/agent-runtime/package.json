@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-runtime",
-  "version": "3.0.0-beta.56",
+  "version": "3.0.0-beta.59",
   "description": "Composable runtime primitives for Robota background tasks and subagent orchestration",
   "type": "module",
   "main": "dist/node/index.js",
@@ -39,6 +39,7 @@
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"

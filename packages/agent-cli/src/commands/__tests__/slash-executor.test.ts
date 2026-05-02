@@ -308,6 +308,8 @@ describe('Command routing completeness', () => {
       'context',
       'resume',
       'background',
+      'memory',
+      'rewind',
       'rename',
       'provider',
       'reset',

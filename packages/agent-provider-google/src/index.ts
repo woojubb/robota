@@ -1,9 +1,14 @@
 /**
- * @robota-sdk/agent-provider-google package
+ * @robota-sdk/agent-provider-google compatibility package.
  *
- * Provides Provider implementation for using Google AI with provider-agnostic TUniversalMessage.
+ * New code should import from @robota-sdk/agent-provider-gemini.
  */
 
-// Main exports
-export * from './provider';
-export * from './types';
+export { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+export type {
+  IGeminiProviderOptions,
+  TGeminiProviderOptionValue,
+} from '@robota-sdk/agent-provider-gemini';
+export * from './provider.js';
+export * from './provider-definition.js';
+export * from './types.js';

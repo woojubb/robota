@@ -35,6 +35,30 @@ function buildBackgroundSubcommands(): ICommand[] {
   ];
 }
 
+function buildRewindSubcommands(): ICommand[] {
+  return [
+    { name: 'list', description: 'List edit checkpoints', source: 'builtin' },
+    { name: 'restore', description: 'Restore code to a checkpoint', source: 'builtin' },
+    { name: 'code', description: 'Restore code to a checkpoint', source: 'builtin' },
+  ];
+}
+
+function buildMemorySubcommands(): ICommand[] {
+  return [
+    { name: 'list', description: 'List project memory topics', source: 'builtin' },
+    { name: 'show', description: 'Show project memory index or a topic', source: 'builtin' },
+    { name: 'add', description: 'Save durable project memory', source: 'builtin' },
+    { name: 'pending', description: 'List pending memory candidates', source: 'builtin' },
+    { name: 'approve', description: 'Approve a pending memory candidate', source: 'builtin' },
+    { name: 'reject', description: 'Reject a pending memory candidate', source: 'builtin' },
+    {
+      name: 'used',
+      description: 'Show memory references used in the current turn',
+      source: 'builtin',
+    },
+  ];
+}
+
 /** Built-in commands. Execute callbacks are wired externally by clients. */
 function createBuiltinCommands(): ICommand[] {
   return [
@@ -72,6 +96,18 @@ function createBuiltinCommands(): ICommand[] {
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
+    {
+      name: 'memory',
+      description: 'Inspect, save, review, and audit project memory',
+      source: 'builtin',
+      subcommands: buildMemorySubcommands(),
+    },
+    {
+      name: 'rewind',
+      description: 'List and restore edit checkpoints',
+      source: 'builtin',
+      subcommands: buildRewindSubcommands(),
+    },
     {
       name: 'provider',
       description: 'Manage provider profiles',

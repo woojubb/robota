@@ -8,7 +8,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-sdk';
 import { type TProviderSettingsDocument } from './provider-settings.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
@@ -18,6 +18,7 @@ import {
   type IProviderConfig,
   type IProviderDefinition,
 } from './provider-definition.js';
+import { resolveEnvReference } from './env-ref.js';
 
 export type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
 
@@ -125,6 +126,7 @@ function resolveActiveProvider(
         apiKey: profile.apiKey,
         baseURL: profile.baseURL,
         timeout: profile.timeout,
+        options: profile.options,
       },
       providerDefinitions,
     );
@@ -139,6 +141,7 @@ function resolveActiveProvider(
         apiKey: provider.apiKey,
         baseURL: provider.baseURL,
         timeout: provider.timeout,
+        options: provider.options,
       },
       providerDefinitions,
     );
@@ -154,6 +157,7 @@ function normalizeProviderConfig(
     apiKey?: string;
     baseURL?: string;
     timeout?: number;
+    options?: Record<string, TUniversalValue>;
   },
   providerDefinitions: readonly IProviderDefinition[],
 ): IProviderConfig {
@@ -162,27 +166,21 @@ function normalizeProviderConfig(
   if (!model) {
     throw new Error(`Provider ${settings.name} requires model`);
   }
+  const apiKeyReference = settings.apiKey ?? defaults.apiKey;
+  const options = settings.options ?? defaults.options;
   return {
     name: settings.name,
     model,
-    apiKey: settings.apiKey !== undefined ? resolveEnvRef(settings.apiKey) : defaults.apiKey,
+    apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
+    ...(options !== undefined && { options }),
   };
-}
-
-function resolveEnvRef(value: string): string {
-  const envPrefix = '$ENV:';
-  if (!value.startsWith(envPrefix)) {
-    return value;
-  }
-  const envName = value.slice(envPrefix.length);
-  return process.env[envName] ?? value;
 }
 
 function resolveProfileApiKey(profile: ISerializableProviderProfile): string | undefined {
   if (profile.apiKey !== undefined) {
-    return profile.apiKey;
+    return resolveEnvReference(profile.apiKey);
   }
   if (profile.apiKeyEnv !== undefined) {
     return process.env[profile.apiKeyEnv];
@@ -233,6 +231,7 @@ export function createProviderFromProfile(
         apiKey: resolveProfileApiKey(profile),
         baseURL: profile.baseURL,
         timeout: profile.timeout,
+        options: profile.options,
       },
       providerDefinitions,
     ),

@@ -7,7 +7,12 @@
  * expects as pre-constructed dependencies.
  */
 
-import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IContextWindowState,
+  IToolWithEventService,
+  IHookTypeExecutor,
+} from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
 import { AgentExecutor } from '../hooks/agent-executor.js';
@@ -38,6 +43,8 @@ import type { IBackgroundProcessToolDeps } from '../tools/background-process-too
 import { createCommandExecutionTool } from '../tools/command-execution-tool.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
+import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
@@ -80,6 +87,8 @@ export interface ICreateSessionOptions {
   permissionHandler?: TPermissionHandler;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
+  /** Callback when context window usage is refreshed */
+  onContextUpdate?: (state: IContextWindowState) => void;
   /** Custom prompt-for-approval function (injected from CLI) */
   promptForApproval?: (
     terminal: ITerminalOutput,
@@ -100,6 +109,8 @@ export interface ICreateSessionOptions {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
@@ -129,6 +140,8 @@ export interface ICreateSessionOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Model-visible command descriptors. */
   commandDescriptors?: ICapabilityDescriptor[];
+  /** Recorder used to snapshot files before Write/Edit tools mutate them. */
+  editCheckpointRecorder?: IEditCheckpointRecorder;
 }
 
 /**
@@ -147,7 +160,9 @@ export function createSession(options: ICreateSessionOptions): Session {
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
 
-  const defaultTools = createDefaultTools();
+  const defaultTools = options.editCheckpointRecorder
+    ? wrapEditCheckpointTools(createDefaultTools(), options.editCheckpointRecorder)
+    : createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
   if (options.modelCommandExecutor && options.isModelCommandInvocable) {
     tools.push(
@@ -261,6 +276,8 @@ export function createSession(options: ICreateSessionOptions): Session {
   const systemMessage = buildPrompt({
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
+    memoryMd: options.context.memoryMd,
+    taskContext: options.context.taskContext,
     toolDescriptions:
       options.toolDescriptions ??
       (backgroundProcessToolDeps
@@ -323,6 +340,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     sessionId,
     permissionHandler: options.permissionHandler,
     onTextDelta: options.onTextDelta,
+    onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,

@@ -22,7 +22,7 @@ function makeTask(
 }
 
 describe('BackgroundTaskPanel', () => {
-  it('renders compact status markers instead of status words', () => {
+  it('renders one-level tree rows with compact status markers instead of raw task ids', () => {
     const { lastFrame } = render(
       <BackgroundTaskPanel
         tasks={[
@@ -34,9 +34,13 @@ describe('BackgroundTaskPanel', () => {
     );
 
     const frame = lastFrame()!;
-    expect(frame).toContain('□ agent:general-purpose agent_1');
-    expect(frame).toContain('■ agent:general-purpose agent_2');
-    expect(frame).toContain('■ agent:general-purpose agent_3');
+    expect(frame).toContain('Background work');
+    expect(frame).toContain('├ □ general-purpose agent');
+    expect(frame).toContain('├ ■ general-purpose agent · Done');
+    expect(frame).toContain('└ ■ general-purpose agent · failed · Timed out');
+    expect(frame).not.toContain('agent_1');
+    expect(frame).not.toContain('agent_2');
+    expect(frame).not.toContain('agent_3');
     expect(frame).not.toContain('running agent:');
     expect(frame).not.toContain('completed agent:');
     expect(frame).not.toContain('failed agent:');
@@ -59,10 +63,10 @@ describe('BackgroundTaskPanel', () => {
     );
 
     const frame = lastFrame()!;
-    expect(frame).toContain('■ agent:general-purpose agent_1');
+    expect(frame).toContain('└ ■ general-purpose agent');
     expect(frame).not.toContain('■ !');
-    expect(frame).toContain('(idle)');
-    expect(frame).toContain(' - Background agent produced no activity');
+    expect(frame).toContain('· timed out · idle');
+    expect(frame).toContain('· Background agent produced no activity');
     expect(frame).not.toContain('timed out agent:');
   });
 });

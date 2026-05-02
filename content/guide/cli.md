@@ -25,8 +25,26 @@ robota --output-format json         # Output format (text/json/stream-json)
 robota --system-prompt "..."        # Replace system prompt
 robota --append-system-prompt "..." # Append to system prompt
 robota --reset                      # Delete user settings and exit
+robota --check-update               # Check npm for a newer CLI version and exit
+robota --disable-update-check        # Skip startup update check for this run
 robota --version                    # Show version
 ```
+
+## CLI Updates
+
+Robota checks npm package metadata for newer `@robota-sdk/agent-cli` versions and uses npm itself for updates. It does not include a self-updater.
+
+```bash
+robota --check-update
+```
+
+When a newer version is available, the CLI prints:
+
+```bash
+npm install -g '@robota-sdk/agent-cli@latest'
+```
+
+Startup checks are rate-limited by a user-level cache at `~/.robota/update-check.json`. They do not create or modify `~/.robota/settings.json`, and they can be skipped for one invocation with `--disable-update-check`.
 
 ## Non-Interactive (Headless) Mode
 
@@ -87,11 +105,23 @@ The TUI (built with React + Ink) provides:
 
 - **Message list** — Conversation history with markdown rendering
 - **Input area** — Text input with slash command autocomplete
-- **Status bar** — Permission mode, model, context usage %, message count
+- **Status bar** — Permission mode, model, context usage %, message count, and activity state
 - **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
 - **Streaming** — Real-time text output as the model responds
+- **Usage summaries** — Provider usage and cost metadata when available
+- **Background work tree** — Running and completed background jobs grouped for quick scanning
 - **ESC abort** — Press ESC during streaming to cancel. Partial response is saved with interrupted state
 - **History SSOT** — Renders from `IHistoryEntry[]` — the universal timeline of chat messages and session events
+
+### Recent TUI Behavior
+
+The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates focus on making long agentic runs readable:
+
+- Command output transcripts collapse automatically so long shell output does not dominate the conversation.
+- Edit tool results render as context hunks with markdown-friendly diff blocks.
+- Provider usage summaries appear in the primary scan path when token/cost metadata is present.
+- Background subagent work renders as tree rows with status activity instead of a flat list.
+- Print/headless mode skips startup update checks so scripted stdout/stderr remain deterministic.
 
 ### useInteractiveSession Hook
 
@@ -308,9 +338,13 @@ When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. 
 
 The AI can spawn subagents via the **Agent** tool to handle complex subtasks (e.g., exploring the codebase, planning multi-step changes). Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
 
+For explicit multi-agent or parallel-agent requests, the model-visible Agent tool now supports a `jobs` array. A single batch tool call starts all valid jobs before waiting for terminal summaries and returns structured per-job results with a shared group identifier. The older single-job `prompt` shape remains supported.
+
 ## Session Logging
 
 Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `text_delta`, `assistant`, `server_tool`, `context`, and `background_task_event`.
+
+The session log also records execution-boundary events emitted by the core run loop: `provider_request`, `provider_response_normalized`, `assistant_message_committed`, `tool_batch_started`, `tool_execution_request`, and `tool_execution_result`. These events are the first replay-grade provenance layer; raw provider payload storage and deterministic `/resume` reconstruction remain active follow-up work.
 
 Background subagents write append-only transcripts to `.robota/logs/{sessionId}/subagents/{agentId}.jsonl`. These transcripts include streaming deltas, tool calls/results, final output, and errors as they occur. The resumable `.robota/sessions/{sessionId}.json` file stores background task snapshots and transcript paths, not every token chunk.
 

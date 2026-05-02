@@ -1,14 +1,14 @@
-# Google Provider Docs Index
+# Google Provider Compatibility Docs
 
-## Scope
+`@robota-sdk/agent-provider-google` remains available as a compatibility wrapper for existing imports and settings that still use the `google` provider profile.
 
-- Documentation entry for `@robota-sdk/agent-provider-google`.
+## Current Guidance
 
-## Canonical Documents
+- New Gemini API code should use `@robota-sdk/agent-provider-gemini`.
+- Existing `GoogleProvider` imports continue to work during migration.
+- The canonical provider profile type is `gemini`; `google` remains accepted as an alias.
 
-- `SPEC.md`: Provider scope, ownership boundaries, and canonical responsibilities.
+## Documents
 
-## Notes
-
-- Keep provider-specific details in this package docs.
-- Keep shared contract-level rules in `@robota-sdk/agent-core` docs.
+- [Package README](../README.md) — migration guidance.
+- [SPEC.md](SPEC.md) — compatibility package contract and migration path.

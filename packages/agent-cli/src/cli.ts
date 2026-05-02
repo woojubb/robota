@@ -25,6 +25,13 @@ import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
+import {
+  checkForCliUpdate,
+  formatCliUpdateCheckMessage,
+  getStartupCliUpdateNotice,
+  shouldRunStartupCliUpdateCheck,
+} from './utils/update-check.js';
+import { createStatusLineCommandModule } from './commands/statusline-command-module.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -107,9 +114,21 @@ export interface IStartCliOptions {
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
+  const version = readVersion();
 
   if (args.version) {
-    process.stdout.write(`robota ${readVersion()}\n`);
+    process.stdout.write(`robota ${version}\n`);
+    return;
+  }
+
+  if (args.checkUpdate) {
+    const result = await checkForCliUpdate({ currentVersion: version, force: true });
+    const message = formatCliUpdateCheckMessage(result);
+    if (result.status === 'error') {
+      process.stderr.write(`${message}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`${message}\n`);
     return;
   }
 
@@ -120,6 +139,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const cwd = process.cwd();
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const commandModules: readonly ICommandModule[] = [
+    createStatusLineCommandModule(),
+    ...(options.commandModules ?? []),
+  ];
+  const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
+    ? getStartupCliUpdateNotice({ currentVersion: version })
+    : undefined;
 
   if (args.configure) {
     await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
@@ -222,7 +248,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       appendSystemPrompt,
       backgroundTaskRunners,
       subagentRunnerFactory,
-      commandModules: options.commandModules,
+      commandModules,
     });
 
     const transport = createHeadlessTransport({
@@ -243,14 +269,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
-    version: readVersion(),
+    version,
     sessionStore,
     resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
-    commandModules: options.commandModules,
+    commandModules,
     providerDefinitions,
+    startupUpdateNoticePromise,
   });
 }

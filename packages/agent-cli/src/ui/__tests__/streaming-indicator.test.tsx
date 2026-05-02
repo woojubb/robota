@@ -44,6 +44,13 @@ describe('StreamingIndicator', () => {
     expect(frame).not.toContain('Tools:');
   });
 
+  it('preserves CJK and emoji text in streaming output', () => {
+    const text = '긴 한국어 응답과 emoji 🎉 를 스트리밍합니다';
+    const { lastFrame } = render(<StreamingIndicator text={text} activeTools={[]} />);
+
+    expect(lastFrame()).toContain(text);
+  });
+
   it('shows Tools: before Robota: when both present', () => {
     const { lastFrame } = render(
       <StreamingIndicator
@@ -91,5 +98,32 @@ describe('StreamingIndicator', () => {
     const globIdx = frame.indexOf('Glob(**/*.md)');
     expect(readIdx).toBeLessThan(bashIdx);
     expect(bashIdx).toBeLessThan(globIdx);
+  });
+
+  it('renders tool diffs through markdown diff body format', () => {
+    const { lastFrame } = render(
+      <StreamingIndicator
+        text=""
+        activeTools={[
+          {
+            toolName: 'Edit',
+            firstArg: '/src/index.ts',
+            isRunning: false,
+            result: 'success',
+            diffFile: '/src/index.ts',
+            diffLines: [
+              { type: 'remove', lineNumber: 1, text: 'const oldValue = true;' },
+              { type: 'add', lineNumber: 1, text: 'const newValue = true;' },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('/src/index.ts');
+    expect(frame).toContain('- 1 | const oldValue = true;');
+    expect(frame).toContain('+ 1 | const newValue = true;');
+    expect(frame).not.toContain('│ 1 - const oldValue = true;');
   });
 });

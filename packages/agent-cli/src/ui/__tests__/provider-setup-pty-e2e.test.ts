@@ -37,7 +37,7 @@ afterEach(() => {
   }
 });
 
-describe('ProviderSetupPrompt PTY E2E', () => {
+describe('provider setup interaction PTY E2E', () => {
   it(
     'submits OpenAI-compatible defaults through a real pseudo terminal',
     async () => {

@@ -7,9 +7,12 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { ICapabilityDescriptor, TCapabilitySafety } from '../capabilities/types.js';
+import type { TCapabilitySafety } from '../capabilities/types.js';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { executeBackgroundCommand } from './background-command.js';
+import { executeMemoryCommand } from './memory-command.js';
+import { executeRewindCommand } from './rewind-command.js';
+export { SystemCommandExecutor } from './system-command-executor.js';
 
 /** Result of a system command execution. */
 export interface ICommandResult {
@@ -33,6 +36,10 @@ export interface ISystemCommand {
 }
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+const MEMORY_COMMAND_DESCRIPTION =
+  'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
+const MEMORY_COMMAND_ARGUMENT_HINT =
+  'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used';
 
 /** Built-in system commands. */
 export function createSystemCommands(): ISystemCommand[] {
@@ -52,6 +59,8 @@ export function createSystemCommands(): ISystemCommand[] {
           '  cost              — Show session info',
           '  context           — Context window info',
           '  permissions       — Permission rules',
+          '  memory            — Manage project memory and pending candidates',
+          '  rewind            — List or restore edit checkpoints',
           '  provider          — Provider profile status and switching',
           '  resume            — Resume a previous session',
           '  background        — List/cancel/close background tasks',
@@ -195,6 +204,21 @@ export function createSystemCommands(): ISystemCommand[] {
       },
     },
     {
+      name: 'memory',
+      description: MEMORY_COMMAND_DESCRIPTION,
+      modelInvocable: true,
+      argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
+      safety: 'write',
+      execute: executeMemoryCommand,
+    },
+    {
+      name: 'rewind',
+      description: 'List edit checkpoints or restore code to a previous checkpoint.',
+      argumentHint: 'list | restore CHECKPOINT_ID | code CHECKPOINT_ID',
+      safety: 'write',
+      execute: executeRewindCommand,
+    },
+    {
       name: 'resume',
       description: 'Resume a previous session',
       execute: (_session, _args) => ({
@@ -236,69 +260,4 @@ export function createSystemCommands(): ISystemCommand[] {
       },
     },
   ];
-}
-
-/** Registry for system commands. */
-export class SystemCommandExecutor {
-  private readonly commands: Map<string, ISystemCommand>;
-
-  constructor(commands?: ISystemCommand[]) {
-    this.commands = new Map();
-    for (const cmd of commands ?? createSystemCommands()) {
-      this.commands.set(cmd.name, cmd);
-    }
-  }
-
-  /** Register an additional command. */
-  register(command: ISystemCommand): void {
-    this.commands.set(command.name, command);
-  }
-
-  /** Execute a command by name. Returns null if command not found. */
-  async execute(
-    name: string,
-    session: InteractiveSession,
-    args: string,
-  ): Promise<ICommandResult | null> {
-    const cmd = this.commands.get(name);
-    if (!cmd) return null;
-    return await cmd.execute(session, args);
-  }
-
-  /** List all registered commands. */
-  listCommands(): ISystemCommand[] {
-    return [...this.commands.values()];
-  }
-
-  listModelInvocableCommands(): ICapabilityDescriptor[] {
-    return this.listCommands()
-      .filter((command) => command.modelInvocable === true)
-      .map((command) => ({
-        name: `/${command.name}`,
-        kind: 'builtin-command',
-        description: command.description,
-        userInvocable: command.userInvocable !== false,
-        modelInvocable: true,
-        ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
-        ...(command.safety ? { safety: command.safety } : {}),
-      }));
-  }
-
-  isModelInvocable(name: string): boolean {
-    return this.commands.get(name)?.modelInvocable === true;
-  }
-
-  async executeModelInvocable(
-    name: string,
-    session: InteractiveSession,
-    args: string,
-  ): Promise<ICommandResult | null> {
-    if (!this.isModelInvocable(name)) return null;
-    return this.execute(name, session, args);
-  }
-
-  /** Check if a command exists. */
-  hasCommand(name: string): boolean {
-    return this.commands.has(name);
-  }
 }

@@ -7,7 +7,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { IToolState } from '@robota-sdk/agent-sdk';
 import { renderMarkdown } from './render-markdown.js';
-import DiffBlock from './DiffBlock.js';
+import ToolDiffBlock from './ToolDiffBlock.js';
 
 function getToolStyle(t: IToolState): {
   color: string;
@@ -50,7 +50,7 @@ export default function StreamingIndicator({ text, activeTools }: IProps): React
                   {icon} {t.toolName}({t.firstArg})
                 </Text>
                 {t.diffLines && t.diffLines.length > 0 && (
-                  <DiffBlock file={t.diffFile} lines={t.diffLines} />
+                  <ToolDiffBlock file={t.diffFile} lines={t.diffLines} />
                 )}
               </Box>
             );

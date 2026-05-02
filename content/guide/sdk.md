@@ -123,8 +123,14 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 
 ```json
 {
-  "currentProvider": "openai",
+  "currentProvider": "qwen",
   "providers": {
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    },
     "openai": {
       "type": "openai",
       "model": "supergemma4-26b-uncensored-v2",
@@ -153,7 +159,7 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 }
 ```
 
-`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. LM Studio and other OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`; the legacy single `provider` object remains supported when no active profile is configured.
+`currentProvider` selects the active profile from `providers`. The active profile is normalized into the resolved `provider` object with `name`, `model`, `apiKey`, optional `baseURL`, and optional `timeout`. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`; generic OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`. The legacy single `provider` object remains supported when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 
@@ -201,6 +207,8 @@ const systemMessage = buildSystemPrompt({
 | **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                        |
 | **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                   |
 | **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                           |
+| **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                        |
+| **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                        |
 
 ## Subagent Sessions
 
@@ -217,6 +225,21 @@ const subSession = createSubagentSession({
 
 const result = await subSession.run();
 ```
+
+### Agent Tool Batch Jobs
+
+The model-visible `Agent` tool supports both the existing single-job shape and a batch `jobs` shape for explicit parallel requests:
+
+```typescript
+{
+  jobs: [
+    { prompt: 'Review the API contract', subagent_type: 'Plan' },
+    { prompt: 'Inspect implementation risks', subagent_type: 'Explore' },
+  ],
+}
+```
+
+When `jobs` is present, the Agent tool starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. This gives the runtime a deterministic path for requests such as "run two agents in parallel" even when the model emits only one tool call.
 
 ### Tool Filtering
 
@@ -257,6 +280,12 @@ The SDK appends a framework suffix to the subagent's system prompt to shape its 
 ### Subagent Transcript
 
 Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` for debugging and audit purposes. Streaming text deltas are appended to this transcript while the provider request is still running. The parent session JSON stores the background task snapshot and transcript path; it does not rewrite the whole session file for every token chunk.
+
+## Replay-Grade Session Events
+
+`Session.run()` now forwards core execution events through the session logger. Current events include provider request envelopes, normalized provider responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
+
+These events are append-only provenance for debugging and future `/resume` replay. Full deterministic replay still requires raw provider response/chunk storage, payload reference handling, redaction rules, history mutation events, and a replay validator.
 
 ## Always-Streaming Policy
 

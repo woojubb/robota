@@ -6,6 +6,8 @@ export const DEFAULT_ANTHROPIC_PROVIDER_MODEL = 'claude-sonnet-4-6';
 export function createAnthropicProviderDefinition(): IProviderDefinition {
   return {
     type: 'anthropic',
+    displayName: 'Anthropic',
+    description: 'Claude models through Anthropic API',
     defaults: {
       model: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
     },

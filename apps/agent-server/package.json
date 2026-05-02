@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-server",
-  "version": "3.0.1-beta.12",
+  "version": "3.0.1-beta.15",
   "description": "Agent Server - AI provider proxy and Playground WebSocket server",
   "private": true,
   "keywords": [
@@ -28,6 +28,7 @@
     "serve:functions": "npm run build:functions && firebase emulators:start --only functions",
     "deploy:functions": "npm run build:functions && firebase deploy --only functions",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist lib"

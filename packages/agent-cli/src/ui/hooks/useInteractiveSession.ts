@@ -36,19 +36,6 @@ import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
 
-/** Side-effect flags for TUI-specific actions */
-export interface ISideEffects {
-  _pendingModelId?: string;
-  _pendingLanguage?: string;
-  _resetRequested?: boolean;
-  _exitRequested?: boolean;
-  _triggerPluginTUI?: boolean;
-  _triggerResumePicker?: boolean;
-  _sessionName?: string;
-  _pendingProviderProfile?: string;
-  _pendingProviderSetupType?: string;
-}
-
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 export interface IInteractiveSessionProps {
@@ -206,6 +193,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('complete', manager.onComplete);
     interactiveSession.on('interrupted', manager.onInterrupted);
     interactiveSession.on('error', manager.onError);
+    interactiveSession.on('context_update', manager.onContextUpdate);
     interactiveSession.on('background_task_event', manager.onBackgroundTaskEvent);
 
     // Sync context state and restored history after async initialization
@@ -237,6 +225,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       interactiveSession.off('complete', manager.onComplete);
       interactiveSession.off('interrupted', manager.onInterrupted);
       interactiveSession.off('error', manager.onError);
+      interactiveSession.off('context_update', manager.onContextUpdate);
       interactiveSession.off('background_task_event', manager.onBackgroundTaskEvent);
     };
   }, [interactiveSession, manager]);

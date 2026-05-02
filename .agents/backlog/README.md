@@ -13,9 +13,7 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 | File                                                                           | Topic                                                         |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| [cli-version-update-check.md](cli-version-update-check.md)                     | CLI version update check and assisted upgrade                 |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)           | Gemini API provider modernization                             |
 | [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |
 | [openai-provider-modernization.md](openai-provider-modernization.md)           | OpenAI provider modernization                                 |
-| [qwen-api-provider.md](qwen-api-provider.md)                                   | Qwen API provider support                                     |

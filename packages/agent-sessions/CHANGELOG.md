@@ -1,5 +1,33 @@
 # @robota-sdk/agent-sessions
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.59
+
+## 3.0.0-beta.58
+
+### Patch Changes
+
+- Refresh package docs and robota.io content for the beta 57 feature set.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.58
+
+## 3.0.0-beta.57
+
+### Minor Changes
+
+- b80e51e: Add SDK-owned automatic project memory capture, approval review, bounded retrieval, and session-log provenance.
+
+### Patch Changes
+
+- 16c3b6f: Persist and render provider-neutral per-turn usage summaries with pre-send context updates in CLI sessions.
+- 26a1718: Preserve and render Edit tool diff metadata in persisted CLI tool summaries.
+- Updated dependencies [16c3b6f]
+- Updated dependencies [f61e2cb]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

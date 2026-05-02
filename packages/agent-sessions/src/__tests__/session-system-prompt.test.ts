@@ -14,6 +14,7 @@ import { Session } from '../session.js';
 let capturedConfig: Record<string, unknown> | null = null;
 let mockRunResult = 'mock response';
 let mockRunDeltas: string[] = [];
+let mockRunOptions: unknown[] = [];
 
 vi.mock('@robota-sdk/agent-core', async () => {
   const actual = await vi.importActual('@robota-sdk/agent-core');
@@ -23,6 +24,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
       capturedConfig = config;
       return {
         run: vi.fn().mockImplementation(async (_message: string, options?: unknown) => {
+          mockRunOptions.push(options);
           const onTextDelta = (options as { onTextDelta?: (delta: string) => void } | undefined)
             ?.onTextDelta;
           for (const delta of mockRunDeltas) onTextDelta?.(delta);
@@ -85,6 +87,7 @@ describe('Session — system prompt delivery', () => {
     capturedConfig = null;
     mockRunResult = 'mock response';
     mockRunDeltas = [];
+    mockRunOptions = [];
   });
 
   it('should include AGENTS.md content in system prompt', () => {
@@ -201,6 +204,33 @@ describe('Session — system prompt delivery', () => {
     expect(capturedConfig!['timeout']).toBe(1234);
   });
 
+  it('passes maxTurns to Robota.run as maxExecutionRounds', async () => {
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'test system',
+      terminal: MOCK_TERMINAL,
+      maxTurns: 17,
+    });
+
+    await session.run('hello');
+
+    expect(mockRunOptions[0]).toMatchObject({ maxExecutionRounds: 17 });
+  });
+
+  it('uses unlimited core execution rounds when maxTurns is omitted', async () => {
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'test system',
+      terminal: MOCK_TERMINAL,
+    });
+
+    await session.run('hello');
+
+    expect(mockRunOptions[0]).toMatchObject({ maxExecutionRounds: 0 });
+  });
+
   it('logs the complete system prompt and tool schemas at session initialization', () => {
     const systemMessage = '## Capabilities\n- /agent <prompt>: Start a background agent job';
     const logger = { log: vi.fn() };
@@ -285,6 +315,38 @@ describe('Session — system prompt delivery', () => {
       expect.any(String),
       'text_delta',
       expect.objectContaining({ delta: 'world' }),
+    );
+  });
+
+  it('logs execution boundary events emitted by the core run loop', async () => {
+    const logger = { log: vi.fn() };
+
+    mockRunResult = 'done';
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'System prompt',
+      terminal: MOCK_TERMINAL,
+      sessionLogger: logger,
+    });
+
+    await session.run('hello');
+
+    const options = mockRunOptions[0] as {
+      onExecutionEvent?: (event: string, data: Record<string, string>) => void;
+    };
+    options.onExecutionEvent?.('provider_response_normalized', {
+      executionId: 'exec-1',
+      round: '1',
+    });
+
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'provider_response_normalized',
+      expect.objectContaining({
+        executionId: 'exec-1',
+        round: '1',
+      }),
     );
   });
 });

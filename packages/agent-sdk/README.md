@@ -4,8 +4,6 @@ Programmatic SDK for building AI agents with Robota. Provides `InteractiveSessio
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-sessions`, `agent-provider-anthropic`) into a cohesive SDK.
 
-**Version**: 3.0.0-beta.33
-
 ## Installation
 
 ```bash
@@ -46,6 +44,11 @@ const response = await query('Analyze the code', {
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
 - **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider API keys
 - **Context Window Management** — Token tracking, auto-compaction at ~83.5%, manual `session.compact()`
+- **Background Jobs** — Runtime-managed subagent tasks with transcripts and task snapshots
+- **Agent Batch Jobs** — `Agent({ jobs: [...] })` starts explicit parallel subagent requests deterministically
+- **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
+- **Project Memory** — Command-driven memory capture and retrieval surfaces
+- **Replay Events** — Session execution can forward provider/tool boundary events into append-only logs
 - **Bundle Plugin System** — Install and manage reusable extensions packaged as bundle plugins
 
 ## Architecture
@@ -56,6 +59,8 @@ agent-sdk (assembly layer)
   │     └── Session       ← generic session (agent-sessions)
   ├── SystemCommandExecutor ← SDK-level command execution
   ├── CommandRegistry / BuiltinCommandSource / SkillCommandSource
+  ├── Agent tool batch jobs and background orchestration
+  ├── Edit checkpoints and command-driven memory
   ├── query()             ← one-shot entry point
   ├── createSession()     ← assembly factory
   └── deps:
@@ -348,8 +353,14 @@ Settings are merged from lowest to highest priority:
 ```json
 {
   "defaultMode": "default",
-  "currentProvider": "gemma",
+  "currentProvider": "qwen",
   "providers": {
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    },
     "gemma": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
@@ -374,7 +385,7 @@ Settings are merged from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects the active entry from `providers`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
+`currentProvider` selects the active entry from `providers`. Qwen Model Studio profiles use `type: "qwen"` with the documented DashScope OpenAI-compatible `baseURL`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
 
 ## Permission Modes
 

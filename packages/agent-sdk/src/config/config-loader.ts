@@ -172,6 +172,7 @@ function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
       apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
       ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
       ...(profile.timeout !== undefined && { timeout: profile.timeout }),
+      ...(profile.options !== undefined && { options: profile.options }),
     };
   }
 
@@ -181,6 +182,7 @@ function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
     apiKey: merged.provider?.apiKey ?? DEFAULTS.provider.apiKey,
     ...(merged.provider?.baseURL !== undefined && { baseURL: merged.provider.baseURL }),
     ...(merged.provider?.timeout !== undefined && { timeout: merged.provider.timeout }),
+    ...(merged.provider?.options !== undefined && { options: merged.provider.options }),
   };
 }
 

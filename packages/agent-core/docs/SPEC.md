@@ -79,8 +79,8 @@ This package is the single source of truth (SSOT) for the following types:
 | `TMetadata`                 | `interfaces/types.ts`               | Metadata record type                                                                                                                                                                                                  |
 | `IAgentConfig`              | `interfaces/agent.ts`               | Agent configuration contract                                                                                                                                                                                          |
 | `IAIProvider`               | `interfaces/provider.ts`            | Provider integration contract                                                                                                                                                                                         |
-| `IProviderDefinition`       | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with defaults, setup prompts, validation requirements, probe hooks, and `createProvider()` factories.                                                |
-| `IProviderConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions.                                                                                                                                                   |
+| `IProviderDefinition`       | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with display metadata, compatibility aliases, defaults, setup prompts, validation requirements, probe hooks, and `createProvider()` factories.       |
+| `IProviderConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions, including a provider-owned `options` bag that generic layers pass through without interpreting.                                                   |
 | `IProviderProbeResult`      | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                |
 | `TMessageFormatConverter`   | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                           |
 | `TMessageConverterRegistry` | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                         |
@@ -128,18 +128,18 @@ Provider packages import these types. They must not re-declare them.
 
 ### Core
 
-| Export                         | Kind           | Description                                       |
-| ------------------------------ | -------------- | ------------------------------------------------- |
-| `Robota`                       | class          | Main agent facade                                 |
-| `AbstractAgent`                | abstract class | Base agent lifecycle                              |
-| `AbstractAIProvider`           | abstract class | Base for provider implementations                 |
-| `AbstractPlugin`               | abstract class | Base for plugin extensions                        |
-| `AbstractTool`                 | abstract class | Base for tool implementations                     |
-| `AbstractExecutor`             | abstract class | Base for execution strategies                     |
-| `LocalExecutor`                | class          | Local provider execution                          |
-| `IProviderDefinition`          | interface      | Provider assembly definition                      |
-| `findProviderDefinition`       | function       | Resolve an injected provider definition by type   |
-| `formatSupportedProviderTypes` | function       | Format injected provider types for generic errors |
+| Export                         | Kind           | Description                                                                                                                          |
+| ------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Robota`                       | class          | Main agent facade                                                                                                                    |
+| `AbstractAgent`                | abstract class | Base agent lifecycle                                                                                                                 |
+| `AbstractAIProvider`           | abstract class | Base for provider implementations                                                                                                    |
+| `AbstractPlugin`               | abstract class | Base for plugin extensions                                                                                                           |
+| `AbstractTool`                 | abstract class | Base for tool implementations                                                                                                        |
+| `AbstractExecutor`             | abstract class | Base for execution strategies                                                                                                        |
+| `LocalExecutor`                | class          | Local provider execution                                                                                                             |
+| `IProviderDefinition`          | interface      | Provider assembly definition, including optional setup display metadata, compatibility aliases, defaults, and provider-owned options |
+| `findProviderDefinition`       | function       | Resolve an injected provider definition by canonical type or alias                                                                   |
+| `formatSupportedProviderTypes` | function       | Format injected provider types and aliases for generic errors                                                                        |
 
 ### Tools
 
@@ -191,6 +191,13 @@ This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextD
 | `IContextWindowState` | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage) |
 
 These types are consumed by `@robota-sdk/agent-sessions` to track cumulative token usage and context window state across conversation turns.
+
+Provider response usage is normalized before assistant messages are committed:
+
+- `inputTokens`/`outputTokens` metadata is the canonical history form for context accounting.
+- Provider-normalized `promptTokens`/`completionTokens`/`totalTokens` metadata and assistant `usage` payloads are accepted and converted to the same canonical metadata.
+- Core must not branch on provider names to perform this conversion.
+- If no exact provider usage exists, context accounting falls back to deterministic character-based estimation.
 
 ### History Entry Helpers
 
@@ -369,17 +376,22 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                              | Description                                                       |
-| ---------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`             | Allows callers to cancel execution of `Robota.run()`              |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback` | Per-run streaming callback forwarded through execution context    |
-| `IChatOptions`               | `signal?: AbortSignal`             | Passed to provider `chat()` / `chatStream()` for cancelling calls |
-| `IAgentConfig`               | `timeout?: number`                 | Provider idle timeout in milliseconds for a model call            |
-| `IExecutionContext`          | `signal?: AbortSignal`             | Threaded through the execution context for round-level checks     |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback` | Run-scoped callback used before provider-level callback fallback  |
-| `IExecutionResult`           | `interrupted?: boolean`            | Indicates the execution was aborted before natural completion     |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`             | Allows skipping queued tool executions when abort is signalled    |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`          | Bounds active tool executions when batch mode is `parallel`       |
+| Interface                    | Field                                        | Description                                                          |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                 |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context       |
+| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries           |
+| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.          |
+| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls    |
+| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call               |
+| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited. |
+| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks        |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback     |
+| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds     |
+| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                        |
+| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion        |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled       |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`          |
 
 ### Signal Propagation
 
@@ -472,9 +484,20 @@ The `executeRound` function manages streaming through `ConversationStore`:
 
 1. `beginAssistant()` initializes pending state before the provider call.
 2. The run-scoped `onTextDelta` callback is preferred over provider-level callback state, then wrapped to call `appendStreaming(delta)` on each delta.
-3. After the provider returns: tool calls are added via `appendToolCall(toolCall)`.
+3. After the provider returns: tool calls are added via `appendToolCall(toolCall)` without rewriting provider-supplied IDs.
 4. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
 5. Single commit path — no branching between normal and abort flows.
+
+### Provider Tool Call ID Ownership
+
+Provider adapters own the `tool_call.id` value. Core treats it as the provider transcript token that links an assistant tool call to the corresponding tool message.
+
+- Core must not branch on provider names, model names, or transport packages.
+- Core must preserve provider-supplied tool call IDs in committed assistant `toolCalls` and recorded tool message `toolCallId`.
+- Conversation history must not require provider tool call IDs to be unique across the whole conversation. Some OpenAI-compatible providers reuse IDs such as `call_0` in later assistant turns.
+- If an internal subsystem needs a globally unique execution/event identifier, it must use an internal ID or owner path and keep the provider `toolCallId` as transcript data.
+
+Regression coverage must include a multi-round execution where the provider returns `call_0` in more than one assistant response and execution preserves both provider IDs without throwing duplicate tool message errors.
 
 ## Extension Points
 
@@ -508,6 +531,8 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 `ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
 
 ### Execution Loop Error Handling
+
+The default core execution round limit is 10 model/tool rounds. Callers can override it with `IRunOptions.maxExecutionRounds`, `IExecutionContext.maxExecutionRounds`, or `IAgentConfig.maxExecutionRounds`. Run-scoped values win over config defaults. A value of `0` means the execution loop has no round cap and relies on abort, context-window checks, provider idle timeout, and runtime-level controls to stop runaway execution.
 
 When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 
@@ -633,6 +658,7 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 | --------------------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
 | `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider-openai)       | `packages/agent-provider-openai/src/provider.ts`             |
 | `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider-anthropic) | `packages/agent-provider-anthropic/src/provider.ts`          |
+| `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider-gemini)       | `packages/agent-provider-gemini/src/provider.ts`             |
 | `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider-google)       | `packages/agent-provider-google/src/provider.ts`             |
 | `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)              | `packages/agent-sessions/examples/verify-offline.ts`         |
 | `AbstractExecutor` (agent-core)   | `SimpleRemoteExecutor` (agent-remote)          | `packages/agent-remote/src/client/remote-executor-simple.ts` |

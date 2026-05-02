@@ -5,9 +5,10 @@
  * Stateless: all mutable state is passed in via IRunContext.
  */
 
-import { runHooks } from '@robota-sdk/agent-core';
+import { createUserMessage, runHooks } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
+  IContextWindowState,
   THooksConfig,
   IHookTypeExecutor,
   TTextDeltaCallback,
@@ -32,7 +33,9 @@ export interface IRunContext {
   persistSession: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
+  maxTurns?: number;
   onTextDelta?: TTextDeltaCallback;
+  onContextUpdate?: (state: IContextWindowState) => void;
 }
 
 /**
@@ -108,6 +111,8 @@ export async function executeRun(
     maxTokens: ctx.contextTracker.getContextState().maxTokens,
     webToolsEnabled: providerHasWebTools,
   });
+  ctx.contextTracker.updateFromHistory([...history, createUserMessage(enrichedMessage)]);
+  ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
 
   let response: string;
   try {
@@ -120,6 +125,8 @@ export async function executeRun(
 
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
+      maxExecutionRounds: ctx.maxTurns ?? 0,
+      onExecutionEvent: (event, data) => ctx.log(event, data as TSessionLogData),
       ...(onTextDelta && { onTextDelta }),
     });
 
@@ -181,6 +188,7 @@ export async function executeRun(
   ctx.contextTracker.updateFromHistory(postHistory);
 
   const ctxState = ctx.contextTracker.getContextState();
+  ctx.onContextUpdate?.(ctxState);
   ctx.log('context', {
     maxTokens: ctxState.maxTokens,
     usedTokens: ctxState.usedTokens,

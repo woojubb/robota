@@ -17,13 +17,26 @@ export interface IToolState {
   result?: 'success' | 'error' | 'denied';
   diffLines?: IDiffLine[];
   diffFile?: string;
+  toolResultData?: string;
 }
 
 /** A single diff line for Edit tool display. */
 export interface IDiffLine {
-  type: 'add' | 'remove' | 'context';
+  type: 'add' | 'remove' | 'context' | 'hunk';
   text: string;
   lineNumber: number;
+}
+
+export interface IUsageSnapshot {
+  kind: 'exact' | 'estimated';
+  scope: 'turn';
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
+  contextUsedPercentage: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
 }
 
 /** Result of a completed prompt execution. */
@@ -32,6 +45,7 @@ export interface IExecutionResult {
   history: IHistoryEntry[];
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
+  usage?: IUsageSnapshot;
 }
 
 /** Summary of a tool call extracted from history. */

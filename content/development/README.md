@@ -46,7 +46,10 @@ packages/
 ├── agent-cli/                  ← Terminal UI
 ├── agent-provider-anthropic/   ← Claude provider
 ├── agent-provider-openai/      ← OpenAI provider
-├── agent-provider-google/      ← Google provider
+├── agent-provider-gemini/      ← Canonical Gemini provider
+├── agent-provider-google/      ← Gemini compatibility wrapper
+├── agent-provider-gemma/       ← Gemma local model provider
+├── agent-provider-qwen/        ← Qwen/DashScope provider
 ├── agent-plugin-*/             ← 8 extracted plugins
 ├── agent-team/                 ← Multi-agent task assignment
 ├── agent-remote/               ← Remote execution
@@ -68,13 +71,33 @@ See [AGENTS.md](https://github.com/woojubb/robota/blob/main/AGENTS.md) for the c
 
 ## Publishing
 
-6 packages are published to npm. The rest are private.
+Robota publishes every non-private package together with one coordinated version.
 
 ```bash
-pnpm build && pnpm test && pnpm typecheck
-pnpm --filter @robota-sdk/<pkg> publish --dry-run --no-git-checks
-# Then with OTP:
-pnpm --filter @robota-sdk/<pkg> publish --no-git-checks --access public --otp <OTP>
+pnpm harness:verify:release
+pnpm publish:beta
 ```
 
-Always use `pnpm publish` (not `npm publish`) — pnpm resolves `workspace:*` dependencies.
+`pnpm publish:beta` runs the npm authentication preflight first, performs a recursive dry-run, then prompts for OTP only after the dry-run succeeds. If npm authentication fails, run:
+
+```bash
+npm login --registry https://registry.npmjs.org/
+```
+
+Never publish individual packages with `--filter`. Always use `pnpm publish:beta`; it resolves `workspace:*` dependencies correctly and keeps the monorepo package set on one version.
+
+## Documentation Sync
+
+When package behavior changes, update the package README, the package docs page, and the relevant robota.io source page in the same PR:
+
+- `packages/<pkg>/README.md` — npm/GitHub package README
+- `packages/<pkg>/docs/README.md` — copied to robota.io as `/packages/<pkg>/`
+- `packages/<pkg>/docs/SPEC.md` — package contract truth
+- `content/README.md` — robota.io home page
+- `content/guide/*.md` and `content/examples/*.md` — user-facing guides and examples
+
+After changing `content/` or `packages/*/docs/`, run:
+
+```bash
+pnpm docs:build
+```

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-core",
-  "version": "3.0.0-beta.56",
+  "version": "3.0.0-beta.59",
   "description": "Core domain contracts and state rules for Robota DAG orchestration",
   "type": "module",
   "main": "dist/node/index.js",
@@ -33,6 +33,7 @@
     "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
@@ -55,8 +56,6 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
-    "@robota-sdk/dag-adapters-local": "workspace:*",
-    "@robota-sdk/dag-node": "workspace:*",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",

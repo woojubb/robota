@@ -1,7 +1,8 @@
 # Agent Command Invocation Specification
 
-Status: Proposed
+Status: Implemented
 Created: 2026-05-01
+Implemented: 2026-05-01 through PRs #106 and #108
 Related specs:
 
 - `.agents/specs/background-task-layer.md`
