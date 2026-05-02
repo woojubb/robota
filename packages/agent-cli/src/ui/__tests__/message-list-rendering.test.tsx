@@ -93,6 +93,14 @@ describe('MessageList rendering', () => {
     expect(output).toContain('response text');
   });
 
+  it('assistant message preserves CJK and emoji content', () => {
+    const content = '긴 한국어 응답과 emoji 🎉 를 표시합니다';
+    const history: IHistoryEntry[] = [messageToHistoryEntry(createAssistantMessage(content))];
+    const { lastFrame } = render(<MessageList history={history} />);
+
+    expect(lastFrame()).toContain(content);
+  });
+
   it('assistant message renders markdown diff fenced code block content', () => {
     const response = [
       'Patch preview:',

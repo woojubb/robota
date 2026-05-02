@@ -43,10 +43,6 @@ export function renderApp(options: IRenderOptions): void {
     }
   });
 
-  if (process.stdin.isTTY && process.stdout.isTTY) {
-    process.stdout.write('\x1b[?2004h');
-  }
-
   const instance = render(<App {...options} />, {
     exitOnCtrlC: false,
   });
@@ -54,9 +50,6 @@ export function renderApp(options: IRenderOptions): void {
   instance
     .waitUntilExit()
     .then(() => {
-      if (process.stdout.isTTY) {
-        process.stdout.write('\x1b[?2004l');
-      }
       process.exit(0);
     })
     .catch((err) => {
