@@ -35,6 +35,14 @@ function buildBackgroundSubcommands(): ICommand[] {
   ];
 }
 
+function buildRewindSubcommands(): ICommand[] {
+  return [
+    { name: 'list', description: 'List edit checkpoints', source: 'builtin' },
+    { name: 'restore', description: 'Restore code to a checkpoint', source: 'builtin' },
+    { name: 'code', description: 'Restore code to a checkpoint', source: 'builtin' },
+  ];
+}
+
 /** Built-in commands. Execute callbacks are wired externally by clients. */
 function createBuiltinCommands(): ICommand[] {
   return [
@@ -73,6 +81,12 @@ function createBuiltinCommands(): ICommand[] {
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
     { name: 'memory', description: 'Manage project memory', source: 'builtin' },
+    {
+      name: 'rewind',
+      description: 'List and restore edit checkpoints',
+      source: 'builtin',
+      subcommands: buildRewindSubcommands(),
+    },
     {
       name: 'provider',
       description: 'Manage provider profiles',

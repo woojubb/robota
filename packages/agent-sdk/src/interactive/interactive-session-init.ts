@@ -35,6 +35,7 @@ import { join } from 'node:path';
 import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -128,6 +129,8 @@ export interface IInitOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
+  /** Recorder used to snapshot files before Write/Edit tools mutate them. */
+  editCheckpointRecorder?: IEditCheckpointRecorder;
 }
 
 /**
@@ -207,6 +210,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
       : {}),
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
+    editCheckpointRecorder: options.editCheckpointRecorder,
   });
 }
 
