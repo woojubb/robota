@@ -44,3 +44,4 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 | 37  | Declaring orchestration fixed without session-log verification   | Inspect persisted session data for descriptors, tool calls, background events, terminal state, and final follow-up    |
 | 38  | Pushing runtime behavior changes after only generic checks       | Run feature-specific behavioral verification first; push-time hooks are not a substitute for local proof              |
 | 39  | Leaving repeated lessons only in chat or PR notes                | Generalize the invariant into rules, skills, SPEC, harness, hooks, or tests; see `learning-loop.md`                   |
+| 40  | Leaving superseded public surfaces                               | Reverse-verify task docs, SPEC, exports, settings schema, and tests                                                   |

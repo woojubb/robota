@@ -43,18 +43,6 @@ const PermissionsSchema = z.object({
   deny: z.array(z.string()).optional(),
 });
 
-const MemorySchema = z
-  .object({
-    policy: z.enum(['disabled', 'approval_required', 'auto_save']).optional(),
-    retrieval: z
-      .object({
-        maxTopics: z.number().int().positive().optional(),
-        maxTopicChars: z.number().int().positive().optional(),
-      })
-      .optional(),
-  })
-  .optional();
-
 const EnvSchema = z.record(z.string()).optional();
 
 /** Command hook definition */
@@ -145,7 +133,6 @@ export const SettingsSchema = z.object({
   providers: z.record(ProviderProfileSchema).optional(),
   /** Legacy single-provider settings. Prefer currentProvider + providers for new config. */
   provider: ProviderSchema.optional(),
-  memory: MemorySchema,
   permissions: PermissionsSchema.optional(),
   env: EnvSchema,
   hooks: HooksSchema,
@@ -179,13 +166,6 @@ export interface IResolvedConfig {
   permissions: {
     allow: string[];
     deny: string[];
-  };
-  memory: {
-    policy: 'disabled' | 'approval_required' | 'auto_save';
-    retrieval: {
-      maxTopics: number;
-      maxTopicChars: number;
-    };
   };
   env: Record<string, string>;
   hooks?: THooksConfig;

@@ -75,7 +75,6 @@ function baseConfig(): IResolvedConfig {
     defaultTrustLevel: 'moderate' as const,
     provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
     permissions: { allow: [], deny: [] },
-    memory: { policy: 'approval_required', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
     language: 'en' as const,
     env: {},
   };
