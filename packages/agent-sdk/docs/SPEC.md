@@ -132,6 +132,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
 ├── src/memory/                 ← project memory store, automatic capture policy, retrieval services
 ├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
+├── src/self-hosting/           ← self-hosting verification planner + lifecycle state machine
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
 ├── src/subagents/              ← SDK in-process runner + explicit compatibility exports from agent-runtime
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
@@ -194,6 +195,16 @@ agent-cli (Ink TUI — CLI-specific)
 - **Restore model**: `restoreToCheckpoint(sessionId, checkpointId)` rolls back later checkpoints in reverse sequence order, restores copied pre-images, deletes files that did not exist at capture time, and removes later checkpoint directories. This provides code-only rewind to the selected prompt turn.
 - **Boundary**: `agent-tools` does not know about sessions, prompts, `.robota`, or checkpoints. CLI/TUI does not implement checkpoint algorithms; it only exposes SDK command output and future picker UI.
 - **Current scope**: `Write` and `Edit` mutations are tracked. Shell-side filesystem changes from `Bash` are not tracked by this layer.
+
+### Self-Hosting Verification
+
+- **Package**: `agent-sdk/self-hosting/` (SDK-specific planning layer)
+- **Purpose**: Describes the safe edit/build/verify loop for Robota modifying its own source tree without replacing the currently running process.
+- **Planner**: `planSelfHostingVerification()` returns ordered steps for checkpoint creation, atomic file mutation, external process handoff, targeted package verification, harness verification, and rollback recovery.
+- **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
+- **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
+- **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-sdk/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
+- **Verification defaults**: For supplied package scopes, the default plan includes `test`, `typecheck`, and `build` commands before `pnpm harness:verify -- --base-ref <ref> --skip-record-check`. The harness verification step is always present.
 
 ### Web Search
 
@@ -408,6 +419,27 @@ session.getContextState();   // IContextWindowState
 session.getStreamingText();  // string (accumulated so far)
 session.getActiveTools();    // IToolState[]
 ```
+
+### Self-Hosting Verification Planner
+
+The SDK exports pure planning/state helpers for clients that need to drive a safe edit/build/verify loop without coupling to CLI or TUI rendering.
+
+```typescript
+import { planSelfHostingVerification, transitionSelfHostingLoop } from '@robota-sdk/agent-sdk';
+
+const plan = planSelfHostingVerification({
+  changedFiles: ['packages/agent-sdk/src/index.ts'],
+  packageScopes: ['@robota-sdk/agent-sdk'],
+  baseRef: 'origin/develop',
+});
+
+let state = transitionSelfHostingLoop('idle', 'checkpoint_created');
+state = transitionSelfHostingLoop(state, 'edits_started');
+state = transitionSelfHostingLoop(state, 'edits_applied');
+state = transitionSelfHostingLoop(state, 'verify_passed');
+```
+
+`plan.steps` is an ordered, provider-neutral command plan. Consumers execute commands in child processes and keep the current SDK process alive as the old runtime. The planner does not write files, restore checkpoints, or render UI.
 
 **IToolState:**
 
