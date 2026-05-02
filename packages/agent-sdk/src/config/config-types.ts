@@ -3,6 +3,20 @@
  */
 import { z } from 'zod';
 import type { THooksConfig } from '@robota-sdk/agent-core';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
+
+const UniversalValueSchema: z.ZodType<TUniversalValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.undefined(),
+    z.date(),
+    z.array(UniversalValueSchema),
+    z.record(UniversalValueSchema),
+  ]),
+);
 
 const ProviderSchema = z.object({
   name: z.string().optional(),
@@ -10,6 +24,7 @@ const ProviderSchema = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
+  options: z.record(UniversalValueSchema).optional(),
 });
 
 const ProviderProfileSchema = z.object({
@@ -18,6 +33,7 @@ const ProviderProfileSchema = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
+  options: z.record(UniversalValueSchema).optional(),
 });
 
 const PermissionsSchema = z.object({
@@ -145,6 +161,7 @@ export interface IResolvedConfig {
     apiKey: string | undefined;
     baseURL?: string;
     timeout?: number;
+    options?: Record<string, TUniversalValue>;
   };
   permissions: {
     allow: string[];

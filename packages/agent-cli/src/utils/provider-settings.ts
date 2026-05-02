@@ -9,6 +9,7 @@ export interface IProviderProfileSettings {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export interface ILegacyProviderSettings {
@@ -18,6 +19,7 @@ export interface ILegacyProviderSettings {
   apiKey?: string;
   baseURL?: string;
   timeout?: number;
+  options?: Record<string, TUniversalValue>;
 }
 
 export type TProviderSettingsDocument = Record<string, TUniversalValue> & {

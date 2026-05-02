@@ -126,11 +126,18 @@ vi.mock('@robota-sdk/agent-provider-qwen', () => {
         apiKey?: string;
         baseURL?: string;
         timeout?: number;
+        options?: Record<string, unknown>;
       }) =>
         new MockQwenProvider({
           apiKey: config.apiKey,
           ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
           ...(config.timeout !== undefined && { timeout: config.timeout }),
+          ...(config.options?.['responsesBaseURL'] !== undefined && {
+            responsesBaseURL: config.options['responsesBaseURL'],
+          }),
+          ...(config.options?.['builtInWebTools'] !== undefined && {
+            builtInWebTools: config.options['builtInWebTools'],
+          }),
           defaultModel: config.model,
         }),
     }),
@@ -381,6 +388,54 @@ describe('provider-factory', () => {
       baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
       timeout: 45_000,
       defaultModel: 'qwen-plus',
+    });
+  });
+
+  it('passes provider-owned options through the generic provider config bag', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen3.6-plus',
+          apiKey: 'dashscope-key',
+          options: {
+            responsesBaseURL:
+              'https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1',
+            builtInWebTools: {
+              webSearch: true,
+              webFetch: true,
+              enableThinking: true,
+            },
+          },
+        },
+      },
+    });
+
+    const settings = readProviderSettings(cwd);
+    const provider = createProviderFromSettings(cwd);
+
+    expect(settings.options).toEqual({
+      responsesBaseURL:
+        'https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1',
+      builtInWebTools: {
+        webSearch: true,
+        webFetch: true,
+        enableThinking: true,
+      },
+    });
+    expect(provider.name).toBe('qwen');
+    expect(QwenProvider).toHaveBeenCalledWith({
+      apiKey: 'dashscope-key',
+      baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+      responsesBaseURL:
+        'https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1',
+      builtInWebTools: {
+        webSearch: true,
+        webFetch: true,
+        enableThinking: true,
+      },
+      defaultModel: 'qwen3.6-plus',
     });
   });
 

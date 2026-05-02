@@ -63,6 +63,17 @@ Settings may define an active provider profile:
       "type": "openai",
       "model": "<openai-compatible-model>",
       "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "qwen": {
+      "type": "qwen",
+      "model": "qwen3.6-plus",
+      "apiKey": "$ENV:DASHSCOPE_API_KEY",
+      "options": {
+        "builtInWebTools": {
+          "webSearch": true,
+          "webFetch": true
+        }
+      }
     }
   }
 }
@@ -76,19 +87,22 @@ Provider resolution order:
 2. Legacy `provider`
 3. Defaults supplied by the resolved provider definition
 
+Provider profiles may include `options`. The CLI passes this bag through to `definition.createProvider(config)` without interpreting provider-specific keys. Provider packages own the shape, validation, defaults, and behavior for their options.
+
 Provider definition contract:
 
-| Field            | Owner                            | CLI behavior                                             |
-| ---------------- | -------------------------------- | -------------------------------------------------------- |
-| `type`           | Provider package or CLI assembly | Match settings profile type to a definition              |
-| `aliases`        | Provider package                 | Optional compatibility names resolved by generic lookup  |
-| `displayName`    | Provider package                 | Optional human-readable provider label for setup lists   |
-| `description`    | Provider package                 | Optional provider description for setup lists and errors |
-| `defaults`       | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values         |
-| `setupSteps`     | Provider package                 | Drive interactive setup prompts without type branches    |
-| `requiresApiKey` | Provider package                 | Validate profiles consistently                           |
-| `probeProfile`   | Provider package                 | Optional endpoint/profile test hook                      |
-| `createProvider` | Provider package                 | Build concrete provider instance                         |
+| Field              | Owner                            | CLI behavior                                                       |
+| ------------------ | -------------------------------- | ------------------------------------------------------------------ |
+| `type`             | Provider package or CLI assembly | Match settings profile type to a definition                        |
+| `aliases`          | Provider package                 | Optional compatibility names resolved by generic lookup            |
+| `displayName`      | Provider package                 | Optional human-readable provider label for setup lists             |
+| `description`      | Provider package                 | Optional provider description for setup lists and errors           |
+| `defaults`         | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values                   |
+| `defaults.options` | Provider package                 | Optional provider-owned option defaults passed through generically |
+| `setupSteps`       | Provider package                 | Drive interactive setup prompts without type branches              |
+| `requiresApiKey`   | Provider package                 | Validate profiles consistently                                     |
+| `probeProfile`     | Provider package                 | Optional endpoint/profile test hook                                |
+| `createProvider`   | Provider package                 | Build concrete provider instance                                   |
 
 The default CLI binary assembles definitions from provider packages. Alternate embeddings can pass their own definitions into `startCli({ providerDefinitions })`. Compatibility provider names such as `google` for the canonical Gemini provider must be represented as provider-definition aliases, not as CLI provider-name branches.
 
@@ -823,14 +837,14 @@ When an Edit tool summary includes diff lines, the CLI shows a compact diff belo
 
 **Display format:**
 
-````markdown
+```markdown
 ✓ Edit(src/provider.ts)
 │ src/provider.ts
 `diff
     - 42 | const DEFAULT_MAX_TOKENS = 4096;
     + 42 | const maxTokens = getModelMaxOutput(modelId);
     `
-````
+```
 
 **Rules:**
 
