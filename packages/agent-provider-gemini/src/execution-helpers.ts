@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { GoogleGenAI } from '@google/genai';
 import type { Content, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
-import type { IGoogleProviderOptions } from './types';
+import type { IGeminiProviderOptions } from './types';
 import type {
   TUniversalMessage,
   IChatOptions,
@@ -25,7 +25,7 @@ import {
  */
 export async function executeDirect(
   client: GoogleGenAI,
-  providerOptions: IGoogleProviderOptions,
+  providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
 ): Promise<TUniversalMessage> {
@@ -66,7 +66,7 @@ export async function executeDirect(
  */
 export async function* executeDirectStream(
   client: GoogleGenAI,
-  providerOptions: IGoogleProviderOptions,
+  providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
 ): AsyncIterable<TUniversalMessage> {

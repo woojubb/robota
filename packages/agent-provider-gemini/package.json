@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-provider-google",
+  "name": "@robota-sdk/agent-provider-gemini",
   "version": "3.0.0-beta.56",
-  "description": "Compatibility wrapper for the renamed @robota-sdk/agent-provider-gemini package",
+  "description": "Gemini API integration for Robota SDK using the Google GenAI SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -24,7 +24,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/woojubb/robota.git",
-    "directory": "packages/agent-provider-google"
+    "directory": "packages/agent-provider-gemini"
   },
   "homepage": "https://robota.io/",
   "bugs": {
@@ -47,21 +47,41 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "scenario:verify": "pnpm --filter @robota-sdk/agent-core build && DRY_RUN=1 GEMINI_IMAGE_MODEL=gemini-2.0-flash-exp-image-generation pnpm exec tsx examples/example-generate-image.ts && DRY_RUN=1 GEMINI_IMAGE_MODEL=gemini-2.0-flash-exp-image-generation pnpm exec tsx examples/example-compose-image.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/agent-provider-gemini --output examples/scenarios/gemini-image-dry-run.record.json -- pnpm scenario:verify",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "keywords": [
     "ai",
     "agent",
-    "gemini",
+    "llm",
     "google",
-    "compatibility",
+    "gemini",
+    "gemini-pro",
+    "gemini-flash",
+    "palm",
+    "google-ai",
+    "function-calling",
     "typescript",
-    "robota"
+    "javascript",
+    "chatbot",
+    "conversational-ai",
+    "artificial-intelligence",
+    "machine-learning",
+    "nlp",
+    "natural-language-processing",
+    "sdk",
+    "library",
+    "tool-integration",
+    "robota",
+    "google-api",
+    "ai-integration",
+    "generative-ai"
   ],
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "@robota-sdk/agent-provider-gemini": "workspace:*"
+    "@google/genai": "^1.51.0"
   },
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*"

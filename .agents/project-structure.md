@@ -16,7 +16,8 @@ packages/
 ├── agent-provider-openai-compatible/ # Reusable OpenAI-compatible transport primitives
 ├── agent-provider-gemma/        # Gemma provider shell using OpenAI-compatible endpoints
 ├── agent-provider-qwen/         # Qwen provider shell using Model Studio OpenAI-compatible endpoints
-├── agent-provider-google/       # Google Gemini API provider
+├── agent-provider-gemini/       # Gemini API provider using Google GenAI SDK
+├── agent-provider-google/       # Compatibility wrapper for agent-provider-gemini
 ├── agent-provider-bytedance/    # ByteDance provider
 ├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package

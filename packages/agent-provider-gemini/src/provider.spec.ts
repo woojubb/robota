@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { GoogleProvider } from './provider';
+import { GeminiProvider } from './provider';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 interface IGenerateContentInput {
@@ -67,7 +67,7 @@ vi.mock('@google/genai', () => {
   };
 });
 
-describe('GoogleProvider image support', () => {
+describe('GeminiProvider image support', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
   });
@@ -91,7 +91,7 @@ describe('GoogleProvider image support', () => {
       ],
     });
 
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const response = await provider.chat(
       [
         {
@@ -132,7 +132,7 @@ describe('GoogleProvider image support', () => {
       ],
     });
 
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const messages: TUniversalMessage[] = [
       {
         id: 'msg-1',
@@ -165,7 +165,7 @@ describe('GoogleProvider image support', () => {
   });
 
   it('throws when image modality is requested with non-image model', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
 
     await expect(
       provider.chat(
@@ -187,7 +187,7 @@ describe('GoogleProvider image support', () => {
   });
 
   it('throws when image uri message part is used directly', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
 
     await expect(
       provider.chat(

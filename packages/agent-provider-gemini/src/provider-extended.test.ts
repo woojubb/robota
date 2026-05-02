@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { GoogleProvider } from './provider';
+import { GeminiProvider } from './provider';
 import type { TUniversalMessage, IExecutor } from '@robota-sdk/agent-core';
 
 // Shared mock for generateContent and generateContentStream
@@ -46,14 +46,14 @@ function makeImageResponse(text: string, mimeType: string, data: string) {
   };
 }
 
-describe('GoogleProvider - chat error paths', () => {
+describe('GeminiProvider - chat error paths', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
     generateContentStreamMock.mockReset();
   });
 
   it('throws when model is not specified', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat(
         [
@@ -71,7 +71,7 @@ describe('GoogleProvider - chat error paths', () => {
   });
 
   it('throws when options are undefined (no model)', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat([
         {
@@ -87,7 +87,7 @@ describe('GoogleProvider - chat error paths', () => {
 
   it('wraps API errors in "Google chat failed" message', async () => {
     generateContentMock.mockRejectedValue(new Error('API quota exceeded'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat(
         [
@@ -108,7 +108,7 @@ describe('GoogleProvider - chat error paths', () => {
 
   it('wraps non-Error API failures', async () => {
     generateContentMock.mockRejectedValue('string error');
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat(
         [
@@ -129,7 +129,7 @@ describe('GoogleProvider - chat error paths', () => {
 
   it('passes tools as function declarations', async () => {
     generateContentMock.mockResolvedValue(makeTextResponse('done'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await provider.chat(
       [
         {
@@ -159,7 +159,7 @@ describe('GoogleProvider - chat error paths', () => {
 
   it('throws on IMAGE modality when response lacks image part', async () => {
     generateContentMock.mockResolvedValue(makeTextResponse('no image here'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat(
         [
@@ -180,7 +180,7 @@ describe('GoogleProvider - chat error paths', () => {
   });
 });
 
-describe('GoogleProvider - chatStream', () => {
+describe('GeminiProvider - chatStream', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
     generateContentStreamMock.mockReset();
@@ -194,7 +194,7 @@ describe('GoogleProvider - chatStream', () => {
       })(),
     );
 
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
       [
@@ -224,7 +224,7 @@ describe('GoogleProvider - chatStream', () => {
       })(),
     );
 
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
       [
@@ -245,7 +245,7 @@ describe('GoogleProvider - chatStream', () => {
   });
 
   it('throws when IMAGE modality is requested in stream mode', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const iter = provider.chatStream(
       [
         {
@@ -269,7 +269,7 @@ describe('GoogleProvider - chatStream', () => {
   });
 
   it('throws when model is not specified', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const iter = provider.chatStream(
       [
         {
@@ -291,7 +291,7 @@ describe('GoogleProvider - chatStream', () => {
 
   it('wraps stream errors', async () => {
     generateContentStreamMock.mockRejectedValue(new Error('network timeout'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const iter = provider.chatStream(
       [
         {
@@ -319,7 +319,7 @@ describe('GoogleProvider - chatStream', () => {
         yield { text: 'ok' };
       })(),
     );
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream(
       [
@@ -350,29 +350,29 @@ describe('GoogleProvider - chatStream', () => {
   });
 });
 
-describe('GoogleProvider - validateConfig and dispose', () => {
+describe('GeminiProvider - validateConfig and dispose', () => {
   it('returns true when client and apiKey exist', () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     expect(provider.validateConfig()).toBe(true);
   });
 
   it('returns false when apiKey is empty string', () => {
-    const provider = new GoogleProvider({ apiKey: '' });
+    const provider = new GeminiProvider({ apiKey: '' });
     expect(provider.validateConfig()).toBe(false);
   });
 
   it('supportsTools returns true', () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     expect(provider.supportsTools()).toBe(true);
   });
 
   it('dispose resolves without error', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(provider.dispose()).resolves.toBeUndefined();
   });
 });
 
-describe('GoogleProvider - constructor with executor', () => {
+describe('GeminiProvider - constructor with executor', () => {
   it('uses executor instead of direct client', async () => {
     const mockExecutor: IExecutor = {
       executeChat: vi.fn().mockResolvedValue({
@@ -385,7 +385,7 @@ describe('GoogleProvider - constructor with executor', () => {
       name: 'mock-executor',
       version: '1.0.0',
     };
-    const provider = new GoogleProvider({
+    const provider = new GeminiProvider({
       apiKey: 'placeholder',
       executor: mockExecutor,
     });
@@ -413,7 +413,7 @@ describe('GoogleProvider - constructor with executor', () => {
       name: 'mock-executor',
       version: '1.0.0',
     };
-    const provider = new GoogleProvider({
+    const provider = new GeminiProvider({
       apiKey: 'placeholder',
       executor: mockExecutor,
     });
@@ -436,13 +436,13 @@ describe('GoogleProvider - constructor with executor', () => {
   });
 });
 
-describe('GoogleProvider - generateImage', () => {
+describe('GeminiProvider - generateImage', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
   });
 
   it('returns error for empty prompt', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.generateImage({ prompt: '', model: 'gemini-2.5-flash-image' });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -452,13 +452,13 @@ describe('GoogleProvider - generateImage', () => {
   });
 
   it('returns error for whitespace-only prompt', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.generateImage({ prompt: '   ', model: 'gemini-2.5-flash-image' });
     expect(result.ok).toBe(false);
   });
 
   it('returns error for empty model', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.generateImage({ prompt: 'a cat', model: '' });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -469,7 +469,7 @@ describe('GoogleProvider - generateImage', () => {
 
   it('returns image result on success', async () => {
     generateContentMock.mockResolvedValue(makeImageResponse('generated', 'image/png', 'imgdata'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.generateImage({
       prompt: 'a cat',
       model: 'gemini-2.5-flash-image',
@@ -484,7 +484,7 @@ describe('GoogleProvider - generateImage', () => {
 
   it('returns upstream error when chat fails', async () => {
     generateContentMock.mockRejectedValue(new Error('API error'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.generateImage({
       prompt: 'a cat',
       model: 'gemini-2.5-flash-image',
@@ -497,7 +497,7 @@ describe('GoogleProvider - generateImage', () => {
 
   it('returns upstream error when response has no image parts', async () => {
     generateContentMock.mockResolvedValue(makeTextResponse('no image'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     // Need to bypass the IMAGE modality check — the response must contain image
     // but this test validates runImageRequest when mapInlineImagePartsToMediaOutputs returns empty
     // Since chat() will throw first due to missing image, this exercises that path
@@ -512,13 +512,13 @@ describe('GoogleProvider - generateImage', () => {
   });
 });
 
-describe('GoogleProvider - editImage', () => {
+describe('GeminiProvider - editImage', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
   });
 
   it('returns error for empty prompt', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.editImage({
       prompt: '',
       model: 'gemini-2.5-flash-image',
@@ -531,7 +531,7 @@ describe('GoogleProvider - editImage', () => {
   });
 
   it('returns error for empty model', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.editImage({
       prompt: 'make it blue',
       model: '',
@@ -544,7 +544,7 @@ describe('GoogleProvider - editImage', () => {
   });
 
   it('returns error for invalid image source', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.editImage({
       prompt: 'make it blue',
       model: 'gemini-2.5-flash-image',
@@ -558,7 +558,7 @@ describe('GoogleProvider - editImage', () => {
 
   it('returns image result on success', async () => {
     generateContentMock.mockResolvedValue(makeImageResponse('edited', 'image/png', 'newdata'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.editImage({
       prompt: 'make it blue',
       model: 'gemini-2.5-flash-image',
@@ -572,7 +572,7 @@ describe('GoogleProvider - editImage', () => {
 
   it('handles URI image source with data URI', async () => {
     generateContentMock.mockResolvedValue(makeImageResponse('edited', 'image/jpeg', 'newdata'));
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.editImage({
       prompt: 'crop it',
       model: 'gemini-2.5-flash-image',
@@ -582,7 +582,7 @@ describe('GoogleProvider - editImage', () => {
   });
 
   it('returns error for non-data URI image source', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.editImage({
       prompt: 'crop it',
       model: 'gemini-2.5-flash-image',
@@ -595,13 +595,13 @@ describe('GoogleProvider - editImage', () => {
   });
 });
 
-describe('GoogleProvider - composeImage', () => {
+describe('GeminiProvider - composeImage', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
   });
 
   it('returns error for empty prompt', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.composeImage({
       prompt: '',
       model: 'gemini-2.5-flash-image',
@@ -614,7 +614,7 @@ describe('GoogleProvider - composeImage', () => {
   });
 
   it('returns error for empty model', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.composeImage({
       prompt: 'merge these',
       model: '',
@@ -627,7 +627,7 @@ describe('GoogleProvider - composeImage', () => {
   });
 
   it('returns error for fewer than 2 images', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.composeImage({
       prompt: 'merge these',
       model: 'gemini-2.5-flash-image',
@@ -640,7 +640,7 @@ describe('GoogleProvider - composeImage', () => {
   });
 
   it('returns error for empty images array', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.composeImage({
       prompt: 'merge these',
       model: 'gemini-2.5-flash-image',
@@ -650,7 +650,7 @@ describe('GoogleProvider - composeImage', () => {
   });
 
   it('returns error when one of the image sources is invalid', async () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.composeImage({
       prompt: 'merge these',
       model: 'gemini-2.5-flash-image',
@@ -669,7 +669,7 @@ describe('GoogleProvider - composeImage', () => {
     generateContentMock.mockResolvedValue(
       makeImageResponse('composed', 'image/png', 'composed-data'),
     );
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const result = await provider.composeImage({
       prompt: 'merge these',
       model: 'gemini-2.5-flash-image',
@@ -686,14 +686,14 @@ describe('GoogleProvider - composeImage', () => {
   });
 });
 
-describe('GoogleProvider - name and version', () => {
-  it('has name "google"', () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
-    expect(provider.name).toBe('google');
+describe('GeminiProvider - name and version', () => {
+  it('has name "gemini"', () => {
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    expect(provider.name).toBe('gemini');
   });
 
   it('has version "1.0.0"', () => {
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     expect(provider.version).toBe('1.0.0');
   });
 });
