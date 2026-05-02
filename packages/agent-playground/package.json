@@ -20,6 +20,11 @@
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       }
+    },
+    "./client": {
+      "types": "./dist/browser/client.d.ts",
+      "import": "./dist/browser/client.js",
+      "default": "./dist/browser/client.js"
     }
   },
   "files": [

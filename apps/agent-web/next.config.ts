@@ -77,8 +77,22 @@ const nextConfig: NextConfig = {
     removeConsole: false,
   },
 
-  // Remove complex webpack configuration
-  // Next.js should handle server/client separation automatically
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve = config.resolve ?? {};
+      config.resolve.fallback = {
+        ...(config.resolve.fallback ?? {}),
+        child_process: false,
+        fs: false,
+        module: false,
+        net: false,
+        tls: false,
+        worker_threads: false,
+      };
+    }
+
+    return config;
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);
