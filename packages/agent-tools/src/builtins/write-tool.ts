@@ -2,12 +2,11 @@
  * WriteTool — write content to a file, auto-creating parent directories.
  */
 
-import { writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
+import { atomicWriteUtf8File } from './atomic-file-write.js';
 
 const WriteSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to write'),
@@ -20,9 +19,7 @@ async function writeFileTool(args: TWriteArgs): Promise<string> {
   const { filePath, content } = args;
 
   try {
-    // Auto-create parent directories
-    await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, content, 'utf8');
+    await atomicWriteUtf8File(filePath, content);
 
     const result: TToolResult = {
       success: true,

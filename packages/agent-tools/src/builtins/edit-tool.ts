@@ -5,11 +5,12 @@
  * (ensuring surgical edits). Pass replaceAll:true to replace all occurrences.
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
+import { atomicWriteUtf8File } from './atomic-file-write.js';
 
 const EditSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to modify'),
@@ -75,7 +76,7 @@ async function editFileTool(args: TEditArgs): Promise<string> {
       content.slice(content.indexOf(oldString) + oldString.length);
 
   try {
-    await writeFile(filePath, updated, 'utf8');
+    await atomicWriteUtf8File(filePath, updated);
   } catch (err) {
     const result: TToolResult = {
       success: false,

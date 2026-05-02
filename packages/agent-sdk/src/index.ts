@@ -119,6 +119,17 @@ export type {
   IEditCheckpointTurnInput,
 } from './checkpoints/index.js';
 
+// ── Self-hosting verification ─────────────────────────────
+export { planSelfHostingVerification, transitionSelfHostingLoop } from './self-hosting/index.js';
+export type {
+  ISelfHostingVerificationPlan,
+  ISelfHostingVerificationPlanInput,
+  ISelfHostingVerificationStep,
+  TSelfHostingLoopEvent,
+  TSelfHostingLoopState,
+  TSelfHostingVerificationPhase,
+} from './self-hosting/index.js';
+
 // ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
