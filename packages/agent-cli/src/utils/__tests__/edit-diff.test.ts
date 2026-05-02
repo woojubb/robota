@@ -221,7 +221,7 @@ describe('generateDiffLinesWithContext', () => {
     return filePath;
   }
 
-  it('should include 2 context lines before the change', () => {
+  it('should include 3 context lines before the change', () => {
     // 10-line file, edit line 5 (replaced already in file)
     const fileLines = Array.from({ length: 10 }, (_, i) => `line${i + 1}`);
     // Simulate: line5 was replaced with lineNEW
@@ -231,14 +231,15 @@ describe('generateDiffLinesWithContext', () => {
 
     const result = generateDiffLinesWithContext('line5', 'lineNEW', 5, filePath);
 
-    // Context before: line3 (lineNumber=3) and line4 (lineNumber=4)
+    // Context before: line2, line3, line4
     const contextBefore = result.filter((l) => l.type === 'context' && l.lineNumber < 5);
-    expect(contextBefore).toHaveLength(2);
-    expect(contextBefore[0]).toEqual({ type: 'context', text: 'line3', lineNumber: 3 });
-    expect(contextBefore[1]).toEqual({ type: 'context', text: 'line4', lineNumber: 4 });
+    expect(contextBefore).toHaveLength(3);
+    expect(contextBefore[0]).toEqual({ type: 'context', text: 'line2', lineNumber: 2 });
+    expect(contextBefore[1]).toEqual({ type: 'context', text: 'line3', lineNumber: 3 });
+    expect(contextBefore[2]).toEqual({ type: 'context', text: 'line4', lineNumber: 4 });
   });
 
-  it('should include 2 context lines after the change', () => {
+  it('should include 3 context lines after the change', () => {
     const fileLines = Array.from({ length: 10 }, (_, i) => `line${i + 1}`);
     const modifiedLines = [...fileLines];
     modifiedLines[4] = 'lineNEW';
@@ -246,11 +247,12 @@ describe('generateDiffLinesWithContext', () => {
 
     const result = generateDiffLinesWithContext('line5', 'lineNEW', 5, filePath);
 
-    // Context after: line6 (lineNumber=6) and line7 (lineNumber=7)
+    // Context after: line6, line7, line8
     const contextAfter = result.filter((l) => l.type === 'context' && l.lineNumber > 5);
-    expect(contextAfter).toHaveLength(2);
+    expect(contextAfter).toHaveLength(3);
     expect(contextAfter[0]).toEqual({ type: 'context', text: 'line6', lineNumber: 6 });
     expect(contextAfter[1]).toEqual({ type: 'context', text: 'line7', lineNumber: 7 });
+    expect(contextAfter[2]).toEqual({ type: 'context', text: 'line8', lineNumber: 8 });
   });
 
   it('should handle edit at start of file (no lines before)', () => {
@@ -264,11 +266,12 @@ describe('generateDiffLinesWithContext', () => {
     const contextBefore = result.filter((l) => l.type === 'context' && l.lineNumber < 1);
     expect(contextBefore).toHaveLength(0);
 
-    // Context after: line2, line3
+    // Context after: line2, line3, line4
     const contextAfter = result.filter((l) => l.type === 'context' && l.lineNumber > 1);
-    expect(contextAfter).toHaveLength(2);
+    expect(contextAfter).toHaveLength(3);
     expect(contextAfter[0]).toEqual({ type: 'context', text: 'line2', lineNumber: 2 });
     expect(contextAfter[1]).toEqual({ type: 'context', text: 'line3', lineNumber: 3 });
+    expect(contextAfter[2]).toEqual({ type: 'context', text: 'line4', lineNumber: 4 });
   });
 
   it('should handle edit at end of file (no lines after)', () => {
@@ -279,9 +282,9 @@ describe('generateDiffLinesWithContext', () => {
 
     const result = generateDiffLinesWithContext('line5', 'lineNEW', 5, filePath);
 
-    // Context before: line3, line4
+    // Context before: line2, line3, line4
     const contextBefore = result.filter((l) => l.type === 'context' && l.lineNumber < 5);
-    expect(contextBefore).toHaveLength(2);
+    expect(contextBefore).toHaveLength(3);
 
     // Context after: none (line5 is the last line)
     const contextAfter = result.filter((l) => l.type === 'context' && l.lineNumber > 5);
@@ -301,6 +304,21 @@ describe('generateDiffLinesWithContext', () => {
     for (const line of contextLines) {
       expect(line.type).toBe('context');
     }
+  });
+
+  it('starts readable context diffs with a hunk header', () => {
+    const fileLines = Array.from({ length: 10 }, (_, i) => `line${i + 1}`);
+    const modifiedLines = [...fileLines];
+    modifiedLines[4] = 'lineNEW';
+    const filePath = makeTempFile(modifiedLines.join('\n'));
+
+    const result = generateDiffLinesWithContext('line5', 'lineNEW', 5, filePath);
+
+    expect(result[0]).toEqual({
+      type: 'hunk',
+      text: '@@ -2,7 +2,7 @@',
+      lineNumber: 2,
+    });
   });
 
   it('all lines should have absolute lineNumber', () => {

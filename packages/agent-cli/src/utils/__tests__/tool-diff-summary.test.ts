@@ -5,6 +5,7 @@ import type { IDiffLine } from '../edit-diff.js';
 describe('buildToolDiffSummary', () => {
   it('builds a markdown diff fenced body while preserving file metadata', () => {
     const lines: IDiffLine[] = [
+      { type: 'hunk', lineNumber: 10, text: '@@ -10,2 +10,2 @@' },
       { type: 'context', lineNumber: 10, text: 'const before = true;' },
       { type: 'remove', lineNumber: 11, text: 'const value = false;' },
       { type: 'add', lineNumber: 11, text: 'const value = true;' },
@@ -18,6 +19,7 @@ describe('buildToolDiffSummary', () => {
     expect(summary.markdown).toBe(
       [
         '```diff',
+        '@@ -10,2 +10,2 @@',
         '  10 | const before = true;',
         '- 11 | const value = false;',
         '+ 11 | const value = true;',
@@ -44,5 +46,34 @@ describe('buildToolDiffSummary', () => {
     expect(summary.markdown).toContain('+ 10 | line 10');
     expect(summary.markdown).not.toContain('line 11');
     expect(summary.markdown).not.toContain('more lines');
+  });
+
+  it('preserves the first hunk when truncating multi-hunk diffs', () => {
+    const lines: IDiffLine[] = [
+      { type: 'hunk', lineNumber: 1, text: '@@ -1,4 +1,4 @@' },
+      { type: 'context', lineNumber: 1, text: 'one' },
+      { type: 'remove', lineNumber: 2, text: 'two-old' },
+      { type: 'add', lineNumber: 2, text: 'two-new' },
+      { type: 'context', lineNumber: 3, text: 'three' },
+      { type: 'hunk', lineNumber: 20, text: '@@ -20,4 +20,4 @@' },
+      { type: 'context', lineNumber: 20, text: 'twenty' },
+      { type: 'remove', lineNumber: 21, text: 'twenty-one-old' },
+      { type: 'add', lineNumber: 21, text: 'twenty-one-new' },
+      { type: 'context', lineNumber: 22, text: 'twenty-two' },
+      { type: 'hunk', lineNumber: 40, text: '@@ -40,4 +40,4 @@' },
+      { type: 'context', lineNumber: 40, text: 'forty' },
+      { type: 'remove', lineNumber: 41, text: 'forty-one-old' },
+      { type: 'add', lineNumber: 41, text: 'forty-one-new' },
+      { type: 'context', lineNumber: 42, text: 'forty-two' },
+    ];
+
+    const summary = buildToolDiffSummary({ lines });
+
+    expect(summary.truncated).toBe(true);
+    expect(summary.remainingLineCount).toBe(5);
+    expect(summary.markdown).toContain('@@ -1,4 +1,4 @@');
+    expect(summary.markdown).toContain('two-new');
+    expect(summary.markdown).toContain('@@ -20,4 +20,4 @@');
+    expect(summary.markdown).not.toContain('@@ -40,4 +40,4 @@');
   });
 });
