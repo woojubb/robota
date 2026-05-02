@@ -11,7 +11,7 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
 import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
-import { GoogleProvider } from '@robota-sdk/agent-provider-google';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 
 vi.mock('@robota-sdk/agent-provider-anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -137,14 +137,14 @@ vi.mock('@robota-sdk/agent-provider-qwen', () => {
   };
 });
 
-vi.mock('@robota-sdk/agent-provider-google', () => {
-  const MockGoogleProvider = vi.fn().mockImplementation((options: unknown) => ({
-    name: 'google',
+vi.mock('@robota-sdk/agent-provider-gemini', () => {
+  const MockGeminiProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'gemini',
     version: 'test',
     options,
   }));
   return {
-    GoogleProvider: MockGoogleProvider,
+    GeminiProvider: MockGeminiProvider,
     createGeminiProviderDefinition: () => ({
       type: 'gemini',
       aliases: ['google'],
@@ -159,7 +159,7 @@ vi.mock('@robota-sdk/agent-provider-google', () => {
         baseURL?: string;
         timeout?: number;
       }) =>
-        new MockGoogleProvider({
+        new MockGeminiProvider({
           apiKey: config.apiKey,
           defaultModel: config.model,
         }),
@@ -384,7 +384,7 @@ describe('provider-factory', () => {
     });
   });
 
-  it('creates GoogleProvider for canonical Gemini provider profiles', () => {
+  it('creates GeminiProvider for canonical Gemini provider profiles', () => {
     writeJson(join(cwd, '.robota', 'settings.json'), {
       currentProvider: 'gemini',
       providers: {
@@ -398,14 +398,14 @@ describe('provider-factory', () => {
 
     const provider = createProviderFromSettings(cwd);
 
-    expect(provider.name).toBe('google');
-    expect(GoogleProvider).toHaveBeenCalledWith({
+    expect(provider.name).toBe('gemini');
+    expect(GeminiProvider).toHaveBeenCalledWith({
       apiKey: 'gemini-key',
       defaultModel: 'gemini-3-flash-preview',
     });
   });
 
-  it('creates GoogleProvider for compatibility Google provider profiles through aliases', () => {
+  it('creates GeminiProvider for compatibility Google provider profiles through aliases', () => {
     writeJson(join(cwd, '.robota', 'settings.json'), {
       currentProvider: 'google',
       providers: {
@@ -419,7 +419,7 @@ describe('provider-factory', () => {
 
     createProviderFromSettings(cwd);
 
-    expect(GoogleProvider).toHaveBeenCalledWith({
+    expect(GeminiProvider).toHaveBeenCalledWith({
       apiKey: 'gemini-key',
       defaultModel: 'gemini-3-flash-preview',
     });
