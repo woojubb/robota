@@ -6,6 +6,8 @@ import { renderMarkdown } from './render-markdown.js';
 import type { IToolCallSummary } from '../utils/tool-call-extractor.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 import UsageSummaryEntry from './UsageSummaryEntry.js';
+import { formatCommandOutputSummary } from './command-output-summary.js';
+import ToolCommandOutput from './ToolCommandOutput.js';
 
 interface IProps {
   history: IHistoryEntry[];
@@ -18,13 +20,21 @@ type TToolSummaryItem = {
   result?: string;
   diffLines?: IToolCallSummary['diffLines'];
   diffFile?: string;
+  toolResultData?: string;
 };
 
 function getToolSummaryStatus(tool: TToolSummaryItem): string {
+  if (formatCommandOutputSummary(tool)?.status === 'error') return '✗';
   if (tool.isRunning) return '⟳';
   if (tool.result === 'error') return '✗';
   if (tool.result === 'denied') return '⊘';
   return '✓';
+}
+
+function getToolSummaryColor(tool: TToolSummaryItem): string {
+  if (formatCommandOutputSummary(tool)?.status === 'error' || tool.result === 'error') return 'red';
+  if (tool.isRunning || tool.result === 'denied') return 'yellow';
+  return 'green';
 }
 
 function getToolSummaryLabel(tool: TToolSummaryItem): string {
@@ -182,10 +192,11 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
         <Text> </Text>
         {tools.map((tool, i) => (
           <Box key={i} flexDirection="column">
-            <Text color="green">
+            <Text color={getToolSummaryColor(tool)}>
               {'  '}
               {getToolSummaryLabel(tool)}
             </Text>
+            <ToolCommandOutput tool={tool} />
             {tool.diffLines && tool.diffLines.length > 0 && (
               <ToolDiffBlock file={tool.diffFile} lines={tool.diffLines} />
             )}

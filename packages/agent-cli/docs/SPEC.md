@@ -269,7 +269,7 @@ The CLI TUI renders structured session/runtime data. It must not parse assistant
 | Surface                      | Owner                                 | Data Source                            | Rendering Contract                                                                |
 | ---------------------------- | ------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
 | Chat messages                | `MessageList`                         | `IHistoryEntry[]` chat entries         | Show stable role labels and markdown-rendered assistant content                   |
-| Tool summaries               | `MessageList`                         | structured `tool-summary` event data   | Show compact one-line tool rows plus structured details such as diffs             |
+| Tool summaries               | `MessageList`                         | structured `tool-summary` event data   | Show compact one-line tool rows plus structured details such as diffs/output      |
 | Streaming assistant response | `StreamingIndicator`                  | SDK text deltas                        | Show current assistant text without persisting duplicate rendered state           |
 | Live tool execution          | `StreamingIndicator`                  | SDK tool state events                  | Show current tool state using the shared status marker set                        |
 | Background work              | `BackgroundTaskPanel`                 | SDK background task events             | Show a one-level tree of running and retained terminal jobs                       |
@@ -303,6 +303,18 @@ Colors remain renderer-owned: green for success/healthy state, yellow for warnin
 - Pure formatting helpers must have unit tests for status markers, truncation, omitted-line counts, and narrow-output labels.
 - Ink components must have render tests for the same states using representative structured data.
 - Changes that add a new output surface must update this section or explain why an existing surface owns the behavior.
+
+### Command Output Summary Rendering
+
+Command-like tool summaries render a compact command row plus a bounded output preview. The contract is:
+
+- Applies only to command execution tools (`Bash`, `BackgroundProcess`) that provide `toolResultData`.
+- The visible preview shows at most four output lines.
+- If output has additional lines, render `... +N lines (full output in session transcript)`.
+- Non-zero command `exitCode`, `success=false`, or tool `result=error` renders the tool row as failed even when the tool transport itself completed.
+- Structured `stdout` and `stderr` are kept distinct; stderr preview lines are prefixed with `[stderr]`.
+- Empty successful output shows only the compact command row.
+- Full result data remains in SDK/session records; the TUI renders only the bounded projection.
 
 ### Edit Diff Hunk Rendering
 

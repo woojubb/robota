@@ -183,6 +183,72 @@ describe('MessageList rendering', () => {
     expect(output).toContain('+ 1 | const original = true;');
   });
 
+  it('tool-summary event collapses long command output with transcript hint', () => {
+    const commandOutput = Array.from({ length: 7 }, (_, index) => `line-${index + 1}`).join('\n');
+    const history: IHistoryEntry[] = [
+      {
+        id: 'summary_command_long',
+        timestamp: new Date(),
+        category: 'event',
+        type: 'tool-summary',
+        data: {
+          tools: [
+            {
+              toolName: 'Bash',
+              firstArg: 'pnpm test',
+              isRunning: false,
+              result: 'success',
+              toolResultData: JSON.stringify({
+                success: true,
+                output: commandOutput,
+                exitCode: 0,
+              }),
+            },
+          ],
+          summary: '✓ Bash(pnpm test)',
+        },
+      },
+    ];
+
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('✓ Bash(pnpm test)');
+    expect(output).toContain('line-1');
+    expect(output).toContain('line-4');
+    expect(output).not.toContain('line-5');
+    expect(output).toContain('... +3 lines (full output in session transcript)');
+  });
+
+  it('tool-summary event marks non-zero command exits as failed', () => {
+    const history: IHistoryEntry[] = [
+      {
+        id: 'summary_command_failed',
+        timestamp: new Date(),
+        category: 'event',
+        type: 'tool-summary',
+        data: {
+          tools: [
+            {
+              toolName: 'Bash',
+              firstArg: 'exit 42',
+              isRunning: false,
+              result: 'success',
+              toolResultData: JSON.stringify({ success: true, output: '', exitCode: 42 }),
+            },
+          ],
+          summary: '✓ Bash(exit 42)',
+        },
+      },
+    ];
+
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('✗ Bash(exit 42)');
+    expect(output).toContain('exit 42');
+  });
+
   it('usage-summary event renders compact token and cost visibility', () => {
     const history: IHistoryEntry[] = [
       {

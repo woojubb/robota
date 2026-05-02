@@ -1,5 +1,10 @@
 # CLI TUI Command Output Transcript Collapse
 
+Status: completed
+Created: 2026-05-02
+Branch: feat/cli-command-transcript-collapse
+Scope: packages/agent-cli, packages/agent-sdk
+
 ## Priority
 
 P1 — implement after the visual grammar audit.
@@ -42,13 +47,30 @@ Use documentation and product behavior observations only; do not copy source cod
 
 ## Acceptance Criteria
 
-- [ ] Short command output renders inline without unnecessary decoration.
-- [ ] Long output renders a bounded preview plus omitted-line transcript hint.
-- [ ] Failed commands remain visually distinct from successful commands.
-- [ ] The full transcript remains available from persisted session/log data.
-- [ ] Formatting is tested independently from Ink component rendering.
+- [x] Short command output renders inline without unnecessary decoration.
+- [x] Long output renders a bounded preview plus omitted-line transcript hint.
+- [x] Failed commands remain visually distinct from successful commands.
+- [x] The full transcript remains available from persisted session/log data.
+- [x] Formatting is tested independently from Ink component rendering.
 
 ## Promotion Path
 
 1. Move to `.agents/tasks/CLI-BL-0XX-cli-tui-command-output-transcript-collapse.md`.
 2. Implement after the visual grammar audit defines shared output labels and truncation copy.
+
+## Research Result
+
+- Codex-style terminal output favors a compact command row followed by a bounded transcript preview and an explicit hint when additional output is omitted.
+- Claude-style tool displays keep tool execution separate from model prose, so Robota should derive command previews from structured tool result data rather than asking the model to summarize command output.
+- Terminal log preview patterns work best when the raw transcript remains persisted and the visible TUI output only presents a bounded projection.
+
+## Implementation Notes
+
+- Added `formatCommandOutputSummary` as a pure CLI formatter for command-like tools.
+- Extended SDK `IToolState` and `tool-summary` metadata with `toolResultData` so the CLI can render persisted command previews after completion and resume.
+- Kept output collapse scoped to command tools (`Bash`, `BackgroundProcess`) to avoid rendering large non-command tool payloads such as file reads.
+
+## Verification
+
+- `pnpm --filter @robota-sdk/agent-cli test -- src/ui/__tests__/command-output-summary.test.ts src/ui/__tests__/message-list-rendering.test.tsx`
+- `pnpm --filter @robota-sdk/agent-sdk test -- src/interactive/__tests__/interactive-session-streaming.test.ts`
