@@ -15,6 +15,7 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 
 /** Detect whether an error represents an abort/cancel action. */
 export function isAbortError(err: unknown): boolean {
@@ -107,6 +108,10 @@ export function persistSession(
     groups?: readonly IBackgroundJobGroupState[];
     groupEvents?: readonly TBackgroundJobGroupEvent[];
   },
+  memoryState?: {
+    events: readonly IMemoryEvent[];
+    usedReferences: readonly IMemoryReference[];
+  },
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -127,6 +132,12 @@ export function persistSession(
             backgroundTaskEvents: [...backgroundState.events],
             backgroundJobGroups: [...(backgroundState.groups ?? [])],
             backgroundJobGroupEvents: [...(backgroundState.groupEvents ?? [])],
+          }
+        : {}),
+      ...(memoryState
+        ? {
+            memoryEvents: [...memoryState.events],
+            usedMemoryReferences: [...memoryState.usedReferences],
           }
         : {}),
     });

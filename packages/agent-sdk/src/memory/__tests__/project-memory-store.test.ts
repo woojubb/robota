@@ -78,6 +78,25 @@ describe('ProjectMemoryStore', () => {
     expect(readFileSync(result.topicPath, 'utf8')).toContain('Use pnpm for package scripts.');
   });
 
+  it('Given the same memory item already exists When appending again Then duplicate entries are skipped', () => {
+    const cwd = makeProject();
+    const store = new ProjectMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+    const input = {
+      type: 'project' as const,
+      topic: 'build',
+      text: 'Use pnpm for package scripts.',
+    };
+
+    const first = store.append(input);
+    const second = store.append(input);
+
+    expect(first.deduplicated).toBe(false);
+    expect(second.deduplicated).toBe(true);
+    expect(
+      readFileSync(first.topicPath, 'utf8').match(/Use pnpm for package scripts\./g),
+    ).toHaveLength(1);
+  });
+
   it('Given topic files When listing memory Then returns topic names and paths', () => {
     const cwd = makeProject();
     const topicsDir = join(cwd, '.robota', 'memory', 'topics');

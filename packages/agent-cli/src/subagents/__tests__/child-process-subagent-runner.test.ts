@@ -31,6 +31,7 @@ function createDeps(): IInProcessSubagentRunnerDeps {
         baseURL: 'http://localhost:1234/v1',
       },
       permissions: { allow: [], deny: [] },
+      memory: { policy: 'approval_required', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
       env: {},
     },
     context: { agentsMd: 'agents', claudeMd: 'claude' },

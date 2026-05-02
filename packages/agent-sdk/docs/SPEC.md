@@ -130,7 +130,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
-├── src/memory/                 ← project memory store for .robota/memory
+├── src/memory/                 ← project memory store, automatic capture policy, retrieval services
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
 ├── src/subagents/              ← SDK in-process runner + explicit compatibility exports from agent-runtime
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
@@ -210,8 +210,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
-- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
-- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
+- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
+- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). Memory event history and the last used memory references are restored for `/memory used` and debugging. This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
@@ -310,7 +310,12 @@ Resolved provider fields:
 - **Storage**: `.robota/memory/MEMORY.md` is the project memory index; `.robota/memory/topics/*.md` stores topic details.
 - **Startup injection**: `loadContext()` reads the memory index into `ILoadedContext.memoryMd`; `buildSystemPrompt()` renders it under the neutral `Project Memory` section. Topic files are not injected at startup.
 - **Caps**: Startup memory is capped to the first 200 lines and at most 25KB.
-- **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text>`.
+- **Automatic capture**: `InteractiveSession` owns the SDK memory pipeline. After each completed turn, `MemoryCandidateExtractor` emits durable candidates, `MemoryPolicyEvaluator` applies `disabled | approval_required | auto_save`, and `PendingMemoryStore` queues review records in `.robota/memory/pending.json` when approval is required.
+- **Sensitive data policy**: Candidate policy must skip obvious secret, token, password, private-key, payment-card, and national-ID style content instead of silently saving it. Additional extractors may be composed later, but they must feed the same policy/store contracts.
+- **Relevant retrieval**: Before a new prompt, `MemoryRetrievalService` scores topic files against the user input, injects only the selected capped topic content as a neutral `<project-memory>` block, and records topic/path provenance in `usedMemoryReferences`.
+- **Deduplication**: `ProjectMemoryStore.append()` returns `deduplicated` and must avoid repeating the same normalized topic entry.
+- **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used`.
+- **Audit trail**: Automatic extraction, queue, save, skip, approve, reject, and retrieval events are appended to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
 - **Ownership**: SDK owns the store and command behavior. CLI only renders slash command results and autocomplete metadata.
 - **Automatic extraction**: Passive sidecar extraction is intentionally not part of this phase because comparable products require explicit user approval for background-generated memories.
 
@@ -616,7 +621,7 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `cost`        | Session ID and message count                                                          |
 | `context`     | Token usage: used / max / percentage                                                  |
 | `permissions` | Current mode and session-approved tools                                               |
-| `memory`      | List/show/add project memory in `.robota/memory`                                      |
+| `memory`      | List/show/add/review project memory and report used memory references                 |
 | `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
 | `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
 | `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |

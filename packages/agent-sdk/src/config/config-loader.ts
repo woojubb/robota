@@ -33,6 +33,13 @@ const DEFAULTS: IResolvedConfig = {
     allow: [],
     deny: [],
   },
+  memory: {
+    policy: 'approval_required',
+    retrieval: {
+      maxTopics: 3,
+      maxTopicChars: 3000,
+    },
+  },
   env: {},
 };
 
@@ -126,6 +133,22 @@ function mergeSettings(layers: TSettings[]): TSettings {
               deny: layer.permissions?.deny ?? merged.permissions?.deny,
             }
           : undefined,
+      memory:
+        merged.memory !== undefined || layer.memory !== undefined
+          ? {
+              policy: layer.memory?.policy ?? merged.memory?.policy,
+              retrieval:
+                merged.memory?.retrieval !== undefined || layer.memory?.retrieval !== undefined
+                  ? {
+                      maxTopics:
+                        layer.memory?.retrieval?.maxTopics ?? merged.memory?.retrieval?.maxTopics,
+                      maxTopicChars:
+                        layer.memory?.retrieval?.maxTopicChars ??
+                        merged.memory?.retrieval?.maxTopicChars,
+                    }
+                  : undefined,
+            }
+          : undefined,
       env: {
         ...(merged.env ?? {}),
         ...(layer.env ?? {}),
@@ -198,6 +221,14 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
     permissions: {
       allow: merged.permissions?.allow ?? DEFAULTS.permissions.allow,
       deny: merged.permissions?.deny ?? DEFAULTS.permissions.deny,
+    },
+    memory: {
+      policy: merged.memory?.policy ?? DEFAULTS.memory.policy,
+      retrieval: {
+        maxTopics: merged.memory?.retrieval?.maxTopics ?? DEFAULTS.memory.retrieval.maxTopics,
+        maxTopicChars:
+          merged.memory?.retrieval?.maxTopicChars ?? DEFAULTS.memory.retrieval.maxTopicChars,
+      },
     },
     env: merged.env ?? DEFAULTS.env,
     hooks: merged.hooks ?? undefined,

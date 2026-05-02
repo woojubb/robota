@@ -55,7 +55,7 @@ Types owned by this package (SSOT):
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
 | `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)                   |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                                     |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, diagnostic extension fields)        |
 
 Types consumed from other packages (not owned here):
 
@@ -130,19 +130,23 @@ Types consumed from other packages (not owned here):
 
 ### ISessionRecord Fields
 
-| Field                  | Type        | Required | Description                                                                                                                                                       |
-| ---------------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                   | `string`    | Yes      | Unique session identifier                                                                                                                                         |
-| `cwd`                  | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
-| `name`                 | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
-| `createdAt`            | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
-| `updatedAt`            | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
-| `messages`             | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
-| `history`              | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
-| `systemPrompt`         | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
-| `toolSchemas`          | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
-| `backgroundTasks`      | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
-| `backgroundTaskEvents` | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
+| Field                      | Type        | Required | Description                                                                                                                                                       |
+| -------------------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | `string`    | Yes      | Unique session identifier                                                                                                                                         |
+| `cwd`                      | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
+| `name`                     | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
+| `createdAt`                | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
+| `updatedAt`                | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
+| `messages`                 | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
+| `history`                  | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
+| `systemPrompt`             | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
+| `toolSchemas`              | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
+| `backgroundTasks`          | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
+| `backgroundTaskEvents`     | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
+| `backgroundJobGroups`      | `unknown[]` | No       | Latest persisted background job group snapshots for agent/runtime orchestration resume.                                                                           |
+| `backgroundJobGroupEvents` | `unknown[]` | No       | Durable background job group lifecycle events needed for resume/debugging.                                                                                        |
+| `memoryEvents`             | `unknown[]` | No       | SDK-owned automatic memory audit events such as extracted, queued, saved, skipped, approved, rejected, and retrieved.                                             |
+| `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
 
 ### Session Data Migration
 

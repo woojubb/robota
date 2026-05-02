@@ -25,6 +25,7 @@ import type { ICommandModule, ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
+import type { IResolvedConfig } from '../config/config-types.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
 import { BundlePluginLoader } from '../plugins/index.js';
@@ -33,6 +34,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -63,6 +65,8 @@ export interface IInteractiveSessionStandardOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
+  config?: IResolvedConfig;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -122,6 +126,8 @@ export interface IInitOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
+  config?: IResolvedConfig;
 }
 
 /**
@@ -133,7 +139,7 @@ export interface IInitOptions {
 export async function createInteractiveSession(options: IInitOptions): Promise<Session> {
   const cwd = options.cwd;
   const [config, context, projectInfo] = await Promise.all([
-    loadConfig(cwd),
+    options.config ? Promise.resolve(options.config) : loadConfig(cwd),
     options.bare ? Promise.resolve({ agentsMd: '', claudeMd: '' }) : loadContext(cwd),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
@@ -236,6 +242,8 @@ export function loadSessionRecord(
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
   backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
+  memoryEvents: IMemoryEvent[];
+  usedMemoryReferences: IMemoryReference[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -247,6 +255,8 @@ export function loadSessionRecord(
       backgroundTaskEvents: [],
       backgroundJobGroups: [],
       backgroundJobGroupEvents: [],
+      memoryEvents: [],
+      usedMemoryReferences: [],
     };
   }
 
@@ -257,6 +267,8 @@ export function loadSessionRecord(
   const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
   const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
     []) as TBackgroundJobGroupEvent[];
+  const memoryEvents = (record.memoryEvents ?? []) as IMemoryEvent[];
+  const usedMemoryReferences = (record.usedMemoryReferences ?? []) as IMemoryReference[];
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
@@ -284,6 +296,8 @@ export function loadSessionRecord(
     backgroundTaskEvents,
     backgroundJobGroups,
     backgroundJobGroupEvents,
+    memoryEvents,
+    usedMemoryReferences,
   };
 }
 

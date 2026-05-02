@@ -1,12 +1,13 @@
 ---
 title: CLI-BL-041 Automatic Memory Capture and Retrieval
-status: backlog
+status: completed
 priority: high
 urgency: next
 created: 2026-05-02
 packages:
   - agent-sdk
   - agent-cli
+branch: feat/automatic-memory-capture-retrieval
 related:
   - .agents/tasks/completed/CLI-BL-010-auto-memory-system.md
 ---
@@ -48,6 +49,13 @@ Before implementation, verify current behavior from product documentation, not s
 
 The implementation recommendation should choose the most broadly supported pattern from those products and document tradeoffs before code changes.
 
+## Research Notes
+
+- Claude Code documents persistent memory through project/user memory files and a `/memory` management surface.
+- Cursor documents memories as contextual project/user facts with user control over what is retained.
+- Codex documents static project instruction loading through `AGENTS.md`; durable learned memory is a separate concern and should not be faked through hardcoded system prompt instructions.
+- Recommended baseline: SDK-owned capture/retrieval with `approval_required` as the default, explicit review commands, bounded retrieval, and session-log provenance.
+
 ## Architecture Recommendation
 
 Add an SDK-owned memory pipeline above the existing `ProjectMemoryStore`:
@@ -62,16 +70,30 @@ The SDK owns memory capture/retrieval logic because context loading, session per
 
 ## Implementation Plan
 
-1. Update package SPEC files to distinguish project memory foundation from automatic memory behavior.
-2. Add memory candidate and decision contracts in the SDK.
-3. Add a pure policy evaluator with modes: `disabled`, `approval_required`, and `auto_save`.
-4. Add an extraction seam so providers or future summarizers can produce candidates without hardcoding model behavior.
-5. Add pending-memory storage and review APIs.
-6. Add relevant-memory retrieval before prompt composition with caps and provenance metadata.
-7. Add `/memory pending`, `/memory approve`, `/memory reject`, and `/memory used` command behavior.
-8. Add TUI notices for pending memory candidates without blocking normal chat.
-9. Persist all memory capture/retrieval events in session logs.
-10. Add headless-safe behavior where memory capture can run without interactive approval only when policy allows it.
+- [x] Update package SPEC files to distinguish project memory foundation from automatic memory behavior.
+- [x] Add memory candidate and decision contracts in the SDK.
+- [x] Add a pure policy evaluator with modes: `disabled`, `approval_required`, and `auto_save`.
+- [x] Add an extraction seam so providers or future summarizers can produce candidates without hardcoding model behavior.
+- [x] Add pending-memory storage and review APIs.
+- [x] Add relevant-memory retrieval before prompt composition with caps and provenance metadata.
+- [x] Add `/memory pending`, `/memory approve`, `/memory reject`, and `/memory used` command behavior.
+- [x] Add TUI notices for pending memory candidates without blocking normal chat.
+- [x] Persist all memory capture/retrieval events in session logs.
+- [x] Add headless-safe behavior where memory capture can run without interactive approval only when policy allows it.
+
+## Progress
+
+### 2026-05-02
+
+- Added SDK automatic memory contracts, regex extractor seam, policy evaluator, pending store, retrieval service, and controller.
+- Wired `InteractiveSession` to retrieve bounded memory before prompt execution, capture candidates after turns, and persist memory events/references into session records.
+- Extended `/memory` with pending/approve/reject/used review commands.
+- Added unit and integration tests for extraction, policy, storage, retrieval, command review, and session-log provenance.
+- Updated package SPEC files for SDK, CLI, and sessions responsibilities.
+
+## Result
+
+Implemented SDK-owned automatic memory capture/retrieval with approval-required default policy, review commands, bounded topic retrieval, duplicate-safe memory storage, and session-log provenance. Added unit and integration coverage for extraction, policy, storage, retrieval, command review, session persistence, and prompt retrieval injection.
 
 ## Test Plan
 
