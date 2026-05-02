@@ -495,8 +495,27 @@ interface IExecutionResult {
   history: IHistoryEntry[]; // Full history including chat + event entries
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
+  usage?: IUsageSnapshot;
 }
 ```
+
+`IUsageSnapshot` is the SDK-owned provider-neutral execution usage record:
+
+```typescript
+interface IUsageSnapshot {
+  kind: 'exact' | 'estimated';
+  scope: 'turn';
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
+  contextUsedPercentage: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
+}
+```
+
+`InteractiveSession` appends a `usage-summary` event entry after the assistant response when exact provider usage is available. The entry is persisted in `IHistoryEntry[]` so `/resume`, headless transports, and debugging can display usage without reparsing assistant prose.
 
 **IInteractiveSessionEvents:**
 
@@ -659,6 +678,26 @@ Exported subagent runtime types:
       diffLines?: IDiffLine[];
       diffFile?: string;
     }>;
+  }
+}
+```
+
+**Usage summary entry** (appended by `InteractiveSession` after each completed turn when usage exists):
+
+```typescript
+{
+  category: 'event',
+  type: 'usage-summary',
+  data: {
+    kind: 'exact',
+    scope: 'turn',
+    promptTokens: 1000,
+    completionTokens: 200,
+    totalTokens: 1200,
+    contextUsedTokens: 1200,
+    contextMaxTokens: 200000,
+    contextUsedPercentage: 0.6,
+    costStatus: 'unknown',
   }
 }
 ```

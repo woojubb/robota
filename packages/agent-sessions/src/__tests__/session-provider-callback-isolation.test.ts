@@ -64,4 +64,35 @@ describe('Session provider callback isolation', () => {
     expect(parentDeltas).toEqual(['streamed text']);
     expect(childDeltas).toEqual([]);
   });
+
+  it('emits context updates before provider response and after usage reconciliation', async () => {
+    const snapshots: Array<{ usedTokens: number; usedPercentage: number }> = [];
+    const provider = createSharedProvider();
+    provider.chat = vi.fn(async () => {
+      expect(snapshots.length).toBeGreaterThan(0);
+      return {
+        id: 'assistant_1',
+        role: 'assistant',
+        content: 'final text',
+        timestamp: new Date(),
+        state: 'complete',
+        metadata: { inputTokens: 10, outputTokens: 5 },
+      };
+    });
+    const session = new Session({
+      tools: [],
+      provider,
+      systemMessage: 'test system',
+      terminal: createTerminal(),
+      model: 'test-model',
+      onContextUpdate: (state) =>
+        snapshots.push({ usedTokens: state.usedTokens, usedPercentage: state.usedPercentage }),
+    });
+
+    await session.run('parent prompt');
+
+    expect(snapshots.length).toBeGreaterThanOrEqual(2);
+    expect(snapshots[0]?.usedTokens).toBeGreaterThan(0);
+    expect(snapshots.at(-1)?.usedTokens).toBe(15);
+  });
 });

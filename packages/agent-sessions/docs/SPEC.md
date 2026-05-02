@@ -106,6 +106,8 @@ Types consumed from other packages (not owned here):
 
 `ISessionOptions.maxTurns` is an optional maximum number of model/tool rounds for one `Session.run()` call. When provided, `Session` forwards it to `Robota.run()` as `maxExecutionRounds`. When omitted, `Session` forwards `maxExecutionRounds: 0`, which means the session run has no core round cap and is instead bounded by abort, context-window checks, provider idle timeout, and runtime-level controls.
 
+`ISessionOptions.onContextUpdate` is an optional callback fired from the session runtime whenever `ContextWindowTracker` is refreshed. It fires before the provider call using the assembled request history estimate and again after the provider response is committed with exact provider usage when available. Consumers such as `InteractiveSession` forward it as `context_update`.
+
 ### Key Session Methods
 
 | Method                     | Signature                                                            | Description                                                                                                                             |
@@ -127,6 +129,15 @@ Types consumed from other packages (not owned here):
 | `getSessionAllowedTools`   | `() => string[]`                                                     | Returns tools that were session-approved ("Allow always").                                                                              |
 | `clearSessionAllowedTools` | `() => void`                                                         | Clears all session-scoped allow rules.                                                                                                  |
 | `injectMessage`            | `(role: 'user' \| 'assistant' \| 'system', content: string) => void` | Injects a message into conversation history without triggering an AI response. Used for restoring context on session resume.            |
+
+### Usage And Context Refresh
+
+`Session.run()` performs two context refreshes per successful prompt:
+
+1. **Pre-send estimate** -- after hooks and request payload assembly, `ContextWindowTracker.updateFromHistory()` receives the current history plus the enriched user message. This emits estimated context usage before the provider responds.
+2. **Post-response reconciliation** -- after the assistant response is committed, `ContextWindowTracker.updateFromHistory()` reads exact provider token metadata when available and emits the reconciled context state.
+
+The callback payload is provider-neutral `IContextWindowState`; provider-specific usage details remain in message metadata and are interpreted by higher layers only through normalized token fields.
 
 ### ISessionRecord Fields
 

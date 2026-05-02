@@ -11,6 +11,7 @@ import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
@@ -102,6 +103,7 @@ export interface IInitOptions {
   resumeSessionId?: string;
   forkSession?: boolean;
   onTextDelta: (delta: string) => void;
+  onContextUpdate?: (state: IContextWindowState) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
@@ -190,6 +192,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     permissionHandler: options.permissionHandler,
     provider: options.provider,
     onTextDelta: options.onTextDelta,
+    onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,

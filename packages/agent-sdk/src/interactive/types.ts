@@ -26,12 +26,25 @@ export interface IDiffLine {
   lineNumber: number;
 }
 
+export interface IUsageSnapshot {
+  kind: 'exact' | 'estimated';
+  scope: 'turn';
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
+  contextUsedPercentage: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
+}
+
 /** Result of a completed prompt execution. */
 export interface IExecutionResult {
   response: string;
   history: IHistoryEntry[];
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
+  usage?: IUsageSnapshot;
 }
 
 /** Summary of a tool call extracted from history. */
