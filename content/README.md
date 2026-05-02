@@ -97,7 +97,7 @@ robota -p "Explain this project"    # Print mode
 ## Why Robota SDK?
 
 - **Type-Safe**: Strict TypeScript with zero `any` in production code
-- **Multi-Provider**: Anthropic Claude, OpenAI, Google — same API, seamless switching
+- **Multi-Provider**: Anthropic Claude, OpenAI, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
 - **Tool Calling**: Zod-based schema validation for type-safe function calls
 - **Subagents**: Runtime-managed background jobs, transcripts, and batch Agent tool requests
 - **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
@@ -158,8 +158,11 @@ npm install @robota-sdk/agent-core
 
 # Provider
 npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
-# npm install @robota-sdk/agent-provider-openai openai        # not yet published
-# npm install @robota-sdk/agent-provider-google @google/generative-ai  # not yet published
+npm install @robota-sdk/agent-provider-openai openai
+npm install @robota-sdk/agent-provider-gemini @google/genai
+npm install @robota-sdk/agent-provider-qwen
+npm install @robota-sdk/agent-provider-gemma
+npm install @robota-sdk/agent-provider-openai-compatible
 
 # Tools — FunctionTool, Zod tools, built-in CLI tools
 npm install @robota-sdk/agent-tools
