@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.57",
+  "version": "3.0.0-beta.58",
   "description": "AI coding assistant CLI built on Robota SDK",
   "type": "module",
   "bin": {
@@ -57,7 +57,7 @@
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-provider-qwen": "workspace:*",
     "@robota-sdk/agent-sdk": "workspace:*",
-    "@robota-sdk/agent-sessions": "workspace:3.0.0-beta.57",
+    "@robota-sdk/agent-sessions": "workspace:3.0.0-beta.58",
     "@robota-sdk/agent-transport-headless": "workspace:*",
     "chalk": "^5.3.0",
     "cli-highlight": "^2.1.0",

@@ -1,5 +1,13 @@
 # @robota-sdk/agent-runtime
 
+## 3.0.0-beta.58
+
+### Patch Changes
+
+- Refresh package docs and robota.io content for the beta 57 feature set.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.58
+
 ## 3.0.0-beta.57
 
 ### Minor Changes
