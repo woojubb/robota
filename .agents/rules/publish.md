@@ -44,6 +44,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Build and test must pass BEFORE running `pnpm publish:beta`. The script does NOT run build/test internally — the agent must verify these before asking for OTP.
 - npm authentication must be verified BEFORE dry-run and BEFORE asking for OTP. Run `npm whoami --registry https://registry.npmjs.org/` or rely on `pnpm publish:beta` to run the same preflight. If this fails, tell the user to log in and do not ask for OTP. The agent may run `npm login --registry https://registry.npmjs.org/` to start the browser-based login flow, then rerun the authentication preflight after the user completes login.
 - OTP must be requested ONLY after dry-run succeeds. OTP expires in 30 seconds.
+- `pnpm publish:beta` MUST run in an interactive TTY when the agent expects the script to prompt for OTP. Non-TTY execution makes `read -rp` fail after dry-run and exits before publish. If TTY stdin is unavailable, use the script's explicit OTP argument only after the user provides a fresh OTP.
+- If `pnpm publish:beta` exits after printing only the filtered dry-run package list, do not infer the cause from that filtered output. Immediately rerun `pnpm publish -r --no-git-checks --dry-run` with full unfiltered output in the same permission context to identify the real failure.
+- Treat sandbox, network, and npm cache errors as environment failures until confirmed otherwise. Re-run npm registry preflight and full dry-run outside the restricted sandbox when the first failure includes `ENOTFOUND`, registry fetch failures, npm cache permission errors, or missing npm log output.
+- Do not ask for OTP until all of these are true in the actual publish environment: npm auth passes, full dry-run exits 0, the working tree and release commit are final, and the publish command is waiting at the OTP prompt or ready to receive the OTP argument.
 - MUST use `pnpm publish`, NEVER `npm publish`.
 - When a package is published for the first time, search `content/` and `docs/` for "not yet published" references and remove them.
 
