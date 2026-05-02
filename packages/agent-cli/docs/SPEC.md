@@ -294,6 +294,17 @@ Colors remain renderer-owned: green for success/healthy state, yellow for warnin
 - Ink components must have render tests for the same states using representative structured data.
 - Changes that add a new output surface must update this section or explain why an existing surface owns the behavior.
 
+### Edit Diff Hunk Rendering
+
+Edit tool summaries render context-aware hunks rather than isolated changed lines. The rendering contract is:
+
+- Default context is three unchanged lines before and after the edited span when the modified file can be read.
+- Diff bodies are fenced as `diff` markdown and rendered through the shared markdown renderer.
+- Hunk headers, context lines, additions, and removals are represented as structured diff line data before rendering.
+- File path, truncation state, and omitted-line counts remain outside the markdown body.
+- If file context is unavailable, the renderer falls back to changed lines only rather than failing the tool summary.
+- Large diffs are truncated by visible hunk groups when possible, preserving the first changed hunk before omitting additional lines.
+
 ## Context Management (CLI Layer)
 
 ### `/compact` Slash Command
