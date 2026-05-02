@@ -39,8 +39,8 @@ afterEach(() => {
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
-describe('InteractiveSession automatic memory integration', () => {
-  it('Given approval policy When a turn contains a memory cue Then the candidate is queued and persisted', async () => {
+describe('InteractiveSession memory command integration', () => {
+  it('Given a memory cue When a turn completes Then no hidden pending memory is created', async () => {
     const cwd = makeProject();
     const provider = createProvider('noted');
     const sessionStore = new SessionStore(join(cwd, '.robota', 'sessions'));
@@ -53,22 +53,12 @@ describe('InteractiveSession automatic memory integration', () => {
 
     await session.submit('remember that this project uses pnpm for package scripts');
 
-    const pending = JSON.parse(
-      readFileSync(join(cwd, '.robota', 'memory', 'pending.json'), 'utf8'),
-    ) as { records: Array<{ status: string; text: string }> };
-    expect(pending.records).toEqual([
-      expect.objectContaining({
-        status: 'pending',
-        text: 'this project uses pnpm for package scripts',
-      }),
-    ]);
+    expect(existsSync(join(cwd, '.robota', 'memory', 'pending.json'))).toBe(false);
     const saved = sessionStore.load(session.getSession().getSessionId());
-    expect(saved?.memoryEvents).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: 'memory_candidate_queued' })]),
-    );
+    expect(saved?.memoryEvents).toEqual([]);
   });
 
-  it('Given relevant project memory When submitting a prompt Then selected memory is passed with provenance', async () => {
+  it('Given relevant project memory When submitting a prompt Then topic memory is not injected automatically', async () => {
     const cwd = makeProject();
     const provider = createProvider('use pnpm');
     new ProjectMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z')).append({
@@ -84,13 +74,32 @@ describe('InteractiveSession automatic memory integration', () => {
 
     await session.submit('How should I run package scripts?');
 
-    expect(latestUserMessage(provider)?.content).toContain('<project-memory>');
-    expect(latestUserMessage(provider)?.content).toContain('Use pnpm for package scripts.');
-    expect(session.getUsedMemoryReferences()).toEqual([
+    expect(latestUserMessage(provider)?.content).toBe('How should I run package scripts?');
+    expect(latestUserMessage(provider)?.content).not.toContain('<project-memory>');
+    expect(latestUserMessage(provider)?.content).not.toContain('Use pnpm for package scripts.');
+    expect(session.getUsedMemoryReferences()).toEqual([]);
+  });
+
+  it('Given model invocation When /memory add is executed Then memory is persisted through the command bridge', async () => {
+    const cwd = makeProject();
+    const session = new InteractiveSession({
+      cwd,
+      provider: createProvider('ok'),
+      bare: true,
+    });
+
+    const result = await session.executeModelCommand(
+      'memory',
+      'add project build Use pnpm for package scripts.',
+    );
+
+    expect(result).toEqual(
       expect.objectContaining({
-        topic: 'build',
-        path: join(cwd, '.robota', 'memory', 'topics', 'build.md'),
+        success: true,
       }),
-    ]);
+    );
+    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
+      '(project/build) Use pnpm for package scripts.',
+    );
   });
 });

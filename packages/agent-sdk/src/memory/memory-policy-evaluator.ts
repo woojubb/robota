@@ -12,13 +12,17 @@ const SENSITIVE_PATTERNS: readonly RegExp[] = [
   /주민등록|비밀번호|시크릿|토큰/u,
 ];
 
+export function containsSensitiveMemoryContent(text: string): boolean {
+  return SENSITIVE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export class MemoryPolicyEvaluator {
   evaluate(candidate: IMemoryCandidate, config: IAutomaticMemoryConfig): IMemoryDecision {
     if (config.policy === 'disabled') {
       return { action: 'skip', reason: 'memory-policy-disabled' };
     }
 
-    if (this.containsSensitiveContent(candidate.text)) {
+    if (containsSensitiveMemoryContent(candidate.text)) {
       return { action: 'skip', reason: 'sensitive-content' };
     }
 
@@ -31,9 +35,5 @@ export class MemoryPolicyEvaluator {
     }
 
     return { action: 'queue', reason: 'low-confidence-auto-save-review' };
-  }
-
-  private containsSensitiveContent(text: string): boolean {
-    return SENSITIVE_PATTERNS.some((pattern) => pattern.test(text));
   }
 }

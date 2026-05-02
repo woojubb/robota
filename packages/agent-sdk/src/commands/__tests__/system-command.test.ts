@@ -336,20 +336,45 @@ describe('SystemCommandExecutor', () => {
     );
   });
 
-  it('memory command is exposed as model-invocable descriptor', () => {
+  it('memory add rejects sensitive content before writing files', async () => {
+    const cwd = makeProject();
     const executor = new SystemCommandExecutor();
 
+    const result = await executor.execute(
+      'memory',
+      createMockSession({}, cwd),
+      'add project secrets api key is sk-test-secret',
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(false);
+    expect(result!.message).toContain('sensitive');
+    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
+  });
+
+  it('memory command is exposed as model-invocable descriptor', () => {
+    const executor = new SystemCommandExecutor();
+    const descriptor = executor
+      .listModelInvocableCommands()
+      .find((command) => command.name === '/memory');
+
     expect(executor.isModelInvocable('memory')).toBe(true);
-    expect(executor.listModelInvocableCommands()).toContainEqual({
-      name: '/memory',
-      kind: 'builtin-command',
-      description: 'Manage project memory, including pending automatic memory candidates.',
-      userInvocable: true,
-      modelInvocable: true,
-      argumentHint:
-        'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
-      safety: 'write',
-    });
+    expect(descriptor).toEqual(
+      expect.objectContaining({
+        name: '/memory',
+        kind: 'builtin-command',
+        userInvocable: true,
+        modelInvocable: true,
+        argumentHint:
+          'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used',
+        safety: 'write',
+      }),
+    );
+    expect(descriptor?.description).toContain(
+      'inspect project memory when stored context may help',
+    );
+    expect(descriptor?.description).toContain('save durable preferences, project conventions');
+    expect(descriptor?.description).toContain('Do not store secrets');
   });
 
   it('memory pending lists queued automatic memory candidates', async () => {
@@ -530,16 +555,15 @@ describe('SystemCommandExecutor', () => {
     expect(executor.hasCommand('agent')).toBe(false);
     expect(executor.hasCommand('diagnose')).toBe(true);
     expect(executor.listModelInvocableCommands()).toEqual([
-      {
+      expect.objectContaining({
         name: '/memory',
         kind: 'builtin-command',
-        description: 'Manage project memory, including pending automatic memory candidates.',
         userInvocable: true,
         modelInvocable: true,
         argumentHint:
-          'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
+          'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used',
         safety: 'write',
-      },
+      }),
       {
         name: '/diagnose',
         kind: 'builtin-command',

@@ -7,6 +7,7 @@ import {
   isMemoryType,
   type TMemoryType,
 } from '../memory/project-memory-store.js';
+import { containsSensitiveMemoryContent } from '../memory/memory-policy-evaluator.js';
 
 const SUBCOMMAND_INDEX = 0;
 const TYPE_INDEX = 1;
@@ -203,6 +204,12 @@ export function executeMemoryCommand(session: InteractiveSession, rawArgs: strin
   if (subcommand === 'add') {
     const input = parseAdd(args);
     if (!input) return usage();
+    if (containsSensitiveMemoryContent(input.text)) {
+      return {
+        message: 'Refusing to save sensitive memory content.',
+        success: false,
+      };
+    }
     const result = store.append(input);
     return {
       message: result.deduplicated
