@@ -1,9 +1,10 @@
 # CLI-BL-034 Gemini Provider Modernization and Google Compatibility
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-01
 - **Branch**: feat/gemini-provider-modernization
-- **Scope**: packages/agent-provider-google, packages/agent-provider-gemini, packages/agent-cli, docs
+- **Merged PR**: #117
+- **Scope**: packages/agent-provider-google, packages/agent-core, packages/agent-cli, docs
 
 ## Objective
 
@@ -36,13 +37,14 @@ Renaming directly would affect imports, package documentation, CLI provider type
 - Gemini structured outputs support JSON schema and streaming partial JSON.
   - Source: <https://ai.google.dev/gemini-api/docs/structured-output>
 
-## Current Slice Decision
+## Completed Slice Decision
 
 - Do not create `agent-provider-gemini` in this slice. Creating a new canonical package and turning `agent-provider-google` into a compatibility wrapper requires a publish and semver migration plan.
 - Add a provider-definition alias mechanism in the shared provider-definition contract so compatibility names are resolved generically.
 - Export a Gemini provider definition from the current Google/Gemini provider package with canonical `type: "gemini"` and compatibility alias `google`.
 - Add the Gemini provider definition to the CLI composition root. CLI may import and inject the provider definition, but generic provider resolution must not branch on `gemini` or `google`.
 - Migrate the direct Gemini transport from legacy `@google/generative-ai` to the official GA `@google/genai` SDK after provider-type compatibility is covered by tests.
+- Track the package-level rename to a future `@robota-sdk/agent-provider-gemini` package separately in `CLI-BL-043`, because it affects package names, publish policy, compatibility imports, and semver.
 
 ## Plan
 
@@ -103,11 +105,20 @@ Renaming directly would affect imports, package documentation, CLI provider type
 - Split Gemini tool schema conversion into `tool-schema-converter.ts` after harness file-size scan showed `message-converter.ts` exceeded the 300-line limit.
 - Verified `pnpm harness:scan`; file-size warnings returned to the pre-existing 55-file set and no new oversized file remains from this slice.
 
+### Post-Merge Current State
+
+- PR #117 merged the compatibility-first Gemini modernization into `develop`.
+- The workspace still contains `@robota-sdk/agent-provider-google`; no `packages/agent-provider-gemini` package exists yet.
+- `createGeminiProviderDefinition()` is exported from `@robota-sdk/agent-provider-google` with canonical `type: "gemini"` and compatibility alias `google`.
+- CLI default provider composition injects the Gemini provider definition through the generic provider-definition contract.
+- Direct Gemini transport now uses `@google/genai`; the legacy `@google/generative-ai` transport is no longer the implementation path.
+- The remaining rename/compatibility-package work is tracked as `CLI-BL-043 Gemini Provider Package Rename Compatibility Migration`.
+
 ## Blockers
 
-- Full package rename to `agent-provider-gemini` still needs a semver and publish strategy.
-- Package rename remains separate; direct SDK migration is now in progress in this branch.
+- None for this completed modernization slice.
+- Full package rename to `agent-provider-gemini` remains future work and is tracked separately.
 
 ## Result
 
-In progress. Completed the compatibility-first provider type slice and the direct transport migration to `@google/genai` on `feat/gemini-provider-modernization`. Remaining work is the package-level rename/compatibility strategy for a future `agent-provider-gemini` package.
+Completed and merged through PR #117. This slice made `gemini` the canonical provider type, kept `google` as a compatibility alias, moved direct Gemini transport to `@google/genai`, and kept generic CLI/SDK layers branch-free through provider definitions. The package-level rename to a future `@robota-sdk/agent-provider-gemini` package is intentionally deferred to `CLI-BL-043`.
