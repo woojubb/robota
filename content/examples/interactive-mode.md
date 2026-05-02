@@ -27,6 +27,12 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 /clear        Clear history and start fresh
 /resume       Resume a previous session
 /rename name  Rename the current session
+/provider     Manage provider profiles
+/memory       Inspect and manage project memory
+/rewind       Restore an edit checkpoint
+/background   List and control background tasks
+/agent        Run or manage background subagent jobs
+/statusline   Show, hide, or reset status line fields
 /reload-plugins  Reload all plugins
 ```
 
