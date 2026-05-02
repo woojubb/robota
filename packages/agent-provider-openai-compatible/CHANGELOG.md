@@ -1,5 +1,11 @@
 # @robota-sdk/agent-provider-openai-compatible
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.59
+
 ## 3.0.0-beta.58
 
 ### Patch Changes

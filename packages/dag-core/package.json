@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-core",
-  "version": "3.0.0-beta.58",
+  "version": "3.0.0-beta.59",
   "description": "Core domain contracts and state rules for Robota DAG orchestration",
   "type": "module",
   "main": "dist/node/index.js",

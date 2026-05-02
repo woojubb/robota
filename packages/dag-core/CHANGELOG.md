@@ -1,5 +1,7 @@
 # @robota-sdk/dag-core
 
+## 3.0.0-beta.59
+
 ## 3.0.0-beta.58
 
 ## 3.0.0-beta.57

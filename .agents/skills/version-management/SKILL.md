@@ -34,7 +34,7 @@ git add -A && git commit -m "chore: release <version>"
 
 # 5. Publish all packages + sync dist-tags (single command)
 pnpm publish:beta
-# Prompts for OTP once, builds, tests, publishes, sets both beta + latest tags
+# Prompts for OTP after dry-run, publishes, syncs beta, and verifies beta + latest tags
 ```
 
 ### What `pnpm publish:beta` does
@@ -45,9 +45,11 @@ Runs `scripts/publish/publish-packages.sh`:
 2. Runs `pnpm publish -r --dry-run` (all packages at once, ~4 seconds)
 3. Prompts for OTP (after dry-run so it doesn't expire)
 4. Runs `pnpm publish -r --otp <otp>` (all packages at once, ~4 seconds)
+5. Syncs `beta` dist-tags for all published packages to the same version
+6. Verifies both `latest` and `beta` dist-tags point to the published version
 
 Key: uses `pnpm publish -r` (single command) not `--filter` per package (sequential, minutes).
-No `--tag` flag: npm automatically sets `latest` to the new version. No dist-tag sync needed.
+No `--tag` flag on publish: npm automatically sets `latest` to the new version. The script explicitly syncs `beta` afterward.
 
 ### Adding a new package:
 

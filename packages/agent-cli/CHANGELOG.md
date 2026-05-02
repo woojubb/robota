@@ -1,5 +1,20 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- @robota-sdk/agent-sdk@3.0.0-beta.59
+- @robota-sdk/agent-command-agent@3.0.0-beta.59
+- @robota-sdk/agent-transport-headless@3.0.0-beta.59
+- @robota-sdk/agent-core@3.0.0-beta.59
+- @robota-sdk/agent-sessions@3.0.0-beta.59
+- @robota-sdk/agent-provider-anthropic@3.0.0-beta.59
+- @robota-sdk/agent-provider-openai@3.0.0-beta.59
+- @robota-sdk/agent-provider-gemma@3.0.0-beta.59
+- @robota-sdk/agent-provider-gemini@3.0.0-beta.59
+- @robota-sdk/agent-provider-qwen@3.0.0-beta.59
+
 ## 3.0.0-beta.58
 
 ### Patch Changes

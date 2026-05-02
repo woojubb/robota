@@ -1,5 +1,11 @@
 # @robota-sdk/agent-transport-headless
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- @robota-sdk/agent-sdk@3.0.0-beta.59
+
 ## 3.0.0-beta.58
 
 ### Patch Changes

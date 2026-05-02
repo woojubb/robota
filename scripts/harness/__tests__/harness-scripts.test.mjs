@@ -169,6 +169,32 @@ describe('deploy workflow', () => {
 });
 
 // ---------------------------------------------------------------------------
+// publish workflow
+// ---------------------------------------------------------------------------
+describe('publish workflow', () => {
+  it('syncs and verifies beta dist-tags after recursive publish', () => {
+    const script = readFileSync('scripts/publish/publish-packages.sh', 'utf8');
+
+    expect(script).toContain('pnpm publish -r --no-git-checks --otp "$OTP"');
+    expect(script).toContain('Syncing beta dist-tags');
+    expect(script).toContain('npm dist-tag add "$package_name@$VERSION" beta');
+    expect(script).toContain('Verifying npm dist-tags');
+    expect(script).toContain('dist-tags.latest');
+    expect(script).toContain('dist-tags.beta');
+  });
+
+  it('documents beta dist-tag sync in publish rules and version management', () => {
+    const publishRules = readFileSync('.agents/rules/publish.md', 'utf8');
+    const versionSkill = readFileSync('.agents/skills/version-management/SKILL.md', 'utf8');
+
+    expect(publishRules).toContain('syncs and verifies `beta` afterward');
+    expect(versionSkill).toContain('script explicitly syncs `beta` afterward');
+    expect(publishRules).not.toContain('No manual dist-tag sync needed');
+    expect(versionSkill).not.toContain('No dist-tag sync needed');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // agent-web deploy import shape
 // ---------------------------------------------------------------------------
 describe('agent-web deploy imports', () => {

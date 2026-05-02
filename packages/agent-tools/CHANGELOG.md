@@ -1,5 +1,12 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.59
+
+### Patch Changes
+
+- 95721ff: Preserve existing target mode bits during atomic Write and Edit file replacements.
+  - @robota-sdk/agent-core@3.0.0-beta.59
+
 ## 3.0.0-beta.58
 
 ### Patch Changes
