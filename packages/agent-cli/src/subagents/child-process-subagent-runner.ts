@@ -176,6 +176,7 @@ function createProviderProfile(
     apiKey: provider.apiKey,
     baseURL: provider.baseURL,
     timeout: provider.timeout,
+    options: provider.options,
   };
 }
 
