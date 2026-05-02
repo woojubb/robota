@@ -49,17 +49,11 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('moderate');
     expect(config.permissions.allow).toEqual([]);
     expect(config.permissions.deny).toEqual([]);
-    expect(config.memory).toEqual({
-      policy: 'approval_required',
-      retrieval: {
-        maxTopics: 3,
-        maxTopicChars: 3000,
-      },
-    });
+    expect('memory' in config).toBe(false);
     expect(config.env).toEqual({});
   });
 
-  it('loads automatic memory policy and retrieval caps from settings', async () => {
+  it('ignores obsolete automatic memory settings', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       memory: {
         policy: 'auto_save',
@@ -72,16 +66,10 @@ describe('loadConfig', () => {
 
     const config = await loadConfig(cwd);
 
-    expect(config.memory).toEqual({
-      policy: 'auto_save',
-      retrieval: {
-        maxTopics: 5,
-        maxTopicChars: 2000,
-      },
-    });
+    expect('memory' in config).toBe(false);
   });
 
-  it('deep-merges automatic memory retrieval settings across layers', async () => {
+  it('does not merge obsolete automatic memory settings across layers', async () => {
     writeJson(join(userDir, 'settings.json'), {
       memory: {
         policy: 'disabled',
@@ -102,13 +90,7 @@ describe('loadConfig', () => {
 
     const config = await loadConfig(cwd);
 
-    expect(config.memory).toEqual({
-      policy: 'approval_required',
-      retrieval: {
-        maxTopics: 2,
-        maxTopicChars: 4000,
-      },
-    });
+    expect('memory' in config).toBe(false);
   });
 
   it('loads project settings from .robota/settings.json', async () => {
