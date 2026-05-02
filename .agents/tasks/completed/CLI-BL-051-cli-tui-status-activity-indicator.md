@@ -1,5 +1,10 @@
 # CLI TUI Status Activity Indicator
 
+Status: completed
+Created: 2026-05-02
+Branch: feat/cli-status-activity-indicator
+Scope: packages/agent-cli
+
 ## Priority
 
 P1 — implement after the visual grammar audit.
@@ -37,12 +42,23 @@ The current `Thinking` indicator can be too subtle when placed on the right. Use
 
 ## Acceptance Criteria
 
-- [ ] Active model waiting state is visible in the primary scan path.
-- [ ] Running tool/background states have deterministic priority.
-- [ ] Status remains readable on narrow terminals.
-- [ ] Tests cover state priority and width-constrained rendering.
+- [x] Active model waiting state is visible in the primary scan path.
+- [x] Running tool/background states have deterministic priority.
+- [x] Status remains readable on narrow terminals.
+- [x] Tests cover state priority and width-constrained rendering.
 
 ## Promotion Path
 
 1. Move to `.agents/tasks/CLI-BL-0XX-cli-tui-status-activity-indicator.md`.
 2. Implement after visual grammar audit and before broader fullscreen renderer work.
+
+## Implementation Notes
+
+- Added a pure `formatStatusActivity` helper with deterministic priority:
+  active tools, model thinking, active background work, queued prompt, idle.
+- Moved the visible activity label into the left side of `StatusBar` before mode/model metadata.
+- Kept the TUI as a renderer boundary: `App` derives counts from CLI view state and `StatusBar` renders only display props.
+
+## Verification
+
+- `pnpm --filter @robota-sdk/agent-cli test -- src/ui/__tests__/status-activity.test.ts src/ui/__tests__/status-bar.test.tsx`

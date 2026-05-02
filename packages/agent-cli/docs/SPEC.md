@@ -178,7 +178,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
                     ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                     ├── InputArea.tsx          (bottom input area, slash detection)
                     ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
-                    ├── StatusBar.tsx          (pure status bar renderer, shows "Thinking..." during run())
+                    ├── StatusBar.tsx          (pure status bar renderer, shows primary activity state)
                     ├── PermissionPrompt.tsx   (arrow-key selection)
                     └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
@@ -199,7 +199,7 @@ The StatusBar shows real-time session information:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Mode: default  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
+│ Activity: Thinking  |  Mode: default  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -211,7 +211,17 @@ The StatusBar shows real-time session information:
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
 | msgs     | message count                              | Number of messages in conversation                    |
 | Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
-| Thinking | isThinking state                           | Shown during `session.run()` execution                |
+| Activity | CLI-derived display state                  | Left-side primary activity label                      |
+
+Activity priority is deterministic and renderer-owned:
+
+1. active tool calls (`Tools xN`)
+2. foreground model waiting (`Thinking`)
+3. active background work (`Background xN`)
+4. queued prompt (`Queued`)
+5. idle (`Idle`)
+
+When a prompt is queued behind foreground work, the activity row keeps the active work as primary and appends `queued` as secondary metadata. SDK session state remains the source of truth; `StatusBar` receives derived display counts and does not infer provider or execution semantics.
 
 ### `/statusline` Slash Command
 

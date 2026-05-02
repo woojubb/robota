@@ -10,6 +10,9 @@ describe('StatusBar', () => {
     sessionId: 'sess-1',
     messageCount: 5,
     isThinking: false,
+    activeToolCount: 0,
+    activeBackgroundTaskCount: 0,
+    hasPendingPrompt: false,
     contextPercentage: 10,
     contextUsedTokens: 1000,
     contextMaxTokens: 200000,
@@ -50,7 +53,52 @@ describe('StatusBar', () => {
   it('shows thinking indicator when isThinking is true', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} isThinking={true} />);
     const frame = lastFrame()!;
+    expect(frame).toContain('Activity:');
     expect(frame).toContain('Thinking');
+    expect(frame.indexOf('Activity:')).toBeLessThan(frame.indexOf('Mode:'));
+  });
+
+  it('prioritizes tool activity in the primary scan path', () => {
+    const { lastFrame } = render(
+      <StatusBar
+        {...baseProps}
+        isThinking={true}
+        activeToolCount={2}
+        activeBackgroundTaskCount={1}
+        hasPendingPrompt={true}
+      />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain('Activity:');
+    expect(frame).toContain('Tools x2');
+    expect(frame).toContain('queued');
+    expect(frame.indexOf('Tools x2')).toBeLessThan(frame.indexOf('Mode:'));
+    expect(frame).not.toContain('Thinking...');
+  });
+
+  it('shows background activity when no foreground execution is active', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} activeBackgroundTaskCount={3} />);
+    const frame = lastFrame()!;
+    expect(frame).toContain('Background x3');
+    expect(frame.indexOf('Background x3')).toBeLessThan(frame.indexOf('Mode:'));
+  });
+
+  it('keeps the activity segment compact for narrow terminals', () => {
+    const { lastFrame } = render(
+      <StatusBar
+        {...baseProps}
+        isThinking={true}
+        activeToolCount={12}
+        activeBackgroundTaskCount={9}
+        hasPendingPrompt={true}
+      />,
+    );
+    const frame = lastFrame()!;
+    const firstLine = frame.split('\n')[1] ?? '';
+    const activityEnd = firstLine.indexOf('Mode:');
+    const activitySegment = firstLine.slice(0, activityEnd);
+    expect(activitySegment).toContain('Tools x12');
+    expect(activitySegment.length).toBeLessThanOrEqual(40);
   });
 
   it('renders git branch when provided', () => {
