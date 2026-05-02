@@ -30,6 +30,10 @@ const provider = new QwenProvider({
 
 When `webFetch` is enabled, the provider sends both `web_search` and `web_extractor` to Qwen Responses API and records provider-side tool provenance in assistant-message metadata. These provider-side tools are separate from Robota local tools and do not bypass local tool permissions.
 
+## Provider Definition
+
+`createQwenProviderDefinition()` exposes setup metadata so CLI and SDK composition can configure Qwen profiles without adding Qwen-specific branches. The default CLI build can prompt for the DashScope API key, model, and base URL using this provider definition.
+
 CLI settings can pass Qwen-owned options through the generic provider profile `options` bag:
 
 ```json

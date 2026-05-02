@@ -10,7 +10,7 @@ npm install @robota-sdk/agent-transport-headless
 
 ## Usage
 
-The headless runner is invoked via the CLI's print mode flag (`-p`). Three output formats are supported:
+The headless runner is invoked via the CLI's print mode flag (`-p`). It does not perform interactive startup update checks, so stdout/stderr remain deterministic for scripts and CI jobs. Three output formats are supported:
 
 ### Text (default)
 

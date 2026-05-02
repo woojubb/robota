@@ -2,8 +2,6 @@
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
 
-**Version**: 3.0.0-beta.40
-
 ## Installation
 
 Requires Node.js 22+.
@@ -148,6 +146,15 @@ The AI agent can invoke 6 tools:
 | `Edit`  | Replace a string in a file           | `filePath`       |
 | `Glob`  | Find files matching a pattern        | `pattern`        |
 | `Grep`  | Search file contents with regex      | `pattern`        |
+
+## Recent TUI Capabilities
+
+- Provider setup is generated from provider definitions, so the default CLI build can configure Anthropic, OpenAI-compatible, Gemma, and Qwen profiles without provider-specific UI branches.
+- Interactive startup can check npm for newer CLI versions; print/headless mode skips startup update checks to keep scripted output deterministic.
+- Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
+- Edit results render as context hunks with markdown-friendly diff blocks.
+- Background subagents are real runtime jobs with transcripts and resumable task snapshots.
+- Explicit multi-agent requests can use the Agent tool `jobs` batch path through the SDK runtime.
 
 ## Permission System
 

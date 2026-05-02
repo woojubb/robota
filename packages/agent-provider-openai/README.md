@@ -77,6 +77,8 @@ Gemma-family local models should use `@robota-sdk/agent-provider-gemma` instead 
 OpenAI provider so Gemma chat-template channel markers are projected out of user-facing
 streamed text.
 
+For provider packages that share OpenAI-compatible transport code, the reusable primitives live in `@robota-sdk/agent-provider-openai-compatible`. This package owns OpenAI product semantics and generic OpenAI-compatible endpoint usage; model-family behavior such as Gemma reasoning/tool-call projection belongs in that model-family provider.
+
 ### Streaming Responses
 
 ```typescript

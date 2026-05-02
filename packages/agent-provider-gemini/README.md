@@ -150,6 +150,10 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 Google's current documentation recommends `@google/genai` for new Gemini API work. This package uses `@google/genai` for direct Gemini transport while preserving the existing `GeminiProvider` public class and `google` compatibility alias.
 
+## Migration Note
+
+New code should use the `gemini` provider profile type and import from `@robota-sdk/agent-provider-gemini`. The legacy `@robota-sdk/agent-provider-google` package remains a compatibility wrapper for existing imports and settings that still reference `google`.
+
 ## License
 
 MIT
