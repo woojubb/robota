@@ -15,6 +15,7 @@ interface ICapturedRunner {
 
 interface IFakeWorktreeAdapter extends ISubagentWorktreeAdapter {
   removed: IPreparedSubagentWorktree[];
+  status: string;
 }
 
 const TEST_WORKTREE: IPreparedSubagentWorktree = {
@@ -61,11 +62,15 @@ function createCapturedRunner(onStart?: (job: ISubagentJobStart) => void): ICapt
   };
 }
 
-function createAdapter(clean: boolean): IFakeWorktreeAdapter {
+function createAdapter(clean: boolean, status = '?? dirty.txt'): IFakeWorktreeAdapter {
   return {
     removed: [],
+    status,
     prepare: () => TEST_WORKTREE,
     isClean: () => clean,
+    getStatus() {
+      return this.status;
+    },
     remove(worktree) {
       this.removed.push(worktree);
     },
@@ -112,6 +117,10 @@ describe('WorktreeSubagentRunner', () => {
     expect(adapter.removed).toEqual([]);
     expect(getStringMetadata(metadata, 'worktreePath')).toBe(TEST_WORKTREE.worktreePath);
     expect(getStringMetadata(metadata, 'branchName')).toBe(TEST_WORKTREE.branchName);
+    expect(metadata.worktreeRemoved).toBe(false);
+    expect(getStringMetadata(metadata, 'worktreeStatus')).toBe('?? dirty.txt');
+    expect(getStringMetadata(metadata, 'worktreeNextAction')).toContain(TEST_WORKTREE.worktreePath);
+    expect(getStringMetadata(metadata, 'worktreeNextAction')).toContain(TEST_WORKTREE.branchName);
   });
 
   it('removes a clean worktree when the delegated job fails', async () => {

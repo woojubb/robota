@@ -360,7 +360,7 @@ Resolved provider fields:
 
 - **Token tracking**: `agent-sessions` Session tracks cumulative input tokens from provider response metadata
 - **Usage state**: `session.getContextState()` returns `IContextWindowState` (usedTokens, maxTokens, usedPercentage)
-- **Auto-compaction**: Triggers at ~83.5% of model context window (configurable per model)
+- **Auto-compaction**: Triggers at the configured context-window threshold, defaults to ~83.5%, and can be disabled per session
 - **Manual compaction**: `session.compact(instructions?)` generates LLM summary, replaces history
 - **Model sizes**: Lookup table per model (200K for Sonnet/Haiku, 1M for Opus)
 - **Compact Instructions**: Extracted from CLAUDE.md "Compact Instructions" section, passed to summary prompt
@@ -752,6 +752,7 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `context`     | Token usage: used / max / percentage                                                  |
 | `permissions` | Current mode and session-approved tools                                               |
 | `memory`      | List/show/add/review project memory and report used memory references                 |
+| `rewind`      | List edit checkpoints, restore later edits, or rollback through a checkpoint          |
 | `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
 | `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
 | `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |

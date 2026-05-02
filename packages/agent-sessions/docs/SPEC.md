@@ -88,6 +88,7 @@ Types consumed from other packages (not owned here):
 | `SilentSessionLogger`            | Class                | No-op session logger                                                                                           |
 | `ISessionOptions`                | Interface            | Constructor options for Session                                                                                |
 | `ISessionShutdownOptions`        | Interface            | Graceful shutdown options for `Session.shutdown()`                                                             |
+| `TAutoCompactThreshold`          | Type                 | Auto-compact threshold fraction, or `false` to disable automatic compaction                                    |
 | `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                            |
 | `TPermissionResult`              | Type                 | Permission decision result                                                                                     |
 | `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                       |
@@ -108,6 +109,8 @@ Types consumed from other packages (not owned here):
 
 `ISessionOptions.onContextUpdate` is an optional callback fired from the session runtime whenever `ContextWindowTracker` is refreshed. It fires before the provider call using the assembled request history estimate and again after the provider response is committed with exact provider usage when available. Consumers such as `InteractiveSession` forward it as `context_update`.
 
+`ISessionOptions.autoCompactThreshold` controls the automatic compaction trigger as a `0 < value <= 1` fraction. The default is `0.835`. Set it to `false` when an embedding runtime manages compaction externally.
+
 ### Key Session Methods
 
 | Method                     | Signature                                                            | Description                                                                                                                             |
@@ -122,6 +125,7 @@ Types consumed from other packages (not owned here):
 | `getFullHistory`           | `() => IHistoryEntry[]`                                              | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                   |
 | `addHistoryEntry`          | `(entry: IHistoryEntry) => void`                                     | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
 | `getContextState`          | `() => IContextWindowState`                                          | Returns real-time context window usage (tokens, percentage).                                                                            |
+| `getAutoCompactThreshold`  | `() => TAutoCompactThreshold`                                        | Returns the configured automatic compaction threshold, or `false` when disabled.                                                        |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                                                         | Cancels the currently running `run()` call. No-op if not running.                                                                       |
 | `shutdown`                 | `(options?: ISessionShutdownOptions) => Promise<void>`               | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                       |
@@ -223,7 +227,9 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 11. **`ISessionOptions.maxTurns`** -- Optional model/tool round cap passed to the underlying Robota run. Omitted means unlimited for the session layer.
 
-12. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+12. **`ISessionOptions.autoCompactThreshold`** -- Optional automatic compaction threshold. A number is interpreted as a fraction of the context window; `false` disables automatic compaction.
+
+13. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Abort Behavior
 
@@ -265,7 +271,7 @@ This ensures the AI retains project context (working directory, coding rules, av
 
 ### Auto-Compaction
 
-Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream.
+Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream. The trigger defaults to 83.5% of the context window and can be configured per session or disabled with `autoCompactThreshold: false`.
 
 ## Error Taxonomy
 

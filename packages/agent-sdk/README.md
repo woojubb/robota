@@ -32,7 +32,7 @@ const response = await query('Analyze the code', {
 ## Features
 
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
-- **SystemCommandExecutor + ISystemCommand** — SDK-level command execution. Built-in commands: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `reset`
+- **SystemCommandExecutor + ISystemCommand** — SDK-level command execution. Built-in commands: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `background`, `reset`
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
 - **query()** — Single entry point for one-shot AI agent interactions with streaming support
 - **createSession()** — Assembly factory: wires tools, provider, config, and context into a Session
@@ -43,7 +43,7 @@ const response = await query('Analyze the code', {
 - **Streaming** — Real-time text delta callbacks via `onTextDelta`
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
 - **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider API keys
-- **Context Window Management** — Token tracking, auto-compaction at ~83.5%, manual `session.compact()`
+- **Context Window Management** — Token tracking, configurable auto-compaction (default ~83.5%), manual `session.compact()`
 - **Background Jobs** — Runtime-managed subagent tasks with transcripts and task snapshots
 - **Agent Batch Jobs** — `Agent({ jobs: [...] })` starts explicit parallel subagent requests deterministically
 - **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
@@ -190,18 +190,19 @@ executor.hasCommand('mode'); // boolean
 
 Built-in commands:
 
-| Command       | Description                                             |
-| ------------- | ------------------------------------------------------- |
-| `help`        | Show available commands                                 |
-| `clear`       | Clear conversation history                              |
-| `compact`     | Compress context window (optional focus instructions)   |
-| `mode [m]`    | Show or change permission mode                          |
-| `model <id>`  | Change AI model                                         |
-| `language`    | Set response language (ko, en, ja, zh)                  |
-| `cost`        | Show session info (session ID, message count)           |
-| `context`     | Context window token usage                              |
-| `permissions` | Show current permission mode and session-approved tools |
-| `reset`       | Delete settings (caller handles file I/O and exit)      |
+| Command       | Description                                                             |
+| ------------- | ----------------------------------------------------------------------- |
+| `help`        | Show available commands                                                 |
+| `clear`       | Clear conversation history                                              |
+| `compact`     | Compress context window (optional focus instructions)                   |
+| `mode [m]`    | Show or change permission mode                                          |
+| `model <id>`  | Change AI model                                                         |
+| `language`    | Set response language (ko, en, ja, zh)                                  |
+| `cost`        | Show session info (session ID, message count)                           |
+| `context`     | Context window token usage                                              |
+| `permissions` | Show current permission mode and session-approved tools                 |
+| `rewind`      | List checkpoints, restore later edits, or rollback through a checkpoint |
+| `reset`       | Delete settings (caller handles file I/O and exit)                      |
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource
 
@@ -242,6 +243,7 @@ const response = await query('Analyze the code', {
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   maxTurns: 10,
+  autoCompactThreshold: 0.75,
   onTextDelta: (delta) => process.stdout.write(delta),
   onCompact: () => console.log('Context compacted'),
 });

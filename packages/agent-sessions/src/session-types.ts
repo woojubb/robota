@@ -13,6 +13,7 @@ import type {
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { SessionStore } from './session-store.js';
 import type { ISessionLogger } from './session-logger.js';
+import type { TAutoCompactThreshold } from './context-window-tracker.js';
 import type {
   TPermissionHandler,
   TPermissionResult,
@@ -81,6 +82,8 @@ export interface ISessionOptions {
   compactInstructions?: string;
   /** Override context max tokens (otherwise derived from model name) */
   contextMaxTokens?: number;
+  /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
+  autoCompactThreshold?: TAutoCompactThreshold;
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
