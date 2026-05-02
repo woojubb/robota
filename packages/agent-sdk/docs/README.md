@@ -1,5 +1,16 @@
-# Documentation Index
+# Agent SDK Docs
 
-See the [package README](../README.md) for usage documentation.
+`@robota-sdk/agent-sdk` is the assembly layer for interactive sessions, command sources, context loading, skills, memory, checkpoints, and subagent tools.
 
-See [SPEC.md](./SPEC.md) for the package specification.
+## Current Capabilities
+
+- `InteractiveSession` owns session execution for CLI and transports.
+- Active `.agents/tasks` context can be injected into system prompt composition.
+- Skills, system commands, memory, checkpointing, and rewind behavior are SDK-level capabilities.
+- `Agent` tool supports single prompts and deterministic batch `jobs` for explicit multi-agent requests.
+- Session event hooks expose execution-boundary events used by session logs and future replay validation.
+
+## Documents
+
+- [Package README](../README.md) — usage examples and SDK entry points.
+- [SPEC.md](./SPEC.md) — package contract, ownership boundaries, and public API surface.
