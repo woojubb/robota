@@ -3,7 +3,11 @@
  * Extracted from execution-round.ts for single-responsibility.
  */
 
-import type { IAgentConfig } from '../interfaces/agent';
+import type {
+  IAgentConfig,
+  TExecutionEventCallback,
+  TExecutionEventData,
+} from '../interfaces/agent';
 import type { IToolCall } from '../interfaces/messages';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
@@ -36,6 +40,7 @@ export async function executeAndRecordToolCalls(
   deps: IRoundDependencies,
   config?: IAgentConfig,
   signal?: AbortSignal,
+  onExecutionEvent?: TExecutionEventCallback,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
@@ -85,7 +90,46 @@ export async function executeAndRecordToolCalls(
     signal,
   };
 
+  onExecutionEvent?.('tool_batch_started', {
+    executionId,
+    conversationId,
+    round: currentRound,
+    batchId,
+    mode: toolContext.mode,
+    maxConcurrency: toolContext.maxConcurrency,
+    requestCount: toolRequests.length,
+    tools: toolRequests.map((request) => request.toolName),
+  } as TExecutionEventData);
+  toolRequests.forEach((request, index) => {
+    onExecutionEvent?.('tool_execution_request', {
+      executionId,
+      conversationId,
+      round: currentRound,
+      batchId,
+      index,
+      toolName: request.toolName,
+      toolCallId: request.executionId,
+      parameters: request.parameters,
+      ownerPath: request.ownerPath,
+    } as TExecutionEventData);
+  });
+
   const toolSummary = await toolExecutionService.executeTools(toolContext);
+
+  toolSummary.results.forEach((result, index) => {
+    onExecutionEvent?.('tool_execution_result', {
+      executionId,
+      conversationId,
+      round: currentRound,
+      batchId,
+      index,
+      toolName: result.toolName,
+      toolCallId: result.executionId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+    } as TExecutionEventData);
+  });
 
   roundState.toolsExecuted.push(
     ...toolSummary.results.map((r) => {

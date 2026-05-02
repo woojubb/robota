@@ -4,7 +4,7 @@
  * Tool recording → execution-round-tools.ts
  */
 
-import type { IAgentConfig } from '../interfaces/agent';
+import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
 import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
@@ -175,10 +175,29 @@ export async function executeRound(
 
   let response: TUniversalMessage;
   try {
+    fullContext.onExecutionEvent?.('provider_request', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      provider: resolved.currentInfo.provider,
+      model: config.defaultModel.model,
+      messages: conversationMessages,
+      tools: resolved.availableTools,
+    } as TExecutionEventData);
     response = await callProviderWithCache(conversationMessages, config, resolved, cacheService, {
       signal: fullContext.signal,
       onTextDelta: wrappedOnTextDelta,
     });
+    fullContext.onExecutionEvent?.('provider_response_normalized', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      response,
+      toolCallsCount:
+        response.role === 'assistant' && Array.isArray(response.toolCalls)
+          ? response.toolCalls.length
+          : 0,
+    } as TExecutionEventData);
   } catch (providerError) {
     const isAbortError =
       providerError instanceof Error &&
@@ -246,6 +265,12 @@ export async function executeRound(
     round: currentRound,
     ...(usageMetadata ?? {}),
   });
+  fullContext.onExecutionEvent?.('assistant_message_committed', {
+    executionId,
+    conversationId: fullContext.conversationId,
+    round: currentRound,
+    message: assistantResponse,
+  } as TExecutionEventData);
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
 
@@ -276,6 +301,7 @@ export async function executeRound(
     deps,
     config,
     fullContext.signal,
+    fullContext.onExecutionEvent,
   );
 
   if (toolOutcome.contextOverflowed) {

@@ -317,4 +317,36 @@ describe('Session — system prompt delivery', () => {
       expect.objectContaining({ delta: 'world' }),
     );
   });
+
+  it('logs execution boundary events emitted by the core run loop', async () => {
+    const logger = { log: vi.fn() };
+
+    mockRunResult = 'done';
+    const session = new Session({
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'System prompt',
+      terminal: MOCK_TERMINAL,
+      sessionLogger: logger,
+    });
+
+    await session.run('hello');
+
+    const options = mockRunOptions[0] as {
+      onExecutionEvent?: (event: string, data: Record<string, string>) => void;
+    };
+    options.onExecutionEvent?.('provider_response_normalized', {
+      executionId: 'exec-1',
+      round: '1',
+    });
+
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.any(String),
+      'provider_response_normalized',
+      expect.objectContaining({
+        executionId: 'exec-1',
+        round: '1',
+      }),
+    );
+  });
 });

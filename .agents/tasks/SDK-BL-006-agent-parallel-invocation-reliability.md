@@ -1,5 +1,10 @@
 # Agent Parallel Invocation Reliability
 
+- **Status**: in-progress
+- **Created**: 2026-05-02
+- **Branch**: feat/session-replay-agent-parallel
+- **Scope**: packages/agent-sdk, packages/agent-command-agent, packages/agent-sessions
+
 ## What
 
 Make explicit multi-agent and parallel-agent requests reliably start the requested number of subagent jobs in the same parent turn.
@@ -68,9 +73,29 @@ The model-visible instructions say that for multiple or parallel agents, the mod
 | `/agent parallel` and `Agent` batch diverge     | Share parser/request-building logic between both paths                                                             |
 | Partial startup failure leaves unclear state    | Return structured per-job startup results and group metadata                                                       |
 
+## Test Plan
+
+- Add unit coverage for direct batch `Agent` tool calls with two and four requested jobs.
+- Assert all valid jobs are spawned before the first wait begins, and partial startup failures remain visible per job.
+- Add session-log assertions after replay-grade events can distinguish one batch call from N direct tool calls.
+- Run affected `agent-sdk` tests, typecheck, and build after changing the model-visible Agent tool contract.
+
 ## Promotion Path
 
 1. Assign a backlog ID, for example `SDK-BL-0XX-agent-parallel-invocation-reliability`.
 2. Move this file to `.agents/tasks/<ID>-agent-parallel-invocation-reliability.md`.
 3. Update `packages/agent-sdk/docs/SPEC.md`, `packages/agent-command-agent/docs/SPEC.md`, and relevant session logging specs before implementation.
 4. Implement with TDD around two-agent and four-agent explicit parallel requests.
+
+## Progress
+
+### 2026-05-02
+
+- Promoted from backlog to active task as `SDK-BL-006`.
+- Started on branch `feat/session-replay-agent-parallel`.
+- Updated `agent-sdk` spec to make one batch `Agent` tool call with `jobs` the canonical model path for explicit parallel subagent requests.
+- Added backwards-compatible `jobs` support to the `Agent` tool schema while preserving the single-job `prompt` contract.
+- Implemented batch execution so all valid jobs are spawned before any wait begins, with shared `groupId`, ordered per-job results, `agentIds`, and partial failure reporting.
+- Updated model-visible Agent tool instructions to prefer `jobs` for explicit multi-agent and parallel-agent requests.
+- Added regression coverage proving a batch `Agent` call can start multiple jobs before waiting, including the model-friendly `jobs`-only shape.
+- Remaining work: four-agent scenario coverage, user-facing claim validation, command-path convergence, and session-log assertions that distinguish one batch call from N direct calls.
