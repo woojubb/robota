@@ -64,6 +64,13 @@ function writeProjectSettings(projectDir: string): void {
     join(settingsDir, 'settings.json'),
     JSON.stringify(
       {
+        currentProvider: 'fake',
+        providers: {
+          fake: {
+            type: 'fake',
+            model: 'fake-model',
+          },
+        },
         provider: {
           name: 'fake',
           model: 'fake-model',

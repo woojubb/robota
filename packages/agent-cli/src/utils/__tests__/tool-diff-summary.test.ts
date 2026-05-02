@@ -76,4 +76,29 @@ describe('buildToolDiffSummary', () => {
     expect(summary.markdown).toContain('@@ -20,4 +20,4 @@');
     expect(summary.markdown).not.toContain('@@ -40,4 +40,4 @@');
   });
+
+  it('counts omitted lines from the actual rendered diff lines', () => {
+    const lines: IDiffLine[] = [
+      { type: 'hunk', lineNumber: 1, text: '@@ -1,5 +1,5 @@' },
+      { type: 'context', lineNumber: 1, text: 'one' },
+      { type: 'remove', lineNumber: 2, text: 'two-old' },
+      { type: 'add', lineNumber: 2, text: 'two-new' },
+      { type: 'context', lineNumber: 3, text: 'three' },
+      { type: 'context', lineNumber: 4, text: 'four' },
+      { type: 'hunk', lineNumber: 20, text: '@@ -20,4 +20,4 @@' },
+      { type: 'context', lineNumber: 20, text: 'twenty' },
+      { type: 'remove', lineNumber: 21, text: 'twenty-one-old' },
+      { type: 'add', lineNumber: 21, text: 'twenty-one-new' },
+      { type: 'context', lineNumber: 22, text: 'twenty-two' },
+      { type: 'hunk', lineNumber: 40, text: '@@ -40,1 +40,1 @@' },
+      { type: 'context', lineNumber: 40, text: 'forty' },
+    ];
+
+    const summary = buildToolDiffSummary({ lines });
+
+    expect(summary.truncated).toBe(true);
+    expect(summary.remainingLineCount).toBe(7);
+    expect(summary.markdown).toContain('@@ -1,5 +1,5 @@');
+    expect(summary.markdown).not.toContain('@@ -20,4 +20,4 @@');
+  });
 });

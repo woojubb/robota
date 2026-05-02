@@ -42,11 +42,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Development Setup (Monorepo)
 
 ```bash
-# 1. Copy .env.example and add your Anthropic API key
-cp packages/agent-cli/.env.example packages/agent-cli/.env
-# Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
-
-# 2. Build dependencies and CLI
+# Build dependencies and CLI
 pnpm build:deps
 pnpm --filter @robota-sdk/agent-cli build
 ```
@@ -57,7 +53,7 @@ pnpm --filter @robota-sdk/agent-cli build
 # From monorepo root
 cd packages/agent-cli
 
-# Development mode (no build needed, auto-loads .env)
+# Development mode (no build needed)
 pnpm dev
 
 # Production mode (requires build)

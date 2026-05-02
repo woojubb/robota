@@ -27,7 +27,7 @@ export function buildToolDiffSummary(input: IToolDiffSummaryInput): IToolDiffSum
     file: input.file,
     markdown: ['```diff', ...body, '```'].join('\n'),
     truncated,
-    remainingLineCount: truncated ? input.lines.length - TRUNCATED_SHOW : 0,
+    remainingLineCount: truncated ? input.lines.length - visibleLines.length : 0,
   };
 }
 
