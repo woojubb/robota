@@ -1,5 +1,12 @@
 # @robota-sdk/dag-adapters-local
 
+## 3.0.0-beta.57
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.57
+- @robota-sdk/dag-cost@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

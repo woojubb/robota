@@ -1,5 +1,33 @@
 # @robota-sdk/agent-sdk
 
+## 3.0.0-beta.57
+
+### Minor Changes
+
+- b80e51e: Add SDK-owned automatic project memory capture, approval review, bounded retrieval, and session-log provenance.
+- 1cfdce9: Add SDK-owned edit checkpointing for Write/Edit tool mutations with `/rewind` list and code restore commands.
+- f61e2cb: Add Qwen provider-owned Responses API support for built-in web search/fetch tools and pass provider-owned profile options through generic CLI/runtime configuration.
+- 822a78b: Add self-hosting verification planning and atomic UTF-8 writes for built-in file mutation tools.
+- 9817f99: Add active task context loading, formatting, and status update helpers for `.agents/tasks/*.md`.
+
+### Patch Changes
+
+- 16c3b6f: Persist and render provider-neutral per-turn usage summaries with pre-send context updates in CLI sessions.
+- 4eca470: Render command tool output as bounded transcript previews and persist tool result metadata in SDK tool summaries.
+- 90a2802: Render Edit tool summaries as context-aware diff hunks with structured truncation metadata.
+- 26a1718: Preserve and render Edit tool diff metadata in persisted CLI tool summaries.
+- e504d30: Route project memory through the model-visible `/memory` command descriptor instead of hidden automatic prompt injection.
+- 0e0e533: Remove obsolete automatic memory policy configuration and top-level automatic memory orchestration exports from the SDK public surface.
+- Updated dependencies [16c3b6f]
+- Updated dependencies [b80e51e]
+- Updated dependencies [26a1718]
+- Updated dependencies [f61e2cb]
+- Updated dependencies [822a78b]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+  - @robota-sdk/agent-sessions@3.0.0-beta.57
+  - @robota-sdk/agent-runtime@3.0.0-beta.57
+  - @robota-sdk/agent-tools@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes

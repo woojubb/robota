@@ -1,5 +1,14 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.57
+
+### Patch Changes
+
+- 822a78b: Add self-hosting verification planning and atomic UTF-8 writes for built-in file mutation tools.
+- Updated dependencies [16c3b6f]
+- Updated dependencies [f61e2cb]
+  - @robota-sdk/agent-core@3.0.0-beta.57
+
 ## 3.0.0-beta.56
 
 ### Patch Changes
