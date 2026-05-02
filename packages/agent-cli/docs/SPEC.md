@@ -12,6 +12,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
 - Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only render command output and notices
+- Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
@@ -322,6 +323,9 @@ Tool: [5 tools]
 | `/cost`                   | Show session info                                             |
 | `/context`                | Context window info                                           |
 | `/permissions`            | Permission rules                                              |
+| `/memory`                 | Route project memory commands to SDK                          |
+| `/rewind`                 | Route edit checkpoint list/restore commands to SDK            |
+| `/background`             | Route background task controls to SDK                         |
 | `/plugin [subcommand]`    | Plugin management                                             |
 | `/resume`                 | Show session picker to resume a saved session                 |
 | `/rename <name>`          | Rename the current session (name displayed in StatusBar)      |
@@ -1106,6 +1110,20 @@ Supported SDK-owned project memory commands exposed through the CLI:
 | `/memory used`         | Render SDK-reported memory references used in the latest turn   |
 
 Pending-memory notices emitted into `InteractiveSession` history are presentation data only. TUI components may style or position them, but must not infer candidate IDs or mutate memory state outside SDK commands.
+
+## Edit Checkpointing
+
+Edit checkpoint behavior is SDK-owned. The CLI and TUI must not snapshot files, restore files, inspect checkpoint manifests directly, or decide rollback ordering. They route `/rewind` commands through `session.executeCommand()` and render returned messages/data.
+
+Supported SDK-owned edit checkpoint commands exposed through the CLI:
+
+| Command                        | CLI responsibility                                    |
+| ------------------------------ | ----------------------------------------------------- |
+| `/rewind list`                 | Render checkpoint summaries returned by the SDK       |
+| `/rewind restore <checkpoint>` | Pass the selected checkpoint ID to the SDK            |
+| `/rewind code <checkpoint>`    | Alias for SDK code restore; render the restore result |
+
+Future Esc Esc or picker UI is terminal chrome only. The picker must call SDK APIs or commands; it must not duplicate checkpoint storage or restore algorithms.
 
 ### Message Windowing
 

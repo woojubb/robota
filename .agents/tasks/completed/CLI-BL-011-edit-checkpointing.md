@@ -1,6 +1,6 @@
 ---
 title: Edit Checkpointing — 파일 편집 전 스냅샷 + 되돌리기
-status: backlog
+status: completed
 priority: high
 urgency: soon
 created: 2026-03-26
@@ -32,11 +32,17 @@ packages:
 - Composer 패널에서 "Restore Checkpoint" 버튼
 - 1턴의 모든 변경을 하나의 논리 단위로 묶음
 
+## 리서치 재검증 (2026-05-02)
+
+- Claude Code 공식 문서: 사용자 프롬프트 단위 체크포인트, `Esc Esc` 또는 `/rewind`, 코드/대화 복원 옵션을 계속 안내한다. <https://docs.claude.com/en/docs/claude-code/checkpointing>
+- Claude Code Agent SDK 공식 문서: 파일 체크포인트는 옵션으로 활성화하고, 응답 스트림에서 checkpoint UUID를 받아 파일 복원을 호출하는 API 형태도 제공한다. <https://code.claude.com/docs/en/agent-sdk/file-checkpointing>
+- Cursor 공식 문서: Agent 변경 후 자동 checkpoint를 만들고 이전 요청에서 Restore Checkpoint를 제공한다. <https://docs.cursor.com/en/agent/chat/checkpoints>
+
 ### 구현 설계
 
 **저장:**
 
-- 프롬프트(턴) 단위로 체크포인트 디렉토리 생성: `~/.robota/checkpoints/{session-id}/{turn-N}/`
+- 프롬프트(턴) 단위로 체크포인트 디렉토리 생성: `.robota/checkpoints/{session-id}/{turn-N}/`
 - 각 파일은 그 턴에서 **처음 수정될 때 1회만** 원본 복사 (같은 턴에서 같은 파일 재수정 시 복사 안 함)
 - Edit/Write 도구 내부에서 "첫 수정 시 복사" 훅 실행
 
@@ -80,8 +86,17 @@ packages:
 
 - 완전 독립. git의 보완재 (커밋 전 안전망)
 
+## 구현 결과 (2026-05-02)
+
+- SDK에 `EditCheckpointStore`와 `Write`/`Edit` 도구 래퍼를 추가했다.
+- `InteractiveSession.submit()`의 각 프롬프트 턴마다 체크포인트를 시작하고, 도구가 파일을 처음 수정하기 전에 pre-image를 1회 저장한다.
+- `.robota/checkpoints/{session-id}/{turn-id}/manifest.json`과 `files/` 스냅샷을 사용한다.
+- `/rewind list`, `/rewind restore <checkpoint-id>`, `/rewind code <checkpoint-id>` 시스템 명령을 추가했다.
+- 복원은 선택한 체크포인트 이후 턴을 역순으로 되돌리고, 이후 체크포인트 디렉토리를 제거한다.
+- 현재 범위는 `Write`/`Edit` 도구 변경 추적이다. Bash 내부의 `rm`, `mv` 등 셸 파일 조작 추적은 별도 후속 과제로 다룰 수 있다.
+
 ## 검증
 
-- 구현 완료 후 관련 패키지 빌드 성공 확인
-- 연관 유닛 테스트 통과 확인
-- typecheck 및 lint 에러 없음 확인
+- `pnpm --filter @robota-sdk/agent-sdk test -- src/checkpoints/__tests__/edit-checkpoint-store.test.ts src/checkpoints/__tests__/edit-checkpoint-tools.test.ts src/interactive/__tests__/interactive-session-checkpoints.test.ts src/commands/__tests__/system-command.test.ts`
+- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-sdk lint` (기존 warning만 존재)

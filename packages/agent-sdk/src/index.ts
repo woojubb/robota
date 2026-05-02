@@ -108,6 +108,17 @@ export type {
   TMemoryPolicyMode,
 } from './memory/automatic-memory-types.js';
 
+// ── Edit checkpointing ─────────────────────────────────────
+export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
+export type {
+  IEditCheckpointFileRecord,
+  IEditCheckpointManifest,
+  IEditCheckpointRecorder,
+  IEditCheckpointRestoreResult,
+  IEditCheckpointSummary,
+  IEditCheckpointTurnInput,
+} from './checkpoints/index.js';
+
 // ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';

@@ -38,6 +38,8 @@ import type { IBackgroundProcessToolDeps } from '../tools/background-process-too
 import { createCommandExecutionTool } from '../tools/command-execution-tool.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
+import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
@@ -129,6 +131,8 @@ export interface ICreateSessionOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Model-visible command descriptors. */
   commandDescriptors?: ICapabilityDescriptor[];
+  /** Recorder used to snapshot files before Write/Edit tools mutate them. */
+  editCheckpointRecorder?: IEditCheckpointRecorder;
 }
 
 /**
@@ -147,7 +151,9 @@ export function createSession(options: ICreateSessionOptions): Session {
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
 
-  const defaultTools = createDefaultTools();
+  const defaultTools = options.editCheckpointRecorder
+    ? wrapEditCheckpointTools(createDefaultTools(), options.editCheckpointRecorder)
+    : createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
   if (options.modelCommandExecutor && options.isModelCommandInvocable) {
     tools.push(
