@@ -1,5 +1,12 @@
 # @robota-sdk/dag-designer
 
+## 3.0.0-beta.58
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.58
+- @robota-sdk/dag-api@3.0.0-beta.58
+
 ## 3.0.0-beta.57
 
 ### Patch Changes

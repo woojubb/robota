@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.0.0-beta.58
+
+### Patch Changes
+
+- Refresh package docs and robota.io content for the beta 57 feature set.
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.58
+
 ## 3.0.0-beta.57
 
 ### Patch Changes

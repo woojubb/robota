@@ -90,6 +90,7 @@
     "self-hosting-loop-verification",
     "session-continue-resume",
     "streaming-debounce",
+    "sync-docs-beta-58",
     "task-context-injection",
     "tool-execution-history-fix",
     "transport-command-consolidation",

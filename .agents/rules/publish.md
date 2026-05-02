@@ -37,6 +37,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - `pnpm publish -r` publishes ALL non-private packages in one command. This is why we use `-r` instead of `--filter`.
 - `workspace:*` dependencies resolve to the exact version at publish time. If any package is missing, `npm install` fails with `ETARGET`.
 - Never cherry-pick which packages to publish. Changesets fixed group means all packages share the same version.
+- Any committed change under a package directory, including `README.md`, `docs/README.md`, `docs/SPEC.md`, examples, metadata, or other documentation, is a package change and MUST be represented by a changeset, coordinated version bump, and npm publish when the package is non-private.
 
 ### Publish Safety Gate
 

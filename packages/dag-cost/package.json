@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-cost",
-  "version": "3.0.0-beta.57",
+  "version": "3.0.0-beta.58",
   "description": "Cost evaluation service for DAG orchestration using CEL formulas",
   "type": "module",
   "main": "dist/node/index.js",
