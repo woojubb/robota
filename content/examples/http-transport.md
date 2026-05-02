@@ -6,9 +6,11 @@ Expose InteractiveSession over REST API using Hono.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { serve } from '@hono/node-server';
 
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const session = new InteractiveSession({ cwd: process.cwd(), provider });
 
 const transport = createHttpTransport();

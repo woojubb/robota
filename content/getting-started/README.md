@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Node.js**: 18.0.0 or higher (recommended: 22.14.0)
-- **AI Provider API key**: Anthropic, OpenAI, or Google
+- **AI Provider API key**: Anthropic, OpenAI, Gemini, Qwen, or another configured provider
 
 ## Installation
 
@@ -67,16 +67,16 @@ const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const weatherTool = createZodFunctionTool({
-  name: 'get_weather',
-  description: 'Get current weather for a city',
-  schema: z.object({
+const weatherTool = createZodFunctionTool(
+  'get_weather',
+  'Get current weather for a city',
+  z.object({
     city: z.string().describe('City name'),
   }),
-  handler: async ({ city }) => ({
+  async ({ city }) => ({
     data: JSON.stringify({ city, temperature: 22, condition: 'sunny' }),
   }),
-});
+);
 
 const agent = new Robota({
   name: 'WeatherBot',
@@ -123,25 +123,29 @@ response = await agent.run('Continue our conversation.');
 ### 4. Use the SDK for project-aware sessions
 
 ```typescript
-import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const cwd = process.cwd();
-const [config, context, projectInfo] = await Promise.all([
-  loadConfig(cwd),
-  loadContext(cwd),
-  detectProject(cwd),
-]);
-
-// createSession assembles provider, tools, and system prompt automatically
-const session = createSession({
-  config,
-  context,
-  terminal,
-  projectInfo,
+const provider = new AnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Session provides permissions, hooks, compaction, and persistence
-const response = await session.run('Explain the architecture of this project');
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  permissionMode: 'default',
+});
+
+session.on('text_delta', (delta) => process.stdout.write(delta));
+
+session.on('complete', ({ response }) => {
+  console.log('\n--- Complete response ---');
+  console.log(response);
+});
+
+// InteractiveSession loads project context and settings, then provides
+// permissions, hooks, compaction, commands, persistence, and transports.
+await session.submit('Explain the architecture of this project');
 ```
 
 ### 5. Use the CLI
@@ -160,6 +164,6 @@ robota --model claude-opus-4-6
 ## What's Next
 
 - [Building Agents](../guide/building-agents.md) — Agent patterns with agent-core
-- [Using the SDK](../guide/sdk.md) — Config, context, sessions, query()
+- [Using the SDK](../guide/sdk.md) — InteractiveSession, transports, sessions, createQuery()
 - [CLI Reference](../guide/cli.md) — Full CLI usage guide
 - [Architecture](../guide/architecture.md) — Package layers and design

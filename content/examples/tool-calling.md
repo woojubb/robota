@@ -14,16 +14,16 @@ const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const calculatorTool = createZodFunctionTool({
-  name: 'calculator',
-  description: 'Evaluate a math expression',
-  schema: z.object({
+const calculatorTool = createZodFunctionTool(
+  'calculator',
+  'Evaluate a math expression',
+  z.object({
     expression: z.string().describe('The math expression to evaluate'),
   }),
-  handler: async ({ expression }) => ({
+  async ({ expression }) => ({
     data: String(eval(expression)),
   }),
-});
+);
 
 const agent = new Robota({
   name: 'MathAgent',
@@ -44,30 +44,30 @@ console.log(response);
 ## Multiple Tools
 
 ```typescript
-const fileSearchTool = createZodFunctionTool({
-  name: 'search_files',
-  description: 'Search for files by name pattern',
-  schema: z.object({
+const fileSearchTool = createZodFunctionTool(
+  'search_files',
+  'Search for files by name pattern',
+  z.object({
     pattern: z.string().describe('Glob pattern'),
   }),
-  handler: async ({ pattern }) => {
+  async ({ pattern }) => {
     const { glob } = await import('fast-glob');
     const files = await glob(pattern);
     return { data: JSON.stringify(files) };
   },
-});
+);
 
-const readFileTool = createZodFunctionTool({
-  name: 'read_file',
-  description: 'Read the contents of a file',
-  schema: z.object({
+const readFileTool = createZodFunctionTool(
+  'read_file',
+  'Read the contents of a file',
+  z.object({
     path: z.string().describe('File path to read'),
   }),
-  handler: async ({ path }) => {
+  async ({ path }) => {
     const { readFileSync } = await import('fs');
     return { data: readFileSync(path, 'utf-8') };
   },
-});
+);
 
 const agent = new Robota({
   name: 'FileAgent',

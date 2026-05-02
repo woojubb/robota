@@ -6,12 +6,14 @@ Real-time bidirectional communication with InteractiveSession.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createWsTransport } from '@robota-sdk/agent-transport-ws';
 import { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({ port: 8080 });
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-wss.on('connection', (ws) => {
+wss.on('connection', async (ws) => {
   const session = new InteractiveSession({ cwd: process.cwd(), provider });
   const transport = createWsTransport({
     send: (msg) => ws.send(JSON.stringify(msg)),
