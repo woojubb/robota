@@ -45,6 +45,7 @@ export type {
   ISessionOptions,
   ISessionShutdownOptions,
 };
+export type { TAutoCompactThreshold } from './context-window-tracker.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -132,7 +133,11 @@ export class Session {
       hookTypeExecutors: options.hookTypeExecutors,
     });
 
-    this.contextTracker = new ContextWindowTracker(this.model, options.contextMaxTokens);
+    this.contextTracker = new ContextWindowTracker(
+      this.model,
+      options.contextMaxTokens,
+      options.autoCompactThreshold,
+    );
     this.compactionOrchestrator = new CompactionOrchestrator({
       sessionId: this.sessionId,
       cwd: this.cwd,
@@ -303,6 +308,11 @@ export class Session {
   /** Get current context window state */
   getContextState() {
     return this.contextTracker.getContextState();
+  }
+
+  /** Get this session's automatic context compaction threshold policy. */
+  getAutoCompactThreshold() {
+    return this.contextTracker.getAutoCompactThreshold();
   }
 
   /**

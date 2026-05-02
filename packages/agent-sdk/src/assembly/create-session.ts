@@ -63,6 +63,12 @@ const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
 const DEFAULT_PROVIDER_IDLE_TIMEOUT_MS = 120_000;
 
+type TAutoCompactThreshold = number | false;
+type TSessionOptionsWithAutoCompact = ConstructorParameters<typeof Session>[0] & {
+  autoCompactThreshold?: TAutoCompactThreshold;
+};
+type TSessionConstructorWithAutoCompact = new (options: TSessionOptionsWithAutoCompact) => Session;
+
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
   /** Resolved CLI configuration (model, API key, permissions) */
@@ -116,6 +122,8 @@ export interface ICreateSessionOptions {
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
+  /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
+  autoCompactThreshold?: TAutoCompactThreshold;
   /** Custom system prompt builder function */
   systemPromptBuilder?: (params: ISystemPromptParams) => string;
   /** Custom tool descriptions for the system prompt */
@@ -324,7 +332,8 @@ export function createSession(options: ICreateSessionOptions): Session {
     deny: options.config.permissions.deny ?? [],
   };
 
-  const session = new Session({
+  const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
+  const session = new SessionWithAutoCompact({
     tools,
     provider,
     systemMessage: finalSystemMessage,
@@ -345,6 +354,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
+    autoCompactThreshold: options.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
   });

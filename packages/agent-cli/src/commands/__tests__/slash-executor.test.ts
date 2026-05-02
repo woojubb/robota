@@ -8,7 +8,6 @@ import {
   handlePermissions,
   handleContext,
   handleReset,
-  handleCompact,
   executeSlashCommand,
   HELP_TEXT,
 } from '../slash-executor.js';
@@ -165,26 +164,6 @@ describe('handleReset', () => {
   });
 });
 
-describe('handleCompact', () => {
-  it('calls session.compact and shows before/after', async () => {
-    const { addMessage, messages } = createMockAddMessage();
-    let callCount = 0;
-    const session = createMockSession({
-      getContextState: () => {
-        callCount++;
-        return callCount === 1
-          ? { usedTokens: 170000, maxTokens: 200000, usedPercentage: 85 }
-          : { usedTokens: 60000, maxTokens: 200000, usedPercentage: 30 };
-      },
-      compact: vi.fn(),
-    });
-    await handleCompact('focus on API', session, addMessage);
-    expect(session.compact).toHaveBeenCalledWith('focus on API');
-    expect(messages[1].content).toContain('85%');
-    expect(messages[1].content).toContain('30%');
-  });
-});
-
 function emptyRegistry(): CommandRegistry {
   return new CommandRegistry();
 }
@@ -215,6 +194,24 @@ describe('executeSlashCommand', () => {
       emptyRegistry(),
     );
     expect(result.exitRequested).toBe(true);
+  });
+
+  it('routes /compact through the SDK system command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const session = createMockSession({ compact: vi.fn() });
+
+    const result = await executeSlashCommand(
+      'compact',
+      'focus on API',
+      session,
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+    );
+
+    expect(result.handled).toBe(false);
+    expect(session.compact).not.toHaveBeenCalled();
+    expect(messages).toHaveLength(0);
   });
 
   it('returns handled=false for skill command', async () => {

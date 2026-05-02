@@ -46,7 +46,11 @@ export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
   }
 
   isClean(worktree: IPreparedSubagentWorktree): boolean {
-    return runGit(worktree.worktreePath, ['status', '--porcelain']).trim().length === 0;
+    return this.getStatus(worktree).trim().length === 0;
+  }
+
+  getStatus(worktree: IPreparedSubagentWorktree): string {
+    return runGit(worktree.worktreePath, ['status', '--porcelain']);
   }
 
   remove(worktree: IPreparedSubagentWorktree): void {

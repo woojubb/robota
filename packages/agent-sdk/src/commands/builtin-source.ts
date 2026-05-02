@@ -40,6 +40,7 @@ function buildRewindSubcommands(): ICommand[] {
     { name: 'list', description: 'List edit checkpoints', source: 'builtin' },
     { name: 'restore', description: 'Restore code to a checkpoint', source: 'builtin' },
     { name: 'code', description: 'Restore code to a checkpoint', source: 'builtin' },
+    { name: 'rollback', description: 'Rollback code through a checkpoint', source: 'builtin' },
   ];
 }
 

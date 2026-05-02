@@ -32,6 +32,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
       maxTokens: 200000,
       usedPercentage: 2.5,
     }),
+    getAutoCompactThreshold: vi.fn().mockReturnValue(0.835),
     compact: vi.fn(),
     listBackgroundTasks: vi.fn().mockReturnValue([]),
     cancelBackgroundTask: vi.fn(),
@@ -57,6 +58,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     ]),
     listEditCheckpoints: vi.fn().mockReturnValue([]),
     restoreEditCheckpoint: vi.fn(),
+    rollbackEditCheckpoint: vi.fn(),
     sendAgentJob: vi.fn(),
     cancelAgentJob: vi.fn(),
     closeAgentJob: vi.fn(),
@@ -76,6 +78,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     listAgentDefinitions: underlying.listAgentDefinitions,
     listEditCheckpoints: underlying.listEditCheckpoints,
     restoreEditCheckpoint: underlying.restoreEditCheckpoint,
+    rollbackEditCheckpoint: underlying.rollbackEditCheckpoint,
     sendAgentJob: underlying.sendAgentJob,
     cancelAgentJob: underlying.cancelAgentJob,
     closeAgentJob: underlying.closeAgentJob,
@@ -178,6 +181,18 @@ describe('SystemCommandExecutor', () => {
     expect(result!.data?.usedTokens).toBe(5000);
   });
 
+  it('context reports the auto-compact policy when exposed by the session', async () => {
+    const executor = new SystemCommandExecutor();
+    const result = await executor.execute(
+      'context',
+      createMockSession({ getAutoCompactThreshold: vi.fn().mockReturnValue(0.75) }),
+      '',
+    );
+
+    expect(result!.message).toContain('Auto compact: 75%');
+    expect(result!.data?.autoCompactThreshold).toBe(0.75);
+  });
+
   it('compact calls session.compact', async () => {
     const executor = new SystemCommandExecutor();
     const session = createMockSession();
@@ -187,6 +202,18 @@ describe('SystemCommandExecutor', () => {
       (session as unknown as { _underlying: { compact: ReturnType<typeof vi.fn> } })._underlying
         .compact,
     ).toHaveBeenCalledWith('focus on tests');
+  });
+
+  it('compact exposes descriptor metadata for SDK-owned slash routing', () => {
+    const compact = createSystemCommands().find((command) => command.name === 'compact');
+
+    expect(compact).toEqual(
+      expect.objectContaining({
+        name: 'compact',
+        description: 'Compress context window',
+        argumentHint: '[instructions]',
+      }),
+    );
   });
 
   it('resume returns triggerResumePicker in data', async () => {
@@ -243,6 +270,31 @@ describe('SystemCommandExecutor', () => {
     expect(result!.success).toBe(true);
     expect(restoreEditCheckpoint).toHaveBeenCalledWith('turn-0001');
     expect(result!.data?.restoredFileCount).toBe(3);
+  });
+
+  it('rewind rollback delegates inclusive code rollback to the interactive session', async () => {
+    const executor = new SystemCommandExecutor();
+    const rollbackEditCheckpoint = vi.fn().mockResolvedValue({
+      target: {
+        id: 'turn-0001',
+        sessionId: 'test-session-id',
+        sequence: 1,
+        prompt: 'change files',
+        createdAt: '2026-05-02T00:00:00.000Z',
+        fileCount: 1,
+      },
+      restoredCheckpointCount: 1,
+      restoredFileCount: 1,
+      removedCheckpointCount: 1,
+    });
+    const session = createMockSession({ rollbackEditCheckpoint });
+
+    const result = await executor.execute('rewind', session, 'rollback turn-0001');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(rollbackEditCheckpoint).toHaveBeenCalledWith('turn-0001');
+    expect(result!.message).toContain('Rolled back code through turn-0001.');
   });
 
   it('background list returns task summaries', async () => {

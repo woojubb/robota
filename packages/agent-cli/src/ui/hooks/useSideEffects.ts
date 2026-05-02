@@ -5,12 +5,12 @@ import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robot
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
-  updateModelInSettings,
   deleteSettings,
   readSettings,
   writeSettings,
 } from '../../utils/settings-io.js';
 import {
+  applyActiveModelChange,
   applyProviderConfiguration,
   applyProviderSwitch,
 } from '../../utils/provider-configuration.js';
@@ -168,8 +168,7 @@ export function useSideEffects({
       pendingModelChangeRef.current = null;
       if (index === 0 && modelId) {
         try {
-          const settingsPath = getUserSettingsPath();
-          updateModelInSettings(settingsPath, modelId);
+          applyActiveModelChange(cwd, modelId);
           addEntry(
             messageToHistoryEntry(
               createSystemMessage(`Model changed to ${getModelName(modelId)}. Restarting...`),
@@ -187,7 +186,7 @@ export function useSideEffects({
         addEntry(messageToHistoryEntry(createSystemMessage('Model change cancelled.')));
       }
     },
-    [addEntry, requestShutdown],
+    [cwd, addEntry, requestShutdown],
   );
 
   const handleProviderConfirm = useCallback(

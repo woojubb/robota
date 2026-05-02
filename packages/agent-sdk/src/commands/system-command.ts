@@ -36,6 +36,8 @@ export interface ISystemCommand {
 }
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+const DEFAULT_AUTO_COMPACT_THRESHOLD = 0.835;
+const PERCENT = 100;
 const MEMORY_COMMAND_DESCRIPTION =
   'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
 const MEMORY_COMMAND_ARGUMENT_HINT =
@@ -82,6 +84,7 @@ export function createSystemCommands(): ISystemCommand[] {
     {
       name: 'compact',
       description: 'Compress context window',
+      argumentHint: '[instructions]',
       execute: async (session, args) => {
         const underlying = session.getSession();
         const instructions = args.trim() || undefined;
@@ -172,13 +175,22 @@ export function createSystemCommands(): ISystemCommand[] {
       description: 'Context window info',
       execute: (session, _args) => {
         const ctx = session.getContextState();
+        const autoCompactThreshold = getAutoCompactThreshold(session);
+        const autoCompactLine =
+          autoCompactThreshold === false
+            ? 'Auto compact: disabled'
+            : `Auto compact: ${Math.round(autoCompactThreshold * PERCENT)}%`;
         return {
-          message: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
+          message: [
+            `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
+            autoCompactLine,
+          ].join('\n'),
           success: true,
           data: {
             usedTokens: ctx.usedTokens,
             maxTokens: ctx.maxTokens,
             percentage: ctx.usedPercentage,
+            autoCompactThreshold,
           },
         };
       },
@@ -214,7 +226,7 @@ export function createSystemCommands(): ISystemCommand[] {
     {
       name: 'rewind',
       description: 'List edit checkpoints or restore code to a previous checkpoint.',
-      argumentHint: 'list | restore CHECKPOINT_ID | code CHECKPOINT_ID',
+      argumentHint: 'list | restore CHECKPOINT_ID | code CHECKPOINT_ID | rollback CHECKPOINT_ID',
       safety: 'write',
       execute: executeRewindCommand,
     },
@@ -260,4 +272,9 @@ export function createSystemCommands(): ISystemCommand[] {
       },
     },
   ];
+}
+
+function getAutoCompactThreshold(session: InteractiveSession): number | false {
+  const candidate = session.getSession() as { getAutoCompactThreshold?: () => number | false };
+  return candidate.getAutoCompactThreshold?.() ?? DEFAULT_AUTO_COMPACT_THRESHOLD;
 }

@@ -46,7 +46,11 @@ export function readProviderSettings(
 }
 
 export function readMergedProviderSettings(cwd: string): TProviderSettingsDocument {
-  const paths = [
+  return readMergedProviderSettingsFromPaths(getProviderSettingsPaths(cwd));
+}
+
+export function getProviderSettingsPaths(cwd: string): string[] {
+  return [
     join(homedir(), '.robota', 'settings.json'),
     join(homedir(), '.claude', 'settings.json'),
     join(cwd, '.robota', 'settings.json'),
@@ -54,7 +58,11 @@ export function readMergedProviderSettings(cwd: string): TProviderSettingsDocume
     join(cwd, '.claude', 'settings.json'),
     join(cwd, '.claude', 'settings.local.json'),
   ];
+}
 
+export function readMergedProviderSettingsFromPaths(
+  paths: readonly string[],
+): TProviderSettingsDocument {
   return paths.reduce<TProviderSettingsDocument>((settings, filePath) => {
     const parsed = readSettingsFile(filePath);
     if (parsed === undefined) {
