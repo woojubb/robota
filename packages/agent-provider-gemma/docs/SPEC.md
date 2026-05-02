@@ -6,7 +6,7 @@ This package owns Gemma model-family provider behavior for Robota when Gemma mod
 
 ## Boundaries
 
-- Does not own Google Gemini API behavior. That remains in `agent-provider-google` until a future `agent-provider-gemini` migration.
+- Does not own Google Gemini API behavior. That belongs to `agent-provider-gemini`; `agent-provider-google` is a compatibility wrapper.
 - Does not own generic OpenAI-compatible transport conversion, response parsing, stream assembly, or endpoint probing. Those belong to `agent-provider-openai-compatible`.
 - Does not own OpenAI-branded account semantics or OpenAI defaults. Those belong to `agent-provider-openai`.
 - Does not own session persistence, tool execution, or CLI command routing.

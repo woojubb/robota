@@ -8,10 +8,7 @@ const __dirname = path.dirname(__filename);
 export default defineConfig({
   resolve: {
     alias: {
-      '@robota-sdk/agent-provider-gemini': path.resolve(
-        __dirname,
-        '../agent-provider-gemini/src/index.ts',
-      ),
+      '@robota-sdk/agent-core': path.resolve(__dirname, '../agent-core/src/index.ts'),
     },
   },
   test: {
@@ -19,5 +16,8 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     environment: 'node',
     testTimeout: 10000,
+    coverage: {
+      exclude: ['examples/**', 'src/index.ts'],
+    },
   },
 });

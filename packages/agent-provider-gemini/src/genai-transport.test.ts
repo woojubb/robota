@@ -40,7 +40,7 @@ function createUserMessage(content: string): TUniversalMessage {
   };
 }
 
-describe('GoogleProvider @google/genai transport', () => {
+describe('GeminiProvider @google/genai transport', () => {
   beforeEach(() => {
     vi.resetModules();
     generateContentMock.mockReset();
@@ -52,9 +52,9 @@ describe('GoogleProvider @google/genai transport', () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: 'done' }] } }],
     });
-    const { GoogleProvider } = await import('./provider');
+    const { GeminiProvider } = await import('./provider');
 
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const response = await provider.chat([createUserMessage('hello')], {
       model: 'gemini-3-flash-preview',
       temperature: 0.4,
@@ -99,9 +99,9 @@ describe('GoogleProvider @google/genai transport', () => {
         yield { text: ' world' };
       })(),
     );
-    const { GoogleProvider } = await import('./provider');
+    const { GeminiProvider } = await import('./provider');
 
-    const provider = new GoogleProvider({ apiKey: 'test-key' });
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
     const chunks: TUniversalMessage[] = [];
     for await (const chunk of provider.chatStream([createUserMessage('hello')], {
       model: 'gemini-3-flash-preview',
