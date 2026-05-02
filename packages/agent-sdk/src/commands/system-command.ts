@@ -54,7 +54,7 @@ export function createSystemCommands(): ISystemCommand[] {
           '  cost              — Show session info',
           '  context           — Context window info',
           '  permissions       — Permission rules',
-          '  memory            — Manage project memory',
+          '  memory            — Manage project memory and pending candidates',
           '  provider          — Provider profile status and switching',
           '  resume            — Resume a previous session',
           '  background        — List/cancel/close background tasks',
@@ -199,9 +199,10 @@ export function createSystemCommands(): ISystemCommand[] {
     },
     {
       name: 'memory',
-      description: 'Manage project memory index and topic files.',
+      description: 'Manage project memory, including pending automatic memory candidates.',
       modelInvocable: true,
-      argumentHint: 'list | show [topic] | add TYPE TOPIC TEXT',
+      argumentHint:
+        'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
       safety: 'write',
       execute: executeMemoryCommand,
     },

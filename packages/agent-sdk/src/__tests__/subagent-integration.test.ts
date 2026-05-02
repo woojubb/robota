@@ -80,6 +80,7 @@ function makeParentConfig(overrides?: Partial<IResolvedConfig>): IResolvedConfig
       apiKey: 'test-key',
     },
     permissions: { allow: [], deny: [] },
+    memory: { policy: 'approval_required', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
     env: {},
     ...overrides,
   };
