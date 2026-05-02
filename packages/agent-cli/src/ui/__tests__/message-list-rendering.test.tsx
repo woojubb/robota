@@ -183,6 +183,38 @@ describe('MessageList rendering', () => {
     expect(output).toContain('+ 1 | const original = true;');
   });
 
+  it('usage-summary event renders compact token and cost visibility', () => {
+    const history: IHistoryEntry[] = [
+      {
+        id: 'usage_1',
+        timestamp: new Date(),
+        category: 'event',
+        type: 'usage-summary',
+        data: {
+          kind: 'exact',
+          scope: 'turn',
+          promptTokens: 100,
+          completionTokens: 50,
+          totalTokens: 150,
+          contextUsedTokens: 150,
+          contextMaxTokens: 1000,
+          contextUsedPercentage: 15,
+          costStatus: 'unknown',
+        },
+      },
+    ];
+
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('Usage:');
+    expect(output).toContain('exact');
+    expect(output).toContain('150 tokens');
+    expect(output).toContain('in 100');
+    expect(output).toContain('out 50');
+    expect(output).toContain('cost unknown');
+  });
+
   it('system message renders with "System:" label', () => {
     const history: IHistoryEntry[] = [
       messageToHistoryEntry(createSystemMessage('Interrupted by user.')),

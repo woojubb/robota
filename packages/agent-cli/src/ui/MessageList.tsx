@@ -5,6 +5,7 @@ import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
 import { renderMarkdown } from './render-markdown.js';
 import type { IToolCallSummary } from '../utils/tool-call-extractor.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
+import UsageSummaryEntry from './UsageSummaryEntry.js';
 
 interface IProps {
   history: IHistoryEntry[];
@@ -244,6 +245,10 @@ function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
 
   if (entry.type === 'tool-summary') {
     return <ToolSummaryEntry entry={entry} />;
+  }
+
+  if (entry.type === 'usage-summary') {
+    return <UsageSummaryEntry entry={entry} />;
   }
 
   // tool-start/tool-end are recorded in history for persistence but not rendered

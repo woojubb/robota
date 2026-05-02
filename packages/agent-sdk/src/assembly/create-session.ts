@@ -7,7 +7,12 @@
  * expects as pre-constructed dependencies.
  */
 
-import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IContextWindowState,
+  IToolWithEventService,
+  IHookTypeExecutor,
+} from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
 import { AgentExecutor } from '../hooks/agent-executor.js';
@@ -82,6 +87,8 @@ export interface ICreateSessionOptions {
   permissionHandler?: TPermissionHandler;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
+  /** Callback when context window usage is refreshed */
+  onContextUpdate?: (state: IContextWindowState) => void;
   /** Custom prompt-for-approval function (injected from CLI) */
   promptForApproval?: (
     terminal: ITerminalOutput,
@@ -333,6 +340,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     sessionId,
     permissionHandler: options.permissionHandler,
     onTextDelta: options.onTextDelta,
+    onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,

@@ -305,6 +305,17 @@ Edit tool summaries render context-aware hunks rather than isolated changed line
 - If file context is unavailable, the renderer falls back to changed lines only rather than failing the tool summary.
 - Large diffs are truncated by visible hunk groups when possible, preserving the first changed hunk before omitting additional lines.
 
+### Usage Summary Rendering
+
+Usage summary rows render persisted SDK `usage-summary` history entries. The CLI must:
+
+- Render usage near the assistant turn that produced it rather than in a detached dashboard.
+- Show whether usage is exact or estimated.
+- Show prompt, completion, and total token counts when available.
+- Label monetary cost as unknown unless the SDK provides exact or configured pricing data.
+- Avoid provider/model branches; all display data comes from the SDK-owned `IUsageSnapshot`.
+- Subscribe to `context_update` so the status bar refreshes when a request is sent and again after provider usage reconciliation.
+
 ## Context Management (CLI Layer)
 
 ### `/compact` Slash Command
