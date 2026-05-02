@@ -17,7 +17,6 @@ import {
   WORKSPACE_ROOT,
   classifyScopeChanges,
   collectPackageManifestChanges,
-  createWorkspaceDependencyBuildArgs,
   detectChangedFiles,
   listWorkspaceScopes,
   parseScopeArgs,
@@ -76,19 +75,6 @@ function runRepositoryCheck(check, dryRun) {
   }
 }
 
-function shouldPrepareWorkspaceDependencies(scope, plannedChecks, options) {
-  if ((scope.workspaceDependencies ?? []).length === 0) {
-    return false;
-  }
-
-  return (
-    (!options.skipBuild && plannedChecks.has('build')) ||
-    (!options.skipTests && plannedChecks.has('test')) ||
-    (!options.skipLint && plannedChecks.has('lint')) ||
-    (!options.skipTypecheck && plannedChecks.has('typecheck'))
-  );
-}
-
 async function main() {
   const options = parseScopeArgs(process.argv.slice(2));
   const scopes = await listWorkspaceScopes();
@@ -118,6 +104,13 @@ async function main() {
     process.stdout.write('No package or app scope detected from changed files.\n');
     process.stdout.write('Use --scope <packages/foo|apps/bar> to run explicit verification.\n');
     return;
+  }
+
+  const needsRootBuild =
+    !options.skipBuild && plan.scopes.some((planScope) => planScope.checks.includes('build'));
+  if (needsRootBuild) {
+    process.stdout.write('\n[verify] monorepo build\n');
+    runCommand('pnpm', ['build'], WORKSPACE_ROOT, options.dryRun);
   }
 
   const summary = [];
@@ -155,28 +148,9 @@ async function main() {
       scenarios: 'not-applicable',
     };
 
-    if (shouldPrepareWorkspaceDependencies(scope, plannedChecks, options)) {
-      const dependencyBuildArgs = createWorkspaceDependencyBuildArgs(scope);
-      if (dependencyBuildArgs) {
-        try {
-          runCommand('pnpm', dependencyBuildArgs, WORKSPACE_ROOT, options.dryRun);
-          notes.push('workspace dependencies built before scoped checks');
-        } catch (error) {
-          allPassed = false;
-          throw error;
-        }
-      }
-    }
-
     if (!options.skipBuild && plannedChecks.has('build')) {
-      try {
-        runCommand('pnpm', ['build'], workdir, options.dryRun);
-        stepResults.build = 'pass';
-      } catch (error) {
-        stepResults.build = 'fail';
-        allPassed = false;
-        throw error;
-      }
+      stepResults.build = 'pass';
+      notes.push('monorepo root build completed before scoped checks');
     }
 
     if (!options.skipTests && plannedChecks.has('test')) {

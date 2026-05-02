@@ -5,7 +5,6 @@ import {
   parseScopeArgs,
   classifyScopeChanges,
   classifyPackageManifestChange,
-  createWorkspaceDependencyBuildArgs,
   mapFilesToScopes,
   resolveBaseRef,
   resolveRequestedScopes,
@@ -95,25 +94,49 @@ describe('parseScopeArgs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// createWorkspaceDependencyBuildArgs
+// CI build shape
 // ---------------------------------------------------------------------------
-describe('createWorkspaceDependencyBuildArgs', () => {
-  it('renders a pnpm dependency-only filter for clean scoped verification', () => {
-    const result = createWorkspaceDependencyBuildArgs({
-      workspaceName: '@robota-sdk/agent-cli',
-      workspaceDependencies: ['@robota-sdk/agent-command-agent'],
-    });
+describe('CI build workflow', () => {
+  it('runs the monorepo root build once instead of per-scope package builds', () => {
+    const content = readFileSync('.github/workflows/ci.yml', 'utf8');
 
-    expect(result).toEqual(['--filter', '@robota-sdk/agent-cli^...', '--if-present', 'build']);
+    expect(content).toContain('run: pnpm build');
+    expect(content).toContain('Detect build requirement');
+    expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
+    expect(content).not.toContain('Build affected scopes');
+    expect(content).not.toContain('--skip-tests --skip-lint --skip-typecheck');
+    expect(content).not.toContain('<scope>^...');
   });
 
-  it('returns null when a scope has no workspace dependencies', () => {
-    const result = createWorkspaceDependencyBuildArgs({
-      workspaceName: '@robota-sdk/agent-core',
-      workspaceDependencies: [],
-    });
+  it('keeps main PR duplicate jobs as fast successful no-ops', () => {
+    const content = readFileSync('.github/workflows/ci.yml', 'utf8');
 
-    expect(result).toBeNull();
+    expect(content).toContain("github.base_ref == 'main'");
+    expect(content).toContain('covered by release-grade verification');
+  });
+
+  it('checks dependency graph changes before installing for security audit', () => {
+    const content = readFileSync('.github/workflows/ci.yml', 'utf8');
+    const diffIndex = content.indexOf('Detect dependency graph changes');
+    const installIndex = content.indexOf('Install dependencies for audit');
+
+    expect(diffIndex).toBeGreaterThanOrEqual(0);
+    expect(installIndex).toBeGreaterThan(diffIndex);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verify-change build flow
+// ---------------------------------------------------------------------------
+describe('verify-change build flow', () => {
+  it('uses one root build for scoped build checks instead of dependency package builds', () => {
+    const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
+
+    expect(content).toContain('[verify] monorepo build');
+    expect(content).toContain("runCommand('pnpm', ['build'], WORKSPACE_ROOT");
+    expect(content).not.toContain('createWorkspaceDependencyBuildArgs');
+    expect(content).not.toContain('shouldPrepareWorkspaceDependencies');
+    expect(content).not.toContain("runCommand('pnpm', ['build'], workdir");
   });
 });
 

@@ -280,14 +280,6 @@ export function parseScopeArgs(argv) {
   return options;
 }
 
-export function createWorkspaceDependencyBuildArgs(scope) {
-  if ((scope.workspaceDependencies ?? []).length === 0) {
-    return null;
-  }
-
-  return ['--filter', `${scope.workspaceName}^...`, '--if-present', 'build'];
-}
-
 export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
   const rendered = [command, ...args].join(' ');
   process.stdout.write(`> (${path.relative(WORKSPACE_ROOT, workdir) || '.'}) ${rendered}\n`);
