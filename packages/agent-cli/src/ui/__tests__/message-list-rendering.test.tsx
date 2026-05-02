@@ -149,6 +149,40 @@ describe('MessageList rendering', () => {
     expect(output).not.toContain('│ 1 - const oldValue = true;');
   });
 
+  it('tool-summary event renders persisted edit diff metadata', () => {
+    const history: IHistoryEntry[] = [
+      {
+        id: 'summary_1',
+        timestamp: new Date(),
+        category: 'event',
+        type: 'tool-summary',
+        data: {
+          tools: [
+            {
+              toolName: 'Edit',
+              firstArg: '/src/index.ts',
+              isRunning: false,
+              result: 'success',
+              diffFile: '/src/index.ts',
+              diffLines: [
+                { type: 'remove', lineNumber: 1, text: 'const temporary = true;' },
+                { type: 'add', lineNumber: 1, text: 'const original = true;' },
+              ],
+            },
+          ],
+          summary: '✓ Edit(/src/index.ts)',
+        },
+      },
+    ];
+
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('/src/index.ts');
+    expect(output).toContain('- 1 | const temporary = true;');
+    expect(output).toContain('+ 1 | const original = true;');
+  });
+
   it('system message renders with "System:" label', () => {
     const history: IHistoryEntry[] = [
       messageToHistoryEntry(createSystemMessage('Interrupted by user.')),

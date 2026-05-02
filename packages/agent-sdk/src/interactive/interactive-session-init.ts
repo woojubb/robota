@@ -12,6 +12,7 @@ import type { Session } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskRunner,
@@ -104,7 +105,7 @@ export interface IInitOptions {
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
-    toolArgs?: Record<string, unknown>;
+    toolArgs?: TToolArgs;
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
