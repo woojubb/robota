@@ -22,8 +22,9 @@ robota --model claude-opus-4-6      # Model override
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
 robota --output-format json         # Output format (text/json/stream-json)
-robota --system-prompt "..."        # Replace system prompt
 robota --append-system-prompt "..." # Append to system prompt
+robota --configure                  # Interactive provider setup
+robota --provider qwen              # Run with a configured provider profile
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip startup update check for this run
@@ -85,11 +86,11 @@ cat error.log | robota -p "What went wrong?"
 git diff | robota -p "Review this diff" --output-format json
 ```
 
-### System Prompt Overrides
+### System Prompt Append
 
 ```bash
-robota -p "query" --system-prompt "You are a code reviewer"
 robota -p "query" --append-system-prompt "Focus on security issues"
+robota -p "query" --json-schema '{"type":"object"}'
 ```
 
 ### Exit Codes
@@ -135,28 +136,37 @@ The state shape exposed to components includes `history: IHistoryEntry[]` — th
 
 `TuiStateManager` is a pure TypeScript class with no React dependency. It can be instantiated and tested independently of the component tree, making state transition logic fully unit-testable.
 
-The CLI contains no session management logic beyond this hook. The old `useSession`, `useSubmitHandler`, `useSlashCommands`, `useCommandRegistry`, and `useMessages` hooks have been removed and their responsibilities moved to `InteractiveSession` in the SDK.
+The CLI contains no session management logic beyond this hook. The old `useSession`, `useSubmitHandler`, `useSlashCommands`, `useCommandRegistry`, and `useMessages` hooks have been removed; session execution lives in `InteractiveSession`, and command discovery uses SDK-owned command registry/source classes.
 
 ## Slash Commands
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-The available command list is provided by `InteractiveSession.getCommands()`, which aggregates `BuiltinCommandSource` and `SkillCommandSource`. The CLI renders this list but does not own it.
+The available command list is built from SDK-owned command sources: `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and command modules such as `agent-command-agent`. The CLI renders this list but does not own the command definitions.
 
-| Command                   | Description                      |
-| ------------------------- | -------------------------------- |
-| `/help`                   | Show available commands          |
-| `/clear`                  | Clear conversation history       |
-| `/mode [mode]`            | Show or change permission mode   |
-| `/model [model]`          | Show or change AI model          |
-| `/compact [instructions]` | Compress context window          |
-| `/cost`                   | Show session info                |
-| `/context`                | Context window details           |
-| `/permissions`            | Show permission rules            |
-| `/exit`                   | Exit CLI                         |
-| `/plugin`                 | Plugin manager (interactive TUI) |
-| `/reload-plugins`         | Reload all plugins               |
-| `/language [lang]`        | Show or change UI language       |
+| Command                   | Description                             |
+| ------------------------- | --------------------------------------- |
+| `/help`                   | Show available commands                 |
+| `/clear`                  | Clear conversation history              |
+| `/mode [mode]`            | Show or change permission mode          |
+| `/model [model]`          | Show or change AI model                 |
+| `/compact [instructions]` | Compress context window                 |
+| `/cost`                   | Show session info                       |
+| `/context`                | Context window details                  |
+| `/permissions`            | Show permission rules                   |
+| `/memory`                 | Inspect and manage project memory       |
+| `/rewind`                 | List and restore edit checkpoints       |
+| `/provider`               | Manage provider profiles                |
+| `/resume`                 | Resume a previous session               |
+| `/background`             | List and control background tasks       |
+| `/agent`                  | Run and manage background subagent jobs |
+| `/rename`                 | Rename the current session              |
+| `/exit`                   | Exit CLI                                |
+| `/plugin`                 | Plugin manager (interactive TUI)        |
+| `/reload-plugins`         | Reload all plugins                      |
+| `/language [lang]`        | Show or change UI language              |
+| `/statusline`             | Show, hide, or reset status line fields |
+| `/reset`                  | Delete settings and exit                |
 
 `/mode` and `/model` show nested submenus for selection.
 
@@ -262,7 +272,7 @@ The CLI supports continuing, resuming, forking, and naming sessions for workflow
 ```bash
 robota -c                    # Continue the most recent session
 robota -r <session-id>       # Resume a specific session by ID
-robota --fork-session <id>   # Fork a session (new session with copied history)
+robota -r <session-id> --fork-session # Fork a session (new session with copied history)
 robota --name "my-task"      # Assign a name to the session at startup
 ```
 

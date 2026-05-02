@@ -62,14 +62,14 @@ robota -p "Explain recursion" --output-format stream-json
 robota -p "query" --output-format json | jq -r '.result'
 ```
 
-## System Prompt
+## System Prompt Append
 
 ```bash
-# Replace system prompt
-robota -p "Review this code" --system-prompt "You are a security auditor"
-
 # Append to default system prompt
 robota -p "Fix the bug" --append-system-prompt "Focus on error handling"
+
+# Require JSON output matching a schema
+robota -p "Describe this package" --json-schema '{"type":"object"}'
 ```
 
 ## Exit Codes

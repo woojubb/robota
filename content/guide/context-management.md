@@ -45,29 +45,30 @@ CLAUDE.md can define a "Compact Instructions" section. These instructions are au
 
 ## Streaming
 
-The `onTextDelta` callback provides real-time text as the model generates it:
+The `text_delta` event provides real-time text as the model generates it:
 
 ```typescript
-const session = createSession({
-  config,
-  context,
-  terminal,
-  onTextDelta: (delta) => process.stdout.write(delta),
-});
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const session = new InteractiveSession({ cwd: process.cwd(), provider });
+session.on('text_delta', (delta) => process.stdout.write(delta));
 ```
 
-The completed response is returned by `session.run()` after streaming finishes.
+The `complete` event carries the final response after streaming finishes.
 
 ### Web Search
 
-The Anthropic provider supports server-side web search (`web_search_20250305`). When `enableWebTools` is set on the provider instance, the model can search the web during response generation. The `onServerToolUse` callback fires when search executes.
+Provider-side web tools are distinct from Robota local tools. Anthropic supports server-side web search (`web_search_20250305`) when `enableWebTools` is set on the provider instance, and `onServerToolUse` fires when search executes. Qwen supports provider-side `web_search` and `web_extractor` through `builtInWebTools`; those hosted tools record provenance in assistant-message metadata and do not bypass local Robota permission checks.
 
 ## Abort
 
-Cancel a running `session.run()` via AbortSignal:
+Cancel a running `InteractiveSession.submit()` via AbortSignal:
 
 ```typescript
 session.abort(); // Triggers AbortSignal, cancels streaming
 ```
 
-The AbortSignal flows through the entire execution chain: `Session.run()` passes the signal to `Robota.run()`, which passes it to the provider. `AbstractAIProvider.streamWithAbort()` provides a standard streaming wrapper that all providers use to handle abort — when the signal fires, the provider returns partial content with `stopReason: 'aborted'`. The partial response is committed to history with `state: 'interrupted'`.
+The AbortSignal flows through the entire execution chain: `InteractiveSession` calls `Session.run()`, `Session.run()` passes the signal to `Robota.run()`, and `Robota.run()` passes it to the provider. `AbstractAIProvider.streamWithAbort()` provides a standard streaming wrapper that all providers use to handle abort — when the signal fires, the provider returns partial content with `stopReason: 'aborted'`. The partial response is committed to history with `state: 'interrupted'`.
