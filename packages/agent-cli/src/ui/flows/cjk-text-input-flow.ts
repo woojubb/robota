@@ -77,6 +77,21 @@ export function applyCjkTextInput(
   return insertPrintableInput(state, input);
 }
 
+export function applyCjkTextPaste(
+  state: ICjkTextInputFlowState,
+  text: string,
+  options: ICjkTextInputFlowOptions,
+): ICjkTextInputFlowResult {
+  const normalizedText = text.replace(/\r\n?/g, '\n');
+  if (normalizedText.length === 0) {
+    return { state, effect: { type: 'none' } };
+  }
+  if (normalizedText.includes('\n') && options.canPaste) {
+    return { state, effect: { type: 'paste', text: normalizedText, cursor: state.cursor } };
+  }
+  return insertPrintableInput(state, normalizedText);
+}
+
 function applyPasteBoundaryInput(
   state: ICjkTextInputFlowState,
   input: string,
@@ -205,15 +220,8 @@ function continueBracketedPaste(
     };
   }
   const beforeMarker = input.split(PASTE_END)[0] ?? '';
-  const text = (state.pasteBuffer + beforeMarker).replace(/\r\n?/g, '\n');
   const nextState = { ...state, isPasting: false, pasteBuffer: '' };
-  if (text.length === 0) {
-    return { state: nextState, effect: { type: 'none' } };
-  }
-  if (text.includes('\n') && options.canPaste) {
-    return { state: nextState, effect: { type: 'paste', text, cursor: state.cursor } };
-  }
-  return insertPrintableInput(nextState, text);
+  return applyCjkTextPaste(nextState, state.pasteBuffer + beforeMarker, options);
 }
 
 function moveCursorVertically(
