@@ -860,6 +860,7 @@ When an Edit tool summary includes diff lines, the CLI shows a compact diff belo
 - Truncation is structured metadata outside the Markdown diff body: **max display lines: 12**. If the diff exceeds 12 lines, render the first 10 lines plus `... and N more lines`.
 - If `old_string` and `new_string` are identical (no-op edit), show nothing.
 - Diff is shown in both the real-time streaming indicator (after tool completes) and the post-execution summary.
+- Post-execution `tool-summary` entries must render from structured `data.tools` when present so persisted `diffFile` and `diffLines` are not lost. The plain `summary` string is a fallback for legacy entries only.
 
 **Permission prompt integration (future):**
 

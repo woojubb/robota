@@ -102,6 +102,8 @@ export interface ICreateSessionOptions {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;

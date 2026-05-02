@@ -10,6 +10,26 @@ interface IProps {
   history: IHistoryEntry[];
 }
 
+type TToolSummaryItem = {
+  toolName: string;
+  firstArg?: string;
+  isRunning?: boolean;
+  result?: string;
+  diffLines?: IToolCallSummary['diffLines'];
+  diffFile?: string;
+};
+
+function getToolSummaryStatus(tool: TToolSummaryItem): string {
+  if (tool.isRunning) return '⟳';
+  if (tool.result === 'error') return '✗';
+  if (tool.result === 'denied') return '⊘';
+  return '✓';
+}
+
+function getToolSummaryLabel(tool: TToolSummaryItem): string {
+  return `${getToolSummaryStatus(tool)} ${tool.toolName}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
+}
+
 function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
   switch (role) {
     case 'user':
@@ -144,15 +164,35 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
   const data = entry.data as
     | {
         summary?: string;
-        tools?: Array<{
-          toolName: string;
-          firstArg?: string;
-          isRunning?: boolean;
-          result?: string;
-        }>;
+        tools?: TToolSummaryItem[];
       }
     | undefined;
+  const tools = data?.tools;
   const lines = data?.summary?.split('\n') ?? [];
+
+  if (tools && tools.length > 0) {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Box>
+          <Text color="white" bold>
+            Tool:{' '}
+          </Text>
+        </Box>
+        <Text> </Text>
+        {tools.map((tool, i) => (
+          <Box key={i} flexDirection="column">
+            <Text color="green">
+              {'  '}
+              {getToolSummaryLabel(tool)}
+            </Text>
+            {tool.diffLines && tool.diffLines.length > 0 && (
+              <ToolDiffBlock file={tool.diffFile} lines={tool.diffLines} />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  }
 
   return (
     <Box flexDirection="column" marginBottom={1}>

@@ -15,6 +15,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   TSessionEndReason,
+  TToolArgs,
 } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
@@ -891,7 +892,7 @@ export class InteractiveSession {
   private handleToolExecution(event: {
     type: 'start' | 'end';
     toolName: string;
-    toolArgs?: Record<string, unknown>;
+    toolArgs?: TToolArgs;
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
