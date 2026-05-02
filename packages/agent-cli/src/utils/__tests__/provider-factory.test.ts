@@ -175,6 +175,7 @@ vi.mock('@robota-sdk/agent-provider-gemini', () => {
 });
 
 const TMP_BASE = join(tmpdir(), `robota-provider-factory-test-${process.pid}`);
+const ORIGINAL_HOME = process.env.HOME;
 
 function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
@@ -186,10 +187,12 @@ describe('provider-factory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     cwd = join(TMP_BASE, Math.random().toString(36).slice(2));
+    process.env.HOME = join(cwd, 'home');
     mkdirSync(join(cwd, '.robota'), { recursive: true });
   });
 
   afterEach(() => {
+    process.env.HOME = ORIGINAL_HOME;
     delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
@@ -296,8 +299,16 @@ describe('provider-factory', () => {
     });
   });
 
-  it('keeps legacy Anthropic provider creation working', () => {
+  it('keeps Anthropic provider creation working when legacy settings are present', () => {
     writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: 'sk-ant-test',
+        },
+      },
       provider: {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
@@ -317,6 +328,14 @@ describe('provider-factory', () => {
   it('resolves env references in provider api keys', () => {
     process.env.ROBOTA_TEST_ANTHROPIC_API_KEY = 'sk-ant-from-env';
     writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: '$ENV:ROBOTA_TEST_ANTHROPIC_API_KEY',
+        },
+      },
       provider: {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
