@@ -30,6 +30,20 @@ Robota can already create edit checkpoints for file mutations, but users need st
 - Record enough metadata to explain which files changed, which commands ran, and what can be rolled back.
 - Define how sandbox mode interacts with permissions, worktrees, and session resume.
 
+## Recommendation
+
+Use a local-first reversible mode before adding provider-backed sandbox snapshots.
+
+Recommended first slice:
+
+1. Create an SDK-owned edit checkpoint before the first file mutation in a turn.
+2. Run write-capable agent jobs in a Git worktree when worktree support is available and hardened.
+3. Treat file edits as rollback-capable through checkpoints.
+4. Treat shell/process side effects as rollback-capable only when they are contained inside an isolated worktree or sandbox.
+5. Surface a clear "accept / rollback / preserve workspace" result after verification.
+
+Rationale: the repository already has edit checkpoint storage and initial worktree isolation. Provider sandboxes add external lifecycle, billing, and snapshot semantics, so they should follow after the local guarantees are clear and testable.
+
 ## Non-Goals
 
 - Do not claim host-level shell side effects are reversible unless they are actually isolated.

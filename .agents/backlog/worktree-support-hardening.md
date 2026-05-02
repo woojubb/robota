@@ -26,6 +26,21 @@ Worktree isolation exists, but it needs to behave like a reliable product featur
 - Handle branch-name collisions, nested repositories, non-Git directories, detached HEAD, and uncommitted parent changes.
 - Ensure cancellation and failed worker startup clean up or preserve worktrees according to the same policy.
 
+## Recommendation
+
+Keep worktree isolation explicit until reporting and cleanup are hardened, then make it the default for write-capable background agent jobs when the current directory is a supported Git repository.
+
+Recommended policy after hardening:
+
+- read-only jobs may continue without worktree isolation;
+- write-capable `/agent` and model-invoked `Agent` jobs default to worktree isolation;
+- unsupported Git states fail with an actionable message unless the user explicitly requests non-isolated execution;
+- dirty worktrees are preserved and reported;
+- clean worktrees are removed automatically;
+- dirty parent checkouts are allowed only if the worktree branch point and risk are surfaced clearly.
+
+Rationale: default isolation is valuable, but silent fallback or poor handoff metadata would be worse than explicit local execution. Productize observability first, then change defaults.
+
 ## Non-Goals
 
 - Do not make `agent-runtime` call Git directly.

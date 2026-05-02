@@ -27,6 +27,22 @@ Before implementation, research how context usage and compaction are exposed in 
 - how threshold, cooldown, and "ask before compact" settings should be represented;
 - how exact provider token usage and estimated token usage should be labelled.
 
+## Recommendation
+
+Start with descriptor unification, then move auto-trigger policy behind configuration.
+
+The recommended default is:
+
+- keep manual `/compact` user-invocable;
+- route CLI slash input through the SDK command registry instead of the CLI-specific compact handler;
+- let the session runtime consume descriptor/config metadata for auto-compact thresholds;
+- keep the current default threshold behavior until research proves a better value;
+- show context percentage in the status bar continuously, with explicit warning/notification only near the threshold or when auto-compaction runs;
+- label context state as exact or estimated when that signal is available;
+- do not rely on the model to decide routine auto-compaction.
+
+Rationale: compaction is a runtime safety policy. The model may request compaction through a command later, but the default auto-trigger should be deterministic and observable rather than a hidden model decision.
+
 ## Scope
 
 - Define a command descriptor for compact that includes user-visible metadata, model-invocable policy, and optional auto-trigger metadata.
