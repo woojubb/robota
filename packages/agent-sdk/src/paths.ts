@@ -15,6 +15,7 @@ export function projectPaths(cwd: string): {
   logs: string;
   sessions: string;
   memory: string;
+  checkpoints: string;
 } {
   const base = join(cwd, '.robota');
   return {
@@ -23,6 +24,7 @@ export function projectPaths(cwd: string): {
     logs: join(base, 'logs'),
     sessions: join(base, 'sessions'),
     memory: join(base, 'memory'),
+    checkpoints: join(base, 'checkpoints'),
   };
 }
 

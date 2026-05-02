@@ -55,6 +55,8 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
       { name: 'general-purpose', description: 'General-purpose task execution agent.' },
       { name: 'Plan', description: 'Read-only planning agent.' },
     ]),
+    listEditCheckpoints: vi.fn().mockReturnValue([]),
+    restoreEditCheckpoint: vi.fn(),
     sendAgentJob: vi.fn(),
     cancelAgentJob: vi.fn(),
     closeAgentJob: vi.fn(),
@@ -72,6 +74,8 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     waitAgentJob: underlying.waitAgentJob,
     listAgentJobs: underlying.listAgentJobs,
     listAgentDefinitions: underlying.listAgentDefinitions,
+    listEditCheckpoints: underlying.listEditCheckpoints,
+    restoreEditCheckpoint: underlying.restoreEditCheckpoint,
     sendAgentJob: underlying.sendAgentJob,
     cancelAgentJob: underlying.cancelAgentJob,
     closeAgentJob: underlying.closeAgentJob,
@@ -191,6 +195,54 @@ describe('SystemCommandExecutor', () => {
     expect(result).not.toBeNull();
     expect(result!.success).toBe(true);
     expect(result!.data?.triggerResumePicker).toBe(true);
+  });
+
+  it('rewind list returns edit checkpoints', async () => {
+    const executor = new SystemCommandExecutor();
+    const session = createMockSession({
+      listEditCheckpoints: vi.fn().mockReturnValue([
+        {
+          id: 'turn-0001',
+          sessionId: 'test-session-id',
+          sequence: 1,
+          prompt: 'change files',
+          createdAt: '2026-05-02T00:00:00.000Z',
+          fileCount: 2,
+        },
+      ]),
+    });
+
+    const result = await executor.execute('rewind', session, 'list');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.message).toContain('turn-0001');
+    expect(result!.data?.count).toBe(1);
+  });
+
+  it('rewind restore delegates code restoration to the interactive session', async () => {
+    const executor = new SystemCommandExecutor();
+    const restoreEditCheckpoint = vi.fn().mockResolvedValue({
+      target: {
+        id: 'turn-0001',
+        sessionId: 'test-session-id',
+        sequence: 1,
+        prompt: 'change files',
+        createdAt: '2026-05-02T00:00:00.000Z',
+        fileCount: 1,
+      },
+      restoredCheckpointCount: 2,
+      restoredFileCount: 3,
+      removedCheckpointCount: 2,
+    });
+    const session = createMockSession({ restoreEditCheckpoint });
+
+    const result = await executor.execute('rewind', session, 'restore turn-0001');
+
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(restoreEditCheckpoint).toHaveBeenCalledWith('turn-0001');
+    expect(result!.data?.restoredFileCount).toBe(3);
   });
 
   it('background list returns task summaries', async () => {

@@ -11,6 +11,7 @@ import type { TCapabilitySafety } from '../capabilities/types.js';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { executeBackgroundCommand } from './background-command.js';
 import { executeMemoryCommand } from './memory-command.js';
+import { executeRewindCommand } from './rewind-command.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
 
 /** Result of a system command execution. */
@@ -55,6 +56,7 @@ export function createSystemCommands(): ISystemCommand[] {
           '  context           — Context window info',
           '  permissions       — Permission rules',
           '  memory            — Manage project memory and pending candidates',
+          '  rewind            — List or restore edit checkpoints',
           '  provider          — Provider profile status and switching',
           '  resume            — Resume a previous session',
           '  background        — List/cancel/close background tasks',
@@ -205,6 +207,13 @@ export function createSystemCommands(): ISystemCommand[] {
         'list | show [topic] | add TYPE TOPIC TEXT | pending | approve ID | reject ID | used',
       safety: 'write',
       execute: executeMemoryCommand,
+    },
+    {
+      name: 'rewind',
+      description: 'List edit checkpoints or restore code to a previous checkpoint.',
+      argumentHint: 'list | restore CHECKPOINT_ID | code CHECKPOINT_ID',
+      safety: 'write',
+      execute: executeRewindCommand,
     },
     {
       name: 'resume',

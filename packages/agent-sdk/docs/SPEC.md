@@ -131,6 +131,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
 ├── src/memory/                 ← project memory store, automatic capture policy, retrieval services
+├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
 ├── src/subagents/              ← SDK in-process runner + explicit compatibility exports from agent-runtime
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
@@ -181,7 +182,18 @@ agent-cli (Ink TUI — CLI-specific)
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 - **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit user requests to create, run, spawn, delegate to, or use agents/subagents should start `Agent` tool calls immediately unless impossible or unsafe; one `Agent` tool call creates one background subagent job and waits for terminal completed/failed/timed-out result data before returning to the parent conversation.
+- **Edit checkpoint wrapper**: `agent-sdk/checkpoints/edit-checkpoint-tools.ts` wraps `Write` and `Edit` at SDK session assembly time. The underlying tool package stays generic; the SDK wrapper snapshots the target file before the first mutation in each prompt turn.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
+
+### Edit Checkpointing
+
+- **Package**: `agent-sdk/checkpoints/` (SDK-specific session safety layer)
+- **Storage**: Project-local `.robota/checkpoints/{session-id}/{turn-id}/manifest.json` plus copied pre-image files under `files/`.
+- **Turn model**: Every `InteractiveSession.submit()` prompt starts a turn-level checkpoint. The checkpoint is finalized after the run finishes, even when no file was edited, so prompt turns can be listed consistently.
+- **Capture model**: `Write` and `Edit` tools are wrapped during `createSession()` assembly when an `IEditCheckpointRecorder` is present. A file is captured once per turn before the first tool mutation. Repeated edits to the same file in the same turn reuse the first pre-image.
+- **Restore model**: `restoreToCheckpoint(sessionId, checkpointId)` rolls back later checkpoints in reverse sequence order, restores copied pre-images, deletes files that did not exist at capture time, and removes later checkpoint directories. This provides code-only rewind to the selected prompt turn.
+- **Boundary**: `agent-tools` does not know about sessions, prompts, `.robota`, or checkpoints. CLI/TUI does not implement checkpoint algorithms; it only exposes SDK command output and future picker UI.
+- **Current scope**: `Write` and `Edit` mutations are tracked. Shell-side filesystem changes from `Bash` are not tracked by this layer.
 
 ### Web Search
 
@@ -206,6 +218,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
 - **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Core commands are always present; additional command modules may contribute more commands.
+- **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
@@ -226,8 +239,9 @@ agent-cli (Ink TUI — CLI-specific)
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `resume`, `rename`, `reset`
+- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
 - **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can persist project memory via the generic command execution bridge. The descriptor owns usage metadata; the system prompt composer must not add separate behavior instructions.
+- **`/rewind`**: User-invocable code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
 
 ### Slash Command Registry (SDK-Specific)
