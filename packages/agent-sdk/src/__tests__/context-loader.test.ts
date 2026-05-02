@@ -51,6 +51,19 @@ describe('loadContext', () => {
     expect(result.memoryMd).toBe('- Remember pnpm');
   });
 
+  it('loads active task context when .agents/tasks contains task files', async () => {
+    setupDir(join(rootDir, '.agents', 'tasks'));
+    writeFileSync(
+      join(rootDir, '.agents', 'tasks', 'CLI-BL-001-example.md'),
+      '# CLI-BL-001\n\n- **Status**: in-progress\n\n## Objective\nKeep focus.\n',
+    );
+
+    const result = await loadContext(rootDir);
+
+    expect(result.taskContext).toContain('### CLI-BL-001');
+    expect(result.taskContext).toContain('- **Objective:** Keep focus.');
+  });
+
   it('walks up directory tree and concatenates AGENTS.md files root-first', async () => {
     // root/AGENTS.md
     writeFileSync(join(rootDir, 'AGENTS.md'), '# Root');

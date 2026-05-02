@@ -910,7 +910,8 @@ export class InteractiveSession {
   }
 
   private async beginEditCheckpointTurn(prompt: string): Promise<void> {
-    await this.getEditCheckpointStore().beginTurn({
+    if (!this.editCheckpointStore) return;
+    await this.editCheckpointStore.beginTurn({
       sessionId: this.getSessionOrThrow().getSessionId(),
       prompt,
     });

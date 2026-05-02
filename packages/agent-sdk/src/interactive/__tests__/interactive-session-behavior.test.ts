@@ -9,6 +9,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import type { IExecutionResult, IToolState } from '../types.js';
+import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
 
 function createMockSession(options?: {
   runResult?: string;
@@ -289,6 +290,20 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     await session.submit('test');
     expect(contextUsedTokens).toBe(1000);
+  });
+
+  it('injected sessions without cwd do not auto-start edit checkpoints', async () => {
+    const beginTurn = vi.spyOn(EditCheckpointStore.prototype, 'beginTurn');
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+    });
+
+    try {
+      await session.submit('test');
+      expect(beginTurn).not.toHaveBeenCalled();
+    } finally {
+      beginTurn.mockRestore();
+    }
   });
 
   // ── Scenario: Multiple sequential prompts ─────────────────────
