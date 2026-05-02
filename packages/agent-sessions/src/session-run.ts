@@ -126,6 +126,7 @@ export async function executeRun(
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
+      onExecutionEvent: (event, data) => ctx.log(event, data as TSessionLogData),
       ...(onTextDelta && { onTextDelta }),
     });
 

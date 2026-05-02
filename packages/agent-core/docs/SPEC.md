@@ -376,20 +376,22 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                              | Description                                                          |
-| ---------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`             | Allows callers to cancel execution of `Robota.run()`                 |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback` | Per-run streaming callback forwarded through execution context       |
-| `IRunOptions`                | `maxExecutionRounds?: number`      | Maximum model/tool rounds for one run. `0` means unlimited.          |
-| `IChatOptions`               | `signal?: AbortSignal`             | Passed to provider `chat()` / `chatStream()` for cancelling calls    |
-| `IAgentConfig`               | `timeout?: number`                 | Provider idle timeout in milliseconds for a model call               |
-| `IAgentConfig`               | `maxExecutionRounds?: number`      | Default maximum model/tool rounds for each run. `0` means unlimited. |
-| `IExecutionContext`          | `signal?: AbortSignal`             | Threaded through the execution context for round-level checks        |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback` | Run-scoped callback used before provider-level callback fallback     |
-| `IExecutionContext`          | `maxExecutionRounds?: number`      | Run-scoped override for execution round limit                        |
-| `IExecutionResult`           | `interrupted?: boolean`            | Indicates the execution was aborted before natural completion        |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`             | Allows skipping queued tool executions when abort is signalled       |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`          | Bounds active tool executions when batch mode is `parallel`          |
+| Interface                    | Field                                        | Description                                                          |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                 |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context       |
+| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries           |
+| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.          |
+| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls    |
+| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call               |
+| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited. |
+| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks        |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback     |
+| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds     |
+| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                        |
+| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion        |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled       |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`          |
 
 ### Signal Propagation
 

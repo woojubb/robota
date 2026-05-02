@@ -1,4 +1,4 @@
-import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
+import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
 import type { TMetadata } from '../interfaces/types';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
@@ -105,6 +105,8 @@ export interface IExecutionContext {
   signal?: AbortSignal;
   /** Per-run streaming text callback. */
   onTextDelta?: TTextDeltaCallback;
+  /** Per-run replay event callback for provider/tool execution boundaries. */
+  onExecutionEvent?: TExecutionEventCallback;
   /** Per-run model/tool round limit. Use 0 for no core round cap. */
   maxExecutionRounds?: number;
 }

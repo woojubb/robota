@@ -167,12 +167,18 @@ export interface IRunOptions {
   signal?: AbortSignal;
   /** Per-run streaming text callback. Prefer this over mutating provider callback state. */
   onTextDelta?: TTextDeltaCallback;
+  /** Per-run replay event callback for provider/tool execution boundaries. */
+  onExecutionEvent?: TExecutionEventCallback;
   /**
    * Maximum model/tool rounds for this run.
    * Use 0 for no core round cap.
    */
   maxExecutionRounds?: number;
 }
+
+export type TExecutionEventData = Record<string, unknown>;
+
+export type TExecutionEventCallback = (event: string, data: TExecutionEventData) => void;
 
 /**
  * Generic agent interface with type parameters for enhanced type safety

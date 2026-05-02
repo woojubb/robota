@@ -1250,10 +1250,13 @@ The parent session exposes an `Agent` function tool with parameters:
 | `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted  |
 | `model`         | `string`               | No       | Optional model override for this invocation             |
 | `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree |
+| `jobs`          | `AgentJob[]`           | No       | Batch of subagent jobs to start in one tool call        |
+
+When `jobs` is present and non-empty, the Agent tool runs in batch mode. Each `AgentJob` contains `prompt` plus optional `subagent_type`, `model`, and `isolation`. Batch mode starts all valid jobs before waiting for terminal results, returns one structured result per requested job, and includes a shared `groupId`/`agentIds` provenance envelope. The single-job fields remain supported for backwards compatibility.
 
 Unknown extra tool-call arguments are tolerated by the Agent tool runtime for provider compatibility, but they are not part of the public Agent parameter contract.
 
-The parent model may call this tool when the user asks for an agent to be called or asks for delegation. The tool result is private to the model; the parent model must summarize the returned output for the user.
+The parent model may call this tool when the user asks for an agent to be called or asks for delegation. For explicit multi-agent or parallel-agent requests, the canonical model-invocable path is one batch `Agent` tool call with `jobs`. The tool result is private to the model; the parent model must summarize the returned output for the user and must not claim that parallel execution happened unless the batch result shows the jobs were started.
 
 When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O.
 
