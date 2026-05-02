@@ -1,6 +1,6 @@
 # CLI-BL-042 Markdown Diff Tool Summary Migration
 
-- **Status**: backlog
+- **Status**: completed
 - **Created**: 2026-05-02
 - **Scope**: packages/agent-cli
 - **Related**: .agents/tasks/completed/CLI-BL-029-markdown-diff-rendering.md
@@ -39,12 +39,12 @@ Keep metadata structured, but make the diff body Markdown-owned:
 
 ## Plan
 
-- [ ] Document the target tool-summary diff contract in `packages/agent-cli/docs/SPEC.md`.
-- [ ] Add RED tests for converting `IDiffLine[]` into a Markdown `diff` fenced block with file headers and line context.
-- [ ] Add component tests proving `MessageList` and `StreamingIndicator` render tool diffs through the Markdown path.
-- [ ] Preserve permission prompt and truncation metadata as structured UI outside the Markdown diff body.
-- [ ] Remove or narrow `DiffBlock` only when no production path still depends on bespoke diff rendering.
-- [ ] Run targeted `agent-cli` tests, typecheck, build, lint, and harness scan.
+- [x] Document the target tool-summary diff contract in `packages/agent-cli/docs/SPEC.md`.
+- [x] Add RED tests for converting `IDiffLine[]` into a Markdown `diff` fenced block with file headers and line context.
+- [x] Add component tests proving `MessageList` and `StreamingIndicator` render tool diffs through the Markdown path.
+- [x] Preserve permission prompt and truncation metadata as structured UI outside the Markdown diff body.
+- [x] Remove or narrow `DiffBlock` only when no production path still depends on bespoke diff rendering.
+- [x] Run targeted `agent-cli` tests, typecheck, build, lint, and harness scan.
 
 ## Test Plan
 
@@ -66,6 +66,12 @@ Keep metadata structured, but make the diff body Markdown-owned:
 
 None.
 
+## Progress Notes
+
+- 2026-05-02: Added `tool-diff-summary.ts` to convert structured edit diff lines into Markdown fenced `diff` bodies while keeping file path and truncation metadata outside the body.
+- 2026-05-02: Replaced `DiffBlock` with `ToolDiffBlock` in completed message history and real-time streaming indicator rendering.
+- 2026-05-02: Added unit and component regression tests for the new Markdown-owned tool diff body path.
+
 ## Result
 
-Pending.
+Completed. Tool-summary diff bodies now delegate to the Markdown `diff` rendering path. Structured tool metadata remains outside the Markdown body, and the old bespoke `DiffBlock` component was removed.
