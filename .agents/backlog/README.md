@@ -14,6 +14,7 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | File                                                                                           | Topic                                                         |
 | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [cli-diff-context-hunk-rendering.md](cli-diff-context-hunk-rendering.md)                       | CLI diff context-aware hunk rendering                         |
+| [cli-provider-usage-cost-visibility.md](cli-provider-usage-cost-visibility.md)                 | CLI provider usage and cost visibility                        |
 | [cli-tui-background-work-tree-display.md](cli-tui-background-work-tree-display.md)             | CLI TUI background work tree display                          |
 | [cli-tui-command-output-transcript-collapse.md](cli-tui-command-output-transcript-collapse.md) | CLI TUI command output transcript collapse                    |
 | [cli-tui-output-visual-grammar-audit.md](cli-tui-output-visual-grammar-audit.md)               | CLI TUI output visual grammar audit                           |
