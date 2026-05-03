@@ -144,7 +144,7 @@ packages/
 2. [ ] Refactor command execution so all built-ins execute through the same registry, descriptor, lifecycle, interaction, and effect pipeline.
 3. [x] Extract provider common APIs into `agent-sdk/src/command-api/provider/`.
 4. [x] Create `agent-command-provider` and delete transitional SDK provider command implementation.
-5. [ ] Extract context/compact APIs and migrate `/context` and `/compact`.
+5. [x] Extract context/compact APIs and migrate `/context` and `/compact`.
 6. [ ] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
 7. [ ] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
 8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
