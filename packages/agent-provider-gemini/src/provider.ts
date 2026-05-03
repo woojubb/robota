@@ -5,6 +5,7 @@ import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import type {
   TUniversalMessage,
   IChatOptions,
+  TTextDeltaCallback,
   TUniversalMessagePart,
   IImageGenerationProvider,
   IImageGenerationRequest,
@@ -32,6 +33,7 @@ import { executeDirect, executeDirectStream, runImageRequest } from './execution
 export class GeminiProvider extends AbstractAIProvider implements IImageGenerationProvider {
   override readonly name: string = 'gemini';
   override readonly version = '1.0.0';
+  public onTextDelta?: TTextDeltaCallback;
 
   private readonly client?: GoogleGenAI;
   private readonly options: IGeminiProviderOptions;
@@ -73,7 +75,12 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     try {
-      return await executeDirect(this.client, this.options, messages, options);
+      return await executeDirect(
+        this.client,
+        this.options,
+        messages,
+        this.withProviderCallbacks(options),
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google chat failed: ${errorMessage}`);
@@ -104,7 +111,12 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     try {
-      yield* executeDirectStream(this.client, this.options, messages, options);
+      yield* executeDirectStream(
+        this.client,
+        this.options,
+        messages,
+        this.withProviderCallbacks(options),
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google stream failed: ${errorMessage}`);
@@ -242,10 +254,24 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
   }
 
   override validateConfig(): boolean {
+    if (this.executor) {
+      return this.executor.validateConfig();
+    }
     return !!this.client && !!this.options && !!this.options.apiKey;
   }
 
   override async dispose(): Promise<void> {
     // Google client does not need explicit cleanup
+  }
+
+  private withProviderCallbacks(options?: IChatOptions): IChatOptions | undefined {
+    const onTextDelta = options?.onTextDelta ?? this.onTextDelta;
+    if (!onTextDelta) {
+      return options;
+    }
+    return {
+      ...options,
+      onTextDelta,
+    };
   }
 }

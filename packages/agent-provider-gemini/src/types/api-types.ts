@@ -14,8 +14,13 @@ export interface IGoogleModelConfig {
   stopSequences?: string[];
   candidateCount?: number;
   responseMimeType?: string;
+  responseSchema?: Record<string, TGoogleJsonValue>;
+  responseJsonSchema?: Record<string, TGoogleJsonValue>;
   responseModalities?: Array<'TEXT' | 'IMAGE'>;
   tools?: IGoogleTool[];
+  toolConfig?: Record<string, TGoogleJsonValue>;
+  safetySettings?: IGoogleSafetySetting[];
+  thinkingConfig?: IGoogleThinkingConfig;
 }
 
 export interface IGoogleGenerateContentRequest {
@@ -54,7 +59,26 @@ export interface IGoogleFunctionCall {
 export interface IGoogleFunctionResponse {
   id?: string;
   name: string;
-  response: Record<string, string | number | boolean | object>;
+  response: Record<string, TGoogleJsonValue>;
+}
+
+export type TGoogleJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | TGoogleJsonValue[]
+  | { [key: string]: TGoogleJsonValue };
+
+export interface IGoogleSafetySetting {
+  category: string;
+  threshold: string;
+}
+
+export interface IGoogleThinkingConfig {
+  includeThoughts?: boolean;
+  thinkingBudget?: number;
+  thinkingLevel?: string;
 }
 
 // Tool Types

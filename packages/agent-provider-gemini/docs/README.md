@@ -10,6 +10,8 @@
 - Provider profile type `gemini`.
 - Branch-free provider-definition metadata for CLI setup.
 - `@robota-sdk/agent-provider-google` remains a compatibility wrapper during migration.
+- System messages are mapped to Gemini `config.systemInstruction`.
+- Direct chat supports provider `defaultModel`, structured output, safety settings, thinking config, and `onTextDelta` streaming assembly.
 
 ## Canonical Documents
 

@@ -14,6 +14,20 @@ export type TGeminiProviderOptionValue =
   | TGeminiProviderOptionValue[]
   | { [key: string]: TGeminiProviderOptionValue };
 
+export interface IGeminiSafetySetting {
+  [key: string]: TGeminiProviderOptionValue;
+  category: string;
+  threshold: string;
+  method?: string;
+}
+
+export interface IGeminiThinkingConfig {
+  [key: string]: TGeminiProviderOptionValue;
+  includeThoughts?: boolean;
+  thinkingBudget?: number;
+  thinkingLevel?: string;
+}
+
 /**
  * Gemini API provider options
  */
@@ -27,6 +41,11 @@ export interface IGeminiProviderOptions {
   apiKey: string;
 
   /**
+   * Default model used when chat options do not provide a model.
+   */
+  defaultModel?: string;
+
+  /**
    * Response MIME type
    * - 'text/plain': Plain text response (default)
    * - 'application/json': JSON response format
@@ -37,6 +56,28 @@ export interface IGeminiProviderOptions {
    * Response schema for JSON output (only used when responseMimeType is 'application/json')
    */
   responseSchema?: Record<string, TGeminiProviderOptionValue>;
+
+  /**
+   * JSON Schema response format for current Gemini structured output support.
+   * Mutually exclusive with responseSchema.
+   */
+  responseJsonSchema?: Record<string, TGeminiProviderOptionValue>;
+
+  /**
+   * Default safety settings applied to every direct Gemini request.
+   * Per-request google.safetySettings overrides this value.
+   */
+  safetySettings?: IGeminiSafetySetting[];
+
+  /**
+   * Default thinking configuration for Gemini models that support thinking.
+   */
+  thinkingConfig?: IGeminiThinkingConfig;
+
+  /**
+   * Provider-level function calling config passed through to Gemini config.
+   */
+  toolConfig?: Record<string, TGeminiProviderOptionValue>;
 
   /**
    * Optional default response modalities for Gemini generation config.

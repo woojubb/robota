@@ -18,6 +18,7 @@ import { GeminiProvider, createGeminiProviderDefinition } from '@robota-sdk/agen
 
 const provider = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY,
+  defaultModel: 'gemini-3-flash-preview',
 });
 
 const agent = new Robota({
@@ -61,6 +62,8 @@ for await (const chunk of stream) {
 
 Tool calls are handled automatically by the Robota execution loop. The provider converts between the universal message format and Gemini's `functionDeclarations`-based tool format.
 
+Tool results are sent back to Gemini as `functionResponse` parts with the original tool call id and function name.
+
 ### Image Generation
 
 ```typescript
@@ -93,24 +96,32 @@ Input messages can include `image_inline` parts (`mimeType` + base64 `data`). `i
 ```typescript
 const provider = new GeminiProvider({
   apiKey: 'your-api-key',                           // required
+  defaultModel: 'gemini-3-flash-preview',           // optional fallback for direct chat calls
   defaultResponseModalities: ['TEXT', 'IMAGE'],      // optional
   imageCapableModels: ['gemini-2.5-flash-image'],    // optional, overrides heuristic
   responseMimeType: 'application/json',              // optional, for structured output
-  responseSchema: { ... },                           // optional
+  responseSchema: { ... },                           // optional OpenAPI-style schema
+  responseJsonSchema: { ... },                       // optional JSON Schema, mutually exclusive
+  safetySettings: [                                  // optional provider defaults
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+  ],
+  thinkingConfig: { thinkingLevel: 'LOW' },           // optional
   executor: remoteExecutor,                          // optional
 });
 ```
+
+Robota `system` messages are sent to Gemini as `config.systemInstruction`, matching the current Google GenAI SDK request shape. Structured output schemas default `responseMimeType` to `application/json` when the MIME type is not provided.
 
 ## Public API
 
 ### Exports
 
-| Export                           | Kind      | Description                                                                                                                        |
-| -------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `GeminiProvider`                 | class     | Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`                                                   |
-| `createGeminiProviderDefinition` | function  | Returns provider setup/creation metadata with canonical `gemini` type and `google` compatibility alias                             |
-| `IGeminiProviderOptions`         | interface | Constructor options: `apiKey`, `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor` |
-| `TGeminiProviderOptionValue`     | type      | Union type for valid provider option values                                                                                        |
+| Export                           | Kind      | Description                                                                                                                             |
+| -------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `GeminiProvider`                 | class     | Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`                                                        |
+| `createGeminiProviderDefinition` | function  | Returns provider setup/creation metadata with canonical `gemini` type and `google` compatibility alias                                  |
+| `IGeminiProviderOptions`         | interface | Constructor options: `apiKey`, `defaultModel`, structured output, safety/thinking config, modalities, image model allowlist, `executor` |
+| `TGeminiProviderOptionValue`     | type      | Union type for valid provider option values                                                                                             |
 
 `api-types.ts` is an internal module and is not part of the public API.
 
