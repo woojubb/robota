@@ -98,6 +98,7 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).toContain('clear');
     expect(commands.map((c) => c.name)).toContain('mode');
     expect(commands.map((c) => c.name)).not.toContain('compact');
+    expect(commands.map((c) => c.name)).not.toContain('context');
   });
 
   it('exposes only memory as a model-invocable core command', () => {
@@ -193,25 +194,6 @@ describe('SystemCommandExecutor', () => {
     const result = await executor.execute('cost', createMockSession(), '');
     expect(result!.message).toContain('test-session-id');
     expect(result!.data?.messageCount).toBe(5);
-  });
-
-  it('context returns token usage', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('context', createMockSession(), '');
-    expect(result!.message).toContain('5,000');
-    expect(result!.data?.usedTokens).toBe(5000);
-  });
-
-  it('context reports the auto-compact policy when exposed by the session', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute(
-      'context',
-      createMockSession({ getAutoCompactThreshold: vi.fn().mockReturnValue(0.75) }),
-      '',
-    );
-
-    expect(result!.message).toContain('Auto compact: 75%');
-    expect(result!.data?.autoCompactThreshold).toBe(0.75);
   });
 
   it('derives SDK built-in command palette metadata from executable system commands', () => {

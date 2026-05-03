@@ -19,7 +19,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [command-migration-agent.md](command-migration-agent.md)                       | Finish migration hardening for `/agent`                       |
 | [command-migration-background.md](command-migration-background.md)             | Migrate `/background` into a command-module owner             |
 | [command-migration-clear.md](command-migration-clear.md)                       | Migrate `/clear` into a command-module owner                  |
-| [command-migration-context.md](command-migration-context.md)                   | Migrate `/context` into a command-module owner                |
 | [command-migration-cost.md](command-migration-cost.md)                         | Migrate `/cost` into a command-module owner                   |
 | [command-migration-exit.md](command-migration-exit.md)                         | Migrate `/exit` into a command-module owner                   |
 | [command-migration-help.md](command-migration-help.md)                         | Migrate `/help` into a command-module owner                   |

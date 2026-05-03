@@ -8,10 +8,8 @@ import {
   buildMemorySubcommands,
   buildModelSubcommands,
   buildRewindSubcommands,
-  getAutoCompactThreshold,
   MEMORY_COMMAND_ARGUMENT_HINT,
   MEMORY_COMMAND_DESCRIPTION,
-  PERCENT,
   VALID_MODES,
 } from './system-command-metadata.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
@@ -142,31 +140,6 @@ export function createSystemCommands(): ISystemCommand[] {
           message: `Session: ${sessionId}\nMessages: ${messageCount}`,
           success: true,
           data: { sessionId, messageCount },
-        };
-      },
-    },
-    {
-      name: 'context',
-      description: 'Context window info',
-      execute: (session, _args) => {
-        const ctx = session.getContextState();
-        const autoCompactThreshold = getAutoCompactThreshold(session);
-        const autoCompactLine =
-          autoCompactThreshold === false
-            ? 'Auto compact: disabled'
-            : `Auto compact: ${Math.round(autoCompactThreshold * PERCENT)}%`;
-        return {
-          message: [
-            `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
-            autoCompactLine,
-          ].join('\n'),
-          success: true,
-          data: {
-            usedTokens: ctx.usedTokens,
-            maxTokens: ctx.maxTokens,
-            percentage: ctx.usedPercentage,
-            autoCompactThreshold,
-          },
         };
       },
     },

@@ -16,9 +16,9 @@ describe('BuiltinCommandSource', () => {
     expect(names).toContain('mode');
     expect(names).toContain('model');
     expect(names).toContain('cost');
-    expect(names).toContain('context');
     expect(names).toContain('permissions');
     expect(names).not.toContain('compact');
+    expect(names).not.toContain('context');
     expect(names).not.toContain('provider');
     expect(names).not.toContain('plugin');
     expect(names).not.toContain('exit');
