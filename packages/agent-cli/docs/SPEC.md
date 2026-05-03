@@ -162,6 +162,7 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
+              ├── createAgentCommandModule()      (from @robota-sdk/agent-command-agent)
               ├── createModelCommandModule()      (from @robota-sdk/agent-command-model)
               ├── createModeCommandModule()       (from @robota-sdk/agent-command-mode)
               ├── createLanguageCommandModule()   (from @robota-sdk/agent-command-language)
@@ -431,6 +432,7 @@ Tool: [5 tools]
 | `/compact [instructions]` | Compress context window                                         |
 | `/cost`                   | Show session info through the session command module            |
 | `/context`                | Context window info and `/context auto ...` controls            |
+| `/agent`                  | Run and manage background subagent jobs                         |
 | `/permissions`            | Permission rules                                                |
 | `/memory`                 | Route project memory commands to the memory command module      |
 | `/rewind`                 | Route edit checkpoint list/restore commands to SDK              |
@@ -1180,7 +1182,7 @@ The CLI also injects `createChildProcessSubagentRunnerFactory()` into `Interacti
 
 `child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
 
-Agent command behavior is not owned by the TUI. The Robota binary can compose `@robota-sdk/agent-command-agent` as a default command module, but reusable CLI UI code only handles generic command modules.
+Agent command behavior is not owned by the TUI. The Robota binary composes `@robota-sdk/agent-command-agent` as a default command module, but reusable CLI UI code only handles generic command modules.
 
 Child-process subagent runner responsibilities:
 
@@ -1313,7 +1315,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 | Package                                 | Purpose                                                                                                                              |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-command-agent`       | Optional default `/agent` command module composed by the Robota binary                                                               |
+| `@robota-sdk/agent-command-agent`       | Default `/agent` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-compact`     | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-context`     | Default `/context` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                         |

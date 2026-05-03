@@ -148,6 +148,7 @@ describe('CLI update check command', () => {
       expect(fetchImpl).not.toHaveBeenCalled();
       const stdoutText = stdout.mock.calls.join('');
       expect(stdoutText).toContain('Available commands:');
+      expect(stdoutText).toContain('agent');
       expect(stdoutText).not.toContain('Robota update available');
       expect(stderr.mock.calls.join('')).toBe('');
       expect(existsSync(join(home, '.robota', 'update-check.json'))).toBe(false);

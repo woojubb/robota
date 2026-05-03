@@ -273,6 +273,7 @@ When a session has a name, it appears in three places:
 | `/compact [instructions]` | Compress context window                                    |
 | `/cost`                   | Show session info                                          |
 | `/context`                | Context window details                                     |
+| `/agent`                  | Run and manage background subagent jobs                    |
 | `/permissions`            | Show permission rules                                      |
 | `/plugin [subcommand]`    | Plugin management                                          |
 | `/resume`                 | List recent sessions and resume one                        |

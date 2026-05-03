@@ -21,13 +21,19 @@ Keep `@robota-sdk/agent-command-agent`.
 
 ## Acceptance Criteria
 
-- `/agent` remains fully supplied by `@robota-sdk/agent-command-agent`.
-- SDK imports no `agent-command-agent` implementation.
-- CLI composition root is the only default product wiring point.
-- Command-layering scan covers the invariant.
+- [x] `/agent` remains fully supplied by `@robota-sdk/agent-command-agent`.
+- [x] SDK imports no `agent-command-agent` implementation.
+- [x] CLI composition root is the only default product wiring point.
+- [x] Command-layering scan covers the invariant.
 
 ## Test Plan
 
-- Run `pnpm --filter @robota-sdk/agent-command-agent test`.
-- Run `pnpm harness:scan:commands`.
-- Add any missing contract tests for session requirements and model-invocable descriptor metadata.
+- [x] Run `pnpm --filter @robota-sdk/agent-command-agent test`.
+- [x] Run `pnpm harness:scan:commands`.
+- [x] Add any missing contract tests for session requirements and model-invocable descriptor metadata.
+
+## Result
+
+Completed in `feat/command-agent-composition`. The Robota CLI product composition now injects
+`createAgentCommandModule()` by default, while SDK and reusable TUI layers remain generic. Headless
+`/help` coverage verifies the default command list includes `/agent`.
