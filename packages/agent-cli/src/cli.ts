@@ -10,6 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
+import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type { ICommandModule, TProviderSettingsDocument } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
@@ -151,6 +152,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const cwd = process.cwd();
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
+    createCompactCommandModule(),
     createStatusLineCommandModule(),
     createProviderCommandModule({
       providerDefinitions,

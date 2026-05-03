@@ -7,6 +7,7 @@ import type {
 } from '../background-tasks/index.js';
 import type { IEditCheckpointRestoreResult, IEditCheckpointSummary } from '../checkpoints/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { TAutoCompactThreshold } from './context/context-command-api.js';
 
 export interface ICommandListEntry {
   name: string;
@@ -28,6 +29,8 @@ export interface ICommandSessionRuntime {
 export interface ICommandHostContext {
   getSession(): ICommandSessionRuntime;
   getContextState(): IContextWindowState;
+  getAutoCompactThreshold(): TAutoCompactThreshold;
+  compactContext(instructions?: string): Promise<void>;
   getCwd(): string;
   listCommands?(): ICommandListEntry[];
   listEditCheckpoints(): IEditCheckpointSummary[];
