@@ -93,9 +93,9 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(9);
+    expect(commands.length).toBeGreaterThanOrEqual(8);
     expect(commands.map((c) => c.name)).toContain('help');
-    expect(commands.map((c) => c.name)).toContain('clear');
+    expect(commands.map((c) => c.name)).not.toContain('clear');
     expect(commands.map((c) => c.name)).not.toContain('permissions');
     expect(commands.map((c) => c.name)).not.toContain('language');
     expect(commands.map((c) => c.name)).not.toContain('mode');
@@ -140,17 +140,6 @@ describe('SystemCommandExecutor', () => {
 
     expect(result!.message).toContain('provider');
     expect(result!.message).toContain('Manage provider profiles');
-  });
-
-  it('clear calls session.clearHistory', async () => {
-    const executor = new SystemCommandExecutor();
-    const session = createMockSession();
-    const result = await executor.execute('clear', session, '');
-    expect(result!.success).toBe(true);
-    expect(
-      (session as unknown as { _underlying: { clearHistory: ReturnType<typeof vi.fn> } })
-        ._underlying.clearHistory,
-    ).toHaveBeenCalled();
   });
 
   it('cost returns session info', async () => {

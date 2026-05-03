@@ -45,15 +45,6 @@ export function createSystemCommands(): ISystemCommand[] {
       }),
     },
     {
-      name: 'clear',
-      description: 'Clear conversation history',
-      execute: (session, _args) => {
-        const underlying = session.getSession();
-        underlying.clearHistory();
-        return { message: 'Conversation cleared.', success: true };
-      },
-    },
-    {
       name: 'cost',
       description: 'Show session info',
       execute: (session, _args) => {

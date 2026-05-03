@@ -208,6 +208,15 @@ export class TuiStateManager {
     this.notify();
   }
 
+  clearHistory(): void {
+    this.history = [];
+    this.debouncedStreamNotify.flush();
+    this.streamBuf = '';
+    this.streamingText = '';
+    this.activeTools = [];
+    this.notify();
+  }
+
   /** Update pending prompt state */
   setPendingPrompt(prompt: string | null): void {
     this.pendingPrompt = prompt;

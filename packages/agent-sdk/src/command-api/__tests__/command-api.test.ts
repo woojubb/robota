@@ -11,6 +11,7 @@ import {
   buildLanguageCommandSubcommands,
   buildPermissionModeSubcommands,
   buildStatusLineCommandSubcommands,
+  clearConversationHistory,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
@@ -191,5 +192,19 @@ describe('command-api contracts', () => {
     });
     expect(isStatusLineCommandSettingsPatch({ enabled: false, gitBranch: true })).toBe(true);
     expect(isStatusLineCommandSettingsPatch({ enabled: 'yes' })).toBe(false);
+  });
+
+  it('exposes session command common APIs without command implementation imports', () => {
+    let cleared = false;
+    const context = {
+      ...createCommandHostContext(),
+      clearConversationHistory: () => {
+        cleared = true;
+      },
+    };
+
+    clearConversationHistory(context);
+
+    expect(cleared).toBe(true);
   });
 });
