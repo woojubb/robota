@@ -41,5 +41,17 @@
 ## Measurement Cadence
 
 - **세션별**: eval-log 훅이 Stop 시 `.agents/evals/local-metrics/`에 자동 수집
-- **주간**: 누적 지표 리뷰 (수동)
+- **주간**: `pnpm harness:lessons:digest`가 최근 7일 lesson signal을 `.agents/evals/lessons/weekly-digest.md`로 재생성
 - **릴리즈별**: 전체 메트릭 스냅샷 기록
+
+## Lesson Signal Metrics
+
+Phase C auto-lessons metrics are local generated signals. They are candidates for review, not rules.
+
+| Metric              | Source JSONL        | Meaning                                                  |
+| ------------------- | ------------------- | -------------------------------------------------------- |
+| `blocks_total`      | `blocks.jsonl`      | PreToolUse forbidden pattern blocks                      |
+| `corrections_total` | `corrections.jsonl` | User correction prompts such as "다시" or "wrong"        |
+| `reverts_total`     | `reverts.jsonl`     | Repeated edits, repeated tool errors, fix/revert commits |
+
+When a pattern reaches at least 5 events in 7 days, the digest command upserts a candidate in `.agents/evals/lessons/auto-lessons.md`. `.agents/rules/common-mistakes.md` remains human-curated only.

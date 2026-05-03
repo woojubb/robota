@@ -147,7 +147,7 @@ function classifyRepositoryChecks(unmappedFiles) {
     ) {
       addCheck(checks, 'harness-consistency');
       addCheck(checks, 'task-plan-scan');
-    } else if (file.startsWith('scripts/harness/')) {
+    } else if (file.startsWith('scripts/harness/') || file.startsWith('.claude/hooks/')) {
       addCheck(checks, 'harness-tests');
       addCheck(checks, 'harness-consistency');
     } else if (file.startsWith('.github/workflows/') || file.startsWith('.husky/')) {

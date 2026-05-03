@@ -9,8 +9,13 @@ evals/
 ├── README.md           # This file
 ├── metrics.md          # Autonomy metrics definition (targets & measurement)
 ├── local-metrics/      # Local-only generated eval metrics (gitignored)
-│   ├── sessions.jsonl  # Per-session metrics (commits, test files, branch)
-│   └── blocks.jsonl    # Hook block events
+│   ├── sessions.jsonl      # Per-session metrics and lesson signal totals
+│   ├── blocks.jsonl        # Hook block events
+│   ├── corrections.jsonl   # User correction prompt signals
+│   └── reverts.jsonl       # Rework/revert signals
+├── lessons/            # Generated lesson candidates for human review
+│   ├── weekly-digest.md
+│   └── auto-lessons.md
 └── scenarios/          # Task-specific eval scenarios
     ├── build-and-test.md          # TDD cycle compliance
     ├── multi-package-change.md    # Dependency direction compliance
@@ -37,11 +42,16 @@ The `eval-log-stop.sh` hook runs on every session Stop and appends to `local-met
   "timestamp": "2026-03-19T12:00:00Z",
   "branch": "release/v3.0.0",
   "commits": 3,
-  "testFilesChanged": 2
+  "testFilesChanged": 2,
+  "blocks_total": 0,
+  "corrections_total": 0,
+  "reverts_total": 0
 }
 ```
 
 `local-metrics/` is generated local telemetry for evaluating agent behavior. It is not Robota runtime session history and is not used for `/resume`.
+
+Run `pnpm harness:lessons:digest` to regenerate `lessons/weekly-digest.md` and upsert threshold-crossing candidates into `lessons/auto-lessons.md`. Automated scripts must never write `.agents/rules/common-mistakes.md`; promotion from auto-lessons to common mistakes requires human review.
 
 ## Scenarios
 
