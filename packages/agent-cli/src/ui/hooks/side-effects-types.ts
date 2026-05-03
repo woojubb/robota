@@ -26,6 +26,7 @@ export interface ISideEffects {
 
 export interface IUseSideEffectsOptions {
   cwd: string;
+  providerOverride?: string | undefined;
   interactiveSession: InteractiveSession;
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;

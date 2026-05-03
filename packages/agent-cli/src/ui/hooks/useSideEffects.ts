@@ -5,9 +5,8 @@ import type {
   ICommandResult,
   InteractiveSession,
 } from '@robota-sdk/agent-sdk';
-import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
-import { applyActiveModelChange } from '../../utils/provider-configuration.js';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
 import type {
   ISideEffects,
@@ -16,11 +15,16 @@ import type {
 } from './side-effects-types.js';
 import { applyPendingStatusLinePatch } from './statusline-side-effect.js';
 import { applyCommandEffects } from './command-effect-handler.js';
+import {
+  addModelChangeCancelledMessage,
+  applyConfirmedModelChange,
+} from './model-change-side-effect.js';
 
 const EXIT_DELAY_MS = 500;
 
 export function useSideEffects({
   cwd,
+  providerOverride,
   interactiveSession,
   addEntry,
   baseHandleSubmit,
@@ -174,26 +178,18 @@ export function useSideEffects({
       setPendingModelId(null);
       pendingModelChangeRef.current = null;
       if (index === 0 && modelId) {
-        try {
-          applyActiveModelChange(cwd, modelId);
-          addEntry(
-            messageToHistoryEntry(
-              createSystemMessage(`Model changed to ${getModelName(modelId)}. Restarting...`),
-            ),
-          );
-          requestShutdown('other', 'Model change restart');
-        } catch (err) {
-          addEntry(
-            messageToHistoryEntry(
-              createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
-            ),
-          );
-        }
+        applyConfirmedModelChange({
+          cwd,
+          modelId,
+          providerOverride,
+          addEntry,
+          requestShutdown,
+        });
       } else {
-        addEntry(messageToHistoryEntry(createSystemMessage('Model change cancelled.')));
+        addModelChangeCancelledMessage(addEntry);
       }
     },
-    [cwd, addEntry, requestShutdown],
+    [cwd, providerOverride, addEntry, requestShutdown],
   );
 
   const handleInteractionSubmit = useCallback(
