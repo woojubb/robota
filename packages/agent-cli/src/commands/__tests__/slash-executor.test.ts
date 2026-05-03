@@ -318,6 +318,29 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /plugin through the injected plugin command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'plugin-manager',
+      getCommands: () => [
+        { name: 'plugin', description: 'Manage plugins', source: 'plugin-manager' },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'plugin',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();
@@ -364,21 +387,6 @@ describe('Command routing completeness', () => {
   // Commands that executeSlashCommand should NOT show "Unknown command" for
   const topLevelNames = allBuiltinCommands.map((c) => c.name);
 
-  // Mock plugin callbacks for commands that need them
-  const mockPluginCallbacks = {
-    listInstalled: vi.fn().mockResolvedValue([]),
-    listAvailablePlugins: vi.fn().mockResolvedValue([]),
-    install: vi.fn(),
-    uninstall: vi.fn(),
-    enable: vi.fn(),
-    disable: vi.fn(),
-    marketplaceAdd: vi.fn(),
-    marketplaceRemove: vi.fn(),
-    marketplaceUpdate: vi.fn(),
-    marketplaceList: vi.fn().mockResolvedValue([]),
-    reloadPlugins: vi.fn(),
-  };
-
   it.each(topLevelNames)('should route /%s without "Unknown command"', async (cmdName) => {
     const { addMessage, messages } = createMockAddMessage();
     await executeSlashCommand(
@@ -388,7 +396,6 @@ describe('Command routing completeness', () => {
       addMessage,
       vi.fn(),
       emptyRegistry(),
-      mockPluginCallbacks,
     );
     const lastMessage = messages[messages.length - 1]?.content ?? '';
     expect(lastMessage).not.toContain('Unknown command');

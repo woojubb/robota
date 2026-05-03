@@ -6,7 +6,7 @@ Robota SDK follows a strict bottom-up layered assembly model. Each layer builds 
 
 ```
 agent-cli                ← TUI layer: Ink TUI, useInteractiveSession hook, permission prompts
-agent-command-*          ← Built-in/optional slash command modules such as /agent, /provider, and /exit
+agent-command-*          ← Built-in/optional slash command modules such as /agent, /provider, /plugin, and /exit
 agent-transport-http     ← HTTP transport: Hono-based REST adapter (Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp      ← MCP transport: Model Context Protocol server adapter
 agent-transport-ws       ← WebSocket transport: framework-agnostic real-time adapter

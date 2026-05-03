@@ -20,7 +20,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: Terminal UI command effect application and CLI-only host command modules such as `/plugin` and `/reload-plugins`
+- OWNS: Terminal UI command effect application, local command host adapters, and CLI-only host command modules such as `/reload-plugins`
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -42,7 +42,7 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 1. Reads config to determine which provider profile to use.
 2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
 3. Creates the provider instance by calling `definition.createProvider(config)`.
-4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence without letting command packages import CLI files.
+4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files.
 5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ### Provider Profile Creation
@@ -253,12 +253,13 @@ Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SD
 
 CLI host commands are represented as `ICommandModule` instances injected into `InteractiveSession`. The command module owns command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
 
-| Command           | Owner module responsibility                            | CLI side effect                         |
-| ----------------- | ------------------------------------------------------ | --------------------------------------- |
-| `/plugin`         | Return a plugin TUI trigger or plugin operation result | Open PluginTUI or refresh plugin state  |
-| `/reload-plugins` | Return a reload completion signal                      | Re-scan plugin resources when supported |
+| Command           | Owner module responsibility       | CLI side effect                         |
+| ----------------- | --------------------------------- | --------------------------------------- |
+| `/reload-plugins` | Return a reload completion signal | Re-scan plugin resources when supported |
 
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
+
+`/plugin` is provided by `@robota-sdk/agent-command-plugin`. The CLI owns only the local `ICommandPluginAdapter` implementation and applies `plugin-tui-requested` by opening `PluginTUI`.
 
 `/exit` is provided by `@robota-sdk/agent-command-exit`. The command package owns command metadata and emits `session-exit-requested`; the CLI applies that typed effect by gracefully shutting down the session and terminal UI.
 
@@ -438,7 +439,7 @@ Tool: [5 tools]
 | `/memory`                 | Route project memory commands to the memory command module      |
 | `/rewind`                 | Route edit checkpoint list/restore commands to SDK              |
 | `/background`             | Route background task controls to the background command module |
-| `/plugin [subcommand]`    | Plugin management                                               |
+| `/plugin [subcommand]`    | Plugin management through the injected plugin command module    |
 | `/resume`                 | Show session picker to resume a saved session                   |
 | `/rename <name>`          | Rename the current session (name displayed in StatusBar)        |
 | `/exit`                   | Exit through the injected exit command module                   |
@@ -497,6 +498,8 @@ The `/reset` command is provided by `@robota-sdk/agent-command-reset`. The comma
 
 The `/exit` command is provided by `@robota-sdk/agent-command-exit`. The command module emits `session-exit-requested`; the CLI applies graceful shutdown and terminal exit through the generic command effect handler.
 
+The `/plugin` command is provided by `@robota-sdk/agent-command-plugin`. The command module emits `plugin-tui-requested` for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands.
+
 The `/rewind` command is provided by `@robota-sdk/agent-command-rewind`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
 **Subcommand display:**
@@ -549,16 +552,21 @@ A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). U
 
 ### `/plugin` — Plugin Management
 
-The `/plugin` command manages bundle plugins. Subcommands:
+The `/plugin` command is owned by `@robota-sdk/agent-command-plugin`. The CLI supplies a local `ICommandPluginAdapter` that connects the command package and `PluginTUI` to `PluginSettingsStore`, `BundlePluginLoader`, `BundlePluginInstaller`, and `MarketplaceClient`.
 
-| Subcommand                 | Description                                      |
-| -------------------------- | ------------------------------------------------ |
-| `/plugin install <name>`   | Install a plugin from marketplace or local path  |
-| `/plugin uninstall <name>` | Remove an installed plugin                       |
-| `/plugin enable <name>`    | Enable a disabled plugin                         |
-| `/plugin disable <name>`   | Disable a plugin without uninstalling            |
-| `/plugin list`             | List installed plugins with status               |
-| `/plugin marketplace`      | Browse available plugins from configured sources |
+Subcommands:
+
+| Subcommand                               | Description                             |
+| ---------------------------------------- | --------------------------------------- |
+| `/plugin` or `/plugin manage`            | Open the interactive plugin manager TUI |
+| `/plugin install <name>@<marketplace>`   | Install a plugin from a marketplace     |
+| `/plugin uninstall <name>@<marketplace>` | Remove an installed plugin              |
+| `/plugin enable <name>@<marketplace>`    | Enable a disabled plugin                |
+| `/plugin disable <name>@<marketplace>`   | Disable a plugin without uninstalling   |
+| `/plugin marketplace add <source>`       | Add a marketplace source                |
+| `/plugin marketplace remove <name>`      | Remove a marketplace source             |
+| `/plugin marketplace update <name>`      | Update a marketplace source             |
+| `/plugin marketplace list`               | List configured marketplace sources     |
 
 Installed plugins contribute skills via `PluginCommandSource`, which discovers skills from each plugin's bundle manifest and makes them available as slash commands alongside project and user skills.
 
@@ -742,8 +750,10 @@ src/
 │   ├── plugin-source.ts             ← PluginCommandSource (legacy local copy; main flow uses SDK version)
 │   ├── skill-executor.ts            ← Skill execution helpers (fork/inject modes); not in main flow
 │   │                                  (main flow uses buildSkillPrompt from @robota-sdk/agent-sdk)
-│   └── slash-executor.ts            ← IPluginCallbacks interface + plugin TUI handler functions
-│                                      (executeSlashCommand not in main flow; main flow uses session.executeCommand())
+│   └── slash-executor.ts            ← Legacy command parser test helper
+│                                      (not in main flow; main flow uses session.executeCommand())
+├── plugins/
+│   └── plugin-command-adapter.ts    ← CLI implementation of ICommandPluginAdapter
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
@@ -760,7 +770,7 @@ src/
     │   │                              events to React state (streamingText, activeTools, etc.)
     │   ├── TuiStateManager.ts       ← Holds history: IHistoryEntry[]; syncs from getFullHistory();
     │   │                              manages windowing (MAX_RENDERED_MESSAGES) and local event entries
-    │   └── usePluginCallbacks.ts    ← Plugin TUI callback wiring
+    │   └── usePluginCallbacks.ts    ← Plugin TUI adapter memoization
     ├── flows/
     │   ├── text-prompt-flow.ts      ← Text prompt editing, validation, submit/cancel effects
     │   ├── selection-flow.ts        ← Shared bounded/wrapping selection state machine
@@ -791,7 +801,7 @@ src/
     └── types.ts                     ← IPermissionRequest
 ```
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility, plus `slash-executor.ts` (plugin TUI handlers and IPluginCallbacks interface) and `skill-executor.ts` (fork/inject execution helpers). The CLI's `src/index.ts` exports only `startCli` and local CLI types.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility, plus `slash-executor.ts` as a legacy parser test helper and `skill-executor.ts` (fork/inject execution helpers). Plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 
 ## CLI Usage
 

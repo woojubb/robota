@@ -132,8 +132,10 @@ packages/
 
 ### Plugin and Help APIs
 
-- [ ] Define plugin command adapter APIs without giving command modules direct access to CLI plugin UI internals.
+- [x] Define plugin command adapter APIs without giving command modules direct access to CLI plugin UI internals.
 - [ ] Move `/plugin` and `/reload-plugins` into command modules or a plugin-command package.
+  - [x] `/plugin` migrated to `agent-command-plugin`.
+  - [ ] `/reload-plugins` migrated to `agent-command-plugin` or intentionally removed.
 - [ ] Generate `/help` output from registered command descriptors.
 - [ ] Ensure `/agent` keeps using the same command API and does not need special CLI routing.
 
@@ -163,9 +165,13 @@ packages/
 - [x] `/rewind` migrated to `agent-command-rewind`.
 - [x] `/memory` migrated to `agent-command-memory`.
 - [x] `/exit` migrated to `agent-command-exit`.
+- [x] `/plugin` migrated to `agent-command-plugin`.
 
 8. [x] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, and `/help`.
+   - [x] `/plugin` migrated to `agent-command-plugin`.
+   - [ ] `/reload-plugins` remains.
+   - [ ] `/help` remains.
 10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
 11. [ ] Remove duplicate built-in command metadata sources after descriptor parity tests pass.
 12. [ ] Run full repository verification and publish-readiness checks.
@@ -191,7 +197,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-memory.md`
 - `.agents/tasks/completed/command-migration-background.md`
 - `.agents/tasks/completed/command-migration-exit.md`
-- `command-migration-plugin.md`
+- `.agents/tasks/completed/command-migration-plugin.md`
 - `command-migration-reload-plugins.md`
 - `command-migration-help.md`
 - `command-migration-agent.md`

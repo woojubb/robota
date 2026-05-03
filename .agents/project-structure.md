@@ -18,6 +18,7 @@ packages/
 ├── agent-command-mode/          # Command module that contributes /mode
 ├── agent-command-model/         # Command module that contributes /model
 ├── agent-command-permissions/   # Command module that contributes /permissions
+├── agent-command-plugin/        # Command module that contributes /plugin
 ├── agent-command-provider/      # Command module that contributes /provider
 ├── agent-command-reset/         # Command module that contributes /reset
 ├── agent-command-rewind/        # Command module that contributes /rewind

@@ -274,7 +274,7 @@ When a session has a name, it appears in three places:
 | `/cost`                   | Show session info                                          |
 | `/context`                | Context window details                                     |
 | `/permissions`            | Show permission rules                                      |
-| `/plugin [subcommand]`    | Plugin management TUI                                      |
+| `/plugin [subcommand]`    | Plugin management                                          |
 | `/resume`                 | List recent sessions and resume one                        |
 | `/rename <name>`          | Rename the current session                                 |
 | `/exit`                   | Exit CLI                                                   |
@@ -283,16 +283,19 @@ Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to d
 
 ## Plugin Management
 
-The `/plugin` command opens an interactive TUI for managing bundle plugins:
+The `/plugin` command opens an interactive TUI or runs plugin operations through the injected plugin command module:
 
-| Subcommand                 | Description                                      |
-| -------------------------- | ------------------------------------------------ |
-| `/plugin install <name>`   | Install a plugin from marketplace or local path  |
-| `/plugin uninstall <name>` | Remove an installed plugin                       |
-| `/plugin enable <name>`    | Enable a disabled plugin                         |
-| `/plugin disable <name>`   | Disable a plugin without uninstalling            |
-| `/plugin list`             | List installed plugins with status               |
-| `/plugin marketplace`      | Browse available plugins from configured sources |
+| Subcommand                               | Description                           |
+| ---------------------------------------- | ------------------------------------- |
+| `/plugin` or `/plugin manage`            | Open the plugin manager TUI           |
+| `/plugin install <name>@<marketplace>`   | Install a plugin from a marketplace   |
+| `/plugin uninstall <name>@<marketplace>` | Remove an installed plugin            |
+| `/plugin enable <name>@<marketplace>`    | Enable a disabled plugin              |
+| `/plugin disable <name>@<marketplace>`   | Disable a plugin without uninstalling |
+| `/plugin marketplace add <source>`       | Add a marketplace source              |
+| `/plugin marketplace remove <name>`      | Remove a marketplace source           |
+| `/plugin marketplace update <name>`      | Update a marketplace source           |
+| `/plugin marketplace list`               | List configured marketplace sources   |
 
 ## Configuration
 

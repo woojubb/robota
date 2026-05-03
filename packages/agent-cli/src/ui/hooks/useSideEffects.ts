@@ -135,12 +135,6 @@ export function useSideEffects({
         return;
       }
 
-      if (sideEffects._triggerPluginTUI) {
-        delete sideEffects._triggerPluginTUI;
-        applyEffects([{ type: 'plugin-tui-requested' }], sideEffects);
-        return;
-      }
-
       if (sideEffects._triggerResumePicker) {
         delete sideEffects._triggerResumePicker;
         applyEffects([{ type: 'session-picker-requested' }], sideEffects);
