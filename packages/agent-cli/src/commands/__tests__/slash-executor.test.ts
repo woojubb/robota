@@ -3,7 +3,6 @@ import {
   handleHelp,
   handleClear,
   handleCost,
-  handlePermissions,
   handleContext,
   handleReset,
   executeSlashCommand,
@@ -80,23 +79,6 @@ describe('handleCost', () => {
     handleCost(session, addMessage);
     expect(messages[0].content).toContain('test-session-123');
     expect(messages[0].content).toContain('5');
-  });
-});
-
-describe('handlePermissions', () => {
-  it('shows mode and no approved tools', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const session = createMockSession();
-    handlePermissions(session, addMessage);
-    expect(messages[0].content).toContain('Permission mode: default');
-    expect(messages[0].content).toContain('No session-approved tools');
-  });
-
-  it('shows approved tools when present', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const session = createMockSession({ getSessionAllowedTools: () => ['Bash', 'Read'] });
-    handlePermissions(session, addMessage);
-    expect(messages[0].content).toContain('Bash, Read');
   });
 });
 
@@ -227,6 +209,29 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /permissions through the injected system command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'permissions',
+      getCommands: () => [
+        { name: 'permissions', description: 'Show permission rules', source: 'permissions' },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'permissions',
+      '',
+      createMockSession({ getSessionAllowedTools: () => ['Bash', 'Read'] }),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();
@@ -313,7 +318,6 @@ describe('Command routing completeness', () => {
       'mode',
       'model',
       'cost',
-      'permissions',
       'context',
       'resume',
       'background',

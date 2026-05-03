@@ -10,7 +10,9 @@ import { buildProviderProfile, formatEnvReference, validateProviderProfile } fro
 import {
   buildLanguageCommandSubcommands,
   buildPermissionModeSubcommands,
+  formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
+  readCommandPermissionsState,
   readCommandPermissionMode,
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
@@ -158,6 +160,9 @@ describe('command-api contracts', () => {
 
     writeCommandPermissionMode(context, 'plan');
     expect(readCommandPermissionMode(context)).toBe('plan');
+    expect(formatCommandPermissionsMessage(readCommandPermissionsState(context))).toBe(
+      'Permission mode: plan\nNo session-approved tools.',
+    );
   });
 
   it('exposes language command common APIs without command implementation imports', () => {

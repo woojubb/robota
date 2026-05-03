@@ -68,26 +68,6 @@ export function createSystemCommands(): ISystemCommand[] {
       },
     },
     {
-      name: 'permissions',
-      description: 'Show permission rules',
-      execute: (session, _args) => {
-        const underlying = session.getSession();
-        const mode = underlying.getPermissionMode();
-        const sessionAllowed = underlying.getSessionAllowedTools();
-        const lines = [`Permission mode: ${mode}`];
-        if (sessionAllowed.length > 0) {
-          lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
-        } else {
-          lines.push('No session-approved tools.');
-        }
-        return {
-          message: lines.join('\n'),
-          success: true,
-          data: { mode, sessionAllowed },
-        };
-      },
-    },
-    {
       name: 'memory',
       description: MEMORY_COMMAND_DESCRIPTION,
       modelInvocable: true,

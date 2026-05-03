@@ -14,6 +14,7 @@ packages/
 ├── agent-command-language/      # Command module that contributes /language
 ├── agent-command-mode/          # Command module that contributes /mode
 ├── agent-command-model/         # Command module that contributes /model
+├── agent-command-permissions/   # Command module that contributes /permissions
 ├── agent-command-provider/      # Command module that contributes /provider
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs

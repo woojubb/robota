@@ -97,6 +97,7 @@ export {
   MODEL_COMMAND_DESCRIPTION,
 } from '../command-api/model/model-command-api.js';
 export type { TRecommendedResponseLanguage } from '../command-api/language/language-command-api.js';
+export type { IPermissionsCommandState } from '../command-api/permissions/permission-mode-command-api.js';
 export {
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,
@@ -107,12 +108,15 @@ export {
 } from '../command-api/language/language-command-api.js';
 export {
   buildPermissionModeSubcommands,
+  formatCommandPermissionsMessage,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,
   parsePermissionModeArgument,
+  PERMISSIONS_COMMAND_DESCRIPTION,
   PERMISSION_MODE_ARGUMENT_HINT,
   PERMISSION_MODE_COMMAND_DESCRIPTION,
+  readCommandPermissionsState,
   readCommandPermissionMode,
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
