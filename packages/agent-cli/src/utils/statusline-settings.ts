@@ -1,17 +1,17 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type {
+  IStatusLineCommandSettings,
+  TStatusLineCommandSettingsPatch,
+} from '@robota-sdk/agent-sdk';
+import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-sdk';
 import type { TSettingsData } from './settings-io.js';
 import { readSettings, writeSettings } from './settings-io.js';
 
-export interface IStatusLineSettings {
-  enabled: boolean;
-  gitBranch: boolean;
-}
-
-export type TStatusLineSettingsPatch = Partial<IStatusLineSettings>;
+export type IStatusLineSettings = IStatusLineCommandSettings;
+export type TStatusLineSettingsPatch = TStatusLineCommandSettingsPatch;
 
 const DEFAULT_STATUS_LINE_SETTINGS: IStatusLineSettings = {
-  enabled: true,
-  gitBranch: true,
+  ...DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
 };
 
 export function readStatusLineSettings(settings: TSettingsData): IStatusLineSettings {

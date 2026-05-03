@@ -1,4 +1,5 @@
-import type { TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { TSessionEndReason } from '@robota-sdk/agent-core';
+import type { TStatusLineCommandSettingsPatch } from './statusline/statusline-command-api.js';
 
 export type TCommandEffect =
   | { type: 'model-change-requested'; modelId: string }
@@ -9,4 +10,4 @@ export type TCommandEffect =
   | { type: 'plugin-tui-requested' }
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
-  | { type: 'statusline-settings-patch'; patch: Record<string, TUniversalValue> };
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };

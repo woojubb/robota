@@ -576,6 +576,9 @@ importers:
       '@robota-sdk/agent-command-provider':
         specifier: workspace:*
         version: link:../agent-command-provider
+      '@robota-sdk/agent-command-statusline':
+        specifier: workspace:*
+        version: link:../agent-command-statusline
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -800,6 +803,25 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-statusline:
+    dependencies:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk

@@ -10,8 +10,11 @@ import { buildProviderProfile, formatEnvReference, validateProviderProfile } fro
 import {
   buildLanguageCommandSubcommands,
   buildPermissionModeSubcommands,
+  buildStatusLineCommandSubcommands,
+  DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
+  isStatusLineCommandSettingsPatch,
   readCommandPermissionsState,
   readCommandPermissionMode,
   resetAutoCompactThresholdSetting,
@@ -173,5 +176,20 @@ describe('command-api contracts', () => {
       'zh',
     ]);
     expect(formatLanguageUsageMessage()).toBe('Usage: language <code> (e.g., ko, en, ja, zh)');
+  });
+
+  it('exposes statusline command common APIs without command implementation imports', () => {
+    expect(buildStatusLineCommandSubcommands().map((command) => command.name)).toEqual([
+      'on',
+      'off',
+      'reset',
+      'git',
+    ]);
+    expect(DEFAULT_STATUS_LINE_COMMAND_SETTINGS).toEqual({
+      enabled: true,
+      gitBranch: true,
+    });
+    expect(isStatusLineCommandSettingsPatch({ enabled: false, gitBranch: true })).toBe(true);
+    expect(isStatusLineCommandSettingsPatch({ enabled: 'yes' })).toBe(false);
   });
 });
