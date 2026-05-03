@@ -5,6 +5,12 @@ import type { ICommandPermissionModeAdapter } from '../host-adapters.js';
 
 export const PERMISSION_MODE_COMMAND_DESCRIPTION = 'Show/change permission mode';
 export const PERMISSION_MODE_ARGUMENT_HINT = 'plan | default | acceptEdits | bypassPermissions';
+export const PERMISSIONS_COMMAND_DESCRIPTION = 'Show permission rules';
+
+export interface IPermissionsCommandState {
+  readonly mode: TPermissionMode;
+  readonly sessionAllowed: readonly string[];
+}
 export const VALID_PERMISSION_MODES: readonly TPermissionMode[] = [
   'plan',
   'default',
@@ -63,4 +69,23 @@ export function writeCommandPermissionMode(
 
 export function listCommandSessionAllowedTools(context: ICommandHostContext): readonly string[] {
   return resolvePermissionModeAdapter(context).listSessionAllowedTools();
+}
+
+export function readCommandPermissionsState(
+  context: ICommandHostContext,
+): IPermissionsCommandState {
+  return {
+    mode: readCommandPermissionMode(context),
+    sessionAllowed: listCommandSessionAllowedTools(context),
+  };
+}
+
+export function formatCommandPermissionsMessage(state: IPermissionsCommandState): string {
+  const lines = [`Permission mode: ${state.mode}`];
+  if (state.sessionAllowed.length > 0) {
+    lines.push(`Session-approved tools: ${state.sessionAllowed.join(', ')}`);
+  } else {
+    lines.push('No session-approved tools.');
+  }
+  return lines.join('\n');
 }

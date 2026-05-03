@@ -55,6 +55,7 @@
     "@robota-sdk/agent-command-language": "workspace:*",
     "@robota-sdk/agent-command-mode": "workspace:*",
     "@robota-sdk/agent-command-model": "workspace:*",
+    "@robota-sdk/agent-command-permissions": "workspace:*",
     "@robota-sdk/agent-command-provider": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",

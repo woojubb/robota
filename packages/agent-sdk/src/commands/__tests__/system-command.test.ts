@@ -93,9 +93,10 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(10);
+    expect(commands.length).toBeGreaterThanOrEqual(9);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
+    expect(commands.map((c) => c.name)).not.toContain('permissions');
     expect(commands.map((c) => c.name)).not.toContain('language');
     expect(commands.map((c) => c.name)).not.toContain('mode');
     expect(commands.map((c) => c.name)).not.toContain('model');

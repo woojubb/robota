@@ -117,12 +117,15 @@ export {
   parseLanguageArgument,
   RECOMMENDED_RESPONSE_LANGUAGES,
   buildPermissionModeSubcommands,
+  formatCommandPermissionsMessage,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,
   parsePermissionModeArgument,
+  PERMISSIONS_COMMAND_DESCRIPTION,
   PERMISSION_MODE_ARGUMENT_HINT,
   PERMISSION_MODE_COMMAND_DESCRIPTION,
+  readCommandPermissionsState,
   readCommandPermissionMode,
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
@@ -130,6 +133,7 @@ export {
 } from './commands/index.js';
 export type {
   ICompactContextResult,
+  IPermissionsCommandState,
   IProviderSetupFlowState,
   IProviderSetupPromptStep,
   TAutoCompactThreshold,

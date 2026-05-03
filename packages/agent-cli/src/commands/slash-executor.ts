@@ -97,19 +97,6 @@ export function handleCost(session: ISlashSession, addMessage: TAddMessage): ISl
   return { handled: true };
 }
 
-export function handlePermissions(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
-  const mode = session.getPermissionMode();
-  const sessionAllowed = session.getSessionAllowedTools();
-  const lines = [`Permission mode: ${mode}`];
-  if (sessionAllowed.length > 0) {
-    lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
-  } else {
-    lines.push('No session-approved tools.');
-  }
-  addMessage({ role: 'system', content: lines.join('\n') });
-  return { handled: true };
-}
-
 export function handleContext(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
   const ctx = session.getContextState();
   addMessage({
@@ -152,8 +139,6 @@ export async function executeSlashCommand(
       return { handled: false }; // Route to system command (model change effect)
     case 'cost':
       return handleCost(session, addMessage);
-    case 'permissions':
-      return handlePermissions(session, addMessage);
     case 'context':
       return handleContext(session, addMessage);
     case 'reset':

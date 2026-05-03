@@ -474,6 +474,8 @@ The `/model` command is provided by the `@robota-sdk/agent-command-model` module
 
 The `/mode` command is provided by the `@robota-sdk/agent-command-mode` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not mutate permission mode directly; it routes `/mode` into the generic command execution path, and the command module uses SDK permission-mode common APIs.
 
+The `/permissions` command is provided by the `@robota-sdk/agent-command-permissions` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect permission state directly; it routes `/permissions` into the generic command execution path, and the command module uses SDK permission common APIs.
+
 The `/language` command is provided by the `@robota-sdk/agent-command-language` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
 
 **Subcommand display:**
@@ -1282,26 +1284,27 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 `@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
 
-| Package                                | Purpose                                                                                                                              |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                               |
-| `@robota-sdk/agent-command-compact`    | Default `/compact` command module composed by the Robota binary                                                                      |
-| `@robota-sdk/agent-command-context`    | Default `/context` command module composed by the Robota binary                                                                      |
-| `@robota-sdk/agent-command-language`   | Default `/language` command module composed by the Robota binary                                                                     |
-| `@robota-sdk/agent-command-mode`       | Default `/mode` command module composed by the Robota binary                                                                         |
-| `@robota-sdk/agent-command-model`      | Default `/model` command module composed by the Robota binary                                                                        |
-| `@robota-sdk/agent-command-provider`   | Default `/provider` command module composed by the Robota binary                                                                     |
-| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
-| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                                                         |
-| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                                                         |
-| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                                                         |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                                                      |
-| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                                                        |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                                              |
-| `ink-spinner`                          | Loading spinner                                                                                                                      |
-| `chalk`                                | Terminal colors                                                                                                                      |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                                           |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                                              |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                                                                                  |
-| `string-width`                         | Unicode-aware string width calculation                                                                                               |
+| Package                                 | Purpose                                                                                                                              |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-command-agent`       | Optional default `/agent` command module composed by the Robota binary                                                               |
+| `@robota-sdk/agent-command-compact`     | Default `/compact` command module composed by the Robota binary                                                                      |
+| `@robota-sdk/agent-command-context`     | Default `/context` command module composed by the Robota binary                                                                      |
+| `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                     |
+| `@robota-sdk/agent-command-mode`        | Default `/mode` command module composed by the Robota binary                                                                         |
+| `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
+| `@robota-sdk/agent-command-permissions` | Default `/permissions` command module composed by the Robota binary                                                                  |
+| `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
+| `@robota-sdk/agent-sdk`                 | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
+| `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
+| `@robota-sdk/agent-provider-anthropic`  | Default provider definition contributed by the Robota binary                                                                         |
+| `@robota-sdk/agent-provider-openai`     | Default provider definition contributed by the Robota binary                                                                         |
+| `@robota-sdk/agent-provider-gemma`      | Default provider definition contributed by the Robota binary                                                                         |
+| `@robota-sdk/agent-transport-headless`  | Headless runner for print mode (`-p`) execution                                                                                      |
+| `ink` 7, `react` 19.2+                  | TUI rendering                                                                                                                        |
+| `ink-select-input`                      | Arrow-key selection (permission prompt)                                                                                              |
+| `ink-spinner`                           | Loading spinner                                                                                                                      |
+| `chalk`                                 | Terminal colors                                                                                                                      |
+| `ink-text-input`                        | Base text input (extended by CjkTextInput)                                                                                           |
+| `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                              |
+| `cli-highlight`                         | Syntax highlighting for code blocks                                                                                                  |
+| `string-width`                          | Unicode-aware string width calculation                                                                                               |
