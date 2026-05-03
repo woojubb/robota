@@ -58,6 +58,7 @@
     "@robota-sdk/agent-command-permissions": "workspace:*",
     "@robota-sdk/agent-command-provider": "workspace:*",
     "@robota-sdk/agent-command-reset": "workspace:*",
+    "@robota-sdk/agent-command-rewind": "workspace:*",
     "@robota-sdk/agent-command-session": "workspace:*",
     "@robota-sdk/agent-command-statusline": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",

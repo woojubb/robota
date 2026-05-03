@@ -16,6 +16,7 @@
       "@robota-sdk/agent-command-permissions",
       "@robota-sdk/agent-command-provider",
       "@robota-sdk/agent-command-reset",
+      "@robota-sdk/agent-command-rewind",
       "@robota-sdk/agent-command-session",
       "@robota-sdk/agent-command-statusline",
       "@robota-sdk/agent-cli",

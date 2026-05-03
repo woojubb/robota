@@ -1,11 +1,9 @@
 import type { ICommandHostContext, ISystemCommand } from '../command-api/index.js';
 import { executeBackgroundCommand } from './background-command.js';
 import { executeMemoryCommand } from './memory-command.js';
-import { executeRewindCommand } from './rewind-command.js';
 import {
   buildBackgroundSubcommands,
   buildMemorySubcommands,
-  buildRewindSubcommands,
   MEMORY_COMMAND_ARGUMENT_HINT,
   MEMORY_COMMAND_DESCRIPTION,
 } from './system-command-metadata.js';
@@ -52,14 +50,6 @@ export function createSystemCommands(): ISystemCommand[] {
       safety: 'write',
       subcommands: buildMemorySubcommands(),
       execute: executeMemoryCommand,
-    },
-    {
-      name: 'rewind',
-      description: 'List edit checkpoints or restore code to a previous checkpoint.',
-      argumentHint: 'list | restore CHECKPOINT_ID | code CHECKPOINT_ID | rollback CHECKPOINT_ID',
-      safety: 'write',
-      subcommands: buildRewindSubcommands(),
-      execute: executeRewindCommand,
     },
     {
       name: 'background',
