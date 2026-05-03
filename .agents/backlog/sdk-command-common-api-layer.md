@@ -137,7 +137,7 @@ packages/
   - [x] `/plugin` migrated to `agent-command-plugin`.
   - [x] `/reload-plugins` migrated to `agent-command-plugin`.
 - [x] Generate `/help` output from registered command descriptors.
-- [ ] Ensure `/agent` keeps using the same command API and does not need special CLI routing.
+- [x] Ensure `/agent` keeps using the same command API and does not need special CLI routing.
 
 ## Package Extraction Plan
 
