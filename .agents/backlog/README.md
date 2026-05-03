@@ -23,7 +23,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [command-migration-plugin.md](command-migration-plugin.md)                     | Migrate `/plugin` into a command-module owner                 |
 | [command-migration-reload-plugins.md](command-migration-reload-plugins.md)     | Migrate `/reload-plugins` into a command-module owner         |
 | [command-migration-reset.md](command-migration-reset.md)                       | Migrate `/reset` into a command-module owner                  |
-| [command-migration-resume.md](command-migration-resume.md)                     | Migrate `/resume` into a command-module owner                 |
 | [command-migration-rewind.md](command-migration-rewind.md)                     | Migrate `/rewind` into a command-module owner                 |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)           | Gemini API provider modernization                             |
 | [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |

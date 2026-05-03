@@ -78,8 +78,9 @@ describe('createSessionCommandModule', () => {
     expect(module.commandSources?.[0]?.getCommands().map((item) => item.name)).toEqual([
       'clear',
       'rename',
+      'resume',
     ]);
-    expect(module.systemCommands?.map((item) => item.name)).toEqual(['clear', 'rename']);
+    expect(module.systemCommands?.map((item) => item.name)).toEqual(['clear', 'rename', 'resume']);
     expect(entry).toEqual(
       expect.objectContaining({
         name: 'rename',
@@ -91,6 +92,29 @@ describe('createSessionCommandModule', () => {
     expect(command).toEqual(
       expect.objectContaining({
         name: 'rename',
+        lifecycle: 'inline',
+        userInvocable: true,
+        modelInvocable: false,
+      }),
+    );
+  });
+
+  it('provides resume metadata and user-only executable command from the same module owner', () => {
+    const module = createSessionCommandModule();
+    const command = module.systemCommands?.find((item) => item.name === 'resume');
+    const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'resume');
+
+    expect(entry).toEqual(
+      expect.objectContaining({
+        name: 'resume',
+        description: 'Resume a previous session',
+        source: 'session',
+        modelInvocable: false,
+      }),
+    );
+    expect(command).toEqual(
+      expect.objectContaining({
+        name: 'resume',
         lifecycle: 'inline',
         userInvocable: true,
         modelInvocable: false,
@@ -189,6 +213,21 @@ describe('createSessionCommandModule', () => {
     expect(result).toEqual({
       success: false,
       message: 'Usage: rename <name>',
+    });
+  });
+
+  it('requests the host session picker through a typed effect', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('resume', createCommandContext(), '');
+
+    expect(result).toEqual({
+      success: true,
+      message: 'Opening session picker...',
+      data: { triggerResumePicker: true },
+      effects: [{ type: 'session-picker-requested' }],
     });
   });
 });

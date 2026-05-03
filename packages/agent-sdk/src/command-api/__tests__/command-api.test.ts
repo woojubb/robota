@@ -12,6 +12,7 @@ import {
   buildPermissionModeSubcommands,
   buildStatusLineCommandSubcommands,
   clearConversationHistory,
+  createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   formatCommandPermissionsMessage,
@@ -213,6 +214,9 @@ describe('command-api contracts', () => {
     expect(createSessionRenamedEffect('my-session')).toEqual({
       type: 'session-renamed',
       name: 'my-session',
+    });
+    expect(createSessionPickerRequestedEffect()).toEqual({
+      type: 'session-picker-requested',
     });
   });
 });

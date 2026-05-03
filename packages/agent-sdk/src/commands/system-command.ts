@@ -76,16 +76,6 @@ export function createSystemCommands(): ISystemCommand[] {
       execute: executeRewindCommand,
     },
     {
-      name: 'resume',
-      description: 'Resume a previous session',
-      execute: (_session, _args) => ({
-        message: 'Opening session picker...',
-        success: true,
-        data: { triggerResumePicker: true },
-        effects: [{ type: 'session-picker-requested' }],
-      }),
-    },
-    {
       name: 'background',
       description: 'List and control background tasks',
       subcommands: buildBackgroundSubcommands(),

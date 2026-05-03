@@ -27,4 +27,14 @@ describe('applyCommandEffects', () => {
     expect(deps.renameSession).toHaveBeenCalledWith('my-session');
     expect(deps.requestShutdown).not.toHaveBeenCalled();
   });
+
+  it('applies session picker effects through the UI dependency boundary', () => {
+    const deps = createDeps();
+
+    const handled = applyCommandEffects([{ type: 'session-picker-requested' }], {}, deps);
+
+    expect(handled).toBe(true);
+    expect(deps.openSessionPicker).toHaveBeenCalledTimes(1);
+    expect(deps.requestShutdown).not.toHaveBeenCalled();
+  });
 });

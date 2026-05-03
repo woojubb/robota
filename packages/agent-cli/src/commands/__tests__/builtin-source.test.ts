@@ -15,6 +15,7 @@ describe('BuiltinCommandSource', () => {
     expect(names).toContain('cost');
     expect(names).not.toContain('clear');
     expect(names).not.toContain('rename');
+    expect(names).not.toContain('resume');
     expect(names).not.toContain('permissions');
     expect(names).not.toContain('compact');
     expect(names).not.toContain('context');
