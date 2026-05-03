@@ -217,6 +217,34 @@ describe('AnthropicProvider', () => {
     });
   });
 
+  describe('capabilities', () => {
+    it('reports server web search support and generic configuration', () => {
+      const provider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+      });
+
+      expect(provider.getCapabilities().nativeWebTools.webSearch).toEqual({
+        supported: true,
+        enabled: false,
+        source: 'anthropic-messages',
+        reason: 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.',
+      });
+
+      provider.configureNativeWebTools({ webSearch: true });
+
+      expect(provider.enableWebTools).toBe(true);
+      expect(provider.getCapabilities().nativeWebTools).toEqual({
+        webSearch: { supported: true, enabled: true, source: 'anthropic-messages' },
+        webFetch: {
+          supported: false,
+          enabled: false,
+          source: 'anthropic-messages',
+          reason: 'Anthropic provider exposes server web search only.',
+        },
+      });
+    });
+  });
+
   // ── dispose ──────────────────────────────────────────────────
 
   describe('dispose', () => {
@@ -882,6 +910,39 @@ describe('AnthropicProvider', () => {
           stream: true,
           temperature: 0.7,
           tools: expect.arrayContaining([expect.objectContaining({ name: 'search' })]),
+        }),
+      );
+    });
+
+    it('should include enabled server web search in stream request', async () => {
+      const asyncChunks = (async function* () {
+        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
+      })();
+      mockClient.messages.create.mockResolvedValue(asyncChunks);
+      provider.configureNativeWebTools({ webSearch: true });
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Search current docs',
+          timestamp: new Date(),
+        },
+      ];
+
+      for await (const _chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+        nativeWebTools: { webSearch: true },
+      })) {
+        // just consume
+      }
+
+      expect(mockClient.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tools: expect.arrayContaining([
+            expect.objectContaining({ name: 'web_search', type: 'web_search_20250305' }),
+          ]),
         }),
       );
     });

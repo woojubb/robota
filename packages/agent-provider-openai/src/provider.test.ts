@@ -115,6 +115,48 @@ describe('OpenAIProvider', () => {
     });
   });
 
+  describe('capabilities', () => {
+    it('reports OpenAI-compatible Chat Completions native web tools as unsupported', () => {
+      const provider = new OpenAIProvider({
+        apiKey: 'local-key',
+        baseURL: 'http://localhost:1234/v1',
+      });
+
+      expect(provider.getCapabilities().nativeWebTools).toEqual({
+        webSearch: {
+          supported: false,
+          enabled: false,
+          source: 'openai-compatible-chat-completions',
+          reason:
+            'OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web search.',
+        },
+        webFetch: {
+          supported: false,
+          enabled: false,
+          source: 'openai-compatible-chat-completions',
+          reason:
+            'OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web fetch.',
+        },
+      });
+    });
+
+    it('rejects per-request native web tools before transport execution', async () => {
+      const provider = new OpenAIProvider({
+        apiKey: 'local-key',
+        baseURL: 'http://localhost:1234/v1',
+      });
+
+      await expect(
+        provider.chat([createUserMessage('Search the web')], {
+          model: 'local-model',
+          nativeWebTools: { webSearch: true },
+        }),
+      ).rejects.toThrow(
+        'Provider openai does not support native web search. OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web search.',
+      );
+    });
+  });
+
   describe('validateConfig', () => {
     it('should return true when client is available', () => {
       const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });

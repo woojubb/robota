@@ -17,6 +17,11 @@ export interface IOpenAIResponsesReasoningOptions {
   summary?: 'auto' | 'concise' | 'detailed';
 }
 
+export interface IOpenAINativeWebToolsOptions {
+  webSearch?: boolean;
+  webFetch?: boolean;
+}
+
 /**
  * Valid provider option value types
  */
@@ -27,6 +32,7 @@ export type TOpenAIProviderOptionValue =
   | undefined
   | null
   | IOpenAIJsonSchemaDefinition
+  | IOpenAINativeWebToolsOptions
   | IOpenAIResponsesReasoningOptions
   | OpenAI
   | IPayloadLogger
@@ -111,6 +117,15 @@ export interface IOpenAIProviderOptions {
    * Opt into strict custom function parameter validation where supported.
    */
   strictTools?: boolean;
+
+  /**
+   * Provider-native hosted web tool request from provider profile options.
+   *
+   * OpenAI-compatible Chat Completions endpoints do not support this Robota
+   * native web contract. The provider rejects unsupported configurations before
+   * any model request is sent.
+   */
+  nativeWebTools?: IOpenAINativeWebToolsOptions;
 
   /**
    * OpenAI client instance (optional: will be created from apiKey if not provided)

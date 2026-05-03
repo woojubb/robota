@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import type { IAnthropicProviderOptions } from './types';
 import { AbstractAIProvider, getModelMaxOutput } from '@robota-sdk/agent-core';
-import type { TUniversalMessage, IChatOptions, TTextDeltaCallback } from '@robota-sdk/agent-core';
+import type {
+  IProviderCapabilities,
+  IProviderNativeWebToolRequest,
+  TUniversalMessage,
+  IChatOptions,
+  TTextDeltaCallback,
+} from '@robota-sdk/agent-core';
 import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
 import { streamAndAssemble } from './streaming-handler';
 
@@ -77,6 +83,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
@@ -141,6 +148,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
@@ -178,8 +186,14 @@ export class AnthropicProvider extends AbstractAIProvider {
       requestParams.temperature = options.temperature;
     }
 
-    if (options?.tools) {
-      requestParams.tools = convertToolsToAnthropicFormat(options.tools);
+    const functionTools = options?.tools ? convertToolsToAnthropicFormat(options.tools) : [];
+    const serverTools: Anthropic.Messages.ToolUnion[] = this.enableWebTools
+      ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
+      : [];
+    const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
+
+    if (allTools.length > 0) {
+      requestParams.tools = allTools;
     }
 
     const stream = await this.client.messages.create(requestParams);
@@ -199,6 +213,36 @@ export class AnthropicProvider extends AbstractAIProvider {
 
   override supportsTools(): boolean {
     return true;
+  }
+
+  override getCapabilities(): IProviderCapabilities {
+    return {
+      functionCalling: { supported: true },
+      nativeWebTools: {
+        webSearch: this.enableWebTools
+          ? { supported: true, enabled: true, source: 'anthropic-messages' }
+          : {
+              supported: true,
+              enabled: false,
+              source: 'anthropic-messages',
+              reason: 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.',
+            },
+        webFetch: {
+          supported: false,
+          enabled: false,
+          source: 'anthropic-messages',
+          reason: 'Anthropic provider exposes server web search only.',
+        },
+      },
+    };
+  }
+
+  configureNativeWebTools(request: IProviderNativeWebToolRequest): IProviderCapabilities {
+    if (request.webSearch === true) {
+      this.enableWebTools = true;
+    }
+    this.validateNativeWebTools(request);
+    return this.getCapabilities();
   }
 
   override validateConfig(): boolean {

@@ -13,6 +13,11 @@ export type {
   IToolSchema,
   IProviderOptions,
   IChatOptions,
+  IProviderCapabilities,
+  IProviderFunctionCallingCapability,
+  IProviderNativeWebToolCapabilities,
+  IProviderNativeWebToolCapability,
+  IProviderNativeWebToolRequest,
   TTextDeltaCallback,
   IAIProvider,
   IProviderConfig,
@@ -37,6 +42,11 @@ export type {
   IVideoJobAccepted,
   IVideoJobSnapshot,
   IVideoGenerationProvider,
+} from './interfaces';
+export {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+  getProviderCapabilities,
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';

@@ -54,7 +54,7 @@ const response = await agent.run('Write a poem');
 Server-side web search via Anthropic's `web_search_20250305` tool:
 
 ```typescript
-provider.enableWebTools = true;
+provider.configureNativeWebTools({ webSearch: true });
 provider.onServerToolUse = (name, input) => {
   console.log(`Searching: ${input.query}`);
 };
@@ -95,11 +95,11 @@ const provider = new AnthropicProvider({
 
 ### AnthropicProvider Instance Fields
 
-| Field             | Type                  | Default | Description                    |
-| ----------------- | --------------------- | ------- | ------------------------------ |
-| `enableWebTools`  | `boolean`             | `false` | Include web search server tool |
-| `onTextDelta`     | `TTextDeltaCallback?` | —       | Streaming text callback        |
-| `onServerToolUse` | `function?`           | —       | Server tool execution callback |
+| Field             | Type                  | Default | Description                                                                                             |
+| ----------------- | --------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `enableWebTools`  | `boolean`             | `false` | Include web search server tool; prefer `configureNativeWebTools({ webSearch: true })` for generic setup |
+| `onTextDelta`     | `TTextDeltaCallback?` | —       | Streaming text callback                                                                                 |
+| `onServerToolUse` | `function?`           | —       | Server tool execution callback                                                                          |
 
 ## Always-Streaming Policy
 
@@ -115,7 +115,7 @@ When `IChatOptions.maxTokens` is not specified, the provider uses the model's `m
 
 ## Known Limitations
 
-- `chatStream()` does not apply `enableWebTools`, system message extraction, or `onServerToolUse` (use `chat()` for full feature support)
+- `chatStream()` does not apply system message extraction or `onServerToolUse` callbacks (use `chat()` for full feature support)
 - `validateConfig()` returns false for executor-based providers (functional but reports invalid)
 
 ## License

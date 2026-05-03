@@ -144,6 +144,46 @@ describe('QwenProvider', () => {
     });
   });
 
+  it('reports provider-native web capabilities from built-in web tool options', () => {
+    const disabled = new QwenProvider({ apiKey: 'dashscope-key' });
+    const enabled = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webFetch: true },
+    });
+
+    expect(disabled.getCapabilities().nativeWebTools).toEqual({
+      webSearch: {
+        supported: true,
+        enabled: false,
+        source: 'qwen-responses',
+        reason: 'Enable builtInWebTools.webSearch or builtInWebTools.webFetch.',
+      },
+      webFetch: {
+        supported: true,
+        enabled: false,
+        source: 'qwen-responses',
+        reason: 'Enable builtInWebTools.webFetch.',
+      },
+    });
+    expect(enabled.getCapabilities().nativeWebTools).toEqual({
+      webSearch: { supported: true, enabled: true, source: 'qwen-responses' },
+      webFetch: { supported: true, enabled: true, source: 'qwen-responses' },
+    });
+  });
+
+  it('rejects request-level native web tools when Qwen built-in web tools are disabled', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+
+    await expect(
+      provider.chat([createUserMessage('Search the web')], {
+        model: 'qwen-plus',
+        nativeWebTools: { webSearch: true },
+      }),
+    ).rejects.toThrow(
+      'Provider qwen supports native web search but it is not enabled. Enable builtInWebTools.webSearch or builtInWebTools.webFetch.',
+    );
+  });
+
   it('sends OpenAI-compatible messages and tools, then parses native tool calls', async () => {
     const provider = new QwenProvider({
       apiKey: 'dashscope-key',

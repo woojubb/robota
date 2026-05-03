@@ -91,6 +91,8 @@ Provider resolution order:
 
 Provider profiles may include `options`. The CLI passes this bag through to `definition.createProvider(config)` without interpreting provider-specific keys. Provider packages own the shape, validation, defaults, and behavior for their options.
 
+OpenAI-compatible local endpoints such as LM Studio are not assumed to provide provider-native web search/fetch. If a provider package rejects `options.builtInWebTools` or `options.nativeWebTools`, the CLI surfaces that provider-owned error directly. The CLI must not silently reroute provider-native web requests to local `WebSearch`/`WebFetch`; those remain ordinary Robota tools already advertised through tool schemas.
+
 Provider definition contract:
 
 | Field              | Owner                            | CLI behavior                                                       |

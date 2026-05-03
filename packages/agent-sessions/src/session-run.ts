@@ -5,7 +5,7 @@
  * Stateless: all mutable state is passed in via IRunContext.
  */
 
-import { createUserMessage, runHooks } from '@robota-sdk/agent-core';
+import { createUserMessage, getProviderCapabilities, runHooks } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -97,9 +97,7 @@ export async function executeRun(
 
   const history = ctx.robota.getHistory();
   const historyJson = JSON.stringify(history);
-  const providerHasWebTools =
-    'enableWebTools' in ctx.aiProvider &&
-    (ctx.aiProvider as { enableWebTools?: boolean }).enableWebTools === true;
+  const providerCapabilities = getProviderCapabilities(ctx.aiProvider);
   ctx.log('pre_run', {
     historyLength: history.length,
     historyChars: historyJson.length,
@@ -109,7 +107,10 @@ export async function executeRun(
     model: ctx.model,
     provider: ctx.aiProvider.name,
     maxTokens: ctx.contextTracker.getContextState().maxTokens,
-    webToolsEnabled: providerHasWebTools,
+    nativeWebSearchSupported: providerCapabilities.nativeWebTools.webSearch.supported,
+    nativeWebSearchEnabled: providerCapabilities.nativeWebTools.webSearch.enabled,
+    nativeWebFetchSupported: providerCapabilities.nativeWebTools.webFetch.supported,
+    nativeWebFetchEnabled: providerCapabilities.nativeWebTools.webFetch.enabled,
   });
   ctx.contextTracker.updateFromHistory([...history, createUserMessage(enrichedMessage)]);
   ctx.onContextUpdate?.(ctx.contextTracker.getContextState());

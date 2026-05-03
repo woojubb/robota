@@ -136,16 +136,18 @@ Non-interactive/headless mode never prompts. Configure a provider ahead of time 
 
 ## Built-in Tools
 
-The AI agent can invoke 6 tools:
+The AI agent can invoke 8 local tools:
 
-| Tool    | Description                          | Primary Argument |
-| ------- | ------------------------------------ | ---------------- |
-| `Bash`  | Execute shell commands               | `command`        |
-| `Read`  | Read file contents with line numbers | `filePath`       |
-| `Write` | Write content to a file              | `filePath`       |
-| `Edit`  | Replace a string in a file           | `filePath`       |
-| `Glob`  | Find files matching a pattern        | `pattern`        |
-| `Grep`  | Search file contents with regex      | `pattern`        |
+| Tool        | Description                          | Primary Argument |
+| ----------- | ------------------------------------ | ---------------- |
+| `Bash`      | Execute shell commands               | `command`        |
+| `Read`      | Read file contents with line numbers | `filePath`       |
+| `Write`     | Write content to a file              | `filePath`       |
+| `Edit`      | Replace a string in a file           | `filePath`       |
+| `Glob`      | Find files matching a pattern        | `pattern`        |
+| `Grep`      | Search file contents with regex      | `pattern`        |
+| `WebFetch`  | Fetch URL content as text            | `url`            |
+| `WebSearch` | Search the internet                  | `query`          |
 
 ## Recent TUI Capabilities
 

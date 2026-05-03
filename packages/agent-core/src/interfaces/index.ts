@@ -30,6 +30,11 @@ export type {
   TJSONSchemaEnum,
   TParameterDefaultValue,
   IChatOptions,
+  IProviderCapabilities,
+  IProviderFunctionCallingCapability,
+  IProviderNativeWebToolCapabilities,
+  IProviderNativeWebToolCapability,
+  IProviderNativeWebToolRequest,
   TTextDeltaCallback,
   IProviderOptions,
   IProviderRequest,
@@ -39,6 +44,11 @@ export type {
   TProviderConfigValue,
   TProviderOptionValueBase,
 } from './provider';
+export {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+  getProviderCapabilities,
+} from './provider-capabilities';
 
 export type {
   IProviderConfig,

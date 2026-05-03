@@ -91,6 +91,8 @@ Qwen built-in web tools are provider-side capabilities, not Robota local tools. 
 - `builtInWebTools.enableThinking` maps to Qwen's `enable_thinking` request field.
 - Provider-side tool usage is recorded in assistant metadata as `providerToolMode`, `providerBuiltInToolsEnabled`, `providerBuiltInToolsUsed`, `qwenWebSearchCalls`, and `qwenWebExtractorCalls`.
 
+`QwenProvider.getCapabilities()` reports provider-native web search and fetch as supported. The enabled state follows `builtInWebTools`: `webSearch` is enabled when `webSearch` or `webFetch` is true, and `webFetch` is enabled only when `webFetch` is true. Request-level `IChatOptions.nativeWebTools` must fail before transport execution if the requested tool is supported but not enabled by provider-owned configuration.
+
 `code_interpreter` is intentionally unsupported in this package slice. If Qwen returns unsupported provider-side tool metadata, the parser records it as `qwenUnsupportedProviderToolTypes`; it does not execute or emulate that tool locally.
 
 ## Error Taxonomy
@@ -114,6 +116,7 @@ Qwen built-in web tools are provider-side capabilities, not Robota local tools. 
 - Unit tests verify streaming assembly emits `onTextDelta` values and returns the final assembled assistant response.
 - Unit tests verify direct `chatStream` yields universal assistant stream chunks.
 - Unit tests verify Responses API requests include `web_search` and `web_extractor` according to provider options.
+- Unit tests verify capability reporting for disabled and enabled built-in web tool configuration.
 - Unit tests verify streamed `response.output_text.delta` events emit visible deltas and final metadata records provider-side tool provenance.
 - Unit tests verify Responses API `function_call` output remains a local Robota tool call and is not logged as provider-side built-in tool execution.
 - Unit tests verify upstream chat and streaming failures are wrapped with Qwen-owned error messages.

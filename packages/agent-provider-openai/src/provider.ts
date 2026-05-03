@@ -5,6 +5,7 @@ import type {
   TUniversalMessage,
   IChatOptions,
   IAssistantMessage,
+  IProviderCapabilities,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 import type { IPayloadLogger } from './interfaces/payload-logger';
@@ -46,6 +47,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     super(options.logger || SilentLogger);
     this.options = options;
     this.apiSurface = resolveApiSurface(options);
+    validateOpenAIProviderNativeWebTools(this.apiSurface, options.nativeWebTools);
 
     if (options.executor) {
       this.executor = options.executor;
@@ -75,6 +77,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       try {
@@ -113,6 +116,8 @@ export class OpenAIProvider extends AbstractAIProvider {
     messages: TUniversalMessage[],
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
+    this.validateNativeWebTools(options?.nativeWebTools);
+
     if (this.executor) {
       try {
         yield* this.executeStreamViaExecutorOrDirect(messages, options);
@@ -152,6 +157,30 @@ export class OpenAIProvider extends AbstractAIProvider {
     return true;
   }
 
+  override getCapabilities(): IProviderCapabilities {
+    const source =
+      this.apiSurface === 'chat-completions'
+        ? 'openai-compatible-chat-completions'
+        : 'openai-responses';
+    return {
+      functionCalling: { supported: true },
+      nativeWebTools: {
+        webSearch: {
+          supported: false,
+          enabled: false,
+          source,
+          reason: getOpenAIUnsupportedNativeWebReason(this.apiSurface, 'search'),
+        },
+        webFetch: {
+          supported: false,
+          enabled: false,
+          source,
+          reason: getOpenAIUnsupportedNativeWebReason(this.apiSurface, 'fetch'),
+        },
+      },
+    };
+  }
+
   override validateConfig(): boolean {
     return !!this.client && !!this.options;
   }
@@ -183,4 +212,26 @@ function resolveApiSurface(options: IOpenAIProviderOptions): TOpenAIApiSurface {
     return options.apiSurface;
   }
   return options.baseURL ? 'chat-completions' : 'responses';
+}
+
+function getOpenAIUnsupportedNativeWebReason(
+  apiSurface: TOpenAIApiSurface,
+  toolKind: 'search' | 'fetch',
+): string {
+  if (apiSurface === 'chat-completions') {
+    return `OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web ${toolKind}.`;
+  }
+  return `OpenAI Responses native web ${toolKind} is not wired in this Robota provider version.`;
+}
+
+function validateOpenAIProviderNativeWebTools(
+  apiSurface: TOpenAIApiSurface,
+  nativeWebTools: IOpenAIProviderOptions['nativeWebTools'],
+): void {
+  if (nativeWebTools?.webSearch !== true && nativeWebTools?.webFetch !== true) {
+    return;
+  }
+  throw new Error(
+    `Provider openai native web search/fetch is not supported for apiSurface ${apiSurface} in this Robota provider version.`,
+  );
 }

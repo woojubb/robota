@@ -25,10 +25,7 @@ export function configureProvider(
   _options: ISessionOptions,
   log: (event: string, data: TSessionLogData) => void,
 ): void {
-  // Enable Anthropic server web tools (web_search)
-  if (provider.name === 'anthropic' && 'enableWebTools' in provider) {
-    (provider as { enableWebTools: boolean }).enableWebTools = true;
-  }
+  provider.configureNativeWebTools?.({ webSearch: true });
 
   // Wire server tool logging
   if ('onServerToolUse' in provider) {

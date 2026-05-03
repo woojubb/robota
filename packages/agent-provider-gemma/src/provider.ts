@@ -3,6 +3,7 @@ import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
 import type {
   IAssistantMessage,
   IChatOptions,
+  IProviderCapabilities,
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -59,6 +60,7 @@ export class GemmaProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       try {
@@ -108,6 +110,7 @@ export class GemmaProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       try {
@@ -151,6 +154,28 @@ export class GemmaProvider extends AbstractAIProvider {
 
   override supportsTools(): boolean {
     return true;
+  }
+
+  override getCapabilities(): IProviderCapabilities {
+    return {
+      functionCalling: { supported: true },
+      nativeWebTools: {
+        webSearch: {
+          supported: false,
+          enabled: false,
+          source: 'openai-compatible-chat-completions',
+          reason:
+            'Gemma OpenAI-compatible endpoints support declared function tools, not provider-native web search.',
+        },
+        webFetch: {
+          supported: false,
+          enabled: false,
+          source: 'openai-compatible-chat-completions',
+          reason:
+            'Gemma OpenAI-compatible endpoints support declared function tools, not provider-native web fetch.',
+        },
+      },
+    };
   }
 
   override validateConfig(): boolean {

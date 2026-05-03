@@ -13,6 +13,14 @@ import type {
   IProviderRequest,
   IRawProviderResponse,
 } from '../interfaces/provider';
+import type {
+  IProviderCapabilities,
+  IProviderNativeWebToolRequest,
+} from '../interfaces/provider-capabilities';
+import {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+} from '../interfaces/provider-capabilities';
 import type { IExecutor } from '../interfaces/executor';
 import type { TUniversalMessage } from '../interfaces/messages';
 import { isAssistantMessage } from '../interfaces/messages';
@@ -198,6 +206,10 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements I
     return true;
   }
 
+  getCapabilities(): IProviderCapabilities {
+    return createDefaultProviderCapabilities(this.supportsTools());
+  }
+
   /**
    * Default implementation - providers can override for specific validation
    * @returns true if configuration is valid
@@ -214,6 +226,10 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements I
   /** Validate tool schemas. No-ops if tools is undefined. */
   protected validateTools(tools?: IToolSchema[]): void {
     validateProviderTools(tools);
+  }
+
+  protected validateNativeWebTools(request?: IProviderNativeWebToolRequest): void {
+    assertProviderNativeWebToolsAvailable(this.name, this.getCapabilities(), request);
   }
 
   /**
