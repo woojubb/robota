@@ -209,7 +209,11 @@ function AppInner(
         )}
         {(isThinking || activeTools.length > 0) && (
           <Box flexDirection="column" marginBottom={1}>
-            <StreamingIndicator text={streamingText} activeTools={activeTools} />
+            <StreamingIndicator
+              text={streamingText}
+              activeTools={activeTools}
+              isThinking={isThinking}
+            />
           </Box>
         )}
         <BackgroundTaskPanel tasks={backgroundTasks} />
