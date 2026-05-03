@@ -23,11 +23,6 @@ export type {
 export { CommandRegistry } from './command-registry.js';
 export { BuiltinCommandSource, createBuiltinCommandModule } from './builtin-source.js';
 export {
-  createProviderCommandEntry,
-  createProviderCommandModule,
-} from './provider-command-module.js';
-export { executeProviderCommand } from './provider-command-execution.js';
-export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from '../command-api/provider/provider-command-probe.js';
@@ -38,7 +33,7 @@ export { SystemCommandExecutor, createSystemCommands } from './system-command.js
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
-} from './provider-command-module.js';
+} from '../command-api/provider/provider-command-types.js';
 export type {
   ILegacyProviderSettings,
   IProviderProfileSettings,

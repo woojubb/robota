@@ -30,7 +30,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [command-migration-model.md](command-migration-model.md)                       | Migrate `/model` into a command-module owner                  |
 | [command-migration-permissions.md](command-migration-permissions.md)           | Migrate `/permissions` into a command-module owner            |
 | [command-migration-plugin.md](command-migration-plugin.md)                     | Migrate `/plugin` into a command-module owner                 |
-| [command-migration-provider.md](command-migration-provider.md)                 | Migrate `/provider` into a command-module owner               |
 | [command-migration-reload-plugins.md](command-migration-reload-plugins.md)     | Migrate `/reload-plugins` into a command-module owner         |
 | [command-migration-rename.md](command-migration-rename.md)                     | Migrate `/rename` into a command-module owner                 |
 | [command-migration-reset.md](command-migration-reset.md)                       | Migrate `/reset` into a command-module owner                  |

@@ -142,7 +142,7 @@ The CLI contains no session management logic beyond this hook. The old `useSessi
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-The available command list is built from SDK-owned command sources: `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and command modules such as `agent-command-agent`. The CLI renders this list but does not own the command definitions.
+The available command list is built from SDK-owned command sources: `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and command modules such as `agent-command-agent` and `agent-command-provider`. The CLI renders this list but does not own the command definitions.
 
 | Command                   | Description                             |
 | ------------------------- | --------------------------------------- |

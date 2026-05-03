@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { InteractiveSession } from '../../interactive/interactive-session.js';
-import {
-  createProviderCommandModule,
-  type IProviderCommandSettingsAdapter,
-} from '../provider-command-module.js';
-import type { TProviderSettingsDocument } from '../../command-api/provider/provider-settings.js';
-import { SystemCommandExecutor } from '../system-command-executor.js';
+import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type {
+  ICommandHostContext,
+  IProviderCommandSettingsAdapter,
+  TProviderSettingsDocument,
+} from '@robota-sdk/agent-sdk';
+import { createProviderCommandModule } from '../provider-command-module.js';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
@@ -82,15 +82,15 @@ function createExecutor(adapter: IProviderCommandSettingsAdapter): SystemCommand
   return new SystemCommandExecutor([...(module.systemCommands ?? [])]);
 }
 
-const session = {} as InteractiveSession;
+const session = {} as ICommandHostContext;
 
 describe('createProviderCommandModule', () => {
-  it('contributes /provider metadata and executable command from SDK', () => {
+  it('contributes /provider metadata and executable command from the provider package', () => {
     const { adapter } = createSettingsAdapter({});
     const module = createProviderCommandModule({ providerDefinitions, settings: adapter });
     const commands = module.commandSources?.flatMap((source) => source.getCommands()) ?? [];
 
-    expect(module.name).toBe('sdk-provider');
+    expect(module.name).toBe('agent-command-provider');
     expect(commands.map((command) => command.name)).toEqual(['provider']);
     expect(commands[0]?.subcommands?.map((command) => command.name)).toContain('use');
     expect(module.systemCommands?.map((command) => command.name)).toEqual(['provider']);
