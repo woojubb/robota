@@ -1,3 +1,15 @@
+---
+title: Compact Command Execution State
+status: completed
+priority: high
+urgency: now
+created: 2026-05-03
+completed: 2026-05-03
+packages:
+  - agent-sdk
+  - agent-cli
+---
+
 # Compact Command Execution State
 
 ## What
@@ -58,3 +70,18 @@ Rationale: compaction calls the provider and rewrites session history. It has th
 1. Move to `.agents/tasks/CLI-BL-0XX-compact-command-execution-state.md`.
 2. Start with a failing CLI regression test that keeps compaction pending.
 3. Wire manual compaction into the shared execution lifecycle before changing visual copy.
+
+## Result
+
+- Confirmed `/compact` already uses the SDK blocking foreground command lifecycle.
+- Added a `/compact` regression test that keeps compaction pending, emits `thinking`, blocks a second command, and reports completion after compaction resolves.
+- Updated the generic TUI streaming indicator to render `Thinking...` when foreground work has no tools or streaming text yet, which makes model-backed compaction visibly active without adding a `/compact` special case.
+
+## Verification
+
+- `pnpm --filter @robota-sdk/agent-sdk test -- src/interactive/__tests__/interactive-session.test.ts`
+- `pnpm --filter @robota-sdk/agent-cli test -- src/ui/__tests__/streaming-indicator.test.tsx src/ui/__tests__/status-bar.test.tsx`
+- `pnpm --filter @robota-sdk/agent-cli typecheck`
+- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-cli lint` (passes with existing warnings)
+- `pnpm --filter @robota-sdk/agent-sdk lint` (passes with existing warnings)

@@ -27,6 +27,7 @@ function createMockSession(options?: {
       usedTokens: 1000,
       maxTokens: 10000,
     }),
+    compact: vi.fn().mockResolvedValue(undefined),
     injectMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session-id'),
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
@@ -192,6 +193,40 @@ describe('InteractiveSession', () => {
 
     resolveCommand!({ message: 'done', success: true });
     await pending;
+  });
+
+  it('runs compact through the foreground thinking lifecycle', async () => {
+    let resolveCompact: () => void;
+    const mockSession = createMockSession();
+    mockSession.compact.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCompact = resolve;
+        }),
+    );
+    const session = new InteractiveSession({
+      session: mockSession as never,
+    });
+    const thinkingStates: boolean[] = [];
+    session.on('thinking', (isThinking) => thinkingStates.push(isThinking));
+
+    const pending = session.executeCommand('compact', 'focus on tests');
+    await new Promise((r) => setTimeout(r, 10));
+    const blocked = await session.executeCommand('context', '');
+
+    expect(session.isExecuting()).toBe(true);
+    expect(thinkingStates).toEqual([true]);
+    expect(blocked?.success).toBe(false);
+    expect(blocked?.message).toContain('already running');
+    expect(mockSession.compact).toHaveBeenCalledWith('focus on tests');
+
+    resolveCompact!();
+    const result = await pending;
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Context compacted: 10% -> 10%');
+    expect(session.isExecuting()).toBe(false);
+    expect(thinkingStates).toEqual([true, false]);
   });
 
   it('cancelQueue clears pending without aborting', async () => {
