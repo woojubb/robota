@@ -63,32 +63,32 @@ packages/
 
 ### Generic Command Contracts
 
-- [ ] Define one public command module contract for user-visible commands.
-- [ ] Define one command descriptor contract used by slash autocomplete, `/help`, model-invocable command exposure, and documentation.
-- [ ] Define lifecycle metadata for blocking, background, write, process-control, interactive, restart-required, and host-adapter requirements.
-- [ ] Define result contracts for success, failure, warnings, structured display payloads, queued follow-up work, typed interactions, and typed effects.
-- [ ] Remove duplicate descriptor lists once all command metadata is derived from registered command modules.
+- [x] Define one public command module contract for user-visible commands.
+- [x] Define one command descriptor contract used by slash autocomplete, `/help`, model-invocable command exposure, and documentation.
+- [x] Define lifecycle metadata for blocking, background, write, process-control, interactive, restart-required, and host-adapter requirements.
+- [x] Define result contracts for success, failure, warnings, structured display payloads, queued follow-up work, typed interactions, and typed effects.
+- [x] Remove duplicate descriptor lists once all command metadata is derived from registered command modules.
 
 ### Command Host Context
 
-- [ ] Introduce a narrow `ICommandHostContext` or equivalent facade passed to command modules.
-- [ ] Do not pass `InteractiveSession`, React state, CLI settings files, provider factories, or TUI hooks directly to command modules.
-- [ ] Split host context into focused sub-facades so commands depend only on the capabilities they declare.
-- [ ] Add tests proving commands can be executed through the host context without importing `agent-cli`.
+- [x] Introduce a narrow `ICommandHostContext` or equivalent facade passed to command modules.
+- [x] Do not pass `InteractiveSession`, React state, CLI settings files, provider factories, or TUI hooks directly to command modules.
+- [x] Split host context into focused sub-facades so commands depend only on the capabilities they declare.
+- [x] Add tests proving commands can be executed through the host context without importing `agent-cli`.
 
 ### Host Adapter Contracts
 
-- [ ] Define SDK-owned adapter interfaces for settings reads/writes, process restart/exit, session picking, statusline patching, plugin UI actions, provider creation, and local environment access.
-- [ ] Ensure `agent-cli` implements adapters at the composition root.
-- [ ] Ensure command packages receive adapters only through SDK command execution context.
-- [ ] Add harness checks that block command packages from importing CLI/TUI code.
+- [x] Define SDK-owned adapter interfaces for settings reads/writes, process restart/exit, session picking, statusline patching, plugin UI actions, provider creation, and local environment access.
+- [x] Ensure `agent-cli` implements adapters at the composition root.
+- [x] Ensure command packages receive adapters only through SDK command execution context.
+- [x] Add harness checks that block command packages from importing CLI/TUI code.
 
 ### Interaction and Effect Contracts
 
-- [ ] Keep all command prompts generic, typed, and render-agnostic.
-- [ ] Keep all command side effects typed and host-applied.
-- [ ] Remove command-specific interaction state machines from TUI hooks.
-- [ ] Add parity tests for provider setup, compact progress, model restart, statusline patch, plugin actions, and exit/restart effects.
+- [x] Keep all command prompts generic, typed, and render-agnostic.
+- [x] Keep all command side effects typed and host-applied.
+- [x] Remove command-specific interaction state machines from TUI hooks.
+- [x] Add parity tests for provider setup, compact progress, model restart, statusline patch, plugin actions, and exit/restart effects.
 
 ### Provider Common API
 
@@ -102,11 +102,11 @@ packages/
 - [x] Define context usage read APIs that `/context` and auto-compact descriptors can consume.
 - [x] Define compact execution APIs with lifecycle metadata that drives normal blocking command state.
 - [x] Define auto-compact threshold and enabled-state APIs without embedding them in CLI-only state.
-- [ ] Ensure manual `/compact` and auto-triggered compact use the same command execution pipeline.
+- [x] Ensure manual `/compact` and auto-triggered compact use the same command execution pipeline.
 
 ### Session and Checkpoint APIs
 
-- [ ] Define command-facing session APIs for clear, rename, resume, cost, reset, and history state reads.
+- [x] Define command-facing session APIs for clear, rename, resume, cost, reset, and history state reads.
   - [x] Clear-history facade and host-rendered history-clear effect are available.
   - [x] Session-name parsing and host-rendered rename effect helpers are available.
   - [x] Session-picker request effect helper is available.
@@ -118,8 +118,8 @@ packages/
 ### Settings APIs
 
 - [x] Define command-facing model, mode, language, permission, and statusline settings APIs.
-- [ ] Return restart-required effects where host restart is needed.
-- [ ] Remove direct settings mutation from CLI command branches.
+- [x] Return restart-required effects where host restart is needed.
+- [x] Remove direct settings mutation from CLI command branches.
 - [x] Move `/model`, `/mode`, `/language`, `/permissions`, and `/statusline` into command modules.
 
 ### Runtime APIs
@@ -141,17 +141,17 @@ packages/
 
 ## Package Extraction Plan
 
-- [ ] Create one command package for each command owner group rather than keeping feature behavior in SDK.
-- [ ] Prefer grouped packages only when the group shares one cohesive domain API, such as session commands.
-- [ ] Do not create pass-through packages that only re-export SDK types.
-- [ ] Do not add compatibility shims for old SDK-embedded command files.
-- [ ] Remove legacy command implementations in the same PR that introduces the replacement command packages.
-- [ ] Add public exports only from owner packages and avoid duplicate type definitions across packages.
+- [x] Create one command package for each command owner group rather than keeping feature behavior in SDK.
+- [x] Prefer grouped packages only when the group shares one cohesive domain API, such as session commands.
+- [x] Do not create pass-through packages that only re-export SDK types.
+- [x] Do not add compatibility shims for old SDK-embedded command files.
+- [x] Remove legacy command implementations in the same PR that introduces the replacement command packages.
+- [x] Add public exports only from owner packages and avoid duplicate type definitions across packages.
 
 ## Migration Sequence
 
-1. [ ] Create `agent-sdk/src/command-api/` and move generic command contracts, effects, interactions, lifecycle metadata, and host context contracts into it.
-2. [ ] Refactor command execution so all built-ins execute through the same registry, descriptor, lifecycle, interaction, and effect pipeline.
+1. [x] Create `agent-sdk/src/command-api/` and move generic command contracts, effects, interactions, lifecycle metadata, and host context contracts into it.
+2. [x] Refactor command execution so all built-ins execute through the same registry, descriptor, lifecycle, interaction, and effect pipeline.
 3. [x] Extract provider common APIs into `agent-sdk/src/command-api/provider/`.
 4. [x] Create `agent-command-provider` and delete transitional SDK provider command implementation.
 5. [x] Extract context/compact APIs and migrate `/context` and `/compact`.
@@ -172,17 +172,17 @@ packages/
    - [x] `/plugin` migrated to `agent-command-plugin`.
    - [x] `/reload-plugins` migrated to `agent-command-plugin`.
    - [x] `/help` migrated to `agent-command-help`.
-10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
-11. [ ] Remove duplicate built-in command metadata sources after descriptor parity tests pass.
-12. [ ] Run full repository verification and publish-readiness checks.
+10. [x] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
+11. [x] Remove duplicate built-in command metadata sources after descriptor parity tests pass.
+12. [x] Run full repository verification and publish-readiness checks.
 
 ## Relationship To Existing Backlog
 
 This item is the foundation for the command-specific migration backlog:
 
 - `.agents/tasks/completed/command-migration-provider.md`
-- `command-migration-compact.md`
-- `command-migration-context.md`
+- `.agents/tasks/completed/command-migration-compact.md`
+- `.agents/tasks/completed/command-migration-context.md`
 - `.agents/tasks/completed/command-migration-model.md`
 - `.agents/tasks/completed/command-migration-mode.md`
 - `.agents/tasks/completed/command-migration-language.md`
@@ -199,22 +199,22 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-exit.md`
 - `.agents/tasks/completed/command-migration-plugin.md`
 - `.agents/tasks/completed/command-migration-reload-plugins.md`
-- `command-migration-help.md`
-- `command-migration-agent.md`
+- `.agents/backlog/completed/command-migration-help.md`
+- `.agents/backlog/completed/command-migration-agent.md`
 
 The command-specific backlog items should not be treated as later cleanup. They are the execution slices for this API-layer migration.
 
 ## Acceptance Criteria
 
-- [ ] `agent-sdk` exposes a documented command API layer for contracts, lifecycle, interactions, effects, host context, and command-facing ports.
-- [ ] Every built-in command implementation lives in an `agent-command-*` package or a clearly owned command-module package outside SDK/CLI.
-- [ ] `agent-sdk` contains no feature-specific built-in command implementation files.
-- [ ] `agent-cli` contains no command-specific setup flows, provider profile mutation, command metadata ownership, or semantic command switch branches.
-- [ ] Help, autocomplete, and model-invocable command descriptors are derived from registered command modules.
-- [ ] Manual `/compact`, auto-compact, and other blocking commands use the same visible command execution lifecycle.
-- [ ] Settings-changing commands return typed effects or use typed adapters rather than mutating CLI files directly.
-- [ ] Harness checks block regressions across SDK, command packages, and CLI/TUI.
-- [ ] Package specs document the final layering, not transitional compatibility.
+- [x] `agent-sdk` exposes a documented command API layer for contracts, lifecycle, interactions, effects, host context, and command-facing ports.
+- [x] Every built-in command implementation lives in an `agent-command-*` package or a clearly owned command-module package outside SDK/CLI.
+- [x] `agent-sdk` contains no feature-specific built-in command implementation files.
+- [x] `agent-cli` contains no command-specific setup flows, provider profile mutation, command metadata ownership, or semantic command switch branches.
+- [x] Help, autocomplete, and model-invocable command descriptors are derived from registered command modules.
+- [x] Manual `/compact`, auto-compact, and other blocking commands use the same visible command execution lifecycle.
+- [x] Settings-changing commands return typed effects or use typed adapters rather than mutating CLI files directly.
+- [x] Harness checks block regressions across SDK, command packages, and CLI/TUI.
+- [x] Package specs document the final layering, not transitional compatibility.
 
 ## Test Plan
 
@@ -228,7 +228,14 @@ The command-specific backlog items should not be treated as later cleanup. They 
 
 ## Promotion Path
 
-1. Move this file to `.agents/tasks/sdk-command-common-api-layer.md`.
-2. Treat the full target structure as the implementation target; do not create a legacy-preservation phase.
-3. Implement the SDK command API foundation first, then migrate command packages in the sequence above.
-4. Close this task only after SDK/CLI no longer own feature command behavior and all command-specific backlog items are completed or superseded by the implemented package split.
+Completed in `feat/sdk-command-common-api-finalize`.
+
+## Result
+
+- `agent-sdk/src/command-api/` now owns command contracts, lifecycle metadata, interactions,
+  effects, host context, host adapters, and command-facing common APIs.
+- User-visible built-ins are implemented in `agent-command-*` packages and selected by composition
+  roots instead of SDK or CLI command switches.
+- `agent-cli` composes command modules, renders generic interactions/effects, and applies host
+  adapters without owning semantic command branches.
+- `pnpm harness:scan:commands` mechanically guards SDK, CLI, and command-package layering.
