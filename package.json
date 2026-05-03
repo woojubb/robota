@@ -54,6 +54,7 @@
     "harness:scan:coverage-scripts": "node scripts/harness/check-test-coverage-scripts.mjs",
     "harness:scan:file-size": "node scripts/harness/scan-file-size.mjs",
     "harness:scan:dist": "node scripts/harness/scan-dist-freshness.mjs",
+    "harness:lessons:digest": "node scripts/harness/lessons-digest.mjs",
     "harness:plan": "node scripts/harness/plan-change.mjs",
     "harness:pre-push": "node scripts/harness/pre-push.mjs",
     "harness:verify": "node scripts/harness/verify-change.mjs",
