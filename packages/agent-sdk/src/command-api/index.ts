@@ -86,6 +86,24 @@ export {
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
 export {
+  BACKGROUND_COMMAND_DESCRIPTION,
+  BACKGROUND_COMMAND_USAGE,
+  buildBackgroundCommandSubcommands,
+  cancelCommandBackgroundTask,
+  closeCommandBackgroundTask,
+  formatCommandBackgroundTask,
+  formatCommandBackgroundTaskList,
+  listCommandBackgroundTasks,
+  parseCommandBackgroundLogCursor,
+  readCommandBackgroundTaskLog,
+} from './background/background-command-api.js';
+export type {
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+} from '../background-tasks/index.js';
+export {
   buildModelCommandSubcommands,
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,

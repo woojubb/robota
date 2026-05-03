@@ -124,10 +124,10 @@ packages/
 ### Runtime APIs
 
 - [x] Define command-facing memory APIs.
-- [ ] Define command-facing background-task APIs.
+- [x] Define command-facing background-task APIs.
 - [x] Move `/memory` into a command module.
-- [ ] Move `/background` into a command module.
-- [ ] Ensure background commands are non-blocking only when lifecycle metadata explicitly declares them background.
+- [x] Move `/background` into a command module.
+- [x] Ensure background commands are non-blocking only when lifecycle metadata explicitly declares them background.
 
 ### Plugin and Help APIs
 
@@ -162,7 +162,7 @@ packages/
 - [x] `/rewind` migrated to `agent-command-rewind`.
 - [x] `/memory` migrated to `agent-command-memory`.
 
-8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
+8. [x] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
 10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
 11. [ ] Remove duplicate built-in command metadata sources after descriptor parity tests pass.
@@ -187,7 +187,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-reset.md`
 - `.agents/tasks/completed/command-migration-rewind.md`
 - `.agents/tasks/completed/command-migration-memory.md`
-- `command-migration-background.md`
+- `.agents/tasks/completed/command-migration-background.md`
 - `command-migration-plugin.md`
 - `command-migration-reload-plugins.md`
 - `command-migration-help.md`

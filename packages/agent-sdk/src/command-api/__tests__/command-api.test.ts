@@ -15,8 +15,12 @@ import {
   clearConversationHistory,
   createCommandMemoryStores,
   createCommandPendingMemoryStore,
+  formatCommandBackgroundTaskList,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
+  buildBackgroundCommandSubcommands,
+  listCommandBackgroundTasks,
+  parseCommandBackgroundLogCursor,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
@@ -208,6 +212,38 @@ describe('command-api contracts', () => {
     expect(stores.project.list().indexPath).toContain('.robota/memory/MEMORY.md');
     expect(createCommandPendingMemoryStore('/workspace').list()).toEqual([]);
     expect(listCommandUsedMemoryReferences(context)).toEqual([]);
+  });
+
+  it('exposes background command common APIs without command implementation imports', () => {
+    const task = {
+      id: 'agent_1',
+      kind: 'agent' as const,
+      label: 'Explore',
+      status: 'running' as const,
+      mode: 'background' as const,
+      parentSessionId: 'session_parent',
+      depth: 1,
+      cwd: '/workspace',
+      updatedAt: '2026-05-03T00:00:00.000Z',
+      lastActivityAt: '2026-05-03T00:00:01.000Z',
+      unread: false,
+      promptPreview: 'Find files',
+    };
+    const context = {
+      ...createCommandHostContext(),
+      listBackgroundTasks: () => [task],
+    };
+
+    expect(buildBackgroundCommandSubcommands().map((command) => command.name)).toEqual([
+      'list',
+      'read',
+      'cancel',
+      'close',
+    ]);
+    expect(parseCommandBackgroundLogCursor('25')).toEqual({ offset: 25 });
+    expect(parseCommandBackgroundLogCursor('x')).toBeUndefined();
+    expect(listCommandBackgroundTasks(context)).toEqual([task]);
+    expect(formatCommandBackgroundTaskList([task])).toContain('agent_1 [running');
   });
 
   it('exposes statusline command common APIs without command implementation imports', () => {

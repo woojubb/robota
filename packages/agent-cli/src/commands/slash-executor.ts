@@ -113,7 +113,7 @@ export async function executeSlashCommand(
     case 'provider':
       return { handled: false }; // TUI routes provider commands with settings side effects
     case 'background':
-      return { handled: false }; // Route to SDK system command (background task controls)
+      return { handled: false }; // Route to injected background command (task controls)
     case 'memory':
       return { handled: false }; // Route to injected memory command (project memory controls)
     case 'rewind':

@@ -1,6 +1,4 @@
 import type { ICommandHostContext, ISystemCommand } from '../command-api/index.js';
-import { executeBackgroundCommand } from './background-command.js';
-import { buildBackgroundSubcommands } from './system-command-metadata.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
 export type {
   ICommandInteraction,
@@ -35,12 +33,6 @@ export function createSystemCommands(): ISystemCommand[] {
         message: formatHelpMessage(session),
         success: true,
       }),
-    },
-    {
-      name: 'background',
-      description: 'List and control background tasks',
-      subcommands: buildBackgroundSubcommands(),
-      execute: executeBackgroundCommand,
     },
   ];
 }
