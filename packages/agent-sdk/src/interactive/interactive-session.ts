@@ -9,6 +9,7 @@
  */
 
 import type { Session } from '@robota-sdk/agent-sessions';
+import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type {
   TUniversalMessage,
@@ -209,6 +210,7 @@ export class InteractiveSession {
       forkSession: this.forkSession,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
+      onCompactEvent: (event) => this.handleCompactEvent(event),
       onToolExecution: (event) => this.handleToolExecution(event),
       bare: options.bare,
       allowedTools: options.allowedTools,
@@ -983,6 +985,20 @@ export class InteractiveSession {
         this.flushTimer = null;
       }, STREAMING_FLUSH_INTERVAL_MS);
     }
+  }
+
+  private handleCompactEvent(event: ICompactEvent): void {
+    if (event.trigger === 'auto') {
+      this.history.push(
+        messageToHistoryEntry(
+          createSystemMessage(
+            `Auto compacted context: ${Math.round(event.before.usedPercentage)}% -> ${Math.round(event.after.usedPercentage)}%`,
+          ),
+        ),
+      );
+    }
+    this.emit('compact', event);
+    this.emit('context_update', event.after);
   }
 
   private handleToolExecution(event: {

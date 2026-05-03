@@ -23,6 +23,14 @@ import type {
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
+export type TCompactTrigger = 'manual' | 'auto';
+
+export interface ICompactEvent {
+  trigger: TCompactTrigger;
+  before: IContextWindowState;
+  after: IContextWindowState;
+}
+
 /** Options for graceful session shutdown. */
 export interface ISessionShutdownOptions {
   reason?: TSessionEndReason;
@@ -78,6 +86,8 @@ export interface ISessionOptions {
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
+  /** Callback with structured compaction metadata */
+  onCompactEvent?: (event: ICompactEvent) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
   /** Override context max tokens (otherwise derived from model name) */

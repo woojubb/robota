@@ -12,6 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Session } from '../session.js';
+import type { ICompactEvent } from '../session-types.js';
 
 // Track calls to mock Robota
 let mockHistory: Array<{
@@ -135,6 +136,24 @@ describe('Session compaction', () => {
     expect(mockInjectCalls[1].content).toContain('summary of the conversation so far');
   });
 
+  it('compact() emits manual compaction metadata', async () => {
+    const compactEvents: ICompactEvent[] = [];
+    const session = createSession({
+      onCompactEvent: (event: ICompactEvent) => compactEvents.push(event),
+    });
+    mockHistory = [
+      { role: 'user', content: 'hello', metadata: { inputTokens: 70, outputTokens: 10 } },
+      { role: 'assistant', content: 'hi', metadata: { inputTokens: 20, outputTokens: 10 } },
+    ];
+
+    await session.compact();
+
+    expect(compactEvents).toHaveLength(1);
+    expect(compactEvents[0].trigger).toBe('manual');
+    expect(compactEvents[0].before.usedPercentage).toBeGreaterThan(0);
+    expect(compactEvents[0].after.usedPercentage).toBeGreaterThanOrEqual(0);
+  });
+
   it('compact() does not call robota.run() (no streaming interference)', async () => {
     const session = createSession();
     mockHistory = [
@@ -213,6 +232,25 @@ describe('Session compaction', () => {
 
     // The user's message was still processed (robota.run called)
     expect(mockRunCalls).toContain('next question');
+  });
+
+  it('auto-compact emits auto compaction metadata', async () => {
+    const compactEvents: ICompactEvent[] = [];
+    const session = createSession({
+      contextMaxTokens: 100,
+      onCompactEvent: (event: ICompactEvent) => compactEvents.push(event),
+    });
+
+    mockHistory = [
+      { role: 'user', content: 'hello', metadata: { inputTokens: 90, outputTokens: 10 } },
+      { role: 'assistant', content: 'response', metadata: { inputTokens: 90, outputTokens: 10 } },
+    ];
+
+    await session.run('next question');
+
+    expect(compactEvents).toHaveLength(1);
+    expect(compactEvents[0].trigger).toBe('auto');
+    expect(compactEvents[0].before.usedPercentage).toBe(100);
   });
 
   it('auto-compact uses a configured threshold', async () => {

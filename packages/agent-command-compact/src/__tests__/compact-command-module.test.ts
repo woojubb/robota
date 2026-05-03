@@ -76,15 +76,36 @@ describe('createCompactCommandModule', () => {
         name: 'compact',
         description: 'Compress context window',
         argumentHint: '[instructions]',
+        modelInvocable: true,
+        safety: 'write',
       }),
     );
     expect(command).toEqual(
       expect.objectContaining({
         name: 'compact',
         lifecycle: 'blocking',
-        modelInvocable: false,
+        modelInvocable: true,
+        safety: 'write',
       }),
     );
+  });
+
+  it('projects compact as a model-invocable descriptor through the command executor', () => {
+    const executor = new SystemCommandExecutor([
+      ...(createCompactCommandModule().systemCommands ?? []),
+    ]);
+
+    expect(executor.listModelInvocableCommands()).toEqual([
+      {
+        name: '/compact',
+        kind: 'builtin-command',
+        description: 'Compress context window',
+        userInvocable: true,
+        modelInvocable: true,
+        argumentHint: '[instructions]',
+        safety: 'write',
+      },
+    ]);
   });
 
   it('compacts context through the command host facade', async () => {

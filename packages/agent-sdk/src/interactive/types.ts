@@ -3,6 +3,7 @@
  */
 
 import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type { TBackgroundJobGroupEvent, TBackgroundTaskEvent } from '../background-tasks/index.js';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
@@ -69,6 +70,7 @@ export interface IInteractiveSessionEvents {
   complete: (result: IExecutionResult) => void;
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;
+  compact: (event: ICompactEvent) => void;
   interrupted: (result: IExecutionResult) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
