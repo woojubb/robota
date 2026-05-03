@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import {
   InteractiveSession,
   CommandRegistry,
-  BuiltinCommandSource,
+  createBuiltinCommandModule,
   SkillCommandSource,
   PluginCommandSource,
   BundlePluginLoader,
@@ -25,7 +25,6 @@ import type {
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
 import type {
-  IProviderDefinition,
   TPermissionMode,
   TToolArgs,
   IHistoryEntry,
@@ -50,7 +49,6 @@ export interface IInteractiveSessionProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
-  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 export interface IInteractiveSessionState {
@@ -99,7 +97,7 @@ function initializeSession(
   });
 
   const registry = new CommandRegistry();
-  registry.addSource(new BuiltinCommandSource());
+  registry.addModule(createBuiltinCommandModule());
   for (const module of props.commandModules ?? []) {
     registry.addModule(module);
   }
@@ -241,13 +239,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, [manager.isThinking, interactiveSession, manager]);
 
   // Slash command routing (delegated to useSlashRouting)
-  const handleSubmit = useSlashRouting(
-    props.cwd,
-    interactiveSession,
-    registry,
-    manager,
-    props.providerDefinitions ?? [],
-  );
+  const handleSubmit = useSlashRouting(interactiveSession, registry, manager);
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);

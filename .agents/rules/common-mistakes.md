@@ -47,3 +47,5 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 | 40  | Leaving superseded public surfaces                               | Reverse-verify task docs, SPEC, exports, settings schema, and tests                                                   |
 | 41  | Running OTP-based publish in a non-TTY session                   | Run `pnpm publish:beta` with an interactive TTY, or pass a fresh user-provided OTP explicitly after dry-run succeeds  |
 | 42  | Debugging publish failure from filtered dry-run output only      | Re-run `pnpm publish -r --no-git-checks --dry-run` without `grep` in the same permission context and inspect output   |
+| 43  | Treating built-in commands as SDK or CLI-owned hardcoded logic   | Built-in commands are default-composed `ICommandModule` implementations that consume SDK contracts/common APIs        |
+| 44  | Putting provider setup slash flows in TUI hooks                  | Provider command flow belongs to a command module; TUI renders generic prompts/effects and supplies typed adapters    |

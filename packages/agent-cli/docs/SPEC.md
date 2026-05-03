@@ -20,7 +20,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: CLI-only command modules for terminal UI configuration, including `/statusline`
+- OWNS: CLI-only command modules for terminal UI and host side effects, including `/statusline`, `/plugin`, `/reload-plugins`, and `/exit`
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -131,21 +131,21 @@ Non-interactive print/headless execution must not prompt. Missing provider confi
 
 Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider slash commands are CLI side effects rendered through generic TUI interactions:
+Provider slash commands are command-module interactions rendered through generic TUI prompts. During the current migration, the default CLI composes the SDK-exported provider command module; the long-term command-layering target is an `agent-command-*` module that consumes SDK provider common APIs the same way a third-party command module would.
 
 | Command                    | Behavior                                                                                                                                      |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/provider`                | Show current provider and subcommands                                                                                                         |
 | `/provider current`        | Show active profile, type, model, and baseURL                                                                                                 |
 | `/provider list`           | Show provider profiles from merged settings                                                                                                   |
-| `/provider use <profile>`  | Confirm, persist `currentProvider`, and restart the session                                                                                   |
-| `/provider add`            | Start provider setup without a selected type; the CLI setup controller emits a generic choice interaction generated from injected definitions |
+| `/provider use <profile>`  | The provider command module confirms, persists `currentProvider` through its injected settings adapter, and returns a restart effect          |
+| `/provider add`            | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions |
 | `/provider add <type>`     | Start setup for the selected provider type                                                                                                    |
 | `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                             |
 
-Provider changes must follow the existing `/model` restart pattern: command returns structured data, CLI side-effect handlers perform settings writes after confirmation or setup completion, and the App remounts with a new provider instance.
+Provider changes must follow the SDK command contract: the provider command module owns provider setup state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values, submits prompt values back to the active command interaction, and applies typed command effects.
 
-Provider setup prompt semantics must live outside Ink components. `provider-setup-flow` owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final `IProviderSetupInput` construction. `provider-setup-interaction` owns provider selection options and maps provider setup state into generic choice/text interaction descriptors. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic interaction descriptors and pass submitted values back to the CLI side-effect handler.
+Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
 
 TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
 
@@ -162,6 +162,7 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
+              ├── createProviderCommandModule()   (transitional provider command module with injected settings adapter)
               ├── createStatusLineCommandModule() (CLI-owned command module)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
@@ -174,7 +175,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
                     │   │   ├── BuiltinCommandSource  (from @robota-sdk/agent-sdk)
                     │   │   ├── SkillCommandSource    (from @robota-sdk/agent-sdk)
                     │   │   └── PluginCommandSource   (from @robota-sdk/agent-sdk)
-                    │   └── session.executeCommand()  (slash commands routed via SDK)
+                    │   └── session.executeCommand()  (slash commands routed through injected command modules)
                     ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                     ├── InputArea.tsx          (bottom input area, slash detection)
                     ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
@@ -238,6 +239,18 @@ Supported commands:
 | `/statusline reset`   | Restore default status line fields                             |
 
 Defaults are `enabled=true` and `gitBranch=true`. The command returns structured data, `useSlashRouting` converts it into a CLI side-effect flag, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
+
+### CLI Host Command Modules
+
+CLI host commands are represented as `ICommandModule` instances injected into `InteractiveSession`. The command module owns command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
+
+| Command           | Owner module responsibility                            | CLI side effect                                  |
+| ----------------- | ------------------------------------------------------ | ------------------------------------------------ |
+| `/plugin`         | Return a plugin TUI trigger or plugin operation result | Open PluginTUI or refresh plugin state           |
+| `/reload-plugins` | Return a reload completion signal                      | Re-scan plugin resources when supported          |
+| `/exit`           | Return an exit-request signal                          | Gracefully shut down the session and terminal UI |
+
+The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
 
 ### Session Name Display
 
@@ -523,7 +536,7 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
 3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
-5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
+5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Command-specific follow-up prompts are handled by `ICommandInteraction` and command-specific host actions are handled by typed `TCommandEffect` values.
 6. Manages the permission queue (serialises concurrent permission requests).
 
 No other hook or component interacts with `InteractiveSession` directly.
@@ -537,7 +550,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 `App.tsx` is a thin JSX shell (~220 lines). It:
 
 - Calls `useInteractiveSession` and `usePluginCallbacks`.
-- Wraps `handleSubmit` only to process TUI-specific side effects (`_pendingModelId`, `_pendingLanguage`, `_resetRequested`, `_exitRequested`, `_triggerPluginTUI`) that require Ink APIs (`useApp().exit`).
+- Wraps `handleSubmit` only to render generic command interactions and apply typed command effects that require the local host shell (`useApp().exit`, settings writes already performed by command adapters, App remounts, PluginTUI, or SessionPicker).
 - Contains no queue logic, no abort logic, no session business logic.
 
 ### Tool List Visibility
@@ -701,9 +714,7 @@ src/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
 │   ├── provider-factory.ts          ← AI provider resolution from injected definitions
-│   ├── provider-setup-flow.ts       ← Provider setup field flow and final setup input construction
-│   ├── provider-setup-interaction.ts← Provider setup to generic choice/text interaction mapping
-│   ├── interactive-prompt.ts        ← Generic prompt descriptor types shared by CLI use cases and TUI rendering
+│   ├── interactive-prompt.ts        ← Re-export shim for SDK command interaction prompt descriptor types
 │   ├── tool-call-extractor.ts       ← Tool call display extraction from history
 │   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
@@ -1260,20 +1271,20 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 `@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
 
-| Package                                | Purpose                                                                                                    |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                     |
-| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management, re-exported runtime contracts |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                   |
-| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                               |
-| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                               |
-| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                               |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                            |
-| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                              |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                    |
-| `ink-spinner`                          | Loading spinner                                                                                            |
-| `chalk`                                | Terminal colors                                                                                            |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                 |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                    |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                                                        |
-| `string-width`                         | Unicode-aware string width calculation                                                                     |
+| Package                                | Purpose                                                                                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                              |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, provider command module, plugin management, re-exported runtime contracts |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                            |
+| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                                                        |
+| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                                                        |
+| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                                                        |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                                                     |
+| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                                                       |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                                             |
+| `ink-spinner`                          | Loading spinner                                                                                                                     |
+| `chalk`                                | Terminal colors                                                                                                                     |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                                          |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                                             |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                                                                                 |
+| `string-width`                         | Unicode-aware string width calculation                                                                                              |

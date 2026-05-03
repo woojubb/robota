@@ -87,7 +87,7 @@ function createStatusLineSystemCommand(): ISystemCommand {
       return {
         success: true,
         message: action.message,
-        data: { statuslinePatch: action.patch },
+        effects: [{ type: 'statusline-settings-patch', patch: action.patch }],
       };
     },
   };

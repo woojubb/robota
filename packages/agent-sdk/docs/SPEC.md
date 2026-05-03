@@ -27,6 +27,7 @@ agent-provider-*     ← provider implementations (unchanged)
 agent-sdk            ← InteractiveSession (single entry point)
   ├── embedded: SystemCommandExecutor (session.executeCommand())
   ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
+  ├── common API: command effects/interactions, lifecycle metadata, provider settings/profile helpers
   ├── extension: ICommandModule command/source/session-requirement injection
   ├── optional: Agent tool + AgentDefinitionLoader when a module requests agent-runtime
   ├── composed: agent-runtime BackgroundTaskManager, SubagentManager, runner ports
@@ -34,8 +35,9 @@ agent-sdk            ← InteractiveSession (single entry point)
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
 
-agent-command-*      ← optional command modules
+agent-command-*      ← built-in/optional command modules
   ├── consumes SDK command interfaces
+  ├── consumes SDK common APIs like third-party modules
   └── NO dependency from agent-sdk back to command modules
 
 agent-cli            ← minimal TUI
@@ -47,6 +49,8 @@ agent-cli            ← minimal TUI
 ```
 
 SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider and passes it to the SDK. Assembly (wiring tools, provider, system prompt) happens inside the SDK, but the provider itself comes from the consumer.
+
+SDK command code is split between infrastructure and legacy embedded command implementations. The stable SDK responsibility is the generic command API layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, and reusable command-facing common APIs. New user-visible internal commands must be implemented as command modules selected by composition roots; existing SDK-embedded command behavior is a migration target, not precedent for new command features.
 
 ### Client–SDK–Session Relationship
 
@@ -85,8 +89,8 @@ The SDK layer has **no React dependency** and **no provider dependency**. The CL
 | **agent-runtime**     | Background task and subagent lifecycle primitives, runner ports, worktree runner decorator                                               | General             |
 | **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                                                          | General             |
 | **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                                                        | General             |
-| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), embedded commands, createQuery(), config, context                               | SDK-specific        |
-| **agent-command-\***  | Optional command modules that consume SDK command interfaces and can be selected by composition roots                                    | Command-specific    |
+| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), command contracts/common APIs, createQuery(), config, context                   | SDK-specific        |
+| **agent-command-\***  | Built-in/optional command modules that consume SDK command interfaces/common APIs and can be selected by composition roots               | Command-specific    |
 | **agent-cli**         | Ink TUI and product composition. Creates provider, selects command modules, passes both to InteractiveSession. No agent-sessions import. | CLI-specific        |
 | **agent-provider-\*** | AI provider implementations. CLI depends on these directly; SDK does not.                                                                | Provider-specific   |
 
@@ -122,10 +126,11 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
 ├── src/commands/
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
-│   ├── builtin-source.ts       ← BuiltinCommandSource: built-in commands
+│   ├── builtin-source.ts       ← BuiltinCommandSource: command palette metadata derived from executable built-ins
+│   ├── command-module.ts       ← ICommandModule composition contract
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
-│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands()
+│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + SDK built-in command module factory
 │   └── types.ts                ← ICommand, ICommandSource
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
@@ -249,12 +254,16 @@ agent-cli (Ink TUI — CLI-specific)
 - **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers normally call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` and `createSystemCommands()` are exported so independent command modules can compose and test against the same command contract.
 - **Classes**:
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
-  - `createSystemCommands()` — factory for all built-in commands (internal)
-- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
+  - `createSystemCommands()` — factory for SDK-default executable built-in commands
+  - `createBuiltinCommandModule()` — SDK-default command module that exposes the same executable commands as palette/autocomplete metadata
+- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
+- **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
+- **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
 - **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
+- **Provider command module**: `createProviderCommandModule()` is an SDK-owned command module factory for `/provider`. It consumes injected provider definitions and a settings adapter, owns provider subcommand parsing, provider setup flow state, provider setup validation, confirmation prompts, settings patch construction, and restart effects. CLI/TUI code may compose the module and render generic command interactions, but must not parse provider command payloads or own provider setup state.
 - **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`/rewind`**: User-invocable code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
-- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
+- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance. Product assemblies can inject host-owned built-ins such as plugin, exit, and statusline without adding CLI-specific code to SDK core.
 
 ### Slash Command Registry (SDK-Specific)
 
@@ -740,22 +749,23 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 
 **Built-in commands:**
 
-| Command       | Description                                                                           |
-| ------------- | ------------------------------------------------------------------------------------- |
-| `help`        | Show available commands                                                               |
-| `clear`       | Clear conversation history                                                            |
-| `compact`     | Compress context window (optional focus instructions)                                 |
-| `mode [m]`    | Show or change permission mode                                                        |
-| `model <id>`  | Change AI model (returns `data.modelId` — caller applies)                             |
-| `language`    | Set response language (returns `data.language`)                                       |
-| `cost`        | Session ID and message count                                                          |
-| `context`     | Token usage: used / max / percentage                                                  |
-| `permissions` | Current mode and session-approved tools                                               |
-| `memory`      | List/show/add/review project memory and report used memory references                 |
-| `rewind`      | List edit checkpoints, restore later edits, or rollback through a checkpoint          |
-| `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
-| `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
-| `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |
+| Command       | Description                                                                  |
+| ------------- | ---------------------------------------------------------------------------- |
+| `help`        | Show available commands                                                      |
+| `clear`       | Clear conversation history                                                   |
+| `compact`     | Compress context window (optional focus instructions)                        |
+| `mode [m]`    | Show or change permission mode                                               |
+| `model <id>`  | Request an AI model change through `model-change-requested` effect           |
+| `language`    | Request response language update through `language-change-requested` effect  |
+| `cost`        | Session ID and message count                                                 |
+| `context`     | Token usage: used / max / percentage                                         |
+| `permissions` | Current mode and session-approved tools                                      |
+| `memory`      | List/show/add/review project memory and report used memory references        |
+| `rewind`      | List edit checkpoints, restore later edits, or rollback through a checkpoint |
+| `reset`       | Requests settings reset through `settings-reset-requested` effect            |
+| `resume`      | Requests session picker through `session-picker-requested` effect            |
+| `rename`      | Requests session rename through `session-renamed` effect                     |
+| `provider`    | Optional SDK command module for provider current/list/use/add/test flows     |
 
 **ISystemCommand:**
 
@@ -767,6 +777,8 @@ interface ISystemCommand {
   userInvocable?: boolean;
   argumentHint?: string;
   safety?: TCapabilitySafety;
+  subcommands?: readonly ICommand[];
+  lifecycle?: 'inline' | 'blocking' | 'background';
   execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
 }
 ```
@@ -791,9 +803,30 @@ interface ICommandModule {
 interface ICommandResult {
   message: string;
   success: boolean;
-  data?: Record<string, unknown>;
+  data?: Record<string, TCommandResultDataValue>;
+  effects?: readonly TCommandEffect[];
+  interaction?: ICommandInteraction;
+}
+
+type TCommandEffect =
+  | { type: 'model-change-requested'; modelId: string }
+  | { type: 'language-change-requested'; language: string }
+  | { type: 'settings-reset-requested' }
+  | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
+  | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
+  | { type: 'plugin-tui-requested' }
+  | { type: 'session-picker-requested' }
+  | { type: 'session-renamed'; name: string }
+  | { type: 'statusline-settings-patch'; patch: Record<string, TUniversalValue> };
+
+interface ICommandInteraction {
+  prompt: ICommandInteractionPrompt;
+  submit(value: string): Promise<ICommandResult> | ICommandResult;
+  cancel?(): Promise<ICommandResult> | ICommandResult;
 }
 ```
+
+`ICommandInteractionPrompt` is the generic prompt descriptor used by UI hosts. It supports choice and text prompts with masked text and validation metadata. Hosts render the prompt and pass submitted values back to the interaction; they do not inspect command-specific state.
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 

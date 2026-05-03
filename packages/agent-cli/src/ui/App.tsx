@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -40,7 +40,6 @@ interface IProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
-  providerDefinitions?: readonly IProviderDefinition[];
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
@@ -61,7 +60,6 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
-  const providerDefinitions = props.providerDefinitions ?? [];
 
   const {
     interactiveSession,
@@ -93,7 +91,6 @@ function AppInner(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
-    providerDefinitions,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);
@@ -108,14 +105,12 @@ function AppInner(
   const {
     handleSubmit,
     pendingModelId,
-    pendingProviderProfile,
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
-    handleProviderConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
   } = useSideEffects({
@@ -125,7 +120,6 @@ function AppInner(
     baseHandleSubmit,
     setSessionName,
     setStatusLineSettings,
-    providerDefinitions,
   });
 
   // Sync session name from InteractiveSession when resuming
@@ -225,12 +219,6 @@ function AppInner(
         <ConfirmPrompt
           message={`Change model to ${getModelName(pendingModelId)}? This will restart the session.`}
           onSelect={handleModelConfirm}
-        />
-      )}
-      {pendingProviderProfile && (
-        <ConfirmPrompt
-          message={`Change provider to ${pendingProviderProfile}? This will restart the session.`}
-          onSelect={handleProviderConfirm}
         />
       )}
       {pendingInteractionPrompt && (

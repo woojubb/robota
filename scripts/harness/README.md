@@ -6,6 +6,7 @@ These scripts are the executable layer of the Robota harness.
 
 - `pnpm harness:scan`
 - `pnpm harness:scan:consistency`
+- `pnpm harness:scan:commands`
 - `pnpm harness:scan:specs`
 - `pnpm harness:scan:coverage-scripts`
 - `pnpm harness:plan -- --changed-file <path> [--changed-file <path>] [--base-ref <git-ref>]`
@@ -41,6 +42,13 @@ These scripts are the executable layer of the Robota harness.
 - fails when a workspace owns `examples/` but does not expose `scenario:record`
 - fails when a workspace owns `examples/` but does not keep `examples/scenarios/*.record.json`
 - validates that authoritative scenario records align one-to-one with the current owner scenario command set
+
+### `check-command-layering.mjs`
+
+- verifies that CLI/TUI code does not own provider slash command state or setup flow
+- verifies that slash routing does not add command-specific built-in branches
+- verifies that `agent-sdk` does not import or depend on `agent-command-*` implementation packages
+- verifies that `agent-command-*` packages do not import `agent-cli`
 
 ### `check-test-coverage-scripts.mjs`
 

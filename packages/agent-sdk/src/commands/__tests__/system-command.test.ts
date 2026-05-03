@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
 import type { ICommandModule } from '../command-module.js';
@@ -121,6 +122,21 @@ describe('SystemCommandExecutor', () => {
     expect(result!.message).toContain('Available commands');
   });
 
+  it('help renders the composed command list from the interactive session when available', async () => {
+    const executor = new SystemCommandExecutor();
+    const session = createMockSession({
+      listCommands: vi.fn().mockReturnValue([
+        { name: 'help', description: 'Show available commands' },
+        { name: 'provider', description: 'Manage provider profiles' },
+      ]),
+    });
+
+    const result = await executor.execute('help', session, '');
+
+    expect(result!.message).toContain('provider');
+    expect(result!.message).toContain('Manage provider profiles');
+  });
+
   it('clear calls session.clearHistory', async () => {
     const executor = new SystemCommandExecutor();
     const session = createMockSession();
@@ -153,18 +169,22 @@ describe('SystemCommandExecutor', () => {
     expect(result!.success).toBe(false);
   });
 
-  it('model returns modelId in data', async () => {
+  it('model requests model changes through a typed command effect', async () => {
     const executor = new SystemCommandExecutor();
     const result = await executor.execute('model', createMockSession(), 'claude-sonnet-4-6');
     expect(result!.success).toBe(true);
     expect(result!.data?.modelId).toBe('claude-sonnet-4-6');
+    expect(result!.effects).toEqual([
+      { type: 'model-change-requested', modelId: 'claude-sonnet-4-6' },
+    ]);
   });
 
-  it('language returns language in data', async () => {
+  it('language requests language changes through a typed command effect', async () => {
     const executor = new SystemCommandExecutor();
     const result = await executor.execute('language', createMockSession(), 'ko');
     expect(result!.success).toBe(true);
     expect(result!.data?.language).toBe('ko');
+    expect(result!.effects).toEqual([{ type: 'language-change-requested', language: 'ko' }]);
   });
 
   it('cost returns session info', async () => {
@@ -212,16 +232,34 @@ describe('SystemCommandExecutor', () => {
         name: 'compact',
         description: 'Compress context window',
         argumentHint: '[instructions]',
+        lifecycle: 'blocking',
       }),
     );
   });
 
-  it('resume returns triggerResumePicker in data', async () => {
+  it('derives SDK built-in command palette metadata from executable system commands', () => {
+    const module = createBuiltinCommandModule();
+    const executableNames = module.systemCommands?.map((command) => command.name) ?? [];
+    const paletteNames =
+      module.commandSources?.flatMap((source) =>
+        source.getCommands().map((command) => command.name),
+      ) ?? [];
+
+    expect(paletteNames).toEqual(executableNames);
+    expect(paletteNames).not.toContain('provider');
+    expect(paletteNames).not.toContain('plugin');
+    expect(
+      new BuiltinCommandSource(module.systemCommands).getCommands().map((c) => c.name),
+    ).toEqual(executableNames);
+  });
+
+  it('resume requests the session picker through a typed command effect', async () => {
     const executor = new SystemCommandExecutor();
     const result = await executor.execute('resume', createMockSession(), '');
     expect(result).not.toBeNull();
     expect(result!.success).toBe(true);
     expect(result!.data?.triggerResumePicker).toBe(true);
+    expect(result!.effects).toEqual([{ type: 'session-picker-requested' }]);
   });
 
   it('rewind list returns edit checkpoints', async () => {
