@@ -46,6 +46,7 @@ These scripts are the executable layer of the Robota harness.
 ### `check-command-layering.mjs`
 
 - verifies that CLI/TUI code does not own provider slash command state or setup flow
+- verifies that legacy CLI command-source files do not return after migration
 - verifies that slash routing does not add command-specific built-in branches
 - verifies that `agent-sdk` does not import or depend on `agent-command-*` implementation packages
 - verifies that `agent-command-*` packages do not import `agent-cli`

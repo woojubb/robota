@@ -49,6 +49,44 @@ describe('findCommandLayeringFindings', () => {
     expect(findings.map((finding) => finding.type)).toContain('cli-command-specific-router-branch');
   });
 
+  it('flags the legacy CLI slash executor file', async () => {
+    const root = await createFixture({
+      'packages/agent-cli/src/commands/slash-executor.ts':
+        'switch (cmd) { case "model": return { handled: false }; }\n',
+      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+    });
+
+    const findings = await findCommandLayeringFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-cli/src/commands/slash-executor.ts',
+        type: 'cli-legacy-slash-executor',
+        detail:
+          'CLI must not keep a legacy built-in slash command switch; use session.executeCommand() and generic skill/plugin fallback.',
+      },
+    ]);
+  });
+
+  it('flags the legacy CLI plugin command source copy', async () => {
+    const root = await createFixture({
+      'packages/agent-cli/src/commands/plugin-source.ts':
+        'export class PluginCommandSource { getCommands() { return []; } }\n',
+      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+    });
+
+    const findings = await findCommandLayeringFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-cli/src/commands/plugin-source.ts',
+        type: 'cli-legacy-plugin-source',
+        detail:
+          'CLI must not keep a local PluginCommandSource copy; use the SDK-owned PluginCommandSource.',
+      },
+    ]);
+  });
+
   it('flags agent-sdk dependencies on command implementation packages', async () => {
     const root = await createFixture({
       'packages/agent-sdk/package.json':

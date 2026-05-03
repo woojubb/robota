@@ -739,17 +739,14 @@ src/
 ├── cli.ts                           ← Config loading, Ink render invocation
 ├── print-terminal.ts                ← ITerminalOutput for print mode (-p)
 ├── types.ts                         ← ITerminalOutput, ISpinner
-├── index.ts                         ← Re-exports (CommandRegistry, BuiltinCommandSource, etc.)
+├── index.ts                         ← Public CLI entry exports
 ├── commands/
 │   ├── types.ts                     ← ISlashCommand, ICommandSource interfaces
 │   ├── builtin-source.ts            ← Re-export shim: `export { BuiltinCommandSource } from '@robota-sdk/agent-sdk'`
 │   ├── command-registry.ts          ← Re-export shim: `export { CommandRegistry } from '@robota-sdk/agent-sdk'`
 │   ├── skill-source.ts              ← Re-export shim: `export { SkillCommandSource } from '@robota-sdk/agent-sdk'`
-│   ├── plugin-source.ts             ← PluginCommandSource (legacy local copy; main flow uses SDK version)
 │   ├── skill-executor.ts            ← Skill execution helpers (fork/inject modes); not in main flow
 │   │                                  (main flow uses buildSkillPrompt from @robota-sdk/agent-sdk)
-│   └── slash-executor.ts            ← Legacy command parser test helper
-│                                      (not in main flow; main flow uses session.executeCommand())
 ├── plugins/
 │   └── plugin-command-adapter.ts    ← CLI implementation of ICommandPluginAdapter
 ├── utils/
@@ -799,7 +796,7 @@ src/
     └── types.ts                     ← IPermissionRequest
 ```
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility, plus `slash-executor.ts` as a legacy parser test helper and `skill-executor.ts` (fork/inject execution helpers). Plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility plus `skill-executor.ts` (fork/inject execution helpers). Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 
 ## CLI Usage
 
