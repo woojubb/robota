@@ -11,4 +11,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-No unscheduled backlog items.
+- [TUI provider/model state drift](tui-provider-model-state-drift.md)
