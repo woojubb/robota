@@ -14,7 +14,7 @@ export type {
 
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
-export { ContextWindowTracker } from './context-window-tracker.js';
+export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export { CompactionOrchestrator } from './compaction-orchestrator.js';
 
 // Context window state (re-exported from agent-core for convenience)

@@ -109,7 +109,7 @@ Types consumed from other packages (not owned here):
 
 `ISessionOptions.onContextUpdate` is an optional callback fired from the session runtime whenever `ContextWindowTracker` is refreshed. It fires before the provider call using the assembled request history estimate and again after the provider response is committed with exact provider usage when available. Consumers such as `InteractiveSession` forward it as `context_update`.
 
-`ISessionOptions.autoCompactThreshold` controls the automatic compaction trigger as a `0 < value <= 1` fraction. The default is `0.835`. Set it to `false` when an embedding runtime manages compaction externally.
+`ISessionOptions.autoCompactThreshold` controls the initial automatic compaction trigger as a `0 < value <= 1` fraction. The default is `0.835`. Set it to `false` when an embedding runtime manages compaction externally. `Session.setAutoCompactThreshold()` may change this policy after construction; subsequent `run()` calls use the new policy immediately.
 
 ### Key Session Methods
 
@@ -126,6 +126,7 @@ Types consumed from other packages (not owned here):
 | `addHistoryEntry`          | `(entry: IHistoryEntry) => void`                                     | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
 | `getContextState`          | `() => IContextWindowState`                                          | Returns real-time context window usage (tokens, percentage).                                                                            |
 | `getAutoCompactThreshold`  | `() => TAutoCompactThreshold`                                        | Returns the configured automatic compaction threshold, or `false` when disabled.                                                        |
+| `setAutoCompactThreshold`  | `(threshold: TAutoCompactThreshold) => void`                         | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                                                         | Cancels the currently running `run()` call. No-op if not running.                                                                       |
 | `shutdown`                 | `(options?: ISessionShutdownOptions) => Promise<void>`               | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                       |

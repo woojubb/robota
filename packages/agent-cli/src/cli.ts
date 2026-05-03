@@ -13,7 +13,11 @@ import { createProviderCommandModule } from '@robota-sdk/agent-command-provider'
 import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
 import { createContextCommandModule } from '@robota-sdk/agent-command-context';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
-import type { ICommandModule, TProviderSettingsDocument } from '@robota-sdk/agent-sdk';
+import type {
+  ICommandHostAdapters,
+  ICommandModule,
+  TProviderSettingsDocument,
+} from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import {
@@ -151,6 +155,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+  const commandHostAdapters: ICommandHostAdapters = {
+    settings: {
+      read: () => readSettings(getUserSettingsPath()),
+      write: (settings) => writeSettings(getUserSettingsPath(), settings),
+    },
+  };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
     createCompactCommandModule(),
@@ -273,6 +283,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       commandModules,
+      commandHostAdapters,
     });
 
     const transport = createHeadlessTransport({
@@ -301,6 +312,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     backgroundTaskRunners,
     subagentRunnerFactory,
     commandModules,
+    commandHostAdapters,
     startupUpdateNoticePromise,
   });
 }

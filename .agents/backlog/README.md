@@ -34,7 +34,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [command-migration-resume.md](command-migration-resume.md)                     | Migrate `/resume` into a command-module owner                 |
 | [command-migration-rewind.md](command-migration-rewind.md)                     | Migrate `/rewind` into a command-module owner                 |
 | [command-migration-statusline.md](command-migration-statusline.md)             | Migrate `/statusline` into a command-module owner             |
-| [compact-auto-controls.md](compact-auto-controls.md)                           | Command controls for auto-compact threshold and on/off state  |
 | [compact-command-descriptor.md](compact-command-descriptor.md)                 | Descriptor-owned compact command and auto-trigger policy      |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)           | Gemini API provider modernization                             |
 | [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |

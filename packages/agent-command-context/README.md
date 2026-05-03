@@ -1,6 +1,6 @@
 # @robota-sdk/agent-command-context
 
-Composable `/context` command module for Robota sessions.
+Composable `/context` command module for Robota sessions. It reports context-window usage and owns `/context auto ...` controls for automatic compaction.
 
 ```ts
 import { createContextCommandModule } from '@robota-sdk/agent-command-context';

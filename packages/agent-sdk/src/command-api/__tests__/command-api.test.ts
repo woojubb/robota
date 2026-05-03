@@ -7,6 +7,11 @@ import type {
   ISystemCommand,
 } from '../index.js';
 import { buildProviderProfile, formatEnvReference, validateProviderProfile } from '../index.js';
+import {
+  resetAutoCompactThresholdSetting,
+  setCommandAutoCompactThreshold,
+  writeAutoCompactThresholdSetting,
+} from '../index.js';
 import type { IEditCheckpointRestoreResult } from '../../checkpoints/index.js';
 
 const CONTEXT_STATE: IContextWindowState = {
@@ -52,10 +57,25 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
 
 function createCommandHostContext(): ICommandHostContext {
   const runtime = createCommandSessionRuntime();
+  let settings: Record<string, number | false> = {};
+  let threshold: number | false = 0.8;
   return {
     getSession: () => runtime,
     getContextState: () => CONTEXT_STATE,
-    getAutoCompactThreshold: () => 0.8,
+    getAutoCompactThreshold: () => threshold,
+    setAutoCompactThreshold: (nextThreshold) => {
+      threshold = nextThreshold;
+    },
+    getCommandHostAdapters: () => ({
+      settings: {
+        read: () => settings,
+        write: (nextSettings) => {
+          const value = nextSettings.autoCompactThreshold;
+          settings =
+            typeof value === 'number' || value === false ? { autoCompactThreshold: value } : {};
+        },
+      },
+    }),
     compactContext: async () => undefined,
     getCwd: () => '/workspace',
     listCommands: () => [{ name: 'example', description: 'Example command' }],
@@ -108,5 +128,15 @@ describe('command-api contracts', () => {
 
     expect(profile.apiKey).toBe(formatEnvReference('OPENAI_API_KEY'));
     expect(() => validateProviderProfile('openai-main', profile)).not.toThrow();
+  });
+
+  it('exposes auto compact common APIs without command implementation imports', () => {
+    const context = createCommandHostContext();
+
+    expect(writeAutoCompactThresholdSetting(context, 0.7)).toBe(true);
+    setCommandAutoCompactThreshold(context, 0.7, 'settings');
+    expect(context.getAutoCompactThreshold()).toBe(0.7);
+
+    expect(resetAutoCompactThresholdSetting(context)).toBe(true);
   });
 });

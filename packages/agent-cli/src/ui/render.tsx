@@ -10,6 +10,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type {
   IBackgroundTaskRunner,
+  ICommandHostAdapters,
   ICommandModule,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
@@ -30,6 +31,7 @@ export interface IRenderOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  commandHostAdapters?: ICommandHostAdapters;
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 

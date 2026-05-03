@@ -315,6 +315,11 @@ export class Session {
     return this.contextTracker.getAutoCompactThreshold();
   }
 
+  /** Change this session's automatic context compaction threshold policy. */
+  setAutoCompactThreshold(threshold: number | false): void {
+    this.contextTracker.setAutoCompactThreshold(threshold);
+  }
+
   /**
    * Run compaction — summarize the conversation to free context space.
    * @param instructions - Optional focus instructions for the summary
