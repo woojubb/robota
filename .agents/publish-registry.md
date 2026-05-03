@@ -22,7 +22,7 @@ Packages marked **publish** are published to npm under `@robota-sdk/` scope. All
 | agent-plugin-\* (11 pkgs)        | no      | —       | private: true, unused by CLI       |
 | agent-provider-bytedance         | no      | —       | private: true                      |
 | agent-provider-google            | yes     | beta    | Compatibility wrapper for Gemini   |
-| agent-command-\* (12 pkgs)       | yes     | beta    | Default CLI command modules        |
+| agent-command-\* (13 pkgs)       | yes     | beta    | Default CLI command modules        |
 | agent-remote                     | no      | —       | private: true                      |
 | agent-remote-server-core         | no      | —       | private: true                      |
 | agent-team                       | no      | —       | private: true                      |

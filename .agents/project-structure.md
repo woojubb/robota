@@ -12,6 +12,7 @@ packages/
 ├── agent-command-compact/       # Command module that contributes /compact
 ├── agent-command-context/       # Command module that contributes /context
 ├── agent-command-language/      # Command module that contributes /language
+├── agent-command-memory/        # Command module that contributes /memory
 ├── agent-command-mode/          # Command module that contributes /mode
 ├── agent-command-model/         # Command module that contributes /model
 ├── agent-command-permissions/   # Command module that contributes /permissions

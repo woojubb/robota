@@ -1,5 +1,9 @@
 # Command Migration: `/memory`
 
+Status: Completed
+Completed: 2026-05-03
+Branch: `feat/command-memory-module`
+
 ## What
 
 Migrate `/memory` from SDK embedded command registration into a command-module owner while preserving project memory behavior.
@@ -31,3 +35,11 @@ Recommended: `@robota-sdk/agent-command-memory`, consuming SDK memory common API
 - Port existing memory command tests to the command package.
 - Add descriptor tests for model-invocable/write safety metadata.
 - Add integration tests for add/list/pending approval flows through `session.executeCommand`.
+
+## Completion Notes
+
+- Added `@robota-sdk/agent-command-memory` as the command-module owner for `/memory`.
+- Added SDK memory command common APIs under `packages/agent-sdk/src/command-api/memory/`.
+- Removed SDK-embedded `/memory` execution and metadata from `packages/agent-sdk/src/commands/`.
+- Composed `createMemoryCommandModule()` in the CLI product entrypoint.
+- Ported list, add, sensitive-content rejection, pending, approve, reject, used, model-invocation, descriptor, usage, and command-source tests into the command package.

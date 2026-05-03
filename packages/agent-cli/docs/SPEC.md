@@ -433,7 +433,7 @@ Tool: [5 tools]
 | `/cost`                   | Show session info through the session command module       |
 | `/context`                | Context window info and `/context auto ...` controls       |
 | `/permissions`            | Permission rules                                           |
-| `/memory`                 | Route project memory commands to SDK                       |
+| `/memory`                 | Route project memory commands to the memory command module |
 | `/rewind`                 | Route edit checkpoint list/restore commands to SDK         |
 | `/background`             | Route background task controls to SDK                      |
 | `/plugin [subcommand]`    | Plugin management                                          |
@@ -621,12 +621,12 @@ interface ISlashCommand {
 
 ### Command Sources
 
-| Source   | Class                  | Owner                   | Description                                                        |
-| -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------ |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /help and /memory            |
-| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /model |
-| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                 |
-| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                        |
+| Source   | Class                  | Owner                   | Description                                                                    |
+| -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------ |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /help and /background                    |
+| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /model and /memory |
+| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                             |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                    |
 
 ### Skill Discovery (Multi-Path)
 
@@ -1224,9 +1224,9 @@ Background job groups are SDK-owned orchestration state. The TUI may render grou
 
 ### Project Memory Review Surface
 
-Project memory behavior is SDK-owned. The CLI and TUI must not extract memory candidates, select relevant topics, decide approval policy, or write `.robota/memory` files directly. They route `/memory` commands through `session.executeCommand()` and render returned messages/data.
+Project memory storage and policy primitives are SDK-owned, while `/memory` command behavior is owned by `@robota-sdk/agent-command-memory`. The CLI and TUI must not extract memory candidates, select relevant topics, decide approval policy, or write `.robota/memory` files directly. They compose the memory command module, route `/memory` commands through `session.executeCommand()`, and render returned messages/data.
 
-Supported SDK-owned project memory commands exposed through the CLI:
+Supported memory command module flows exposed through the CLI:
 
 | Command                | CLI responsibility                                              |
 | ---------------------- | --------------------------------------------------------------- |
