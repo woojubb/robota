@@ -1,12 +1,19 @@
-import type { ICommandHostContext, ICommandResult } from '../command-api/index.js';
-import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
-import { PendingMemoryStore } from '../memory/pending-memory-store.js';
+import type {
+  IAppendMemoryInput,
+  ICommandHostContext,
+  ICommandPendingMemoryStore,
+  ICommandProjectMemoryStore,
+  ICommandResult,
+  IMemoryEvent,
+} from '@robota-sdk/agent-sdk';
 import {
-  ProjectMemoryStore,
-  isMemoryType,
-  type TMemoryType,
-} from '../memory/project-memory-store.js';
-import { containsSensitiveMemoryContent } from '../memory/memory-policy-evaluator.js';
+  MEMORY_COMMAND_USAGE,
+  createCommandMemoryStores,
+  hasSensitiveCommandMemoryContent,
+  isCommandMemoryType,
+  listCommandUsedMemoryReferences,
+  recordCommandMemoryEvent,
+} from '@robota-sdk/agent-sdk';
 
 const SUBCOMMAND_INDEX = 0;
 const TYPE_INDEX = 1;
@@ -15,13 +22,19 @@ const TEXT_START_INDEX = 3;
 
 function usage(): ICommandResult {
   return {
-    message:
-      'Usage: memory list | memory show [topic] | memory add <user|feedback|project|reference> <topic> <text> | memory pending | memory approve <id> | memory reject <id> | memory used',
+    message: MEMORY_COMMAND_USAGE,
     success: false,
   };
 }
 
-function formatList(store: ProjectMemoryStore): ICommandResult {
+function formatError(error: Error | string): ICommandResult {
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    success: false,
+  };
+}
+
+function formatList(store: ICommandProjectMemoryStore): ICommandResult {
   const summary = store.list();
   const topics =
     summary.topics.length > 0
@@ -44,7 +57,7 @@ function formatList(store: ProjectMemoryStore): ICommandResult {
   };
 }
 
-function formatShow(store: ProjectMemoryStore, topic?: string): ICommandResult {
+function formatShow(store: ICommandProjectMemoryStore, topic?: string): ICommandResult {
   if (!topic || topic === 'index') {
     const memory = store.loadStartupMemory();
     return {
@@ -66,16 +79,16 @@ function formatShow(store: ProjectMemoryStore, topic?: string): ICommandResult {
   };
 }
 
-function parseAdd(args: string[]): { type: TMemoryType; topic: string; text: string } | undefined {
+function parseAdd(args: readonly string[]): IAppendMemoryInput | undefined {
   const type = args[TYPE_INDEX];
   const topic = args[TOPIC_INDEX];
   const text = args.slice(TEXT_START_INDEX).join(' ').trim();
 
-  if (!type || !isMemoryType(type) || !topic || text.length === 0) return undefined;
+  if (!type || !isCommandMemoryType(type) || !topic || text.length === 0) return undefined;
   return { type, topic, text };
 }
 
-function formatPending(store: PendingMemoryStore): ICommandResult {
+function formatPending(store: ICommandPendingMemoryStore): ICommandResult {
   const records = store.list('pending');
   const lines =
     records.length > 0
@@ -92,17 +105,14 @@ function formatPending(store: PendingMemoryStore): ICommandResult {
   };
 }
 
-function recordEvent(session: ICommandHostContext, event: Omit<IMemoryEvent, 'at'>): void {
-  session.recordMemoryEvent({
-    ...event,
-    at: new Date().toISOString(),
-  });
+function recordEvent(context: ICommandHostContext, event: Omit<IMemoryEvent, 'at'>): void {
+  recordCommandMemoryEvent(context, event);
 }
 
 function approvePending(
-  session: ICommandHostContext,
-  pendingStore: PendingMemoryStore,
-  memoryStore: ProjectMemoryStore,
+  context: ICommandHostContext,
+  pendingStore: ICommandPendingMemoryStore,
+  memoryStore: ICommandProjectMemoryStore,
   id: string | undefined,
 ): ICommandResult {
   if (!id) return usage();
@@ -110,13 +120,13 @@ function approvePending(
     const approved = pendingStore.mark(id, 'approved', 'approved-by-user');
     const saved = memoryStore.append(approved);
     const record = pendingStore.mark(id, 'saved', 'approved-and-saved');
-    recordEvent(session, {
+    recordEvent(context, {
       type: 'memory_candidate_approved',
       candidateId: record.id,
       topic: record.topic,
       reason: 'approved-by-user',
     });
-    recordEvent(session, {
+    recordEvent(context, {
       type: 'memory_candidate_saved',
       candidateId: record.id,
       topic: record.topic,
@@ -136,22 +146,19 @@ function approvePending(
       },
     };
   } catch (error) {
-    return {
-      message: error instanceof Error ? error.message : String(error),
-      success: false,
-    };
+    return formatError(error instanceof Error ? error : String(error));
   }
 }
 
 function rejectPending(
-  session: ICommandHostContext,
-  pendingStore: PendingMemoryStore,
+  context: ICommandHostContext,
+  pendingStore: ICommandPendingMemoryStore,
   id: string | undefined,
 ): ICommandResult {
   if (!id) return usage();
   try {
     const record = pendingStore.mark(id, 'rejected', 'rejected-by-user');
-    recordEvent(session, {
+    recordEvent(context, {
       type: 'memory_candidate_rejected',
       candidateId: record.id,
       topic: record.topic,
@@ -163,15 +170,12 @@ function rejectPending(
       data: { id, status: record.status },
     };
   } catch (error) {
-    return {
-      message: error instanceof Error ? error.message : String(error),
-      success: false,
-    };
+    return formatError(error instanceof Error ? error : String(error));
   }
 }
 
-function formatUsed(session: ICommandHostContext): ICommandResult {
-  const references = session.getUsedMemoryReferences();
+function formatUsed(context: ICommandHostContext): ICommandResult {
+  const references = listCommandUsedMemoryReferences(context);
   const lines =
     references.length > 0
       ? references.map((reference) => {
@@ -183,36 +187,35 @@ function formatUsed(session: ICommandHostContext): ICommandResult {
   return {
     message: ['Used memory references:', ...lines].join('\n'),
     success: true,
-    data: { count: references.length, references },
+    data: { count: references.length, references: [...references] },
   };
 }
 
 export function executeMemoryCommand(
-  session: ICommandHostContext,
+  context: ICommandHostContext,
   rawArgs: string,
 ): ICommandResult {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
-  const store = new ProjectMemoryStore(session.getCwd());
-  const pendingStore = new PendingMemoryStore(session.getCwd());
+  const stores = createCommandMemoryStores(context);
 
-  if (subcommand === 'list') return formatList(store);
-  if (subcommand === 'show') return formatShow(store, args[TYPE_INDEX]);
-  if (subcommand === 'pending') return formatPending(pendingStore);
+  if (subcommand === 'list') return formatList(stores.project);
+  if (subcommand === 'show') return formatShow(stores.project, args[TYPE_INDEX]);
+  if (subcommand === 'pending') return formatPending(stores.pending);
   if (subcommand === 'approve')
-    return approvePending(session, pendingStore, store, args[TYPE_INDEX]);
-  if (subcommand === 'reject') return rejectPending(session, pendingStore, args[TYPE_INDEX]);
-  if (subcommand === 'used') return formatUsed(session);
+    return approvePending(context, stores.pending, stores.project, args[TYPE_INDEX]);
+  if (subcommand === 'reject') return rejectPending(context, stores.pending, args[TYPE_INDEX]);
+  if (subcommand === 'used') return formatUsed(context);
   if (subcommand === 'add') {
     const input = parseAdd(args);
     if (!input) return usage();
-    if (containsSensitiveMemoryContent(input.text)) {
+    if (hasSensitiveCommandMemoryContent(input.text)) {
       return {
         message: 'Refusing to save sensitive memory content.',
         success: false,
       };
     }
-    const result = store.append(input);
+    const result = stores.project.append(input);
     return {
       message: result.deduplicated
         ? `${input.type} memory already exists in ${result.topicPath}`

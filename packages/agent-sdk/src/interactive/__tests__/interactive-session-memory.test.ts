@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -80,7 +80,7 @@ describe('InteractiveSession memory command integration', () => {
     expect(session.getUsedMemoryReferences()).toEqual([]);
   });
 
-  it('Given model invocation When /memory add is executed Then memory is persisted through the command bridge', async () => {
+  it('Given no injected memory module When /memory is requested Then SDK core does not own it', async () => {
     const cwd = makeProject();
     const session = new InteractiveSession({
       cwd,
@@ -88,18 +88,9 @@ describe('InteractiveSession memory command integration', () => {
       bare: true,
     });
 
-    const result = await session.executeModelCommand(
-      'memory',
-      'add project build Use pnpm for package scripts.',
-    );
+    const result = await session.executeModelCommand('memory', 'list');
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-      }),
-    );
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
-      '(project/build) Use pnpm for package scripts.',
-    );
+    expect(result).toBeNull();
+    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
   });
 });

@@ -18,7 +18,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [command-migration-background.md](command-migration-background.md)             | Migrate `/background` into a command-module owner             |
 | [command-migration-exit.md](command-migration-exit.md)                         | Migrate `/exit` into a command-module owner                   |
 | [command-migration-help.md](command-migration-help.md)                         | Migrate `/help` into a command-module owner                   |
-| [command-migration-memory.md](command-migration-memory.md)                     | Migrate `/memory` into a command-module owner                 |
 | [command-migration-plugin.md](command-migration-plugin.md)                     | Migrate `/plugin` into a command-module owner                 |
 | [command-migration-reload-plugins.md](command-migration-reload-plugins.md)     | Migrate `/reload-plugins` into a command-module owner         |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)           | Gemini API provider modernization                             |
