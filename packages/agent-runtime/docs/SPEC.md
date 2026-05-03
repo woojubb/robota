@@ -150,8 +150,9 @@ For non-worktree requests it delegates unchanged. For `isolation: 'worktree'` it
 - prepare a worktree through the adapter
 - pass `cwd`, `worktreePath`, and `branchName` to the inner runner
 - fire `WorktreeCreate` after preparation
-- remove clean worktrees on success, async failure, or sync start failure
-- preserve dirty worktrees and return `worktreePath` plus `branchName` metadata
+- remove clean worktrees exactly once on success, async failure, sync start failure, or successful cancellation
+- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` metadata
+- propagate adapter-provided `baseRevision` and `parentStatus` as handoff metadata when available
 - preserve existing result metadata
 - fire `WorktreeRemove` when a clean worktree is removed
 

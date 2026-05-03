@@ -28,6 +28,10 @@ export interface IBackgroundTaskViewModel {
   timeoutReason?: TBackgroundTaskTimeoutReason;
   exitCode?: number;
   signalCode?: string;
+  worktreePath?: string;
+  branchName?: string;
+  worktreeStatus?: string;
+  worktreeNextAction?: string;
 }
 
 export function toBackgroundTaskViewModel(
@@ -51,6 +55,10 @@ export function toBackgroundTaskViewModel(
     timeoutReason: state.timeoutReason,
     exitCode: state.result?.exitCode,
     signalCode: state.result?.signalCode,
+    worktreePath: state.worktreePath,
+    branchName: state.branchName,
+    worktreeStatus: state.worktreeStatus,
+    worktreeNextAction: state.worktreeNextAction,
   };
 }
 

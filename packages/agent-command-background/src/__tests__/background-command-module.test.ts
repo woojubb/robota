@@ -133,6 +133,28 @@ describe('background command module', () => {
     expect(result.data?.count).toBe(1);
   });
 
+  it('lists preserved worktree handoff metadata', async () => {
+    const context = createCommandHostContext({
+      listBackgroundTasks: vi.fn().mockReturnValue([
+        createTask({
+          status: 'completed',
+          worktreePath: '/workspace/.robota/worktrees/agent_1',
+          branchName: 'robota/agent_1',
+          worktreeStatus: ' M changed.ts\n?? new.ts',
+          worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_1.',
+        }),
+      ]),
+    });
+
+    const result = await executeBackgroundCommand(context, 'list');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('worktree=/workspace/.robota/worktrees/agent_1');
+    expect(result.message).toContain('branch=robota/agent_1');
+    expect(result.message).toContain('worktreeStatus="M changed.ts ?? new.ts"');
+    expect(result.message).toContain('next="Review /workspace/.robota/worktrees/agent_1."');
+  });
+
   it('defaults to list when no action is provided', async () => {
     const context = createCommandHostContext({
       listBackgroundTasks: vi.fn().mockReturnValue([]),

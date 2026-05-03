@@ -126,6 +126,38 @@ describe('agent command module', () => {
     expect(agent?.argumentHint).not.toContain('<');
   });
 
+  it('lists agent jobs with preserved worktree handoff metadata', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession({
+      listAgentJobs: vi.fn().mockReturnValue([
+        {
+          id: 'agent_1',
+          type: 'general-purpose',
+          label: 'general-purpose',
+          parentSessionId: 'test-session-id',
+          status: 'completed',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'change files',
+          updatedAt: '2026-05-01T00:00:00.000Z',
+          worktreePath: '/workspace/.robota/worktrees/agent_1',
+          branchName: 'robota/agent_1',
+        },
+      ]),
+    });
+
+    const result = await executor.execute('agent', session, 'list');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('worktree=/workspace/.robota/worktrees/agent_1');
+    expect(result?.message).toContain('branch=robota/agent_1');
+  });
+
   it('spawns a background agent from direct natural-language /agent input', async () => {
     const module = createAgentCommandModule();
     const executor = new SystemCommandExecutor([

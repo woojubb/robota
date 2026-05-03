@@ -288,6 +288,8 @@ describe('Agent tool', () => {
         metadata: {
           worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
           branchName: 'robota/agent_worktree_1',
+          worktreeStatus: ' M changed.ts',
+          worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_worktree_1.',
         },
       }),
       list: vi.fn(),
@@ -327,9 +329,13 @@ describe('Agent tool', () => {
       metadata: {
         worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
         branchName: 'robota/agent_worktree_1',
+        worktreeStatus: ' M changed.ts',
+        worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_worktree_1.',
       },
       worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
       branchName: 'robota/agent_worktree_1',
+      worktreeStatus: ' M changed.ts',
+      worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_worktree_1.',
     });
   });
 

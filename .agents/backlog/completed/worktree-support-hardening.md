@@ -50,12 +50,22 @@ Rationale: default isolation is valuable, but silent fallback or poor handoff me
 
 ## Acceptance Criteria
 
-- [ ] Worktree isolation has a documented default policy for `/agent` and model-invoked agent jobs.
-- [ ] Dirty worktrees are preserved and reported with path, branch, status, and next action.
-- [ ] Clean worktrees are removed consistently on success, failure, and cancellation.
-- [ ] Non-Git or unsupported contexts fail with actionable messages or fall back only when explicitly allowed.
-- [ ] CLI/TUI/headless surfaces can list or link preserved worktrees.
-- [ ] Tests cover branch collisions, parent dirty state, nested repo detection, cancellation, startup failure, clean cleanup, and dirty preservation.
+- [x] Worktree isolation has a documented default policy for `/agent` and model-invoked agent jobs.
+- [x] Dirty worktrees are preserved and reported with path, branch, status, and next action.
+- [x] Clean worktrees are removed consistently on success, failure, and cancellation.
+- [x] Non-Git or unsupported contexts fail with actionable messages or fall back only when explicitly allowed.
+- [x] CLI/TUI/headless surfaces can list or link preserved worktrees.
+- [x] Tests cover branch collisions, parent dirty state, nested repo detection, cancellation, startup failure, clean cleanup, and dirty preservation.
+
+## Result
+
+Implemented in `feat/worktree-support-hardening-finalize`.
+
+- Default policy is now documented as explicit worktree isolation for the beta: `/agent` and model-invoked `Agent` jobs use `isolation: 'worktree'` only when requested, and hosts must not silently fallback to non-isolated execution.
+- `WorktreeSubagentRunner` now performs idempotent cleanup for clean worktrees on success, failure, synchronous startup failure, and successful cancellation.
+- Dirty worktrees preserve `worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, and adapter-provided base/parent status metadata.
+- `GitWorktreeIsolationAdapter` now retries branch/path collisions, resolves nested cwd to the repo root, supports detached HEAD, surfaces dirty parent status, and fails non-Git cwd with an actionable message.
+- Runtime state, subagent state, Agent tool output, `/agent list`, `/background list`, and TUI rows now expose preserved worktree handoff metadata.
 
 ## Test Plan
 
