@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import type { IToolState, IExecutionResult } from '../types.js';
+import type { ICommandModule } from '../../commands/command-module.js';
 
 // Minimal mock Session that satisfies InteractiveSession's needs
 function createMockSession(options?: {
@@ -115,6 +116,82 @@ describe('InteractiveSession', () => {
 
     expect(mockSession.run).toHaveBeenCalledWith('first', undefined);
     // second may or may not have executed depending on timing
+  });
+
+  it('runs blocking system commands through the foreground thinking lifecycle', async () => {
+    let resolveCommand: (value: { message: string; success: boolean }) => void;
+    const blockingModule: ICommandModule = {
+      name: 'test-blocking',
+      systemCommands: [
+        {
+          name: 'slow',
+          description: 'Slow command',
+          lifecycle: 'blocking',
+          execute: () =>
+            new Promise<{ message: string; success: boolean }>((resolve) => {
+              resolveCommand = resolve;
+            }),
+        },
+      ],
+    };
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      commandModules: [blockingModule],
+    });
+    const thinkingStates: boolean[] = [];
+    session.on('thinking', (isThinking) => thinkingStates.push(isThinking));
+
+    const pending = session.executeCommand('slow', '');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(session.isExecuting()).toBe(true);
+    expect(thinkingStates).toEqual([true]);
+
+    resolveCommand!({ message: 'done', success: true });
+    const result = await pending;
+
+    expect(result?.message).toBe('done');
+    expect(session.isExecuting()).toBe(false);
+    expect(thinkingStates).toEqual([true, false]);
+  });
+
+  it('does not execute another system command while a foreground command is running', async () => {
+    let resolveCommand: (value: { message: string; success: boolean }) => void;
+    const quickCommand = vi.fn().mockReturnValue({ message: 'quick', success: true });
+    const blockingModule: ICommandModule = {
+      name: 'test-blocking',
+      systemCommands: [
+        {
+          name: 'slow',
+          description: 'Slow command',
+          lifecycle: 'blocking',
+          execute: () =>
+            new Promise<{ message: string; success: boolean }>((resolve) => {
+              resolveCommand = resolve;
+            }),
+        },
+        {
+          name: 'quick',
+          description: 'Quick command',
+          execute: quickCommand,
+        },
+      ],
+    };
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      commandModules: [blockingModule],
+    });
+
+    const pending = session.executeCommand('slow', '');
+    await new Promise((r) => setTimeout(r, 10));
+    const blocked = await session.executeCommand('quick', '');
+
+    expect(blocked?.success).toBe(false);
+    expect(blocked?.message).toContain('already running');
+    expect(quickCommand).not.toHaveBeenCalled();
+
+    resolveCommand!({ message: 'done', success: true });
+    await pending;
   });
 
   it('cancelQueue clears pending without aborting', async () => {

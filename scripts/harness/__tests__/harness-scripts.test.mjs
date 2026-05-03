@@ -243,6 +243,20 @@ describe('verify-change build flow', () => {
 });
 
 // ---------------------------------------------------------------------------
+// command layering scan
+// ---------------------------------------------------------------------------
+describe('command layering scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:commands']).toBe(
+      'node scripts/harness/check-command-layering.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:commands');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pre-push hook
 // ---------------------------------------------------------------------------
 describe('pre-push hook', () => {

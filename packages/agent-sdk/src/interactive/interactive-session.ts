@@ -26,15 +26,20 @@ import {
 import type {
   ICommand,
   ICommandModule,
+  ICommandResult,
+  ISystemCommand,
   ISkillExecutionResult,
   IForkExecutionOptions,
 } from '../commands/index.js';
-import { executeSkill } from '../commands/index.js';
+import {
+  createBuiltinCommandModule,
+  executeSkill,
+  SystemCommandExecutor,
+} from '../commands/index.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
-import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
 import type {
   IToolState,
   TInteractiveEventName,
@@ -133,11 +138,14 @@ export class InteractiveSession {
   private shutdownPromise: Promise<void> | null = null;
 
   constructor(options: IInteractiveSessionOptions) {
-    this.commandModules = 'commandModules' in options ? (options.commandModules ?? []) : [];
-    this.commandExecutor = new SystemCommandExecutor([
-      ...createSystemCommands(),
-      ...this.commandModules.flatMap((module) => module.systemCommands ?? []),
-    ]);
+    const sdkBuiltinModule = createBuiltinCommandModule();
+    this.commandModules = [
+      sdkBuiltinModule,
+      ...('commandModules' in options ? (options.commandModules ?? []) : []),
+    ];
+    this.commandExecutor = new SystemCommandExecutor(
+      this.commandModules.flatMap((module) => module.systemCommands ?? []),
+    );
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
@@ -256,18 +264,23 @@ export class InteractiveSession {
     await this.executePrompt(input, displayInput, rawInput);
   }
 
-  async executeCommand(
-    name: string,
-    args: string,
-  ): Promise<{ message: string; success: boolean; data?: Record<string, unknown> } | null> {
+  async executeCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
-    return this.commandExecutor.execute(name, this, args);
+    const command = this.commandExecutor.getCommand(name);
+    if (!command) return null;
+    if (this.executing) {
+      return {
+        success: false,
+        message: 'Another prompt or command is already running. Wait for it to finish.',
+      };
+    }
+    if (command.lifecycle === 'blocking') {
+      return this.executeForegroundCommand(command, args);
+    }
+    return this.commandExecutor.executeCommand(command, this, args);
   }
 
-  async executeModelCommand(
-    name: string,
-    args: string,
-  ): Promise<{ message: string; success: boolean; data?: Record<string, unknown> } | null> {
+  async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     return this.commandExecutor.executeModelInvocable(name, this, args);
   }
@@ -801,6 +814,38 @@ export class InteractiveSession {
     this.history.push(messageToHistoryEntry(createAssistantMessage(result)));
     this.emit('complete', executionResult);
     this.emit('context_update', this.getContextState());
+  }
+
+  private async executeForegroundCommand(
+    command: ISystemCommand,
+    args: string,
+  ): Promise<ICommandResult> {
+    this.executing = true;
+    this.clearStreaming();
+    this.emit('thinking', true);
+
+    try {
+      const result = await this.commandExecutor.executeCommand(command, this, args);
+      this.emit('context_update', this.getContextState());
+      return result;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        message: `Error: ${errMsg}`,
+      };
+    } finally {
+      this.executing = false;
+      this.emit('thinking', false);
+      this.persistCurrentSession();
+      if (!this.shuttingDown && this.pendingPrompt) {
+        const queued = this.pendingPrompt;
+        const queuedDisplay = this.pendingDisplayInput;
+        const queuedRaw = this.pendingRawInput;
+        this.clearPendingQueue();
+        setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+      }
+    }
   }
 
   private async executePrompt(

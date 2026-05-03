@@ -25,9 +25,21 @@ export class SystemCommandExecutor {
     session: InteractiveSession,
     args: string,
   ): Promise<ICommandResult | null> {
-    const cmd = this.commands.get(name);
+    const cmd = this.getCommand(name);
     if (!cmd) return null;
-    return await cmd.execute(session, args);
+    return await this.executeCommand(cmd, session, args);
+  }
+
+  getCommand(name: string): ISystemCommand | undefined {
+    return this.commands.get(name);
+  }
+
+  async executeCommand(
+    command: ISystemCommand,
+    session: InteractiveSession,
+    args: string,
+  ): Promise<ICommandResult> {
+    return await command.execute(session, args);
   }
 
   /** List all registered commands. */

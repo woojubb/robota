@@ -1,28 +1,33 @@
-/**
- * System commands — SDK-level command execution logic.
- *
- * Pure functions that operate on InteractiveSession.
- * No React, no TUI, no framework dependencies.
- * CLI wraps these as slash commands with UI chrome.
- */
-
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TCapabilitySafety } from '../capabilities/types.js';
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { executeBackgroundCommand } from './background-command.js';
 import { executeMemoryCommand } from './memory-command.js';
 import { executeRewindCommand } from './rewind-command.js';
+import type { ICommandResult } from './command-result.js';
+import {
+  buildBackgroundSubcommands,
+  buildMemorySubcommands,
+  buildModelSubcommands,
+  buildRewindSubcommands,
+  getAutoCompactThreshold,
+  MEMORY_COMMAND_ARGUMENT_HINT,
+  MEMORY_COMMAND_DESCRIPTION,
+  PERCENT,
+  VALID_MODES,
+} from './system-command-metadata.js';
+import type { ICommand } from './types.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
+export type {
+  ICommandInteraction,
+  ICommandChoicePromptOption,
+  ICommandResult,
+  TCommandEffect,
+  TCommandResultDataValue,
+  TCommandInteractionPrompt,
+} from './command-result.js';
 
-/** Result of a system command execution. */
-export interface ICommandResult {
-  /** Human-readable output message */
-  message: string;
-  /** Command completed successfully */
-  success: boolean;
-  /** Additional structured data (command-specific) */
-  data?: Record<string, unknown>;
-}
+export type TSystemCommandLifecycle = 'inline' | 'blocking' | 'background';
 
 /** A system command with name, description, and execute logic. */
 export interface ISystemCommand {
@@ -32,16 +37,28 @@ export interface ISystemCommand {
   userInvocable?: boolean;
   argumentHint?: string;
   safety?: TCapabilitySafety;
+  subcommands?: readonly ICommand[];
+  lifecycle?: TSystemCommandLifecycle;
   execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
 }
 
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
-const DEFAULT_AUTO_COMPACT_THRESHOLD = 0.835;
-const PERCENT = 100;
-const MEMORY_COMMAND_DESCRIPTION =
-  'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
-const MEMORY_COMMAND_ARGUMENT_HINT =
-  'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used';
+interface ICommandListProvider {
+  listCommands?: () => Array<{ name: string; description: string }>;
+}
+
+function formatHelpMessage(session: InteractiveSession): string {
+  const provider = session as ICommandListProvider;
+  const commands =
+    provider.listCommands?.() ??
+    createSystemCommands().map((command) => ({
+      name: command.name,
+      description: command.description,
+    }));
+  return [
+    'Available commands:',
+    ...commands.map((command) => `  ${command.name.padEnd(16)} — ${command.description}`),
+  ].join('\n');
+}
 
 /** Built-in system commands. */
 export function createSystemCommands(): ISystemCommand[] {
@@ -49,26 +66,8 @@ export function createSystemCommands(): ISystemCommand[] {
     {
       name: 'help',
       description: 'Show available commands',
-      execute: (_session, _args) => ({
-        message: [
-          'Available commands:',
-          '  help              — Show this help',
-          '  clear             — Clear conversation',
-          '  compact [instr]   — Compact context (optional focus instructions)',
-          '  mode [m]          — Show/change permission mode',
-          '  model <id>        — Change AI model',
-          '  language <code>   — Set response language (ko, en, ja, zh)',
-          '  cost              — Show session info',
-          '  context           — Context window info',
-          '  permissions       — Permission rules',
-          '  memory            — Manage project memory and pending candidates',
-          '  rewind            — List or restore edit checkpoints',
-          '  provider          — Provider profile status and switching',
-          '  resume            — Resume a previous session',
-          '  background        — List/cancel/close background tasks',
-          '  rename <name>     — Rename the current session',
-          '  reset             — Delete settings and exit',
-        ].join('\n'),
+      execute: (session, _args) => ({
+        message: formatHelpMessage(session),
         success: true,
       }),
     },
@@ -85,6 +84,7 @@ export function createSystemCommands(): ISystemCommand[] {
       name: 'compact',
       description: 'Compress context window',
       argumentHint: '[instructions]',
+      lifecycle: 'blocking',
       execute: async (session, args) => {
         const underlying = session.getSession();
         const instructions = args.trim() || undefined;
@@ -101,6 +101,12 @@ export function createSystemCommands(): ISystemCommand[] {
     {
       name: 'mode',
       description: 'Show/change permission mode',
+      subcommands: [
+        { name: 'plan', description: 'Plan only, no execution', source: 'builtin' },
+        { name: 'default', description: 'Ask before risky actions', source: 'builtin' },
+        { name: 'acceptEdits', description: 'Auto-approve file edits', source: 'builtin' },
+        { name: 'bypassPermissions', description: 'Skip all permission checks', source: 'builtin' },
+      ],
       execute: (session, args) => {
         const underlying = session.getSession();
         const arg = args.trim().split(/\s+/)[0];
@@ -128,6 +134,7 @@ export function createSystemCommands(): ISystemCommand[] {
     {
       name: 'model',
       description: 'Change AI model',
+      subcommands: buildModelSubcommands(),
       execute: (_session, args) => {
         const modelId = args.trim().split(/\s+/)[0];
         if (!modelId) {
@@ -138,12 +145,19 @@ export function createSystemCommands(): ISystemCommand[] {
           message: `Model change requested: ${modelId}`,
           success: true,
           data: { modelId },
+          effects: [{ type: 'model-change-requested', modelId }],
         };
       },
     },
     {
       name: 'language',
       description: 'Set response language',
+      subcommands: [
+        { name: 'ko', description: 'Korean', source: 'builtin' },
+        { name: 'en', description: 'English', source: 'builtin' },
+        { name: 'ja', description: 'Japanese', source: 'builtin' },
+        { name: 'zh', description: 'Chinese', source: 'builtin' },
+      ],
       execute: (_session, args) => {
         const lang = args.trim().split(/\s+/)[0];
         if (!lang) {
@@ -153,6 +167,7 @@ export function createSystemCommands(): ISystemCommand[] {
           message: `Language set to "${lang}".`,
           success: true,
           data: { language: lang },
+          effects: [{ type: 'language-change-requested', language: lang }],
         };
       },
     },
@@ -221,6 +236,7 @@ export function createSystemCommands(): ISystemCommand[] {
       modelInvocable: true,
       argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
       safety: 'write',
+      subcommands: buildMemorySubcommands(),
       execute: executeMemoryCommand,
     },
     {
@@ -228,6 +244,7 @@ export function createSystemCommands(): ISystemCommand[] {
       description: 'List edit checkpoints or restore code to a previous checkpoint.',
       argumentHint: 'list | restore CHECKPOINT_ID | code CHECKPOINT_ID | rollback CHECKPOINT_ID',
       safety: 'write',
+      subcommands: buildRewindSubcommands(),
       execute: executeRewindCommand,
     },
     {
@@ -237,11 +254,13 @@ export function createSystemCommands(): ISystemCommand[] {
         message: 'Opening session picker...',
         success: true,
         data: { triggerResumePicker: true },
+        effects: [{ type: 'session-picker-requested' }],
       }),
     },
     {
       name: 'background',
       description: 'List and control background tasks',
+      subcommands: buildBackgroundSubcommands(),
       execute: executeBackgroundCommand,
     },
     {
@@ -256,6 +275,7 @@ export function createSystemCommands(): ISystemCommand[] {
           message: `Session renamed to "${name}".`,
           success: true,
           data: { name },
+          effects: [{ type: 'session-renamed', name }],
         };
       },
     },
@@ -268,13 +288,9 @@ export function createSystemCommands(): ISystemCommand[] {
           message: 'Reset requested.',
           success: true,
           data: { resetRequested: true },
+          effects: [{ type: 'settings-reset-requested' }],
         };
       },
     },
   ];
-}
-
-function getAutoCompactThreshold(session: InteractiveSession): number | false {
-  const candidate = session.getSession() as { getAutoCompactThreshold?: () => number | false };
-  return candidate.getAutoCompactThreshold?.() ?? DEFAULT_AUTO_COMPACT_THRESHOLD;
 }

@@ -7,8 +7,8 @@ packages/
 ├── agent-sessions/              # Session lifecycle and persistence
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers
 ├── agent-tool-mcp/              # MCP tool implementations
-├── agent-sdk/                   # SDK assembly layer: InteractiveSession, config/context, commands
-├── agent-command-agent/         # Optional command module that contributes /agent
+├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
+├── agent-command-agent/         # Command module that contributes /agent
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs
 ├── agent-provider-anthropic/    # Anthropic provider
@@ -63,3 +63,7 @@ apps/
 | ---------------------------------------------------------- | ----------------------------------------- |
 | [publish-registry.md](publish-registry.md)                 | npm publish rules, package registry table |
 | [dag-dependency-direction.md](dag-dependency-direction.md) | DAG package dependency flow and rules     |
+
+## Command Package Rule
+
+User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-sdk` command contracts. `agent-sdk` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.

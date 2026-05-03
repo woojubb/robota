@@ -9,12 +9,25 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
-import type { ICommandModule } from '@robota-sdk/agent-sdk';
+import {
+  InteractiveSession,
+  createProviderCommandModule,
+  projectPaths,
+} from '@robota-sdk/agent-sdk';
+import type { ICommandModule, TProviderSettingsDocument } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
-import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
-import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import {
+  getUserSettingsPath,
+  deleteSettings,
+  readSettings,
+  writeSettings,
+} from './utils/settings-io.js';
+import {
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
+} from './utils/provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './utils/provider-default-definitions.js';
 import {
   ensureConfig,
@@ -32,6 +45,7 @@ import {
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
 import { createStatusLineCommandModule } from './commands/statusline-command-module.js';
+import { createCliHostCommandModule } from './commands/cli-host-command-module.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -141,6 +155,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
     createStatusLineCommandModule(),
+    createProviderCommandModule({
+      providerDefinitions,
+      settings: {
+        readMergedSettings: () => readMergedProviderSettings(cwd),
+        readTargetSettings: () => readSettings(getUserSettingsPath()) as TProviderSettingsDocument,
+        writeTargetSettings: (settings) => writeSettings(getUserSettingsPath(), settings),
+      },
+    }),
+    createCliHostCommandModule(),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
@@ -277,7 +300,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     backgroundTaskRunners,
     subagentRunnerFactory,
     commandModules,
-    providerDefinitions,
     startupUpdateNoticePromise,
   });
 }
