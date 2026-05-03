@@ -4,7 +4,7 @@ import type { IParsedCliArgs } from './cli-args.js';
 import { checkSettingsDocument } from './settings-check.js';
 import { getUserSettingsPath, readSettings, writeSettings } from './settings-io.js';
 import { applyProviderConfiguration, applyProviderSwitch } from './provider-configuration.js';
-import { readMergedProviderSettings } from './provider-factory.js';
+import { getProviderSettingsPaths, readMergedProviderSettings } from './provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import { type IProviderSetupInput } from './provider-settings.js';
 import {
@@ -62,7 +62,18 @@ export async function ensureConfig(
   if (!isInteractiveTerminal()) {
     throw new Error(formatMissingProviderConfigMessage(providerDefinitions));
   }
-  await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
+  await runInteractiveProviderSetup(
+    cwd,
+    selectStartupSetupArgs(cwd, args),
+    promptInput,
+    providerDefinitions,
+  );
+  const updated = readMergedProviderSettings(cwd);
+  const updatedSettings =
+    args.provider !== undefined ? { ...updated, currentProvider: args.provider } : updated;
+  if (checkSettingsDocument(updatedSettings, providerDefinitions) !== 'valid') {
+    throw new Error(formatMissingProviderConfigMessage(providerDefinitions));
+  }
 }
 
 export async function runInteractiveProviderSetup(
@@ -101,6 +112,42 @@ function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
     ...(args.baseURL !== undefined && { baseURL: args.baseURL }),
     setCurrent: args.setCurrent,
   };
+}
+
+function selectStartupSetupArgs(cwd: string, args: IParsedCliArgs): IParsedCliArgs {
+  if (args.settingsScope !== undefined || args.provider !== undefined) {
+    return args;
+  }
+
+  const currentProviderPath = findHighestPriorityCurrentProviderPath(getProviderSettingsPaths(cwd));
+  if (currentProviderPath === undefined) {
+    return args;
+  }
+
+  const projectSettingsPath = join(cwd, '.robota', 'settings.json');
+  const projectLocalSettingsPath = join(cwd, '.robota', 'settings.local.json');
+  if (
+    currentProviderPath === projectSettingsPath ||
+    currentProviderPath === projectLocalSettingsPath
+  ) {
+    return { ...args, settingsScope: 'project-local' };
+  }
+
+  return args;
+}
+
+function findHighestPriorityCurrentProviderPath(
+  settingsPaths: readonly string[],
+): string | undefined {
+  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
+    const settingsPath = settingsPaths[index];
+    if (settingsPath === undefined) continue;
+    const settings = readSettings(settingsPath);
+    if (typeof settings.currentProvider === 'string') {
+      return settingsPath;
+    }
+  }
+  return undefined;
 }
 
 function isInteractiveTerminal(): boolean {
