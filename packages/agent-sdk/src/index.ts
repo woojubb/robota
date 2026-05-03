@@ -74,7 +74,9 @@ export type {
   IProviderSettingsBuildOptions,
   IProviderSetupInput,
   IProviderSetupPatch,
+  IStatusLineCommandSettings,
   TProviderSettingsDocument,
+  TStatusLineCommandSettingsPatch,
 } from './commands/index.js';
 export {
   buildProviderProfile,
@@ -130,6 +132,11 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  buildStatusLineCommandSubcommands,
+  DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
+  isStatusLineCommandSettingsPatch,
+  STATUSLINE_COMMAND_ARGUMENT_HINT,
+  STATUSLINE_COMMAND_DESCRIPTION,
 } from './commands/index.js';
 export type {
   ICompactContextResult,

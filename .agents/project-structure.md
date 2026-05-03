@@ -16,6 +16,7 @@ packages/
 ├── agent-command-model/         # Command module that contributes /model
 ├── agent-command-permissions/   # Command module that contributes /permissions
 ├── agent-command-provider/      # Command module that contributes /provider
+├── agent-command-statusline/    # Command module that contributes /statusline
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs
 ├── agent-provider-anthropic/    # Anthropic provider

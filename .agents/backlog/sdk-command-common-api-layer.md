@@ -111,10 +111,10 @@ packages/
 
 ### Settings APIs
 
-- [ ] Define command-facing model, mode, language, permission, and statusline settings APIs.
+- [x] Define command-facing model, mode, language, permission, and statusline settings APIs.
 - [ ] Return restart-required effects where host restart is needed.
 - [ ] Remove direct settings mutation from CLI command branches.
-- [ ] Move `/model`, `/mode`, `/language`, `/permissions`, and `/statusline` into command modules.
+- [x] Move `/model`, `/mode`, `/language`, `/permissions`, and `/statusline` into command modules.
 
 ### Runtime APIs
 
@@ -145,7 +145,7 @@ packages/
 3. [x] Extract provider common APIs into `agent-sdk/src/command-api/provider/`.
 4. [x] Create `agent-command-provider` and delete transitional SDK provider command implementation.
 5. [x] Extract context/compact APIs and migrate `/context` and `/compact`.
-6. [ ] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
+6. [x] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
 7. [ ] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
 8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
@@ -164,7 +164,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-mode.md`
 - `.agents/tasks/completed/command-migration-language.md`
 - `.agents/tasks/completed/command-migration-permissions.md`
-- `command-migration-statusline.md`
+- `.agents/tasks/completed/command-migration-statusline.md`
 - `command-migration-clear.md`
 - `command-migration-rename.md`
 - `command-migration-resume.md`

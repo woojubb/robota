@@ -20,7 +20,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: CLI-only command modules for terminal UI and host side effects, including `/statusline`, `/plugin`, `/reload-plugins`, and `/exit`
+- OWNS: Terminal UI command effect application and CLI-only host command modules such as `/plugin`, `/reload-plugins`, and `/exit`
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -168,7 +168,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
-              ├── createStatusLineCommandModule() (CLI-owned command module)
+              ├── createStatusLineCommandModule() (from @robota-sdk/agent-command-statusline)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession({ cwd, provider })
@@ -231,7 +231,7 @@ When a prompt is queued behind foreground work, the activity row keeps the activ
 
 ### `/statusline` Slash Command
 
-`/statusline` is a CLI-owned `ICommandModule`, not an SDK core built-in. The CLI composes it into `InteractiveSession` alongside other command modules so the SDK only sees the generic `ICommandModule` interface.
+`/statusline` is provided by `@robota-sdk/agent-command-statusline`, not by the CLI slash router or SDK core built-ins. The CLI composes it into `InteractiveSession` alongside other command modules so the SDK only sees the generic `ICommandModule` interface.
 
 Supported commands:
 
@@ -243,7 +243,7 @@ Supported commands:
 | `/statusline git off` | Persist `statusline.gitBranch=false`                           |
 | `/statusline reset`   | Restore default status line fields                             |
 
-Defaults are `enabled=true` and `gitBranch=true`. The command returns structured data, `useSlashRouting` converts it into a CLI side-effect flag, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
+Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
 ### CLI Host Command Modules
 
@@ -477,6 +477,8 @@ The `/mode` command is provided by the `@robota-sdk/agent-command-mode` module t
 The `/permissions` command is provided by the `@robota-sdk/agent-command-permissions` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect permission state directly; it routes `/permissions` into the generic command execution path, and the command module uses SDK permission common APIs.
 
 The `/language` command is provided by the `@robota-sdk/agent-command-language` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
+
+The `/statusline` command is provided by the `@robota-sdk/agent-command-statusline` module that the Robota binary composes into `InteractiveSession`. The command module emits `statusline-settings-patch`; the CLI applies settings persistence and TUI state updates through the generic command effect handler.
 
 **Subcommand display:**
 
@@ -1294,6 +1296,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-permissions` | Default `/permissions` command module composed by the Robota binary                                                                  |
 | `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
+| `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                   |
 | `@robota-sdk/agent-sdk`                 | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
 | `@robota-sdk/agent-provider-anthropic`  | Default provider definition contributed by the Robota binary                                                                         |

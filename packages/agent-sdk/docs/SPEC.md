@@ -267,6 +267,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Model common APIs**: `agent-sdk/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `/model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Language common APIs**: `agent-sdk/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `/language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
 - **Permission common APIs**: `agent-sdk/command-api/permissions/` owns permission-mode constants, descriptor subcommands, validation, permission-state reads, permission-state formatting, and command-facing adapter resolution. `/mode` command behavior lives in `@robota-sdk/agent-command-mode`; `/permissions` command behavior lives in `@robota-sdk/agent-command-permissions`. Both consume these APIs as external command modules.
+- **Statusline common APIs**: `agent-sdk/command-api/statusline/` owns statusline command metadata constants, subcommand projection helpers, default settings shape, typed settings patch contracts, and patch validation. `/statusline` command behavior lives in `@robota-sdk/agent-command-statusline` and emits typed host-applied effects instead of importing CLI settings utilities.
 - **Boundary**: `command-api` may define contracts and reusable command-facing helpers. It must not own product UI, concrete settings file I/O, process restart/exit, provider construction, or command-specific flows that can live in `agent-command-*` packages.
 
 ### System Command System (SDK-Specific)
@@ -286,6 +287,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Product-composed built-in command modules**: `/mode` is provided by `@robota-sdk/agent-command-mode`, reuses SDK permission-mode common APIs for validation/subcommand metadata, and updates permission mode through the command host adapter facade.
 - **Product-composed built-in command modules**: `/permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for state reads/formatting, and stays user-invocable only.
 - **Product-composed built-in command modules**: `/language` is provided by `@robota-sdk/agent-command-language`, reuses SDK language command common APIs for usage/subcommand metadata, and emits `language-change-requested` effects for host application.
+- **Product-composed built-in command modules**: `/statusline` is provided by `@robota-sdk/agent-command-statusline`, reuses SDK statusline common APIs for subcommand metadata and typed patch effects, and leaves status bar rendering/settings persistence to the host.
 - **Product-composed built-in command modules**: `/context` is provided by `@robota-sdk/agent-command-context` and reports context window usage plus auto-compact policy through the SDK command host facade. `/context auto ...` uses the same common API layer to update the active session immediately and persist through host-provided settings adapters.
 - **Product-composed built-in command modules**: `/compact` is provided by `@robota-sdk/agent-command-compact`, declares blocking lifecycle metadata through the same `ISystemCommand` contract, and is exposed as a model-invocable `write` capability. Auto-compaction remains a deterministic session policy and emits structured compaction events instead of relying on the model to decide routine compaction.
 - **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
@@ -786,6 +788,7 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `cost`        | Session ID and message count                                                 |
 | `context`     | Token usage: used / max / percentage                                         |
 | `permissions` | Current mode and session-approved tools                                      |
+| `statusline`  | Optional command module for statusline visibility and git branch patch flows |
 | `memory`      | List/show/add/review project memory and report used memory references        |
 | `rewind`      | List edit checkpoints, restore later edits, or rollback through a checkpoint |
 | `reset`       | Requests settings reset through `settings-reset-requested` effect            |
@@ -845,7 +848,7 @@ type TCommandEffect =
   | { type: 'plugin-tui-requested' }
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
-  | { type: 'statusline-settings-patch'; patch: Record<string, TUniversalValue> };
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };
 
 interface ICommandInteraction {
   prompt: ICommandInteractionPrompt;

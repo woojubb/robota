@@ -1,6 +1,7 @@
-import type { TCommandEffect } from '@robota-sdk/agent-sdk';
+import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sdk/agent-sdk';
+import { isStatusLineCommandSettingsPatch } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { IHistoryEntry, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
   deleteSettings,
@@ -8,7 +9,6 @@ import {
   writeSettings,
 } from '../../utils/settings-io.js';
 import type { ISideEffects } from './side-effects-types.js';
-import type { TStatusLineSettingsPatch } from '../../utils/statusline-settings.js';
 
 export interface ICommandEffectHandlerDeps {
   addEntry: (entry: IHistoryEntry) => void;
@@ -17,7 +17,7 @@ export interface ICommandEffectHandlerDeps {
   openPluginTUI: () => void;
   openSessionPicker: () => void;
   renameSession: (name: string) => void;
-  applyStatusLinePatch: (patch: TStatusLineSettingsPatch) => boolean;
+  applyStatusLinePatch: (patch: TStatusLineCommandSettingsPatch) => boolean;
 }
 
 export function applyCommandEffects(
@@ -62,7 +62,7 @@ export function applyCommandEffects(
       return true;
     }
     if (effect.type === 'statusline-settings-patch') {
-      if (isStatusLineSettingsPatch(effect.patch)) {
+      if (isStatusLineCommandSettingsPatch(effect.patch)) {
         sideEffects._statusLinePatch = effect.patch;
         if (deps.applyStatusLinePatch(effect.patch)) return true;
       }
@@ -92,13 +92,4 @@ function applySettingsResetEffect(deps: ICommandEffectHandlerDeps): void {
     deps.addEntry(messageToHistoryEntry(createSystemMessage('No user settings found.')));
   }
   deps.requestShutdown('other', 'Reset settings restart');
-}
-
-function isStatusLineSettingsPatch(
-  value: Record<string, TUniversalValue>,
-): value is TStatusLineSettingsPatch {
-  return (
-    (value.enabled === undefined || typeof value.enabled === 'boolean') &&
-    (value.gitBranch === undefined || typeof value.gitBranch === 'boolean')
-  );
 }
