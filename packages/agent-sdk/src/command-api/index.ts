@@ -84,3 +84,8 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
+export {
+  buildModelCommandSubcommands,
+  MODEL_COMMAND_ARGUMENT_HINT,
+  MODEL_COMMAND_DESCRIPTION,
+} from './model/model-command-api.js';

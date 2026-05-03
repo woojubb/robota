@@ -37,8 +37,6 @@ export interface ISlashResult {
   handled: boolean;
   /** If set, the caller should schedule an exit after a delay */
   exitRequested?: boolean;
-  /** If set, the caller should show a model change confirmation */
-  pendingModelId?: string;
   /** If set, the caller should show a language change confirmation */
   pendingLanguage?: string;
   /** If set, the caller should open the plugin management TUI */
@@ -116,14 +114,6 @@ export function handleMode(
   return { handled: true };
 }
 
-export function handleModel(modelId: string | undefined, addMessage: TAddMessage): ISlashResult {
-  if (!modelId) {
-    addMessage({ role: 'system', content: 'Select a model from the /model submenu.' });
-    return { handled: true };
-  }
-  return { handled: true, pendingModelId: modelId };
-}
-
 export function handleCost(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
   addMessage({
     role: 'system',
@@ -198,7 +188,7 @@ export async function executeSlashCommand(
     case 'mode':
       return handleMode(args.split(/\s+/)[0] || undefined, session, addMessage);
     case 'model':
-      return handleModel(args.split(/\s+/)[0] || undefined, addMessage);
+      return { handled: false }; // Route to system command (model change effect)
     case 'language':
       return handleLanguage(args.split(/\s+/)[0] || undefined, addMessage);
     case 'cost':

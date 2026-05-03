@@ -93,10 +93,11 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(12);
+    expect(commands.length).toBeGreaterThanOrEqual(11);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
     expect(commands.map((c) => c.name)).toContain('mode');
+    expect(commands.map((c) => c.name)).not.toContain('model');
     expect(commands.map((c) => c.name)).not.toContain('compact');
     expect(commands.map((c) => c.name)).not.toContain('context');
   });
@@ -169,16 +170,6 @@ describe('SystemCommandExecutor', () => {
     const executor = new SystemCommandExecutor();
     const result = await executor.execute('mode', createMockSession(), 'invalid');
     expect(result!.success).toBe(false);
-  });
-
-  it('model requests model changes through a typed command effect', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('model', createMockSession(), 'claude-sonnet-4-6');
-    expect(result!.success).toBe(true);
-    expect(result!.data?.modelId).toBe('claude-sonnet-4-6');
-    expect(result!.effects).toEqual([
-      { type: 'model-change-requested', modelId: 'claude-sonnet-4-6' },
-    ]);
   });
 
   it('language requests language changes through a typed command effect', async () => {
