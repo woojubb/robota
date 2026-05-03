@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { rmSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IParsedCliArgs } from '../cli-args.js';
 import {
@@ -125,6 +125,11 @@ function readUserSettings(home: string): Record<string, unknown> {
   >;
 }
 
+function writeJson(path: string, data: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
+}
+
 describe('provider setup', () => {
   afterEach(() => {
     process.env.HOME = ORIGINAL_HOME;
@@ -209,10 +214,94 @@ describe('provider setup', () => {
       return '';
     };
 
+    const args = { ...baseArgs(), provider: 'missing-profile' };
     await expect(
-      ensureConfig(join(TMP_BASE, 'project'), baseArgs(), promptInput, providerDefinitions),
+      ensureConfig(join(TMP_BASE, 'project'), args, promptInput, providerDefinitions),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
+  });
+
+  it('validates the merged active provider instead of any individually valid settings file', async () => {
+    const home = join(TMP_BASE, 'home-merged-active');
+    const project = join(TMP_BASE, 'project-merged-active');
+    process.env.HOME = home;
+    Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+    writeJson(join(home, '.robota', 'settings.json'), {
+      provider: {
+        name: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+      },
+    });
+    writeJson(join(project, '.robota', 'settings.local.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+    let prompted = false;
+    const promptInput = async (): Promise<string> => {
+      prompted = true;
+      return '';
+    };
+
+    await expect(
+      ensureConfig(project, baseArgs(), promptInput, providerDefinitions),
+    ).rejects.toThrow('No provider configuration found');
+    expect(prompted).toBe(false);
+  });
+
+  it('writes startup setup to project-local settings when project currentProvider masks user settings', async () => {
+    const home = join(TMP_BASE, 'home-project-active');
+    const project = join(TMP_BASE, 'project-active');
+    process.env.HOME = home;
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    writeJson(join(home, '.robota', 'settings.json'), {
+      provider: {
+        name: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-user',
+      },
+    });
+    writeJson(join(project, '.robota', 'settings.local.json'), {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+    const answers = ['1', 'sk-ant-project', '', 'ko'];
+    const promptInput = async (): Promise<string> => answers.shift() ?? '';
+
+    await ensureConfig(project, baseArgs(), promptInput, providerDefinitions);
+
+    const settings = JSON.parse(
+      readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
+    ) as {
+      currentProvider?: string;
+      language?: string;
+      providers?: Record<string, Record<string, unknown>>;
+    };
+    expect(settings.currentProvider).toBe('anthropic');
+    expect(settings.language).toBe('ko');
+    expect(settings.providers?.anthropic).toMatchObject({
+      type: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      apiKey: 'sk-ant-project',
+    });
+    expect(settings.providers?.qwen).toMatchObject({
+      type: 'qwen',
+      model: 'qwen-plus',
+    });
   });
 
   it('formats missing-config guidance from injected provider definitions', () => {

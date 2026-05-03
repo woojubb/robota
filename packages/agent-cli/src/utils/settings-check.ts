@@ -28,21 +28,29 @@ export function checkSettingsFile(
   }
 }
 
+/** Check a parsed settings document for a usable active provider. */
+export function checkSettingsDocument(
+  settings: IProviderSettingsShape,
+  providerDefinitions: readonly IProviderDefinition[] = [],
+): TSettingsCheck {
+  return hasUsableProviderConfig(settings, providerDefinitions) ? 'valid' : 'incomplete';
+}
+
 function hasUsableProviderConfig(
   settings: IProviderSettingsShape,
   providerDefinitions: readonly IProviderDefinition[],
 ): boolean {
+  if (typeof settings.currentProvider === 'string') {
+    const profile = settings.providers?.[settings.currentProvider];
+    return isUsableProviderProfile(profile?.type, profile, providerDefinitions);
+  }
   if (
     settings.provider &&
     isUsableProviderProfile(settings.provider.name, settings.provider, providerDefinitions)
   ) {
     return true;
   }
-  if (typeof settings.currentProvider !== 'string') {
-    return false;
-  }
-  const profile = settings.providers?.[settings.currentProvider];
-  return isUsableProviderProfile(profile?.type, profile, providerDefinitions);
+  return false;
 }
 
 function isUsableProviderProfile(

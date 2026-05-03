@@ -7,7 +7,6 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import type { IAIProvider, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-sdk';
 import { type TProviderSettingsDocument } from './provider-settings.js';
@@ -50,14 +49,19 @@ export function readMergedProviderSettings(cwd: string): TProviderSettingsDocume
 }
 
 export function getProviderSettingsPaths(cwd: string): string[] {
+  const userHome = getUserHome();
   return [
-    join(homedir(), '.robota', 'settings.json'),
-    join(homedir(), '.claude', 'settings.json'),
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
     join(cwd, '.robota', 'settings.json'),
     join(cwd, '.robota', 'settings.local.json'),
     join(cwd, '.claude', 'settings.json'),
     join(cwd, '.claude', 'settings.local.json'),
   ];
+}
+
+function getUserHome(): string {
+  return process.env.HOME ?? process.env.USERPROFILE ?? '/';
 }
 
 export function readMergedProviderSettingsFromPaths(

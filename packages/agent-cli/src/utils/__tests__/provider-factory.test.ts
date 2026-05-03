@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import {
   createProviderFromProfile,
   createProviderFromSettings,
+  getProviderSettingsPaths,
   readProviderSettings,
 } from '../provider-factory.js';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
@@ -194,6 +195,17 @@ describe('provider-factory', () => {
     delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
+  });
+
+  it('resolves user settings paths from HOME for test and runtime isolation', () => {
+    const paths = getProviderSettingsPaths(cwd);
+    const home = process.env.HOME;
+    if (home === undefined) {
+      throw new Error('HOME is required for this test');
+    }
+
+    expect(paths[0]).toBe(join(home, '.robota', 'settings.json'));
+    expect(paths[1]).toBe(join(home, '.claude', 'settings.json'));
   });
 
   it('reads active OpenAI-compatible provider profile', () => {
