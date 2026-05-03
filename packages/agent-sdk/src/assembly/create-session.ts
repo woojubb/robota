@@ -21,6 +21,7 @@ import type { TSessionFactory } from '../hooks/agent-executor.js';
 import { Session } from '@robota-sdk/agent-sessions';
 import type {
   ITerminalOutput,
+  ICompactEvent,
   TPermissionHandler,
   ISessionLogger,
 } from '@robota-sdk/agent-sessions';
@@ -120,6 +121,8 @@ export interface ICreateSessionOptions {
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
+  /** Callback with structured compaction metadata */
+  onCompactEvent?: (event: ICompactEvent) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
@@ -353,6 +356,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
+    onCompactEvent: options.onCompactEvent,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
     autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,

@@ -11,8 +11,9 @@ export function createCompactCommandEntry(): ICommand {
     name: 'compact',
     description: 'Compress context window',
     source: 'compact',
-    modelInvocable: false,
+    modelInvocable: true,
     argumentHint: '[instructions]',
+    safety: 'write',
   };
 }
 
@@ -22,8 +23,9 @@ function createCompactSystemCommand(): ISystemCommand {
     name: entry.name,
     description: entry.description,
     userInvocable: true,
-    modelInvocable: false,
+    modelInvocable: entry.modelInvocable,
     argumentHint: entry.argumentHint,
+    safety: entry.safety,
     lifecycle: 'blocking',
     execute: executeCompactCommand,
   };

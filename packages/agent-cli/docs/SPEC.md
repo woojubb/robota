@@ -352,6 +352,7 @@ Usage summary rows render persisted SDK `usage-summary` history entries. The CLI
 - Label monetary cost as unknown unless the SDK provides exact or configured pricing data.
 - Avoid provider/model branches; all display data comes from the SDK-owned `IUsageSnapshot`.
 - Subscribe to `context_update` so the status bar refreshes when a request is sent and again after provider usage reconciliation.
+- Subscribe to `compact` so auto-compaction events are reflected in the message history without special-casing `/compact` command execution.
 
 ## Context Management (CLI Layer)
 
@@ -362,9 +363,9 @@ Usage summary rows render persisted SDK `usage-summary` history entries. The CLI
 /compact focus on API changes     # Custom focus instructions
 ```
 
-- Calls `session.compact(instructions)`
+- Routes through `InteractiveSession.executeCommand("compact", instructions)`
 - Displays before/after context percentage
-- Shows "Context compressed: 85% → 32%" message
+- Shows `Context compacted: 85% -> 32%` message
 
 ### Auto-Compaction Notification
 

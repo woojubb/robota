@@ -22,6 +22,9 @@ export type {
 export { createQuery } from './query.js';
 export type { ICreateQueryOptions } from './query.js';
 
+// ── Session event contracts ─────────────────────────────────
+export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-sessions';
+
 // ── Command system (managed by InteractiveSession) ──────────
 export {
   CommandRegistry,

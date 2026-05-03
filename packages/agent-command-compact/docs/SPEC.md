@@ -8,7 +8,7 @@ This package:
 
 - exports a command module compatible with `@robota-sdk/agent-sdk`'s `ICommandModule` interface;
 - owns `/compact` command palette metadata;
-- owns `/compact` system command parsing and execution;
+- owns `/compact` descriptor metadata, model-invocable policy, system command parsing, and execution;
 - consumes SDK context/compact command APIs through the command host facade.
 
 This package does not own:
@@ -38,7 +38,7 @@ import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
 | `/compact`                | Compact the current context with no extra focus instructions      |
 | `/compact <instructions>` | Compact the current context with user-provided focus instructions |
 
-The executable command declares `lifecycle: "blocking"` so hosts run it through the same foreground thinking/input-guard path as prompt execution.
+The executable command declares `lifecycle: "blocking"` so hosts run it through the same foreground thinking/input-guard path as prompt execution. It is model-invocable with `safety: "write"` because compaction mutates the session conversation history by replacing prior messages with a summary.
 
 ## Class Contract Registry
 

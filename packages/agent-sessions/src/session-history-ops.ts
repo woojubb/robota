@@ -18,6 +18,7 @@ import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
 import type { IToolSchema } from '@robota-sdk/agent-core';
+import type { ICompactEvent, TCompactTrigger } from './session-types.js';
 
 /** Dependencies for compact() */
 export interface ICompactContext {
@@ -31,6 +32,8 @@ export interface ICompactContext {
   hooks: Record<string, unknown> | undefined;
   hookTypeExecutors: IHookTypeExecutor[] | undefined;
   onCompactCallback: ((summary: string) => void) | undefined;
+  onCompactEventCallback: ((event: ICompactEvent) => void) | undefined;
+  trigger: TCompactTrigger;
   log: (event: string, data: TSessionLogData) => void;
 }
 
@@ -47,7 +50,8 @@ export async function compact(
   const history = ctx.robota.getHistory();
   if (history.length === 0) return;
 
-  const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
+  ctx.contextTracker.updateFromHistory(history);
+  const before = ctx.contextTracker.getContextState();
 
   // Exclude system messages from compaction — they are preserved and re-injected after
   const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
@@ -72,7 +76,7 @@ export async function compact(
     session_id: ctx.sessionId,
     cwd: ctx.cwd,
     hook_event_name: 'PostCompact',
-    trigger,
+    trigger: ctx.trigger,
     compact_summary: summary,
   };
   runHooks(
@@ -83,6 +87,13 @@ export async function compact(
   ).catch(() => {});
 
   // Notify via callback after compaction is fully complete
+  const after = ctx.contextTracker.getContextState();
+  ctx.log('context_compact', {
+    trigger: ctx.trigger,
+    before,
+    after,
+  });
+  ctx.onCompactEventCallback?.({ trigger: ctx.trigger, before, after });
   if (ctx.onCompactCallback) {
     ctx.onCompactCallback(summary);
   }

@@ -9,6 +9,7 @@ import { createSession } from '../assembly/index.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
+import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
@@ -108,6 +109,7 @@ export interface IInitOptions {
   forkSession?: boolean;
   onTextDelta: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
+  onCompactEvent?: (event: ICompactEvent) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
@@ -197,6 +199,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     provider: options.provider,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
+    onCompactEvent: options.onCompactEvent,
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,
