@@ -1,12 +1,5 @@
-import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { ICommand } from '../command-api/types.js';
 
-export const VALID_MODES: readonly TPermissionMode[] = [
-  'plan',
-  'default',
-  'acceptEdits',
-  'bypassPermissions',
-];
 export const MEMORY_COMMAND_DESCRIPTION =
   'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
 export const MEMORY_COMMAND_ARGUMENT_HINT =

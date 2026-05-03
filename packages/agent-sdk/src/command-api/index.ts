@@ -16,6 +16,7 @@ export type {
 } from './host-context.js';
 export type {
   ICommandHostAdapters,
+  ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandSettingsAdapter,
@@ -89,3 +90,16 @@ export {
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,
 } from './model/model-command-api.js';
+export {
+  buildPermissionModeSubcommands,
+  formatInvalidPermissionModeMessage,
+  isPermissionMode,
+  listCommandSessionAllowedTools,
+  parsePermissionModeArgument,
+  PERMISSION_MODE_ARGUMENT_HINT,
+  PERMISSION_MODE_COMMAND_DESCRIPTION,
+  readCommandPermissionMode,
+  resolvePermissionModeAdapter,
+  VALID_PERMISSION_MODES,
+  writeCommandPermissionMode,
+} from './permissions/permission-mode-command-api.js';
