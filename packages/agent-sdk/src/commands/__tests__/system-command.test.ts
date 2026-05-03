@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
+import { formatCommandHelpMessage } from '../../command-api/help/help-command-api.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 
@@ -74,11 +75,10 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
 }
 
 describe('SystemCommandExecutor', () => {
-  it('lists all built-in commands', () => {
+  it('keeps SDK core built-in commands empty by default', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(1);
-    expect(commands.map((c) => c.name)).toContain('help');
+    expect(commands).toEqual([]);
     expect(commands.map((c) => c.name)).not.toContain('background');
     expect(commands.map((c) => c.name)).not.toContain('memory');
     expect(commands.map((c) => c.name)).not.toContain('cost');
@@ -112,15 +112,7 @@ describe('SystemCommandExecutor', () => {
     expect(result).toBeNull();
   });
 
-  it('help returns command list', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('help', createMockSession(), '');
-    expect(result!.success).toBe(true);
-    expect(result!.message).toContain('Available commands');
-  });
-
-  it('help renders the composed command list from the interactive session when available', async () => {
-    const executor = new SystemCommandExecutor();
+  it('formats a composed command list through the SDK common API', () => {
     const session = createMockSession({
       listCommands: vi.fn().mockReturnValue([
         { name: 'help', description: 'Show available commands' },
@@ -128,10 +120,15 @@ describe('SystemCommandExecutor', () => {
       ]),
     });
 
-    const result = await executor.execute('help', session, '');
+    const result = formatCommandHelpMessage(session);
 
-    expect(result!.message).toContain('provider');
-    expect(result!.message).toContain('Manage provider profiles');
+    expect(result).toBe(
+      [
+        'Available commands:',
+        '  help             — Show available commands',
+        '  provider         — Manage provider profiles',
+      ].join('\n'),
+    );
   });
 
   it('derives SDK built-in command palette metadata from executable system commands', () => {

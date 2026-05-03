@@ -40,9 +40,19 @@ describe('CommandRegistry capability descriptors', () => {
     expect(agent).toBeUndefined();
   });
 
-  it('does not expose ordinary built-ins as model-invocable commands', () => {
+  it('does not expose ordinary injected commands as model-invocable commands', () => {
     const registry = new CommandRegistry();
-    registry.addSource(new BuiltinCommandSource());
+    registry.addSource({
+      name: 'help',
+      getCommands: () => [
+        {
+          name: 'help',
+          description: 'Show available commands',
+          source: 'help',
+          modelInvocable: false,
+        },
+      ],
+    });
 
     const descriptors = registry.getCapabilityDescriptors();
     const help = descriptors.find((descriptor) => descriptor.name === '/help');

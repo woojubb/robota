@@ -26,21 +26,21 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 
 ## Package Roles
 
-| Package                      | Role                                                                                                                                                             | Layer        |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **agent-core**               | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                 | Foundation   |
-| **agent-tools**              | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                          | General      |
-| **agent-sessions**           | Session class with permission enforcement, context tracking, compaction                                                                                          | General      |
-| **agent-runtime**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                     | General      |
-| **agent-providers**          | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, Gemini, Google compatibility, Gemma, Qwen, and future integrations                        | General      |
-| **agent-command-\***         | Built-in and optional slash command modules that own command metadata, execution, lifecycle policy, and descriptors outside CLI/SDK core                         | SDK-specific |
-| **agent-sdk**                | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, createQuery() | SDK-specific |
-| **agent-cli**                | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                         | Transport    |
-| **agent-transport-http**     | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                                    | Transport    |
-| **agent-transport-mcp**      | Model Context Protocol adapter — exposes InteractiveSession as an MCP server for Claude and other MCP clients                                                    | Transport    |
-| **agent-transport-ws**       | Framework-agnostic WebSocket adapter — exposes InteractiveSession over real-time connections (works with any WS library)                                         | Transport    |
-| **agent-transport-headless** | Non-interactive headless adapter — runs InteractiveSession without a terminal, outputting text, JSON, or stream-JSON                                             | Transport    |
-| **agent-remote-client**      | HTTP client for calling a remote Robota agent exposed via agent-transport-http                                                                                   | Client       |
+| Package                      | Role                                                                                                                                                                                  | Layer        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **agent-core**               | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                                      | Foundation   |
+| **agent-tools**              | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                                               | General      |
+| **agent-sessions**           | Session class with permission enforcement, context tracking, compaction                                                                                                               | General      |
+| **agent-runtime**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                          | General      |
+| **agent-providers**          | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, Gemini, Google compatibility, Gemma, Qwen, and future integrations                                             | General      |
+| **agent-command-\***         | Built-in and optional slash command modules such as `/help`, `/compact`, and `/provider` that own command metadata, execution, lifecycle policy, and descriptors outside CLI/SDK core | SDK-specific |
+| **agent-sdk**                | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, createQuery()                      | SDK-specific |
+| **agent-cli**                | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                                              | Transport    |
+| **agent-transport-http**     | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                                                         | Transport    |
+| **agent-transport-mcp**      | Model Context Protocol adapter — exposes InteractiveSession as an MCP server for Claude and other MCP clients                                                                         | Transport    |
+| **agent-transport-ws**       | Framework-agnostic WebSocket adapter — exposes InteractiveSession over real-time connections (works with any WS library)                                                              | Transport    |
+| **agent-transport-headless** | Non-interactive headless adapter — runs InteractiveSession without a terminal, outputting text, JSON, or stream-JSON                                                                  | Transport    |
+| **agent-remote-client**      | HTTP client for calling a remote Robota agent exposed via agent-transport-http                                                                                                        | Client       |
 
 ## Dependency Flow
 

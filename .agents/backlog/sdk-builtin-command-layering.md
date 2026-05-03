@@ -19,7 +19,7 @@ The command layer should have one source of truth:
 
 ## Current Signals
 
-- `packages/agent-sdk/src/commands/system-command.ts` still owns SDK-level command execution for `/help`; most feature commands have moved into injected command modules.
+- `packages/agent-sdk/src/commands/system-command.ts` no longer owns user-visible command execution; `/help` moved to `@robota-sdk/agent-command-help`.
 - `packages/agent-sdk/src/commands/builtin-source.ts` owns built-in command palette metadata separately from execution.
 - `packages/agent-cli/src/commands/slash-executor.ts` still hardcodes several command behaviors and returns `handled: false` for others so a later path can execute them.
 - `.agents/specs/agent-invocation-router.md` already states that built-in command modules should be injected by composition roots and should own their descriptors.
@@ -142,7 +142,7 @@ Research questions:
 
 - [ ] A command inventory exists for every current built-in slash command.
 - [ ] Each command has a single owner module for metadata and execution.
-- [ ] Autocomplete/help descriptors are derived from registered command modules.
+- [x] Autocomplete/help descriptors are derived from registered command modules.
 - [ ] CLI hardcoded command behavior is removed or reduced to host-only adapters.
 - [ ] Blocking commands share the normal prompt execution lifecycle.
 - [ ] Host-only commands explicitly declare required adapters.

@@ -32,7 +32,7 @@ const response = await query('Analyze the code', {
 ## Features
 
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
-- **SystemCommandExecutor + ISystemCommand** — SDK-level command execution. Built-in commands: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `background`, `reset`
+- **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
 - **query()** — Single entry point for one-shot AI agent interactions with streaming support
 - **createSession()** — Assembly factory: wires tools, provider, config, and context into a Session
@@ -167,13 +167,12 @@ session.getSession(); // Session
 import { SystemCommandExecutor, createSystemCommands } from '@robota-sdk/agent-sdk';
 import type { ICommandResult } from '@robota-sdk/agent-sdk';
 
-const executor = new SystemCommandExecutor(); // loads built-in commands by default
+const executor = new SystemCommandExecutor(); // starts empty unless commands are supplied
 
 // Execute a command
-const result: ICommandResult | null = await executor.execute('context', session, '');
+const result: ICommandResult | null = await executor.execute('status', session, '');
 if (result) {
-  console.log(result.message); // "Context: 12,345 / 200,000 tokens (6%)"
-  console.log(result.data); // { usedTokens, maxTokens, percentage }
+  console.log(result.message); // "OK"
 }
 
 // Register a custom command
@@ -188,21 +187,7 @@ executor.listCommands(); // ISystemCommand[]
 executor.hasCommand('mode'); // boolean
 ```
 
-Built-in commands:
-
-| Command       | Description                                                             |
-| ------------- | ----------------------------------------------------------------------- |
-| `help`        | Show available commands                                                 |
-| `clear`       | Clear conversation history                                              |
-| `compact`     | Compress context window (optional focus instructions)                   |
-| `mode [m]`    | Show or change permission mode                                          |
-| `model <id>`  | Change AI model                                                         |
-| `language`    | Set response language (ko, en, ja, zh)                                  |
-| `cost`        | Show session info (session ID, message count)                           |
-| `context`     | Context window token usage                                              |
-| `permissions` | Show current permission mode and session-approved tools                 |
-| `rewind`      | List checkpoints, restore later edits, or rollback through a checkpoint |
-| `reset`       | Delete settings (caller handles file I/O and exit)                      |
+Product built-ins are supplied as `agent-command-*` modules. For example, `/help` is owned by `@robota-sdk/agent-command-help`, while `/compact` is owned by `@robota-sdk/agent-command-compact`.
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource
 

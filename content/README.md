@@ -112,6 +112,7 @@ robota -p "Explain this project"    # Print mode
 ```
 agent-cli              ← Interactive terminal AI coding assistant
 agent-command-agent    ← /agent command module for background subagent control
+agent-command-help     ← /help command module for registered command discovery
 agent-command-provider ← /provider command module for provider profiles
 agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp    ← MCP transport (Model Context Protocol server)
@@ -138,6 +139,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                                       | Background task and subagent lifecycle primitives                      |
 | [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                                               | Assembly layer with config/context loading and createQuery()           |
 | [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)                           | `/agent` command module for background subagent jobs                   |
+| [`@robota-sdk/agent-command-help`](./packages/agent-command-help/)                             | `/help` command module for registered command discovery                |
 | [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)                     | `/provider` command module for provider profiles                       |
 | [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/)                 | Anthropic Claude provider                                              |
 | [`@robota-sdk/agent-provider-openai`](./packages/agent-provider-openai/)                       | OpenAI provider                                                        |

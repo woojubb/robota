@@ -85,6 +85,7 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
+export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,
   BACKGROUND_COMMAND_USAGE,

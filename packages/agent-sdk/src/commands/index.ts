@@ -93,6 +93,10 @@ export {
   resolveEnvReference,
 } from '../command-api/provider/provider-env-ref.js';
 export {
+  formatCommandHelpMessage,
+  HELP_COMMAND_DESCRIPTION,
+} from '../command-api/help/help-command-api.js';
+export {
   BACKGROUND_COMMAND_DESCRIPTION,
   BACKGROUND_COMMAND_USAGE,
   buildBackgroundCommandSubcommands,
