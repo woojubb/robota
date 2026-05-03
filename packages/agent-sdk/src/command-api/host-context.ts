@@ -6,7 +6,11 @@ import type {
   IBackgroundTaskState,
 } from '../background-tasks/index.js';
 import type { ICommandHostAdapters } from './host-adapters.js';
-import type { IEditCheckpointRestoreResult, IEditCheckpointSummary } from '../checkpoints/index.js';
+import type {
+  IEditCheckpointInspection,
+  IEditCheckpointRestoreResult,
+  IEditCheckpointSummary,
+} from '../checkpoints/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
 
@@ -45,6 +49,7 @@ export interface ICommandHostContext {
   getCwd(): string;
   listCommands?(): ICommandListEntry[];
   listEditCheckpoints(): IEditCheckpointSummary[];
+  inspectEditCheckpoint?(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   getUsedMemoryReferences(): IMemoryReference[];

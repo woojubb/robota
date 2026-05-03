@@ -180,6 +180,7 @@ export {
   hasSensitiveCommandMemoryContent,
   isStatusLineCommandSettingsPatch,
   isCommandMemoryType,
+  inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
   listCommandUsedMemoryReferences,
   recordCommandMemoryEvent,
@@ -258,12 +259,16 @@ export type {
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
+  IEditCheckpointFileInspection,
   IEditCheckpointFileRecord,
+  IEditCheckpointInspection,
+  IEditCheckpointInspectionPlan,
   IEditCheckpointManifest,
   IEditCheckpointRecorder,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
+  TEditCheckpointFileRestoreAction,
 } from './checkpoints/index.js';
 
 // ── Self-hosting verification ─────────────────────────────
@@ -276,6 +281,22 @@ export type {
   TSelfHostingLoopState,
   TSelfHostingVerificationPhase,
 } from './self-hosting/index.js';
+
+// ── Reversible execution safety ───────────────────────────
+export {
+  evaluateReversibleToolSafety,
+  wrapReversibleExecutionTools,
+} from './reversible-execution/index.js';
+export type {
+  IReversibleExecutionOptions,
+  IReversibleToolSafetyContext,
+  IReversibleToolSafetyInput,
+  IReversibleToolSafetyReport,
+  TReversibleExecutionIsolation,
+  TReversibleRollbackLayer,
+  TReversibleSafetyStatus,
+  TReversibleSideEffect,
+} from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
