@@ -64,8 +64,6 @@ export interface IPluginCallbacks {
   reloadPlugins: () => Promise<void>;
 }
 
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
-
 export const HELP_TEXT = [
   'Available commands:',
   '  /help              — Show this help',
@@ -95,22 +93,6 @@ export function handleClear(
   clearMessages();
   session.clearHistory();
   addMessage({ role: 'system', content: 'Conversation cleared.' });
-  return { handled: true };
-}
-
-export function handleMode(
-  arg: string | undefined,
-  session: ISlashSession,
-  addMessage: TAddMessage,
-): ISlashResult {
-  if (!arg) {
-    addMessage({ role: 'system', content: `Current mode: ${session.getPermissionMode()}` });
-  } else if (VALID_MODES.includes(arg as TPermissionMode)) {
-    session.setPermissionMode(arg as TPermissionMode);
-    addMessage({ role: 'system', content: `Permission mode set to: ${arg}` });
-  } else {
-    addMessage({ role: 'system', content: `Invalid mode. Valid: ${VALID_MODES.join(' | ')}` });
-  }
   return { handled: true };
 }
 
@@ -186,7 +168,7 @@ export async function executeSlashCommand(
     case 'compact':
       return { handled: false }; // Route to SDK system command (context compaction)
     case 'mode':
-      return handleMode(args.split(/\s+/)[0] || undefined, session, addMessage);
+      return { handled: false }; // Route to system command (permission mode)
     case 'model':
       return { handled: false }; // Route to system command (model change effect)
     case 'language':

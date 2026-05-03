@@ -1,4 +1,3 @@
-import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { ICommandHostContext, ISystemCommand } from '../command-api/index.js';
 import { executeBackgroundCommand } from './background-command.js';
 import { executeMemoryCommand } from './memory-command.js';
@@ -9,7 +8,6 @@ import {
   buildRewindSubcommands,
   MEMORY_COMMAND_ARGUMENT_HINT,
   MEMORY_COMMAND_DESCRIPTION,
-  VALID_MODES,
 } from './system-command-metadata.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
 export type {
@@ -53,39 +51,6 @@ export function createSystemCommands(): ISystemCommand[] {
         const underlying = session.getSession();
         underlying.clearHistory();
         return { message: 'Conversation cleared.', success: true };
-      },
-    },
-    {
-      name: 'mode',
-      description: 'Show/change permission mode',
-      subcommands: [
-        { name: 'plan', description: 'Plan only, no execution', source: 'builtin' },
-        { name: 'default', description: 'Ask before risky actions', source: 'builtin' },
-        { name: 'acceptEdits', description: 'Auto-approve file edits', source: 'builtin' },
-        { name: 'bypassPermissions', description: 'Skip all permission checks', source: 'builtin' },
-      ],
-      execute: (session, args) => {
-        const underlying = session.getSession();
-        const arg = args.trim().split(/\s+/)[0];
-        if (!arg) {
-          return {
-            message: `Current mode: ${underlying.getPermissionMode()}`,
-            success: true,
-            data: { mode: underlying.getPermissionMode() },
-          };
-        }
-        if (VALID_MODES.includes(arg as TPermissionMode)) {
-          underlying.setPermissionMode(arg as TPermissionMode);
-          return {
-            message: `Permission mode set to: ${arg}`,
-            success: true,
-            data: { mode: arg },
-          };
-        }
-        return {
-          message: `Invalid mode. Valid: ${VALID_MODES.join(' | ')}`,
-          success: false,
-        };
       },
     },
     {

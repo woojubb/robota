@@ -163,6 +163,7 @@ Flow ownership:
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createModelCommandModule()      (from @robota-sdk/agent-command-model)
+              ├── createModeCommandModule()       (from @robota-sdk/agent-command-mode)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
@@ -469,6 +470,8 @@ Commands are grouped by source with separators: built-in commands appear first, 
 ### `/model` — Model Change Flow
 
 The `/model` command is provided by the `@robota-sdk/agent-command-model` module that the Robota binary composes into `InteractiveSession`. The command lists available models as subcommands with the format `Claude Opus 4.6 (1M)`. Model definitions come through the SDK model command common API, which formats the `CLAUDE_MODELS` registry from `@robota-sdk/agent-core`.
+
+The `/mode` command is provided by the `@robota-sdk/agent-command-mode` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not mutate permission mode directly; it routes `/mode` into the generic command execution path, and the command module uses SDK permission-mode common APIs.
 
 **Subcommand display:**
 
@@ -1281,6 +1284,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                               |
 | `@robota-sdk/agent-command-compact`    | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-context`    | Default `/context` command module composed by the Robota binary                                                                      |
+| `@robota-sdk/agent-command-mode`       | Default `/mode` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-model`      | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-provider`   | Default `/provider` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |

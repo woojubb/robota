@@ -96,7 +96,7 @@ describe('SystemCommandExecutor', () => {
     expect(commands.length).toBeGreaterThanOrEqual(11);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
-    expect(commands.map((c) => c.name)).toContain('mode');
+    expect(commands.map((c) => c.name)).not.toContain('mode');
     expect(commands.map((c) => c.name)).not.toContain('model');
     expect(commands.map((c) => c.name)).not.toContain('compact');
     expect(commands.map((c) => c.name)).not.toContain('context');
@@ -149,27 +149,6 @@ describe('SystemCommandExecutor', () => {
       (session as unknown as { _underlying: { clearHistory: ReturnType<typeof vi.fn> } })
         ._underlying.clearHistory,
     ).toHaveBeenCalled();
-  });
-
-  it('mode shows current mode without args', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('mode', createMockSession(), '');
-    expect(result!.message).toContain('default');
-    expect(result!.data?.mode).toBe('default');
-  });
-
-  it('mode sets valid mode', async () => {
-    const executor = new SystemCommandExecutor();
-    const session = createMockSession();
-    const result = await executor.execute('mode', session, 'plan');
-    expect(result!.success).toBe(true);
-    expect(result!.data?.mode).toBe('plan');
-  });
-
-  it('mode rejects invalid mode', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('mode', createMockSession(), 'invalid');
-    expect(result!.success).toBe(false);
   });
 
   it('language requests language changes through a typed command effect', async () => {
