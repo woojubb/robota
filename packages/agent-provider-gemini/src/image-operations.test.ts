@@ -293,16 +293,19 @@ describe('buildGenerationConfig', () => {
     content: 'hello',
     timestamp: new Date(),
   };
+  const providerOptions = {
+    apiKey: 'test-key',
+  };
 
   it('returns TEXT modality for basic text request', () => {
-    const result = buildGenerationConfig([textMessage], undefined, undefined, {
+    const result = buildGenerationConfig([textMessage], providerOptions, {
       model: 'gemini-pro',
     });
     expect(result.responseModalities).toEqual(['TEXT']);
   });
 
   it('includes temperature and maxOutputTokens from options', () => {
-    const result = buildGenerationConfig([textMessage], undefined, undefined, {
+    const result = buildGenerationConfig([textMessage], providerOptions, {
       model: 'gemini-pro',
       temperature: 0.5,
       maxTokens: 1000,
@@ -312,7 +315,7 @@ describe('buildGenerationConfig', () => {
   });
 
   it('allows IMAGE modality with any model when no allowlist configured', () => {
-    const result = buildGenerationConfig([textMessage], undefined, undefined, {
+    const result = buildGenerationConfig([textMessage], providerOptions, {
       model: 'gemini-pro',
       google: { responseModalities: ['IMAGE'] },
     });
@@ -320,7 +323,7 @@ describe('buildGenerationConfig', () => {
   });
 
   it('does not throw when IMAGE modality with an image-capable model', () => {
-    const result = buildGenerationConfig([textMessage], undefined, undefined, {
+    const result = buildGenerationConfig([textMessage], providerOptions, {
       model: 'gemini-2.5-flash-image',
       google: { responseModalities: ['TEXT', 'IMAGE'] },
     });
@@ -328,24 +331,32 @@ describe('buildGenerationConfig', () => {
   });
 
   it('uses custom imageCapableModels allowlist', () => {
-    const result = buildGenerationConfig([textMessage], undefined, ['custom-model'], {
-      model: 'custom-model',
-      google: { responseModalities: ['IMAGE'] },
-    });
+    const result = buildGenerationConfig(
+      [textMessage],
+      { ...providerOptions, imageCapableModels: ['custom-model'] },
+      {
+        model: 'custom-model',
+        google: { responseModalities: ['IMAGE'] },
+      },
+    );
     expect(result.responseModalities).toEqual(['IMAGE']);
   });
 
   it('throws for non-allowlisted model when allowlist is provided', () => {
     expect(() =>
-      buildGenerationConfig([textMessage], undefined, ['custom-model'], {
-        model: 'other-model',
-        google: { responseModalities: ['IMAGE'] },
-      }),
+      buildGenerationConfig(
+        [textMessage],
+        { ...providerOptions, imageCapableModels: ['custom-model'] },
+        {
+          model: 'other-model',
+          google: { responseModalities: ['IMAGE'] },
+        },
+      ),
     ).toThrow('Selected model "other-model" is not configured as image-capable');
   });
 
   it('handles undefined options gracefully', () => {
-    const result = buildGenerationConfig([textMessage], undefined, undefined);
+    const result = buildGenerationConfig([textMessage], providerOptions);
     expect(result.responseModalities).toEqual(['TEXT']);
     expect(result.temperature).toBeUndefined();
     expect(result.maxOutputTokens).toBeUndefined();
@@ -360,16 +371,78 @@ describe('buildGenerationConfig', () => {
       parts: [{ type: 'image_inline', mimeType: 'image/png', data: 'data' }],
       timestamp: new Date(),
     };
-    const result = buildGenerationConfig([imageMessage], undefined, undefined, {
+    const result = buildGenerationConfig([imageMessage], providerOptions, {
       model: 'gemini-2.5-flash-image',
     });
     expect(result.responseModalities).toEqual(['TEXT', 'IMAGE']);
   });
 
   it('respects default modalities', () => {
-    const result = buildGenerationConfig([textMessage], ['TEXT', 'IMAGE'], ['gemini-pro'], {
-      model: 'gemini-pro',
-    });
+    const result = buildGenerationConfig(
+      [textMessage],
+      {
+        ...providerOptions,
+        defaultResponseModalities: ['TEXT', 'IMAGE'],
+        imageCapableModels: ['gemini-pro'],
+      },
+      {
+        model: 'gemini-pro',
+      },
+    );
     expect(result.responseModalities).toEqual(['TEXT', 'IMAGE']);
+  });
+
+  it('passes provider structured output settings to Gemini config', () => {
+    const result = buildGenerationConfig(
+      [textMessage],
+      {
+        ...providerOptions,
+        responseJsonSchema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+        },
+      },
+      { model: 'gemini-pro' },
+    );
+    expect(result.responseMimeType).toBe('application/json');
+    expect(result.responseJsonSchema).toEqual({
+      type: 'object',
+      properties: { answer: { type: 'string' } },
+      required: ['answer'],
+    });
+  });
+
+  it('rejects mutually exclusive structured output schema options', () => {
+    expect(() =>
+      buildGenerationConfig(
+        [textMessage],
+        {
+          ...providerOptions,
+          responseSchema: { type: 'OBJECT' },
+          responseJsonSchema: { type: 'object' },
+        },
+        { model: 'gemini-pro' },
+      ),
+    ).toThrow('mutually exclusive');
+  });
+
+  it('uses per-request safety settings over provider defaults', () => {
+    const result = buildGenerationConfig(
+      [textMessage],
+      {
+        ...providerOptions,
+        safetySettings: [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' }],
+      },
+      {
+        model: 'gemini-pro',
+        google: {
+          safetySettings: [{ category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' }],
+        },
+      },
+    );
+    expect(result.safetySettings).toEqual([
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+    ]);
   });
 });

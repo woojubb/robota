@@ -78,8 +78,11 @@ import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 
 const provider = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY,
+  defaultModel: 'gemini-3-flash-preview',
 });
 ```
+
+Gemini system prompts are sent as Gemini `systemInstruction`. The provider also supports structured output through `responseSchema` or `responseJsonSchema`, provider-level `safetySettings`, and `thinkingConfig`.
 
 ### Gemma
 
