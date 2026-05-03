@@ -50,7 +50,7 @@ agent-cli            ← minimal TUI
 
 SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider and passes it to the SDK. Assembly (wiring tools, provider, system prompt) happens inside the SDK, but the provider itself comes from the consumer.
 
-SDK command code is split between infrastructure and legacy embedded command implementations. The stable SDK responsibility is the generic command API layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, and reusable command-facing common APIs. New user-visible internal commands must be implemented as command modules selected by composition roots; existing SDK-embedded command behavior is a migration target, not precedent for new command features.
+SDK command code is split between generic infrastructure and command-facing common APIs. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, and reusable command-facing common APIs. User-visible internal commands must be implemented as command modules selected by composition roots; `agent-sdk` no longer owns user-visible built-in command behavior.
 
 ### Client–SDK–Session Relationship
 
@@ -137,7 +137,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── builtin-source.ts       ← BuiltinCommandSource: command palette metadata derived from executable built-ins
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
-│   └── system-command.ts       ← current SDK-default command factory; command-specific migration target
+│   └── system-command.ts       ← empty SDK-default command factory retained for composition tests
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
@@ -240,7 +240,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. For completed Edit tools, `IToolState` also carries `diffFile` and `diffLines` derived from the Edit tool arguments plus the tool result `startLine`. For completed command tools, `IToolState` carries `toolResultData` so transports can render bounded command output previews while raw tool messages remain persisted. The `tool-summary` entry (aggregated) is still pushed at execution completion and preserves the same per-tool metadata for persisted UI rendering.
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
-- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. SDK-default commands are always present; product composition roots inject additional command modules such as `/compact`.
+- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Product composition roots inject command modules such as `/compact`; SDK-default user-visible commands are intentionally empty.
 - **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
@@ -286,7 +286,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers normally call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` and `createSystemCommands()` are exported so independent command modules can compose and test against the same command contract.
 - **Classes**:
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
-  - `createSystemCommands()` — factory for SDK-default executable built-in commands
+  - `createSystemCommands()` — empty SDK-default executable command factory retained for composition tests
   - `createBuiltinCommandModule()` — SDK-default command module that exposes the same executable commands as palette/autocomplete metadata
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
@@ -811,7 +811,7 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `reset`       | Requests settings reset through `settings-reset-requested` effect            |
 | `resume`      | Optional command module for requesting session picker through effect         |
 | `rename`      | Optional command module for requesting session rename through effect         |
-| `provider`    | Optional SDK command module for provider current/list/use/add/test flows     |
+| `provider`    | Optional command module for provider current/list/use/add/test flows         |
 
 **ISystemCommand:**
 
