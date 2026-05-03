@@ -82,10 +82,15 @@ function getTaskSegments(task: IBackgroundTaskViewModel, now: number): string[] 
   if (task.signalCode) {
     segments.push(`signal ${task.signalCode}`);
   }
+  if (task.worktreePath || task.branchName) {
+    segments.push('worktree');
+  }
   return segments;
 }
 
 function getTaskPreview(task: IBackgroundTaskViewModel): string | undefined {
+  if (task.worktreeNextAction) return task.worktreeNextAction;
+  if (task.worktreePath) return task.worktreePath;
   const preview = task.errorPreview ?? task.resultPreview ?? task.currentAction ?? task.preview;
   return preview || undefined;
 }

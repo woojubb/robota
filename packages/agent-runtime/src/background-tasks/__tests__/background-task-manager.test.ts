@@ -153,6 +153,10 @@ describe('BackgroundTaskManager', () => {
             metadata: {
               worktreePath: '/tmp/robota-worktree',
               branchName: 'robota/agent_1',
+              worktreeStatus: ' M changed.ts',
+              worktreeNextAction: 'Review /tmp/robota-worktree.',
+              worktreeBaseRevision: '1234567890abcdef',
+              parentWorktreeStatus: ' M README.md',
             },
           }),
           cancel: () => Promise.resolve(),
@@ -171,6 +175,10 @@ describe('BackgroundTaskManager', () => {
     expect(completed?.isolation).toBe('worktree');
     expect(completed?.worktreePath).toBe('/tmp/robota-worktree');
     expect(completed?.branchName).toBe('robota/agent_1');
+    expect(completed?.worktreeStatus).toBe(' M changed.ts');
+    expect(completed?.worktreeNextAction).toBe('Review /tmp/robota-worktree.');
+    expect(completed?.worktreeBaseRevision).toBe('1234567890abcdef');
+    expect(completed?.parentWorktreeStatus).toBe(' M README.md');
   });
 
   it('queues tasks when maxConcurrent capacity is full', async () => {

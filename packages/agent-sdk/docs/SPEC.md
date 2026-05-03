@@ -678,7 +678,7 @@ const job = await manager.spawn({
 const result = await manager.wait(job.id);
 ```
 
-Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `Agent` tool arguments, `ISubagentSpawnRequest`, and background task metadata. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath` and `branchName` are projected onto `IBackgroundTaskState.worktreePath` and `branchName`.
+Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `Agent` tool arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
 
 `createBackgroundProcessTool(deps)` is exported for SDK composition. The tool is registered only when a runtime shell injects a `process` background runner through `createSession({ backgroundTaskRunners })`; default `Bash` foreground behavior remains unchanged.
 
@@ -1287,8 +1287,9 @@ When `job.request.isolation === 'worktree'`, the decorator must:
 - call `ISubagentWorktreeAdapter.prepare({ jobId, cwd })`
 - invoke the inner runner with `cwd`, `worktreePath`, and `branchName` set to the prepared worktree
 - emit `WorktreeCreate` hook notification after preparation
-- remove clean worktrees on success, delegated failure, or synchronous delegated start failure
-- preserve dirty worktrees and return `worktreePath` plus `branchName` in `ISubagentJobResult.metadata`
+- remove clean worktrees exactly once on success, delegated failure, synchronous delegated start failure, or successful cancellation
+- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` in `ISubagentJobResult.metadata`
+- include adapter-provided `baseRevision` and dirty parent checkout status in handoff metadata when available
 - preserve existing result metadata while adding worktree metadata
 - emit `WorktreeRemove` hook notification when a clean worktree is removed
 
@@ -1344,7 +1345,7 @@ Unknown extra tool-call arguments are tolerated by the Agent tool runtime for pr
 
 The parent model may call this tool when the user asks for an agent to be called or asks for delegation. For explicit multi-agent or parallel-agent requests, the canonical model-invocable path is one batch `Agent` tool call with `jobs`. The tool result is private to the model; the parent model must summarize the returned output for the user and must not claim that parallel execution happened unless the batch result shows the jobs were started.
 
-When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O.
+When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O. Unsupported non-Git or shell states must fail with actionable messages unless the user explicitly requested non-isolated execution.
 
 ### AgentDefinitionLoader (Internal)
 

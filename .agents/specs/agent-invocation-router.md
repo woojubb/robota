@@ -387,7 +387,8 @@ Agent invocation can amplify side effects because multiple workers can run concu
 
 Rules:
 
-- Background write-capable agent work should default to worktree isolation when available.
+- Current beta default policy is explicit isolation: `/agent` and model-invoked `Agent` jobs run in the requested isolation mode, and omit isolation when no mode is requested. A host may later default write-capable jobs to `worktree` only after it owns a documented write-capability classifier and can fail unsupported Git states with actionable errors.
+- Hosts must not silently fallback from requested `worktree` isolation to non-isolated execution.
 - Background agents inherit the current permission mode and allowlist, but fresh approval requests from background threads must be source-attributed.
 - If a fresh approval cannot be surfaced in the active UI or transport, the background action must fail closed.
 - Robota must not silently start write-capable parallel agents from ambiguous natural language without a slash command, model command tool call, or structured transport request.

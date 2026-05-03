@@ -78,6 +78,14 @@ export function applyBackgroundTaskResultMetadataToState(
   if (typeof worktreePath === 'string') state.worktreePath = worktreePath;
   const branchName = result.metadata?.['branchName'];
   if (typeof branchName === 'string') state.branchName = branchName;
+  const worktreeStatus = result.metadata?.['worktreeStatus'];
+  if (typeof worktreeStatus === 'string') state.worktreeStatus = worktreeStatus;
+  const worktreeNextAction = result.metadata?.['worktreeNextAction'];
+  if (typeof worktreeNextAction === 'string') state.worktreeNextAction = worktreeNextAction;
+  const worktreeBaseRevision = result.metadata?.['worktreeBaseRevision'];
+  if (typeof worktreeBaseRevision === 'string') state.worktreeBaseRevision = worktreeBaseRevision;
+  const parentWorktreeStatus = result.metadata?.['parentWorktreeStatus'];
+  if (typeof parentWorktreeStatus === 'string') state.parentWorktreeStatus = parentWorktreeStatus;
   const logPath = result.metadata?.['logPath'];
   if (typeof logPath === 'string') state.logPath = logPath;
   const transcriptPath = result.metadata?.['transcriptPath'];
