@@ -145,6 +145,20 @@ export {
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
 } from './statusline/statusline-command-api.js';
+export type {
+  ICommandAvailablePlugin,
+  ICommandInstalledPlugin,
+  ICommandMarketplaceSource,
+  ICommandPluginAdapter,
+  TPluginInstallScope,
+} from './plugin/plugin-command-api.js';
+export {
+  buildPluginCommandSubcommands,
+  createPluginTuiRequestedEffect,
+  PLUGIN_COMMAND_ARGUMENT_HINT,
+  PLUGIN_COMMAND_DESCRIPTION,
+  resolvePluginCommandAdapter,
+} from './plugin/plugin-command-api.js';
 export {
   clearConversationHistory,
   createSessionPickerRequestedEffect,

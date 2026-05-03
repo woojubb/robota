@@ -19,6 +19,7 @@ import { createMemoryCommandModule } from '@robota-sdk/agent-command-memory';
 import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import { createModelCommandModule } from '@robota-sdk/agent-command-model';
 import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
+import { createPluginCommandModule } from '@robota-sdk/agent-command-plugin';
 import { createResetCommandModule } from '@robota-sdk/agent-command-reset';
 import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
 import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
@@ -59,6 +60,7 @@ import {
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
 import { createCliHostCommandModule } from './commands/cli-host-command-module.js';
+import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -170,6 +172,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       read: () => readSettings(getUserSettingsPath()),
       write: (settings) => writeSettings(getUserSettingsPath(), settings),
     },
+    plugin: createCliPluginCommandAdapter(cwd),
   };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
@@ -186,6 +189,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     createResetCommandModule(),
     createRewindCommandModule(),
     createStatusLineCommandModule(),
+    createPluginCommandModule(),
     createProviderCommandModule({
       providerDefinitions,
       settings: {

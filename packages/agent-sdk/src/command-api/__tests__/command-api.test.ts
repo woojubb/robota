@@ -11,10 +11,12 @@ import {
   buildLanguageCommandSubcommands,
   buildMemoryCommandSubcommands,
   buildPermissionModeSubcommands,
+  buildPluginCommandSubcommands,
   buildStatusLineCommandSubcommands,
   clearConversationHistory,
   createCommandMemoryStores,
   createCommandPendingMemoryStore,
+  createPluginTuiRequestedEffect,
   createSessionExitRequestedEffect,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
@@ -33,6 +35,7 @@ import {
   readCommandSessionInfo,
   readCommandPermissionsState,
   readCommandPermissionMode,
+  resolvePluginCommandAdapter,
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
   writeCommandPermissionMode,
@@ -290,5 +293,38 @@ describe('command-api contracts', () => {
       sessionId: 'session_1',
       messageCount: 2,
     });
+  });
+
+  it('exposes plugin command common APIs without command implementation imports', () => {
+    const pluginAdapter = {
+      listInstalled: async () => [],
+      listAvailablePlugins: async () => [],
+      install: async () => undefined,
+      uninstall: async () => undefined,
+      enable: async () => undefined,
+      disable: async () => undefined,
+      marketplaceAdd: async (source: string) => source,
+      marketplaceRemove: async () => undefined,
+      marketplaceUpdate: async () => undefined,
+      marketplaceList: async () => [],
+      reloadPlugins: async () => undefined,
+    };
+    const context = {
+      ...createCommandHostContext(),
+      getCommandHostAdapters: () => ({
+        plugin: pluginAdapter,
+      }),
+    };
+
+    expect(buildPluginCommandSubcommands().map((command) => command.name)).toEqual([
+      'manage',
+      'install',
+      'uninstall',
+      'enable',
+      'disable',
+      'marketplace',
+    ]);
+    expect(createPluginTuiRequestedEffect()).toEqual({ type: 'plugin-tui-requested' });
+    expect(resolvePluginCommandAdapter(context)).toBe(pluginAdapter);
   });
 });

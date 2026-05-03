@@ -5,16 +5,6 @@ import type {
   ISystemCommand,
 } from '@robota-sdk/agent-sdk';
 
-function createPluginEntry(): ICommand {
-  return {
-    name: 'plugin',
-    description: 'Manage plugins',
-    source: 'cli',
-    modelInvocable: false,
-    argumentHint: 'manage',
-  };
-}
-
 function createReloadPluginsEntry(): ICommand {
   return {
     name: 'reload-plugins',
@@ -28,24 +18,8 @@ class CliHostCommandSource implements ICommandSource {
   readonly name = 'cli-host';
 
   getCommands(): ICommand[] {
-    return [createPluginEntry(), createReloadPluginsEntry()];
+    return [createReloadPluginsEntry()];
   }
-}
-
-function createPluginSystemCommand(): ISystemCommand {
-  const entry = createPluginEntry();
-  return {
-    name: entry.name,
-    description: entry.description,
-    userInvocable: true,
-    modelInvocable: false,
-    argumentHint: entry.argumentHint,
-    execute: (_session, _args) => ({
-      success: true,
-      message: 'Opening plugin manager...',
-      effects: [{ type: 'plugin-tui-requested' }],
-    }),
-  };
 }
 
 function createReloadPluginsSystemCommand(): ISystemCommand {
@@ -66,6 +40,6 @@ export function createCliHostCommandModule(): ICommandModule {
   return {
     name: 'cli-host',
     commandSources: [new CliHostCommandSource()],
-    systemCommands: [createPluginSystemCommand(), createReloadPluginsSystemCommand()],
+    systemCommands: [createReloadPluginsSystemCommand()],
   };
 }

@@ -8,6 +8,7 @@ export type {
   ICommandModule,
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
+  ICommandPluginAdapter,
   ICommandProcessAdapter,
   ICommandResult,
   ICommandSessionRuntime,
@@ -151,6 +152,19 @@ export {
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
 } from '../command-api/statusline/statusline-command-api.js';
+export type {
+  ICommandAvailablePlugin,
+  ICommandInstalledPlugin,
+  ICommandMarketplaceSource,
+  TPluginInstallScope,
+} from '../command-api/plugin/plugin-command-api.js';
+export {
+  buildPluginCommandSubcommands,
+  createPluginTuiRequestedEffect,
+  PLUGIN_COMMAND_ARGUMENT_HINT,
+  PLUGIN_COMMAND_DESCRIPTION,
+  resolvePluginCommandAdapter,
+} from '../command-api/plugin/plugin-command-api.js';
 export {
   clearConversationHistory,
   createSessionPickerRequestedEffect,

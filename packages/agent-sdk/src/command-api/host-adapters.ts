@@ -1,4 +1,5 @@
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;
@@ -30,4 +31,5 @@ export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
+  plugin?: ICommandPluginAdapter;
 }

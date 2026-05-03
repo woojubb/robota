@@ -142,7 +142,7 @@ The CLI contains no session management logic beyond this hook. The old `useSessi
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-The available command list is built from SDK-owned command sources: `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and command modules such as `agent-command-agent`, `agent-command-provider`, and `agent-command-exit`. The CLI renders this list but does not own the command definitions.
+The available command list is built from SDK-owned command sources: `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and command modules such as `agent-command-agent`, `agent-command-provider`, `agent-command-plugin`, and `agent-command-exit`. The CLI renders this list but does not own the command definitions.
 
 | Command                   | Description                             |
 | ------------------------- | --------------------------------------- |
@@ -162,7 +162,7 @@ The available command list is built from SDK-owned command sources: `BuiltinComm
 | `/agent`                  | Run and manage background subagent jobs |
 | `/rename`                 | Rename the current session              |
 | `/exit`                   | Exit CLI                                |
-| `/plugin`                 | Plugin manager (interactive TUI)        |
+| `/plugin`                 | Plugin management                       |
 | `/reload-plugins`         | Reload all plugins                      |
 | `/language [lang]`        | Show or change UI language              |
 | `/statusline`             | Show, hide, or reset status line fields |
@@ -197,6 +197,8 @@ Navigate with arrow keys, Enter to select, Esc to go back.
 ```bash
 /plugin install <name>@<marketplace>   # Install plugin
 /plugin uninstall <name>@<marketplace> # Uninstall plugin
+/plugin enable <name>@<marketplace>    # Enable plugin
+/plugin disable <name>@<marketplace>   # Disable plugin
 /plugin marketplace add <source>       # Add marketplace source
 /plugin marketplace remove <name>      # Remove marketplace
 /plugin marketplace update <name>      # Update marketplace
