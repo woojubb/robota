@@ -129,6 +129,8 @@ Supported setup flags:
 
 First-run setup must offer the injected provider definitions as a selectable list when stdin/stdout are TTYs. The list is generated from `IProviderDefinition[]` and may render `displayName`, `type`, and `description`, but it must not branch on concrete provider names. Selecting a provider starts the same provider setup flow used by runtime provider setup.
 
+Startup setup validation must evaluate the merged settings document and the provider selected for this invocation. A valid lower-priority legacy `provider` entry or another valid settings file must not mask an unusable `currentProvider` profile from a higher-priority layer or `--provider` override. When interactive startup setup is opened because a project `.robota` file already selects an unusable provider, the setup write target must be project-local settings so the new selection actually wins in the merged configuration.
+
 Non-interactive print/headless execution must not prompt. Missing provider config must produce an actionable error generated from the injected provider definitions, pointing to `robota --configure` and `robota --configure-provider` without hardcoded provider-specific examples.
 
 Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
