@@ -111,8 +111,8 @@ packages/
   - [x] Session-name parsing and host-rendered rename effect helpers are available.
   - [x] Session-picker request effect helper is available.
 - [x] Session-info read helper is available for `/cost`.
-- [ ] Define checkpoint/rewind APIs without exposing session internals.
-- [ ] Move `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind` into command modules that consume these APIs.
+- [x] Define checkpoint/rewind APIs without exposing session internals.
+- [x] Move `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind` into command modules that consume these APIs.
 
 ### Settings APIs
 
@@ -151,12 +151,13 @@ packages/
 4. [x] Create `agent-command-provider` and delete transitional SDK provider command implementation.
 5. [x] Extract context/compact APIs and migrate `/context` and `/compact`.
 6. [x] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
-7. [ ] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
+7. [x] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
 
 - [x] `/clear` migrated to `agent-command-session`.
 - [x] `/rename` migrated to `agent-command-session`.
 - [x] `/resume` migrated to `agent-command-session`.
 - [x] `/reset` migrated to `agent-command-reset`.
+- [x] `/rewind` migrated to `agent-command-rewind`.
 
 8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
@@ -181,7 +182,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-resume.md`
 - `.agents/tasks/completed/command-migration-cost.md`
 - `.agents/tasks/completed/command-migration-reset.md`
-- `command-migration-rewind.md`
+- `.agents/tasks/completed/command-migration-rewind.md`
 - `command-migration-memory.md`
 - `command-migration-background.md`
 - `command-migration-plugin.md`

@@ -17,6 +17,7 @@ import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import { createModelCommandModule } from '@robota-sdk/agent-command-model';
 import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
 import { createResetCommandModule } from '@robota-sdk/agent-command-reset';
+import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
 import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
 import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
@@ -177,6 +178,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     createContextCommandModule(),
     createSessionCommandModule(),
     createResetCommandModule(),
+    createRewindCommandModule(),
     createStatusLineCommandModule(),
     createProviderCommandModule({
       providerDefinitions,

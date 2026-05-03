@@ -140,3 +140,11 @@ export {
   RESUME_COMMAND_DESCRIPTION,
 } from './session/session-command-api.js';
 export type { ICommandSessionInfo } from './session/session-command-api.js';
+export {
+  buildRewindCommandSubcommands,
+  listCommandEditCheckpoints,
+  restoreCommandEditCheckpoint,
+  rollbackCommandEditCheckpoint,
+  REWIND_COMMAND_ARGUMENT_HINT,
+  REWIND_COMMAND_DESCRIPTION,
+} from './checkpoint/rewind-command-api.js';

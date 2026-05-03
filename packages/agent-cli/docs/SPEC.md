@@ -170,6 +170,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
               ├── createSessionCommandModule()    (from @robota-sdk/agent-command-session)
               ├── createResetCommandModule()      (from @robota-sdk/agent-command-reset)
+              ├── createRewindCommandModule()     (from @robota-sdk/agent-command-rewind)
               ├── createStatusLineCommandModule() (from @robota-sdk/agent-command-statusline)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
@@ -491,6 +492,8 @@ The `/resume` command is provided by the same `@robota-sdk/agent-command-session
 The `/cost` command is provided by the same `@robota-sdk/agent-command-session` module. The command module reads session id and message count through SDK session command APIs; the CLI only displays the command result.
 
 The `/reset` command is provided by `@robota-sdk/agent-command-reset`. The command module emits `settings-reset-requested`; the CLI applies local settings deletion and shutdown through the generic command effect handler.
+
+The `/rewind` command is provided by `@robota-sdk/agent-command-rewind`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
 **Subcommand display:**
 
@@ -1239,7 +1242,7 @@ Pending-memory notices emitted into `InteractiveSession` history are presentatio
 
 ## Edit Checkpointing
 
-Edit checkpoint behavior is SDK-owned. The CLI and TUI must not snapshot files, restore files, inspect checkpoint manifests directly, or decide rollback ordering. They route `/rewind` commands through `session.executeCommand()` and render returned messages/data.
+Edit checkpoint behavior is SDK-owned and `/rewind` command behavior is owned by `@robota-sdk/agent-command-rewind`. The CLI and TUI must not snapshot files, restore files, inspect checkpoint manifests directly, format `/rewind` command output, or decide rollback ordering. They route `/rewind` commands through `session.executeCommand()` and render returned messages/data.
 
 Supported SDK-owned edit checkpoint commands exposed through the CLI:
 
@@ -1308,6 +1311,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-permissions` | Default `/permissions` command module composed by the Robota binary                                                                  |
 | `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
+| `@robota-sdk/agent-command-rewind`      | Default `/rewind` command module composed by the Robota binary                                                                       |
 | `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`           |
 | `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                   |
 | `@robota-sdk/agent-sdk`                 | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |

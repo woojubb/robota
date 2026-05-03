@@ -93,7 +93,7 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(4);
+    expect(commands.length).toBeGreaterThanOrEqual(3);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).not.toContain('cost');
     expect(commands.map((c) => c.name)).not.toContain('clear');
@@ -106,6 +106,7 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).not.toContain('compact');
     expect(commands.map((c) => c.name)).not.toContain('context');
     expect(commands.map((c) => c.name)).not.toContain('reset');
+    expect(commands.map((c) => c.name)).not.toContain('rewind');
   });
 
   it('exposes only memory as a model-invocable core command', () => {
@@ -116,6 +117,7 @@ describe('SystemCommandExecutor', () => {
     expect(executor.isModelInvocable('memory')).toBe(true);
     expect(executor.isModelInvocable('agent')).toBe(false);
     expect(executor.isModelInvocable('reset')).toBe(false);
+    expect(executor.isModelInvocable('rewind')).toBe(false);
   });
 
   it('returns null for unknown command', async () => {
@@ -160,79 +162,6 @@ describe('SystemCommandExecutor', () => {
     expect(
       new BuiltinCommandSource(module.systemCommands).getCommands().map((c) => c.name),
     ).toEqual(executableNames);
-  });
-
-  it('rewind list returns edit checkpoints', async () => {
-    const executor = new SystemCommandExecutor();
-    const session = createMockSession({
-      listEditCheckpoints: vi.fn().mockReturnValue([
-        {
-          id: 'turn-0001',
-          sessionId: 'test-session-id',
-          sequence: 1,
-          prompt: 'change files',
-          createdAt: '2026-05-02T00:00:00.000Z',
-          fileCount: 2,
-        },
-      ]),
-    });
-
-    const result = await executor.execute('rewind', session, 'list');
-
-    expect(result).not.toBeNull();
-    expect(result!.success).toBe(true);
-    expect(result!.message).toContain('turn-0001');
-    expect(result!.data?.count).toBe(1);
-  });
-
-  it('rewind restore delegates code restoration to the interactive session', async () => {
-    const executor = new SystemCommandExecutor();
-    const restoreEditCheckpoint = vi.fn().mockResolvedValue({
-      target: {
-        id: 'turn-0001',
-        sessionId: 'test-session-id',
-        sequence: 1,
-        prompt: 'change files',
-        createdAt: '2026-05-02T00:00:00.000Z',
-        fileCount: 1,
-      },
-      restoredCheckpointCount: 2,
-      restoredFileCount: 3,
-      removedCheckpointCount: 2,
-    });
-    const session = createMockSession({ restoreEditCheckpoint });
-
-    const result = await executor.execute('rewind', session, 'restore turn-0001');
-
-    expect(result).not.toBeNull();
-    expect(result!.success).toBe(true);
-    expect(restoreEditCheckpoint).toHaveBeenCalledWith('turn-0001');
-    expect(result!.data?.restoredFileCount).toBe(3);
-  });
-
-  it('rewind rollback delegates inclusive code rollback to the interactive session', async () => {
-    const executor = new SystemCommandExecutor();
-    const rollbackEditCheckpoint = vi.fn().mockResolvedValue({
-      target: {
-        id: 'turn-0001',
-        sessionId: 'test-session-id',
-        sequence: 1,
-        prompt: 'change files',
-        createdAt: '2026-05-02T00:00:00.000Z',
-        fileCount: 1,
-      },
-      restoredCheckpointCount: 1,
-      restoredFileCount: 1,
-      removedCheckpointCount: 1,
-    });
-    const session = createMockSession({ rollbackEditCheckpoint });
-
-    const result = await executor.execute('rewind', session, 'rollback turn-0001');
-
-    expect(result).not.toBeNull();
-    expect(result!.success).toBe(true);
-    expect(rollbackEditCheckpoint).toHaveBeenCalledWith('turn-0001');
-    expect(result!.message).toContain('Rolled back code through turn-0001.');
   });
 
   it('background list returns task summaries', async () => {
