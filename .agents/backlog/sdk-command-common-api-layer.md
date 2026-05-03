@@ -111,6 +111,7 @@ packages/
   - [x] Session-name parsing and host-rendered rename effect helpers are available.
   - [x] Session-picker request effect helper is available.
 - [x] Session-info read helper is available for `/cost`.
+- [x] Session-exit request effect helper is available for `/exit`.
 - [x] Define checkpoint/rewind APIs without exposing session internals.
 - [x] Move `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind` into command modules that consume these APIs.
 
@@ -161,9 +162,10 @@ packages/
 - [x] `/reset` migrated to `agent-command-reset`.
 - [x] `/rewind` migrated to `agent-command-rewind`.
 - [x] `/memory` migrated to `agent-command-memory`.
+- [x] `/exit` migrated to `agent-command-exit`.
 
 8. [x] Extract runtime APIs and migrate `/memory` and `/background`.
-9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
+9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, and `/help`.
 10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
 11. [ ] Remove duplicate built-in command metadata sources after descriptor parity tests pass.
 12. [ ] Run full repository verification and publish-readiness checks.
@@ -188,10 +190,10 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-rewind.md`
 - `.agents/tasks/completed/command-migration-memory.md`
 - `.agents/tasks/completed/command-migration-background.md`
+- `.agents/tasks/completed/command-migration-exit.md`
 - `command-migration-plugin.md`
 - `command-migration-reload-plugins.md`
 - `command-migration-help.md`
-- `command-migration-exit.md`
 - `command-migration-agent.md`
 
 The command-specific backlog items should not be treated as later cleanup. They are the execution slices for this API-layer migration.

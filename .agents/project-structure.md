@@ -12,6 +12,7 @@ packages/
 ├── agent-command-background/    # Command module that contributes /background
 ├── agent-command-compact/       # Command module that contributes /compact
 ├── agent-command-context/       # Command module that contributes /context
+├── agent-command-exit/          # Command module that contributes /exit
 ├── agent-command-language/      # Command module that contributes /language
 ├── agent-command-memory/        # Command module that contributes /memory
 ├── agent-command-mode/          # Command module that contributes /mode

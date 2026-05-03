@@ -15,9 +15,10 @@ import {
   clearConversationHistory,
   createCommandMemoryStores,
   createCommandPendingMemoryStore,
-  formatCommandBackgroundTaskList,
+  createSessionExitRequestedEffect,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
+  formatCommandBackgroundTaskList,
   buildBackgroundCommandSubcommands,
   listCommandBackgroundTasks,
   parseCommandBackgroundLogCursor,
@@ -281,6 +282,9 @@ describe('command-api contracts', () => {
     });
     expect(createSessionPickerRequestedEffect()).toEqual({
       type: 'session-picker-requested',
+    });
+    expect(createSessionExitRequestedEffect()).toEqual({
+      type: 'session-exit-requested',
     });
     expect(readCommandSessionInfo(context)).toEqual({
       sessionId: 'session_1',

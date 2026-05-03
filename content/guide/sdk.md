@@ -64,7 +64,8 @@ Event types include: `tool-start` (individual tool execution began), `tool-end` 
 
 The SDK owns `CommandRegistry` and the command sources used by clients:
 
-- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/memory`, `/rewind`, `/provider`, `/resume`, `/background`, `/rename`, `/plugin`, `/reload-plugins`, `/language`, `/reset`, `/exit`
+- **`BuiltinCommandSource`** — SDK-default command metadata, currently `/help`
+- **Command modules** — product-composed built-ins such as `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/memory`, `/rewind`, `/provider`, `/resume`, `/background`, `/rename`, `/plugin`, `/reload-plugins`, `/language`, `/reset`, and `/exit`
 - **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
 - **`PluginCommandSource`** — commands contributed by loaded plugins
 

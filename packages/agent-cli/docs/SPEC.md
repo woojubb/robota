@@ -20,7 +20,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: Terminal UI command effect application and CLI-only host command modules such as `/plugin`, `/reload-plugins`, and `/exit`
+- OWNS: Terminal UI command effect application and CLI-only host command modules such as `/plugin` and `/reload-plugins`
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -167,6 +167,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createLanguageCommandModule()   (from @robota-sdk/agent-command-language)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
+              ├── createExitCommandModule()       (from @robota-sdk/agent-command-exit)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
               ├── createSessionCommandModule()    (from @robota-sdk/agent-command-session)
               ├── createResetCommandModule()      (from @robota-sdk/agent-command-reset)
@@ -252,13 +253,14 @@ Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SD
 
 CLI host commands are represented as `ICommandModule` instances injected into `InteractiveSession`. The command module owns command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
 
-| Command           | Owner module responsibility                            | CLI side effect                                  |
-| ----------------- | ------------------------------------------------------ | ------------------------------------------------ |
-| `/plugin`         | Return a plugin TUI trigger or plugin operation result | Open PluginTUI or refresh plugin state           |
-| `/reload-plugins` | Return a reload completion signal                      | Re-scan plugin resources when supported          |
-| `/exit`           | Return an exit-request signal                          | Gracefully shut down the session and terminal UI |
+| Command           | Owner module responsibility                            | CLI side effect                         |
+| ----------------- | ------------------------------------------------------ | --------------------------------------- |
+| `/plugin`         | Return a plugin TUI trigger or plugin operation result | Open PluginTUI or refresh plugin state  |
+| `/reload-plugins` | Return a reload completion signal                      | Re-scan plugin resources when supported |
 
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
+
+`/exit` is provided by `@robota-sdk/agent-command-exit`. The command package owns command metadata and emits `session-exit-requested`; the CLI applies that typed effect by gracefully shutting down the session and terminal UI.
 
 ### Session Name Display
 
@@ -439,7 +441,7 @@ Tool: [5 tools]
 | `/plugin [subcommand]`    | Plugin management                                               |
 | `/resume`                 | Show session picker to resume a saved session                   |
 | `/rename <name>`          | Rename the current session (name displayed in StatusBar)        |
-| `/exit`                   | Exit CLI                                                        |
+| `/exit`                   | Exit through the injected exit command module                   |
 
 ### Slash Command Autocomplete
 
@@ -492,6 +494,8 @@ The `/resume` command is provided by the same `@robota-sdk/agent-command-session
 The `/cost` command is provided by the same `@robota-sdk/agent-command-session` module. The command module reads session id and message count through SDK session command APIs; the CLI only displays the command result.
 
 The `/reset` command is provided by `@robota-sdk/agent-command-reset`. The command module emits `settings-reset-requested`; the CLI applies local settings deletion and shutdown through the generic command effect handler.
+
+The `/exit` command is provided by `@robota-sdk/agent-command-exit`. The command module emits `session-exit-requested`; the CLI applies graceful shutdown and terminal exit through the generic command effect handler.
 
 The `/rewind` command is provided by `@robota-sdk/agent-command-rewind`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
@@ -1306,6 +1310,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-agent`       | Optional default `/agent` command module composed by the Robota binary                                                               |
 | `@robota-sdk/agent-command-compact`     | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-context`     | Default `/context` command module composed by the Robota binary                                                                      |
+| `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-command-mode`        | Default `/mode` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
