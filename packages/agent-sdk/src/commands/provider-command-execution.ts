@@ -3,15 +3,15 @@ import type {
   ICommandInteraction,
   ICommandResult,
   TCommandInteractionPrompt,
-} from './command-result.js';
-import type { IProviderCommandModuleOptions } from './provider-command-types.js';
+} from '../command-api/index.js';
+import type { IProviderCommandModuleOptions } from '../command-api/provider/provider-command-types.js';
 import {
   buildProviderSetupPatch,
   mergeProviderPatch,
   setCurrentProvider,
   type IProviderProfileSettings,
   type IProviderSetupInput,
-} from './provider-settings.js';
+} from '../command-api/provider/provider-settings.js';
 import {
   createProviderSetupFlow,
   formatProviderSetupChoiceLabel,
@@ -19,8 +19,8 @@ import {
   submitProviderSetupValue,
   validateProviderSetupValue,
   type IProviderSetupFlowState,
-} from './provider-setup-flow.js';
-import { testProviderProfileCommand } from './provider-command-probe.js';
+} from '../command-api/provider/provider-setup-flow.js';
+import { testProviderProfileCommand } from '../command-api/provider/provider-command-probe.js';
 
 const YES = 'yes';
 const PROVIDER_RESTART_EFFECT = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BuiltinCommandSource } from '../builtin-source.js';
 import { CommandRegistry } from '../command-registry.js';
-import type { ICommandModule } from '../command-module.js';
+import type { ICommandModule } from '../../command-api/command-module.js';
 
 describe('CommandRegistry capability descriptors', () => {
   it('does not project /agent from core built-ins when the agent source is not composed', () => {

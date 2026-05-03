@@ -1,7 +1,7 @@
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { CLAUDE_MODELS, formatTokenCount } from '@robota-sdk/agent-core';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
-import type { ICommand } from './types.js';
+import type { ICommandHostContext } from '../command-api/index.js';
+import type { ICommand } from '../command-api/types.js';
 
 export const VALID_MODES: readonly TPermissionMode[] = [
   'plan',
@@ -66,7 +66,6 @@ export function buildMemorySubcommands(): ICommand[] {
   ];
 }
 
-export function getAutoCompactThreshold(session: InteractiveSession): number | false {
-  const candidate = session.getSession() as { getAutoCompactThreshold?: () => number | false };
-  return candidate.getAutoCompactThreshold?.() ?? DEFAULT_AUTO_COMPACT_THRESHOLD;
+export function getAutoCompactThreshold(session: ICommandHostContext): number | false {
+  return session.getSession().getAutoCompactThreshold?.() ?? DEFAULT_AUTO_COMPACT_THRESHOLD;
 }

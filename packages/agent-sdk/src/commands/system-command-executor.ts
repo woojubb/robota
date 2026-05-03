@@ -1,6 +1,5 @@
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
-import type { ICommandResult, ISystemCommand } from './system-command.js';
+import type { ICommandHostContext, ICommandResult, ISystemCommand } from '../command-api/index.js';
 import { createSystemCommands } from './system-command.js';
 
 /** Registry for system commands. */
@@ -22,7 +21,7 @@ export class SystemCommandExecutor {
   /** Execute a command by name. Returns null if command not found. */
   async execute(
     name: string,
-    session: InteractiveSession,
+    session: ICommandHostContext,
     args: string,
   ): Promise<ICommandResult | null> {
     const cmd = this.getCommand(name);
@@ -36,7 +35,7 @@ export class SystemCommandExecutor {
 
   async executeCommand(
     command: ISystemCommand,
-    session: InteractiveSession,
+    session: ICommandHostContext,
     args: string,
   ): Promise<ICommandResult> {
     return await command.execute(session, args);
@@ -67,7 +66,7 @@ export class SystemCommandExecutor {
 
   async executeModelInvocable(
     name: string,
-    session: InteractiveSession,
+    session: ICommandHostContext,
     args: string,
   ): Promise<ICommandResult | null> {
     if (!this.isModelInvocable(name)) return null;

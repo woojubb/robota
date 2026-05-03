@@ -5,7 +5,7 @@ import {
   createProviderCommandModule,
   type IProviderCommandSettingsAdapter,
 } from '../provider-command-module.js';
-import type { TProviderSettingsDocument } from '../provider-settings.js';
+import type { TProviderSettingsDocument } from '../../command-api/provider/provider-settings.js';
 import { SystemCommandExecutor } from '../system-command-executor.js';
 
 const providerDefinitions: readonly IProviderDefinition[] = [

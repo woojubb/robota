@@ -1,7 +1,7 @@
-import type { ICommandSource, ICommand } from './types.js';
+import type { ICommandSource, ICommand } from '../command-api/types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { commandToCapabilityDescriptor } from './capability-descriptors.js';
-import type { ICommandModule } from './command-module.js';
+import type { ICommandModule } from '../command-api/command-module.js';
 
 /** Aggregates commands from multiple sources */
 export class CommandRegistry {

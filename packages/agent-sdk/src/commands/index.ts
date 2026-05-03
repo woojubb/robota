@@ -1,5 +1,25 @@
-export type { ICommand, ICommandSource } from './types.js';
-export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
+export type {
+  ICommand,
+  ICommandChoicePromptOption,
+  ICommandHostAdapters,
+  ICommandHostContext,
+  ICommandInteraction,
+  ICommandListEntry,
+  ICommandModule,
+  ICommandPickerAdapter,
+  ICommandProcessAdapter,
+  ICommandResult,
+  ICommandSessionRuntime,
+  ICommandSettingsAdapter,
+  ICommandSettingsDocument,
+  ICommandSource,
+  ISystemCommand,
+  TCommandEffect,
+  TCommandInteractionPrompt,
+  TCommandModuleSessionRequirement,
+  TCommandResultDataValue,
+  TSystemCommandLifecycle,
+} from '../command-api/index.js';
 export { CommandRegistry } from './command-registry.js';
 export { BuiltinCommandSource, createBuiltinCommandModule } from './builtin-source.js';
 export {
@@ -7,21 +27,14 @@ export {
   createProviderCommandModule,
 } from './provider-command-module.js';
 export { executeProviderCommand } from './provider-command-execution.js';
-export { probeProviderProfile, testProviderProfileCommand } from './provider-command-probe.js';
+export {
+  probeProviderProfile,
+  testProviderProfileCommand,
+} from '../command-api/provider/provider-command-probe.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
 export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
-export type {
-  ICommandChoicePromptOption,
-  ICommandInteraction,
-  ICommandResult,
-  ISystemCommand,
-  TCommandEffect,
-  TCommandInteractionPrompt,
-  TCommandResultDataValue,
-  TSystemCommandLifecycle,
-} from './system-command.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
@@ -33,7 +46,7 @@ export type {
   IProviderSetupInput,
   IProviderSetupPatch,
   TProviderSettingsDocument,
-} from './provider-settings.js';
+} from '../command-api/provider/provider-settings.js';
 export {
   buildProviderProfile,
   buildProviderSetupPatch,
@@ -41,7 +54,7 @@ export {
   setCurrentProvider,
   upsertProviderProfile,
   validateProviderProfile,
-} from './provider-settings.js';
+} from '../command-api/provider/provider-settings.js';
 export {
   createProviderSetupFlow,
   formatProviderSetupChoiceLabel,
@@ -52,20 +65,20 @@ export {
   runProviderSetupPromptFlow,
   submitProviderSetupValue,
   validateProviderSetupValue,
-} from './provider-setup-flow.js';
+} from '../command-api/provider/provider-setup-flow.js';
 export type {
   IProviderSetupFlowState,
   IProviderSetupPromptStep,
   TProviderSetupFlowSubmitResult,
   TProviderSetupType,
   TPromptInput,
-} from './provider-setup-flow.js';
+} from '../command-api/provider/provider-setup-flow.js';
 export {
   formatEnvReference,
   hasUsableSecretReference,
   isEnvReference,
   resolveEnvReference,
-} from './provider-env-ref.js';
+} from '../command-api/provider/provider-env-ref.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,
