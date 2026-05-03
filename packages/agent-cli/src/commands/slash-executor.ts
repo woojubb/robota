@@ -77,14 +77,6 @@ export function handleHelp(addMessage: TAddMessage): ISlashResult {
   return { handled: true };
 }
 
-export function handleCost(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
-  addMessage({
-    role: 'system',
-    content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
-  });
-  return { handled: true };
-}
-
 export function handleContext(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
   const ctx = session.getContextState();
   addMessage({
@@ -124,7 +116,7 @@ export async function executeSlashCommand(
     case 'model':
       return { handled: false }; // Route to system command (model change effect)
     case 'cost':
-      return handleCost(session, addMessage);
+      return { handled: false }; // Route to injected session command (session info)
     case 'context':
       return handleContext(session, addMessage);
     case 'reset':

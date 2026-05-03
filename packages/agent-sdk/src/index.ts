@@ -137,7 +137,9 @@ export {
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   CLEAR_COMMAND_DESCRIPTION,
+  COST_COMMAND_DESCRIPTION,
   parseSessionNameArgument,
+  readCommandSessionInfo,
   RENAME_COMMAND_DESCRIPTION,
   RENAME_COMMAND_USAGE,
   RESUME_COMMAND_DESCRIPTION,
@@ -148,6 +150,7 @@ export {
 } from './commands/index.js';
 export type {
   ICompactContextResult,
+  ICommandSessionInfo,
   IPermissionsCommandState,
   IProviderSetupFlowState,
   IProviderSetupPromptStep,

@@ -16,7 +16,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [agent-followup-roadmap.md](agent-followup-roadmap.md)                         | Recommended sequence for agent/CLI/runtime follow-ups         |
 | [command-migration-agent.md](command-migration-agent.md)                       | Finish migration hardening for `/agent`                       |
 | [command-migration-background.md](command-migration-background.md)             | Migrate `/background` into a command-module owner             |
-| [command-migration-cost.md](command-migration-cost.md)                         | Migrate `/cost` into a command-module owner                   |
 | [command-migration-exit.md](command-migration-exit.md)                         | Migrate `/exit` into a command-module owner                   |
 | [command-migration-help.md](command-migration-help.md)                         | Migrate `/help` into a command-module owner                   |
 | [command-migration-memory.md](command-migration-memory.md)                     | Migrate `/memory` into a command-module owner                 |

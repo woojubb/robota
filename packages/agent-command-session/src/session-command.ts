@@ -5,6 +5,7 @@ import {
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   parseSessionNameArgument,
+  readCommandSessionInfo,
 } from '@robota-sdk/agent-sdk';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
@@ -38,5 +39,17 @@ export function executeResumeCommand(_context: ICommandHostContext, _args: strin
     message: 'Opening session picker...',
     data: { triggerResumePicker: true },
     effects: [createSessionPickerRequestedEffect()],
+  };
+}
+
+export function executeCostCommand(context: ICommandHostContext, _args: string): ICommandResult {
+  const sessionInfo = readCommandSessionInfo(context);
+  return {
+    success: true,
+    message: `Session: ${sessionInfo.sessionId}\nMessages: ${sessionInfo.messageCount}`,
+    data: {
+      sessionId: sessionInfo.sessionId,
+      messageCount: sessionInfo.messageCount,
+    },
   };
 }
