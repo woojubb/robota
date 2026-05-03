@@ -13,6 +13,7 @@ describe('createCliHostCommandModule', () => {
       'reload-plugins',
       'exit',
     ]);
+    expect(module.systemCommands?.map((command) => command.name)).not.toContain('reset');
   });
 
   it('returns typed command effects for host commands', async () => {

@@ -16,6 +16,7 @@ packages/
 ├── agent-command-model/         # Command module that contributes /model
 ├── agent-command-permissions/   # Command module that contributes /permissions
 ├── agent-command-provider/      # Command module that contributes /provider
+├── agent-command-reset/         # Command module that contributes /reset
 ├── agent-command-session/       # Command module that contributes session commands such as /clear, /rename, /resume, and /cost
 ├── agent-command-statusline/    # Command module that contributes /statusline
 ├── agent-cli/                   # Terminal UI and local runtime adapters

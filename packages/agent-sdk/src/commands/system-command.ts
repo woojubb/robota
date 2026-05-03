@@ -67,18 +67,5 @@ export function createSystemCommands(): ISystemCommand[] {
       subcommands: buildBackgroundSubcommands(),
       execute: executeBackgroundCommand,
     },
-    {
-      name: 'reset',
-      description: 'Delete settings',
-      execute: (_session, _args) => {
-        // Settings deletion logic — caller handles actual file I/O and exit
-        return {
-          message: 'Reset requested.',
-          success: true,
-          data: { resetRequested: true },
-          effects: [{ type: 'settings-reset-requested' }],
-        };
-      },
-    },
   ];
 }

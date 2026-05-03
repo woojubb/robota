@@ -169,6 +169,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
               ├── createSessionCommandModule()    (from @robota-sdk/agent-command-session)
+              ├── createResetCommandModule()      (from @robota-sdk/agent-command-reset)
               ├── createStatusLineCommandModule() (from @robota-sdk/agent-command-statusline)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
@@ -488,6 +489,8 @@ The `/rename <name>` command is provided by the same `@robota-sdk/agent-command-
 The `/resume` command is provided by the same `@robota-sdk/agent-command-session` module. The command module emits `session-picker-requested`; the CLI applies that effect through the generic command effect handler by opening `SessionPicker`.
 
 The `/cost` command is provided by the same `@robota-sdk/agent-command-session` module. The command module reads session id and message count through SDK session command APIs; the CLI only displays the command result.
+
+The `/reset` command is provided by `@robota-sdk/agent-command-reset`. The command module emits `settings-reset-requested`; the CLI applies local settings deletion and shutdown through the generic command effect handler.
 
 **Subcommand display:**
 
