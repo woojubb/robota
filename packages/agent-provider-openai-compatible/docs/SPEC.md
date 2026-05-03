@@ -58,6 +58,7 @@ The package is a functional core for provider transport logic. Concrete provider
 - Providers may pass an `IOpenAICompatibleToolCallTextProjector` when a documented provider-owned serving template emits native tool-call text instead of OpenAI `tool_calls`. The shared package only calls the injected strategy; it must not infer model names, tool names, or prompt directives.
 - Providers own client creation and may use any OpenAI-compatible endpoint that the OpenAI SDK can target.
 - Providers own payload logging and diagnostic raw-data retention policy.
+- Provider-native hosted web search/fetch is outside this primitive package. Concrete providers must expose capability reports and explicit unsupported errors when an OpenAI-compatible endpoint only supports chat/function tools.
 
 ## Error Taxonomy
 
@@ -75,6 +76,7 @@ The package is a functional core for provider transport logic. Concrete provider
 - Unit tests cover stream assembly with text delta callbacks, native tool-call assembly, injected text-tool-call projection, abort handling while awaiting the next chunk, optional projection, and projector flush behavior.
 - Unit tests cover endpoint probe skip, success, and HTTP failure behavior.
 - Provider packages must add integration tests proving they compose this package without changing their public behavior.
+- Provider packages that expose OpenAI-compatible local/proxy endpoints must add tests proving provider-native web search/fetch is either explicitly implemented or explicitly rejected before request execution.
 
 ## Class Contract Registry
 

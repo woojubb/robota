@@ -98,6 +98,8 @@ const provider = new GemmaProvider({
 
 Use the Gemma provider for Gemma-family local models served through LM Studio or another OpenAI-compatible endpoint. It owns Gemma-specific reasoning marker filtering and native tool-call text projection.
 
+LM Studio and other OpenAI-compatible Chat Completions endpoints support Robota local tools through normal function calling. They are not treated as provider-native web search/fetch providers, so configure web access with local `WebSearch`/`WebFetch` tools unless a concrete provider package documents hosted web support.
+
 ### Qwen
 
 ```typescript

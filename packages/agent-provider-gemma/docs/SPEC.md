@@ -65,6 +65,7 @@ src/
 - `createGemmaProviderDefinition()` reuses the shared OpenAI-compatible endpoint probe instead of owning a Gemma-specific CLI/setup branch.
 - Future Gemma variants can extend projection behavior inside this package without changing generic OpenAI-compatible transport.
 - Native and XML-like execution artifact projection is enabled only when declared tools are present. It validates executable calls against the request's tool names, strips Gemma XML artifact wrappers from user-facing text, and does not add CLI/TUI, command, or domain-tool-specific branches.
+- `GemmaProvider.getCapabilities()` reports Robota function calling support through OpenAI-compatible tools and provider-native web search/fetch as unsupported. LM Studio/Gemma tool-call text projection is not a provider-native hosted web capability. Request-level `IChatOptions.nativeWebTools` must fail before transport execution.
 
 ## Error Taxonomy
 
@@ -73,6 +74,7 @@ src/
 | Missing client, apiKey, and executor | `Either Gemma client, apiKey, or executor is required` | `provider.ts` constructor |
 | Missing model                        | `Model is required in chat options...`                 | `provider.ts`             |
 | Client unavailable                   | `Gemma client not available...`                        | `provider.ts`             |
+| Native web unsupported               | `Provider gemma does not support native web...`        | `provider.ts`             |
 | Chat failure                         | `Gemma chat failed: <message>`                         | `provider.ts`             |
 | Streaming failure                    | `Gemma stream failed: <message>`                       | `provider.ts`             |
 
@@ -82,6 +84,7 @@ src/
 - Unit tests cover `GemmaToolCallProjector` for documented LM Studio/Gemma tool-call blocks, split streamed blocks, declared-tool validation, and malformed block preservation.
 - Unit tests cover XML-like Gemma execution artifacts so declared tool tags and JSON command envelopes are converted to universal tool calls while wrapper tags are removed from visible text.
 - Unit tests cover `GemmaProvider` request construction with OpenAI-compatible base URL, tools, streaming text deltas, and model requirement errors.
+- Unit tests cover Gemma native web capability reporting and unsupported request-level native web errors.
 - Unit tests verify native Gemma tool-call text is converted to universal `toolCalls` before SDK execution sees the response.
 - Unit tests verify Gemma XML-like declared tool text is converted to universal `toolCalls` before SDK execution sees the response.
 - Unit tests verify raw Gemma marker text is not emitted through `onTextDelta` or final assistant content when the Gemma provider is selected.

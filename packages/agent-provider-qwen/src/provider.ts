@@ -14,6 +14,7 @@ import {
 } from './defaults';
 import { hasQwenBuiltInWebTools } from './responses-converter';
 import { chatStreamWithQwenResponsesApi, chatWithQwenResponsesApi } from './responses-chat';
+import { getQwenProviderCapabilities } from './provider-capabilities';
 import type { IQwenProviderOptions } from './types';
 
 export class QwenProvider extends AbstractAIProvider {
@@ -63,6 +64,7 @@ export class QwenProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       return this.chatViaExecutor(messages, options);
@@ -135,6 +137,7 @@ export class QwenProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     this.validateMessages(messages);
+    this.validateNativeWebTools(options?.nativeWebTools);
 
     if (this.executor) {
       try {
@@ -187,6 +190,10 @@ export class QwenProvider extends AbstractAIProvider {
 
   override supportsTools(): boolean {
     return true;
+  }
+
+  override getCapabilities() {
+    return getQwenProviderCapabilities(this.options);
   }
 
   override validateConfig(): boolean {

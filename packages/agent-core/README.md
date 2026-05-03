@@ -36,6 +36,7 @@ console.log(response);
 - **ConversationStore**: Append-only conversation history with streaming buffer (`beginAssistant`/`appendStreaming`/`commitAssistant`)
 - **IBaseMessage**: Every message has a unique `id` (UUID) and `state` (`'complete'` | `'interrupted'`)
 - **Multi-provider**: Register multiple providers, switch dynamically with `setModel()`
+- **Provider capabilities**: Provider-neutral capability reports distinguish local tools from provider-native hosted web search/fetch
 - **AbstractAIProvider.streamWithAbort()**: Standard streaming wrapper for all providers — handles AbortSignal, returns partial content on abort
 - **Permission system**: Deterministic 3-step policy evaluation (`evaluatePermission`)
 - **Hook system**: Shell command-based lifecycle hooks (`runHooks`)
@@ -106,16 +107,16 @@ agent-cli         ← Terminal UI
 
 ## Public API Surface
 
-| Category        | Exports                                                                                                                                                                                   |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`                         |
-| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName` |
-| **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `IHookResult`                            |
-| **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                |
-| **Models**      | `CLAUDE_MODELS`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`             |
-| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`, `IContextTokenUsage`, `TTextDeltaCallback`     |
-| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                       |
-| **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                             |
+| Category        | Exports                                                                                                                                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`, `getProviderCapabilities`, `assertProviderNativeWebToolsAvailable`           |
+| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName`                                                       |
+| **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `IHookResult`                                                                                  |
+| **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                                                                      |
+| **Models**      | `CLAUDE_MODELS`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                                                   |
+| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IProviderCapabilities`, `IProviderNativeWebToolRequest`, `IToolSchema`, `IContextWindowState`, `IContextTokenUsage`, `TTextDeltaCallback` |
+| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                                                                             |
+| **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                                                                                   |
 
 ## What Moved Out in v3
 

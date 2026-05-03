@@ -31,6 +31,9 @@ Sources:
 - <https://platform.openai.com/docs/guides/structured-outputs>
 - <https://platform.openai.com/docs/guides/function-calling>
 - <https://platform.openai.com/docs/guides/streaming-responses>
+- <https://platform.openai.com/docs/guides/tools-web-search>
+- <https://lmstudio.ai/docs/developer/openai-compat>
+- <https://lmstudio.ai/docs/developer/openai-compat/tools>
 - <https://platform.openai.com/docs/guides/rate-limits>
 - <https://platform.openai.com/docs/guides/error-codes>
 
@@ -89,6 +92,7 @@ Types owned by this package (SSOT):
 | `TOpenAIApiSurface`                         | Type alias | `types.ts`                     | Explicit API surface selector (`responses` or `chat-completions`)                            |
 | `IOpenAIJsonSchemaDefinition`               | Interface  | `types.ts`                     | Structured output JSON Schema config                                                         |
 | `IOpenAIResponsesReasoningOptions`          | Interface  | `types.ts`                     | Responses reasoning controls; hidden reasoning is never exposed as message content           |
+| `IOpenAINativeWebToolsOptions`              | Interface  | `types.ts`                     | Provider-owned config shape for requested native web search/fetch behavior                   |
 | `TOpenAIProviderOptionValue`                | Type alias | `types.ts`                     | Union of valid provider option value types                                                   |
 | Responses request/input/output/event types  | Interfaces | `responses-types.ts`           | Provider-owned Responses API contracts used by converter/parser modules                      |
 | `IOpenAIChatRequestParams`                  | Interface  | `types/api-types.ts`           | OpenAI chat completion request parameters                                                    |
@@ -188,6 +192,12 @@ Consumers can pass a pre-configured `OpenAI` client instance via `IOpenAIProvide
 - Profiles with `baseURL` default to `apiSurface: "chat-completions"` for OpenAI-compatible endpoint compatibility.
 - Consumers can force either behavior through `IOpenAIProviderOptions.apiSurface`.
 
+### Native Web Capability Handling
+
+OpenAI-compatible local/proxy endpoints such as LM Studio are treated as custom function-tool capable, not provider-native web-search/fetch capable. If a profile has `baseURL`, or explicitly selects `apiSurface: "chat-completions"`, and also sets `options.builtInWebTools` or `options.nativeWebTools`, provider creation must fail before any model request is sent. The error must explain that OpenAI-compatible Chat Completions does not guarantee provider-native web search/fetch and that Robota local `WebSearch`/`WebFetch` tools are the explicit local-tool path.
+
+`OpenAIProvider.getCapabilities()` reports native web search/fetch support from the selected API surface and active options. Until OpenAI Responses hosted web search is fully wired and tested in this package, official OpenAI profiles report native web search as unsupported by Robota even though the external API documents it. This prevents a capability claim without runtime evidence.
+
 ### Structured Outputs
 
 `responseFormat: "json_schema"` with `jsonSchema` maps to Responses `text.format` and Chat Completions `response_format`. `responseFormat: "json_object"` remains supported for older JSON mode, but JSON Schema is preferred where supported.
@@ -214,22 +224,23 @@ The non-streaming Chat Completions path remains supported for callers that do no
 
 This package does not define a custom error class hierarchy. It uses standard `Error` instances with descriptive messages. Error scenarios:
 
-| Condition                            | Error message pattern                                     | Source                        |
-| ------------------------------------ | --------------------------------------------------------- | ----------------------------- |
-| Missing client, apiKey, and executor | `"Either OpenAI client, apiKey, or executor is required"` | `provider.ts` constructor     |
-| Missing model in chat options        | `"Model is required in chat options..."`                  | `provider.ts` chat/chatStream |
-| Client unavailable (no executor)     | `"OpenAI client not available..."`                        | `chat-completions-chat.ts`    |
-| Responses client unavailable         | `"OpenAI Responses client not available."`                | `responses-chat.ts`           |
-| API call failure                     | `"OpenAI chat failed: <message>"`                         | `provider.ts` chat            |
-| Streaming failure                    | `"OpenAI stream failed: <message>"`                       | `provider.ts` chat/chatStream |
-| Responses failure                    | `"OpenAI responses failed: <message>"`                    | `responses-chat.ts`           |
-| Responses streaming failure          | `"OpenAI responses stream failed: <message>"`             | `responses-chat.ts`           |
-| Responses event failure              | `"OpenAI Responses API failed: <message>"`                | `responses-parser.ts`         |
-| Response parsing failure             | `"OpenAI response parsing failed: <message>"`             | `parsers/response-parser.ts`  |
-| Chunk parsing failure                | `"OpenAI chunk parsing failed: <message>"`                | `parsers/response-parser.ts`  |
-| Stream handler failure               | `"OpenAI streaming failed: <message>"`                    | `streaming/stream-handler.ts` |
-| Tool message missing toolCallId      | `"Tool message missing toolCallId: <json>"`               | `adapter.ts`                  |
-| Unsupported message role             | `"Unsupported message role: <role>"`                      | `adapter.ts`, `provider.ts`   |
+| Condition                            | Error message pattern                                     | Source                                  |
+| ------------------------------------ | --------------------------------------------------------- | --------------------------------------- |
+| Missing client, apiKey, and executor | `"Either OpenAI client, apiKey, or executor is required"` | `provider.ts` constructor               |
+| Missing model in chat options        | `"Model is required in chat options..."`                  | `provider.ts` chat/chatStream           |
+| Client unavailable (no executor)     | `"OpenAI client not available..."`                        | `chat-completions-chat.ts`              |
+| Responses client unavailable         | `"OpenAI Responses client not available."`                | `responses-chat.ts`                     |
+| Native web unsupported               | `"Provider openai does not support native web..."`        | `provider.ts`, `provider-definition.ts` |
+| API call failure                     | `"OpenAI chat failed: <message>"`                         | `provider.ts` chat                      |
+| Streaming failure                    | `"OpenAI stream failed: <message>"`                       | `provider.ts` chat/chatStream           |
+| Responses failure                    | `"OpenAI responses failed: <message>"`                    | `responses-chat.ts`                     |
+| Responses streaming failure          | `"OpenAI responses stream failed: <message>"`             | `responses-chat.ts`                     |
+| Responses event failure              | `"OpenAI Responses API failed: <message>"`                | `responses-parser.ts`                   |
+| Response parsing failure             | `"OpenAI response parsing failed: <message>"`             | `parsers/response-parser.ts`            |
+| Chunk parsing failure                | `"OpenAI chunk parsing failed: <message>"`                | `parsers/response-parser.ts`            |
+| Stream handler failure               | `"OpenAI streaming failed: <message>"`                    | `streaming/stream-handler.ts`           |
+| Tool message missing toolCallId      | `"Tool message missing toolCallId: <json>"`               | `adapter.ts`                            |
+| Unsupported message role             | `"Unsupported message role: <role>"`                      | `adapter.ts`, `provider.ts`             |
 
 Payload loggers (`FilePayloadLogger`, `ConsolePayloadLogger`) catch and log their own errors internally without propagating them, ensuring logging failures do not break main functionality.
 
@@ -266,7 +277,7 @@ Payload loggers (`FilePayloadLogger`, `ConsolePayloadLogger`) catch and log thei
 | `adapter.test.ts`              | Unit        | `OpenAIConversationAdapter` -- all message types, tool call content handling, filtering, complete conversation flow        |
 | `executor-integration.test.ts` | Integration | `OpenAIProvider` with `LocalExecutor` -- chat, streaming, error handling, mixed mode, initialization                       |
 | `provider.test.ts`             | Unit        | Responses default path, baseURL Chat Completions compatibility, streaming, tool calling, structured outputs, error mapping |
-| `provider-definition.test.ts`  | Unit        | Official OpenAI provider setup defaults and provider construction                                                          |
+| `provider-definition.test.ts`  | Unit        | Official OpenAI provider setup defaults, provider construction, and OpenAI-compatible native web rejection                 |
 
 ### Test Gaps
 

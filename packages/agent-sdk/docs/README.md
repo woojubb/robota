@@ -7,6 +7,7 @@
 - `InteractiveSession` owns session execution for CLI and transports.
 - Active `.agents/tasks` context can be injected into system prompt composition.
 - Skills, system commands, memory, checkpointing, and rewind behavior are SDK-level capabilities.
+- Session assembly includes local `WebSearch`/`WebFetch` tools separately from provider-native hosted web capabilities.
 - `Agent` tool supports single prompts and deterministic batch `jobs` for explicit multi-agent requests.
 - Session event hooks expose execution-boundary events used by session logs and future replay validation.
 

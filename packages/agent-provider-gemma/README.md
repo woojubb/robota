@@ -20,4 +20,6 @@ const provider = new GemmaProvider({
 
 Use this package instead of the generic OpenAI provider for Gemma-family local models. The Gemma provider owns reasoning marker filtering and native tool-call text projection; the shared OpenAI-compatible transport does not infer model-family syntax.
 
+Gemma/LM Studio OpenAI-compatible endpoints support declared Robota function tools. They do not advertise provider-native hosted web search/fetch; use local `WebSearch`/`WebFetch` tools for explicit local web access.
+
 See [docs/SPEC.md](docs/SPEC.md) for the package contract.

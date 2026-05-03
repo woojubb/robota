@@ -36,7 +36,7 @@ const response = await query('Analyze the code', {
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
 - **query()** — Single entry point for one-shot AI agent interactions with streaming support
 - **createSession()** — Assembly factory: wires tools, provider, config, and context into a Session
-- **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep (re-exported from `@robota-sdk/agent-tools`)
+- **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for sessions; six local file/process/search exports are re-exported from `@robota-sdk/agent-tools`
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
 - **Permissions** — 3-step evaluation (deny list, allow list, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution

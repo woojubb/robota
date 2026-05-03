@@ -6,6 +6,7 @@
 
 - Interactive TUI and print/headless mode through the `robota` command.
 - Provider-definition setup UI for Anthropic, OpenAI-compatible, Gemma, and Qwen profiles.
+- Eight local built-in tools are exposed through SDK session assembly, including `WebFetch` and `WebSearch`.
 - npm update checks with deterministic print/headless behavior.
 - Status activity, provider usage summaries, background work tree rows, and collapsed command-output transcripts.
 - Edit diffs rendered as context hunks with markdown-friendly blocks.
