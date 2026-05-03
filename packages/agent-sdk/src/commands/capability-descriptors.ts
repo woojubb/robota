@@ -1,5 +1,5 @@
 import type { ICapabilityDescriptor, TCapabilityKind } from '../capabilities/types.js';
-import type { ICommand } from './types.js';
+import type { ICommand } from '../command-api/types.js';
 
 function inferKind(command: ICommand): TCapabilityKind {
   if (command.source === 'skill') return 'skill';

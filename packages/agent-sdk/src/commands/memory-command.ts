@@ -1,5 +1,4 @@
-import type { ICommandResult } from './system-command.js';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
+import type { ICommandHostContext, ICommandResult } from '../command-api/index.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import { PendingMemoryStore } from '../memory/pending-memory-store.js';
 import {
@@ -93,7 +92,7 @@ function formatPending(store: PendingMemoryStore): ICommandResult {
   };
 }
 
-function recordEvent(session: InteractiveSession, event: Omit<IMemoryEvent, 'at'>): void {
+function recordEvent(session: ICommandHostContext, event: Omit<IMemoryEvent, 'at'>): void {
   session.recordMemoryEvent({
     ...event,
     at: new Date().toISOString(),
@@ -101,7 +100,7 @@ function recordEvent(session: InteractiveSession, event: Omit<IMemoryEvent, 'at'
 }
 
 function approvePending(
-  session: InteractiveSession,
+  session: ICommandHostContext,
   pendingStore: PendingMemoryStore,
   memoryStore: ProjectMemoryStore,
   id: string | undefined,
@@ -145,7 +144,7 @@ function approvePending(
 }
 
 function rejectPending(
-  session: InteractiveSession,
+  session: ICommandHostContext,
   pendingStore: PendingMemoryStore,
   id: string | undefined,
 ): ICommandResult {
@@ -171,7 +170,7 @@ function rejectPending(
   }
 }
 
-function formatUsed(session: InteractiveSession): ICommandResult {
+function formatUsed(session: ICommandHostContext): ICommandResult {
   const references = session.getUsedMemoryReferences();
   const lines =
     references.length > 0
@@ -188,7 +187,10 @@ function formatUsed(session: InteractiveSession): ICommandResult {
   };
 }
 
-export function executeMemoryCommand(session: InteractiveSession, rawArgs: string): ICommandResult {
+export function executeMemoryCommand(
+  session: ICommandHostContext,
+  rawArgs: string,
+): ICommandResult {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
   const store = new ProjectMemoryStore(session.getCwd());

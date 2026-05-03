@@ -124,14 +124,18 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/interactive/
 │   ├── interactive-session.ts  ← InteractiveSession: event-driven wrapper over Session
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
+├── src/command-api/            ← Command module contracts, host context, effects/interactions, provider common APIs
+│   ├── contracts.ts            ← ISystemCommand + lifecycle metadata
+│   ├── command-module.ts       ← ICommandModule composition contract
+│   ├── host-context.ts         ← ICommandHostContext narrow facade for command modules
+│   ├── host-adapters.ts        ← generic host adapter contracts
+│   └── provider/               ← provider settings/profile/setup/probe common APIs
 ├── src/commands/
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
 │   ├── builtin-source.ts       ← BuiltinCommandSource: command palette metadata derived from executable built-ins
-│   ├── command-module.ts       ← ICommandModule composition contract
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
-│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + SDK built-in command module factory
-│   └── types.ts                ← ICommand, ICommandSource
+│   └── system-command.ts       ← current SDK-default command factory; command-specific migration target
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
@@ -247,10 +251,24 @@ agent-cli (Ink TUI — CLI-specific)
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
 
+### Command API Layer (SDK-Specific)
+
+- **Package**: `agent-sdk/command-api/`
+- **Purpose**: Stable SDK-owned API layer consumed by built-in and third-party command modules. It is pure TypeScript, render-agnostic, provider-neutral, and has no CLI/TUI dependency.
+- **Contracts**:
+  - `ISystemCommand` — command metadata, lifecycle, model/user visibility, and execute function.
+  - `ICommandModule` — composition unit contributing command sources, executable commands, descriptors, and session requirements.
+  - `ICommandHostContext` — narrow command-facing facade over session/context/runtime capabilities. Command modules must not require `InteractiveSession`, React state, CLI settings files, or TUI hooks directly.
+  - `ICommandResult` — command output, structured diagnostics, typed host effects, and generic interactions.
+  - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, rename, and statusline patch.
+  - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs.
+- **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation helpers, environment reference helpers, setup-flow primitives, provider command settings adapter contracts, and provider probe defaults. `/provider` command behavior consumes these APIs but is a migration target for `agent-command-provider`.
+- **Boundary**: `command-api` may define contracts and reusable command-facing helpers. It must not own product UI, concrete settings file I/O, process restart/exit, provider construction, or command-specific flows that can live in `agent-command-*` packages.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`
-- **Purpose**: SDK-level command execution logic — pure TypeScript, no React, no TUI dependency
+- **Purpose**: SDK command infrastructure and current SDK-default command factories — pure TypeScript, no React, no TUI dependency
 - **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers normally call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` and `createSystemCommands()` are exported so independent command modules can compose and test against the same command contract.
 - **Classes**:
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
@@ -260,7 +278,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
 - **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
-- **Provider command module**: `createProviderCommandModule()` is an SDK-owned command module factory for `/provider`. It consumes injected provider definitions and a settings adapter, owns provider subcommand parsing, provider setup flow state, provider setup validation, confirmation prompts, settings patch construction, and restart effects. CLI/TUI code may compose the module and render generic command interactions, but must not parse provider command payloads or own provider setup state.
+- **Provider command module**: `createProviderCommandModule()` is a transitional SDK-exported command module factory for `/provider`. It consumes injected provider definitions and a settings adapter plus `command-api/provider` helpers. It is not precedent for new SDK-owned command behavior and must be extracted to `agent-command-provider`.
 - **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`/rewind`**: User-invocable code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance. Product assemblies can inject host-owned built-ins such as plugin, exit, and statusline without adding CLI-specific code to SDK core.
@@ -779,9 +797,11 @@ interface ISystemCommand {
   safety?: TCapabilitySafety;
   subcommands?: readonly ICommand[];
   lifecycle?: 'inline' | 'blocking' | 'background';
-  execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
+  execute(context: ICommandHostContext, args: string): Promise<ICommandResult> | ICommandResult;
 }
 ```
+
+`ICommandHostContext` is the command-facing facade supplied by the SDK executor. Command implementations must depend on the specific context methods or typed host adapters they need rather than accepting `InteractiveSession`, CLI state, or UI hooks.
 
 **ICommandModule:**
 

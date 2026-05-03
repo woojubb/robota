@@ -1,5 +1,5 @@
 import type { ILoadedBundlePlugin } from '../plugins/index.js';
-import type { ICommandSource, ICommand } from './types.js';
+import type { ICommandSource, ICommand } from '../command-api/types.js';
 
 /**
  * Command source that discovers skills and commands from loaded BundlePlugins.

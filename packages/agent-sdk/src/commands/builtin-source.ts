@@ -1,6 +1,7 @@
-import type { ICommandModule } from './command-module.js';
-import { createSystemCommands, type ISystemCommand } from './system-command.js';
-import type { ICommandSource, ICommand } from './types.js';
+import type { ICommandModule } from '../command-api/command-module.js';
+import type { ISystemCommand } from '../command-api/index.js';
+import { createSystemCommands } from './system-command.js';
+import type { ICommandSource, ICommand } from '../command-api/types.js';
 
 function commandToPaletteEntry(command: ISystemCommand): ICommand {
   return {

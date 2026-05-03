@@ -1,12 +1,12 @@
-import type { ICommand, ICommandSource } from './types.js';
-import type { ICommandModule as TCommandModule } from './command-module.js';
-import type { ISystemCommand as TSystemCommand } from './system-command.js';
+import type { ICommand, ICommandSource } from '../command-api/types.js';
+import type { ICommandModule as TCommandModule } from '../command-api/command-module.js';
+import type { ISystemCommand as TSystemCommand } from '../command-api/index.js';
 import { executeProviderCommand } from './provider-command-execution.js';
-import type { IProviderCommandModuleOptions } from './provider-command-types.js';
+import type { IProviderCommandModuleOptions } from '../command-api/provider/provider-command-types.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
-} from './provider-command-types.js';
+} from '../command-api/provider/provider-command-types.js';
 
 function buildProviderSubcommands(): ICommand[] {
   return [

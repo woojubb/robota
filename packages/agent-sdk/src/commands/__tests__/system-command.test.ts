@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
-import type { ICommandModule } from '../command-module.js';
+import type { ICommandModule } from '../../command-api/command-module.js';
 import { PendingMemoryStore } from '../../memory/pending-memory-store.js';
 
 const TMP_BASE = join(tmpdir(), `robota-system-command-${process.pid}`);

@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import type { IToolState, IExecutionResult } from '../types.js';
-import type { ICommandModule } from '../../commands/command-module.js';
+import type { ICommandModule } from '../../command-api/command-module.js';
 
 // Minimal mock Session that satisfies InteractiveSession's needs
 function createMockSession(options?: {
