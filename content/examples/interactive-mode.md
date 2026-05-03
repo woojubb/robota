@@ -33,7 +33,7 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 /background   List and control background tasks
 /agent        Run or manage background subagent jobs
 /statusline   Show, hide, or reset status line fields
-/reload-plugins  Reload all plugins
+/reload-plugins  Reload all plugin resources
 ```
 
 ### Permission Prompts

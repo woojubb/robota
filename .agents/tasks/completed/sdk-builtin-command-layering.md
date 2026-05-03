@@ -16,7 +16,7 @@ Move built-in slash command ownership into injected command modules so command m
 - [x] Add failing tests for command metadata/execution parity and blocking command lifecycle.
 - [x] Implement SDK built-in command module generation from executable system commands.
 - [x] Move provider slash command ownership behind SDK command interaction/effect contracts.
-- [x] Keep CLI host command modules only for thin host UI commands such as plugin/exit/statusline.
+- [x] Keep CLI host ownership limited to thin UI/effect application and local adapters.
 - [x] Remove provider/TUI hardcoded routing from `useSlashRouting` and `useSideEffects`.
 - [x] Verify targeted SDK/CLI tests, typecheck, build, lint, and harness scope.
 
@@ -35,7 +35,7 @@ Move built-in slash command ownership into injected command modules so command m
 - Added backlog documents for compact command execution state, compact auto controls, and SDK built-in command layering.
 - Started command-layering implementation using spec-first and TDD workflow.
 - Revised the design after boundary review: `/provider` must be an SDK command module with generic `ICommandInteraction` and `TCommandEffect` contracts; CLI/TUI must only render prompts and apply typed host effects.
-- Implemented SDK command result interactions/effects, SDK-owned provider command module, SDK built-in metadata generation, and CLI host-only command module.
+- Implemented SDK command result interactions/effects, SDK-owned provider command module, SDK built-in metadata generation, and the initial CLI host-only command module that later migrations removed.
 - Removed provider-specific slash routing and provider setup interaction state from TUI hooks; TUI now stores generic command interactions and applies typed command effects.
 - Removed unused provider definition propagation from `renderApp`, `App`, `useInteractiveSession`, and `useSideEffects`.
 - Verified SDK/CLI package tests, typechecks, package lint, root build, root typecheck, root lint, and `git diff --check`.
@@ -46,7 +46,7 @@ Move built-in slash command ownership into injected command modules so command m
 
 - Use SDK-owned command modules as the source of truth for SDK-default built-ins.
 - Keep provider command behavior out of CLI/TUI hooks; expose it through SDK command module interfaces with injected settings adapters.
-- Keep CLI-only behavior in CLI command modules only when the behavior is terminal-host UI such as plugin UI, exit, or statusline rendering preferences.
+- Keep CLI-only behavior in the TUI/effect layer and local adapters; internal commands should live in command modules outside `agent-cli`.
 - Treat blocking model-backed commands such as `/compact` as foreground command executions so they share `thinking` and execution guards.
 
 ## Blockers

@@ -4,6 +4,32 @@ import { CommandRegistry } from '../command-registry.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 
 describe('CommandRegistry capability descriptors', () => {
+  it('replaces a named command source', () => {
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'plugin',
+      getCommands: () => [{ name: 'old-skill', description: 'Old skill', source: 'plugin' }],
+    });
+    registry.replaceSource('plugin', {
+      name: 'plugin',
+      getCommands: () => [{ name: 'new-skill', description: 'New skill', source: 'plugin' }],
+    });
+
+    expect(registry.getCommands().map((command) => command.name)).toEqual(['new-skill']);
+  });
+
+  it('removes a named command source when no replacement is provided', () => {
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'plugin',
+      getCommands: () => [{ name: 'plugin-skill', description: 'Plugin skill', source: 'plugin' }],
+    });
+
+    registry.replaceSource('plugin');
+
+    expect(registry.getCommands()).toEqual([]);
+  });
+
   it('does not project /agent from core built-ins when the agent source is not composed', () => {
     const registry = new CommandRegistry();
     registry.addSource(new BuiltinCommandSource());

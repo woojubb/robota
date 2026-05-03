@@ -140,6 +140,8 @@ export function createCliPluginCommandAdapter(cwd: string): ICommandPluginAdapte
     marketplaceRemove: (name) => removeMarketplace(services, name),
     marketplaceUpdate: async (name) => services.marketplace.updateMarketplace(name),
     marketplaceList: async () => listMarketplaces(services),
-    reloadPlugins: async () => services.loader.loadAll().then(() => undefined),
+    reloadPlugins: async () => ({
+      loadedPluginCount: (await services.loader.loadAll()).length,
+    }),
   };
 }

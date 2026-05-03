@@ -3,7 +3,11 @@ import type {
   ICommandPluginAdapter,
   ICommandResult,
 } from '@robota-sdk/agent-sdk';
-import { createPluginTuiRequestedEffect, resolvePluginCommandAdapter } from '@robota-sdk/agent-sdk';
+import {
+  createPluginRegistryReloadRequestedEffect,
+  createPluginTuiRequestedEffect,
+  resolvePluginCommandAdapter,
+} from '@robota-sdk/agent-sdk';
 
 function getSubcommandParts(args: string): { subcommand: string; subArgs: string } {
   const parts = args
@@ -203,4 +207,24 @@ export async function executePluginCommand(
     default:
       return usage(`Unknown plugin subcommand: ${subcommand}`);
   }
+}
+
+export async function executeReloadPluginsCommand(
+  context: ICommandHostContext,
+  _args: string,
+): Promise<ICommandResult> {
+  return executePluginOperation(context, async (adapter) => {
+    const result = await adapter.reloadPlugins();
+    const suffix =
+      result.loadedPluginCount === 1
+        ? '1 plugin resource'
+        : `${result.loadedPluginCount} plugin resources`;
+    return `Reloaded ${suffix}.`;
+  }).then((result) => {
+    if (!result.success) return result;
+    return {
+      ...result,
+      effects: [createPluginRegistryReloadRequestedEffect()],
+    };
+  });
 }
