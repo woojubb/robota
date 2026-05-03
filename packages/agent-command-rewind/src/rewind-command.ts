@@ -1,10 +1,12 @@
 import type {
   ICommandHostContext,
   ICommandResult,
+  IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '@robota-sdk/agent-sdk';
 import {
+  inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
@@ -18,7 +20,7 @@ const ELLIPSIS_LENGTH = 3;
 function usage(): ICommandResult {
   return {
     message:
-      'Usage: rewind [list] | rewind restore <checkpoint-id> | rewind code <checkpoint-id> | rewind rollback <checkpoint-id>',
+      'Usage: rewind [list] | rewind inspect <checkpoint-id> | rewind restore <checkpoint-id> | rewind code <checkpoint-id> | rewind rollback <checkpoint-id>',
     success: false,
   };
 }
@@ -44,6 +46,40 @@ function formatList(checkpoints: readonly IEditCheckpointSummary[]): ICommandRes
     message: ['Edit checkpoints:', ...lines].join('\n'),
     success: true,
     data: { count: checkpoints.length, checkpoints: [...checkpoints] },
+  };
+}
+
+function formatCheckpointIds(ids: readonly string[]): string {
+  return ids.length > 0 ? ids.join(', ') : '(none)';
+}
+
+function formatInspection(inspection: IEditCheckpointInspection): ICommandResult {
+  const fileLines =
+    inspection.capturedFiles.length > 0
+      ? inspection.capturedFiles.map((file) => {
+          const size =
+            file.snapshotSizeBytes === undefined ? '' : ` size=${file.snapshotSizeBytes}B`;
+          return `- ${file.relativePath} action=${file.restoreAction} snapshot=${String(
+            file.snapshotAvailable,
+          )}${size}`;
+        })
+      : ['(no files captured)'];
+
+  return {
+    message: [
+      `Checkpoint ${inspection.target.id}`,
+      `Prompt: ${formatPrompt(inspection.target.prompt)}`,
+      'Captured files:',
+      ...fileLines,
+      `Restore later checkpoints: files=${inspection.restoreToCheckpoint.fileCount} checkpoints=${formatCheckpointIds(
+        inspection.restoreToCheckpoint.checkpointIds,
+      )}`,
+      `Rollback through checkpoint: files=${inspection.rollbackThroughCheckpoint.fileCount} checkpoints=${formatCheckpointIds(
+        inspection.rollbackThroughCheckpoint.checkpointIds,
+      )}`,
+    ].join('\n'),
+    success: true,
+    data: { inspection },
   };
 }
 
@@ -88,6 +124,15 @@ function formatError(error: Error | string): ICommandResult {
   };
 }
 
+function inspect(context: ICommandHostContext, checkpointId: string | undefined): ICommandResult {
+  if (!checkpointId) return usage();
+  try {
+    return formatInspection(inspectCommandEditCheckpoint(context, checkpointId));
+  } catch (error) {
+    return formatError(error instanceof Error ? error : String(error));
+  }
+}
+
 async function restore(
   context: ICommandHostContext,
   checkpointId: string | undefined,
@@ -121,6 +166,10 @@ export async function executeRewindCommand(
 
   if (subcommand === 'list') {
     return formatList(listCommandEditCheckpoints(context));
+  }
+
+  if (subcommand === 'inspect') {
+    return inspect(context, args[CHECKPOINT_ID_INDEX]);
   }
 
   if (subcommand === 'restore' || subcommand === 'code') {

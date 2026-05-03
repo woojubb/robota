@@ -27,6 +27,29 @@ export interface IEditCheckpointManifest extends IEditCheckpointSummary {
   files: IEditCheckpointFileRecord[];
 }
 
+export type TEditCheckpointFileRestoreAction = 'restore-preimage' | 'delete-created-file';
+
+export interface IEditCheckpointFileInspection {
+  originalPath: string;
+  relativePath: string;
+  existed: boolean;
+  restoreAction: TEditCheckpointFileRestoreAction;
+  snapshotAvailable: boolean;
+  snapshotSizeBytes?: number;
+}
+
+export interface IEditCheckpointInspectionPlan {
+  checkpointIds: string[];
+  fileCount: number;
+}
+
+export interface IEditCheckpointInspection {
+  target: IEditCheckpointSummary;
+  capturedFiles: IEditCheckpointFileInspection[];
+  restoreToCheckpoint: IEditCheckpointInspectionPlan;
+  rollbackThroughCheckpoint: IEditCheckpointInspectionPlan;
+}
+
 export interface IEditCheckpointRestoreResult {
   target: IEditCheckpointSummary;
   restoredCheckpointCount: number;

@@ -46,6 +46,8 @@ import type { ICommandResult } from '../commands/system-command.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
+import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
@@ -153,6 +155,8 @@ export interface ICreateSessionOptions {
   commandDescriptors?: ICapabilityDescriptor[];
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
   editCheckpointRecorder?: IEditCheckpointRecorder;
+  /** Opt-in local-first reversible execution policy for write/shell tools. */
+  reversibleExecution?: IReversibleExecutionOptions;
 }
 
 /**
@@ -174,7 +178,13 @@ export function createSession(options: ICreateSessionOptions): Session {
   const defaultTools = options.editCheckpointRecorder
     ? wrapEditCheckpointTools(createDefaultTools(), options.editCheckpointRecorder)
     : createDefaultTools();
-  const tools = [...defaultTools, ...(options.additionalTools ?? [])];
+  const assembledTools = [...defaultTools, ...(options.additionalTools ?? [])];
+  const tools = options.reversibleExecution
+    ? wrapReversibleExecutionTools(assembledTools, {
+        ...options.reversibleExecution,
+        checkpointAvailable: options.editCheckpointRecorder !== undefined,
+      })
+    : assembledTools;
   if (options.modelCommandExecutor && options.isModelCommandInvocable) {
     tools.push(
       createCommandExecutionTool({

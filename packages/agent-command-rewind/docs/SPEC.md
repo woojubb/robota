@@ -23,11 +23,12 @@ import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
 - User invocable: yes
 - Model invocable: no
 - Safety: `write`
-- Argument hint: `list | restore CHECKPOINT_ID | code CHECKPOINT_ID | rollback CHECKPOINT_ID`
+- Argument hint: `list | inspect CHECKPOINT_ID | restore CHECKPOINT_ID | code CHECKPOINT_ID | rollback CHECKPOINT_ID`
 
 ## Behavior
 
 - `rewind` and `rewind list` list edit checkpoints from the command host context.
+- `rewind inspect <checkpoint-id>` shows captured files, snapshot availability, and restore/rollback plans through SDK checkpoint APIs.
 - `rewind restore <checkpoint-id>` restores code to the selected checkpoint through SDK checkpoint APIs.
 - `rewind code <checkpoint-id>` is an alias for `restore`.
 - `rewind rollback <checkpoint-id>` rolls code back through the selected checkpoint through SDK checkpoint APIs.

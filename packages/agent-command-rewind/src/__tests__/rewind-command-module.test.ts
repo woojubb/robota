@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IEditCheckpointRestoreResult, IEditCheckpointSummary } from '@robota-sdk/agent-sdk';
+import type {
+  IEditCheckpointInspection,
+  IEditCheckpointRestoreResult,
+  IEditCheckpointSummary,
+} from '@robota-sdk/agent-sdk';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { RewindCommandSource, createRewindCommandModule, executeRewindCommand } from '../index.js';
 
@@ -23,6 +27,27 @@ function createRestoreResult(
     restoredCheckpointCount: 2,
     restoredFileCount: 3,
     removedCheckpointCount: 2,
+    ...overrides,
+  };
+}
+
+function createInspection(
+  overrides: Partial<IEditCheckpointInspection> = {},
+): IEditCheckpointInspection {
+  return {
+    target: createCheckpoint({ fileCount: 1 }),
+    capturedFiles: [
+      {
+        originalPath: '/workspace/example.ts',
+        relativePath: 'example.ts',
+        existed: true,
+        restoreAction: 'restore-preimage',
+        snapshotAvailable: true,
+        snapshotSizeBytes: 12,
+      },
+    ],
+    restoreToCheckpoint: { checkpointIds: ['turn-0002'], fileCount: 1 },
+    rollbackThroughCheckpoint: { checkpointIds: ['turn-0001', 'turn-0002'], fileCount: 2 },
     ...overrides,
   };
 }
@@ -64,6 +89,7 @@ describe('createRewindCommandModule', () => {
     expect(commands[0]?.safety).toBe('write');
     expect(commands[0]?.subcommands?.map((command) => command.name)).toEqual([
       'list',
+      'inspect',
       'restore',
       'code',
       'rollback',
@@ -101,6 +127,22 @@ describe('executeRewindCommand', () => {
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('(no edit checkpoints)');
     expect(result?.data?.count).toBe(0);
+  });
+
+  it('inspects captured files and rollback plans', async () => {
+    const session = createInteractiveSession();
+    const inspectEditCheckpoint = vi
+      .spyOn(session, 'inspectEditCheckpoint')
+      .mockReturnValue(createInspection());
+
+    const result = await session.executeCommand('rewind', 'inspect turn-0001');
+
+    expect(result?.success).toBe(true);
+    expect(inspectEditCheckpoint).toHaveBeenCalledWith('turn-0001');
+    expect(result?.message).toContain('Captured files:');
+    expect(result?.message).toContain('example.ts');
+    expect(result?.message).toContain('Rollback through checkpoint');
+    expect(result?.data?.inspection).toEqual(createInspection());
   });
 
   it('delegates restore through session.executeCommand', async () => {

@@ -17,5 +17,3 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |
 | [openai-provider-modernization.md](openai-provider-modernization.md)           | OpenAI provider modernization                                 |
-| [reversible-agent-sandbox.md](reversible-agent-sandbox.md)                     | Reversible sandbox mode for safe agent edits and rollback     |
-| [worktree-support-hardening.md](worktree-support-hardening.md)                 | Harden and productize Git worktree isolation                  |
