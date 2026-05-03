@@ -14,9 +14,7 @@ import type { IProviderDefinition } from '../../../utils/provider-definition.js'
 import type { TInteractivePrompt } from '../../../utils/interactive-prompt.js';
 
 const openaiDefaults = {
-  model: 'supergemma4-26b-uncensored-v2',
-  apiKey: 'lm-studio',
-  baseURL: 'http://localhost:1234/v1',
+  apiKey: '$ENV:OPENAI_API_KEY',
 };
 
 const providerDefinitions: readonly IProviderDefinition[] = [
@@ -25,18 +23,13 @@ const providerDefinitions: readonly IProviderDefinition[] = [
     defaults: openaiDefaults,
     setupSteps: [
       {
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
-      },
-      {
         key: 'model',
-        title: 'OpenAI-compatible model',
-        defaultValue: openaiDefaults.model,
+        title: 'OpenAI model',
+        required: true,
       },
       {
         key: 'apiKey',
-        title: 'OpenAI-compatible API key',
+        title: 'OpenAI API key',
         defaultValue: openaiDefaults.apiKey,
         masked: true,
       },

@@ -11,31 +11,24 @@ import {
 import type { IProviderDefinition } from '../provider-definition.js';
 
 const openaiDefaults = {
-  model: 'supergemma4-26b-uncensored-v2',
-  apiKey: 'lm-studio',
-  baseURL: 'http://localhost:1234/v1',
+  apiKey: '$ENV:OPENAI_API_KEY',
 };
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',
-    displayName: 'OpenAI Compatible',
-    description: 'Use OpenAI or an OpenAI-compatible endpoint',
+    displayName: 'OpenAI',
+    description: 'Use OpenAI Responses API',
     defaults: openaiDefaults,
     setupSteps: [
       {
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
-      },
-      {
         key: 'model',
-        title: 'OpenAI-compatible model',
-        defaultValue: openaiDefaults.model,
+        title: 'OpenAI model',
+        required: true,
       },
       {
         key: 'apiKey',
-        title: 'OpenAI-compatible API key',
+        title: 'OpenAI API key',
         defaultValue: openaiDefaults.apiKey,
         masked: true,
       },
@@ -66,7 +59,7 @@ describe('provider setup prompt flow', () => {
     expect(formatProviderSetupSelectionPrompt(providerDefinitions)).toBe(
       [
         '  Select provider:',
-        '    1. OpenAI Compatible (openai) - Use OpenAI or an OpenAI-compatible endpoint',
+        '    1. OpenAI (openai) - Use OpenAI Responses API',
         '    2. Anthropic (anthropic) - Use Claude models through Anthropic',
         '  Provider [1-2] (default: 1): ',
       ].join('\n'),
@@ -82,19 +75,17 @@ describe('provider setup prompt flow', () => {
     );
   });
 
-  it('builds OpenAI-compatible setup input from defaulted prompt submissions', () => {
+  it('builds OpenAI setup input from model and default API key submissions', () => {
     let state = createProviderSetupFlow('openai', providerDefinitions);
     expect(getProviderSetupStep(state)).toMatchObject({
-      key: 'baseURL',
-      defaultValue: openaiDefaults.baseURL,
+      key: 'model',
+      required: true,
     });
 
-    const baseURLResult = submitProviderSetupValue(state, '');
-    expect(baseURLResult.status).toBe('next');
-    if (baseURLResult.status !== 'next') throw new Error('expected next');
-    state = baseURLResult.state;
+    const emptyModelResult = submitProviderSetupValue(state, '');
+    expect(emptyModelResult.status).toBe('error');
 
-    const modelResult = submitProviderSetupValue(state, '');
+    const modelResult = submitProviderSetupValue(state, 'gpt-4o');
     expect(modelResult.status).toBe('next');
     if (modelResult.status !== 'next') throw new Error('expected next');
     state = modelResult.state;
@@ -105,8 +96,7 @@ describe('provider setup prompt flow', () => {
       input: {
         profile: 'openai',
         type: 'openai',
-        baseURL: openaiDefaults.baseURL,
-        model: openaiDefaults.model,
+        model: 'gpt-4o',
         apiKey: openaiDefaults.apiKey,
         setCurrent: true,
       },
@@ -124,25 +114,26 @@ describe('provider setup prompt flow', () => {
   });
 
   it('runs prompt input with masked API key steps', async () => {
-    const promptInput = vi.fn(async () => '');
+    const promptInput = vi.fn(async (label: string) => (label.includes('model') ? 'gpt-4o' : ''));
 
     const input = await runProviderSetupPromptFlow('openai', promptInput, providerDefinitions);
 
+    expect(input.model).toBe('gpt-4o');
     expect(input.apiKey).toBe(openaiDefaults.apiKey);
     expect(promptInput).toHaveBeenNthCalledWith(
       1,
       formatProviderSetupPromptLabel({
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
+        key: 'model',
+        title: 'OpenAI model',
+        required: true,
       }),
       false,
     );
     expect(promptInput).toHaveBeenNthCalledWith(
-      3,
+      2,
       formatProviderSetupPromptLabel({
         key: 'apiKey',
-        title: 'OpenAI-compatible API key',
+        title: 'OpenAI API key',
         defaultValue: openaiDefaults.apiKey,
         masked: true,
       }),

@@ -2,12 +2,12 @@
 
 ## Scope
 
-- Owns the OpenAI provider integration for Robota, including GPT model access, streaming support, tool/function calling, and provider-bound request/response adaptation.
+- Owns the OpenAI provider integration for Robota, including Responses API model access, streaming support, tool/function calling, structured outputs, multimodal input conversion, and provider-bound request/response adaptation.
 - Owns the OpenAI-branded provider shell, provider definition, payload logging, and public compatibility wrappers.
 - Composes `@robota-sdk/agent-provider-openai-compatible` for reusable Chat Completions message conversion, response parsing, stream assembly, and OpenAI-compatible endpoint probing.
 - Owns payload logging infrastructure with environment-specific implementations (Node.js file-based, browser console-based).
-- Owns OpenAI-specific API type definitions for request parameters, streaming chunks, tool calls, and error structures.
-- Supports OpenAI-compatible Chat Completions endpoints through `baseURL`, including local endpoints such as LM Studio.
+- Owns OpenAI-specific API type definitions for Responses request parameters, streaming events, output items, tool calls, structured output config, and error structures.
+- Supports OpenAI-compatible Chat Completions endpoints only as an explicit compatibility mode through `apiSurface: "chat-completions"` or implicit `baseURL` usage.
 - Does not own Gemma-family chat-template marker projection; Gemma local models must use `agent-provider-gemma`.
 
 ## Boundaries
@@ -15,8 +15,24 @@
 - Does not own generic agent orchestration contracts, executor abstractions, or universal message types -- those belong to `@robota-sdk/agent-core`.
 - Does not own session management, conversation history, or tool execution logic.
 - Keeps OpenAI-specific transport behavior explicit and provider-scoped.
+- Keeps OpenAI-compatible transport primitives model-neutral; this package may consume them for Chat Completions compatibility, but OpenAI Responses semantics stay here.
 - Relies on `AbstractAIProvider` from `@robota-sdk/agent-core` as the base class for provider implementation.
 - Logger and executor interfaces (`ILogger`, `IExecutor`) are imported from `@robota-sdk/agent-core`, not redefined.
+
+## Research
+
+Official OpenAI documentation states that Responses is recommended for new projects while Chat Completions remains supported. Responses uses typed output items, semantic streaming events, internally tagged function tools, and `text.format` for Structured Outputs. Chat Completions keeps `messages`, `choices`, externally tagged function tools, and `response_format`. The provider therefore defaults official OpenAI calls to Responses and preserves Chat Completions for OpenAI-compatible `baseURL` profiles because many local/proxy endpoints implement only `/v1/chat/completions`.
+
+Sources:
+
+- <https://platform.openai.com/docs/guides/responses-vs-chat-completions>
+- <https://platform.openai.com/docs/guides/chat-completions>
+- <https://platform.openai.com/docs/api-reference/chat/create/>
+- <https://platform.openai.com/docs/guides/structured-outputs>
+- <https://platform.openai.com/docs/guides/function-calling>
+- <https://platform.openai.com/docs/guides/streaming-responses>
+- <https://platform.openai.com/docs/guides/rate-limits>
+- <https://platform.openai.com/docs/guides/error-codes>
 
 ## Architecture Overview
 
@@ -28,6 +44,13 @@ src/
   provider.ts                       # OpenAIProvider (extends AbstractAIProvider)
   provider-definition.ts            # provider definition for CLI/runtime composition
   adapter.ts                        # OpenAIConversationAdapter (static message conversion)
+  chat-completions-chat.ts          # Chat Completions compatibility request/stream handling
+  openai-request-format.ts          # Structured output request mapping for both API surfaces
+  responses-chat.ts                 # Responses API request/stream orchestration
+  responses-converter.ts            # Universal message/tool to Responses input/tool conversion
+  responses-parser.ts               # Responses output/event to TUniversalMessage conversion
+  responses-stream-utils.ts         # Abort-aware async stream helpers for Responses streaming
+  responses-types.ts                # Provider-owned Responses API type contracts
   types.ts                          # Provider options and option value types
   types/
     api-types.ts                    # OpenAI-specific API type definitions
@@ -49,35 +72,38 @@ src/
 
 ### Design Patterns
 
-- **Adapter pattern**: `OpenAIConversationAdapter` provides static methods for bidirectional conversion between `TUniversalMessage` and `OpenAI.Chat.ChatCompletionMessageParam`.
+- **Adapter pattern**: `OpenAIConversationAdapter` and `responses-converter.ts` convert `TUniversalMessage` into provider-native input formats.
 - **Strategy pattern (logging)**: `IPayloadLogger` interface with two built-in implementations (`FilePayloadLogger`, `ConsolePayloadLogger`) and support for custom implementations.
 - **Template method**: `OpenAIProvider` extends `AbstractAIProvider`, overriding `chat`, `chatStream`, `validateMessages`, `supportsTools`, `validateConfig`, and `dispose`.
 - **Executor delegation**: When an `IExecutor` is provided, the provider delegates all chat operations to the executor instead of making direct OpenAI API calls, enabling remote execution.
 - **Dependency injection**: Logger and payload logger are injected via constructor options. Defaults to `SilentLogger` when no logger is provided.
-- **Provider definition**: `createOpenAIProviderDefinition()` exposes defaults, setup prompts, shared OpenAI-compatible probe behavior, and provider construction through the common `IProviderDefinition` contract so consumers do not branch on `type: "openai"`.
+- **Provider definition**: `createOpenAIProviderDefinition()` exposes official OpenAI setup prompts and provider construction through the common `IProviderDefinition` contract so consumers do not branch on `type: "openai"`.
 
 ## Type Ownership
 
 Types owned by this package (SSOT):
 
-| Type                                          | Kind       | File                           | Description                                                                                  |
-| --------------------------------------------- | ---------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `IOpenAIProviderOptions`                      | Interface  | `types.ts`                     | Constructor options for `OpenAIProvider`                                                     |
-| `TOpenAIProviderOptionValue`                  | Type alias | `types.ts`                     | Union of valid provider option value types                                                   |
-| `IOpenAIChatRequestParams`                    | Interface  | `types/api-types.ts`           | OpenAI chat completion request parameters                                                    |
-| `IOpenAIStreamRequestParams`                  | Interface  | `types/api-types.ts`           | OpenAI streaming request parameters (extends chat params)                                    |
-| `IOpenAIToolCall`                             | Interface  | `types/api-types.ts`           | OpenAI tool call structure                                                                   |
-| `IOpenAIAssistantMessage`                     | Interface  | `types/api-types.ts`           | OpenAI assistant message with optional tool calls                                            |
-| `IOpenAIToolMessage`                          | Interface  | `types/api-types.ts`           | OpenAI tool response message                                                                 |
-| `IOpenAIStreamDelta`                          | Interface  | `types/api-types.ts`           | Streaming chunk delta structure                                                              |
-| `IOpenAIStreamChunk`                          | Interface  | `types/api-types.ts`           | Full streaming chunk structure                                                               |
-| `IOpenAIError`                                | Interface  | `types/api-types.ts`           | OpenAI error structure for type-safe error handling                                          |
-| `IOpenAILogData`                              | Interface  | `types/api-types.ts`           | Payload logging data structure                                                               |
-| `IPayloadLogger`                              | Interface  | `interfaces/payload-logger.ts` | Contract for payload logger implementations                                                  |
-| `IPayloadLoggerOptions`                       | Interface  | `interfaces/payload-logger.ts` | Configuration options for payload loggers                                                    |
-| `DEFAULT_OPENAI_PROVIDER_MODEL`               | Constant   | `provider-definition.ts`       | Optional setup default model; currently undefined to keep this provider model-family neutral |
-| `DEFAULT_OPENAI_COMPATIBLE_PROVIDER_API_KEY`  | Constant   | `provider-definition.ts`       | Package-owned local OpenAI-compatible API-key default                                        |
-| `DEFAULT_OPENAI_COMPATIBLE_PROVIDER_BASE_URL` | Constant   | `provider-definition.ts`       | Package-owned local OpenAI-compatible base URL default                                       |
+| Type                                        | Kind       | File                           | Description                                                                                  |
+| ------------------------------------------- | ---------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `IOpenAIProviderOptions`                    | Interface  | `types.ts`                     | Constructor options for `OpenAIProvider`                                                     |
+| `TOpenAIApiSurface`                         | Type alias | `types.ts`                     | Explicit API surface selector (`responses` or `chat-completions`)                            |
+| `IOpenAIJsonSchemaDefinition`               | Interface  | `types.ts`                     | Structured output JSON Schema config                                                         |
+| `IOpenAIResponsesReasoningOptions`          | Interface  | `types.ts`                     | Responses reasoning controls; hidden reasoning is never exposed as message content           |
+| `TOpenAIProviderOptionValue`                | Type alias | `types.ts`                     | Union of valid provider option value types                                                   |
+| Responses request/input/output/event types  | Interfaces | `responses-types.ts`           | Provider-owned Responses API contracts used by converter/parser modules                      |
+| `IOpenAIChatRequestParams`                  | Interface  | `types/api-types.ts`           | OpenAI chat completion request parameters                                                    |
+| `IOpenAIStreamRequestParams`                | Interface  | `types/api-types.ts`           | OpenAI streaming request parameters (extends chat params)                                    |
+| `IOpenAIToolCall`                           | Interface  | `types/api-types.ts`           | OpenAI tool call structure                                                                   |
+| `IOpenAIAssistantMessage`                   | Interface  | `types/api-types.ts`           | OpenAI assistant message with optional tool calls                                            |
+| `IOpenAIToolMessage`                        | Interface  | `types/api-types.ts`           | OpenAI tool response message                                                                 |
+| `IOpenAIStreamDelta`                        | Interface  | `types/api-types.ts`           | Streaming chunk delta structure                                                              |
+| `IOpenAIStreamChunk`                        | Interface  | `types/api-types.ts`           | Full streaming chunk structure                                                               |
+| `IOpenAIError`                              | Interface  | `types/api-types.ts`           | OpenAI error structure for type-safe error handling                                          |
+| `IOpenAILogData`                            | Interface  | `types/api-types.ts`           | Payload logging data structure                                                               |
+| `IPayloadLogger`                            | Interface  | `interfaces/payload-logger.ts` | Contract for payload logger implementations                                                  |
+| `IPayloadLoggerOptions`                     | Interface  | `interfaces/payload-logger.ts` | Configuration options for payload loggers                                                    |
+| `DEFAULT_OPENAI_PROVIDER_MODEL`             | Constant   | `provider-definition.ts`       | Optional setup default model; currently undefined to keep this provider model-family neutral |
+| `DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE` | Constant   | `provider-definition.ts`       | Default `$ENV:OPENAI_API_KEY` setup reference                                                |
 
 Types imported from `@robota-sdk/agent-core` (not owned here):
 
@@ -99,20 +125,20 @@ Types imported from `@robota-sdk/agent-core` (not owned here):
 
 ### Main entry point (`@robota-sdk/agent-provider-openai`)
 
-| Export                                        | Kind                  | Description                                               |
-| --------------------------------------------- | --------------------- | --------------------------------------------------------- |
-| `OpenAIProvider`                              | Class                 | Primary provider class; extends `AbstractAIProvider`      |
-| `OpenAIConversationAdapter`                   | Class                 | Static utility for message format conversion              |
-| `createOpenAIProviderDefinition`              | Function              | Returns `IProviderDefinition` for branch-free composition |
-| `DEFAULT_OPENAI_PROVIDER_MODEL`               | Constant              | Optional setup default model; currently undefined         |
-| `DEFAULT_OPENAI_COMPATIBLE_PROVIDER_API_KEY`  | Constant              | Default local endpoint API key owned by this package      |
-| `DEFAULT_OPENAI_COMPATIBLE_PROVIDER_BASE_URL` | Constant              | Default local endpoint base URL owned by this package     |
-| `IOpenAIProviderOptions`                      | Interface             | Provider constructor options                              |
-| `TOpenAIProviderOptionValue`                  | Type alias            | Valid option value types                                  |
-| `IPayloadLogger`                              | Interface (type-only) | Payload logger contract                                   |
-| `IPayloadLoggerOptions`                       | Interface (type-only) | Payload logger configuration                              |
-| All exports from `types.ts`                   | Mixed                 | Provider options and value types                          |
-| All exports from `adapter.ts`                 | Class                 | Conversation adapter                                      |
+| Export                                      | Kind                  | Description                                               |
+| ------------------------------------------- | --------------------- | --------------------------------------------------------- |
+| `OpenAIProvider`                            | Class                 | Primary provider class; extends `AbstractAIProvider`      |
+| `OpenAIConversationAdapter`                 | Class                 | Static utility for message format conversion              |
+| `createOpenAIProviderDefinition`            | Function              | Returns `IProviderDefinition` for branch-free composition |
+| `DEFAULT_OPENAI_PROVIDER_MODEL`             | Constant              | Optional setup default model; currently undefined         |
+| `DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE` | Constant              | Default `$ENV:OPENAI_API_KEY` setup reference             |
+| `IOpenAIProviderOptions`                    | Interface             | Provider constructor options                              |
+| `TOpenAIApiSurface`                         | Type alias            | Provider API surface selector                             |
+| `TOpenAIProviderOptionValue`                | Type alias            | Valid option value types                                  |
+| `IPayloadLogger`                            | Interface (type-only) | Payload logger contract                                   |
+| `IPayloadLoggerOptions`                     | Interface (type-only) | Payload logger configuration                              |
+| All exports from `types.ts`                 | Mixed                 | Provider options and value types                          |
+| All exports from `adapter.ts`               | Class                 | Conversation adapter                                      |
 
 ### Subpath entry points
 
@@ -123,12 +149,15 @@ Types imported from `@robota-sdk/agent-core` (not owned here):
 
 ### Internal (not exported from main entry)
 
-| Class                   | File                                  | Description                                                            |
-| ----------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
-| `OpenAIResponseParser`  | `parsers/response-parser.ts`          | Parses completions and streaming chunks into `TUniversalMessage`       |
-| `OpenAIStreamHandler`   | `streaming/stream-handler.ts`         | Modular streaming generator for raw streaming APIs                     |
-| `assembleOpenAIStream`  | `streaming/stream-assembler.ts`       | Assembles streamed Chat Completions chunks for `OpenAIProvider.chat()` |
-| `sanitizeOpenAILogData` | `loggers/sanitize-openai-log-data.ts` | Deep-copy sanitization for log payloads                                |
+| Class                          | File                                  | Description                                                            |
+| ------------------------------ | ------------------------------------- | ---------------------------------------------------------------------- |
+| `OpenAIResponseParser`         | `parsers/response-parser.ts`          | Parses completions and streaming chunks into `TUniversalMessage`       |
+| `chatWithOpenAIResponsesApi`   | `responses-chat.ts`                   | Executes Responses API requests and streaming assembly                 |
+| `parseOpenAIResponsesResponse` | `responses-parser.ts`                 | Converts Responses output items into universal assistant messages      |
+| `streamWithAbort`              | `responses-stream-utils.ts`           | Provides abort-aware async iteration for Responses streaming           |
+| `OpenAIStreamHandler`          | `streaming/stream-handler.ts`         | Modular streaming generator for raw streaming APIs                     |
+| `assembleOpenAIStream`         | `streaming/stream-assembler.ts`       | Assembles streamed Chat Completions chunks for `OpenAIProvider.chat()` |
+| `sanitizeOpenAILogData`        | `loggers/sanitize-openai-log-data.ts` | Deep-copy sanitization for log payloads                                |
 
 ## Extension Points
 
@@ -153,19 +182,29 @@ Consumers can provide an `IExecutor` implementation (e.g., `LocalExecutor`, `Rem
 
 Consumers can pass a pre-configured `OpenAI` client instance via `IOpenAIProviderOptions.client` to control SDK configuration (custom base URLs, timeouts, organization settings).
 
-### Base URL Override
+### API Surface Selection
 
-The `baseURL` option in `IOpenAIProviderOptions` allows consumers to point the provider at OpenAI-compatible APIs (e.g., Azure OpenAI, local proxies).
+- Official OpenAI profiles default to `apiSurface: "responses"`.
+- Profiles with `baseURL` default to `apiSurface: "chat-completions"` for OpenAI-compatible endpoint compatibility.
+- Consumers can force either behavior through `IOpenAIProviderOptions.apiSurface`.
+
+### Structured Outputs
+
+`responseFormat: "json_schema"` with `jsonSchema` maps to Responses `text.format` and Chat Completions `response_format`. `responseFormat: "json_object"` remains supported for older JSON mode, but JSON Schema is preferred where supported.
+
+### Reasoning Controls
+
+`IOpenAIProviderOptions.reasoning` maps to Responses reasoning options. Hidden reasoning tokens are never copied into `TUniversalMessage.content`. If encrypted reasoning is requested, the message metadata records `hasEncryptedReasoning` without exposing encrypted payload contents.
 
 ### Streaming Assembly for CLI
 
-`OpenAIProvider.chat()` must honor `IChatOptions.onTextDelta`. When the callback is provided, `chat()` uses Chat Completions streaming internally while still returning one complete `TUniversalMessage`.
+`OpenAIProvider.chat()` must honor `IChatOptions.onTextDelta`. When the callback is provided, `chat()` uses the selected API surface's streaming mode internally while still returning one complete `TUniversalMessage`.
 
 Streaming assembly responsibilities:
 
-- Accumulate `delta.content` into the final assistant content.
+- Accumulate `response.output_text.delta` or Chat Completions `delta.content` into the final assistant content.
 - Call `onTextDelta` for every text delta.
-- Accumulate streamed `tool_calls` by `index`, preserving `id`, function `name`, and partial `arguments`.
+- Accumulate Responses `function_call` output items or Chat Completions streamed `tool_calls`, preserving `id`/`call_id`, function `name`, and arguments.
 - Return final `toolCalls` only after streamed arguments have been assembled.
 - Pass `AbortSignal` through to the OpenAI SDK request where supported.
 
@@ -179,9 +218,13 @@ This package does not define a custom error class hierarchy. It uses standard `E
 | ------------------------------------ | --------------------------------------------------------- | ----------------------------- |
 | Missing client, apiKey, and executor | `"Either OpenAI client, apiKey, or executor is required"` | `provider.ts` constructor     |
 | Missing model in chat options        | `"Model is required in chat options..."`                  | `provider.ts` chat/chatStream |
-| Client unavailable (no executor)     | `"OpenAI client not available..."`                        | `provider.ts` chat/chatStream |
+| Client unavailable (no executor)     | `"OpenAI client not available..."`                        | `chat-completions-chat.ts`    |
+| Responses client unavailable         | `"OpenAI Responses client not available."`                | `responses-chat.ts`           |
 | API call failure                     | `"OpenAI chat failed: <message>"`                         | `provider.ts` chat            |
 | Streaming failure                    | `"OpenAI stream failed: <message>"`                       | `provider.ts` chat/chatStream |
+| Responses failure                    | `"OpenAI responses failed: <message>"`                    | `responses-chat.ts`           |
+| Responses streaming failure          | `"OpenAI responses stream failed: <message>"`             | `responses-chat.ts`           |
+| Responses event failure              | `"OpenAI Responses API failed: <message>"`                | `responses-parser.ts`         |
 | Response parsing failure             | `"OpenAI response parsing failed: <message>"`             | `parsers/response-parser.ts`  |
 | Chunk parsing failure                | `"OpenAI chunk parsing failed: <message>"`                | `parsers/response-parser.ts`  |
 | Stream handler failure               | `"OpenAI streaming failed: <message>"`                    | `streaming/stream-handler.ts` |
@@ -211,17 +254,19 @@ Payload loggers (`FilePayloadLogger`, `ConsolePayloadLogger`) catch and log thei
 | ---------------------------------- | -------------------------------- | ---------------------------- |
 | `AbstractAIProvider` (agents)      | `OpenAIProvider`                 | `src/provider.ts`            |
 | `IProviderDefinition` (agent-core) | `createOpenAIProviderDefinition` | `src/provider-definition.ts` |
+| `TUniversalMessage` (agent-core)   | Responses converter/parser       | `src/responses-*.ts`         |
 | OpenAI-compatible endpoint probe   | `createOpenAIProviderDefinition` | `src/provider-definition.ts` |
 
 ## Test Strategy
 
 ### Current Test Files
 
-| File                           | Type        | Coverage                                                                                                            |
-| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------- |
-| `adapter.test.ts`              | Unit        | `OpenAIConversationAdapter` -- all message types, tool call content handling, filtering, complete conversation flow |
-| `executor-integration.test.ts` | Integration | `OpenAIProvider` with `LocalExecutor` -- chat, streaming, error handling, mixed mode, initialization                |
-| `provider.test.ts`             | Unit        | Direct client path, baseURL construction, non-streaming chat, streaming text/tool-call assembly                     |
+| File                           | Type        | Coverage                                                                                                                   |
+| ------------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `adapter.test.ts`              | Unit        | `OpenAIConversationAdapter` -- all message types, tool call content handling, filtering, complete conversation flow        |
+| `executor-integration.test.ts` | Integration | `OpenAIProvider` with `LocalExecutor` -- chat, streaming, error handling, mixed mode, initialization                       |
+| `provider.test.ts`             | Unit        | Responses default path, baseURL Chat Completions compatibility, streaming, tool calling, structured outputs, error mapping |
+| `provider-definition.test.ts`  | Unit        | Official OpenAI provider setup defaults and provider construction                                                          |
 
 ### Test Gaps
 
