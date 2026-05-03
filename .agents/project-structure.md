@@ -9,6 +9,7 @@ packages/
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-command-agent/         # Command module that contributes /agent
+├── agent-command-compact/       # Command module that contributes /compact
 ├── agent-command-provider/      # Command module that contributes /provider
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs

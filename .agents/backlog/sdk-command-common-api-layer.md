@@ -98,8 +98,8 @@ packages/
 
 ### Context and Compact API
 
-- [ ] Define context usage read APIs that `/context` and auto-compact descriptors can consume.
-- [ ] Define compact execution APIs with lifecycle metadata that drives normal blocking command state.
+- [x] Define context usage read APIs that `/context` and auto-compact descriptors can consume.
+- [x] Define compact execution APIs with lifecycle metadata that drives normal blocking command state.
 - [ ] Define auto-compact threshold and enabled-state APIs without embedding them in CLI-only state.
 - [ ] Ensure manual `/compact` and auto-triggered compact use the same command execution pipeline.
 

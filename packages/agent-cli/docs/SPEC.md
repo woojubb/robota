@@ -162,6 +162,7 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
+              ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
               ├── createStatusLineCommandModule() (CLI-owned command module)
               └── ui/render.tsx → App.tsx (Ink TUI)
@@ -1274,6 +1275,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | Package                                | Purpose                                                                                                                              |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                               |
+| `@robota-sdk/agent-command-compact`    | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-provider`   | Default `/provider` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |

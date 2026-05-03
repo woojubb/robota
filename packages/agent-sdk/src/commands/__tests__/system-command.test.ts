@@ -97,6 +97,7 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
     expect(commands.map((c) => c.name)).toContain('mode');
+    expect(commands.map((c) => c.name)).not.toContain('compact');
   });
 
   it('exposes only memory as a model-invocable core command', () => {
@@ -211,30 +212,6 @@ describe('SystemCommandExecutor', () => {
 
     expect(result!.message).toContain('Auto compact: 75%');
     expect(result!.data?.autoCompactThreshold).toBe(0.75);
-  });
-
-  it('compact calls session.compact', async () => {
-    const executor = new SystemCommandExecutor();
-    const session = createMockSession();
-    const result = await executor.execute('compact', session, 'focus on tests');
-    expect(result!.success).toBe(true);
-    expect(
-      (session as unknown as { _underlying: { compact: ReturnType<typeof vi.fn> } })._underlying
-        .compact,
-    ).toHaveBeenCalledWith('focus on tests');
-  });
-
-  it('compact exposes descriptor metadata for SDK-owned slash routing', () => {
-    const compact = createSystemCommands().find((command) => command.name === 'compact');
-
-    expect(compact).toEqual(
-      expect.objectContaining({
-        name: 'compact',
-        description: 'Compress context window',
-        argumentHint: '[instructions]',
-        lifecycle: 'blocking',
-      }),
-    );
   });
 
   it('derives SDK built-in command palette metadata from executable system commands', () => {

@@ -59,24 +59,6 @@ export function createSystemCommands(): ISystemCommand[] {
       },
     },
     {
-      name: 'compact',
-      description: 'Compress context window',
-      argumentHint: '[instructions]',
-      lifecycle: 'blocking',
-      execute: async (session, args) => {
-        const underlying = session.getSession();
-        const instructions = args.trim() || undefined;
-        const before = underlying.getContextState().usedPercentage;
-        await underlying.compact(instructions);
-        const after = underlying.getContextState().usedPercentage;
-        return {
-          message: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
-          success: true,
-          data: { before, after },
-        };
-      },
-    },
-    {
       name: 'mode',
       description: 'Show/change permission mode',
       subcommands: [

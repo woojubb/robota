@@ -390,6 +390,12 @@ export class InteractiveSession {
   getContextState(): IContextWindowState {
     return this.getSessionOrThrow().getContextState();
   }
+  getAutoCompactThreshold(): number | false {
+    return this.getSessionOrThrow().getAutoCompactThreshold();
+  }
+  async compactContext(instructions?: string): Promise<void> {
+    await this.getSessionOrThrow().compact(instructions);
+  }
   getName(): string | undefined {
     return this.sessionName;
   }
