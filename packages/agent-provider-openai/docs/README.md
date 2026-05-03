@@ -15,6 +15,7 @@ OpenAI Provider for Robota SDK - type-safe integration with the official OpenAI 
 - **⚡ Real-Time Streaming**: Asynchronous streaming responses with proper error handling
 - **🛠️ Function Calling**: Native OpenAI function calling with type validation
 - **🧩 Structured Outputs**: JSON object and JSON Schema response formats
+- **🌐 Capability Reporting**: Native web search/fetch capability state is explicit; compatible Chat Completions profiles reject hosted web-tool options
 - **🔄 Provider-Agnostic Design**: Seamless integration with other Robota providers
 - **📊 Payload Logging**: Optional API request/response logging for debugging
 

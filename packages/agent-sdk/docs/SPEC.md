@@ -231,10 +231,10 @@ agent-cli (Ink TUI — CLI-specific)
 
 ### Web Search
 
-- **Implementation**: Anthropic server tool (`web_search_20250305`), not a `FunctionTool`
-- **Behavior**: Enabled automatically when the provider is Anthropic. Provider capability text must come from the provider adapter or tool descriptor; the system prompt composer must not inject hardcoded web-search behavior instructions.
-- **Activation**: `enableWebTools` is set as a property on the AnthropicProvider instance by `Session.configureProvider()`. No tool registration is required because the tool is server-managed.
-- **Callback**: `onServerToolUse` fires during streaming when the server tool executes, allowing the UI to display search status.
+- **Local tools**: `WebSearch` and `WebFetch` are ordinary Robota function tools from `@robota-sdk/agent-tools`. They are available to CLI sessions as explicit local tools and are separate from provider-native hosted web features.
+- **Provider-native tools**: Anthropic server web search and Qwen Responses web search/fetch are exposed through provider-owned capability reports. Provider capability text must come from the provider adapter or tool descriptor; the system prompt composer must not inject hardcoded web-search behavior instructions.
+- **Activation**: Session layers use the provider-neutral `configureNativeWebTools()` hook when a provider chooses to expose automatic hosted web behavior. SDK must not branch on concrete provider names or mutate provider-specific fields directly.
+- **Callback**: `onServerToolUse` fires during streaming when a provider-owned server tool executes, allowing the UI to display search status.
 
 ### Streaming
 
@@ -374,7 +374,7 @@ Provider profile shape:
 
 Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
 
-Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys.
+Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys. OpenAI-compatible local endpoints such as LM Studio should use local `WebSearch`/`WebFetch` function tools for web access unless their concrete provider package documents and enables provider-native hosted web capabilities.
 
 Resolved provider fields:
 

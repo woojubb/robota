@@ -61,7 +61,7 @@ The `complete` event carries the final response after streaming finishes.
 
 ### Web Search
 
-Provider-side web tools are distinct from Robota local tools. Anthropic supports server-side web search (`web_search_20250305`) when `enableWebTools` is set on the provider instance, and `onServerToolUse` fires when search executes. Qwen supports provider-side `web_search` and `web_extractor` through `builtInWebTools`; those hosted tools record provenance in assistant-message metadata and do not bypass local Robota permission checks.
+Provider-side web tools are distinct from Robota local tools. Anthropic supports server-side web search (`web_search_20250305`) through provider-native capability configuration, and `onServerToolUse` fires when search executes. Qwen supports provider-side `web_search` and `web_extractor` through `builtInWebTools`; those hosted tools record provenance in assistant-message metadata and do not bypass local Robota permission checks. OpenAI-compatible local endpoints such as LM Studio are treated as custom function-tool capable, not provider-native web search/fetch capable, unless a concrete provider package documents and enables that hosted capability. Use Robota local `WebSearch` and `WebFetch` tools for explicit local-tool web access with those endpoints.
 
 ## Abort
 

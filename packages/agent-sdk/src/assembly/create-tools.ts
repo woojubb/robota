@@ -22,7 +22,8 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'Edit — replace a string in a file',
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
-  'WebSearch — search the internet (Anthropic built-in)',
+  'WebFetch — fetch URL content as text',
+  'WebSearch — search the internet through the configured local tool',
 ];
 
 /**

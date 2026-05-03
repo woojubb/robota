@@ -97,6 +97,10 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 | `onTextDelta`     | `TTextDeltaCallback \| undefined`                       | —       | Streaming text delta callback for real-time output                |
 | `onServerToolUse` | `(name: string, input: Record<string, string>) => void` | —       | Callback when server-managed tool executes during streaming       |
 
+### Provider Capabilities
+
+`AnthropicProvider.getCapabilities()` reports provider-native web search as supported and enabled when `enableWebTools` is true. It reports provider-native web fetch as unsupported because this package only owns Anthropic server web search. `configureNativeWebTools({ webSearch: true })` sets `enableWebTools = true` and returns the updated capability report. Session/runtime layers must use this generic hook instead of checking `provider.name === "anthropic"`.
+
 ## Web Search Support
 
 The provider supports Anthropic's server-side web search tool:

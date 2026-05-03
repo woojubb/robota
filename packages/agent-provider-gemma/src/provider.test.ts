@@ -91,6 +91,46 @@ describe('GemmaProvider', () => {
     });
   });
 
+  it('reports provider-native web tools as unsupported for LM Studio/Gemma chat completions', () => {
+    const provider = new GemmaProvider({
+      apiKey: 'lm-studio',
+      baseURL: 'http://localhost:1234/v1',
+    });
+
+    expect(provider.getCapabilities().nativeWebTools).toEqual({
+      webSearch: {
+        supported: false,
+        enabled: false,
+        source: 'openai-compatible-chat-completions',
+        reason:
+          'Gemma OpenAI-compatible endpoints support declared function tools, not provider-native web search.',
+      },
+      webFetch: {
+        supported: false,
+        enabled: false,
+        source: 'openai-compatible-chat-completions',
+        reason:
+          'Gemma OpenAI-compatible endpoints support declared function tools, not provider-native web fetch.',
+      },
+    });
+  });
+
+  it('rejects request-level native web tools before LM Studio transport execution', async () => {
+    const provider = new GemmaProvider({
+      apiKey: 'lm-studio',
+      baseURL: 'http://localhost:1234/v1',
+    });
+
+    await expect(
+      provider.chat([createUserMessage('Search the web')], {
+        model: 'supergemma4',
+        nativeWebTools: { webSearch: true },
+      }),
+    ).rejects.toThrow(
+      'Provider gemma does not support native web search. Gemma OpenAI-compatible endpoints support declared function tools, not provider-native web search.',
+    );
+  });
+
   it('filters Gemma reasoning markers from non-streaming chat content', async () => {
     const provider = new GemmaProvider({ apiKey: 'lm-studio' });
     const client = (

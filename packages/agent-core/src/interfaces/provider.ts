@@ -1,4 +1,18 @@
 import type { TUniversalMessage, IToolCall } from './messages';
+import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
+
+export type {
+  IProviderCapabilities,
+  IProviderFunctionCallingCapability,
+  IProviderNativeWebToolCapabilities,
+  IProviderNativeWebToolCapability,
+  IProviderNativeWebToolRequest,
+} from './provider-capabilities';
+export {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+  getProviderCapabilities,
+} from './provider-capabilities';
 
 /**
  * Reusable type definitions for provider layer
@@ -167,6 +181,8 @@ export interface IChatOptions extends IProviderSpecificOptions {
   onTextDelta?: TTextDeltaCallback;
   /** AbortSignal for cancelling the provider call */
   signal?: AbortSignal;
+  /** Provider-native hosted web tools requested for this call */
+  nativeWebTools?: IProviderNativeWebToolRequest;
 }
 
 /**
@@ -217,6 +233,17 @@ export interface IAIProvider {
    * @returns true if tool calling is supported
    */
   supportsTools(): boolean;
+
+  /**
+   * Report provider-neutral capability state.
+   * Providers without native web support can omit this and use default capability helpers.
+   */
+  getCapabilities?(): IProviderCapabilities;
+
+  /**
+   * Optional generic hook for enabling provider-native hosted web behavior.
+   */
+  configureNativeWebTools?(request: IProviderNativeWebToolRequest): IProviderCapabilities;
 
   /**
    * Validate provider configuration

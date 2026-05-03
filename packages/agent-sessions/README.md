@@ -34,16 +34,17 @@ await session.compact('Focus on the API changes');
 
 ## Features
 
-| Feature                    | Description                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                 |
-| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                   |
-| **Context tracking**       | Token usage from provider metadata, configurable auto-compact threshold (default ~83.5%)               |
-| **Compaction**             | LLM-generated conversation summary to free context space                                               |
-| **Persistence**            | `SessionStore` for JSON file-based session save/load                                                   |
-| **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller |
-| **Session logging**        | `FileSessionLogger` writes JSONL event logs                                                            |
-| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs          |
+| Feature                    | Description                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                     |
+| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                       |
+| **Context tracking**       | Token usage from provider metadata, configurable auto-compact threshold (default ~83.5%)                   |
+| **Compaction**             | LLM-generated conversation summary to free context space                                                   |
+| **Persistence**            | `SessionStore` for JSON file-based session save/load                                                       |
+| **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller     |
+| **Session logging**        | `FileSessionLogger` writes JSONL event logs                                                                |
+| **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs              |
+| **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches |
 
 ## Key Methods
 
