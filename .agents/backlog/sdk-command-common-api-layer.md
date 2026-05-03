@@ -105,10 +105,11 @@ packages/
 
 ### Session and Checkpoint APIs
 
-- [ ] Define command-facing session APIs for clear, rename, resume, reset, and history state reads.
+- [ ] Define command-facing session APIs for clear, rename, resume, cost, reset, and history state reads.
   - [x] Clear-history facade and host-rendered history-clear effect are available.
   - [x] Session-name parsing and host-rendered rename effect helpers are available.
   - [x] Session-picker request effect helper is available.
+- [x] Session-info read helper is available for `/cost`.
 - [ ] Define checkpoint/rewind APIs without exposing session internals.
 - [ ] Move `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind` into command modules that consume these APIs.
 
@@ -174,6 +175,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-clear.md`
 - `.agents/tasks/completed/command-migration-rename.md`
 - `.agents/tasks/completed/command-migration-resume.md`
+- `.agents/tasks/completed/command-migration-cost.md`
 - `command-migration-reset.md`
 - `command-migration-rewind.md`
 - `command-migration-memory.md`

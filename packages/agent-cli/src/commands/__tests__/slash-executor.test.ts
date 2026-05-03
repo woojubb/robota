@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   handleHelp,
-  handleCost,
   handleContext,
   handleReset,
   executeSlashCommand,
@@ -54,16 +53,6 @@ describe('handleHelp', () => {
     expect(result.handled).toBe(true);
     expect(messages).toHaveLength(1);
     expect(messages[0].content).toBe(HELP_TEXT);
-  });
-});
-
-describe('handleCost', () => {
-  it('shows session id and message count', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const session = createMockSession();
-    handleCost(session, addMessage);
-    expect(messages[0].content).toContain('test-session-123');
-    expect(messages[0].content).toContain('5');
   });
 });
 
@@ -147,6 +136,27 @@ describe('executeSlashCommand', () => {
       addMessage,
       vi.fn(),
       emptyRegistry(),
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
+  it('routes /cost through the injected session command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'session',
+      getCommands: () => [{ name: 'cost', description: 'Show session info', source: 'session' }],
+    });
+
+    const result = await executeSlashCommand(
+      'cost',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
     );
 
     expect(result).toEqual({ handled: false });

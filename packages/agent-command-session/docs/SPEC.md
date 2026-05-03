@@ -4,7 +4,7 @@
 
 `@robota-sdk/agent-command-session` owns composable session-management commands.
 
-The package currently provides `/clear`, `/rename`, and `/resume` command metadata and execution. It is the intended owner for additional session commands that share the same command-facing session APIs.
+The package currently provides `/clear`, `/rename`, `/resume`, and `/cost` command metadata and execution. It is the intended owner for additional session commands that share the same command-facing session APIs.
 
 ## Public API
 
@@ -12,10 +12,12 @@ The package currently provides `/clear`, `/rename`, and `/resume` command metada
 import {
   SessionCommandSource,
   createClearCommandEntry,
+  createCostCommandEntry,
   createRenameCommandEntry,
   createResumeCommandEntry,
   createSessionCommandModule,
   executeClearCommand,
+  executeCostCommand,
   executeRenameCommand,
   executeResumeCommand,
 } from '@robota-sdk/agent-command-session';
@@ -26,6 +28,7 @@ import {
 - Owns `/clear` command metadata and execution.
 - Owns `/rename` command metadata and execution.
 - Owns `/resume` command metadata and execution.
+- Owns `/cost` command metadata and execution.
 - Consumes `@robota-sdk/agent-sdk` command contracts and session command common APIs.
 - Emits typed host effects when a command requires host-rendered state updates.
 - Leaves TUI history projection, process control, settings files, and session picker rendering to the host.
@@ -41,10 +44,11 @@ import {
 
 `createSessionCommandModule()` returns one `ICommandModule` with:
 
-- a command source containing `/clear`, `/rename`, and `/resume`;
+- a command source containing `/clear`, `/rename`, `/resume`, and `/cost`;
 - one executable `ISystemCommand` for `/clear`;
 - one executable `ISystemCommand` for `/rename`;
 - one executable `ISystemCommand` for `/resume`;
+- one executable `ISystemCommand` for `/cost`;
 - inline lifecycle behavior;
 - user-only invocation policy.
 
@@ -53,6 +57,13 @@ import {
 `/rename <name>` trims the provided name and emits `session-renamed` so hosts can update session title, status bar, and persistence through their own UI adapters. Missing names return `Usage: rename <name>` without emitting effects.
 
 `/resume` emits `session-picker-requested` so hosts can show their own saved-session picker. It does not read session files or render picker UI.
+
+`/cost` reads session id and message count through the SDK session command API and preserves the legacy output shape:
+
+```text
+Session: <session-id>
+Messages: <count>
+```
 
 ## Verification
 

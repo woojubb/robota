@@ -93,8 +93,9 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(6);
+    expect(commands.length).toBeGreaterThanOrEqual(5);
     expect(commands.map((c) => c.name)).toContain('help');
+    expect(commands.map((c) => c.name)).not.toContain('cost');
     expect(commands.map((c) => c.name)).not.toContain('clear');
     expect(commands.map((c) => c.name)).not.toContain('rename');
     expect(commands.map((c) => c.name)).not.toContain('resume');
@@ -142,13 +143,6 @@ describe('SystemCommandExecutor', () => {
 
     expect(result!.message).toContain('provider');
     expect(result!.message).toContain('Manage provider profiles');
-  });
-
-  it('cost returns session info', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('cost', createMockSession(), '');
-    expect(result!.message).toContain('test-session-id');
-    expect(result!.data?.messageCount).toBe(5);
   });
 
   it('derives SDK built-in command palette metadata from executable system commands', () => {
