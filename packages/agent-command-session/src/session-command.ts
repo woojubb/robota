@@ -2,6 +2,7 @@ import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk'
 import {
   RENAME_COMMAND_USAGE,
   clearConversationHistory,
+  createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   parseSessionNameArgument,
 } from '@robota-sdk/agent-sdk';
@@ -28,5 +29,14 @@ export function executeRenameCommand(_context: ICommandHostContext, args: string
     message: `Session renamed to "${name}".`,
     data: { name },
     effects: [createSessionRenamedEffect(name)],
+  };
+}
+
+export function executeResumeCommand(_context: ICommandHostContext, _args: string): ICommandResult {
+  return {
+    success: true,
+    message: 'Opening session picker...',
+    data: { triggerResumePicker: true },
+    effects: [createSessionPickerRequestedEffect()],
   };
 }

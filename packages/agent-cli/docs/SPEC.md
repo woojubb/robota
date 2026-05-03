@@ -485,6 +485,8 @@ The `/clear` command is provided by the `@robota-sdk/agent-command-session` modu
 
 The `/rename <name>` command is provided by the same `@robota-sdk/agent-command-session` module. The command module emits `session-renamed`; the CLI applies that effect through the generic command effect handler by updating `InteractiveSession.setName()` and local TUI session-name state.
 
+The `/resume` command is provided by the same `@robota-sdk/agent-command-session` module. The command module emits `session-picker-requested`; the CLI applies that effect through the generic command effect handler by opening `SessionPicker`.
+
 **Subcommand display:**
 
 ```
@@ -1301,7 +1303,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-permissions` | Default `/permissions` command module composed by the Robota binary                                                                  |
 | `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
-| `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear` and `/rename`                                |
+| `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, and `/resume`                    |
 | `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                   |
 | `@robota-sdk/agent-sdk`                 | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
