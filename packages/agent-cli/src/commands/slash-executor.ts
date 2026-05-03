@@ -5,7 +5,6 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getUserSettingsPath, deleteSettings } from '../utils/settings-io.js';
 import type { CommandRegistry } from './command-registry.js';
 import { handlePluginCommand, handleReloadPlugins } from './slash-plugin-handlers.js';
 
@@ -86,16 +85,6 @@ export function handleContext(session: ISlashSession, addMessage: TAddMessage): 
   return { handled: true };
 }
 
-export function handleReset(addMessage: TAddMessage): ISlashResult {
-  const settingsPath = getUserSettingsPath();
-  if (deleteSettings(settingsPath)) {
-    addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
-  } else {
-    addMessage({ role: 'system', content: 'No user settings found.' });
-  }
-  return { handled: true, exitRequested: true };
-}
-
 /** Execute a parsed slash command. Returns result indicating what happened. */
 export async function executeSlashCommand(
   cmd: string,
@@ -120,7 +109,7 @@ export async function executeSlashCommand(
     case 'context':
       return handleContext(session, addMessage);
     case 'reset':
-      return handleReset(addMessage);
+      return { handled: false }; // Route to injected reset command (settings reset effect)
     case 'provider':
       return { handled: false }; // TUI routes provider commands with settings side effects
     case 'background':

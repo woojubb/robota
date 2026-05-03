@@ -1,26 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  handleHelp,
-  handleContext,
-  handleReset,
-  executeSlashCommand,
-  HELP_TEXT,
-} from '../slash-executor.js';
+import { handleHelp, handleContext, executeSlashCommand, HELP_TEXT } from '../slash-executor.js';
 import type { ISlashSession } from '../slash-executor.js';
 import { CommandRegistry } from '../command-registry.js';
 import { BuiltinCommandSource } from '../builtin-source.js';
 import type { ICommandSource } from '../types.js';
-
-// Prevent tests from modifying real ~/.robota/settings.json
-vi.mock('../../utils/settings-io.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../utils/settings-io.js')>();
-  return {
-    ...actual,
-    deleteSettings: vi.fn().mockReturnValue(false),
-    writeSettings: vi.fn(),
-    readSettings: vi.fn().mockReturnValue({}),
-  };
-});
 
 function createMockSession(overrides?: Partial<ISlashSession>): ISlashSession {
   return {
@@ -64,15 +47,6 @@ describe('handleContext', () => {
     expect(messages[0].content).toContain('50,000');
     expect(messages[0].content).toContain('200,000');
     expect(messages[0].content).toContain('25%');
-  });
-});
-
-describe('handleReset', () => {
-  it('returns exitRequested', () => {
-    const { addMessage } = createMockAddMessage();
-    const result = handleReset(addMessage);
-    expect(result.handled).toBe(true);
-    expect(result.exitRequested).toBe(true);
   });
 });
 
@@ -312,6 +286,27 @@ describe('executeSlashCommand', () => {
 
     const result = await executeSlashCommand(
       'resume',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
+  it('routes /reset through the injected reset command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'reset',
+      getCommands: () => [{ name: 'reset', description: 'Delete settings', source: 'reset' }],
+    });
+
+    const result = await executeSlashCommand(
+      'reset',
       '',
       createMockSession(),
       addMessage,
