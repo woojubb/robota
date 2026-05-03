@@ -91,10 +91,10 @@ packages/
 
 ### Provider Common API
 
-- [ ] Move provider env-ref, provider settings document, profile merge/validation, setup-flow primitives, and provider probe contracts under `agent-sdk/src/command-api/provider/`.
-- [ ] Extract `/provider` behavior into `agent-command-provider`.
-- [ ] Delete transitional SDK provider command implementation after extraction.
-- [ ] Keep provider setup flow independent from CLI prompt rendering and SDK session orchestration internals.
+- [x] Move provider env-ref, provider settings document, profile merge/validation, setup-flow primitives, and provider probe contracts under `agent-sdk/src/command-api/provider/`.
+- [x] Extract `/provider` behavior into `agent-command-provider`.
+- [x] Delete transitional SDK provider command implementation after extraction.
+- [x] Keep provider setup flow independent from CLI prompt rendering and SDK session orchestration internals.
 
 ### Context and Compact API
 
@@ -142,8 +142,8 @@ packages/
 
 1. [ ] Create `agent-sdk/src/command-api/` and move generic command contracts, effects, interactions, lifecycle metadata, and host context contracts into it.
 2. [ ] Refactor command execution so all built-ins execute through the same registry, descriptor, lifecycle, interaction, and effect pipeline.
-3. [ ] Extract provider common APIs into `agent-sdk/src/command-api/provider/`.
-4. [ ] Create `agent-command-provider` and delete transitional SDK provider command implementation.
+3. [x] Extract provider common APIs into `agent-sdk/src/command-api/provider/`.
+4. [x] Create `agent-command-provider` and delete transitional SDK provider command implementation.
 5. [ ] Extract context/compact APIs and migrate `/context` and `/compact`.
 6. [ ] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
 7. [ ] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
@@ -157,7 +157,7 @@ packages/
 
 This item is the foundation for the command-specific migration backlog:
 
-- `command-migration-provider.md`
+- `.agents/tasks/completed/command-migration-provider.md`
 - `command-migration-compact.md`
 - `command-migration-context.md`
 - `command-migration-model.md`

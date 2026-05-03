@@ -131,7 +131,7 @@ Non-interactive print/headless execution must not prompt. Missing provider confi
 
 Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider slash commands are command-module interactions rendered through generic TUI prompts. During the current migration, the default CLI composes the SDK-exported provider command module; the long-term command-layering target is an `agent-command-*` module that consumes SDK provider common APIs the same way a third-party command module would.
+Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command-provider`, which consumes SDK provider common APIs the same way a third-party command module would.
 
 | Command                    | Behavior                                                                                                                                      |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -162,7 +162,7 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
-              ├── createProviderCommandModule()   (transitional provider command module with injected settings adapter)
+              ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
               ├── createStatusLineCommandModule() (CLI-owned command module)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
@@ -1271,20 +1271,21 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 `@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
 
-| Package                                | Purpose                                                                                                                             |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                              |
-| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, provider command module, plugin management, re-exported runtime contracts |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                            |
-| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                                                        |
-| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                                                        |
-| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                                                        |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                                                     |
-| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                                                       |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                                             |
-| `ink-spinner`                          | Loading spinner                                                                                                                     |
-| `chalk`                                | Terminal colors                                                                                                                     |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                                          |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                                             |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                                                                                 |
-| `string-width`                         | Unicode-aware string width calculation                                                                                              |
+| Package                                | Purpose                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                               |
+| `@robota-sdk/agent-command-provider`   | Default `/provider` command module composed by the Robota binary                                                                     |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
+| `@robota-sdk/agent-provider-anthropic` | Default provider definition contributed by the Robota binary                                                                         |
+| `@robota-sdk/agent-provider-openai`    | Default provider definition contributed by the Robota binary                                                                         |
+| `@robota-sdk/agent-provider-gemma`     | Default provider definition contributed by the Robota binary                                                                         |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                                                                                      |
+| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                                                        |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                                              |
+| `ink-spinner`                          | Loading spinner                                                                                                                      |
+| `chalk`                                | Terminal colors                                                                                                                      |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                                           |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                                              |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                                                                                  |
+| `string-width`                         | Unicode-aware string width calculation                                                                                               |

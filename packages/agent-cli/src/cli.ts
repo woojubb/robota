@@ -9,11 +9,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import {
-  InteractiveSession,
-  createProviderCommandModule,
-  projectPaths,
-} from '@robota-sdk/agent-sdk';
+import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
+import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type { ICommandModule, TProviderSettingsDocument } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';

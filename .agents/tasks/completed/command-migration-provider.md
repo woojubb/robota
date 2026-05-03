@@ -1,3 +1,16 @@
+---
+title: Command Migration Provider
+status: completed
+priority: high
+urgency: now
+created: 2026-05-03
+completed: 2026-05-03
+packages:
+  - agent-command-provider
+  - agent-sdk
+  - agent-cli
+---
+
 # Command Migration: `/provider`
 
 ## What
@@ -31,3 +44,27 @@ Recommended: `@robota-sdk/agent-command-provider`.
 - Port provider command module tests to the new command package.
 - Run `pnpm harness:scan:commands` to prove provider command state does not return to CLI/TUI hooks.
 - Add integration tests for list/current/use/add/test.
+
+## Result
+
+- Created `@robota-sdk/agent-command-provider`.
+- Moved `/provider` metadata, command execution, setup orchestration, switch flow, and tests out of `agent-sdk`.
+- Kept SDK-owned provider common APIs under `agent-sdk/command-api/provider`.
+- Updated CLI composition so the Robota binary imports the provider command package and still renders generic command interactions/effects only.
+
+## Verification
+
+- `pnpm install`
+- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-command-provider build`
+- `pnpm --filter @robota-sdk/agent-command-provider typecheck`
+- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-cli typecheck`
+- `pnpm --filter @robota-sdk/agent-command-provider test`
+- `pnpm --filter @robota-sdk/agent-command-provider lint`
+- `pnpm harness:scan:commands`
+- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-cli build`
+- `pnpm --filter @robota-sdk/agent-sdk lint` (passes with existing warnings)
+- `pnpm --filter @robota-sdk/agent-cli test`
+- `git diff --check`
