@@ -1,5 +1,7 @@
 # CLI Model Change Restart Regression
 
+Status: completed on `fix/cli-model-change-restart`.
+
 ## What
 
 Fix the `/model` command flow so confirming a model change actually affects the next session after Robota says it will restart.
@@ -18,15 +20,15 @@ The CLI currently tells the user that changing the model will restart the sessio
 
 ## Scope
 
-- Reproduce the regression with the current settings shapes:
+- [x] Reproduce the regression with the current settings shapes:
   - `currentProvider` plus `providers`
   - legacy `provider`
   - provider profiles created by `/provider setup`
-- Determine whether the failure is settings persistence, config reload, process restart semantics, or active session reuse.
-- Make `/model` behavior consistent across slash routing and SDK system command routing.
-- Ensure the selected model is applied to `IResolvedConfig.provider.model` for the next session.
-- Keep provider-specific model validation in provider definitions/settings, not in generic CLI execution code.
-- Add regression tests for settings update and restart/reload behavior.
+- [x] Determine whether the failure is settings persistence, config reload, process restart semantics, or active session reuse.
+- [x] Make `/model` behavior consistent across slash routing and SDK system command routing.
+- [x] Ensure the selected model is applied to `IResolvedConfig.provider.model` for the next session.
+- [x] Keep provider-specific model validation in provider definitions/settings, not in generic CLI execution code.
+- [x] Add regression tests for settings update and restart/reload behavior.
 
 ## Non-Goals
 
@@ -37,12 +39,12 @@ The CLI currently tells the user that changing the model will restart the sessio
 
 ## Acceptance Criteria
 
-- [ ] Given a settings file with `currentProvider`, `/model <id>` updates the active provider profile's model.
-- [ ] Given a legacy settings file, `/model <id>` updates the legacy provider model without losing existing fields.
-- [ ] After confirming `/model`, the next CLI session resolves the selected model.
-- [ ] If restart is requested, the CLI either truly restarts or exits with clear behavior that the launcher handles.
-- [ ] Cancellation leaves settings unchanged.
-- [ ] Tests cover slash command routing, system command routing, settings persistence, and resolved config behavior.
+- [x] Given a settings file with `currentProvider`, `/model <id>` updates the active provider profile's model.
+- [x] Given a legacy settings file, `/model <id>` updates the legacy provider model without losing existing fields.
+- [x] After confirming `/model`, the next CLI session resolves the selected model.
+- [x] If restart is requested, the CLI either truly restarts or exits with clear behavior that the launcher handles.
+- [x] Cancellation leaves settings unchanged.
+- [x] Tests cover slash command routing, system command routing, settings persistence, and resolved config behavior.
 
 ## Test Plan
 
@@ -53,6 +55,6 @@ The CLI currently tells the user that changing the model will restart the sessio
 
 ## Promotion Path
 
-1. Move to `.agents/tasks/CLI-BL-0XX-model-change-restart.md`.
-2. Start with a failing regression test that reproduces the user's report.
-3. Fix the smallest owner boundary that makes the confirmed model visible to the next session.
+1. [x] Move to `.agents/tasks/cli-model-change-restart.md`.
+2. [x] Start with a failing regression test that reproduces the user's report.
+3. [x] Fix the smallest owner boundary that makes the confirmed model visible to the next session.
