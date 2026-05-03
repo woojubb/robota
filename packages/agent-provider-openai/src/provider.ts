@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
-import type { IOpenAIProviderOptions } from './types';
-import type { IOpenAIError } from './types/api-types';
+import type { IOpenAIProviderOptions, TOpenAIApiSurface } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import type {
   TUniversalMessage,
@@ -11,13 +10,16 @@ import type {
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { SilentLogger } from '@robota-sdk/agent-core';
-import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
-import { assembleOpenAIStream } from './streaming/stream-assembler';
+import {
+  chatStreamWithOpenAIChatCompletions,
+  chatWithOpenAIChatCompletions,
+} from './chat-completions-chat';
+import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
 
 /**
  * OpenAI provider implementation for Robota
  *
- * Provides integration with OpenAI's GPT models following BaseAIProvider guidelines.
+ * Provides integration with OpenAI models through the Robota provider contract.
  * Uses OpenAI SDK native types internally for optimal performance and feature support.
  *
  * @public
@@ -28,6 +30,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
   private readonly client?: OpenAI;
   private readonly options: IOpenAIProviderOptions;
+  private readonly apiSurface: TOpenAIApiSurface;
   private readonly payloadLogger: IPayloadLogger | undefined;
   private readonly responseParser: OpenAIResponseParser;
 
@@ -42,6 +45,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   constructor(options: IOpenAIProviderOptions) {
     super(options.logger || SilentLogger);
     this.options = options;
+    this.apiSurface = resolveApiSurface(options);
 
     if (options.executor) {
       this.executor = options.executor;
@@ -84,107 +88,25 @@ export class OpenAIProvider extends AbstractAIProvider {
       }
     }
 
-    if (!this.client) {
-      throw new Error(
-        'OpenAI client not available. Either provide a client/apiKey or use an executor.',
-      );
-    }
-
-    try {
-      const openaiMessages = convertToOpenAIMessages(messages);
-
-      const chatOptions = options;
-      if (!chatOptions?.model) {
-        throw new Error(
-          'Model is required in chat options. Please specify a model in defaultModel configuration.',
-        );
-      }
-
-      const requestParams: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
-        model: chatOptions.model,
-        messages: openaiMessages,
-        ...(chatOptions.temperature !== undefined && { temperature: chatOptions.temperature }),
-        ...(chatOptions.maxTokens && { max_tokens: chatOptions.maxTokens }),
-        ...(chatOptions.tools && {
-          tools: convertToOpenAITools(chatOptions.tools),
-          tool_choice: 'auto',
-        }),
-      };
-
-      const textDeltaCb = chatOptions.onTextDelta ?? this.onTextDelta;
-      if (textDeltaCb) {
-        return await this.chatWithStreamingAssembly(
-          {
-            ...requestParams,
-            stream: true,
-          },
-          {
-            ...chatOptions,
-            onTextDelta: textDeltaCb,
-          },
-        );
-      }
-
-      if (this.payloadLogger?.isEnabled()) {
-        const logData = {
-          model: requestParams.model,
-          messagesCount: openaiMessages.length,
-          hasTools: !!requestParams.tools,
-          temperature: requestParams.temperature ?? undefined,
-          maxTokens: requestParams.max_tokens ?? undefined,
-          timestamp: new Date().toISOString(),
-        };
-        await this.payloadLogger.logPayload(logData, 'chat');
-      }
-
-      const response = await this.client.chat.completions.create(requestParams);
-
-      return this.responseParser.parseResponse(response);
-    } catch (error) {
-      const openaiError = error as IOpenAIError;
-      const errorMessage = openaiError.message || 'OpenAI API request failed';
-      throw new Error(`OpenAI chat failed: ${errorMessage}`);
-    }
-  }
-
-  private async chatWithStreamingAssembly(
-    requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming,
-    options: IChatOptions,
-  ): Promise<TUniversalMessage> {
-    if (!this.client) {
-      throw new Error(
-        'OpenAI client not available. Either provide a client/apiKey or use an executor.',
-      );
-    }
-
-    try {
-      if (this.payloadLogger?.isEnabled()) {
-        const logData = {
-          model: requestParams.model,
-          messagesCount: requestParams.messages.length,
-          hasTools: !!requestParams.tools,
-          temperature: requestParams.temperature ?? undefined,
-          maxTokens: requestParams.max_tokens ?? undefined,
-          timestamp: new Date().toISOString(),
-        };
-        await this.payloadLogger.logPayload(logData, 'stream');
-      }
-
-      const stream = await this.client.chat.completions.create(
-        requestParams,
-        options.signal ? { signal: options.signal } : undefined,
-      );
-
-      return assembleOpenAIStream({
-        stream,
-        onTextDelta: options.onTextDelta,
-        signal: options.signal,
+    if (this.apiSurface === 'responses') {
+      return chatWithOpenAIResponsesApi({
+        client: this.client,
+        messages,
+        chatOptions: options,
+        providerOptions: this.options,
+        onTextDelta: this.onTextDelta,
       });
-    } catch (error) {
-      const openaiError = error as IOpenAIError;
-      const errorMessage = openaiError.message || 'OpenAI streaming request failed';
-      throw new Error(`OpenAI stream failed: ${errorMessage}`);
     }
+
+    return chatWithOpenAIChatCompletions({
+      client: this.client,
+      messages,
+      chatOptions: options,
+      providerOptions: this.options,
+      payloadLogger: this.payloadLogger,
+      responseParser: this.responseParser,
+      onTextDelta: this.onTextDelta,
+    });
   }
 
   override async *chatStream(
@@ -204,58 +126,26 @@ export class OpenAIProvider extends AbstractAIProvider {
       }
     }
 
-    if (!this.client) {
-      throw new Error(
-        'OpenAI client not available. Either provide a client/apiKey or use an executor.',
-      );
+    if (this.apiSurface === 'responses') {
+      yield* chatStreamWithOpenAIResponsesApi({
+        client: this.client,
+        messages,
+        chatOptions: options,
+        providerOptions: this.options,
+        onTextDelta: this.onTextDelta,
+      });
+      return;
     }
 
-    try {
-      const openaiMessages = convertToOpenAIMessages(messages);
-
-      if (!options?.model) {
-        throw new Error(
-          'Model is required in chat options. Please specify a model in defaultModel configuration.',
-        );
-      }
-
-      const requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
-        model: options.model,
-        messages: openaiMessages,
-        stream: true,
-        ...(options?.temperature !== undefined && { temperature: options.temperature }),
-        ...(options?.maxTokens && { max_tokens: options.maxTokens }),
-        ...(options?.tools && {
-          tools: convertToOpenAITools(options.tools),
-          tool_choice: 'auto',
-        }),
-      };
-
-      if (this.payloadLogger?.isEnabled()) {
-        const logData = {
-          model: requestParams.model,
-          messagesCount: openaiMessages.length,
-          hasTools: !!requestParams.tools,
-          temperature: requestParams.temperature ?? undefined,
-          maxTokens: requestParams.max_tokens ?? undefined,
-          timestamp: new Date().toISOString(),
-        };
-        await this.payloadLogger.logPayload(logData, 'stream');
-      }
-
-      const stream = await this.client.chat.completions.create(requestParams);
-
-      for await (const chunk of stream) {
-        const universalMessage = this.responseParser.parseStreamingChunk(chunk);
-        if (universalMessage) {
-          yield universalMessage;
-        }
-      }
-    } catch (error) {
-      const openaiError = error as IOpenAIError;
-      const errorMessage = openaiError.message || 'OpenAI API request failed';
-      throw new Error(`OpenAI stream failed: ${errorMessage}`);
-    }
+    yield* chatStreamWithOpenAIChatCompletions({
+      client: this.client,
+      messages,
+      chatOptions: options,
+      providerOptions: this.options,
+      payloadLogger: this.payloadLogger,
+      responseParser: this.responseParser,
+      onTextDelta: this.onTextDelta,
+    });
   }
 
   override supportsTools(): boolean {
@@ -286,4 +176,11 @@ export class OpenAIProvider extends AbstractAIProvider {
       }
     }
   }
+}
+
+function resolveApiSurface(options: IOpenAIProviderOptions): TOpenAIApiSurface {
+  if (options.apiSurface !== undefined) {
+    return options.apiSurface;
+  }
+  return options.baseURL ? 'chat-completions' : 'responses';
 }

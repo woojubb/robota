@@ -144,6 +144,11 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
     },
     "openai": {
       "type": "openai",
+      "model": "gpt-4o",
+      "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "local-gemma": {
+      "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
@@ -170,7 +175,7 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 }
 ```
 
-`InteractiveSession` loads these settings for permissions, hooks, project context, skills, and session behavior. Provider profile resolution is performed by the consumer shell before creating the SDK session; the CLI uses `currentProvider` and `providers` to construct the active provider instance, then passes that instance to `InteractiveSession`. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`; generic OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`. The legacy single `provider` object remains supported by CLI/provider-settings compatibility code when no active profile is configured.
+`InteractiveSession` loads these settings for permissions, hooks, project context, skills, and session behavior. Provider profile resolution is performed by the consumer shell before creating the SDK session; the CLI uses `currentProvider` and `providers` to construct the active provider instance, then passes that instance to `InteractiveSession`. OpenAI uses `type: "openai"` with the official OpenAI API and defaults to the Responses API. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`. Local Gemma-family endpoints should use `type: "gemma"`. A generic OpenAI-compatible Chat Completions endpoint can still be configured with `type: "openai"`, `baseURL`, and optional `options.apiSurface: "chat-completions"` when no model-family provider fits. The legacy single `provider` object remains supported by CLI/provider-settings compatibility code when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 
