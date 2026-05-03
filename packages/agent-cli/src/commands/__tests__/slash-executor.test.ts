@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   handleHelp,
-  handleClear,
   handleCost,
   handleContext,
   handleReset,
@@ -32,7 +31,6 @@ function createMockSession(overrides?: Partial<ISlashSession>): ISlashSession {
     getMessageCount: () => 5,
     getSessionAllowedTools: () => [],
     getContextState: () => ({ usedTokens: 50000, maxTokens: 200000, usedPercentage: 25 }),
-    clearHistory: vi.fn(),
     compact: vi.fn(),
     ...overrides,
   };
@@ -56,19 +54,6 @@ describe('handleHelp', () => {
     expect(result.handled).toBe(true);
     expect(messages).toHaveLength(1);
     expect(messages[0].content).toBe(HELP_TEXT);
-  });
-});
-
-describe('handleClear', () => {
-  it('clears messages and session history', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const clearMessages = vi.fn();
-    const session = createMockSession();
-    const result = handleClear(addMessage, clearMessages, session);
-    expect(result.handled).toBe(true);
-    expect(clearMessages).toHaveBeenCalled();
-    expect(session.clearHistory).toHaveBeenCalled();
-    expect(messages[0].content).toBe('Conversation cleared.');
   });
 });
 
@@ -259,6 +244,29 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /clear through the injected session command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'session',
+      getCommands: () => [
+        { name: 'clear', description: 'Clear conversation history', source: 'session' },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'clear',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();
@@ -340,7 +348,6 @@ describe('Command routing completeness', () => {
     // Update this list when adding new commands.
     const routedCommands = [
       'help',
-      'clear',
       'compact',
       'mode',
       'model',

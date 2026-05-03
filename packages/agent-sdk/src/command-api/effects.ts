@@ -10,4 +10,5 @@ export type TCommandEffect =
   | { type: 'plugin-tui-requested' }
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
+  | { type: 'conversation-history-cleared' }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };

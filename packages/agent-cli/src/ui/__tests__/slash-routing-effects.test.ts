@@ -74,4 +74,33 @@ describe('applySystemCommandResult', () => {
 
     expect(session._pendingCommandEffects).toEqual([{ type: 'plugin-tui-requested' }]);
   });
+
+  it('applies conversation history clearing immediately before adding the command result', () => {
+    const session = {
+      getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
+    } as unknown as InteractiveSession & ISideEffects;
+    const manager = new TuiStateManager();
+    manager.addEntry({
+      id: 'old',
+      timestamp: new Date('2026-05-03T00:00:00.000Z'),
+      category: 'chat',
+      type: 'user',
+      data: { role: 'user', content: 'old message' },
+    });
+
+    applySystemCommandResult(
+      {
+        success: true,
+        message: 'Conversation cleared.',
+        effects: [{ type: 'conversation-history-cleared' }],
+      },
+      session,
+      manager,
+    );
+
+    expect(manager.history).toHaveLength(1);
+    expect(manager.history[0]?.type).toBe('system');
+    expect(manager.history[0]?.data).toMatchObject({ content: 'Conversation cleared.' });
+    expect(session._pendingCommandEffects).toBeUndefined();
+  });
 });

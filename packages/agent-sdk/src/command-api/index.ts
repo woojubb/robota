@@ -127,3 +127,7 @@ export {
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
 } from './statusline/statusline-command-api.js';
+export {
+  clearConversationHistory,
+  CLEAR_COMMAND_DESCRIPTION,
+} from './session/session-command-api.js';

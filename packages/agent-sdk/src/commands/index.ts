@@ -133,6 +133,10 @@ export {
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
 } from '../command-api/statusline/statusline-command-api.js';
+export {
+  clearConversationHistory,
+  CLEAR_COMMAND_DESCRIPTION,
+} from '../command-api/session/session-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,
