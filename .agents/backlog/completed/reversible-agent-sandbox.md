@@ -1,5 +1,9 @@
 # Reversible Agent Sandbox
 
+- **Status**: completed
+- **Completed**: 2026-05-03
+- **Branch**: feat/reversible-agent-sandbox
+
 ## What
 
 Implement a sandbox-backed execution mode that lets Robota make file changes and run commands while preserving a reliable way to inspect, accept, or roll back those changes.
@@ -53,12 +57,20 @@ Rationale: the repository already has edit checkpoint storage and initial worktr
 
 ## Acceptance Criteria
 
-- [ ] A documented reversible execution mode exists with clear guarantees and limitations.
-- [ ] Before the first file mutation in a turn, Robota creates a recoverable checkpoint or isolated workspace.
-- [ ] Users can inspect pending changes before accepting or rolling back.
-- [ ] Rollback restores tracked file edits deterministically.
-- [ ] Non-reversible side effects are prevented by sandbox isolation or surfaced clearly before execution.
-- [ ] Tests cover successful rollback, failed rollback, command side effects, and cleanup behavior.
+- [x] A documented reversible execution mode exists with clear guarantees and limitations.
+- [x] Before the first file mutation in a turn, Robota creates a recoverable checkpoint or isolated workspace.
+- [x] Users can inspect pending changes before accepting or rolling back.
+- [x] Rollback restores tracked file edits deterministically.
+- [x] Non-reversible side effects are prevented by sandbox isolation or surfaced clearly before execution.
+- [x] Tests cover successful rollback, failed rollback, command side effects, and cleanup behavior.
+
+## Completion Notes
+
+- Added SDK checkpoint inspection contracts and `EditCheckpointStore.inspect()`.
+- Added `/rewind inspect <checkpoint-id>` through command common APIs and the product-composed rewind command module.
+- Added opt-in `reversibleExecution: { mode: 'local-first' }` policy wrapping that blocks untracked host shell/process side effects before execution unless they are isolated.
+- Classified `Write`/`Edit` as checkpoint-reversible, worktree-isolated `Agent` jobs as worktree-reversible, read-only tools as no-op for rollback, and foreground host `Bash` as requiring isolation.
+- Provider sandbox snapshots remain a future isolation backend behind the SDK policy contract.
 
 ## Test Plan
 

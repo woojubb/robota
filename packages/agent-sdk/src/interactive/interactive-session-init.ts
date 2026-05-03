@@ -39,6 +39,7 @@ import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -73,6 +74,8 @@ export interface IInteractiveSessionStandardOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
+  /** Opt-in local-first reversible execution policy for write/shell tools. */
+  reversibleExecution?: IReversibleExecutionOptions;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -140,6 +143,8 @@ export interface IInitOptions {
   config?: IResolvedConfig;
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
   editCheckpointRecorder?: IEditCheckpointRecorder;
+  /** Opt-in local-first reversible execution policy for write/shell tools. */
+  reversibleExecution?: IReversibleExecutionOptions;
 }
 
 /**
@@ -222,6 +227,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
+    reversibleExecution: options.reversibleExecution,
   });
 }
 

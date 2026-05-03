@@ -189,6 +189,7 @@ export {
 export type { ICommandSessionInfo } from '../command-api/session/session-command-api.js';
 export {
   buildRewindCommandSubcommands,
+  inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,

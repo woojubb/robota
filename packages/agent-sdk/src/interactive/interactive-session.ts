@@ -96,6 +96,7 @@ import type {
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
+  IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
@@ -219,6 +220,7 @@ export class InteractiveSession {
       subagentRunnerFactory: options.subagentRunnerFactory,
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       editCheckpointRecorder: this.editCheckpointStore,
+      ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
       commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
       ...(this.commandExecutor.listModelInvocableCommands().length > 0
         ? {
@@ -442,6 +444,11 @@ export class InteractiveSession {
   listEditCheckpoints(): IEditCheckpointSummary[] {
     const sessionId = this.getSessionOrThrow().getSessionId();
     return this.getEditCheckpointStore().list(sessionId);
+  }
+
+  inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    return this.getEditCheckpointStore().inspect(sessionId, checkpointId);
   }
 
   async restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
