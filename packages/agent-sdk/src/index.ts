@@ -133,6 +133,8 @@ export {
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
   buildStatusLineCommandSubcommands,
+  clearConversationHistory,
+  CLEAR_COMMAND_DESCRIPTION,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   isStatusLineCommandSettingsPatch,
   STATUSLINE_COMMAND_ARGUMENT_HINT,

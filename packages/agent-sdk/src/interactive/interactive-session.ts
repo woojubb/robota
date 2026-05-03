@@ -420,6 +420,12 @@ export class InteractiveSession {
   getCommandHostAdapters(): ICommandHostAdapters {
     return this.commandHostAdapters ?? {};
   }
+  clearConversationHistory(): void {
+    this.getSessionOrThrow().clearHistory();
+    this.history = [];
+    this.persistCurrentSession();
+    this.emit('context_update', this.getContextState());
+  }
   async compactContext(instructions?: string): Promise<void> {
     await this.getSessionOrThrow().compact(instructions);
   }

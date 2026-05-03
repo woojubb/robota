@@ -17,7 +17,6 @@ export interface ISlashSession {
   getMessageCount(): number;
   getSessionAllowedTools(): string[];
   getContextState(): { usedTokens: number; maxTokens: number; usedPercentage: number };
-  clearHistory(): void;
   compact(instructions?: string): Promise<void>;
 }
 
@@ -78,17 +77,6 @@ export function handleHelp(addMessage: TAddMessage): ISlashResult {
   return { handled: true };
 }
 
-export function handleClear(
-  addMessage: TAddMessage,
-  clearMessages: TClearMessages,
-  session: ISlashSession,
-): ISlashResult {
-  clearMessages();
-  session.clearHistory();
-  addMessage({ role: 'system', content: 'Conversation cleared.' });
-  return { handled: true };
-}
-
 export function handleCost(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
   addMessage({
     role: 'system',
@@ -122,15 +110,13 @@ export async function executeSlashCommand(
   args: string,
   session: ISlashSession,
   addMessage: TAddMessage,
-  clearMessages: TClearMessages,
+  _clearMessages: TClearMessages,
   registry: CommandRegistry,
   pluginCallbacks?: IPluginCallbacks,
 ): Promise<ISlashResult> {
   switch (cmd) {
     case 'help':
       return handleHelp(addMessage);
-    case 'clear':
-      return handleClear(addMessage, clearMessages, session);
     case 'compact':
       return { handled: false }; // Route to SDK system command (context compaction)
     case 'mode':

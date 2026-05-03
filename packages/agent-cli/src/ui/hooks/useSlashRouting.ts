@@ -5,7 +5,12 @@
 
 import { useCallback } from 'react';
 import { randomUUID } from 'node:crypto';
-import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robota-sdk/agent-sdk';
+import type {
+  InteractiveSession,
+  CommandRegistry,
+  ICommandResult,
+  TCommandEffect,
+} from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ISideEffects } from './side-effects-types.js';
@@ -58,14 +63,15 @@ export function applySystemCommandResult(
   interactiveSession: InteractiveSession,
   manager: TuiStateManager,
 ): void {
+  const pendingEffects = applyImmediateCommandEffects(result.effects, manager);
   manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
   const effects = getEffects(interactiveSession);
 
   if (result.interaction !== undefined) {
     effects._pendingCommandInteraction = result.interaction;
   }
-  if (result.effects !== undefined && result.effects.length > 0) {
-    effects._pendingCommandEffects = result.effects;
+  if (pendingEffects.length > 0) {
+    effects._pendingCommandEffects = pendingEffects;
   }
 
   const ctx = interactiveSession.getContextState();
@@ -74,6 +80,22 @@ export function applySystemCommandResult(
     usedTokens: ctx.usedTokens,
     maxTokens: ctx.maxTokens,
   });
+}
+
+function applyImmediateCommandEffects(
+  effects: readonly TCommandEffect[] | undefined,
+  manager: TuiStateManager,
+): TCommandEffect[] {
+  if (effects === undefined || effects.length === 0) return [];
+  const pendingEffects: TCommandEffect[] = [];
+  for (const effect of effects) {
+    if (effect.type === 'conversation-history-cleared') {
+      manager.clearHistory();
+      continue;
+    }
+    pendingEffects.push(effect);
+  }
+  return pendingEffects;
 }
 
 async function routeSkillCommand(

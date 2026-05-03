@@ -168,6 +168,7 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
+              ├── createSessionCommandModule()    (from @robota-sdk/agent-command-session)
               ├── createStatusLineCommandModule() (from @robota-sdk/agent-command-statusline)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
@@ -422,7 +423,7 @@ Tool: [5 tools]
 | Command                   | Description                                                |
 | ------------------------- | ---------------------------------------------------------- |
 | `/help`                   | Show available commands                                    |
-| `/clear`                  | Clear conversation history                                 |
+| `/clear`                  | Clear conversation history through the session module      |
 | `/mode [mode]`            | Show/change permission mode                                |
 | `/model [model]`          | Select AI model through the injected model command module  |
 | `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
@@ -479,6 +480,8 @@ The `/permissions` command is provided by the `@robota-sdk/agent-command-permiss
 The `/language` command is provided by the `@robota-sdk/agent-command-language` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
 
 The `/statusline` command is provided by the `@robota-sdk/agent-command-statusline` module that the Robota binary composes into `InteractiveSession`. The command module emits `statusline-settings-patch`; the CLI applies settings persistence and TUI state updates through the generic command effect handler.
+
+The `/clear` command is provided by the `@robota-sdk/agent-command-session` module that the Robota binary composes into `InteractiveSession`. The command module clears SDK session history through SDK session command APIs and emits `conversation-history-cleared`; the CLI applies that effect by clearing `TuiStateManager` rendered history before adding the command result message.
 
 **Subcommand display:**
 
@@ -1296,6 +1299,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-permissions` | Default `/permissions` command module composed by the Robota binary                                                                  |
 | `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
+| `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`                                              |
 | `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                   |
 | `@robota-sdk/agent-sdk`                 | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |

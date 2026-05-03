@@ -31,6 +31,7 @@ export interface ICommandSessionRuntime {
 }
 
 export interface ICommandHostContext {
+  clearConversationHistory?(): void;
   getSession(): ICommandSessionRuntime;
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;
