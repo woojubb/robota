@@ -148,3 +148,31 @@ export {
   REWIND_COMMAND_ARGUMENT_HINT,
   REWIND_COMMAND_DESCRIPTION,
 } from './checkpoint/rewind-command-api.js';
+export type {
+  IAppendMemoryInput,
+  IAppendMemoryResult,
+  ICommandMemoryStores,
+  ICommandPendingMemoryStore,
+  ICommandProjectMemoryStore,
+  IMemoryCandidate,
+  IMemoryEvent,
+  IMemoryPendingRecord,
+  IMemoryReference,
+  IProjectMemorySummary,
+  IStartupMemory,
+  TMemoryCandidateStatus,
+  TMemoryType,
+} from './memory/memory-command-api.js';
+export {
+  buildMemoryCommandSubcommands,
+  createCommandMemoryStores,
+  createCommandPendingMemoryStore,
+  createCommandProjectMemoryStore,
+  hasSensitiveCommandMemoryContent,
+  isCommandMemoryType,
+  listCommandUsedMemoryReferences,
+  MEMORY_COMMAND_ARGUMENT_HINT,
+  MEMORY_COMMAND_DESCRIPTION,
+  MEMORY_COMMAND_USAGE,
+  recordCommandMemoryEvent,
+} from './memory/memory-command-api.js';

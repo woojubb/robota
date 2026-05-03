@@ -9,15 +9,21 @@ import type {
 import { buildProviderProfile, formatEnvReference, validateProviderProfile } from '../index.js';
 import {
   buildLanguageCommandSubcommands,
+  buildMemoryCommandSubcommands,
   buildPermissionModeSubcommands,
   buildStatusLineCommandSubcommands,
   clearConversationHistory,
+  createCommandMemoryStores,
+  createCommandPendingMemoryStore,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
+  hasSensitiveCommandMemoryContent,
+  isCommandMemoryType,
   isStatusLineCommandSettingsPatch,
+  listCommandUsedMemoryReferences,
   parseSessionNameArgument,
   readCommandSessionInfo,
   readCommandPermissionsState,
@@ -181,6 +187,27 @@ describe('command-api contracts', () => {
       'zh',
     ]);
     expect(formatLanguageUsageMessage()).toBe('Usage: language <code> (e.g., ko, en, ja, zh)');
+  });
+
+  it('exposes memory command common APIs without command implementation imports', () => {
+    const context = createCommandHostContext();
+    const stores = createCommandMemoryStores(context);
+
+    expect(buildMemoryCommandSubcommands().map((command) => command.name)).toEqual([
+      'list',
+      'show',
+      'add',
+      'pending',
+      'approve',
+      'reject',
+      'used',
+    ]);
+    expect(isCommandMemoryType('project')).toBe(true);
+    expect(isCommandMemoryType('secret')).toBe(false);
+    expect(hasSensitiveCommandMemoryContent('api key is sk-test-secret')).toBe(true);
+    expect(stores.project.list().indexPath).toContain('.robota/memory/MEMORY.md');
+    expect(createCommandPendingMemoryStore('/workspace').list()).toEqual([]);
+    expect(listCommandUsedMemoryReferences(context)).toEqual([]);
   });
 
   it('exposes statusline command common APIs without command implementation imports', () => {

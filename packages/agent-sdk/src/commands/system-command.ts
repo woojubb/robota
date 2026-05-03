@@ -1,12 +1,6 @@
 import type { ICommandHostContext, ISystemCommand } from '../command-api/index.js';
 import { executeBackgroundCommand } from './background-command.js';
-import { executeMemoryCommand } from './memory-command.js';
-import {
-  buildBackgroundSubcommands,
-  buildMemorySubcommands,
-  MEMORY_COMMAND_ARGUMENT_HINT,
-  MEMORY_COMMAND_DESCRIPTION,
-} from './system-command-metadata.js';
+import { buildBackgroundSubcommands } from './system-command-metadata.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
 export type {
   ICommandInteraction,
@@ -41,15 +35,6 @@ export function createSystemCommands(): ISystemCommand[] {
         message: formatHelpMessage(session),
         success: true,
       }),
-    },
-    {
-      name: 'memory',
-      description: MEMORY_COMMAND_DESCRIPTION,
-      modelInvocable: true,
-      argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
-      safety: 'write',
-      subcommands: buildMemorySubcommands(),
-      execute: executeMemoryCommand,
     },
     {
       name: 'background',

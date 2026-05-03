@@ -123,8 +123,10 @@ packages/
 
 ### Runtime APIs
 
-- [ ] Define command-facing memory and background-task APIs.
-- [ ] Move `/memory` and `/background` into command modules.
+- [x] Define command-facing memory APIs.
+- [ ] Define command-facing background-task APIs.
+- [x] Move `/memory` into a command module.
+- [ ] Move `/background` into a command module.
 - [ ] Ensure background commands are non-blocking only when lifecycle metadata explicitly declares them background.
 
 ### Plugin and Help APIs
@@ -158,6 +160,7 @@ packages/
 - [x] `/resume` migrated to `agent-command-session`.
 - [x] `/reset` migrated to `agent-command-reset`.
 - [x] `/rewind` migrated to `agent-command-rewind`.
+- [x] `/memory` migrated to `agent-command-memory`.
 
 8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
@@ -183,7 +186,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-cost.md`
 - `.agents/tasks/completed/command-migration-reset.md`
 - `.agents/tasks/completed/command-migration-rewind.md`
-- `command-migration-memory.md`
+- `.agents/tasks/completed/command-migration-memory.md`
 - `command-migration-background.md`
 - `command-migration-plugin.md`
 - `command-migration-reload-plugins.md`

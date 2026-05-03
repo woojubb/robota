@@ -12,6 +12,7 @@ describe('BuiltinCommandSource', () => {
   it('returns expected built-in commands', () => {
     const names = commands.map((c) => c.name);
     expect(names).toContain('help');
+    expect(names).not.toContain('memory');
     expect(names).not.toContain('cost');
     expect(names).not.toContain('clear');
     expect(names).not.toContain('rename');
