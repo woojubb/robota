@@ -41,4 +41,12 @@ The current follow-up set spans a user-facing bug, test coverage discovery, comm
 
 ## Promotion Path
 
-When these items are scheduled, promote them one at a time into `.agents/tasks/` with concrete IDs. Keep this roadmap in backlog until at least the model regression, coverage audit, and compact research/design are either completed or superseded.
+Completed in `docs/agent-followup-roadmap-close`.
+
+## Result
+
+- `/model` restart behavior was completed in `.agents/tasks/completed/cli-model-change-restart.md`.
+- Agent package coverage measurement was completed in `.agents/tasks/completed/agent-package-coverage-audit.md`.
+- Compact descriptor behavior was completed in `.agents/tasks/completed/compact-command-descriptor.md`.
+- Worktree hardening and reversible sandboxing remain tracked as their own backlog items, so this
+  roadmap no longer needs to stay active.
