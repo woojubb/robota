@@ -1,5 +1,4 @@
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { CLAUDE_MODELS, formatTokenCount } from '@robota-sdk/agent-core';
 import type { ICommand } from '../command-api/types.js';
 
 export const VALID_MODES: readonly TPermissionMode[] = [
@@ -12,21 +11,6 @@ export const MEMORY_COMMAND_DESCRIPTION =
   'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
 export const MEMORY_COMMAND_ARGUMENT_HINT =
   'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used';
-
-export function buildModelSubcommands(): ICommand[] {
-  const seen = new Set<string>();
-  const commands: ICommand[] = [];
-  for (const model of Object.values(CLAUDE_MODELS)) {
-    if (seen.has(model.name)) continue;
-    seen.add(model.name);
-    commands.push({
-      name: model.id,
-      description: `${model.name} (${formatTokenCount(model.contextWindow).toUpperCase()})`,
-      source: 'builtin',
-    });
-  }
-  return commands;
-}
 
 export function buildBackgroundSubcommands(): ICommand[] {
   return [

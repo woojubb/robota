@@ -90,6 +90,11 @@ export {
   isEnvReference,
   resolveEnvReference,
 } from '../command-api/provider/provider-env-ref.js';
+export {
+  buildModelCommandSubcommands,
+  MODEL_COMMAND_ARGUMENT_HINT,
+  MODEL_COMMAND_DESCRIPTION,
+} from '../command-api/model/model-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,

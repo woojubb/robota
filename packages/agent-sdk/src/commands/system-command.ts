@@ -6,7 +6,6 @@ import { executeRewindCommand } from './rewind-command.js';
 import {
   buildBackgroundSubcommands,
   buildMemorySubcommands,
-  buildModelSubcommands,
   buildRewindSubcommands,
   MEMORY_COMMAND_ARGUMENT_HINT,
   MEMORY_COMMAND_DESCRIPTION,
@@ -86,24 +85,6 @@ export function createSystemCommands(): ISystemCommand[] {
         return {
           message: `Invalid mode. Valid: ${VALID_MODES.join(' | ')}`,
           success: false,
-        };
-      },
-    },
-    {
-      name: 'model',
-      description: 'Change AI model',
-      subcommands: buildModelSubcommands(),
-      execute: (_session, args) => {
-        const modelId = args.trim().split(/\s+/)[0];
-        if (!modelId) {
-          return { message: 'Usage: model <model-id>', success: false };
-        }
-        // Return the model ID — caller (InteractiveSession or client) applies the change
-        return {
-          message: `Model change requested: ${modelId}`,
-          success: true,
-          data: { modelId },
-          effects: [{ type: 'model-change-requested', modelId }],
         };
       },
     },

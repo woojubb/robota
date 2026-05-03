@@ -12,6 +12,7 @@ import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
 import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
 import { createContextCommandModule } from '@robota-sdk/agent-command-context';
+import { createModelCommandModule } from '@robota-sdk/agent-command-model';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type {
   ICommandHostAdapters,
@@ -163,6 +164,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
+    createModelCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),
     createStatusLineCommandModule(),

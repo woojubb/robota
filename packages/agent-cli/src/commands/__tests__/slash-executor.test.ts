@@ -3,7 +3,6 @@ import {
   handleHelp,
   handleClear,
   handleMode,
-  handleModel,
   handleCost,
   handlePermissions,
   handleContext,
@@ -97,23 +96,6 @@ describe('handleMode', () => {
     handleMode('invalid', session, addMessage);
     expect(session.setPermissionMode).not.toHaveBeenCalled();
     expect(messages[0].content).toContain('Invalid mode');
-  });
-});
-
-describe('handleModel', () => {
-  it('shows message when no modelId', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const result = handleModel(undefined, addMessage);
-    expect(result.handled).toBe(true);
-    expect(result.pendingModelId).toBeUndefined();
-    expect(messages[0].content).toContain('Select a model');
-  });
-
-  it('returns pendingModelId when modelId provided', () => {
-    const { addMessage } = createMockAddMessage();
-    const result = handleModel('claude-opus-4-6', addMessage);
-    expect(result.handled).toBe(true);
-    expect(result.pendingModelId).toBe('claude-opus-4-6');
   });
 });
 
@@ -211,6 +193,22 @@ describe('executeSlashCommand', () => {
 
     expect(result.handled).toBe(false);
     expect(session.compact).not.toHaveBeenCalled();
+    expect(messages).toHaveLength(0);
+  });
+
+  it('routes /model through the injected system command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+
+    const result = await executeSlashCommand(
+      'model',
+      'claude-sonnet-4-6',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+    );
+
+    expect(result).toEqual({ handled: false });
     expect(messages).toHaveLength(0);
   });
 

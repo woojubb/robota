@@ -264,6 +264,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs.
 - **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation helpers, environment reference helpers, setup-flow primitives, provider command settings adapter contracts, and provider probe defaults. `/provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
 - **Context/compact common APIs**: `agent-sdk/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `/context` and `/compact` command behavior lives in `@robota-sdk/agent-command-context` and `@robota-sdk/agent-command-compact`; both consume these APIs as external command modules.
+- **Model common APIs**: `agent-sdk/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `/model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Boundary**: `command-api` may define contracts and reusable command-facing helpers. It must not own product UI, concrete settings file I/O, process restart/exit, provider construction, or command-specific flows that can live in `agent-command-*` packages.
 
 ### System Command System (SDK-Specific)
@@ -278,7 +279,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
-- **SDK-default built-in commands**: `help`, `clear`, `mode`, `model`, `language`, `cost`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
+- **SDK-default built-in commands**: `help`, `clear`, `mode`, `language`, `cost`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
+- **Product-composed built-in command modules**: `/model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `/context` is provided by `@robota-sdk/agent-command-context` and reports context window usage plus auto-compact policy through the SDK command host facade. `/context auto ...` uses the same common API layer to update the active session immediately and persist through host-provided settings adapters.
 - **Product-composed built-in command modules**: `/compact` is provided by `@robota-sdk/agent-command-compact`, declares blocking lifecycle metadata through the same `ISystemCommand` contract, and is exposed as a model-invocable `write` capability. Auto-compaction remains a deterministic session policy and emits structured compaction events instead of relying on the model to decide routine compaction.
 - **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
@@ -290,7 +292,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/commands/` — SSOT owner; agent-cli re-exports from here
 - **Classes**:
   - `CommandRegistry` — aggregates multiple `ICommandSource` instances; filters by prefix; resolves plugin-qualified names
-  - `BuiltinCommandSource` — provides built-in slash commands with subcommand trees (mode, model, language)
+  - `BuiltinCommandSource` — provides SDK-default built-in slash commands with subcommand trees such as mode and language
   - `SkillCommandSource` — discovers SKILL.md files from project and user directories; parses YAML frontmatter; lazy-caches results
   - `PluginCommandSource` — discovers commands exposed by installed bundle plugins (moved from agent-cli to agent-sdk)
 - **Migration note**: These classes were previously in `agent-cli/src/commands/`. They were moved to `agent-sdk` so any client can use slash command discovery without a TUI dependency. `PluginCommandSource` was also moved from `agent-cli` to `agent-sdk` as part of the scope redesign.
@@ -775,7 +777,6 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 | `clear`       | Clear conversation history                                                   |
 | `compact`     | Compress context window (optional focus instructions)                        |
 | `mode [m]`    | Show or change permission mode                                               |
-| `model <id>`  | Request an AI model change through `model-change-requested` effect           |
 | `language`    | Request response language update through `language-change-requested` effect  |
 | `cost`        | Session ID and message count                                                 |
 | `context`     | Token usage: used / max / percentage                                         |
