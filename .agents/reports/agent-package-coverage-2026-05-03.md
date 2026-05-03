@@ -25,7 +25,7 @@ Do not add a global `agent-*` coverage threshold yet. The package set includes c
 | `@robota-sdk/agent-command-model`               |     1 | 92.50% |   90.90% |    87.50% |     92.50% | tested executable source       | Good baseline                                        |
 | `@robota-sdk/agent-command-permissions`         |     1 | 91.17% |   85.71% |    85.71% |     91.17% | tested executable source       | Good baseline                                        |
 | `@robota-sdk/agent-command-provider`            |     1 | 73.90% |   64.58% |    75.00% |     73.90% | tested executable source       | Provider setup branches need more coverage           |
-| `@robota-sdk/agent-command-session`             |     1 | 90.62% |   85.71% |    85.71% |     90.62% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-session`             |     1 |  89.9% |    90.9% |       90% |      89.9% | tested executable source       | Good baseline                                        |
 | `@robota-sdk/agent-command-statusline`          |     1 | 95.65% |   96.29% |    87.50% |     95.65% | tested executable source       | Strong baseline                                      |
 | `@robota-sdk/agent-core`                        |    41 | 83.03% |   80.18% |    72.12% |     83.03% | tested executable source       | Core baseline is usable; helper functions remain low |
 | `@robota-sdk/agent-event-service`               |     2 |    n/a |      n/a |       n/a |        n/a | no executable source in report | Thin re-export barrel intentionally excluded         |

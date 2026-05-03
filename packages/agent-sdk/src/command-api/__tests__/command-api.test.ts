@@ -12,10 +12,12 @@ import {
   buildPermissionModeSubcommands,
   buildStatusLineCommandSubcommands,
   clearConversationHistory,
+  createSessionRenamedEffect,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
   isStatusLineCommandSettingsPatch,
+  parseSessionNameArgument,
   readCommandPermissionsState,
   readCommandPermissionMode,
   resetAutoCompactThresholdSetting,
@@ -206,5 +208,11 @@ describe('command-api contracts', () => {
     clearConversationHistory(context);
 
     expect(cleared).toBe(true);
+    expect(parseSessionNameArgument('  my-session  ')).toBe('my-session');
+    expect(parseSessionNameArgument('  ')).toBeUndefined();
+    expect(createSessionRenamedEffect('my-session')).toEqual({
+      type: 'session-renamed',
+      name: 'my-session',
+    });
   });
 });

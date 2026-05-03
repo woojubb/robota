@@ -7,3 +7,8 @@ import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 ```
 
 The module consumes `@robota-sdk/agent-sdk` command contracts and session command APIs. Hosts compose it by default and apply any typed effects through their own UI or process adapters.
+
+Commands:
+
+- `/clear` clears SDK session history and emits `conversation-history-cleared`.
+- `/rename <name>` emits `session-renamed` with the trimmed session name.

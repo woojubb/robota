@@ -4,7 +4,7 @@
 
 `@robota-sdk/agent-command-session` owns composable session-management commands.
 
-The package currently provides `/clear` command metadata and execution. It is the intended owner for additional session commands that share the same command-facing session APIs, such as session picker and rename commands.
+The package currently provides `/clear` and `/rename` command metadata and execution. It is the intended owner for additional session commands that share the same command-facing session APIs, such as session picker commands.
 
 ## Public API
 
@@ -12,14 +12,17 @@ The package currently provides `/clear` command metadata and execution. It is th
 import {
   SessionCommandSource,
   createClearCommandEntry,
+  createRenameCommandEntry,
   createSessionCommandModule,
   executeClearCommand,
+  executeRenameCommand,
 } from '@robota-sdk/agent-command-session';
 ```
 
 ## Ownership
 
 - Owns `/clear` command metadata and execution.
+- Owns `/rename` command metadata and execution.
 - Consumes `@robota-sdk/agent-sdk` command contracts and session command common APIs.
 - Emits typed host effects when a command requires host-rendered state updates.
 - Leaves TUI history projection, process control, settings files, and session picker rendering to the host.
@@ -35,12 +38,15 @@ import {
 
 `createSessionCommandModule()` returns one `ICommandModule` with:
 
-- a command source containing `/clear`;
+- a command source containing `/clear` and `/rename`;
 - one executable `ISystemCommand` for `/clear`;
+- one executable `ISystemCommand` for `/rename`;
 - inline lifecycle behavior;
 - user-only invocation policy.
 
 `/clear` clears the SDK session history through the SDK session command API and emits `conversation-history-cleared` so hosts can clear rendered history consistently before showing the command result.
+
+`/rename <name>` trims the provided name and emits `session-renamed` so hosts can update session title, status bar, and persistence through their own UI adapters. Missing names return `Usage: rename <name>` without emitting effects.
 
 ## Verification
 
