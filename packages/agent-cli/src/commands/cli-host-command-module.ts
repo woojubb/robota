@@ -24,20 +24,11 @@ function createReloadPluginsEntry(): ICommand {
   };
 }
 
-function createExitEntry(): ICommand {
-  return {
-    name: 'exit',
-    description: 'Exit CLI',
-    source: 'cli',
-    modelInvocable: false,
-  };
-}
-
 class CliHostCommandSource implements ICommandSource {
   readonly name = 'cli-host';
 
   getCommands(): ICommand[] {
-    return [createPluginEntry(), createReloadPluginsEntry(), createExitEntry()];
+    return [createPluginEntry(), createReloadPluginsEntry()];
   }
 }
 
@@ -71,29 +62,10 @@ function createReloadPluginsSystemCommand(): ISystemCommand {
   };
 }
 
-function createExitSystemCommand(): ISystemCommand {
-  const entry = createExitEntry();
-  return {
-    name: entry.name,
-    description: entry.description,
-    userInvocable: true,
-    modelInvocable: false,
-    execute: (_session, _args) => ({
-      success: true,
-      message: 'Exit requested.',
-      effects: [{ type: 'session-exit-requested' }],
-    }),
-  };
-}
-
 export function createCliHostCommandModule(): ICommandModule {
   return {
     name: 'cli-host',
     commandSources: [new CliHostCommandSource()],
-    systemCommands: [
-      createPluginSystemCommand(),
-      createReloadPluginsSystemCommand(),
-      createExitSystemCommand(),
-    ],
+    systemCommands: [createPluginSystemCommand(), createReloadPluginsSystemCommand()],
   };
 }

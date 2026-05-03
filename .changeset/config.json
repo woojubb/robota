@@ -11,6 +11,7 @@
       "@robota-sdk/agent-command-background",
       "@robota-sdk/agent-command-compact",
       "@robota-sdk/agent-command-context",
+      "@robota-sdk/agent-command-exit",
       "@robota-sdk/agent-command-language",
       "@robota-sdk/agent-command-memory",
       "@robota-sdk/agent-command-mode",

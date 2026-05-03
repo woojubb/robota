@@ -157,6 +157,8 @@ export {
   createSessionRenamedEffect,
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
+  createSessionExitRequestedEffect,
+  EXIT_COMMAND_DESCRIPTION,
   parseSessionNameArgument,
   readCommandSessionInfo,
   RENAME_COMMAND_DESCRIPTION,
