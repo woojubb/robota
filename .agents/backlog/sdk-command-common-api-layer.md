@@ -107,6 +107,7 @@ packages/
 
 - [ ] Define command-facing session APIs for clear, rename, resume, reset, and history state reads.
   - [x] Clear-history facade and host-rendered history-clear effect are available.
+  - [x] Session-name parsing and host-rendered rename effect helpers are available.
 - [ ] Define checkpoint/rewind APIs without exposing session internals.
 - [ ] Move `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind` into command modules that consume these APIs.
 
@@ -149,6 +150,7 @@ packages/
 6. [x] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
 7. [ ] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
    - [x] `/clear` migrated to `agent-command-session`.
+   - [x] `/rename` migrated to `agent-command-session`.
 8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
 10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
@@ -168,7 +170,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-permissions.md`
 - `.agents/tasks/completed/command-migration-statusline.md`
 - `.agents/tasks/completed/command-migration-clear.md`
-- `command-migration-rename.md`
+- `.agents/tasks/completed/command-migration-rename.md`
 - `command-migration-resume.md`
 - `command-migration-reset.md`
 - `command-migration-rewind.md`

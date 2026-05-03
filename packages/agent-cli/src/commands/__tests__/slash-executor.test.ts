@@ -267,6 +267,29 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /rename through the injected session command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'session',
+      getCommands: () => [
+        { name: 'rename', description: 'Rename the current session', source: 'session' },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'rename',
+      'my-session',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();

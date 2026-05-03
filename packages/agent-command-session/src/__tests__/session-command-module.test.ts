@@ -48,8 +48,8 @@ function createCommandContext(): ICommandHostContext {
 describe('createSessionCommandModule', () => {
   it('provides clear metadata and user-only executable command from one module owner', () => {
     const module = createSessionCommandModule();
-    const command = module.systemCommands?.[0];
-    const entry = module.commandSources?.[0]?.getCommands()[0];
+    const command = module.systemCommands?.find((item) => item.name === 'clear');
+    const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'clear');
 
     expect(module.name).toBe('agent-command-session');
     expect(entry).toEqual(
@@ -63,6 +63,34 @@ describe('createSessionCommandModule', () => {
     expect(command).toEqual(
       expect.objectContaining({
         name: 'clear',
+        lifecycle: 'inline',
+        userInvocable: true,
+        modelInvocable: false,
+      }),
+    );
+  });
+
+  it('provides rename metadata and user-only executable command from the same module owner', () => {
+    const module = createSessionCommandModule();
+    const command = module.systemCommands?.find((item) => item.name === 'rename');
+    const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'rename');
+
+    expect(module.commandSources?.[0]?.getCommands().map((item) => item.name)).toEqual([
+      'clear',
+      'rename',
+    ]);
+    expect(module.systemCommands?.map((item) => item.name)).toEqual(['clear', 'rename']);
+    expect(entry).toEqual(
+      expect.objectContaining({
+        name: 'rename',
+        description: 'Rename the current session',
+        source: 'session',
+        modelInvocable: false,
+      }),
+    );
+    expect(command).toEqual(
+      expect.objectContaining({
+        name: 'rename',
         lifecycle: 'inline',
         userInvocable: true,
         modelInvocable: false,
@@ -134,5 +162,33 @@ describe('createSessionCommandModule', () => {
     });
     expect(clearHistory).toHaveBeenCalledTimes(1);
     expect(session.getFullHistory()).toEqual([]);
+  });
+
+  it('renames the current session through a typed host effect', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('rename', createCommandContext(), ' my-session ');
+
+    expect(result).toEqual({
+      success: true,
+      message: 'Session renamed to "my-session".',
+      data: { name: 'my-session' },
+      effects: [{ type: 'session-renamed', name: 'my-session' }],
+    });
+  });
+
+  it('returns usage when rename is missing a session name', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('rename', createCommandContext(), '  ');
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Usage: rename <name>',
+    });
   });
 });

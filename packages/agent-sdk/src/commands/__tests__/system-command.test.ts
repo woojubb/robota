@@ -93,9 +93,10 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(8);
+    expect(commands.length).toBeGreaterThanOrEqual(7);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).not.toContain('clear');
+    expect(commands.map((c) => c.name)).not.toContain('rename');
     expect(commands.map((c) => c.name)).not.toContain('permissions');
     expect(commands.map((c) => c.name)).not.toContain('language');
     expect(commands.map((c) => c.name)).not.toContain('mode');
@@ -503,21 +504,6 @@ describe('SystemCommandExecutor', () => {
     expect(result!.success).toBe(true);
     expect(result!.message).toContain('build');
     expect(result!.message).toContain(join(cwd, '.robota', 'memory', 'topics', 'build.md'));
-  });
-
-  it('rename returns name in data', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('rename', createMockSession(), 'my-session');
-    expect(result).not.toBeNull();
-    expect(result!.success).toBe(true);
-    expect(result!.data?.name).toBe('my-session');
-  });
-
-  it('rename fails without name argument', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('rename', createMockSession(), '');
-    expect(result).not.toBeNull();
-    expect(result!.success).toBe(false);
   });
 
   it('register adds custom command', async () => {

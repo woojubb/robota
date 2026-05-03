@@ -92,22 +92,6 @@ export function createSystemCommands(): ISystemCommand[] {
       execute: executeBackgroundCommand,
     },
     {
-      name: 'rename',
-      description: 'Rename the current session',
-      execute: (_session, args) => {
-        const name = args.trim();
-        if (!name) {
-          return { message: 'Usage: rename <name>', success: false };
-        }
-        return {
-          message: `Session renamed to "${name}".`,
-          success: true,
-          data: { name },
-          effects: [{ type: 'session-renamed', name }],
-        };
-      },
-    },
-    {
       name: 'reset',
       description: 'Delete settings',
       execute: (_session, _args) => {
