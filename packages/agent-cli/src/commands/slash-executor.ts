@@ -6,7 +6,6 @@
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from './command-registry.js';
-import { handlePluginCommand, handleReloadPlugins } from './slash-plugin-handlers.js';
 
 /** Minimal session interface for slash command execution */
 export interface ISlashSession {
@@ -30,29 +29,6 @@ export interface ISlashResult {
   handled: boolean;
   /** If set, the caller should schedule an exit after a delay */
   exitRequested?: boolean;
-  /** If set, the caller should open the plugin management TUI */
-  triggerPluginTUI?: boolean;
-}
-
-/** Callback-based interface for plugin operations. Keeps CLI decoupled from SDK implementation. */
-export interface IPluginCallbacks {
-  listInstalled: () => Promise<Array<{ name: string; description: string; enabled: boolean }>>;
-  listAvailablePlugins: (marketplace: string) => Promise<
-    Array<{
-      name: string;
-      description: string;
-      installed: boolean;
-    }>
-  >;
-  install: (pluginId: string, scope?: 'user' | 'project') => Promise<void>;
-  uninstall: (pluginId: string) => Promise<void>;
-  enable: (pluginId: string) => Promise<void>;
-  disable: (pluginId: string) => Promise<void>;
-  marketplaceAdd: (source: string) => Promise<string>;
-  marketplaceRemove: (name: string) => Promise<void>;
-  marketplaceUpdate: (name: string) => Promise<void>;
-  marketplaceList: () => Promise<Array<{ name: string; type: string }>>;
-  reloadPlugins: () => Promise<void>;
 }
 
 export const HELP_TEXT = [
@@ -88,12 +64,11 @@ export function handleContext(session: ISlashSession, addMessage: TAddMessage): 
 /** Execute a parsed slash command. Returns result indicating what happened. */
 export async function executeSlashCommand(
   cmd: string,
-  args: string,
+  _args: string,
   session: ISlashSession,
   addMessage: TAddMessage,
   _clearMessages: TClearMessages,
   registry: CommandRegistry,
-  pluginCallbacks?: IPluginCallbacks,
 ): Promise<ISlashResult> {
   switch (cmd) {
     case 'help':
@@ -120,18 +95,8 @@ export async function executeSlashCommand(
       return { handled: false }; // Route to injected rewind command (edit checkpoint controls)
     case 'exit':
       return { handled: false }; // Route to injected exit command (host shutdown effect)
-    case 'plugin':
-      if (pluginCallbacks) {
-        return handlePluginCommand(args, addMessage, pluginCallbacks);
-      }
-      addMessage({ role: 'system', content: 'Plugin management is not available.' });
-      return { handled: true };
     case 'reload-plugins':
-      if (pluginCallbacks) {
-        return handleReloadPlugins(addMessage, pluginCallbacks);
-      }
-      addMessage({ role: 'system', content: 'Plugin management is not available.' });
-      return { handled: true };
+      return { handled: false }; // Route to CLI host command until migrated.
     case 'resume':
       return { handled: false }; // Route to system command (triggers session picker)
     case 'rename':

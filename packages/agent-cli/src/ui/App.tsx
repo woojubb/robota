@@ -98,7 +98,8 @@ function AppInner(
     commandHostAdapters: props.commandHostAdapters,
   });
 
-  const pluginCallbacks = usePluginCallbacks(cwd);
+  const fallbackPluginCallbacks = usePluginCallbacks(cwd);
+  const pluginCallbacks = props.commandHostAdapters?.plugin ?? fallbackPluginCallbacks;
   const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();

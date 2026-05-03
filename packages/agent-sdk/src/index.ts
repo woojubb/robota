@@ -48,6 +48,7 @@ export type {
   ICommandHostContext,
   ICommandModule,
   ICommandPickerAdapter,
+  ICommandPluginAdapter,
   ICommandProcessAdapter,
   ICommandSource,
   ICommandSessionRuntime,
@@ -77,6 +78,10 @@ export type {
   IStatusLineCommandSettings,
   TProviderSettingsDocument,
   TStatusLineCommandSettingsPatch,
+  ICommandAvailablePlugin,
+  ICommandInstalledPlugin,
+  ICommandMarketplaceSource,
+  TPluginInstallScope,
 } from './commands/index.js';
 export {
   buildProviderProfile,
@@ -133,6 +138,8 @@ export {
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
   buildStatusLineCommandSubcommands,
+  buildPluginCommandSubcommands,
+  createPluginTuiRequestedEffect,
   clearConversationHistory,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
@@ -176,6 +183,9 @@ export {
   rollbackCommandEditCheckpoint,
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
+  PLUGIN_COMMAND_ARGUMENT_HINT,
+  PLUGIN_COMMAND_DESCRIPTION,
+  resolvePluginCommandAdapter,
 } from './commands/index.js';
 export type {
   ICompactContextResult,

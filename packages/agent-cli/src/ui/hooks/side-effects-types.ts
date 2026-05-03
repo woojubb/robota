@@ -15,7 +15,6 @@ export interface ISideEffects {
   _pendingModelId?: string;
   _resetRequested?: boolean;
   _exitRequested?: boolean;
-  _triggerPluginTUI?: boolean;
   _triggerResumePicker?: boolean;
   _sessionName?: string;
   _pendingCommandInteraction?: ICommandInteraction;
