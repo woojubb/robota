@@ -561,6 +561,9 @@ importers:
       '@robota-sdk/agent-command-context':
         specifier: workspace:*
         version: link:../agent-command-context
+      '@robota-sdk/agent-command-language':
+        specifier: workspace:*
+        version: link:../agent-command-language
       '@robota-sdk/agent-command-mode':
         specifier: workspace:*
         version: link:../agent-command-mode
@@ -695,6 +698,25 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-command-context:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-language:
     dependencies:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*

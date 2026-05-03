@@ -52,6 +52,7 @@
     "@robota-sdk/agent-command-agent": "workspace:*",
     "@robota-sdk/agent-command-compact": "workspace:*",
     "@robota-sdk/agent-command-context": "workspace:*",
+    "@robota-sdk/agent-command-language": "workspace:*",
     "@robota-sdk/agent-command-mode": "workspace:*",
     "@robota-sdk/agent-command-model": "workspace:*",
     "@robota-sdk/agent-command-provider": "workspace:*",

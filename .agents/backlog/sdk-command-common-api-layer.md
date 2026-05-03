@@ -162,7 +162,7 @@ This item is the foundation for the command-specific migration backlog:
 - `command-migration-context.md`
 - `.agents/tasks/completed/command-migration-model.md`
 - `.agents/tasks/completed/command-migration-mode.md`
-- `command-migration-language.md`
+- `.agents/tasks/completed/command-migration-language.md`
 - `command-migration-permissions.md`
 - `command-migration-statusline.md`
 - `command-migration-clear.md`

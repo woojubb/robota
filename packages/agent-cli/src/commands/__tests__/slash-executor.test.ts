@@ -204,6 +204,29 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /language through the injected system command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'language',
+      getCommands: () => [
+        { name: 'language', description: 'Set response language', source: 'language' },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'language',
+      'ko',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();
@@ -289,7 +312,6 @@ describe('Command routing completeness', () => {
       'compact',
       'mode',
       'model',
-      'language',
       'cost',
       'permissions',
       'context',

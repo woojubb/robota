@@ -164,6 +164,7 @@ Flow ownership:
 bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createModelCommandModule()      (from @robota-sdk/agent-command-model)
               ├── createModeCommandModule()       (from @robota-sdk/agent-command-mode)
+              ├── createLanguageCommandModule()   (from @robota-sdk/agent-command-language)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
@@ -473,6 +474,8 @@ The `/model` command is provided by the `@robota-sdk/agent-command-model` module
 
 The `/mode` command is provided by the `@robota-sdk/agent-command-mode` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not mutate permission mode directly; it routes `/mode` into the generic command execution path, and the command module uses SDK permission-mode common APIs.
 
+The `/language` command is provided by the `@robota-sdk/agent-command-language` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
+
 **Subcommand display:**
 
 ```
@@ -601,7 +604,7 @@ interface ISlashCommand {
 
 | Source   | Class                  | Owner                   | Description                                                        |
 | -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------ |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /mode                        |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /help and /memory            |
 | Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /model |
 | Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                 |
 | Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                        |
@@ -1284,6 +1287,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                               |
 | `@robota-sdk/agent-command-compact`    | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-context`    | Default `/context` command module composed by the Robota binary                                                                      |
+| `@robota-sdk/agent-command-language`   | Default `/language` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-command-mode`       | Default `/mode` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-model`      | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-provider`   | Default `/provider` command module composed by the Robota binary                                                                     |

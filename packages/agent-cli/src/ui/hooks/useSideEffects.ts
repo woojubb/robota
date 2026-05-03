@@ -123,13 +123,6 @@ export function useSideEffects({
         return;
       }
 
-      if (sideEffects._pendingLanguage) {
-        const lang = sideEffects._pendingLanguage as string;
-        delete sideEffects._pendingLanguage;
-        applyEffects([{ type: 'language-change-requested', language: lang }], sideEffects);
-        return;
-      }
-
       if (sideEffects._resetRequested) {
         delete sideEffects._resetRequested;
         applyEffects([{ type: 'settings-reset-requested' }], sideEffects);
