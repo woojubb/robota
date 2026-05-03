@@ -92,6 +92,10 @@ export {
 } from './model/model-command-api.js';
 export type { TRecommendedResponseLanguage } from './language/language-command-api.js';
 export type { IPermissionsCommandState } from './permissions/permission-mode-command-api.js';
+export type {
+  IStatusLineCommandSettings,
+  TStatusLineCommandSettingsPatch,
+} from './statusline/statusline-command-api.js';
 export {
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,
@@ -116,3 +120,10 @@ export {
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
 } from './permissions/permission-mode-command-api.js';
+export {
+  buildStatusLineCommandSubcommands,
+  DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
+  isStatusLineCommandSettingsPatch,
+  STATUSLINE_COMMAND_ARGUMENT_HINT,
+  STATUSLINE_COMMAND_DESCRIPTION,
+} from './statusline/statusline-command-api.js';

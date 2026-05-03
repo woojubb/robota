@@ -98,6 +98,10 @@ export {
 } from '../command-api/model/model-command-api.js';
 export type { TRecommendedResponseLanguage } from '../command-api/language/language-command-api.js';
 export type { IPermissionsCommandState } from '../command-api/permissions/permission-mode-command-api.js';
+export type {
+  IStatusLineCommandSettings,
+  TStatusLineCommandSettingsPatch,
+} from '../command-api/statusline/statusline-command-api.js';
 export {
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,
@@ -122,6 +126,13 @@ export {
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
 } from '../command-api/permissions/permission-mode-command-api.js';
+export {
+  buildStatusLineCommandSubcommands,
+  DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
+  isStatusLineCommandSettingsPatch,
+  STATUSLINE_COMMAND_ARGUMENT_HINT,
+  STATUSLINE_COMMAND_DESCRIPTION,
+} from '../command-api/statusline/statusline-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,

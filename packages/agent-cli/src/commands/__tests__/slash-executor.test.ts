@@ -232,6 +232,33 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /statusline through the injected system command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'statusline',
+      getCommands: () => [
+        {
+          name: 'statusline',
+          description: 'Configure TUI status-line visibility',
+          source: 'statusline',
+        },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'statusline',
+      'off',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();

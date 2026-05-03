@@ -16,6 +16,7 @@ import { createLanguageCommandModule } from '@robota-sdk/agent-command-language'
 import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import { createModelCommandModule } from '@robota-sdk/agent-command-model';
 import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
+import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type {
   ICommandHostAdapters,
@@ -51,7 +52,6 @@ import {
   getStartupCliUpdateNotice,
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
-import { createStatusLineCommandModule } from './commands/statusline-command-module.js';
 import { createCliHostCommandModule } from './commands/cli-host-command-module.js';
 
 /** Read version from package.json at runtime. */

@@ -23,7 +23,7 @@ The command layer should have one source of truth:
 - `packages/agent-sdk/src/commands/builtin-source.ts` owns built-in command palette metadata separately from execution.
 - `packages/agent-cli/src/commands/slash-executor.ts` still hardcodes several command behaviors and returns `handled: false` for others so a later path can execute them.
 - `.agents/specs/agent-invocation-router.md` already states that built-in command modules should be injected by composition roots and should own their descriptors.
-- CLI-specific modules such as `statusline-command-module.ts` show that command modules can already package system commands for injection.
+- Extracted command packages such as `agent-command-statusline` show that command modules can package system commands for injection without living in the CLI.
 
 ## Desired Layering
 
