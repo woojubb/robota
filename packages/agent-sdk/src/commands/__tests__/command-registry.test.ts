@@ -19,9 +19,9 @@ describe('CommandRegistry capability descriptors', () => {
     registry.addSource(new BuiltinCommandSource());
 
     const descriptors = registry.getCapabilityDescriptors();
-    const reset = descriptors.find((descriptor) => descriptor.name === '/reset');
+    const help = descriptors.find((descriptor) => descriptor.name === '/help');
 
-    expect(reset?.modelInvocable).toBe(false);
+    expect(help?.modelInvocable).toBe(false);
   });
 
   it('projects capabilities from any injected command module', () => {

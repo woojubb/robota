@@ -93,7 +93,7 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(5);
+    expect(commands.length).toBeGreaterThanOrEqual(4);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).not.toContain('cost');
     expect(commands.map((c) => c.name)).not.toContain('clear');
@@ -105,6 +105,7 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).not.toContain('model');
     expect(commands.map((c) => c.name)).not.toContain('compact');
     expect(commands.map((c) => c.name)).not.toContain('context');
+    expect(commands.map((c) => c.name)).not.toContain('reset');
   });
 
   it('exposes only memory as a model-invocable core command', () => {

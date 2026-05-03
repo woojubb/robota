@@ -14,50 +14,51 @@ Do not add a global `agent-*` coverage threshold yet. The package set includes c
 
 ## Package Results
 
-| Package                                         | Tests |  Lines | Branches | Functions | Statements | Classification                 | Risk Note                                            |
-| ----------------------------------------------- | ----: | -----: | -------: | --------: | ---------: | ------------------------------ | ---------------------------------------------------- |
-| `@robota-sdk/agent-cli`                         |    57 | 70.28% |   77.78% |    82.32% |     70.28% | tested executable source       | UI shell and process entry paths remain low          |
-| `@robota-sdk/agent-command-agent`               |     1 | 79.57% |   76.27% |    75.00% |     79.57% | tested executable source       | Acceptable baseline                                  |
-| `@robota-sdk/agent-command-compact`             |     1 | 92.00% |   77.77% |    87.50% |     92.00% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-context`             |     1 | 85.23% |   81.57% |    92.85% |     85.23% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-language`            |     1 | 92.59% |   87.50% |    85.71% |     92.59% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-mode`                |     1 | 93.54% |   90.00% |    85.71% |     93.54% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-model`               |     1 | 92.50% |   90.90% |    87.50% |     92.50% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-permissions`         |     1 | 91.17% |   85.71% |    85.71% |     91.17% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-provider`            |     1 | 73.90% |   64.58% |    75.00% |     73.90% | tested executable source       | Provider setup branches need more coverage           |
-| `@robota-sdk/agent-command-session`             |     1 | 92.42% |   94.11% |    93.75% |     92.42% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-command-statusline`          |     1 | 95.65% |   96.29% |    87.50% |     95.65% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-core`                        |    41 | 83.03% |   80.18% |    72.12% |     83.03% | tested executable source       | Core baseline is usable; helper functions remain low |
-| `@robota-sdk/agent-event-service`               |     2 |    n/a |      n/a |       n/a |        n/a | no executable source in report | Thin re-export barrel intentionally excluded         |
-| `@robota-sdk/agent-playground`                  |     1 |  0.36% |    3.80% |     1.90% |      0.36% | tested executable source       | Critical UI/package coverage gap                     |
-| `@robota-sdk/agent-plugin-conversation-history` |     2 | 83.89% |   75.96% |   100.00% |     83.89% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-plugin-error-handling`       |     1 | 93.79% |   79.10% |    88.23% |     93.79% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-plugin-event-emitter`        |     2 | 88.25% |   87.50% |    75.86% |     88.25% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-plugin-execution-analytics`  |     1 | 87.47% |   68.91% |    77.77% |     87.47% | tested executable source       | Branch coverage should improve                       |
-| `@robota-sdk/agent-plugin-limits`               |     1 | 98.08% |   93.57% |    94.11% |     98.08% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-plugin-logging`              |     3 | 91.91% |   86.82% |    85.36% |     91.91% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-plugin-performance`          |     3 | 88.11% |   77.14% |    96.00% |     88.11% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-plugin-usage`                |     5 | 94.36% |   91.09% |   100.00% |     94.36% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-plugin-webhook`              |     1 | 93.75% |   72.86% |    92.10% |     93.75% | tested executable source       | Branch coverage should improve                       |
-| `@robota-sdk/agent-provider-anthropic`          |     3 | 80.26% |   86.58% |    84.21% |     80.26% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-provider-bytedance`          |     3 | 92.47% |   91.87% |    90.90% |     92.47% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-provider-gemini`             |     6 | 95.14% |   90.82% |   100.00% |     95.14% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-provider-gemma`              |     3 | 86.42% |   74.35% |    91.01% |     86.42% | tested executable source       | Branch coverage should improve                       |
-| `@robota-sdk/agent-provider-google`             |     1 | 39.39% |   50.00% |    50.00% |     39.39% | compatibility wrapper          | Add wrapper compatibility smoke coverage             |
-| `@robota-sdk/agent-provider-openai`             |     9 | 91.68% |   83.87% |    84.61% |     91.68% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-provider-openai-compatible`  |     4 | 90.12% |   77.37% |    96.77% |     90.12% | tested executable source       | Good baseline                                        |
-| `@robota-sdk/agent-provider-qwen`               |     2 | 81.96% |   69.31% |    84.48% |     81.96% | tested executable source       | Branch coverage should improve                       |
-| `@robota-sdk/agent-remote-client`               |     7 | 99.31% |   92.89% |   100.00% |     99.31% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-runtime`                     |     4 | 93.37% |   74.16% |    85.00% |     93.37% | tested executable source       | Add worktree/cancel edge cases before policy changes |
-| `@robota-sdk/agent-sdk`                         |    57 | 88.59% |   80.40% |    80.98% |     88.59% | tested executable source       | Good baseline; provider command helpers are low      |
-| `@robota-sdk/agent-sessions`                    |     4 | 67.59% |   79.00% |    47.82% |     67.59% | tested executable source       | High-risk runtime/session gap                        |
-| `@robota-sdk/agent-team`                        |     1 | 91.01% |   71.42% |    75.00% |     91.01% | tested executable source       | Acceptable baseline                                  |
-| `@robota-sdk/agent-tool-mcp`                    |     0 |  0.00% |    0.00% |     0.00% |      0.00% | no tests                       | Critical MCP tool coverage gap                       |
-| `@robota-sdk/agent-tools`                       |     4 | 31.64% |   79.55% |    65.30% |     31.64% | tested executable source       | Critical filesystem/shell/web tool coverage gap      |
-| `@robota-sdk/agent-transport-headless`          |     3 | 93.41% |   86.56% |    91.17% |     93.41% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-transport-http`              |     2 | 71.79% |   88.88% |    75.00% |     71.79% | tested executable source       | Acceptable baseline                                  |
-| `@robota-sdk/agent-transport-mcp`               |     2 | 63.33% |   90.00% |    62.50% |     63.33% | tested executable source       | Add transport request/response coverage              |
-| `@robota-sdk/agent-transport-ws`                |     2 | 91.25% |   86.31% |    83.78% |     91.25% | tested executable source       | Strong baseline                                      |
+| Package                                         | Tests |   Lines | Branches | Functions | Statements | Classification                 | Risk Note                                            |
+| ----------------------------------------------- | ----: | ------: | -------: | --------: | ---------: | ------------------------------ | ---------------------------------------------------- |
+| `@robota-sdk/agent-cli`                         |    57 |  70.28% |   77.78% |    82.32% |     70.28% | tested executable source       | UI shell and process entry paths remain low          |
+| `@robota-sdk/agent-command-agent`               |     1 |  79.57% |   76.27% |    75.00% |     79.57% | tested executable source       | Acceptable baseline                                  |
+| `@robota-sdk/agent-command-compact`             |     1 |  92.00% |   77.77% |    87.50% |     92.00% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-context`             |     1 |  85.23% |   81.57% |    92.85% |     85.23% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-language`            |     1 |  92.59% |   87.50% |    85.71% |     92.59% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-mode`                |     1 |  93.54% |   90.00% |    85.71% |     93.54% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-model`               |     1 |  92.50% |   90.90% |    87.50% |     92.50% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-permissions`         |     1 |  91.17% |   85.71% |    85.71% |     91.17% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-provider`            |     1 |  73.90% |   64.58% |    75.00% |     73.90% | tested executable source       | Provider setup branches need more coverage           |
+| `@robota-sdk/agent-command-reset`               |     1 | 100.00% |  100.00% |   100.00% |    100.00% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-command-session`             |     1 |  92.42% |   94.11% |    93.75% |     92.42% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-command-statusline`          |     1 |  95.65% |   96.29% |    87.50% |     95.65% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-core`                        |    41 |  83.03% |   80.18% |    72.12% |     83.03% | tested executable source       | Core baseline is usable; helper functions remain low |
+| `@robota-sdk/agent-event-service`               |     2 |     n/a |      n/a |       n/a |        n/a | no executable source in report | Thin re-export barrel intentionally excluded         |
+| `@robota-sdk/agent-playground`                  |     1 |   0.36% |    3.80% |     1.90% |      0.36% | tested executable source       | Critical UI/package coverage gap                     |
+| `@robota-sdk/agent-plugin-conversation-history` |     2 |  83.89% |   75.96% |   100.00% |     83.89% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-plugin-error-handling`       |     1 |  93.79% |   79.10% |    88.23% |     93.79% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-plugin-event-emitter`        |     2 |  88.25% |   87.50% |    75.86% |     88.25% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-plugin-execution-analytics`  |     1 |  87.47% |   68.91% |    77.77% |     87.47% | tested executable source       | Branch coverage should improve                       |
+| `@robota-sdk/agent-plugin-limits`               |     1 |  98.08% |   93.57% |    94.11% |     98.08% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-plugin-logging`              |     3 |  91.91% |   86.82% |    85.36% |     91.91% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-plugin-performance`          |     3 |  88.11% |   77.14% |    96.00% |     88.11% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-plugin-usage`                |     5 |  94.36% |   91.09% |   100.00% |     94.36% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-plugin-webhook`              |     1 |  93.75% |   72.86% |    92.10% |     93.75% | tested executable source       | Branch coverage should improve                       |
+| `@robota-sdk/agent-provider-anthropic`          |     3 |  80.26% |   86.58% |    84.21% |     80.26% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-provider-bytedance`          |     3 |  92.47% |   91.87% |    90.90% |     92.47% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-provider-gemini`             |     6 |  95.14% |   90.82% |   100.00% |     95.14% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-provider-gemma`              |     3 |  86.42% |   74.35% |    91.01% |     86.42% | tested executable source       | Branch coverage should improve                       |
+| `@robota-sdk/agent-provider-google`             |     1 |  39.39% |   50.00% |    50.00% |     39.39% | compatibility wrapper          | Add wrapper compatibility smoke coverage             |
+| `@robota-sdk/agent-provider-openai`             |     9 |  91.68% |   83.87% |    84.61% |     91.68% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-provider-openai-compatible`  |     4 |  90.12% |   77.37% |    96.77% |     90.12% | tested executable source       | Good baseline                                        |
+| `@robota-sdk/agent-provider-qwen`               |     2 |  81.96% |   69.31% |    84.48% |     81.96% | tested executable source       | Branch coverage should improve                       |
+| `@robota-sdk/agent-remote-client`               |     7 |  99.31% |   92.89% |   100.00% |     99.31% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-runtime`                     |     4 |  93.37% |   74.16% |    85.00% |     93.37% | tested executable source       | Add worktree/cancel edge cases before policy changes |
+| `@robota-sdk/agent-sdk`                         |    57 |  88.59% |   80.40% |    80.98% |     88.59% | tested executable source       | Good baseline; provider command helpers are low      |
+| `@robota-sdk/agent-sessions`                    |     4 |  67.59% |   79.00% |    47.82% |     67.59% | tested executable source       | High-risk runtime/session gap                        |
+| `@robota-sdk/agent-team`                        |     1 |  91.01% |   71.42% |    75.00% |     91.01% | tested executable source       | Acceptable baseline                                  |
+| `@robota-sdk/agent-tool-mcp`                    |     0 |   0.00% |    0.00% |     0.00% |      0.00% | no tests                       | Critical MCP tool coverage gap                       |
+| `@robota-sdk/agent-tools`                       |     4 |  31.64% |   79.55% |    65.30% |     31.64% | tested executable source       | Critical filesystem/shell/web tool coverage gap      |
+| `@robota-sdk/agent-transport-headless`          |     3 |  93.41% |   86.56% |    91.17% |     93.41% | tested executable source       | Strong baseline                                      |
+| `@robota-sdk/agent-transport-http`              |     2 |  71.79% |   88.88% |    75.00% |     71.79% | tested executable source       | Acceptable baseline                                  |
+| `@robota-sdk/agent-transport-mcp`               |     2 |  63.33% |   90.00% |    62.50% |     63.33% | tested executable source       | Add transport request/response coverage              |
+| `@robota-sdk/agent-transport-ws`                |     2 |  91.25% |   86.31% |    83.78% |     91.25% | tested executable source       | Strong baseline                                      |
 
 ## Notable Uncovered Public Surfaces
 

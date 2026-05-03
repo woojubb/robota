@@ -50,6 +50,7 @@ packages/
   agent-command-memory/
   agent-command-rewind/
   agent-command-background/
+  agent-command-reset/
   agent-command-session/
   agent-command-plugin/
   agent-command-statusline/
@@ -151,9 +152,12 @@ packages/
 5. [x] Extract context/compact APIs and migrate `/context` and `/compact`.
 6. [x] Extract settings APIs and migrate `/model`, `/mode`, `/language`, `/permissions`, and `/statusline`.
 7. [ ] Extract session/checkpoint APIs and migrate `/clear`, `/rename`, `/resume`, `/reset`, and `/rewind`.
-   - [x] `/clear` migrated to `agent-command-session`.
-   - [x] `/rename` migrated to `agent-command-session`.
-   - [x] `/resume` migrated to `agent-command-session`.
+
+- [x] `/clear` migrated to `agent-command-session`.
+- [x] `/rename` migrated to `agent-command-session`.
+- [x] `/resume` migrated to `agent-command-session`.
+- [x] `/reset` migrated to `agent-command-reset`.
+
 8. [ ] Extract runtime APIs and migrate `/memory` and `/background`.
 9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, `/help`, and `/exit`.
 10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
@@ -176,7 +180,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-rename.md`
 - `.agents/tasks/completed/command-migration-resume.md`
 - `.agents/tasks/completed/command-migration-cost.md`
-- `command-migration-reset.md`
+- `.agents/tasks/completed/command-migration-reset.md`
 - `command-migration-rewind.md`
 - `command-migration-memory.md`
 - `command-migration-background.md`
