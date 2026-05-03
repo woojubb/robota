@@ -9,6 +9,12 @@ describe('StreamingIndicator', () => {
     expect(lastFrame()).not.toContain('Thinking');
   });
 
+  it('shows a generic thinking state when foreground work has no text or tools yet', () => {
+    const { lastFrame } = render(<StreamingIndicator text="" activeTools={[]} isThinking={true} />);
+
+    expect(lastFrame()).toContain('Thinking...');
+  });
+
   it('shows Tools: section with running tool', () => {
     const { lastFrame } = render(
       <StreamingIndicator
@@ -77,7 +83,9 @@ describe('StreamingIndicator', () => {
   });
 
   it('does not show Thinking... when text is present', () => {
-    const { lastFrame } = render(<StreamingIndicator text="Some response" activeTools={[]} />);
+    const { lastFrame } = render(
+      <StreamingIndicator text="Some response" activeTools={[]} isThinking={true} />,
+    );
     expect(lastFrame()).not.toContain('Thinking...');
   });
 
