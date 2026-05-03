@@ -15,6 +15,7 @@ import { createContextCommandModule } from '@robota-sdk/agent-command-context';
 import { createLanguageCommandModule } from '@robota-sdk/agent-command-language';
 import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import { createModelCommandModule } from '@robota-sdk/agent-command-model';
+import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
 import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
 import type {
   ICommandHostAdapters,
@@ -168,6 +169,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const commandModules: readonly ICommandModule[] = [
     createModelCommandModule(),
     createModeCommandModule(),
+    createPermissionsCommandModule(),
     createLanguageCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),

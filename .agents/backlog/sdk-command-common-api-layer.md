@@ -163,7 +163,7 @@ This item is the foundation for the command-specific migration backlog:
 - `.agents/tasks/completed/command-migration-model.md`
 - `.agents/tasks/completed/command-migration-mode.md`
 - `.agents/tasks/completed/command-migration-language.md`
-- `command-migration-permissions.md`
+- `.agents/tasks/completed/command-migration-permissions.md`
 - `command-migration-statusline.md`
 - `command-migration-clear.md`
 - `command-migration-rename.md`
