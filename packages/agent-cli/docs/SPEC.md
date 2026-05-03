@@ -42,7 +42,7 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 1. Reads config to determine which provider profile to use.
 2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
 3. Creates the provider instance by calling `definition.createProvider(config)`.
-4. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
+4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence without letting command packages import CLI files.
 5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ### Provider Profile Creation
@@ -424,7 +424,7 @@ Tool: [5 tools]
 | `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts    |
 | `/compact [instructions]` | Compress context window                                       |
 | `/cost`                   | Show session info                                             |
-| `/context`                | Context window info                                           |
+| `/context`                | Context window info and `/context auto ...` controls          |
 | `/permissions`            | Permission rules                                              |
 | `/memory`                 | Route project memory commands to SDK                          |
 | `/rewind`                 | Route edit checkpoint list/restore commands to SDK            |
@@ -534,7 +534,7 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
-1. Creates `InteractiveSession({ cwd, provider, commandModules })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
+1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
 3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.

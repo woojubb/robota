@@ -5,6 +5,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
 } from '../background-tasks/index.js';
+import type { ICommandHostAdapters } from './host-adapters.js';
 import type { IEditCheckpointRestoreResult, IEditCheckpointSummary } from '../checkpoints/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
@@ -13,6 +14,8 @@ export interface ICommandListEntry {
   name: string;
   description: string;
 }
+
+export type TAutoCompactThresholdSource = 'default' | 'settings' | 'session';
 
 export interface ICommandSessionRuntime {
   clearHistory(): void;
@@ -24,12 +27,19 @@ export interface ICommandSessionRuntime {
   getMessageCount(): number;
   getSessionAllowedTools(): readonly string[];
   getAutoCompactThreshold?(): number | false;
+  setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
 }
 
 export interface ICommandHostContext {
   getSession(): ICommandSessionRuntime;
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;
+  getAutoCompactThresholdSource?(): TAutoCompactThresholdSource;
+  setAutoCompactThreshold?(
+    threshold: TAutoCompactThreshold,
+    source?: TAutoCompactThresholdSource,
+  ): void;
+  getCommandHostAdapters?(): ICommandHostAdapters;
   compactContext(instructions?: string): Promise<void>;
   getCwd(): string;
   listCommands?(): ICommandListEntry[];

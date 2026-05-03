@@ -354,7 +354,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
-    autoCompactThreshold: options.autoCompactThreshold,
+    autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
   });

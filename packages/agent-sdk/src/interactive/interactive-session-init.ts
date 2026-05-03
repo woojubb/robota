@@ -23,7 +23,7 @@ import type {
   TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { ICommandModule, ICommandResult } from '../commands/index.js';
+import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -62,6 +62,8 @@ export interface IInteractiveSessionStandardOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
+  /** Host adapters available to composed command modules. */
+  commandHostAdapters?: ICommandHostAdapters;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Model command execution bridge. */
@@ -86,6 +88,8 @@ export interface IInteractiveSessionInjectedOptions {
   forkSession?: boolean;
   /** Optional command modules composed into this injected session. */
   commandModules?: readonly ICommandModule[];
+  /** Host adapters available to composed command modules. */
+  commandHostAdapters?: ICommandHostAdapters;
 }
 
 /** Union of standard and injected construction options. */

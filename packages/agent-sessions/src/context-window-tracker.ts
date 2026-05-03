@@ -18,7 +18,7 @@ export type TAutoCompactThreshold = number | false;
 export class ContextWindowTracker {
   private contextUsedTokens = 0;
   private readonly contextMaxTokens: number;
-  private readonly autoCompactThreshold: TAutoCompactThreshold;
+  private autoCompactThreshold: TAutoCompactThreshold;
 
   constructor(
     model: string,
@@ -54,6 +54,11 @@ export class ContextWindowTracker {
   /** The auto-compaction policy for this tracker. */
   getAutoCompactThreshold(): TAutoCompactThreshold {
     return this.autoCompactThreshold;
+  }
+
+  /** Update the auto-compaction policy for this tracker. */
+  setAutoCompactThreshold(autoCompactThreshold: TAutoCompactThreshold): void {
+    this.autoCompactThreshold = normalizeAutoCompactThreshold(autoCompactThreshold);
   }
 
   /**

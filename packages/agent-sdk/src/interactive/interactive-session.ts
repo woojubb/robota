@@ -25,11 +25,14 @@ import {
 } from '@robota-sdk/agent-core';
 import type {
   ICommand,
+  ICommandHostAdapters,
   ICommandModule,
   ICommandResult,
   ISystemCommand,
   ISkillExecutionResult,
   IForkExecutionOptions,
+  TAutoCompactThreshold,
+  TAutoCompactThresholdSource,
 } from '../commands/index.js';
 import {
   createBuiltinCommandModule,
@@ -134,6 +137,8 @@ export class InteractiveSession {
   private backgroundJobUnsubscribe: (() => void) | null = null;
   private backgroundJobOrchestrator: BackgroundJobOrchestrator | null = null;
   private readonly commandModules: readonly ICommandModule[];
+  private readonly commandHostAdapters?: ICommandHostAdapters;
+  private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
 
@@ -154,9 +159,12 @@ export class InteractiveSession {
     }
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
+    this.commandHostAdapters =
+      'commandHostAdapters' in options ? options.commandHostAdapters : undefined;
 
     if ('session' in options && options.session) {
       this.session = options.session;
+      this.autoCompactThresholdSource = 'session';
       this.initialized = true;
     } else {
       const stdOpts = options as IInteractiveSessionStandardOptions;
@@ -186,7 +194,9 @@ export class InteractiveSession {
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
-    const config = await loadConfig(options.cwd);
+    const config = options.config ?? (await loadConfig(options.cwd));
+    this.autoCompactThresholdSource =
+      config.autoCompactThreshold === undefined ? 'default' : 'settings';
     this.editCheckpointStore = new EditCheckpointStore({ cwd: options.cwd });
     this.session = await createInteractiveSession({
       cwd: options.cwd,
@@ -392,6 +402,21 @@ export class InteractiveSession {
   }
   getAutoCompactThreshold(): number | false {
     return this.getSessionOrThrow().getAutoCompactThreshold();
+  }
+  getAutoCompactThresholdSource(): TAutoCompactThresholdSource {
+    return this.autoCompactThresholdSource;
+  }
+  setAutoCompactThreshold(
+    threshold: TAutoCompactThreshold,
+    source: TAutoCompactThresholdSource = 'session',
+  ): void {
+    this.getSessionOrThrow().setAutoCompactThreshold(threshold);
+    this.autoCompactThresholdSource = source;
+    this.emit('context_update', this.getContextState());
+    this.persistCurrentSession();
+  }
+  getCommandHostAdapters(): ICommandHostAdapters {
+    return this.commandHostAdapters ?? {};
   }
   async compactContext(instructions?: string): Promise<void> {
     await this.getSessionOrThrow().compact(instructions);

@@ -4,6 +4,7 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
+  ICommandHostAdapters,
   ICommandModule,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
@@ -40,6 +41,7 @@ interface IProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  commandHostAdapters?: ICommandHostAdapters;
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
@@ -91,6 +93,7 @@ function AppInner(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
+    commandHostAdapters: props.commandHostAdapters,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);

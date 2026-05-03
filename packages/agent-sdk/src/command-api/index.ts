@@ -12,6 +12,7 @@ export type {
   ICommandHostContext,
   ICommandListEntry,
   ICommandSessionRuntime,
+  TAutoCompactThresholdSource,
 } from './host-context.js';
 export type {
   ICommandHostAdapters,
@@ -29,9 +30,15 @@ export type {
   TAutoCompactThreshold,
 } from './context/context-command-api.js';
 export {
+  AUTO_COMPACT_THRESHOLD_SETTINGS_KEY,
   compactCommandContext,
+  DEFAULT_AUTO_COMPACT_THRESHOLD,
   readAutoCompactThreshold,
+  readAutoCompactThresholdSource,
   readCommandContextState,
+  resetAutoCompactThresholdSetting,
+  setCommandAutoCompactThreshold,
+  writeAutoCompactThresholdSetting,
 } from './context/context-command-api.js';
 export type {
   ILegacyProviderSettings,

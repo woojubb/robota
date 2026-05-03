@@ -9,9 +9,13 @@ import { executeContextCommand } from './context-command.js';
 export function createContextCommandEntry(): ICommand {
   return {
     name: 'context',
-    description: 'Context window info',
+    description: 'Context window info and auto-compact controls',
     source: 'context',
     modelInvocable: false,
+    argumentHint: 'auto on | off | <percent> | reset',
+    subcommands: [
+      { name: 'auto', description: 'Inspect or change auto-compact policy', source: 'context' },
+    ],
   };
 }
 
