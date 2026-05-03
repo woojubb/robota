@@ -112,6 +112,7 @@ robota -p "Explain this project"    # Print mode
 ```
 agent-cli              ← Interactive terminal AI coding assistant
 agent-command-agent    ← /agent command module for background subagent control
+agent-command-provider ← /provider command module for provider profiles
 agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp    ← MCP transport (Model Context Protocol server)
 agent-transport-ws     ← WebSocket transport (framework-agnostic)
@@ -137,6 +138,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                                       | Background task and subagent lifecycle primitives                      |
 | [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                                               | Assembly layer with config/context loading and createQuery()           |
 | [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)                           | `/agent` command module for background subagent jobs                   |
+| [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)                     | `/provider` command module for provider profiles                       |
 | [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/)                 | Anthropic Claude provider                                              |
 | [`@robota-sdk/agent-provider-openai`](./packages/agent-provider-openai/)                       | OpenAI provider                                                        |
 | [`@robota-sdk/agent-provider-gemini`](./packages/agent-provider-gemini/)                       | Canonical Google Gemini provider                                       |
@@ -181,6 +183,9 @@ npm install @robota-sdk/agent-sdk
 
 # Command module — /agent background jobs
 npm install @robota-sdk/agent-command-agent
+
+# Command module — /provider profile management
+npm install @robota-sdk/agent-command-provider
 
 # Transports
 npm install @robota-sdk/agent-transport-headless

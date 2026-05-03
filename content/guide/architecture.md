@@ -7,6 +7,7 @@ Robota SDK follows a strict bottom-up layered assembly model. Each layer builds 
 ```
 agent-cli                ← TUI layer: Ink TUI, useInteractiveSession hook, permission prompts
 agent-command-agent      ← Optional /agent command module for subagent job control
+agent-command-provider   ← Optional /provider command module for provider profile control
 agent-transport-http     ← HTTP transport: Hono-based REST adapter (Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp      ← MCP transport: Model Context Protocol server adapter
 agent-transport-ws       ← WebSocket transport: framework-agnostic real-time adapter
@@ -34,6 +35,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 | **agent-runtime**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                     | General      |
 | **agent-providers**          | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, Gemini, Google compatibility, Gemma, Qwen, and future integrations                        | General      |
 | **agent-command-agent**      | Optional `/agent` command module for user-invoked subagent job control                                                                                           | SDK-specific |
+| **agent-command-provider**   | Optional `/provider` command module for provider profile setup, switching, and testing                                                                           | SDK-specific |
 | **agent-sdk**                | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, createQuery() | SDK-specific |
 | **agent-cli**                | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                         | Transport    |
 | **agent-transport-http**     | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                                    | Transport    |
@@ -47,6 +49,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 ```
 agent-cli              ─→ agent-sdk ─→ agent-sessions ─→ agent-core
 agent-command-agent    ─→ agent-runtime
+agent-command-provider ─→ agent-sdk
 agent-transport-http   ─→ agent-sdk    ├─→ agent-tools ────────────→ agent-core
 agent-transport-mcp    ─→ agent-sdk    ├─→ agent-runtime
 agent-transport-ws     ─→ agent-sdk    ├─→ agent-provider-anthropic → agent-core

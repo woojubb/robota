@@ -2,25 +2,23 @@ import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sd
 import type {
   ICommandInteraction,
   ICommandResult,
+  IProviderCommandModuleOptions,
+  IProviderProfileSettings,
+  IProviderSetupFlowState,
+  IProviderSetupInput,
   TCommandInteractionPrompt,
-} from '../command-api/index.js';
-import type { IProviderCommandModuleOptions } from '../command-api/provider/provider-command-types.js';
+} from '@robota-sdk/agent-sdk';
 import {
   buildProviderSetupPatch,
-  mergeProviderPatch,
-  setCurrentProvider,
-  type IProviderProfileSettings,
-  type IProviderSetupInput,
-} from '../command-api/provider/provider-settings.js';
-import {
   createProviderSetupFlow,
   formatProviderSetupChoiceLabel,
   getProviderSetupStep,
+  mergeProviderPatch,
+  setCurrentProvider,
   submitProviderSetupValue,
+  testProviderProfileCommand,
   validateProviderSetupValue,
-  type IProviderSetupFlowState,
-} from '../command-api/provider/provider-setup-flow.js';
-import { testProviderProfileCommand } from '../command-api/provider/provider-command-probe.js';
+} from '@robota-sdk/agent-sdk';
 
 const YES = 'yes';
 const PROVIDER_RESTART_EFFECT = {
