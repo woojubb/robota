@@ -8,7 +8,9 @@ import type {
 } from '../index.js';
 import { buildProviderProfile, formatEnvReference, validateProviderProfile } from '../index.js';
 import {
+  buildLanguageCommandSubcommands,
   buildPermissionModeSubcommands,
+  formatLanguageUsageMessage,
   readCommandPermissionMode,
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
@@ -156,5 +158,15 @@ describe('command-api contracts', () => {
 
     writeCommandPermissionMode(context, 'plan');
     expect(readCommandPermissionMode(context)).toBe('plan');
+  });
+
+  it('exposes language command common APIs without command implementation imports', () => {
+    expect(buildLanguageCommandSubcommands().map((command) => command.name)).toEqual([
+      'ko',
+      'en',
+      'ja',
+      'zh',
+    ]);
+    expect(formatLanguageUsageMessage()).toBe('Usage: language <code> (e.g., ko, en, ja, zh)');
   });
 });

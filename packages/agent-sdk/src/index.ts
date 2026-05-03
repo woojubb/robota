@@ -110,6 +110,12 @@ export {
   buildModelCommandSubcommands,
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,
+  buildLanguageCommandSubcommands,
+  formatLanguageUsageMessage,
+  LANGUAGE_COMMAND_ARGUMENT_HINT,
+  LANGUAGE_COMMAND_DESCRIPTION,
+  parseLanguageArgument,
+  RECOMMENDED_RESPONSE_LANGUAGES,
   buildPermissionModeSubcommands,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
@@ -130,6 +136,7 @@ export type {
   TAutoCompactThresholdSource,
   TProviderSetupFlowSubmitResult,
   TProviderSetupType,
+  TRecommendedResponseLanguage,
   TPromptInput,
 } from './commands/index.js';
 

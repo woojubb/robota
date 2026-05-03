@@ -90,6 +90,15 @@ export {
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,
 } from './model/model-command-api.js';
+export type { TRecommendedResponseLanguage } from './language/language-command-api.js';
+export {
+  buildLanguageCommandSubcommands,
+  formatLanguageUsageMessage,
+  LANGUAGE_COMMAND_ARGUMENT_HINT,
+  LANGUAGE_COMMAND_DESCRIPTION,
+  parseLanguageArgument,
+  RECOMMENDED_RESPONSE_LANGUAGES,
+} from './language/language-command-api.js';
 export {
   buildPermissionModeSubcommands,
   formatInvalidPermissionModeMessage,
