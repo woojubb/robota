@@ -14,15 +14,6 @@ export function buildBackgroundSubcommands(): ICommand[] {
   ];
 }
 
-export function buildRewindSubcommands(): ICommand[] {
-  return [
-    { name: 'list', description: 'List edit checkpoints', source: 'builtin' },
-    { name: 'restore', description: 'Restore code to a checkpoint', source: 'builtin' },
-    { name: 'code', description: 'Restore code to a checkpoint', source: 'builtin' },
-    { name: 'rollback', description: 'Rollback code through a checkpoint', source: 'builtin' },
-  ];
-}
-
 export function buildMemorySubcommands(): ICommand[] {
   return [
     { name: 'list', description: 'List project memory topics', source: 'builtin' },

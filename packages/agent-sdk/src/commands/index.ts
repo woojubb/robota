@@ -146,6 +146,14 @@ export {
   RESUME_COMMAND_DESCRIPTION,
 } from '../command-api/session/session-command-api.js';
 export type { ICommandSessionInfo } from '../command-api/session/session-command-api.js';
+export {
+  buildRewindCommandSubcommands,
+  listCommandEditCheckpoints,
+  restoreCommandEditCheckpoint,
+  rollbackCommandEditCheckpoint,
+  REWIND_COMMAND_ARGUMENT_HINT,
+  REWIND_COMMAND_DESCRIPTION,
+} from '../command-api/checkpoint/rewind-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,

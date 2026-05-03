@@ -1,5 +1,9 @@
 # Command Migration: `/rewind`
 
+Status: Completed
+Completed: 2026-05-03
+Branch: `feat/command-rewind-module`
+
 ## What
 
 Migrate `/rewind` edit-checkpoint command registration into a command-module owner.
@@ -30,3 +34,11 @@ Recommended: `@robota-sdk/agent-command-rewind`, consuming SDK edit-checkpoint A
 
 - Port existing rewind tests to command module tests.
 - Add restore/rollback integration tests through `session.executeCommand`.
+
+## Completion Notes
+
+- Added `@robota-sdk/agent-command-rewind` as the command-module owner for `/rewind`.
+- Added SDK checkpoint command common APIs under `packages/agent-sdk/src/command-api/checkpoint/`.
+- Removed SDK-embedded `/rewind` execution and metadata from `packages/agent-sdk/src/commands/`.
+- Composed `createRewindCommandModule()` in the CLI product entrypoint.
+- Ported list, restore, code-alias, rollback, usage, and error tests into the command package.

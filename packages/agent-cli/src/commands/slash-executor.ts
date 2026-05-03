@@ -117,7 +117,7 @@ export async function executeSlashCommand(
     case 'memory':
       return { handled: false }; // Route to SDK system command (project memory controls)
     case 'rewind':
-      return { handled: false }; // Route to SDK system command (edit checkpoint controls)
+      return { handled: false }; // Route to injected rewind command (edit checkpoint controls)
     case 'exit':
       return { handled: true, exitRequested: true };
     case 'plugin':

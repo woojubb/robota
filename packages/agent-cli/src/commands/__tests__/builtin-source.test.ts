@@ -24,6 +24,7 @@ describe('BuiltinCommandSource', () => {
     expect(names).not.toContain('mode');
     expect(names).not.toContain('provider');
     expect(names).not.toContain('reset');
+    expect(names).not.toContain('rewind');
     expect(names).not.toContain('statusline');
     expect(names).not.toContain('plugin');
     expect(names).not.toContain('exit');
