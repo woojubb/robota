@@ -155,8 +155,8 @@ agent-sdk (assembly layer — SDK-specific features only)
 └── src/index.ts                ← assembly exports + re-exports from agent-sessions/tools/core
 
 agent-cli (Ink TUI — CLI-specific)
-├── src/commands/               ← Re-exports CommandRegistry from agent-sdk;
-│                                  skill-executor, slash-executor (CLI-specific execution wrappers)
+├── src/commands/               ← Compatibility re-export shims and skill prompt helpers;
+│                                  no built-in command execution ownership
 ├── src/ui/                     ← App, MessageList, InputArea, StatusBar, PermissionPrompt,
 │                                  SlashAutocomplete, CjkTextInput, WaveText, InkTerminal, render
 ├── src/permissions/            ← permission-prompt.ts (terminal arrow-key selection)

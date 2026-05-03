@@ -13,6 +13,21 @@ const WORKSPACE_ROOT = process.cwd();
 
 const TEXT_SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md']);
 
+const FORBIDDEN_PATHS = [
+  {
+    path: 'packages/agent-cli/src/commands/slash-executor.ts',
+    type: 'cli-legacy-slash-executor',
+    detail:
+      'CLI must not keep a legacy built-in slash command switch; use session.executeCommand() and generic skill/plugin fallback.',
+  },
+  {
+    path: 'packages/agent-cli/src/commands/plugin-source.ts',
+    type: 'cli-legacy-plugin-source',
+    detail:
+      'CLI must not keep a local PluginCommandSource copy; use the SDK-owned PluginCommandSource.',
+  },
+];
+
 const CLI_UI_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-provider-command-state',
@@ -39,7 +54,7 @@ const CLI_SLASH_ROUTER_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-command-specific-router-branch',
     pattern:
-      /\bcmd\s*={2,3}\s*['"](agent|background|clear|compact|context|cost|exit|help|language|memory|mode|model|permissions|plugin|provider|reload-plugins|rewind|statusline)['"]/,
+      /\bcmd\s*={2,3}\s*['"](agent|background|clear|compact|context|cost|exit|help|language|memory|mode|model|permissions|plugin|provider|reload-plugins|rename|reset|resume|rewind|statusline)['"]/,
     detail:
       'Slash routing must call session.executeCommand() and must not own built-in command-specific branches.',
   },
@@ -149,6 +164,16 @@ function findSdkPackageDependencyFindings(packageJson) {
 
 export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
   const findings = [];
+
+  for (const forbiddenPath of FORBIDDEN_PATHS) {
+    if (await pathExists(path.join(root, forbiddenPath.path))) {
+      findings.push({
+        file: forbiddenPath.path,
+        type: forbiddenPath.type,
+        detail: forbiddenPath.detail,
+      });
+    }
+  }
 
   for (const file of await walkFiles(root, 'packages/agent-cli/src/ui')) {
     findings.push(

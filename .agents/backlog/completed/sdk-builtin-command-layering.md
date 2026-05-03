@@ -17,11 +17,11 @@ The command layer should have one source of truth:
 - blocking/background lifecycle policy;
 - host-specific side-effect requirements.
 
-## Current Signals
+## Original Signals
 
 - `packages/agent-sdk/src/commands/system-command.ts` no longer owns user-visible command execution; `/help` moved to `@robota-sdk/agent-command-help`.
 - `packages/agent-sdk/src/commands/builtin-source.ts` owns built-in command palette metadata separately from execution.
-- `packages/agent-cli/src/commands/slash-executor.ts` still hardcodes several command behaviors and returns `handled: false` for others so a later path can execute them.
+- `packages/agent-cli/src/commands/slash-executor.ts` hardcoded several command behaviors and returned `handled: false` for others so a later path could execute them.
 - `.agents/specs/agent-invocation-router.md` already states that built-in command modules should be injected by composition roots and should own their descriptors.
 - Extracted command packages such as `agent-command-statusline` show that command modules can package system commands for injection without living in the CLI.
 
@@ -140,15 +140,15 @@ Research questions:
 
 ## Acceptance Criteria
 
-- [ ] A command inventory exists for every current built-in slash command.
-- [ ] Each command has a single owner module for metadata and execution.
+- [x] A command inventory exists for every current built-in slash command.
+- [x] Each command has a single owner module for metadata and execution.
 - [x] Autocomplete/help descriptors are derived from registered command modules.
-- [ ] CLI hardcoded command behavior is removed or reduced to host-only adapters.
-- [ ] Blocking commands share the normal prompt execution lifecycle.
-- [ ] Host-only commands explicitly declare required adapters.
-- [ ] Model-invocable commands use the same registered handlers as user slash input.
-- [ ] Tests prevent adding built-in command metadata without an executable command owner.
-- [ ] Tests prevent command-specific provider/setup state from returning to CLI/TUI hooks.
+- [x] CLI hardcoded command behavior is removed or reduced to host-only adapters.
+- [x] Blocking commands share the normal prompt execution lifecycle.
+- [x] Host-only commands explicitly declare required adapters.
+- [x] Model-invocable commands use the same registered handlers as user slash input.
+- [x] Tests prevent adding built-in command metadata without an executable command owner.
+- [x] Tests prevent command-specific provider/setup state from returning to CLI/TUI hooks.
 
 ## Test Plan
 
@@ -160,7 +160,16 @@ Research questions:
 
 ## Promotion Path
 
-1. Move to `.agents/tasks/SDK-BL-0XX-builtin-command-layering.md`.
-2. Start with the command inventory and classification matrix.
-3. Continue migrating the remaining host/plugin command groups.
-4. Remove duplicate metadata and switch ownership only after parity tests are green.
+Completed in `feat/command-layering-finalize`.
+
+## Result
+
+- Added `.agents/specs/command-inventory.md` as the command ownership, lifecycle, model-invocation,
+  and host-adapter inventory.
+- Removed the legacy CLI `slash-executor.ts` command switch and its test suite.
+- Removed the legacy CLI-local `PluginCommandSource` copy; plugin command discovery now uses the
+  SDK-owned source only.
+- Kept CLI slash routing on `session.executeCommand(name, args)` with generic skill/plugin fallback.
+- Added harness checks that fail if legacy CLI command-source files or command-specific router
+  branches return.
+- Fixed the binary entrypoint so the default `/agent` module is composed once by `startCli()`.
