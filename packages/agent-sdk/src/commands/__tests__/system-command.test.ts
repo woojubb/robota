@@ -93,10 +93,11 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(7);
+    expect(commands.length).toBeGreaterThanOrEqual(6);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).not.toContain('clear');
     expect(commands.map((c) => c.name)).not.toContain('rename');
+    expect(commands.map((c) => c.name)).not.toContain('resume');
     expect(commands.map((c) => c.name)).not.toContain('permissions');
     expect(commands.map((c) => c.name)).not.toContain('language');
     expect(commands.map((c) => c.name)).not.toContain('mode');
@@ -164,15 +165,6 @@ describe('SystemCommandExecutor', () => {
     expect(
       new BuiltinCommandSource(module.systemCommands).getCommands().map((c) => c.name),
     ).toEqual(executableNames);
-  });
-
-  it('resume requests the session picker through a typed command effect', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('resume', createMockSession(), '');
-    expect(result).not.toBeNull();
-    expect(result!.success).toBe(true);
-    expect(result!.data?.triggerResumePicker).toBe(true);
-    expect(result!.effects).toEqual([{ type: 'session-picker-requested' }]);
   });
 
   it('rewind list returns edit checkpoints', async () => {

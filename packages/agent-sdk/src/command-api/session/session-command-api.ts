@@ -4,6 +4,7 @@ import type { TCommandEffect } from '../effects.js';
 export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
 export const RENAME_COMMAND_DESCRIPTION = 'Rename the current session';
 export const RENAME_COMMAND_USAGE = 'Usage: rename <name>';
+export const RESUME_COMMAND_DESCRIPTION = 'Resume a previous session';
 
 export function clearConversationHistory(context: ICommandHostContext): void {
   if (context.clearConversationHistory !== undefined) {
@@ -21,4 +22,8 @@ export function parseSessionNameArgument(args: string): string | undefined {
 
 export function createSessionRenamedEffect(name: string): TCommandEffect {
   return { type: 'session-renamed', name };
+}
+
+export function createSessionPickerRequestedEffect(): TCommandEffect {
+  return { type: 'session-picker-requested' };
 }

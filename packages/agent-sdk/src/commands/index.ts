@@ -135,11 +135,13 @@ export {
 } from '../command-api/statusline/statusline-command-api.js';
 export {
   clearConversationHistory,
+  createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   CLEAR_COMMAND_DESCRIPTION,
   parseSessionNameArgument,
   RENAME_COMMAND_DESCRIPTION,
   RENAME_COMMAND_USAGE,
+  RESUME_COMMAND_DESCRIPTION,
 } from '../command-api/session/session-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {

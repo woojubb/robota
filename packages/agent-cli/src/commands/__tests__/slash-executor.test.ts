@@ -290,6 +290,29 @@ describe('executeSlashCommand', () => {
     expect(messages).toHaveLength(0);
   });
 
+  it('routes /resume through the injected session command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'session',
+      getCommands: () => [
+        { name: 'resume', description: 'Resume a previous session', source: 'session' },
+      ],
+    });
+
+    const result = await executeSlashCommand(
+      'resume',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
   it('returns handled=false for skill command', async () => {
     const { addMessage } = createMockAddMessage();
     const registry = new CommandRegistry();
