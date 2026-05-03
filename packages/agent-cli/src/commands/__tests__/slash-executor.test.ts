@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   handleHelp,
   handleClear,
-  handleMode,
   handleCost,
   handlePermissions,
   handleContext,
@@ -71,31 +70,6 @@ describe('handleClear', () => {
     expect(clearMessages).toHaveBeenCalled();
     expect(session.clearHistory).toHaveBeenCalled();
     expect(messages[0].content).toBe('Conversation cleared.');
-  });
-});
-
-describe('handleMode', () => {
-  it('shows current mode when no arg', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const session = createMockSession();
-    handleMode(undefined, session, addMessage);
-    expect(messages[0].content).toContain('Current mode: default');
-  });
-
-  it('sets valid mode', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const session = createMockSession();
-    handleMode('plan', session, addMessage);
-    expect(session.setPermissionMode).toHaveBeenCalledWith('plan');
-    expect(messages[0].content).toContain('plan');
-  });
-
-  it('rejects invalid mode', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const session = createMockSession();
-    handleMode('invalid', session, addMessage);
-    expect(session.setPermissionMode).not.toHaveBeenCalled();
-    expect(messages[0].content).toContain('Invalid mode');
   });
 });
 
@@ -209,6 +183,24 @@ describe('executeSlashCommand', () => {
     );
 
     expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
+  });
+
+  it('routes /mode through the injected system command instead of legacy CLI handling', async () => {
+    const { addMessage, messages } = createMockAddMessage();
+    const session = createMockSession();
+
+    const result = await executeSlashCommand(
+      'mode',
+      'plan',
+      session,
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+    );
+
+    expect(result).toEqual({ handled: false });
+    expect(session.setPermissionMode).not.toHaveBeenCalled();
     expect(messages).toHaveLength(0);
   });
 

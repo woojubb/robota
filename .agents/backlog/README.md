@@ -22,7 +22,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [command-migration-help.md](command-migration-help.md)                         | Migrate `/help` into a command-module owner                   |
 | [command-migration-language.md](command-migration-language.md)                 | Migrate `/language` into a command-module owner               |
 | [command-migration-memory.md](command-migration-memory.md)                     | Migrate `/memory` into a command-module owner                 |
-| [command-migration-mode.md](command-migration-mode.md)                         | Migrate `/mode` into a command-module owner                   |
 | [command-migration-permissions.md](command-migration-permissions.md)           | Migrate `/permissions` into a command-module owner            |
 | [command-migration-plugin.md](command-migration-plugin.md)                     | Migrate `/plugin` into a command-module owner                 |
 | [command-migration-reload-plugins.md](command-migration-reload-plugins.md)     | Migrate `/reload-plugins` into a command-module owner         |

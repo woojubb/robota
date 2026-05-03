@@ -6,6 +6,7 @@ export type {
   ICommandInteraction,
   ICommandListEntry,
   ICommandModule,
+  ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandResult,
@@ -95,6 +96,19 @@ export {
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,
 } from '../command-api/model/model-command-api.js';
+export {
+  buildPermissionModeSubcommands,
+  formatInvalidPermissionModeMessage,
+  isPermissionMode,
+  listCommandSessionAllowedTools,
+  parsePermissionModeArgument,
+  PERMISSION_MODE_ARGUMENT_HINT,
+  PERMISSION_MODE_COMMAND_DESCRIPTION,
+  readCommandPermissionMode,
+  resolvePermissionModeAdapter,
+  VALID_PERMISSION_MODES,
+  writeCommandPermissionMode,
+} from '../command-api/permissions/permission-mode-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,

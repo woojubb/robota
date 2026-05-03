@@ -8,8 +8,11 @@ import type {
 } from '../index.js';
 import { buildProviderProfile, formatEnvReference, validateProviderProfile } from '../index.js';
 import {
+  buildPermissionModeSubcommands,
+  readCommandPermissionMode,
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
+  writeCommandPermissionMode,
   writeAutoCompactThresholdSetting,
 } from '../index.js';
 import type { IEditCheckpointRestoreResult } from '../../checkpoints/index.js';
@@ -138,5 +141,20 @@ describe('command-api contracts', () => {
     expect(context.getAutoCompactThreshold()).toBe(0.7);
 
     expect(resetAutoCompactThresholdSetting(context)).toBe(true);
+  });
+
+  it('exposes permission mode common APIs without command implementation imports', () => {
+    const context = createCommandHostContext();
+
+    expect(buildPermissionModeSubcommands().map((command) => command.name)).toEqual([
+      'plan',
+      'default',
+      'acceptEdits',
+      'bypassPermissions',
+    ]);
+    expect(readCommandPermissionMode(context)).toBe('default');
+
+    writeCommandPermissionMode(context, 'plan');
+    expect(readCommandPermissionMode(context)).toBe('plan');
   });
 });

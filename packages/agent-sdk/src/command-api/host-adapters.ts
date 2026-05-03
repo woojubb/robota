@@ -1,4 +1,4 @@
-import type { TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;
@@ -20,7 +20,14 @@ export interface ICommandPickerAdapter<TItem extends ICommandSettingsDocument> {
   pick(items: readonly TItem[]): Promise<TItem | undefined> | TItem | undefined;
 }
 
+export interface ICommandPermissionModeAdapter {
+  getPermissionMode(): TPermissionMode;
+  setPermissionMode(mode: TPermissionMode): void;
+  listSessionAllowedTools(): readonly string[];
+}
+
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   process?: ICommandProcessAdapter;
+  permissionMode?: ICommandPermissionModeAdapter;
 }
