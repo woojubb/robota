@@ -138,11 +138,14 @@ export {
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
   CLEAR_COMMAND_DESCRIPTION,
+  COST_COMMAND_DESCRIPTION,
   parseSessionNameArgument,
+  readCommandSessionInfo,
   RENAME_COMMAND_DESCRIPTION,
   RENAME_COMMAND_USAGE,
   RESUME_COMMAND_DESCRIPTION,
 } from '../command-api/session/session-command-api.js';
+export type { ICommandSessionInfo } from '../command-api/session/session-command-api.js';
 export { executeSkill } from './skill-executor.js';
 export type {
   IForkExecutionOptions,

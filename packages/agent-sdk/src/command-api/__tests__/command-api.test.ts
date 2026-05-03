@@ -19,6 +19,7 @@ import {
   formatLanguageUsageMessage,
   isStatusLineCommandSettingsPatch,
   parseSessionNameArgument,
+  readCommandSessionInfo,
   readCommandPermissionsState,
   readCommandPermissionMode,
   resetAutoCompactThresholdSetting,
@@ -217,6 +218,10 @@ describe('command-api contracts', () => {
     });
     expect(createSessionPickerRequestedEffect()).toEqual({
       type: 'session-picker-requested',
+    });
+    expect(readCommandSessionInfo(context)).toEqual({
+      sessionId: 'session_1',
+      messageCount: 2,
     });
   });
 });

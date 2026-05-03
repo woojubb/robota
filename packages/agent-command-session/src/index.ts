@@ -1,5 +1,6 @@
 export {
   executeClearCommand,
+  executeCostCommand,
   executeRenameCommand,
   executeResumeCommand,
   CLEAR_COMMAND_MESSAGE,
@@ -7,6 +8,7 @@ export {
 export {
   SessionCommandSource,
   createClearCommandEntry,
+  createCostCommandEntry,
   createRenameCommandEntry,
   createResumeCommandEntry,
   createSessionCommandModule,

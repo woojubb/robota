@@ -45,20 +45,6 @@ export function createSystemCommands(): ISystemCommand[] {
       }),
     },
     {
-      name: 'cost',
-      description: 'Show session info',
-      execute: (session, _args) => {
-        const underlying = session.getSession();
-        const sessionId = underlying.getSessionId();
-        const messageCount = underlying.getMessageCount();
-        return {
-          message: `Session: ${sessionId}\nMessages: ${messageCount}`,
-          success: true,
-          data: { sessionId, messageCount },
-        };
-      },
-    },
-    {
       name: 'memory',
       description: MEMORY_COMMAND_DESCRIPTION,
       modelInvocable: true,

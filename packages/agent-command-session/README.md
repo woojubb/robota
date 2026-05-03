@@ -13,3 +13,4 @@ Commands:
 - `/clear` clears SDK session history and emits `conversation-history-cleared`.
 - `/rename <name>` emits `session-renamed` with the trimmed session name.
 - `/resume` emits `session-picker-requested` so the host can show its saved-session picker.
+- `/cost` shows the current session id and message count.

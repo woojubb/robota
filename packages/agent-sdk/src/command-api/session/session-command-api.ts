@@ -5,6 +5,12 @@ export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
 export const RENAME_COMMAND_DESCRIPTION = 'Rename the current session';
 export const RENAME_COMMAND_USAGE = 'Usage: rename <name>';
 export const RESUME_COMMAND_DESCRIPTION = 'Resume a previous session';
+export const COST_COMMAND_DESCRIPTION = 'Show session info';
+
+export interface ICommandSessionInfo {
+  sessionId: string;
+  messageCount: number;
+}
 
 export function clearConversationHistory(context: ICommandHostContext): void {
   if (context.clearConversationHistory !== undefined) {
@@ -26,4 +32,12 @@ export function createSessionRenamedEffect(name: string): TCommandEffect {
 
 export function createSessionPickerRequestedEffect(): TCommandEffect {
   return { type: 'session-picker-requested' };
+}
+
+export function readCommandSessionInfo(context: ICommandHostContext): ICommandSessionInfo {
+  const session = context.getSession();
+  return {
+    sessionId: session.getSessionId(),
+    messageCount: session.getMessageCount(),
+  };
 }

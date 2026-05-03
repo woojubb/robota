@@ -16,7 +16,7 @@ function createRuntime(): ICommandSessionRuntime {
     getPermissionMode: () => 'default',
     setPermissionMode: () => undefined,
     getSessionId: () => 'session_1',
-    getMessageCount: () => 0,
+    getMessageCount: () => 5,
     getSessionAllowedTools: () => [],
   };
 }
@@ -79,8 +79,14 @@ describe('createSessionCommandModule', () => {
       'clear',
       'rename',
       'resume',
+      'cost',
     ]);
-    expect(module.systemCommands?.map((item) => item.name)).toEqual(['clear', 'rename', 'resume']);
+    expect(module.systemCommands?.map((item) => item.name)).toEqual([
+      'clear',
+      'rename',
+      'resume',
+      'cost',
+    ]);
     expect(entry).toEqual(
       expect.objectContaining({
         name: 'rename',
@@ -115,6 +121,29 @@ describe('createSessionCommandModule', () => {
     expect(command).toEqual(
       expect.objectContaining({
         name: 'resume',
+        lifecycle: 'inline',
+        userInvocable: true,
+        modelInvocable: false,
+      }),
+    );
+  });
+
+  it('provides cost metadata and user-only executable command from the same module owner', () => {
+    const module = createSessionCommandModule();
+    const command = module.systemCommands?.find((item) => item.name === 'cost');
+    const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'cost');
+
+    expect(entry).toEqual(
+      expect.objectContaining({
+        name: 'cost',
+        description: 'Show session info',
+        source: 'session',
+        modelInvocable: false,
+      }),
+    );
+    expect(command).toEqual(
+      expect.objectContaining({
+        name: 'cost',
         lifecycle: 'inline',
         userInvocable: true,
         modelInvocable: false,
@@ -228,6 +257,20 @@ describe('createSessionCommandModule', () => {
       message: 'Opening session picker...',
       data: { triggerResumePicker: true },
       effects: [{ type: 'session-picker-requested' }],
+    });
+  });
+
+  it('shows session info through the session command API', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('cost', createCommandContext(), '');
+
+    expect(result).toEqual({
+      success: true,
+      message: 'Session: session_1\nMessages: 5',
+      data: { sessionId: 'session_1', messageCount: 5 },
     });
   });
 });
