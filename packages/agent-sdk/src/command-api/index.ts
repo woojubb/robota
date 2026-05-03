@@ -25,6 +25,15 @@ export type {
   IProviderCommandSettingsAdapter,
 } from './provider/provider-command-types.js';
 export type {
+  ICompactContextResult,
+  TAutoCompactThreshold,
+} from './context/context-command-api.js';
+export {
+  compactCommandContext,
+  readAutoCompactThreshold,
+  readCommandContextState,
+} from './context/context-command-api.js';
+export type {
   ILegacyProviderSettings,
   IProviderProfileSettings,
   IProviderSettingsBuildOptions,

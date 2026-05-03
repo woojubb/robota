@@ -55,6 +55,8 @@ function createCommandHostContext(): ICommandHostContext {
   return {
     getSession: () => runtime,
     getContextState: () => CONTEXT_STATE,
+    getAutoCompactThreshold: () => 0.8,
+    compactContext: async () => undefined,
     getCwd: () => '/workspace',
     listCommands: () => [{ name: 'example', description: 'Example command' }],
     listEditCheckpoints: () => [],

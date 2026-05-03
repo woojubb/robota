@@ -91,13 +91,18 @@ export {
   setCurrentProvider,
   submitProviderSetupValue,
   testProviderProfileCommand,
+  compactCommandContext,
+  readAutoCompactThreshold,
+  readCommandContextState,
   upsertProviderProfile,
   validateProviderProfile,
   validateProviderSetupValue,
 } from './commands/index.js';
 export type {
+  ICompactContextResult,
   IProviderSetupFlowState,
   IProviderSetupPromptStep,
+  TAutoCompactThreshold,
   TProviderSetupFlowSubmitResult,
   TProviderSetupType,
   TPromptInput,
