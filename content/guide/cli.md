@@ -163,7 +163,7 @@ The available command list is built from SDK-owned command sources: `BuiltinComm
 | `/rename`                 | Rename the current session              |
 | `/exit`                   | Exit CLI                                |
 | `/plugin`                 | Plugin management                       |
-| `/reload-plugins`         | Reload all plugins                      |
+| `/reload-plugins`         | Reload all plugin resources             |
 | `/language [lang]`        | Show or change UI language              |
 | `/statusline`             | Show, hide, or reset status line fields |
 | `/reset`                  | Delete settings and exit                |
@@ -205,7 +205,7 @@ Navigate with arrow keys, Enter to select, Esc to go back.
 /plugin marketplace list               # List registered marketplaces
 ```
 
-Use `/reload-plugins` to reload all plugins without restarting the CLI.
+Use `/reload-plugins` to reload plugin resources and refresh plugin-provided slash commands without restarting the CLI.
 
 ### Model Change (`/model`)
 

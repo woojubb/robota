@@ -8,6 +8,7 @@ export type TCommandEffect =
   | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
   | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
   | { type: 'plugin-tui-requested' }
+  | { type: 'plugin-registry-reload-requested' }
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
   | { type: 'conversation-history-cleared' }

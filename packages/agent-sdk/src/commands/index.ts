@@ -156,13 +156,16 @@ export type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
   ICommandMarketplaceSource,
+  ICommandPluginReloadResult,
   TPluginInstallScope,
 } from '../command-api/plugin/plugin-command-api.js';
 export {
   buildPluginCommandSubcommands,
+  createPluginRegistryReloadRequestedEffect,
   createPluginTuiRequestedEffect,
   PLUGIN_COMMAND_ARGUMENT_HINT,
   PLUGIN_COMMAND_DESCRIPTION,
+  RELOAD_PLUGINS_COMMAND_DESCRIPTION,
   resolvePluginCommandAdapter,
 } from '../command-api/plugin/plugin-command-api.js';
 export {

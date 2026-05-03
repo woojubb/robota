@@ -7,15 +7,11 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import {
   InteractiveSession,
   CommandRegistry,
   createBuiltinCommandModule,
   SkillCommandSource,
-  PluginCommandSource,
-  BundlePluginLoader,
 } from '@robota-sdk/agent-sdk';
 import type {
   IAIProvider,
@@ -35,6 +31,7 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
+import { reloadPluginCommandSource } from '../../plugins/plugin-command-source-loader.js';
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
@@ -121,16 +118,7 @@ function initializeSession(
   }
   registry.addSource(new SkillCommandSource(props.cwd));
 
-  const pluginsDir = join(homedir(), '.robota', 'plugins');
-  const loader = new BundlePluginLoader(pluginsDir);
-  try {
-    const plugins = loader.loadPluginsSync();
-    if (plugins.length > 0) {
-      registry.addSource(new PluginCommandSource(plugins));
-    }
-  } catch {
-    // No plugins dir or load failed
-  }
+  reloadPluginCommandSource(registry);
 
   const manager = new TuiStateManager();
 

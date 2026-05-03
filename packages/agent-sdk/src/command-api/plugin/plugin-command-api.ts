@@ -5,6 +5,7 @@ import type { ICommand } from '../types.js';
 export const PLUGIN_COMMAND_DESCRIPTION = 'Manage plugins';
 export const PLUGIN_COMMAND_ARGUMENT_HINT =
   'manage | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
+export const RELOAD_PLUGINS_COMMAND_DESCRIPTION = 'Reload all plugin resources';
 
 export type TPluginInstallScope = 'user' | 'project';
 
@@ -25,6 +26,10 @@ export interface ICommandMarketplaceSource {
   type: string;
 }
 
+export interface ICommandPluginReloadResult {
+  loadedPluginCount: number;
+}
+
 export interface ICommandPluginAdapter {
   listInstalled(): Promise<readonly ICommandInstalledPlugin[]>;
   listAvailablePlugins(marketplace: string): Promise<readonly ICommandAvailablePlugin[]>;
@@ -36,11 +41,15 @@ export interface ICommandPluginAdapter {
   marketplaceRemove(name: string): Promise<void>;
   marketplaceUpdate(name: string): Promise<void>;
   marketplaceList(): Promise<readonly ICommandMarketplaceSource[]>;
-  reloadPlugins(): Promise<void>;
+  reloadPlugins(): Promise<ICommandPluginReloadResult>;
 }
 
 export function createPluginTuiRequestedEffect(): TCommandEffect {
   return { type: 'plugin-tui-requested' };
+}
+
+export function createPluginRegistryReloadRequestedEffect(): TCommandEffect {
+  return { type: 'plugin-registry-reload-requested' };
 }
 
 export function resolvePluginCommandAdapter(

@@ -14,6 +14,7 @@ import type {
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ISideEffects } from './side-effects-types.js';
+import { reloadPluginCommandSource } from '../../plugins/plugin-command-source-loader.js';
 
 type TSessionWithEffects = InteractiveSession & ISideEffects;
 
@@ -39,7 +40,7 @@ export function useSlashRouting(
       // Try system command first
       const result = await interactiveSession.executeCommand(cmd, args);
       if (result) {
-        applySystemCommandResult(result, interactiveSession, manager);
+        applySystemCommandResult(result, interactiveSession, registry, manager);
         return;
       }
 
@@ -61,9 +62,10 @@ export function useSlashRouting(
 export function applySystemCommandResult(
   result: ICommandResult,
   interactiveSession: InteractiveSession,
+  registry: CommandRegistry,
   manager: TuiStateManager,
 ): void {
-  const pendingEffects = applyImmediateCommandEffects(result.effects, manager);
+  const pendingEffects = applyImmediateCommandEffects(result.effects, registry, manager);
   manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
   const effects = getEffects(interactiveSession);
 
@@ -84,6 +86,7 @@ export function applySystemCommandResult(
 
 function applyImmediateCommandEffects(
   effects: readonly TCommandEffect[] | undefined,
+  registry: CommandRegistry,
   manager: TuiStateManager,
 ): TCommandEffect[] {
   if (effects === undefined || effects.length === 0) return [];
@@ -91,6 +94,10 @@ function applyImmediateCommandEffects(
   for (const effect of effects) {
     if (effect.type === 'conversation-history-cleared') {
       manager.clearHistory();
+      continue;
+    }
+    if (effect.type === 'plugin-registry-reload-requested') {
+      reloadPluginCommandSource(registry);
       continue;
     }
     pendingEffects.push(effect);

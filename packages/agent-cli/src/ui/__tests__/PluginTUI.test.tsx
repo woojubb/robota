@@ -17,7 +17,7 @@ function mockCallbacks(): ICommandPluginAdapter {
     marketplaceRemove: vi.fn().mockResolvedValue(undefined),
     marketplaceUpdate: vi.fn().mockResolvedValue(undefined),
     marketplaceList: vi.fn().mockResolvedValue([]),
-    reloadPlugins: vi.fn().mockResolvedValue(undefined),
+    reloadPlugins: vi.fn().mockResolvedValue({ loadedPluginCount: 0 }),
   };
 }
 

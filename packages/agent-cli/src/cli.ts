@@ -59,7 +59,6 @@ import {
   getStartupCliUpdateNotice,
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
-import { createCliHostCommandModule } from './commands/cli-host-command-module.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 
 /** Read version from package.json at runtime. */
@@ -198,7 +197,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         writeTargetSettings: (settings) => writeSettings(getUserSettingsPath(), settings),
       },
     }),
-    createCliHostCommandModule(),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)

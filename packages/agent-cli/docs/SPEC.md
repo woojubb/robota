@@ -20,7 +20,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: Terminal UI command effect application, local command host adapters, and CLI-only host command modules such as `/reload-plugins`
+- OWNS: Terminal UI command effect application and local command host adapters
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -249,17 +249,13 @@ Supported commands:
 
 Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
-### CLI Host Command Modules
+### Command Module Composition
 
-CLI host commands are represented as `ICommandModule` instances injected into `InteractiveSession`. The command module owns command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
-
-| Command           | Owner module responsibility       | CLI side effect                         |
-| ----------------- | --------------------------------- | --------------------------------------- |
-| `/reload-plugins` | Return a reload completion signal | Re-scan plugin resources when supported |
+Built-in commands are represented as `ICommandModule` instances injected into `InteractiveSession`. Command modules own command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
 
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
 
-`/plugin` is provided by `@robota-sdk/agent-command-plugin`. The CLI owns only the local `ICommandPluginAdapter` implementation and applies `plugin-tui-requested` by opening `PluginTUI`.
+`/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command-plugin`. The CLI owns only the local `ICommandPluginAdapter` implementation. It applies `plugin-tui-requested` by opening `PluginTUI` and applies `plugin-registry-reload-requested` by reloading the registry's plugin command source.
 
 `/exit` is provided by `@robota-sdk/agent-command-exit`. The command package owns command metadata and emits `session-exit-requested`; the CLI applies that typed effect by gracefully shutting down the session and terminal UI.
 
