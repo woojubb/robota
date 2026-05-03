@@ -52,9 +52,7 @@ vi.mock('@robota-sdk/agent-provider-openai', () => {
     createOpenAIProviderDefinition: () => ({
       type: 'openai',
       defaults: {
-        model: 'supergemma4-26b-uncensored-v2',
-        apiKey: 'lm-studio',
-        baseURL: 'http://localhost:1234/v1',
+        apiKey: '$ENV:OPENAI_API_KEY',
       },
       requiresApiKey: true,
       createProvider: (config: {

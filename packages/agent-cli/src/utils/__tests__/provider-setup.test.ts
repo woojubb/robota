@@ -15,9 +15,7 @@ const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_STDIN_TTY = process.stdin.isTTY;
 const ORIGINAL_STDOUT_TTY = process.stdout.isTTY;
 const openaiDefaults = {
-  model: 'supergemma4-26b-uncensored-v2',
-  apiKey: 'lm-studio',
-  baseURL: 'http://localhost:1234/v1',
+  apiKey: '$ENV:OPENAI_API_KEY',
 };
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
@@ -35,22 +33,17 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   },
   {
     type: 'openai',
-    displayName: 'OpenAI Compatible',
+    displayName: 'OpenAI',
     defaults: openaiDefaults,
     setupSteps: [
       {
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
-      },
-      {
         key: 'model',
-        title: 'OpenAI-compatible model',
-        defaultValue: openaiDefaults.model,
+        title: 'OpenAI model',
+        required: true,
       },
       {
         key: 'apiKey',
-        title: 'OpenAI-compatible API key',
+        title: 'OpenAI API key',
         defaultValue: openaiDefaults.apiKey,
         masked: true,
       },
@@ -135,6 +128,7 @@ function readUserSettings(home: string): Record<string, unknown> {
 describe('provider setup', () => {
   afterEach(() => {
     process.env.HOME = ORIGINAL_HOME;
+    delete process.env.OPENAI_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
     Object.defineProperty(process.stdin, 'isTTY', {
       value: ORIGINAL_STDIN_TTY,
@@ -147,10 +141,11 @@ describe('provider setup', () => {
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
 
-  it('writes LM Studio defaults during interactive setup', async () => {
+  it('writes OpenAI settings during interactive setup', async () => {
     const home = join(TMP_BASE, 'home-openai');
     process.env.HOME = home;
-    const answers = ['openai', '', '', '', 'ko'];
+    process.env.OPENAI_API_KEY = 'sk-openai-from-env';
+    const answers = ['openai', 'gpt-4o', '', 'ko'];
     const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
     await runInteractiveProviderSetup(
@@ -166,9 +161,8 @@ describe('provider setup', () => {
     expect(settings.language).toBe('ko');
     expect(providers.openai).toMatchObject({
       type: 'openai',
-      model: openaiDefaults.model,
+      model: 'gpt-4o',
       apiKey: openaiDefaults.apiKey,
-      baseURL: openaiDefaults.baseURL,
     });
     expect(providers.anthropic).toBeUndefined();
   });

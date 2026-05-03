@@ -5,9 +5,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
 const openaiDefaults = {
-  model: 'supergemma4-26b-uncensored-v2',
-  apiKey: 'lm-studio',
-  baseURL: 'http://localhost:1234/v1',
+  model: 'gpt-4o',
+  apiKey: '$ENV:OPENAI_API_KEY',
 };
 
 const DRIVER_PATH = fileURLToPath(
@@ -39,15 +38,13 @@ afterEach(() => {
 
 describe('provider setup interaction PTY E2E', () => {
   it(
-    'submits OpenAI-compatible defaults through a real pseudo terminal',
+    'submits OpenAI values through a real pseudo terminal',
     async () => {
       const { harness, outputPath } = spawnProviderSetupDriver('openai');
 
-      await harness.waitFor('OpenAI-compatible base URL');
-      await harness.submit();
-      await harness.waitFor('OpenAI-compatible model');
-      await harness.submit();
-      await harness.waitFor('OpenAI-compatible API key');
+      await harness.waitFor('OpenAI model');
+      await harness.submit(openaiDefaults.model);
+      await harness.waitFor('OpenAI API key');
       await harness.submit();
 
       expect(await harness.waitForExit()).toBe(0);
@@ -55,7 +52,6 @@ describe('provider setup interaction PTY E2E', () => {
       expect(readResult(outputPath)).toEqual({
         profile: 'openai',
         type: 'openai',
-        baseURL: openaiDefaults.baseURL,
         model: openaiDefaults.model,
         apiKey: openaiDefaults.apiKey,
         setCurrent: true,
