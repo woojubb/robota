@@ -1,6 +1,5 @@
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { CLAUDE_MODELS, formatTokenCount } from '@robota-sdk/agent-core';
-import type { ICommandHostContext } from '../command-api/index.js';
 import type { ICommand } from '../command-api/types.js';
 
 export const VALID_MODES: readonly TPermissionMode[] = [
@@ -9,13 +8,10 @@ export const VALID_MODES: readonly TPermissionMode[] = [
   'acceptEdits',
   'bypassPermissions',
 ];
-export const PERCENT = 100;
 export const MEMORY_COMMAND_DESCRIPTION =
   'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.';
 export const MEMORY_COMMAND_ARGUMENT_HINT =
   'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used';
-
-const DEFAULT_AUTO_COMPACT_THRESHOLD = 0.835;
 
 export function buildModelSubcommands(): ICommand[] {
   const seen = new Set<string>();
@@ -64,8 +60,4 @@ export function buildMemorySubcommands(): ICommand[] {
       source: 'builtin',
     },
   ];
-}
-
-export function getAutoCompactThreshold(session: ICommandHostContext): number | false {
-  return session.getSession().getAutoCompactThreshold?.() ?? DEFAULT_AUTO_COMPACT_THRESHOLD;
 }

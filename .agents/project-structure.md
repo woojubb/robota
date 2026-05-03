@@ -10,6 +10,7 @@ packages/
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-command-agent/         # Command module that contributes /agent
 ├── agent-command-compact/       # Command module that contributes /compact
+├── agent-command-context/       # Command module that contributes /context
 ├── agent-command-provider/      # Command module that contributes /provider
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs
