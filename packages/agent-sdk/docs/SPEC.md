@@ -270,6 +270,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Language common APIs**: `agent-sdk/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `/language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
 - **Memory common APIs**: `agent-sdk/command-api/memory/` owns memory-command metadata constants, subcommand projection helpers, project/pending memory store facades, sensitive-content checks, used-memory reference reads, and memory-event recording helpers. `/memory` command behavior lives in `@robota-sdk/agent-command-memory` and consumes these APIs as an external command module.
 - **Background common APIs**: `agent-sdk/command-api/background/` owns background-command metadata constants, subcommand projection helpers, task-list/log formatting helpers, and list/read/cancel/close facades over `ICommandHostContext`. `/background` command behavior lives in `@robota-sdk/agent-command-background` and consumes these APIs as an external command module.
+- **Help common APIs**: `agent-sdk/command-api/help/` owns help-command metadata constants and generic command-list formatting. `/help` command behavior lives in `@robota-sdk/agent-command-help` and consumes this API as an external command module.
 - **Permission common APIs**: `agent-sdk/command-api/permissions/` owns permission-mode constants, descriptor subcommands, validation, permission-state reads, permission-state formatting, and command-facing adapter resolution. `/mode` command behavior lives in `@robota-sdk/agent-command-mode`; `/permissions` command behavior lives in `@robota-sdk/agent-command-permissions`. Both consume these APIs as external command modules.
 - **Statusline common APIs**: `agent-sdk/command-api/statusline/` owns statusline command metadata constants, subcommand projection helpers, default settings shape, typed settings patch contracts, and patch validation. `/statusline` command behavior lives in `@robota-sdk/agent-command-statusline` and emits typed host-applied effects instead of importing CLI settings utilities.
 - **Plugin common APIs**: `agent-sdk/command-api/plugin/` owns plugin command metadata constants, subcommand projection helpers, `ICommandPluginAdapter`, reload result contracts, and plugin host effect factories. `/plugin` and `/reload-plugins` command behavior lives in `@robota-sdk/agent-command-plugin` and consumes these APIs as an external command module while hosts keep concrete plugin storage/UI wiring.
@@ -290,7 +291,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
-- **SDK-default built-in commands**: `help`
+- **SDK-default built-in commands**: none. User-visible internal commands are provided by product-composed command modules.
+- **Product-composed built-in command modules**: `/help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
 - **Product-composed built-in command modules**: `/model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `/mode` is provided by `@robota-sdk/agent-command-mode`, reuses SDK permission-mode common APIs for validation/subcommand metadata, and updates permission mode through the command host adapter facade.
 - **Product-composed built-in command modules**: `/permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for state reads/formatting, and stays user-invocable only.
@@ -314,7 +316,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/commands/` — SSOT owner; agent-cli re-exports from here
 - **Classes**:
   - `CommandRegistry` — aggregates multiple `ICommandSource` instances; filters by prefix; resolves plugin-qualified names
-  - `BuiltinCommandSource` — provides palette/autocomplete metadata derived from SDK-default executable slash commands
+  - `BuiltinCommandSource` — provides palette/autocomplete metadata derived from SDK-default executable slash commands; currently empty because user-visible built-ins are product-composed modules
   - `SkillCommandSource` — discovers SKILL.md files from project and user directories; parses YAML frontmatter; lazy-caches results
   - `PluginCommandSource` — discovers commands exposed by installed bundle plugins (moved from agent-cli to agent-sdk)
 - **Migration note**: These classes were previously in `agent-cli/src/commands/`. They were moved to `agent-sdk` so any client can use slash command discovery without a TUI dependency. `PluginCommandSource` was also moved from `agent-cli` to `agent-sdk` as part of the scope redesign.
@@ -791,11 +793,11 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 // result.data   — command-specific structured data
 ```
 
-**Built-in commands:**
+**Product-composed command modules:**
 
 | Command       | Description                                                                  |
 | ------------- | ---------------------------------------------------------------------------- |
-| `help`        | Show available commands                                                      |
+| `help`        | Command module for rendering registered commands                             |
 | `clear`       | Optional command module for clearing conversation and rendered host history  |
 | `compact`     | Compress context window (optional focus instructions)                        |
 | `mode [m]`    | Show or change permission mode                                               |

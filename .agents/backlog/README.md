@@ -15,7 +15,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | [agent-followup-roadmap.md](agent-followup-roadmap.md)                         | Recommended sequence for agent/CLI/runtime follow-ups         |
 | [command-migration-agent.md](command-migration-agent.md)                       | Finish migration hardening for `/agent`                       |
-| [command-migration-help.md](command-migration-help.md)                         | Migrate `/help` into a command-module owner                   |
 | [gemini-provider-modernization.md](gemini-provider-modernization.md)           | Gemini API provider modernization                             |
 | [harness-hooks-and-auto-lessons.md](harness-hooks-and-auto-lessons.md)         | Auto-lessons pipeline (Phase C) — Phase B completed in PR #92 |
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |

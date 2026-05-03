@@ -136,7 +136,7 @@ packages/
 - [x] Move `/plugin` and `/reload-plugins` into command modules or a plugin-command package.
   - [x] `/plugin` migrated to `agent-command-plugin`.
   - [x] `/reload-plugins` migrated to `agent-command-plugin`.
-- [ ] Generate `/help` output from registered command descriptors.
+- [x] Generate `/help` output from registered command descriptors.
 - [ ] Ensure `/agent` keeps using the same command API and does not need special CLI routing.
 
 ## Package Extraction Plan
@@ -168,10 +168,10 @@ packages/
 - [x] `/plugin` migrated to `agent-command-plugin`.
 
 8. [x] Extract runtime APIs and migrate `/memory` and `/background`.
-9. [ ] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, and `/help`.
+9. [x] Extract plugin/help APIs and migrate `/plugin`, `/reload-plugins`, and `/help`.
    - [x] `/plugin` migrated to `agent-command-plugin`.
    - [x] `/reload-plugins` migrated to `agent-command-plugin`.
-   - [ ] `/help` remains.
+   - [x] `/help` migrated to `agent-command-help`.
 10. [ ] Remove all CLI command-specific switch branches that are no longer pure slash parsing or host effect projection.
 11. [ ] Remove duplicate built-in command metadata sources after descriptor parity tests pass.
 12. [ ] Run full repository verification and publish-readiness checks.

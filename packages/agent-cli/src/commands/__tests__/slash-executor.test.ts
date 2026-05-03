@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handleHelp, handleContext, executeSlashCommand, HELP_TEXT } from '../slash-executor.js';
+import { handleContext, executeSlashCommand } from '../slash-executor.js';
 import type { ISlashSession } from '../slash-executor.js';
 import { CommandRegistry } from '../command-registry.js';
 import { BuiltinCommandSource } from '../builtin-source.js';
@@ -29,16 +29,6 @@ function createMockAddMessage(): {
   };
 }
 
-describe('handleHelp', () => {
-  it('adds help text as system message', () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const result = handleHelp(addMessage);
-    expect(result.handled).toBe(true);
-    expect(messages).toHaveLength(1);
-    expect(messages[0].content).toBe(HELP_TEXT);
-  });
-});
-
 describe('handleContext', () => {
   it('shows context usage', () => {
     const { addMessage, messages } = createMockAddMessage();
@@ -55,18 +45,24 @@ function emptyRegistry(): CommandRegistry {
 }
 
 describe('executeSlashCommand', () => {
-  it('dispatches /help', async () => {
+  it('routes /help through the injected help command module', async () => {
     const { addMessage, messages } = createMockAddMessage();
+    const registry = new CommandRegistry();
+    registry.addSource({
+      name: 'help',
+      getCommands: () => [{ name: 'help', description: 'Show available commands', source: 'help' }],
+    });
+
     const result = await executeSlashCommand(
       'help',
       '',
       createMockSession(),
       addMessage,
       vi.fn(),
-      emptyRegistry(),
+      registry,
     );
-    expect(result.handled).toBe(true);
-    expect(messages[0].content).toContain('Available commands');
+    expect(result).toEqual({ handled: false });
+    expect(messages).toHaveLength(0);
   });
 
   it('routes /exit through the injected exit command module', async () => {
@@ -375,10 +371,9 @@ describe('executeSlashCommand', () => {
 });
 
 /**
- * REGRESSION GUARD: Every builtin command registered in BuiltinCommandSource
- * must have a corresponding route in executeSlashCommand.
- * If this test fails, a new command was added to builtin-source.ts but
- * not wired into the switch statement in slash-executor.ts.
+ * REGRESSION GUARD: SDK core built-ins should be empty. User-visible commands
+ * must be routed through injected command modules, skill sources, or plugin
+ * sources instead of legacy CLI branches.
  */
 describe('Command routing completeness', () => {
   const builtinSource = new BuiltinCommandSource();
@@ -405,7 +400,6 @@ describe('Command routing completeness', () => {
     // This is the authoritative list of routed commands in executeSlashCommand.
     // Update this list when adding new commands.
     const routedCommands = [
-      'help',
       'compact',
       'mode',
       'model',

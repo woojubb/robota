@@ -21,12 +21,12 @@ Recommended: `@robota-sdk/agent-command-help`, or a shared command help module i
 
 ## Acceptance Criteria
 
-- `/help` is provided by an injected `ICommandModule`.
-- SDK exposes only generic command listing APIs needed by the module.
-- CLI/TUI has no `/help` branch.
-- Tests prove help output includes composed command modules.
+- [x] `/help` is provided by an injected `ICommandModule`.
+- [x] SDK exposes only generic command listing APIs needed by the module.
+- [x] CLI/TUI has no `/help` branch.
+- [x] Tests prove help output includes composed command modules.
 
 ## Test Plan
 
-- Add module tests for output with SDK built-ins, CLI host modules, and optional command modules.
-- Add registry integration tests proving `/help` sees composed commands.
+- [x] Add module tests for output with SDK built-ins, CLI host modules, and optional command modules.
+- [x] Add registry integration tests proving `/help` sees composed commands.
