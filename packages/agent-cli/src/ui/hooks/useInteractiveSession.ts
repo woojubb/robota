@@ -79,6 +79,21 @@ interface IInitState {
   manager: TuiStateManager;
 }
 
+interface IHistoryReadableSession {
+  getFullHistory(): IHistoryEntry[];
+}
+
+interface IHistorySyncManager {
+  syncHistory(entries: IHistoryEntry[]): void;
+}
+
+export function applyCompactEventToManager(
+  interactiveSession: IHistoryReadableSession,
+  manager: IHistorySyncManager,
+): void {
+  manager.syncHistory(interactiveSession.getFullHistory());
+}
+
 function initializeSession(
   props: IInteractiveSessionProps,
   permissionHandler: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResultValue>,
@@ -187,6 +202,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
 
   // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {
+    const onCompact = (): void => applyCompactEventToManager(interactiveSession, manager);
+
     interactiveSession.on('text_delta', manager.onTextDelta);
     interactiveSession.on('tool_start', manager.onToolStart);
     interactiveSession.on('tool_end', manager.onToolEnd);
@@ -195,6 +212,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('interrupted', manager.onInterrupted);
     interactiveSession.on('error', manager.onError);
     interactiveSession.on('context_update', manager.onContextUpdate);
+    interactiveSession.on('compact', onCompact);
     interactiveSession.on('background_task_event', manager.onBackgroundTaskEvent);
 
     // Sync context state and restored history after async initialization
@@ -227,6 +245,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       interactiveSession.off('interrupted', manager.onInterrupted);
       interactiveSession.off('error', manager.onError);
       interactiveSession.off('context_update', manager.onContextUpdate);
+      interactiveSession.off('compact', onCompact);
       interactiveSession.off('background_task_event', manager.onBackgroundTaskEvent);
     };
   }, [interactiveSession, manager]);
