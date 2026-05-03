@@ -19,6 +19,7 @@ import type { ICliUpdateNotice } from '../utils/update-check.js';
 export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
+  providerOverride?: string | undefined;
   modelId?: string;
   language?: string;
   permissionMode?: TPermissionMode;

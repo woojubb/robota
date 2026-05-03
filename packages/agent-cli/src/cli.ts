@@ -300,6 +300,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   renderApp({
     cwd,
     provider,
+    providerOverride: args.provider,
     modelId,
     language: args.language,
     permissionMode: args.permissionMode,

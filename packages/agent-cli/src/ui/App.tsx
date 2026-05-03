@@ -8,7 +8,7 @@ import type {
   ICommandModule,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
-import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
@@ -25,11 +25,13 @@ import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import UpdateNotice from './UpdateNotice.js';
 import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
+import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
 import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 interface IProps {
   cwd: string;
   provider: IAIProvider;
+  providerOverride?: string | undefined;
   modelId?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
@@ -118,6 +120,7 @@ function AppInner(
     handleInteractionCancel,
   } = useSideEffects({
     cwd,
+    providerOverride: props.providerOverride,
     interactiveSession,
     addEntry,
     baseHandleSubmit,
@@ -224,7 +227,7 @@ function AppInner(
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
       {pendingModelId && (
         <ConfirmPrompt
-          message={`Change model to ${getModelName(pendingModelId)}? This will restart the session.`}
+          message={formatModelChangeConfirmationMessage(pendingModelId)}
           onSelect={handleModelConfirm}
         />
       )}

@@ -19,6 +19,7 @@ export interface IProviderSwitchOptions {
 
 export interface IActiveModelChangeOptions {
   settingsPaths?: readonly string[];
+  providerOverride?: string | undefined;
 }
 
 export interface IActiveModelChangeResult {
@@ -67,9 +68,10 @@ export function applyActiveModelChange(
 ): IActiveModelChangeResult {
   const settingsPaths = options.settingsPaths ?? getProviderSettingsPaths(cwd);
   const merged = readMergedProviderSettingsFromPaths(settingsPaths);
+  const activeProfileName = options.providerOverride ?? merged.currentProvider;
 
-  if (typeof merged.currentProvider === 'string') {
-    return updateActiveProviderProfileModel(settingsPaths, merged.currentProvider, modelId);
+  if (typeof activeProfileName === 'string') {
+    return updateActiveProviderProfileModel(settingsPaths, activeProfileName, modelId);
   }
 
   return updateLegacyProviderModel(settingsPaths, modelId);
