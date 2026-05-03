@@ -119,7 +119,7 @@ export async function executeSlashCommand(
     case 'rewind':
       return { handled: false }; // Route to injected rewind command (edit checkpoint controls)
     case 'exit':
-      return { handled: true, exitRequested: true };
+      return { handled: false }; // Route to injected exit command (host shutdown effect)
     case 'plugin':
       if (pluginCallbacks) {
         return handlePluginCommand(args, addMessage, pluginCallbacks);

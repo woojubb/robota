@@ -53,6 +53,7 @@
     "@robota-sdk/agent-command-background": "workspace:*",
     "@robota-sdk/agent-command-compact": "workspace:*",
     "@robota-sdk/agent-command-context": "workspace:*",
+    "@robota-sdk/agent-command-exit": "workspace:*",
     "@robota-sdk/agent-command-language": "workspace:*",
     "@robota-sdk/agent-command-memory": "workspace:*",
     "@robota-sdk/agent-command-mode": "workspace:*",

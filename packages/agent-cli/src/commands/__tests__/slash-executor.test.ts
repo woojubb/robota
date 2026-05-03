@@ -69,7 +69,7 @@ describe('executeSlashCommand', () => {
     expect(messages[0].content).toContain('Available commands');
   });
 
-  it('dispatches /exit with exitRequested', async () => {
+  it('routes /exit through the injected exit command module', async () => {
     const { addMessage } = createMockAddMessage();
     const result = await executeSlashCommand(
       'exit',
@@ -79,7 +79,7 @@ describe('executeSlashCommand', () => {
       vi.fn(),
       emptyRegistry(),
     );
-    expect(result.exitRequested).toBe(true);
+    expect(result).toEqual({ handled: false });
   });
 
   it('routes /compact through the SDK system command instead of legacy CLI handling', async () => {
