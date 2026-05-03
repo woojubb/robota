@@ -1,6 +1,6 @@
 import type { IProviderProbeResult, IProviderProfileConfig } from '@robota-sdk/agent-core';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandResult } from './command-result.js';
+import type { ICommandResult } from '../command-result.js';
 import type { IProviderCommandModuleOptions } from './provider-command-types.js';
 import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
 

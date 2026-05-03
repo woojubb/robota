@@ -1,5 +1,4 @@
-import type { ICommandResult } from './system-command.js';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
+import type { ICommandHostContext, ICommandResult } from '../command-api/index.js';
 import type { IEditCheckpointSummary } from '../checkpoints/edit-checkpoint-types.js';
 
 const SUBCOMMAND_INDEX = 0;
@@ -39,7 +38,7 @@ function formatList(checkpoints: readonly IEditCheckpointSummary[]): ICommandRes
   };
 }
 
-async function restore(session: InteractiveSession, checkpointId: string | undefined) {
+async function restore(session: ICommandHostContext, checkpointId: string | undefined) {
   if (!checkpointId) return usage();
   try {
     const result = await session.restoreEditCheckpoint(checkpointId);
@@ -65,7 +64,7 @@ async function restore(session: InteractiveSession, checkpointId: string | undef
   }
 }
 
-async function rollback(session: InteractiveSession, checkpointId: string | undefined) {
+async function rollback(session: ICommandHostContext, checkpointId: string | undefined) {
   if (!checkpointId) return usage();
   try {
     const result = await session.rollbackEditCheckpoint(checkpointId);
@@ -92,7 +91,7 @@ async function rollback(session: InteractiveSession, checkpointId: string | unde
 }
 
 export async function executeRewindCommand(
-  session: InteractiveSession,
+  session: ICommandHostContext,
   rawArgs: string,
 ): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);

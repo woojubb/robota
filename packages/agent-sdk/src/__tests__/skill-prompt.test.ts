@@ -5,7 +5,7 @@ import {
   preprocessShellCommands,
 } from '../utils/skill-prompt.js';
 import { CommandRegistry } from '../commands/command-registry.js';
-import type { ICommandSource } from '../commands/types.js';
+import type { ICommandSource } from '../command-api/types.js';
 
 function registryWithSkill(
   name: string,

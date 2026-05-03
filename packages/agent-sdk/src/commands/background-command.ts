@@ -1,6 +1,5 @@
 import type { IBackgroundTaskState } from '../background-tasks/index.js';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
-import type { ICommandResult } from './system-command.js';
+import type { ICommandHostContext, ICommandResult } from '../command-api/index.js';
 
 const DECIMAL_RADIX = 10;
 
@@ -32,7 +31,7 @@ function parseCursor(value?: string): { offset: number } | undefined {
 }
 
 export async function executeBackgroundCommand(
-  session: InteractiveSession,
+  session: ICommandHostContext,
   args: string,
 ): Promise<ICommandResult> {
   const [action = 'list', taskId, ...reasonParts] = parseCommandParts(args);

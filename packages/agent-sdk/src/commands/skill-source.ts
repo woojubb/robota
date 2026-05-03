@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
-import type { ICommandSource, ICommand } from './types.js';
+import type { ICommandSource, ICommand } from '../command-api/types.js';
 
 interface IFrontmatter {
   name?: string;

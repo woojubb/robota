@@ -4,7 +4,7 @@ import type { ITerminalOutput } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ILoadedContext } from '../../context/context-loader.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
-import type { ICommand } from '../../commands/types.js';
+import type { ICommand } from '../../command-api/types.js';
 
 const mocks = vi.hoisted(() => ({
   createSubagentSession: vi.fn(),

@@ -1,0 +1,45 @@
+import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import type {
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+} from '../background-tasks/index.js';
+import type { IEditCheckpointRestoreResult, IEditCheckpointSummary } from '../checkpoints/index.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+
+export interface ICommandListEntry {
+  name: string;
+  description: string;
+}
+
+export interface ICommandSessionRuntime {
+  clearHistory(): void;
+  compact(instructions?: string): Promise<void>;
+  getContextState(): IContextWindowState;
+  getPermissionMode(): TPermissionMode;
+  setPermissionMode(mode: TPermissionMode): void;
+  getSessionId(): string;
+  getMessageCount(): number;
+  getSessionAllowedTools(): readonly string[];
+  getAutoCompactThreshold?(): number | false;
+}
+
+export interface ICommandHostContext {
+  getSession(): ICommandSessionRuntime;
+  getContextState(): IContextWindowState;
+  getCwd(): string;
+  listCommands?(): ICommandListEntry[];
+  listEditCheckpoints(): IEditCheckpointSummary[];
+  restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
+  rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
+  getUsedMemoryReferences(): IMemoryReference[];
+  recordMemoryEvent(event: IMemoryEvent): void;
+  listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
+  readBackgroundTaskLog(
+    taskId: string,
+    cursor?: IBackgroundTaskLogCursor,
+  ): Promise<IBackgroundTaskLogPage>;
+  cancelBackgroundTask(taskId: string, reason?: string): Promise<void>;
+  closeBackgroundTask(taskId: string): Promise<void>;
+}

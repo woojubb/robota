@@ -8,7 +8,7 @@ import {
   substituteVariables,
   type SkillPromptContext,
 } from '../utils/skill-prompt.js';
-import type { ICommand } from './types.js';
+import type { ICommand } from '../command-api/types.js';
 
 /** Options passed to the fork execution callback */
 export interface IForkExecutionOptions {

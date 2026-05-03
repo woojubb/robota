@@ -1,10 +1,8 @@
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { TCapabilitySafety } from '../capabilities/types.js';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
+import type { ICommandHostContext, ISystemCommand } from '../command-api/index.js';
 import { executeBackgroundCommand } from './background-command.js';
 import { executeMemoryCommand } from './memory-command.js';
 import { executeRewindCommand } from './rewind-command.js';
-import type { ICommandResult } from './command-result.js';
 import {
   buildBackgroundSubcommands,
   buildMemorySubcommands,
@@ -16,7 +14,6 @@ import {
   PERCENT,
   VALID_MODES,
 } from './system-command-metadata.js';
-import type { ICommand } from './types.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
 export type {
   ICommandInteraction,
@@ -25,31 +22,12 @@ export type {
   TCommandEffect,
   TCommandResultDataValue,
   TCommandInteractionPrompt,
-} from './command-result.js';
+} from '../command-api/index.js';
+export type { ISystemCommand, TSystemCommandLifecycle } from '../command-api/index.js';
 
-export type TSystemCommandLifecycle = 'inline' | 'blocking' | 'background';
-
-/** A system command with name, description, and execute logic. */
-export interface ISystemCommand {
-  name: string;
-  description: string;
-  modelInvocable?: boolean;
-  userInvocable?: boolean;
-  argumentHint?: string;
-  safety?: TCapabilitySafety;
-  subcommands?: readonly ICommand[];
-  lifecycle?: TSystemCommandLifecycle;
-  execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
-}
-
-interface ICommandListProvider {
-  listCommands?: () => Array<{ name: string; description: string }>;
-}
-
-function formatHelpMessage(session: InteractiveSession): string {
-  const provider = session as ICommandListProvider;
+function formatHelpMessage(session: ICommandHostContext): string {
   const commands =
-    provider.listCommands?.() ??
+    session.listCommands?.() ??
     createSystemCommands().map((command) => ({
       name: command.name,
       description: command.description,
