@@ -5,12 +5,7 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import {
-  getUserSettingsPath,
-  deleteSettings,
-  readSettings,
-  writeSettings,
-} from '../utils/settings-io.js';
+import { getUserSettingsPath, deleteSettings } from '../utils/settings-io.js';
 import type { CommandRegistry } from './command-registry.js';
 import { handlePluginCommand, handleReloadPlugins } from './slash-plugin-handlers.js';
 
@@ -37,8 +32,6 @@ export interface ISlashResult {
   handled: boolean;
   /** If set, the caller should schedule an exit after a delay */
   exitRequested?: boolean;
-  /** If set, the caller should show a language change confirmation */
-  pendingLanguage?: string;
   /** If set, the caller should open the plugin management TUI */
   triggerPluginTUI?: boolean;
 }
@@ -126,20 +119,6 @@ export function handleContext(session: ISlashSession, addMessage: TAddMessage): 
   return { handled: true };
 }
 
-export function handleLanguage(lang: string | undefined, addMessage: TAddMessage): ISlashResult {
-  if (!lang) {
-    addMessage({ role: 'system', content: 'Usage: /language <code> (e.g., ko, en, ja, zh)' });
-    return { handled: true };
-  }
-  // Save to settings and request restart
-  const settingsPath = getUserSettingsPath();
-  const settings = readSettings(settingsPath);
-  settings.language = lang;
-  writeSettings(settingsPath, settings);
-  addMessage({ role: 'system', content: `Language set to "${lang}". Restarting...` });
-  return { handled: true, exitRequested: true };
-}
-
 export function handleReset(addMessage: TAddMessage): ISlashResult {
   const settingsPath = getUserSettingsPath();
   if (deleteSettings(settingsPath)) {
@@ -171,8 +150,6 @@ export async function executeSlashCommand(
       return { handled: false }; // Route to system command (permission mode)
     case 'model':
       return { handled: false }; // Route to system command (model change effect)
-    case 'language':
-      return handleLanguage(args.split(/\s+/)[0] || undefined, addMessage);
     case 'cost':
       return handleCost(session, addMessage);
     case 'permissions':
@@ -208,11 +185,11 @@ export async function executeSlashCommand(
     case 'rename':
       return { handled: false }; // Route to system command (sets session name)
     default: {
-      const dynamicCmd = registry
-        .getCommands()
-        .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
+      const dynamicCmd = registry.getCommands().find((c) => c.name === cmd);
       if (dynamicCmd) {
-        addMessage({ role: 'system', content: `Invoking ${dynamicCmd.source}: ${cmd}` });
+        if (dynamicCmd.source === 'skill' || dynamicCmd.source === 'plugin') {
+          addMessage({ role: 'system', content: `Invoking ${dynamicCmd.source}: ${cmd}` });
+        }
         return { handled: false }; // Signal caller to run as session prompt
       }
       addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });

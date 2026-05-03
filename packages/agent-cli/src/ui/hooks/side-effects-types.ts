@@ -13,7 +13,6 @@ import type {
 /** Side-effect flags for TUI-specific actions */
 export interface ISideEffects {
   _pendingModelId?: string;
-  _pendingLanguage?: string;
   _resetRequested?: boolean;
   _exitRequested?: boolean;
   _triggerPluginTUI?: boolean;

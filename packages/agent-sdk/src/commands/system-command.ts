@@ -54,28 +54,6 @@ export function createSystemCommands(): ISystemCommand[] {
       },
     },
     {
-      name: 'language',
-      description: 'Set response language',
-      subcommands: [
-        { name: 'ko', description: 'Korean', source: 'builtin' },
-        { name: 'en', description: 'English', source: 'builtin' },
-        { name: 'ja', description: 'Japanese', source: 'builtin' },
-        { name: 'zh', description: 'Chinese', source: 'builtin' },
-      ],
-      execute: (_session, args) => {
-        const lang = args.trim().split(/\s+/)[0];
-        if (!lang) {
-          return { message: 'Usage: language <code> (e.g., ko, en, ja, zh)', success: false };
-        }
-        return {
-          message: `Language set to "${lang}".`,
-          success: true,
-          data: { language: lang },
-          effects: [{ type: 'language-change-requested', language: lang }],
-        };
-      },
-    },
-    {
       name: 'cost',
       description: 'Show session info',
       execute: (session, _args) => {

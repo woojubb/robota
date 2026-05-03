@@ -93,9 +93,10 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(11);
+    expect(commands.length).toBeGreaterThanOrEqual(10);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
+    expect(commands.map((c) => c.name)).not.toContain('language');
     expect(commands.map((c) => c.name)).not.toContain('mode');
     expect(commands.map((c) => c.name)).not.toContain('model');
     expect(commands.map((c) => c.name)).not.toContain('compact');
@@ -149,14 +150,6 @@ describe('SystemCommandExecutor', () => {
       (session as unknown as { _underlying: { clearHistory: ReturnType<typeof vi.fn> } })
         ._underlying.clearHistory,
     ).toHaveBeenCalled();
-  });
-
-  it('language requests language changes through a typed command effect', async () => {
-    const executor = new SystemCommandExecutor();
-    const result = await executor.execute('language', createMockSession(), 'ko');
-    expect(result!.success).toBe(true);
-    expect(result!.data?.language).toBe('ko');
-    expect(result!.effects).toEqual([{ type: 'language-change-requested', language: 'ko' }]);
   });
 
   it('cost returns session info', async () => {
