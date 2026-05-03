@@ -19,6 +19,5 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 | [openai-compatible-web-search-fetch.md](openai-compatible-web-search-fetch.md) | OpenAI-compatible provider web search/fetch support           |
 | [openai-provider-modernization.md](openai-provider-modernization.md)           | OpenAI provider modernization                                 |
 | [reversible-agent-sandbox.md](reversible-agent-sandbox.md)                     | Reversible sandbox mode for safe agent edits and rollback     |
-| [sdk-builtin-command-layering.md](sdk-builtin-command-layering.md)             | Migrate slash commands into injected built-in command modules |
 | [sdk-command-common-api-layer.md](sdk-command-common-api-layer.md)             | Build the SDK common API layer for command modules            |
 | [worktree-support-hardening.md](worktree-support-hardening.md)                 | Harden and productize Git worktree isolation                  |
