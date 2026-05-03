@@ -8,6 +8,7 @@ import type { ICommand } from '../types.js';
 import type { ICommandHostContext } from '../host-context.js';
 
 const DECIMAL_RADIX = 10;
+const INLINE_METADATA_LIMIT = 160;
 
 export const BACKGROUND_COMMAND_DESCRIPTION = 'List and control background tasks';
 export const BACKGROUND_COMMAND_USAGE =
@@ -28,8 +29,9 @@ export function formatCommandBackgroundTask(task: IBackgroundTaskState): string 
   const action = task.currentAction ? ` (${task.currentAction})` : '';
   const timeout = task.timeoutReason ? ` timeout=${task.timeoutReason}` : '';
   const activity = task.lastActivityAt ? ` lastActivityAt=${task.lastActivityAt}` : '';
+  const worktree = formatWorktreeMetadata(task);
   const suffix = preview ? ` — ${preview}` : '';
-  return `${task.id} [${task.status}${unread}${timeout}${activity}] ${task.kind}:${task.label}${action}${suffix}`;
+  return `${task.id} [${task.status}${unread}${timeout}${activity}${worktree}] ${task.kind}:${task.label}${action}${suffix}`;
 }
 
 export function formatCommandBackgroundTaskList(tasks: IBackgroundTaskState[]): string {
@@ -46,6 +48,27 @@ export function parseCommandBackgroundLogCursor(
   if (!value) return undefined;
   const offset = Number.parseInt(value, DECIMAL_RADIX);
   return Number.isNaN(offset) ? undefined : { offset };
+}
+
+function formatWorktreeMetadata(task: IBackgroundTaskState): string {
+  const segments: string[] = [];
+  if (task.worktreePath) segments.push(`worktree=${task.worktreePath}`);
+  if (task.branchName) segments.push(`branch=${task.branchName}`);
+  if (task.worktreeStatus) {
+    segments.push(`worktreeStatus="${formatInlineMetadata(task.worktreeStatus)}"`);
+  }
+  if (task.worktreeNextAction) {
+    segments.push(`next="${formatInlineMetadata(task.worktreeNextAction)}"`);
+  }
+  if (segments.length === 0) return '';
+  return ` ${segments.join(' ')}`;
+}
+
+function formatInlineMetadata(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  return normalized.length > INLINE_METADATA_LIMIT
+    ? `${normalized.slice(0, INLINE_METADATA_LIMIT)}...`
+    : normalized;
 }
 
 export function listCommandBackgroundTasks(

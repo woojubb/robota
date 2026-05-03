@@ -1198,15 +1198,19 @@ The runtime worktree runner owns worktree lifecycle orchestration:
 
 - delegate non-worktree requests unchanged
 - run isolated workers with `cwd` set to the prepared worktree path
-- remove clean worktrees on success or worker failure
-- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` in result metadata
+- remove clean worktrees exactly once on success, worker failure, startup failure, or successful cancellation
+- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` in result metadata
 - fire SDK hook notifications for `WorktreeCreate` and `WorktreeRemove` when configured
 
 The CLI-owned Git adapter implements only local Git/filesystem I/O:
 
 - create a temporary branch and worktree before the worker starts
+- retry branch/path collisions with a new short id before failing
 - remove the worktree and branch when the worktree remains clean
+- support nested repository cwd resolution and detached HEAD worktree creation
+- fail non-Git cwd with an actionable worktree-isolation error
 - report whether the worktree has local edits and expose `git status --porcelain` output for preserved worktree handoff
+- allow dirty parent checkouts while surfacing the base revision and parent `git status --porcelain` in preserved handoff metadata
 
 When a user invokes a skill slash command with `context: fork`, the CLI must call `interactiveSession.executeSkillCommand(...)`. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection. This keeps fork execution deterministic and preserves the CLI as a thin TUI shell.
 
@@ -1216,7 +1220,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 `TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
 
-`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time or timeout reason, and a short whitespace-normalized preview. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through `@robota-sdk/agent-command-background`:
+`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time, timeout reason, or preserved worktree state, and a short whitespace-normalized preview. Preserved worktree rows prefer `worktreeNextAction` as the preview so users can review or delete the handoff path. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through `@robota-sdk/agent-command-background`:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |

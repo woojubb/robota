@@ -13,6 +13,8 @@ import type {
   ISubagentRunner,
 } from './types.js';
 
+const SHORT_REVISION_LENGTH = 12;
+
 export interface ISubagentWorktreePrepareRequest {
   jobId: string;
   cwd: string;
@@ -22,6 +24,8 @@ export interface IPreparedSubagentWorktree {
   repoRoot: string;
   worktreePath: string;
   branchName: string;
+  baseRevision?: string;
+  parentStatus?: string;
 }
 
 export interface ISubagentWorktreeAdapter {
@@ -56,20 +60,22 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
       jobId: job.jobId,
       cwd: job.request.cwd,
     });
+    const lifecycle = createWorktreeLifecycle(this.options, worktree, job);
     fireWorktreeHook(this.options, 'WorktreeCreate', job, worktree, false);
-    const handle = this.startWrappedRunner(job, worktree);
+    const handle = this.startWrappedRunner(job, worktree, lifecycle);
 
-    return this.createHandle(handle, job, worktree);
+    return this.createHandle(handle, job, worktree, lifecycle);
   }
 
   private startWrappedRunner(
     job: ISubagentJobStart,
     worktree: IPreparedSubagentWorktree,
+    lifecycle: IWorktreeLifecycle,
   ): ISubagentJobHandle {
     try {
       return this.options.runner.start(createWorktreeJob(job, worktree));
     } catch (error) {
-      cleanupCleanWorktree(this.options, worktree, job);
+      lifecycle.cleanupClean();
       throw error;
     }
   }
@@ -78,17 +84,22 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     handle: ISubagentJobHandle,
     job: ISubagentJobStart,
     worktree: IPreparedSubagentWorktree,
+    lifecycle: IWorktreeLifecycle,
   ): ISubagentJobHandle {
     const wrapped: ISubagentJobHandle = {
       jobId: handle.jobId,
       ...(handle.pid !== undefined ? { pid: handle.pid } : {}),
       result: handle.result
-        .then((result) => finalizeWorktreeResult(result, this.options, worktree, job))
+        .then((result) => finalizeWorktreeResult(result, this.options, worktree, lifecycle))
         .catch((error) => {
-          cleanupCleanWorktree(this.options, worktree, job);
+          lifecycle.cleanupClean();
           throw error;
         }),
-      cancel: (reason?: string) => handle.cancel(reason),
+      cancel: (reason?: string) => {
+        const cancellation = handle.cancel(reason);
+        void cancellation.then(() => lifecycle.cleanupClean()).catch(() => undefined);
+        return cancellation;
+      },
     };
     const send = handle.send;
     if (send) wrapped.send = (prompt) => send(prompt);
@@ -115,9 +126,9 @@ function finalizeWorktreeResult(
   result: ISubagentJobResult,
   options: IWorktreeSubagentRunnerOptions,
   worktree: IPreparedSubagentWorktree,
-  job: ISubagentJobStart,
+  lifecycle: IWorktreeLifecycle,
 ): ISubagentJobResult {
-  if (cleanupCleanWorktree(options, worktree, job)) {
+  if (lifecycle.cleanupClean()) {
     return {
       ...result,
       metadata: mergeMetadata(result.metadata, {
@@ -129,37 +140,60 @@ function finalizeWorktreeResult(
 
   return {
     ...result,
-    metadata: mergeMetadata(result.metadata, {
-      isolation: 'worktree',
-      worktreeRemoved: false,
-      worktreePath: worktree.worktreePath,
-      branchName: worktree.branchName,
-      worktreeStatus: getWorktreeStatus(options, worktree),
-      worktreeNextAction: formatWorktreeNextAction(worktree),
-    }),
+    metadata: mergeMetadata(
+      result.metadata,
+      withOptionalMetadata({
+        isolation: 'worktree',
+        worktreeRemoved: false,
+        worktreePath: worktree.worktreePath,
+        branchName: worktree.branchName,
+        worktreeBaseRevision: worktree.baseRevision,
+        parentWorktreeStatus: worktree.parentStatus,
+        worktreeStatus: getWorktreeStatus(options, worktree),
+        worktreeNextAction: formatWorktreeNextAction(worktree),
+      }),
+    ),
   };
 }
 
-function cleanupCleanWorktree(
+interface IWorktreeLifecycle {
+  cleanupClean(): boolean;
+}
+
+function createWorktreeLifecycle(
   options: IWorktreeSubagentRunnerOptions,
   worktree: IPreparedSubagentWorktree,
   job: ISubagentJobStart,
-): boolean {
-  if (!options.worktreeAdapter.isClean(worktree)) return false;
-  options.worktreeAdapter.remove(worktree);
-  fireWorktreeHook(options, 'WorktreeRemove', job, worktree, true);
-  return true;
+): IWorktreeLifecycle {
+  let removed = false;
+  return {
+    cleanupClean(): boolean {
+      if (removed) return true;
+      if (!options.worktreeAdapter.isClean(worktree)) return false;
+      options.worktreeAdapter.remove(worktree);
+      removed = true;
+      fireWorktreeHook(options, 'WorktreeRemove', job, worktree, true);
+      return true;
+    },
+  };
 }
 
 function getWorktreeStatus(
   options: IWorktreeSubagentRunnerOptions,
   worktree: IPreparedSubagentWorktree,
 ): string {
-  return options.worktreeAdapter.getStatus?.(worktree).trim() || '(dirty worktree)';
+  const status = options.worktreeAdapter.getStatus?.(worktree).trimEnd();
+  return status && status.length > 0 ? status : '(dirty worktree)';
 }
 
 function formatWorktreeNextAction(worktree: IPreparedSubagentWorktree): string {
-  return `Review ${worktree.worktreePath}, then merge or delete branch ${worktree.branchName}.`;
+  const revision = worktree.baseRevision
+    ? ` based on ${worktree.baseRevision.slice(0, SHORT_REVISION_LENGTH)}`
+    : '';
+  const parentRisk = worktree.parentStatus?.trim()
+    ? ' Parent checkout had uncommitted changes when this worktree was created; review the base before merging.'
+    : '';
+  return `Review ${worktree.worktreePath}, then merge or delete branch ${worktree.branchName}${revision}.${parentRisk}`;
 }
 
 function mergeMetadata(
@@ -167,6 +201,17 @@ function mergeMetadata(
   next: Record<string, TBackgroundPrimitive>,
 ): Record<string, TBackgroundPrimitive> {
   return { ...(existing ?? {}), ...next };
+}
+
+function withOptionalMetadata(
+  metadata: Record<string, TBackgroundPrimitive | undefined>,
+): Record<string, TBackgroundPrimitive> {
+  return Object.fromEntries(
+    Object.entries(metadata).filter((entry): entry is [string, TBackgroundPrimitive] => {
+      const value = entry[1];
+      return value !== undefined;
+    }),
+  );
 }
 
 function fireWorktreeHook(

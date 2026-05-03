@@ -189,6 +189,8 @@ function stringifyUnknownAgentType(agentType: string): string {
 function stringifyAgentSuccess(result: ISubagentJobResult): string {
   const worktreePath = result.metadata?.['worktreePath'];
   const branchName = result.metadata?.['branchName'];
+  const worktreeStatus = result.metadata?.['worktreeStatus'];
+  const worktreeNextAction = result.metadata?.['worktreeNextAction'];
   return JSON.stringify({
     success: true,
     output: result.output,
@@ -196,6 +198,8 @@ function stringifyAgentSuccess(result: ISubagentJobResult): string {
     metadata: result.metadata,
     ...(typeof worktreePath === 'string' ? { worktreePath } : {}),
     ...(typeof branchName === 'string' ? { branchName } : {}),
+    ...(typeof worktreeStatus === 'string' ? { worktreeStatus } : {}),
+    ...(typeof worktreeNextAction === 'string' ? { worktreeNextAction } : {}),
   });
 }
 

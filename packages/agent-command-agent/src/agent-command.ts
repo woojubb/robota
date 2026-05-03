@@ -44,13 +44,22 @@ async function executeList(session: InteractiveSession): Promise<ICommandResult>
     ...agents.map((agent) => `  ${agent.name} - ${agent.description}`),
     '',
     jobs.length === 0 ? 'No active agent jobs.' : 'Agent jobs:',
-    ...jobs.map((job) => `  ${job.id} [${job.status}] ${job.label} - ${job.promptPreview}`),
+    ...jobs.map((job) => `  ${formatAgentJobLine(job)}`),
   ];
   return {
     message: lines.join('\n'),
     success: true,
     data: { agents: agents.length, jobs: jobs.length },
   };
+}
+
+function formatAgentJobLine(job: ReturnType<InteractiveSession['listAgentJobs']>[number]): string {
+  const worktree = [
+    job.worktreePath ? `worktree=${job.worktreePath}` : undefined,
+    job.branchName ? `branch=${job.branchName}` : undefined,
+  ].filter((segment): segment is string => segment !== undefined);
+  const metadata = worktree.length > 0 ? ` ${worktree.join(' ')}` : '';
+  return `${job.id} [${job.status}${metadata}] ${job.label} - ${job.promptPreview}`;
 }
 
 async function executeRun(
