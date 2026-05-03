@@ -23,7 +23,7 @@ describe('createStatusLineCommandModule', () => {
     expect(result).toEqual({
       success: true,
       message: 'Status line disabled.',
-      data: { statuslinePatch: { enabled: false } },
+      effects: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
     });
   });
 
@@ -35,7 +35,7 @@ describe('createStatusLineCommandModule', () => {
     expect(result).toEqual({
       success: true,
       message: 'Status line git branch hidden.',
-      data: { statuslinePatch: { gitBranch: false } },
+      effects: [{ type: 'statusline-settings-patch', patch: { gitBranch: false } }],
     });
   });
 

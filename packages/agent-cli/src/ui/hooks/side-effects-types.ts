@@ -1,5 +1,9 @@
-import type { IProviderDefinition, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  ICommandInteraction,
+  InteractiveSession,
+  TCommandEffect,
+} from '@robota-sdk/agent-sdk';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
 import type {
   IStatusLineSettings,
@@ -15,10 +19,8 @@ export interface ISideEffects {
   _triggerPluginTUI?: boolean;
   _triggerResumePicker?: boolean;
   _sessionName?: string;
-  _pendingProviderProfile?: string;
-  _pendingProviderSetup?: {
-    type?: string;
-  };
+  _pendingCommandInteraction?: ICommandInteraction;
+  _pendingCommandEffects?: readonly TCommandEffect[];
   _statusLinePatch?: TStatusLineSettingsPatch;
 }
 
@@ -29,13 +31,11 @@ export interface IUseSideEffectsOptions {
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
   setStatusLineSettings: (settings: IStatusLineSettings) => void;
-  providerDefinitions: readonly IProviderDefinition[];
 }
 
 export interface IUseSideEffectsResult {
   handleSubmit: (input: string) => Promise<void>;
   pendingModelId: string | null;
-  pendingProviderProfile: string | null;
   pendingInteractionPrompt: TInteractivePrompt | null;
   showPluginTUI: boolean;
   showSessionPicker: boolean;
@@ -43,7 +43,6 @@ export interface IUseSideEffectsResult {
   setShowPluginTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
   handleModelConfirm: (index: number) => void;
-  handleProviderConfirm: (index: number) => void;
-  handleInteractionSubmit: (value: string) => void;
+  handleInteractionSubmit: (value: string) => Promise<void>;
   handleInteractionCancel: () => void;
 }

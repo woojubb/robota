@@ -6,25 +6,16 @@
 import { useCallback } from 'react';
 import { randomUUID } from 'node:crypto';
 import type { InteractiveSession, CommandRegistry, ICommandResult } from '@robota-sdk/agent-sdk';
-import {
-  createSystemMessage,
-  messageToHistoryEntry,
-  type TUniversalValue,
-} from '@robota-sdk/agent-core';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ISideEffects } from './side-effects-types.js';
-import { handleProviderCommand } from '../../utils/provider-command.js';
-import type { TStatusLineSettingsPatch } from '../../utils/statusline-settings.js';
 
 type TSessionWithEffects = InteractiveSession & ISideEffects;
 
 export function useSlashRouting(
-  cwd: string,
   interactiveSession: InteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
-  providerDefinitions: readonly IProviderDefinition[],
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -40,11 +31,6 @@ export function useSlashRouting(
       const cmd = parts[0]?.toLowerCase() ?? '';
       const args = parts.slice(1).join(' ');
 
-      if (cmd === 'provider') {
-        await routeProviderCommand(cwd, args, interactiveSession, manager, providerDefinitions);
-        return;
-      }
-
       // Try system command first
       const result = await interactiveSession.executeCommand(cmd, args);
       if (result) {
@@ -57,38 +43,14 @@ export function useSlashRouting(
         return;
       }
 
-      // TUI-only commands
-      if (routeTuiCommand(cmd, interactiveSession)) {
-        return;
-      }
-
       manager.addEntry(
         messageToHistoryEntry(
           createSystemMessage(`Unknown command "/${cmd}". Type /help for help.`),
         ),
       );
     },
-    [cwd, interactiveSession, registry, manager, providerDefinitions],
+    [interactiveSession, registry, manager],
   );
-}
-
-async function routeProviderCommand(
-  cwd: string,
-  args: string,
-  interactiveSession: InteractiveSession,
-  manager: TuiStateManager,
-  providerDefinitions: readonly IProviderDefinition[],
-): Promise<void> {
-  const result = await handleProviderCommand(cwd, args, { providerDefinitions });
-  manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
-  const providerSwitch = result.data?.providerSwitch;
-  if (providerSwitch?.profile) {
-    getEffects(interactiveSession)._pendingProviderProfile = providerSwitch.profile;
-  }
-  const providerSetup = result.data?.providerSetup;
-  if (providerSetup !== undefined) {
-    getEffects(interactiveSession)._pendingProviderSetup = providerSetup;
-  }
 }
 
 export function applySystemCommandResult(
@@ -97,33 +59,13 @@ export function applySystemCommandResult(
   manager: TuiStateManager,
 ): void {
   manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
-  const data = result.data;
   const effects = getEffects(interactiveSession);
 
-  if (typeof data?.modelId === 'string') {
-    effects._pendingModelId = data.modelId;
-    return;
+  if (result.interaction !== undefined) {
+    effects._pendingCommandInteraction = result.interaction;
   }
-  if (typeof data?.language === 'string') {
-    effects._pendingLanguage = data.language;
-    return;
-  }
-  if (data?.resetRequested === true) {
-    effects._resetRequested = true;
-    return;
-  }
-  if (data?.triggerResumePicker === true) {
-    effects._triggerResumePicker = true;
-    return;
-  }
-  if (typeof data?.name === 'string') {
-    effects._sessionName = data.name;
-    return;
-  }
-  const statusLinePatch = data?.statuslinePatch as TUniversalValue;
-  if (isStatusLineSettingsPatch(statusLinePatch)) {
-    effects._statusLinePatch = statusLinePatch;
-    return;
+  if (result.effects !== undefined && result.effects.length > 0) {
+    effects._pendingCommandEffects = result.effects;
   }
 
   const ctx = interactiveSession.getContextState();
@@ -168,34 +110,6 @@ async function routeSkillCommand(
   return true;
 }
 
-function routeTuiCommand(cmd: string, interactiveSession: InteractiveSession): boolean {
-  if (cmd === 'exit') {
-    getEffects(interactiveSession)._exitRequested = true;
-    return true;
-  }
-  if (cmd === 'plugin') {
-    getEffects(interactiveSession)._triggerPluginTUI = true;
-    return true;
-  }
-  return false;
-}
-
 function getEffects(interactiveSession: InteractiveSession): TSessionWithEffects {
   return interactiveSession as TSessionWithEffects;
-}
-
-function isStatusLineSettingsPatch(value: TUniversalValue): value is TStatusLineSettingsPatch {
-  if (
-    value === null ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
-    value instanceof Date
-  ) {
-    return false;
-  }
-  const candidate = value as Record<string, TUniversalValue>;
-  return (
-    (candidate.enabled === undefined || typeof candidate.enabled === 'boolean') &&
-    (candidate.gitBranch === undefined || typeof candidate.gitBranch === 'boolean')
-  );
 }

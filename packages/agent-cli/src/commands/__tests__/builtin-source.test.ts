@@ -19,7 +19,9 @@ describe('BuiltinCommandSource', () => {
     expect(names).toContain('cost');
     expect(names).toContain('context');
     expect(names).toContain('permissions');
-    expect(names).toContain('exit');
+    expect(names).not.toContain('provider');
+    expect(names).not.toContain('plugin');
+    expect(names).not.toContain('exit');
   });
 
   it('all commands have source "builtin"', () => {
