@@ -59,6 +59,7 @@ function runRepositoryCheck(check, dryRun) {
           'vitest',
           'run',
           'scripts/harness/__tests__/harness-scripts.test.mjs',
+          'scripts/harness/__tests__/lessons-digest.test.mjs',
           'scripts/harness/__tests__/check-plan.test.mjs',
           'scripts/harness/__tests__/scan-test-plan.test.mjs',
           'scripts/harness/__tests__/harness-smoke.test.mjs',

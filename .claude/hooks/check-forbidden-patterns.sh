@@ -49,6 +49,7 @@ fi
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 RELATIVE_PATH="${FILE_PATH#$PROJECT_DIR/}"
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
 BLOCKED=false
 BLOCK_MESSAGES=""
 
@@ -57,8 +58,20 @@ append_block() {
   local line_num="$2"
   local line_content="$3"
   mkdir -p "$(dirname "$LOG_FILE")"
-  printf '{"timestamp":"%s","pattern":"%s","file":"%s","line":%d,"escape_attempted":false}\n' \
-    "$TIMESTAMP" "$pattern" "$RELATIVE_PATH" "$line_num" >> "$LOG_FILE"
+  jq -cn \
+    --arg timestamp "$TIMESTAMP" \
+    --arg session_id "$SESSION_ID" \
+    --arg pattern "$pattern" \
+    --arg file "$RELATIVE_PATH" \
+    --argjson line "$line_num" \
+    '{
+      timestamp: $timestamp,
+      session_id: $session_id,
+      pattern: $pattern,
+      file: $file,
+      line: $line,
+      escape_attempted: false
+    }' >> "$LOG_FILE"
   BLOCK_MESSAGES="$BLOCK_MESSAGES\n  line $line_num: $line_content"
   BLOCKED=true
 }

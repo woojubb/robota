@@ -1,7 +1,57 @@
 # Harness Auto Lessons Pipeline (Phase C)
 
+- **Status**: completed
+- **Created**: 2026-05-04
+- **Branch**: feat/harness-auto-lessons
+- **Scope**: .agents/evals, scripts/harness, package.json
+
 > **Phase B completed** — PR #92 (`feat(harness): PreToolUse hook blocking any/console/try-catch-fallback`).
 > This backlog item now covers Phase C only: auto-lessons signal collection and aggregation.
+
+## Objective
+
+Implement the automatic lesson signal pipeline for Phase C. Block, correction, and revert signals should be collected locally, digested idempotently, and promoted only into a separate auto-lessons register without touching the curated common mistakes file.
+
+## Plan
+
+- [x] Research existing harness hook, metrics, and self-check implementation before choosing the implementation shape.
+- [x] Add local metric appenders and hook scripts for block, correction, revert, and session aggregate signals.
+- [x] Add `pnpm harness:lessons:digest` to regenerate the weekly digest and append threshold-crossing auto-lessons idempotently.
+- [x] Extend harness self-check/tests to verify hook behavior and that automated scripts never write `common-mistakes.md`.
+- [x] Update `.agents/evals` docs and backlog indexes.
+- [x] Run targeted harness verification plus root build/test/typecheck/lint/harness scan.
+
+## Test Strategy
+
+Targeted tests will exercise metrics aggregation, digest idempotence, auto-lesson threshold promotion, and the guard that automated lesson scripts do not write `.agents/rules/common-mistakes.md`. Repository verification will include the affected harness scripts, root quality checks, and `pnpm harness:scan`.
+
+## Progress
+
+### 2026-05-04
+
+- Moved backlog item into active task tracking.
+- Created feature branch `feat/harness-auto-lessons` from `develop`.
+- Researched current local hook wiring and Claude Code hook semantics; documented the chosen pipeline in `docs/plans/2026-05-04-harness-auto-lessons-design.md`.
+- Implemented correction/revert collection, session signal totals, and the digest/auto-lessons generator.
+- Extended harness tests and self-check fixtures for the hook pipeline.
+- Ran targeted harness tests, `harness:self-check`, `harness:lessons:digest` idempotence check, root build/test/typecheck/lint, and `harness:scan`.
+
+## Decisions
+
+- Use one feature branch and PR for this backlog, targeting `develop`.
+- Keep `common-mistakes.md` human-curated; automated output belongs only under `.agents/evals/lessons`.
+- Keep Stop-side revert detection inside `eval-log-stop.sh` because Claude Code may run separate matching Stop hooks in parallel, so separate Stop hook ordering is not a reliable dependency.
+
+## Blockers
+
+- None.
+
+## Result
+
+- Added automatic lesson signal collection for blocked edits, user corrections, revert/rework signals, and session aggregate totals.
+- Added `pnpm harness:lessons:digest` to regenerate `weekly-digest.md` and upsert threshold-crossing candidates in `auto-lessons.md` without writing `common-mistakes.md`.
+- Extended `harness:self-check`, harness tests, and change planning so hook/script drift is caught mechanically.
+- Documented the design and updated eval docs for the new metrics and promotion boundary.
 
 ## What
 
@@ -56,11 +106,11 @@ Current enforcement is reactive (CI scans, post-commit review). Recurring mistak
 
 ## Acceptance Criteria
 
-- [ ] `blocks.jsonl`, `corrections.jsonl`, `reverts.jsonl` append-only files created and populated during real sessions.
-- [ ] `pnpm harness:lessons:digest` regenerates `weekly-digest.md` idempotently.
-- [ ] Auto-threshold (≥ 5 events / 7 days per pattern) produces an `auto-lessons.md` entry with: pattern id, frequency, example file paths, first/last seen.
-- [ ] `common-mistakes.md` is never written by any automated script (verified by test).
-- [ ] Session summary in `sessions.jsonl` contains `blocks_total`, `corrections_total`, `reverts_total`.
+- [x] `blocks.jsonl`, `corrections.jsonl`, `reverts.jsonl` append-only files created and populated during real sessions.
+- [x] `pnpm harness:lessons:digest` regenerates `weekly-digest.md` idempotently.
+- [x] Auto-threshold (≥ 5 events / 7 days per pattern) produces an `auto-lessons.md` entry with: pattern id, frequency, example file paths, first/last seen.
+- [x] `common-mistakes.md` is never written by any automated script (verified by test).
+- [x] Session summary in `sessions.jsonl` contains `blocks_total`, `corrections_total`, `reverts_total`.
 
 ## Risks & Mitigations
 

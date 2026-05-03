@@ -94,6 +94,17 @@ describe('createVerificationPlan', () => {
     expect(plan.repositoryChecks).toEqual(['harness-tests', 'harness-consistency']);
   });
 
+  it('selects harness tests for Claude hook changes', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['.claude/hooks/eval-log-stop.sh'],
+      scopeTokens: [],
+    });
+
+    expect(plan.scopes).toEqual([]);
+    expect(plan.repositoryChecks).toEqual(['harness-tests', 'harness-consistency']);
+  });
+
   it('keeps version-only package metadata out of source-heavy package checks', () => {
     const plan = createVerificationPlan({
       scopes,
