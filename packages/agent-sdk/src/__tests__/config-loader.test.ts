@@ -103,6 +103,26 @@ describe('loadConfig', () => {
     expect(config.provider.model).toBe('claude-3-5-sonnet-20241022');
   });
 
+  it('loads auto compact threshold settings', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      autoCompactThreshold: 0.75,
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.autoCompactThreshold).toBe(0.75);
+  });
+
+  it('loads disabled auto compact settings', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      autoCompactThreshold: false,
+    });
+
+    const config = await loadConfig(cwd);
+
+    expect(config.autoCompactThreshold).toBe(false);
+  });
+
   it('loads user settings from ~/.robota/settings.json', async () => {
     writeJson(join(userDir, 'settings.json'), {
       defaultTrustLevel: 'full',
@@ -160,6 +180,14 @@ describe('loadConfig', () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'INVALID_VALUE',
     });
+    await expect(loadConfig(cwd)).rejects.toThrow();
+  });
+
+  it('throws on invalid auto compact threshold settings', async () => {
+    writeJson(join(projectDir, 'settings.json'), {
+      autoCompactThreshold: 1.5,
+    });
+
     await expect(loadConfig(cwd)).rejects.toThrow();
   });
 

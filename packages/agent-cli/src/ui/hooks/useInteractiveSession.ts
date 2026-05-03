@@ -20,6 +20,7 @@ import {
 import type {
   IAIProvider,
   IBackgroundTaskRunner,
+  ICommandHostAdapters,
   ICommandModule,
   TSubagentRunnerFactory,
   TPermissionResultValue,
@@ -49,6 +50,7 @@ export interface IInteractiveSessionProps {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
+  commandHostAdapters?: ICommandHostAdapters;
 }
 
 export interface IInteractiveSessionState {
@@ -94,6 +96,7 @@ function initializeSession(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
+    commandHostAdapters: props.commandHostAdapters,
   });
 
   const registry = new CommandRegistry();

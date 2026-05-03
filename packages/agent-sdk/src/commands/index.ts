@@ -14,6 +14,7 @@ export type {
   ICommandSettingsDocument,
   ICommandSource,
   ISystemCommand,
+  TAutoCompactThresholdSource,
   TCommandEffect,
   TCommandInteractionPrompt,
   TCommandModuleSessionRequirement,
@@ -39,9 +40,15 @@ export type {
   TAutoCompactThreshold,
 } from '../command-api/context/context-command-api.js';
 export {
+  AUTO_COMPACT_THRESHOLD_SETTINGS_KEY,
   compactCommandContext,
+  DEFAULT_AUTO_COMPACT_THRESHOLD,
   readAutoCompactThreshold,
+  readAutoCompactThresholdSource,
   readCommandContextState,
+  resetAutoCompactThresholdSetting,
+  setCommandAutoCompactThreshold,
+  writeAutoCompactThresholdSetting,
 } from '../command-api/context/context-command-api.js';
 export type {
   ILegacyProviderSettings,

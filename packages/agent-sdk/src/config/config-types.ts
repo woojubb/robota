@@ -121,6 +121,7 @@ const MarketplaceSourceSchema = z.object({
   }),
 });
 const ExtraKnownMarketplacesSchema = z.record(MarketplaceSourceSchema).optional().catch(undefined);
+const AutoCompactThresholdSchema = z.union([z.number().gt(0).lte(1), z.literal(false)]).optional();
 
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
@@ -140,6 +141,8 @@ export const SettingsSchema = z.object({
   enabledPlugins: EnabledPluginsSchema,
   /** Extra marketplace URLs for BundlePlugin discovery */
   extraKnownMarketplaces: ExtraKnownMarketplacesSchema,
+  /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
+  autoCompactThreshold: AutoCompactThresholdSchema,
 });
 
 export type TSettings = z.infer<typeof SettingsSchema>;
@@ -176,4 +179,6 @@ export interface IResolvedConfig {
     string,
     { source: { type: string; repo?: string; url?: string; path?: string; ref?: string } }
   >;
+  /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
+  autoCompactThreshold?: number | false;
 }

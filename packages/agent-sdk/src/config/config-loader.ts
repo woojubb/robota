@@ -139,6 +139,7 @@ function mergeSettings(layers: TSettings[]): TSettings {
           ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
           : undefined,
       extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
+      autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
     };
   }, {});
 }
@@ -203,6 +204,7 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
     hooks: merged.hooks ?? undefined,
     enabledPlugins: merged.enabledPlugins ?? undefined,
     extraKnownMarketplaces: merged.extraKnownMarketplaces ?? undefined,
+    autoCompactThreshold: merged.autoCompactThreshold,
   };
 }
 
