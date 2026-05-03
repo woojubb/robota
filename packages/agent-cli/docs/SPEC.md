@@ -162,6 +162,7 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
+              ├── createModelCommandModule()      (from @robota-sdk/agent-command-model)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
               ├── createProviderCommandModule()   (from @robota-sdk/agent-command-provider)
@@ -416,24 +417,24 @@ Tool: [5 tools]
 
 ## Slash Commands
 
-| Command                   | Description                                                   |
-| ------------------------- | ------------------------------------------------------------- |
-| `/help`                   | Show available commands                                       |
-| `/clear`                  | Clear conversation history                                    |
-| `/mode [mode]`            | Show/change permission mode                                   |
-| `/model [model]`          | Select AI model (shows confirmation prompt, restarts session) |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts    |
-| `/compact [instructions]` | Compress context window                                       |
-| `/cost`                   | Show session info                                             |
-| `/context`                | Context window info and `/context auto ...` controls          |
-| `/permissions`            | Permission rules                                              |
-| `/memory`                 | Route project memory commands to SDK                          |
-| `/rewind`                 | Route edit checkpoint list/restore commands to SDK            |
-| `/background`             | Route background task controls to SDK                         |
-| `/plugin [subcommand]`    | Plugin management                                             |
-| `/resume`                 | Show session picker to resume a saved session                 |
-| `/rename <name>`          | Rename the current session (name displayed in StatusBar)      |
-| `/exit`                   | Exit CLI                                                      |
+| Command                   | Description                                                |
+| ------------------------- | ---------------------------------------------------------- |
+| `/help`                   | Show available commands                                    |
+| `/clear`                  | Clear conversation history                                 |
+| `/mode [mode]`            | Show/change permission mode                                |
+| `/model [model]`          | Select AI model through the injected model command module  |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
+| `/compact [instructions]` | Compress context window                                    |
+| `/cost`                   | Show session info                                          |
+| `/context`                | Context window info and `/context auto ...` controls       |
+| `/permissions`            | Permission rules                                           |
+| `/memory`                 | Route project memory commands to SDK                       |
+| `/rewind`                 | Route edit checkpoint list/restore commands to SDK         |
+| `/background`             | Route background task controls to SDK                      |
+| `/plugin [subcommand]`    | Plugin management                                          |
+| `/resume`                 | Show session picker to resume a saved session              |
+| `/rename <name>`          | Rename the current session (name displayed in StatusBar)   |
+| `/exit`                   | Exit CLI                                                   |
 
 ### Slash Command Autocomplete
 
@@ -467,7 +468,7 @@ Commands are grouped by source with separators: built-in commands appear first, 
 
 ### `/model` — Model Change Flow
 
-The `/model` command lists available models as subcommands with the format `Claude Opus 4.6 (1M)`. Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-core`.
+The `/model` command is provided by the `@robota-sdk/agent-command-model` module that the Robota binary composes into `InteractiveSession`. The command lists available models as subcommands with the format `Claude Opus 4.6 (1M)`. Model definitions come through the SDK model command common API, which formats the `CLAUDE_MODELS` registry from `@robota-sdk/agent-core`.
 
 **Subcommand display:**
 
@@ -483,9 +484,10 @@ The `/model` command lists available models as subcommands with the format `Clau
 **Model change flow:**
 
 1. User selects a model from the subcommand list
-2. A `ConfirmPrompt` appears: "Change model to Claude Opus 4.6? The CLI will restart."
-3. If confirmed (Yes / `y`): settings are written to `~/.robota/settings.json` and the CLI exits (user restarts manually)
-4. If cancelled (No / `n`): returns to normal input
+2. The command returns a typed `model-change-requested` effect.
+3. The CLI renders a `ConfirmPrompt` from the generic command-effect path.
+4. If confirmed (Yes / `y`): settings are written to `~/.robota/settings.json` and the CLI exits so the next session uses the selected model
+5. If cancelled (No / `n`): returns to normal input
 
 ### ListPicker Component
 
@@ -504,7 +506,7 @@ A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a li
 
 ### ConfirmPrompt Component
 
-A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used by `/model` change and available for other yes/no confirmations.
+A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used by host-applied command effects such as `/model` change and available for other yes/no confirmations.
 
 **Props:**
 
@@ -594,12 +596,12 @@ interface ISlashCommand {
 
 ### Command Sources
 
-| Source   | Class                  | Owner                   | Description                                          |
-| -------- | ---------------------- | ----------------------- | ---------------------------------------------------- |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | Built-in commands with subcommands for /mode, /model |
-| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition     |
-| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)   |
-| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins          |
+| Source   | Class                  | Owner                   | Description                                                        |
+| -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------ |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /mode                        |
+| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /model |
+| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                 |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                        |
 
 ### Skill Discovery (Multi-Path)
 
@@ -1279,6 +1281,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-agent`      | Optional default `/agent` command module composed by the Robota binary                                                               |
 | `@robota-sdk/agent-command-compact`    | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-context`    | Default `/context` command module composed by the Robota binary                                                                      |
+| `@robota-sdk/agent-command-model`      | Default `/model` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-provider`   | Default `/provider` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |

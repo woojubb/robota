@@ -106,6 +106,9 @@ export {
   validateProviderProfile,
   validateProviderSetupValue,
   writeAutoCompactThresholdSetting,
+  buildModelCommandSubcommands,
+  MODEL_COMMAND_ARGUMENT_HINT,
+  MODEL_COMMAND_DESCRIPTION,
 } from './commands/index.js';
 export type {
   ICompactContextResult,
