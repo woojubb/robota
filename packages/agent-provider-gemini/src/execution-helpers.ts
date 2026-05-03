@@ -9,7 +9,7 @@ import type {
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
 import {
-  convertToGeminiFormat,
+  convertToGeminiRequestFormat,
   convertFromGeminiResponse,
   convertToolsToGeminiFormat,
 } from './message-converter';
@@ -29,30 +29,31 @@ export async function executeDirect(
   messages: TUniversalMessage[],
   options?: IChatOptions,
 ): Promise<TUniversalMessage> {
-  if (!options?.model) {
-    throw new Error(
-      'Model is required in IChatOptions. Please specify a model in defaultModel configuration.',
-    );
-  }
-
-  const geminiMessages = convertToGeminiFormat(messages);
-  const genConfig = buildGenerationConfig(
-    messages,
-    providerOptions.defaultResponseModalities,
-    providerOptions.imageCapableModels,
-    options,
-  );
-
-  const result = await client.models.generateContent(
-    buildGenerateContentRequest(options.model as string, geminiMessages, genConfig, options),
-  );
-
-  const convertedResponse = convertFromGeminiResponse(result);
+  const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
     messages,
     providerOptions.defaultResponseModalities,
     options?.google?.responseModalities,
   );
+
+  if (options?.onTextDelta && !responseModalities.includes('IMAGE')) {
+    return assembleStreamingChatResponse(client, providerOptions, messages, options);
+  }
+
+  const requestFormat = convertToGeminiRequestFormat(messages);
+  const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
+
+  const result = await client.models.generateContent(
+    buildGenerateContentRequest(
+      model,
+      requestFormat.contents,
+      genConfig,
+      options,
+      requestFormat.systemInstruction,
+    ),
+  );
+
+  const convertedResponse = convertFromGeminiResponse(result);
   if (responseModalities.includes('IMAGE') && !hasImagePart(convertedResponse.parts)) {
     throw new Error(
       'Gemini response did not include an image part while IMAGE modality was requested.',
@@ -70,6 +71,7 @@ export async function* executeDirectStream(
   messages: TUniversalMessage[],
   options?: IChatOptions,
 ): AsyncIterable<TUniversalMessage> {
+  const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
     messages,
     providerOptions.defaultResponseModalities,
@@ -78,27 +80,24 @@ export async function* executeDirectStream(
   if (responseModalities.includes('IMAGE')) {
     throw new Error('Google provider does not support streaming image modality responses.');
   }
-  if (!options?.model) {
-    throw new Error(
-      'Model is required in IChatOptions. Please specify a model in defaultModel configuration.',
-    );
-  }
 
-  const geminiMessages = convertToGeminiFormat(messages);
-  const genConfig = buildGenerationConfig(
-    messages,
-    providerOptions.defaultResponseModalities,
-    providerOptions.imageCapableModels,
-    options,
-  );
+  const requestFormat = convertToGeminiRequestFormat(messages);
+  const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
 
   const stream = await client.models.generateContentStream(
-    buildGenerateContentRequest(options.model as string, geminiMessages, genConfig, options),
+    buildGenerateContentRequest(
+      model,
+      requestFormat.contents,
+      genConfig,
+      options,
+      requestFormat.systemInstruction,
+    ),
   );
 
   for await (const chunk of stream) {
     const text = extractStreamText(chunk);
     if (text) {
+      options?.onTextDelta?.(text);
       yield {
         id: randomUUID(),
         role: 'assistant',
@@ -115,15 +114,55 @@ function buildGenerateContentRequest(
   contents: Content[],
   generationOptions: GenerateContentParameters['config'],
   options?: IChatOptions,
+  systemInstruction?: string,
 ): GenerateContentParameters {
   const config: GenerateContentParameters['config'] = { ...generationOptions };
   if (options?.tools && options.tools.length > 0) {
     config.tools = [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }];
   }
+  if (systemInstruction) {
+    config.systemInstruction = systemInstruction;
+  }
   return {
     model,
     contents,
     config,
+  };
+}
+
+function resolveGeminiModel(
+  providerOptions: IGeminiProviderOptions,
+  options?: IChatOptions,
+): string {
+  const model = options?.model ?? providerOptions.defaultModel;
+  if (!model) {
+    throw new Error(
+      'Model is required in chat options. Please specify a model in defaultModel configuration.',
+    );
+  }
+  return model;
+}
+
+async function assembleStreamingChatResponse(
+  client: GoogleGenAI,
+  providerOptions: IGeminiProviderOptions,
+  messages: TUniversalMessage[],
+  options: IChatOptions,
+): Promise<TUniversalMessage> {
+  const textParts: string[] = [];
+  for await (const chunk of executeDirectStream(client, providerOptions, messages, options)) {
+    if (typeof chunk.content === 'string') {
+      textParts.push(chunk.content);
+    }
+  }
+  const content = textParts.join('');
+  return {
+    id: randomUUID(),
+    role: 'assistant',
+    content,
+    parts: content.length > 0 ? [{ type: 'text', text: content }] : [],
+    state: 'complete',
+    timestamp: new Date(),
   };
 }
 

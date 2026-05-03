@@ -15,7 +15,10 @@ const agent = new Robota({
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
     new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
-    new GeminiProvider({ apiKey: process.env.GEMINI_API_KEY }),
+    new GeminiProvider({
+      apiKey: process.env.GEMINI_API_KEY,
+      defaultModel: 'gemini-3-flash-preview',
+    }),
     new GemmaProvider({
       apiKey: 'lm-studio',
       baseURL: 'http://localhost:1234/v1',
@@ -59,3 +62,4 @@ console.log('Qwen:', response);
 ```
 
 Conversation history is preserved across provider switches. The new provider sees the full context.
+For Gemini, Robota system messages are sent as Gemini `systemInstruction`; tool results are sent as Gemini `functionResponse` parts.
