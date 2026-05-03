@@ -1,6 +1,6 @@
 # Agent Follow-ups Implementation
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/agent-followups-implementation
 - **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-sessions, packages/agent-runtime, .agents
@@ -20,7 +20,7 @@ Implement the follow-up work promoted from backlog: fix the `/model` restart reg
 - [x] Harden worktree metadata, cleanup, and edge-case behavior.
 - [x] Add local-first reversible sandbox/rollback workflow built on checkpoints/worktrees.
 - [x] Run targeted verification for changed packages.
-- [ ] Prepare PR and merge into `develop`.
+- [x] Prepare PR and merge into `develop`.
 
 ## Progress
 
@@ -52,4 +52,6 @@ Run focused RED/GREEN tests for each behavior slice, then verify the affected mo
 
 ## Result
 
-Pending.
+Completed in PR #156 (`feat(agent): implement follow-up runtime fixes`). The remaining roadmap
+items with product scope are tracked independently by `worktree-support-hardening.md` and
+`reversible-agent-sandbox.md`.
