@@ -1,8 +1,7 @@
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { formatSupportedProviderTypes, type IProviderDefinition } from './provider-definition.js';
 import type { IParsedCliArgs } from './cli-args.js';
-import { checkSettingsFile } from './settings-check.js';
+import { checkSettingsDocument } from './settings-check.js';
 import { getUserSettingsPath, readSettings, writeSettings } from './settings-io.js';
 import { applyProviderConfiguration, applyProviderSwitch } from './provider-configuration.js';
 import { readMergedProviderSettings } from './provider-factory.js';
@@ -54,11 +53,10 @@ export async function ensureConfig(
   promptInput: TPromptInput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): Promise<void> {
-  const checks = getSettingsCheckPaths(cwd).map((path) => ({
-    path,
-    status: checkSettingsFile(path, providerDefinitions),
-  }));
-  if (checks.some((check) => check.status === 'valid')) {
+  const merged = readMergedProviderSettings(cwd);
+  const selectedSettings =
+    args.provider !== undefined ? { ...merged, currentProvider: args.provider } : merged;
+  if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
     return;
   }
   if (!isInteractiveTerminal()) {
@@ -103,17 +101,6 @@ function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
     ...(args.baseURL !== undefined && { baseURL: args.baseURL }),
     setCurrent: args.setCurrent,
   };
-}
-
-function getSettingsCheckPaths(cwd: string): string[] {
-  return [
-    getUserSettingsPath(),
-    join(homedir(), '.claude', 'settings.json'),
-    join(cwd, '.robota', 'settings.json'),
-    join(cwd, '.robota', 'settings.local.json'),
-    join(cwd, '.claude', 'settings.json'),
-    join(cwd, '.claude', 'settings.local.json'),
-  ];
 }
 
 function isInteractiveTerminal(): boolean {

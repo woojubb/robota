@@ -119,6 +119,28 @@ describe('checkSettingsFile', () => {
     expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
   });
 
+  it('does not let legacy provider config mask an unusable active provider profile', () => {
+    mkdirSync(TMP_BASE, { recursive: true });
+    const path = join(TMP_BASE, 'settings.json');
+    writeJson(path, {
+      currentProvider: 'qwen',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+      provider: {
+        name: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+      },
+    });
+
+    expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+  });
+
   it('returns incomplete when a required API key environment reference is unset', () => {
     mkdirSync(TMP_BASE, { recursive: true });
     const path = join(TMP_BASE, 'settings.json');
