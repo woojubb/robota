@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-command-agent": "workspace:*",
+    "@robota-sdk/agent-command-background": "workspace:*",
     "@robota-sdk/agent-command-compact": "workspace:*",
     "@robota-sdk/agent-command-context": "workspace:*",
     "@robota-sdk/agent-command-language": "workspace:*",

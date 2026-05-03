@@ -8,6 +8,7 @@
       "@robota-sdk/agent-sessions",
       "@robota-sdk/agent-sdk",
       "@robota-sdk/agent-command-agent",
+      "@robota-sdk/agent-command-background",
       "@robota-sdk/agent-command-compact",
       "@robota-sdk/agent-command-context",
       "@robota-sdk/agent-command-language",

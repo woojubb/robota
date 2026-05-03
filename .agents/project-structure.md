@@ -9,6 +9,7 @@ packages/
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-command-agent/         # Command module that contributes /agent
+├── agent-command-background/    # Command module that contributes /background
 ├── agent-command-compact/       # Command module that contributes /compact
 ├── agent-command-context/       # Command module that contributes /context
 ├── agent-command-language/      # Command module that contributes /language

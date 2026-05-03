@@ -18,6 +18,7 @@ Do not add a global `agent-*` coverage threshold yet. The package set includes c
 | ----------------------------------------------- | ----: | ------: | -------: | --------: | ---------: | ------------------------------ | ---------------------------------------------------- |
 | `@robota-sdk/agent-cli`                         |    57 |  70.28% |   77.78% |    82.32% |     70.28% | tested executable source       | UI shell and process entry paths remain low          |
 | `@robota-sdk/agent-command-agent`               |     1 |  79.57% |   76.27% |    75.00% |     79.57% | tested executable source       | Acceptable baseline                                  |
+| `@robota-sdk/agent-command-background`          |     1 | 100.00% |  100.00% |   100.00% |    100.00% | tested executable source       | Strong baseline                                      |
 | `@robota-sdk/agent-command-compact`             |     1 |  92.00% |   77.77% |    87.50% |     92.00% | tested executable source       | Good baseline                                        |
 | `@robota-sdk/agent-command-context`             |     1 |  85.23% |   81.57% |    92.85% |     85.23% | tested executable source       | Good baseline                                        |
 | `@robota-sdk/agent-command-language`            |     1 |  92.59% |   87.50% |    85.71% |     92.59% | tested executable source       | Good baseline                                        |

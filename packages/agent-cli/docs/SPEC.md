@@ -422,24 +422,24 @@ Tool: [5 tools]
 
 ## Slash Commands
 
-| Command                   | Description                                                |
-| ------------------------- | ---------------------------------------------------------- |
-| `/help`                   | Show available commands                                    |
-| `/clear`                  | Clear conversation history through the session module      |
-| `/mode [mode]`            | Show/change permission mode                                |
-| `/model [model]`          | Select AI model through the injected model command module  |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
-| `/compact [instructions]` | Compress context window                                    |
-| `/cost`                   | Show session info through the session command module       |
-| `/context`                | Context window info and `/context auto ...` controls       |
-| `/permissions`            | Permission rules                                           |
-| `/memory`                 | Route project memory commands to the memory command module |
-| `/rewind`                 | Route edit checkpoint list/restore commands to SDK         |
-| `/background`             | Route background task controls to SDK                      |
-| `/plugin [subcommand]`    | Plugin management                                          |
-| `/resume`                 | Show session picker to resume a saved session              |
-| `/rename <name>`          | Rename the current session (name displayed in StatusBar)   |
-| `/exit`                   | Exit CLI                                                   |
+| Command                   | Description                                                     |
+| ------------------------- | --------------------------------------------------------------- |
+| `/help`                   | Show available commands                                         |
+| `/clear`                  | Clear conversation history through the session module           |
+| `/mode [mode]`            | Show/change permission mode                                     |
+| `/model [model]`          | Select AI model through the injected model command module       |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts      |
+| `/compact [instructions]` | Compress context window                                         |
+| `/cost`                   | Show session info through the session command module            |
+| `/context`                | Context window info and `/context auto ...` controls            |
+| `/permissions`            | Permission rules                                                |
+| `/memory`                 | Route project memory commands to the memory command module      |
+| `/rewind`                 | Route edit checkpoint list/restore commands to SDK              |
+| `/background`             | Route background task controls to the background command module |
+| `/plugin [subcommand]`    | Plugin management                                               |
+| `/resume`                 | Show session picker to resume a saved session                   |
+| `/rename <name>`          | Rename the current session (name displayed in StatusBar)        |
+| `/exit`                   | Exit CLI                                                        |
 
 ### Slash Command Autocomplete
 
@@ -623,7 +623,7 @@ interface ISlashCommand {
 
 | Source   | Class                  | Owner                   | Description                                                                    |
 | -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------ |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /help and /background                    |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /help                                    |
 | Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /model and /memory |
 | Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                             |
 | Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                    |
@@ -1207,7 +1207,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 `TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
 
-`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time or timeout reason, and a short whitespace-normalized preview. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through SDK system commands:
+`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time or timeout reason, and a short whitespace-normalized preview. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through `@robota-sdk/agent-command-background`:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
