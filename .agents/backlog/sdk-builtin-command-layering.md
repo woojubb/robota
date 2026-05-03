@@ -19,7 +19,7 @@ The command layer should have one source of truth:
 
 ## Current Signals
 
-- `packages/agent-sdk/src/commands/system-command.ts` owns SDK-level command execution for commands such as `compact`, `context`, `memory`, `rewind`, and `background`.
+- `packages/agent-sdk/src/commands/system-command.ts` still owns SDK-level command execution for `/help`; most feature commands have moved into injected command modules.
 - `packages/agent-sdk/src/commands/builtin-source.ts` owns built-in command palette metadata separately from execution.
 - `packages/agent-cli/src/commands/slash-executor.ts` still hardcodes several command behaviors and returns `handled: false` for others so a later path can execute them.
 - `.agents/specs/agent-invocation-router.md` already states that built-in command modules should be injected by composition roots and should own their descriptors.
@@ -162,5 +162,5 @@ Research questions:
 
 1. Move to `.agents/tasks/SDK-BL-0XX-builtin-command-layering.md`.
 2. Start with the command inventory and classification matrix.
-3. Migrate one low-risk command group first, then migrate `/compact` lifecycle-sensitive behavior.
+3. Continue migrating the remaining host/plugin command groups.
 4. Remove duplicate metadata and switch ownership only after parity tests are green.

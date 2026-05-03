@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import { createBackgroundCommandModule } from '@robota-sdk/agent-command-background';
 import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
 import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
 import { createContextCommandModule } from '@robota-sdk/agent-command-context';
@@ -175,6 +176,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     createModeCommandModule(),
     createPermissionsCommandModule(),
     createLanguageCommandModule(),
+    createBackgroundCommandModule(),
     createMemoryCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),

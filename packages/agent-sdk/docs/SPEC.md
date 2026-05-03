@@ -130,7 +130,8 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── host-context.ts         ← ICommandHostContext narrow facade for command modules
 │   ├── host-adapters.ts        ← generic host adapter contracts
 │   ├── provider/               ← provider settings/profile/setup/probe common APIs
-│   └── session/                ← session-history command common APIs
+│   ├── session/                ← session-history command common APIs
+│   └── background/             ← background task command common APIs
 ├── src/commands/
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
 │   ├── builtin-source.ts       ← BuiltinCommandSource: command palette metadata derived from executable built-ins
@@ -268,6 +269,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Model common APIs**: `agent-sdk/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `/model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Language common APIs**: `agent-sdk/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `/language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
 - **Memory common APIs**: `agent-sdk/command-api/memory/` owns memory-command metadata constants, subcommand projection helpers, project/pending memory store facades, sensitive-content checks, used-memory reference reads, and memory-event recording helpers. `/memory` command behavior lives in `@robota-sdk/agent-command-memory` and consumes these APIs as an external command module.
+- **Background common APIs**: `agent-sdk/command-api/background/` owns background-command metadata constants, subcommand projection helpers, task-list/log formatting helpers, and list/read/cancel/close facades over `ICommandHostContext`. `/background` command behavior lives in `@robota-sdk/agent-command-background` and consumes these APIs as an external command module.
 - **Permission common APIs**: `agent-sdk/command-api/permissions/` owns permission-mode constants, descriptor subcommands, validation, permission-state reads, permission-state formatting, and command-facing adapter resolution. `/mode` command behavior lives in `@robota-sdk/agent-command-mode`; `/permissions` command behavior lives in `@robota-sdk/agent-command-permissions`. Both consume these APIs as external command modules.
 - **Statusline common APIs**: `agent-sdk/command-api/statusline/` owns statusline command metadata constants, subcommand projection helpers, default settings shape, typed settings patch contracts, and patch validation. `/statusline` command behavior lives in `@robota-sdk/agent-command-statusline` and emits typed host-applied effects instead of importing CLI settings utilities.
 - **Session common APIs**: `agent-sdk/command-api/session/` owns command-facing session-history helpers, session-name parsing, session-info reads, and effect factories for host-rendered history/name/picker state. `/clear`, `/rename`, `/resume`, and `/cost` command behavior lives in `@robota-sdk/agent-command-session` and consumes these APIs as an external command module.
@@ -287,7 +289,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
-- **SDK-default built-in commands**: `help`, `background`
+- **SDK-default built-in commands**: `help`
 - **Product-composed built-in command modules**: `/model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `/mode` is provided by `@robota-sdk/agent-command-mode`, reuses SDK permission-mode common APIs for validation/subcommand metadata, and updates permission mode through the command host adapter facade.
 - **Product-composed built-in command modules**: `/permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for state reads/formatting, and stays user-invocable only.
@@ -297,6 +299,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Product-composed built-in command modules**: `/reset` is provided by `@robota-sdk/agent-command-reset`. It emits `settings-reset-requested` so hosts apply concrete settings deletion and shutdown at their own adapter/UI boundary.
 - **Product-composed built-in command modules**: `/rewind` is provided by `@robota-sdk/agent-command-rewind`. It reuses SDK checkpoint command common APIs to list prompt-turn checkpoints, restore code to a selected checkpoint, or roll back through a selected checkpoint.
 - **Product-composed built-in command modules**: `/memory` is provided by `@robota-sdk/agent-command-memory`. It reuses SDK memory command common APIs to inspect project memory, save durable entries, review pending candidates, record memory audit events, and report memory provenance.
+- **Product-composed built-in command modules**: `/background` is provided by `@robota-sdk/agent-command-background`. It reuses SDK background command common APIs to list tasks, read logs, cancel queued/running work, and close terminal task records without SDK core embedding command registration.
 - **Product-composed built-in command modules**: `/context` is provided by `@robota-sdk/agent-command-context` and reports context window usage plus auto-compact policy through the SDK command host facade. `/context auto ...` uses the same common API layer to update the active session immediately and persist through host-provided settings adapters.
 - **Product-composed built-in command modules**: `/compact` is provided by `@robota-sdk/agent-command-compact`, declares blocking lifecycle metadata through the same `ISystemCommand` contract, and is exposed as a model-invocable `write` capability. Auto-compaction remains a deterministic session policy and emits structured compaction events instead of relying on the model to decide routine compaction.
 - **Model-invocable built-ins**: Product-composed command modules such as `/memory` and `/compact` expose descriptors so explicit user/model requests can execute through the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
@@ -1203,7 +1206,7 @@ Runner progress semantics:
 - progress events do not complete, fail, cancel, or close tasks; lifecycle remains manager-owned
 - progress and lifecycle events are diagnostic data, not just UI state; SDK composition must route them to session logging/persistence when those facilities are configured
 
-The built-in `/background` system command maps to these APIs:
+The product-composed `/background` command module maps to these APIs:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
