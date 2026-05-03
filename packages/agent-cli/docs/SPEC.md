@@ -629,12 +629,12 @@ interface ISlashCommand {
 
 ### Command Sources
 
-| Source   | Class                  | Owner                   | Description                                                                    |
-| -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------ |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default built-in commands such as /help                                    |
-| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /model and /memory |
-| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                             |
-| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                    |
+| Source   | Class                  | Owner                   | Description                                                                   |
+| -------- | ---------------------- | ----------------------- | ----------------------------------------------------------------------------- |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default infrastructure commands; currently empty                          |
+| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /help and /memory |
+| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                            |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                   |
 
 ### Skill Discovery (Multi-Path)
 
@@ -1317,6 +1317,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-compact`     | Default `/compact` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-context`     | Default `/context` command module composed by the Robota binary                                                                      |
 | `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                         |
+| `@robota-sdk/agent-command-help`        | Default `/help` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-command-mode`        | Default `/mode` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |

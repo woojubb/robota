@@ -6,7 +6,7 @@
  * - Discovered skills flow into buildSystemPrompt from agent-sdk
  * - Skills with disable-model-invocation are excluded from system prompt
  * - PluginCommandSource exposes loaded plugin skills as slash commands
- * - CommandRegistry aggregates builtin + skill + plugin sources
+ * - CommandRegistry aggregates command module + skill + plugin sources
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -21,7 +21,6 @@ import type { ILoadedBundlePlugin } from '../plugins/index.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { CommandRegistry } from '../commands/command-registry.js';
-import { BuiltinCommandSource } from '../commands/builtin-source.js';
 
 let tempDirs: string[] = [];
 
@@ -238,7 +237,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
     expect(commands[1]!.name).toBe('optimize');
   });
 
-  it('should aggregate builtin + skill + plugin sources in CommandRegistry', () => {
+  it('should aggregate command module + skill + plugin sources in CommandRegistry', () => {
     const tempDir = createTempDir();
 
     // Create a skill
@@ -255,7 +254,10 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
     ]);
 
     const registry = new CommandRegistry();
-    registry.addSource(new BuiltinCommandSource());
+    registry.addSource({
+      name: 'help',
+      getCommands: () => [{ name: 'help', description: 'Show available commands', source: 'help' }],
+    });
     registry.addSource(new SkillCommandSource(tempDir, tempDir));
     registry.addSource(new PluginCommandSource([plugin]));
 
@@ -263,12 +265,13 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
     // Should contain commands from all 3 sources
     const sources = new Set(allCommands.map((c) => c.source));
-    expect(sources.has('builtin')).toBe(true);
+    expect(sources.has('help')).toBe(true);
     expect(sources.has('skill')).toBe(true);
     expect(sources.has('plugin')).toBe(true);
 
     // Verify specific commands exist
     const names = allCommands.map((c) => c.name);
+    expect(names).toContain('help');
     expect(names).toContain('local-skill');
     expect(names).toContain('ext-skill');
 

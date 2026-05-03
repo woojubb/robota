@@ -115,6 +115,8 @@ export {
   validateProviderProfile,
   validateProviderSetupValue,
   writeAutoCompactThresholdSetting,
+  formatCommandHelpMessage,
+  HELP_COMMAND_DESCRIPTION,
   buildModelCommandSubcommands,
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,

@@ -31,27 +31,6 @@ export interface ISlashResult {
   exitRequested?: boolean;
 }
 
-export const HELP_TEXT = [
-  'Available commands:',
-  '  /help              — Show this help',
-  '  /clear             — Clear conversation',
-  '  /compact [instr]   — Compact context (optional focus instructions)',
-  '  /mode [m]          — Show/change permission mode',
-  '  /language [lang]   — Set response language (ko, en, ja, zh)',
-  '  /cost              — Show session info',
-  '  /resume            — Resume a previous session',
-  '  /background        — List/cancel/close background tasks',
-  '  /rewind            — List or restore edit checkpoints',
-  '  /rename <name>     — Rename the current session',
-  '  /reset             — Delete settings and exit',
-  '  /exit              — Exit CLI',
-].join('\n');
-
-export function handleHelp(addMessage: TAddMessage): ISlashResult {
-  addMessage({ role: 'system', content: HELP_TEXT });
-  return { handled: true };
-}
-
 export function handleContext(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
   const ctx = session.getContextState();
   addMessage({
@@ -71,8 +50,6 @@ export async function executeSlashCommand(
   registry: CommandRegistry,
 ): Promise<ISlashResult> {
   switch (cmd) {
-    case 'help':
-      return handleHelp(addMessage);
     case 'compact':
       return { handled: false }; // Route to SDK system command (context compaction)
     case 'mode':

@@ -14,6 +14,7 @@ import { createProviderCommandModule } from '@robota-sdk/agent-command-provider'
 import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
 import { createContextCommandModule } from '@robota-sdk/agent-command-context';
 import { createExitCommandModule } from '@robota-sdk/agent-command-exit';
+import { createHelpCommandModule } from '@robota-sdk/agent-command-help';
 import { createLanguageCommandModule } from '@robota-sdk/agent-command-language';
 import { createMemoryCommandModule } from '@robota-sdk/agent-command-memory';
 import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
@@ -175,6 +176,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
+    createHelpCommandModule(),
     createModelCommandModule(),
     createModeCommandModule(),
     createPermissionsCommandModule(),

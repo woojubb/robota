@@ -21,7 +21,6 @@ import type { THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { CommandRegistry } from '../commands/command-registry.js';
-import { BuiltinCommandSource } from '../commands/builtin-source.js';
 import { executeSkill } from '../commands/skill-executor.js';
 import type { IForkExecutionOptions } from '../commands/skill-executor.js';
 import { substituteVariables } from '../utils/skill-prompt.js';
@@ -583,7 +582,10 @@ describe('E2E: CommandRegistry aggregation', () => {
 
     // Build registry with all three sources
     const registry = new CommandRegistry();
-    registry.addSource(new BuiltinCommandSource());
+    registry.addSource({
+      name: 'help',
+      getCommands: () => [{ name: 'help', description: 'Show available commands', source: 'help' }],
+    });
     registry.addSource(new SkillCommandSource(projectDir, projectDir));
     registry.addSource(new PluginCommandSource(plugins));
 
@@ -591,12 +593,13 @@ describe('E2E: CommandRegistry aggregation', () => {
 
     // Verify all three sources are represented
     const sources = new Set(allCommands.map((c) => c.source));
-    expect(sources.has('builtin')).toBe(true);
+    expect(sources.has('help')).toBe(true);
     expect(sources.has('skill')).toBe(true);
     expect(sources.has('plugin')).toBe(true);
 
     // Verify specific commands
     const names = allCommands.map((c) => c.name);
+    expect(names).toContain('help');
     expect(names).toContain('fs-skill');
     expect(names).toContain('plugin-skill');
 
