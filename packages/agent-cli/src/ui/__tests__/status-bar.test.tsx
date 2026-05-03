@@ -58,6 +58,19 @@ describe('StatusBar', () => {
     expect(frame.indexOf('Activity:')).toBeLessThan(frame.indexOf('Mode:'));
   });
 
+  it('restores the lower-right prompt-processing indicator while thinking', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} isThinking={true} />);
+    const frame = lastFrame()!;
+    expect(frame).toContain('thinking...');
+    expect(frame.indexOf('thinking...')).toBeGreaterThan(frame.indexOf('Context:'));
+  });
+
+  it('hides the lower-right prompt-processing indicator while idle', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} isThinking={false} />);
+    const frame = lastFrame()!;
+    expect(frame).not.toContain('thinking...');
+  });
+
   it('prioritizes tool activity in the primary scan path', () => {
     const { lastFrame } = render(
       <StatusBar
@@ -72,6 +85,7 @@ describe('StatusBar', () => {
     expect(frame).toContain('Activity:');
     expect(frame).toContain('Tools x2');
     expect(frame).toContain('queued');
+    expect(frame).toContain('thinking...');
     expect(frame.indexOf('Tools x2')).toBeLessThan(frame.indexOf('Mode:'));
     expect(frame).not.toContain('Thinking...');
   });

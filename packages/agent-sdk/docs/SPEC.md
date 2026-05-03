@@ -1342,15 +1342,16 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 The parent session exposes an `Agent` function tool with parameters:
 
-| Parameter       | Type                   | Required | Description                                             |
-| --------------- | ---------------------- | -------- | ------------------------------------------------------- |
-| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session              |
-| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted  |
-| `model`         | `string`               | No       | Optional model override for this invocation             |
-| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree |
-| `jobs`          | `AgentJob[]`           | No       | Batch of subagent jobs to start in one tool call        |
+| Parameter       | Type                   | Required | Description                                                       |
+| --------------- | ---------------------- | -------- | ----------------------------------------------------------------- |
+| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session                        |
+| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted            |
+| `model`         | `string`               | No       | Optional model override for this invocation                       |
+| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree           |
+| `jobs`          | `AgentJob[]`           | No       | Batch of subagent jobs to start in one tool call                  |
+| `jobs[].label`  | `string`               | No       | Stable role label for a batch job, e.g. `developer` or `reviewer` |
 
-When `jobs` is present and non-empty, the Agent tool runs in batch mode. Each `AgentJob` contains `prompt` plus optional `subagent_type`, `model`, and `isolation`. Batch mode starts all valid jobs before waiting for terminal results, returns one structured result per requested job, and includes a shared `groupId`/`agentIds` provenance envelope. The single-job fields remain supported for backwards compatibility.
+When `jobs` is present and non-empty, the Agent tool runs in batch mode. Each `AgentJob` contains `prompt` plus optional `label`, `subagent_type`, `model`, and `isolation`. Batch mode starts all valid jobs before waiting for terminal results, returns one structured result per requested job, and includes a shared `groupId`/`agentIds` provenance envelope. The result must also expose `mode`, `requestedJobCount`, `startedJobCount`, `failedJobCount`, and a `provenance` object so session logs and parent-response checks can distinguish one batch tool call from separate single-job calls. Model-visible tool instructions must require final user-facing claims to be based on those returned mode/count fields; the assistant must not claim parallel or multi-agent execution unless the result proves those jobs started. The single-job fields remain supported for backwards compatibility and return `mode: "single"` plus matching count/provenance fields.
 
 Unknown extra tool-call arguments are tolerated by the Agent tool runtime for provider compatibility, but they are not part of the public Agent parameter contract.
 
