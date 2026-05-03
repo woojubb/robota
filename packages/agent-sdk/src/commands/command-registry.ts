@@ -11,6 +11,13 @@ export class CommandRegistry {
     this.sources.push(source);
   }
 
+  replaceSource(name: string, source?: ICommandSource): void {
+    this.sources = this.sources.filter((candidate) => candidate.name !== name);
+    if (source !== undefined) {
+      this.sources.push(source);
+    }
+  }
+
   addModule(module: ICommandModule): void {
     for (const source of module.commandSources ?? []) {
       this.addSource(source);

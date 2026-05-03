@@ -25,6 +25,7 @@ import {
   listCommandBackgroundTasks,
   parseCommandBackgroundLogCursor,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
+  createPluginRegistryReloadRequestedEffect,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
   hasSensitiveCommandMemoryContent,
@@ -307,7 +308,7 @@ describe('command-api contracts', () => {
       marketplaceRemove: async () => undefined,
       marketplaceUpdate: async () => undefined,
       marketplaceList: async () => [],
-      reloadPlugins: async () => undefined,
+      reloadPlugins: async () => ({ loadedPluginCount: 0 }),
     };
     const context = {
       ...createCommandHostContext(),
@@ -325,6 +326,9 @@ describe('command-api contracts', () => {
       'marketplace',
     ]);
     expect(createPluginTuiRequestedEffect()).toEqual({ type: 'plugin-tui-requested' });
+    expect(createPluginRegistryReloadRequestedEffect()).toEqual({
+      type: 'plugin-registry-reload-requested',
+    });
     expect(resolvePluginCommandAdapter(context)).toBe(pluginAdapter);
   });
 });

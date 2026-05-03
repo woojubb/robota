@@ -5,7 +5,7 @@ import type {
 } from '@robota-sdk/agent-sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { createPluginCommandModule } from '../plugin-command-module.js';
-import { executePluginCommand } from '../plugin-command.js';
+import { executePluginCommand, executeReloadPluginsCommand } from '../plugin-command.js';
 
 function createPluginAdapter(overrides?: Partial<ICommandPluginAdapter>): ICommandPluginAdapter {
   return {
@@ -19,7 +19,7 @@ function createPluginAdapter(overrides?: Partial<ICommandPluginAdapter>): IComma
     marketplaceRemove: vi.fn().mockResolvedValue(undefined),
     marketplaceUpdate: vi.fn().mockResolvedValue(undefined),
     marketplaceList: vi.fn().mockResolvedValue([]),
-    reloadPlugins: vi.fn().mockResolvedValue(undefined),
+    reloadPlugins: vi.fn().mockResolvedValue({ loadedPluginCount: 2 }),
     ...overrides,
   };
 }
@@ -87,7 +87,7 @@ function createCommandHostContext(adapter?: ICommandPluginAdapter): ICommandHost
 }
 
 describe('createPluginCommandModule', () => {
-  it('contributes /plugin command metadata and executable command', () => {
+  it('contributes plugin command metadata and executable commands', () => {
     const module = createPluginCommandModule();
 
     expect(module.name).toBe('agent-command-plugin');
@@ -99,8 +99,17 @@ describe('createPluginCommandModule', () => {
         modelInvocable: false,
         argumentHint: expect.stringContaining('install'),
       }),
+      expect.objectContaining({
+        name: 'reload-plugins',
+        description: 'Reload all plugin resources',
+        source: 'plugin-manager',
+        modelInvocable: false,
+      }),
     ]);
-    expect(module.systemCommands?.map((command) => command.name)).toEqual(['plugin']);
+    expect(module.systemCommands?.map((command) => command.name)).toEqual([
+      'plugin',
+      'reload-plugins',
+    ]);
     expect(module.systemCommands?.[0]?.lifecycle).toBe('inline');
   });
 });
@@ -169,6 +178,36 @@ describe('executePluginCommand', () => {
     await expect(executePluginCommand(createCommandHostContext(), 'disable')).resolves.toEqual({
       success: false,
       message: 'Usage: /plugin disable <name>@<marketplace>',
+    });
+  });
+});
+
+describe('executeReloadPluginsCommand', () => {
+  it('reloads plugins through the adapter and requests registry refresh', async () => {
+    const adapter = createPluginAdapter({
+      reloadPlugins: vi.fn().mockResolvedValue({ loadedPluginCount: 3 }),
+    });
+
+    await expect(
+      executeReloadPluginsCommand(createCommandHostContext(adapter), ''),
+    ).resolves.toEqual({
+      success: true,
+      message: 'Reloaded 3 plugin resources.',
+      effects: [{ type: 'plugin-registry-reload-requested' }],
+    });
+    expect(adapter.reloadPlugins).toHaveBeenCalled();
+  });
+
+  it('reports reload failures instead of returning placeholder success', async () => {
+    const adapter = createPluginAdapter({
+      reloadPlugins: vi.fn().mockRejectedValue(new Error('manifest failed')),
+    });
+
+    await expect(
+      executeReloadPluginsCommand(createCommandHostContext(adapter), ''),
+    ).resolves.toEqual({
+      success: false,
+      message: 'Plugin error: manifest failed',
     });
   });
 });

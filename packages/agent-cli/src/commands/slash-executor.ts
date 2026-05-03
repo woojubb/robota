@@ -96,7 +96,7 @@ export async function executeSlashCommand(
     case 'exit':
       return { handled: false }; // Route to injected exit command (host shutdown effect)
     case 'reload-plugins':
-      return { handled: false }; // Route to CLI host command until migrated.
+      return { handled: false }; // Route to injected plugin command (reload plugin resources)
     case 'resume':
       return { handled: false }; // Route to system command (triggers session picker)
     case 'rename':
