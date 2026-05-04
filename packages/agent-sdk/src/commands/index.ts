@@ -39,15 +39,23 @@ export type {
 } from '../command-api/provider/provider-command-types.js';
 export type {
   ICompactContextResult,
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
   TAutoCompactThreshold,
 } from '../command-api/context/context-command-api.js';
 export {
   AUTO_COMPACT_THRESHOLD_SETTINGS_KEY,
+  addCommandContextReference,
+  clearCommandContextReferences,
   compactCommandContext,
   DEFAULT_AUTO_COMPACT_THRESHOLD,
+  listCommandContextReferences,
   readAutoCompactThreshold,
   readAutoCompactThresholdSource,
   readCommandContextState,
+  removeCommandContextReference,
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
   writeAutoCompactThresholdSetting,

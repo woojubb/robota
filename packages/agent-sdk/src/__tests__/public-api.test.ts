@@ -5,7 +5,11 @@ describe('agent-sdk public API', () => {
   it('exposes SDK-owned prompt file-reference helpers', () => {
     expect(typeof sdk.parsePromptFileReferences).toBe('function');
     expect(typeof sdk.resolvePromptFileReferences).toBe('function');
+    expect(typeof sdk.resolvePromptFileReferencePaths).toBe('function');
     expect(typeof sdk.buildPromptWithFileReferences).toBe('function');
+    expect(typeof sdk.listCommandContextReferences).toBe('function');
+    expect(typeof sdk.addCommandContextReference).toBe('function');
+    expect(typeof sdk.createContextReferenceItem).toBe('function');
   });
 
   it('does not expose automatic memory orchestration from the top-level package', () => {

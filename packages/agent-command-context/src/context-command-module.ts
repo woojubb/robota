@@ -9,11 +9,15 @@ import { executeContextCommand } from './context-command.js';
 export function createContextCommandEntry(): ICommand {
   return {
     name: 'context',
-    description: 'Context window info and auto-compact controls',
+    description: 'Context window info, reference inventory, and auto-compact controls',
     source: 'context',
     modelInvocable: false,
-    argumentHint: 'auto on | off | <percent> | reset',
+    argumentHint: 'list | add <path> | remove <path> | clear | auto ...',
     subcommands: [
+      { name: 'list', description: 'List loaded context references', source: 'context' },
+      { name: 'add', description: 'Add a file to active context references', source: 'context' },
+      { name: 'remove', description: 'Remove a context reference', source: 'context' },
+      { name: 'clear', description: 'Clear context references', source: 'context' },
       { name: 'auto', description: 'Inspect or change auto-compact policy', source: 'context' },
     ],
   };

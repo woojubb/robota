@@ -74,9 +74,9 @@ import {
   buildResult,
   buildInterruptedResult,
   createUsageSummaryEntry,
-  persistSession,
   preparePromptInput,
 } from './interactive-session-execution.js';
+import { persistSession } from './interactive-session-persistence.js';
 import {
   STREAMING_FLUSH_INTERVAL_MS,
   pushToolSummaryToHistory,
@@ -95,6 +95,21 @@ import type {
 } from './interactive-session-init.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type {
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from '../context/context-reference-inventory.js';
+import {
+  clearContextReferences,
+  removeContextReference,
+} from '../context/context-reference-inventory.js';
+import {
+  addInteractiveContextReference,
+  recordInteractiveContextReferences,
+} from './interactive-session-context-references.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
   IEditCheckpointInspection,
@@ -133,6 +148,7 @@ export class InteractiveSession {
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
   private memoryEvents: IMemoryEvent[] = [];
   private usedMemoryReferences: IMemoryReference[] = [];
+  private contextReferences: IContextReferenceItem[] = [];
   private editCheckpointStore: EditCheckpointStore | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
@@ -189,6 +205,7 @@ export class InteractiveSession {
       this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
       this.memoryEvents = restored.memoryEvents;
       this.usedMemoryReferences = restored.usedMemoryReferences;
+      this.contextReferences = restored.contextReferences;
       this.pendingRestoreMessages = restored.pendingRestoreMessages;
     }
 
@@ -493,6 +510,35 @@ export class InteractiveSession {
     this.persistCurrentSession();
   }
 
+  listContextReferences(): IContextReferenceItem[] {
+    return [...this.contextReferences];
+  }
+
+  async addContextReference(path: string): Promise<IContextReferenceAddResult> {
+    const { references, result } = await addInteractiveContextReference(
+      this.contextReferences,
+      path,
+      this.getCwd(),
+    );
+    this.contextReferences = references;
+    this.persistCurrentSession();
+    return result;
+  }
+
+  removeContextReference(path: string): IContextReferenceRemoveResult {
+    const result = removeContextReference(this.contextReferences, path);
+    this.contextReferences = result.references;
+    this.persistCurrentSession();
+    return result.result;
+  }
+
+  clearContextReferences(): IContextReferenceClearResult {
+    const result = clearContextReferences(this.contextReferences);
+    this.contextReferences = [];
+    this.persistCurrentSession();
+    return result;
+  }
+
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[] {
     return this.getBackgroundTaskManagerOrThrow().list(filter);
   }
@@ -779,6 +825,9 @@ export class InteractiveSession {
         events: this.memoryEvents,
         usedReferences: this.usedMemoryReferences,
       },
+      {
+        references: this.contextReferences,
+      },
     );
   }
 
@@ -909,10 +958,17 @@ export class InteractiveSession {
     this.usedMemoryReferences = [];
 
     try {
-      const preparedPrompt = await preparePromptInput(input, this.getCwd(), rawInput);
+      const preparedPrompt = await preparePromptInput(
+        input,
+        this.getCwd(),
+        rawInput,
+        this.contextReferences,
+      );
       if (preparedPrompt.promptFileReferenceEntry) {
         this.history.push(preparedPrompt.promptFileReferenceEntry);
       }
+      this.recordContextReferenceUsage(preparedPrompt.activeContextReferenceRecords);
+      this.recordPromptContextReferences(preparedPrompt.promptFileReferenceRecords);
 
       await this.beginEditCheckpointTurn(displayInput ?? input);
       const response = await this.getSessionOrThrow().run(
@@ -970,6 +1026,22 @@ export class InteractiveSession {
         setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
     }
+  }
+
+  private recordContextReferenceUsage(records: readonly IPromptFileReferenceRecord[]): void {
+    this.contextReferences = recordInteractiveContextReferences(this.contextReferences, records, {
+      loadType: 'manual',
+      status: 'active',
+    });
+    this.persistCurrentSession();
+  }
+
+  private recordPromptContextReferences(records: readonly IPromptFileReferenceRecord[]): void {
+    this.contextReferences = recordInteractiveContextReferences(this.contextReferences, records, {
+      loadType: 'prompt-reference',
+      status: 'observed',
+    });
+    this.persistCurrentSession();
   }
 
   private getEditCheckpointStore(): EditCheckpointStore {
