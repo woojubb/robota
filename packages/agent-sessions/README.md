@@ -48,22 +48,22 @@ await session.compact('Focus on the API changes');
 
 ## Key Methods
 
-| Method                                            | Description                                              |
-| ------------------------------------------------- | -------------------------------------------------------- |
-| `constructor(options)` (with `sessionId`)         | Accepts optional `sessionId` for deterministic IDs       |
-| `run(message)`                                    | Send a message, returns AI response                      |
-| `injectMessage(message)`                          | Inject a message into history without running the agent  |
-| `compact(instructions?)`                          | Compress conversation via LLM summary                    |
+| Method                                            | Description                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------ |
+| `constructor(options)` (with `sessionId`)         | Accepts optional `sessionId` for deterministic IDs                 |
+| `run(message)`                                    | Send a message, returns AI response                                |
+| `injectMessage(message)`                          | Inject a message into history without running the agent            |
+| `compact(instructions?)`                          | Compress conversation via LLM summary                              |
 | `getContextState()`                               | Effective token usage: `{ usedTokens, maxTokens, usedPercentage }` |
-| `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled  |
-| `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                              |
-| `getHistory()` / `clearHistory()`                 | Access or clear conversation history                     |
-| `abort()`                                         | Cancel running execution                                 |
-| `isRunning()`                                     | Returns true if a `run()` call is in progress            |
-| `getSessionId()`                                  | Returns the stable session identifier                    |
-| `getMessageCount()`                               | Returns the number of completed `run()` calls            |
-| `getSessionAllowedTools()`                        | Tools approved for this session                          |
-| `clearSessionAllowedTools()`                      | Clears all session-scoped allow rules                    |
+| `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled            |
+| `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                                        |
+| `getHistory()` / `clearHistory()`                 | Access or clear conversation history                               |
+| `abort()`                                         | Cancel running execution                                           |
+| `isRunning()`                                     | Returns true if a `run()` call is in progress                      |
+| `getSessionId()`                                  | Returns the stable session identifier                              |
+| `getMessageCount()`                               | Returns the number of completed `run()` calls                      |
+| `getSessionAllowedTools()`                        | Tools approved for this session                                    |
+| `clearSessionAllowedTools()`                      | Clears all session-scoped allow rules                              |
 
 ## Public API Surface
 
@@ -85,6 +85,7 @@ await session.compact('Focus on the API changes');
 | `ISessionLogger`         | Interface | Pluggable session event logger interface                     |
 | `TSessionLogData`        | Type      | Structured log event data                                    |
 | `ISessionRecord`         | Interface | Persisted session record shape (includes `history` field)    |
+| `ISessionStore`          | Interface | Minimal persistence port implemented by `SessionStore`       |
 | `IContextWindowState`    | Type      | Context window usage state (re-exported from agent-core)     |
 
 Note: `IPermissionEnforcerOptions` is an internal type and is not exported from the public API.

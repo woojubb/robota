@@ -44,6 +44,14 @@ export interface ISessionRecord {
   usedMemoryReferences?: unknown[];
 }
 
+/** Minimal persistence port consumed by Session. */
+export interface ISessionStore {
+  save(session: ISessionRecord): void;
+  load(id: string): ISessionRecord | undefined;
+  list(): ISessionRecord[];
+  delete(id: string): void;
+}
+
 /**
  * Return the current user home directory.
  * Reads process.env.HOME at call time so tests can override it.
@@ -57,7 +65,7 @@ function getHomeDir(): string {
  *
  * Construct with a custom `baseDir` to redirect storage (useful in tests).
  */
-export class SessionStore {
+export class SessionStore implements ISessionStore {
   private readonly baseDir: string;
 
   constructor(baseDir?: string) {

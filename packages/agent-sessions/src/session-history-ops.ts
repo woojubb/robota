@@ -13,7 +13,7 @@ import type {
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
-import type { SessionStore, ISessionRecord } from './session-store.js';
+import type { ISessionRecord, ISessionStore } from './session-store.js';
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
@@ -105,7 +105,7 @@ export interface IPersistContext {
   cwd: string;
   systemPrompt: string;
   toolSchemas: IToolSchema[];
-  sessionStore: SessionStore;
+  sessionStore: ISessionStore;
   robota: Robota;
   getFullHistory: () => Array<{
     id: string;

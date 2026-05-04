@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
-import { SessionStore } from '@robota-sdk/agent-sessions';
 import { InteractiveSession } from '../interactive-session.js';
+import { createProjectSessionStore } from '../session-persistence.js';
 import { ProjectMemoryStore } from '../../memory/project-memory-store.js';
 
 const TMP_BASE = join(tmpdir(), `robota-interactive-memory-${process.pid}`);
@@ -51,7 +51,7 @@ describe('InteractiveSession memory command integration', () => {
   it('Given a memory cue When a turn completes Then no hidden pending memory is created', async () => {
     const cwd = makeProject();
     const provider = createProvider('noted');
-    const sessionStore = new SessionStore(join(cwd, '.robota', 'sessions'));
+    const sessionStore = createProjectSessionStore(cwd);
     const session = new InteractiveSession({
       cwd,
       provider,

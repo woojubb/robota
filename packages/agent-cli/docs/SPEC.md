@@ -47,7 +47,7 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 1. Reads config to determine which provider profile to use.
 2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
 3. Creates the provider instance by calling `definition.createProvider(config)`.
-4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files.
+4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files. Session persistence is passed only through SDK-owned facade types.
 5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ### Provider Profile Creation
@@ -905,7 +905,7 @@ When `--resume` is used without a value, a `ListPicker` overlay is shown with al
 
 ### Session Storage
 
-The CLI constructs `SessionStore` with the current project path `.robota/sessions`, not the generic user-level default. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
+The CLI asks `@robota-sdk/agent-sdk` for a project-local session persistence facade rooted at `.robota/sessions`, not the generic user-level default. The CLI must not import `SessionStore` or `ISessionRecord` from `@robota-sdk/agent-sessions`; it may only consume SDK-owned store and resumable-session summary types. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
 
 ## Tool Output Limits
 

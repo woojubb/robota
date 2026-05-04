@@ -1,6 +1,6 @@
 # Agent CLI Architecture Map
 
-Source-verified against `origin/develop` at `35ae9b46c0c7` on 2026-05-04.
+Source-verified against the `fix/cli-session-store-boundary` working tree on 2026-05-05.
 
 This document is the LLM-scannable master map for how `@robota-sdk/agent-cli` is
 assembled. Package `SPEC.md` files remain the source of truth for ownership
@@ -36,7 +36,6 @@ flowchart TD
   CLI --> Providers
   CLI --> Core
   CLI --> Headless
-  CLI -. "current audit violation: SessionStore" .-> Sessions
 
   Commands --> SDK
   Commands --> Core
@@ -53,17 +52,17 @@ flowchart TD
   Headless --> SDK
 ```
 
-| Edge | Status | Rule |
-| --- | --- | --- |
-| CLI -> SDK | Allowed | CLI consumes `InteractiveSession`, command registries, command contracts, and SDK path helpers. |
-| CLI -> command packages | Allowed | Product composition root selects default command modules. |
-| CLI -> provider packages | Allowed | CLI owns provider definition composition and provider instance creation. |
-| CLI -> agent-core public types | Allowed | CLI may use public provider, permission, history, and message types. |
-| CLI -> headless transport | Allowed | Print mode attaches a transport to `InteractiveSession`. |
-| CLI -> agent-sessions | Forbidden by CLI SPEC | Current code imports `SessionStore`; see audit finding `CLI-AUDIT-001`. |
-| SDK -> command packages | Forbidden | SDK owns contracts/common APIs and must not import command implementations. No source edge found. |
-| command packages -> CLI/TUI | Forbidden | Commands consume SDK contracts and host adapters only. No source edge found. |
-| provider packages -> Robota commands/TUI | Forbidden | Providers translate provider wire formats only. No source edge found in this audit. |
+| Edge                                     | Status                | Rule                                                                                                                                        |
+| ---------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI -> SDK                               | Allowed               | CLI consumes `InteractiveSession`, command registries, command contracts, SDK path helpers, and SDK-owned session persistence facade types. |
+| CLI -> command packages                  | Allowed               | Product composition root selects default command modules.                                                                                   |
+| CLI -> provider packages                 | Allowed               | CLI owns provider definition composition and provider instance creation.                                                                    |
+| CLI -> agent-core public types           | Allowed               | CLI may use public provider, permission, history, and message types.                                                                        |
+| CLI -> headless transport                | Allowed               | Print mode attaches a transport to `InteractiveSession`.                                                                                    |
+| CLI -> agent-sessions                    | Forbidden by CLI SPEC | No production source or package dependency should exist; harness command layering scan enforces this edge.                                  |
+| SDK -> command packages                  | Forbidden             | SDK owns contracts/common APIs and must not import command implementations. No source edge found.                                           |
+| command packages -> CLI/TUI              | Forbidden             | Commands consume SDK contracts and host adapters only. No source edge found.                                                                |
+| provider packages -> Robota commands/TUI | Forbidden             | Providers translate provider wire formats only. No source edge found in this audit.                                                         |
 
 ## CLI Composition Tree
 
@@ -105,7 +104,7 @@ packages/agent-cli/src/bin.ts
    |- create runtime adapters
    |  |- managed shell background runner
    |  `- child-process subagent runner factory
-   |- create SessionStore for resume/persistence (audit violation)
+   |- createProjectSessionStore(cwd) from SDK for resume/persistence facade
    |- if -p print mode
    |  |- new InteractiveSession({ cwd, provider, commandModules, commandHostAdapters, ... })
    |  |- createHeadlessTransport({ outputFormat, prompt })
@@ -167,15 +166,15 @@ flowchart LR
   HostAdapters --> Module
 ```
 
-| Responsibility | Owner |
-| --- | --- |
-| Slash prefix detection and unknown-command rendering | `agent-cli` |
-| Command metadata, subcommands, lifecycle policy, interactions, effects | Owning `agent-command-*` package |
-| Command contracts, registry, executor, effect/interactions types | `agent-sdk` |
-| Reusable command common APIs and ports | `agent-sdk/src/command-api/*` |
-| Host persistence, local process actions, UI shell actions | `agent-cli` host adapters and TUI effect handlers |
-| Provider setup semantics for `/provider` | `agent-command-provider` consuming SDK provider common APIs |
-| Model-change request semantics for `/model` | `agent-command-model` consuming SDK model common APIs |
+| Responsibility                                                         | Owner                                                       |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Slash prefix detection and unknown-command rendering                   | `agent-cli`                                                 |
+| Command metadata, subcommands, lifecycle policy, interactions, effects | Owning `agent-command-*` package                            |
+| Command contracts, registry, executor, effect/interactions types       | `agent-sdk`                                                 |
+| Reusable command common APIs and ports                                 | `agent-sdk/src/command-api/*`                               |
+| Host persistence, local process actions, UI shell actions              | `agent-cli` host adapters and TUI effect handlers           |
+| Provider setup semantics for `/provider`                               | `agent-command-provider` consuming SDK provider common APIs |
+| Model-change request semantics for `/model`                            | `agent-command-model` consuming SDK model common APIs       |
 
 Forbidden shortcuts:
 
@@ -261,7 +260,7 @@ Interactive mode currently supports:
 - generic `ICommandInteraction` rendering;
 - typed `TCommandEffect` application;
 - skill and plugin command discovery through SDK command sources;
-- session resume/fork/name flows through a `SessionStore` created by CLI (audit violation).
+- session resume/fork/name flows through SDK-owned session persistence facade and summaries.
 
 ### Non-Interactive Print Mode
 
@@ -293,40 +292,42 @@ this section must be updated in the same PR.
 
 ## Class and Interface Inventory
 
-| Item | Owner | Layer | Inbound consumers | Outbound dependencies | Responsibility |
-| --- | --- | --- | --- | --- | --- |
-| `startCli()` | `agent-cli/src/cli.ts` | Product shell | binary entrypoint, embedders | SDK, command packages, providers, headless transport, settings I/O | Parse flags, compose providers/modules/adapters, choose interactive or print mode. |
-| `renderApp()` | `agent-cli/src/ui/render.tsx` | UI shell | `startCli()` | React, Ink, `App` | Start Ink app and process exit handling. |
-| `App` / `AppInner` | `agent-cli/src/ui/App.tsx` | UI shell | `renderApp()` | CLI hooks and components | Compose TUI state, prompts, plugin UI, session picker, status bar. |
-| `useInteractiveSession()` | `agent-cli/src/ui/hooks/useInteractiveSession.ts` | React-SDK bridge | `AppInner` | `InteractiveSession`, `CommandRegistry`, `TuiStateManager` | Create the SDK session once and subscribe SDK events to render state. |
-| `useSlashRouting()` | `agent-cli/src/ui/hooks/useSlashRouting.ts` | UI command routing | `useInteractiveSession()` | `InteractiveSession`, `CommandRegistry` | Parse leading slash, call SDK command execution, route skill/plugin fallback. |
-| `useSideEffects()` | `agent-cli/src/ui/hooks/useSideEffects.ts` | UI effect application | `AppInner` | CLI settings/UI adapters, `InteractiveSession` | Render generic interactions and apply typed command effects. |
-| `TuiStateManager` | `agent-cli/src/ui/tui-state-manager.ts` | UI state projection | `useInteractiveSession()` | agent-core history/context types | Convert SDK events into stable render state. |
-| `ICommandModule` | `agent-sdk/src/command-api/command-module.ts` | SDK command contract | command packages, CLI, SDK executor | agent-sdk command API | Module boundary for command sources, system commands, descriptors, requirements. |
-| `ICommandResult` | `agent-sdk/src/command-api/command-result.ts` | SDK command contract | command packages, SDK, CLI | command effects/interactions | Structured command output consumed by generic hosts. |
-| `TCommandEffect` | `agent-sdk/src/command-api/effects.ts` | SDK command contract | command packages, CLI effect handlers | agent-core end reason types | Typed host-side work requested by commands. |
-| `CommandRegistry` | `agent-sdk/src/commands/command-registry.ts` | SDK command infrastructure | CLI, tests | `ICommandSource` | Aggregate command palette entries from modules, skills, and plugins. |
-| `BuiltinCommandSource` | `agent-sdk/src/commands/builtin-source.ts` | SDK command infrastructure | CLI, SDK tests | SDK command API | Expose SDK-default built-ins; currently empty. |
-| `SystemCommandExecutor` | `agent-sdk/src/commands/system-command-executor.ts` | SDK command infrastructure | `InteractiveSession` | `ISystemCommand` | Execute matching system command with SDK host context. |
-| `InteractiveSession` | `agent-sdk/src/interactive/interactive-session.ts` | SDK entrypoint | CLI, command tests, SDK consumers | sessions, runtime, tools, core, command API | Event-driven wrapper over `Session`, prompt queueing, command execution, persistence. |
-| `createInteractiveSession()` | `agent-sdk/src/interactive/interactive-session-init.ts` | SDK assembly | `InteractiveSession` | config/context, plugin hooks, `createSession()` | Load config/context/project data and construct `Session`. |
-| `createSession()` | `agent-sdk/src/assembly/create-session.ts` | SDK assembly | `createInteractiveSession()`, SDK tests | sessions, tools, runtime, core | Assemble provider, tools, system prompt, command tool, background/subagent runtime. |
-| `Session` | `agent-sessions` | Session runtime | SDK assembly | agent-core | Run conversation lifecycle, permissions, compaction, context tracking. |
-| `SessionStore` | `agent-sessions` | Session persistence | SDK and currently CLI | filesystem | Persist/resume session JSON. CLI direct use is audit debt. |
-| `IProviderDefinition` | `agent-core` | Core/provider contract | provider packages, CLI, provider command | core provider config types | Provider defaults, setup metadata, aliases, probes, factory. |
-| `createProviderFromSettings()` | `agent-cli/src/utils/provider-factory.ts` | CLI provider composition | `startCli()` | provider definitions, settings I/O | Resolve effective provider settings and instantiate provider. |
-| `createProviderCommandModule()` | `agent-command-provider` | Command package | CLI composition | SDK command and provider common APIs | Own `/provider` metadata, setup interactions, settings patches, restart effects. |
-| `createModelCommandModule()` | `agent-command-model` | Command package | CLI composition | SDK model common API | Own `/model` metadata and model-change effects. |
-| `createAgentCommandModule()` | `agent-command-agent` | Command package | CLI composition | SDK command/runtime APIs | Own `/agent` metadata and background agent command execution. |
-| `createHeadlessTransport()` | `agent-transport-headless` | Transport | CLI print mode | SDK transport contract | Drive non-interactive prompt input and output formatting. |
+| Item                            | Owner                                                   | Layer                      | Inbound consumers                        | Outbound dependencies                                              | Responsibility                                                                              |
+| ------------------------------- | ------------------------------------------------------- | -------------------------- | ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `startCli()`                    | `agent-cli/src/cli.ts`                                  | Product shell              | binary entrypoint, embedders             | SDK, command packages, providers, headless transport, settings I/O | Parse flags, compose providers/modules/adapters, choose interactive or print mode.          |
+| `renderApp()`                   | `agent-cli/src/ui/render.tsx`                           | UI shell                   | `startCli()`                             | React, Ink, `App`                                                  | Start Ink app and process exit handling.                                                    |
+| `App` / `AppInner`              | `agent-cli/src/ui/App.tsx`                              | UI shell                   | `renderApp()`                            | CLI hooks and components                                           | Compose TUI state, prompts, plugin UI, session picker, status bar.                          |
+| `useInteractiveSession()`       | `agent-cli/src/ui/hooks/useInteractiveSession.ts`       | React-SDK bridge           | `AppInner`                               | `InteractiveSession`, `CommandRegistry`, `TuiStateManager`         | Create the SDK session once and subscribe SDK events to render state.                       |
+| `useSlashRouting()`             | `agent-cli/src/ui/hooks/useSlashRouting.ts`             | UI command routing         | `useInteractiveSession()`                | `InteractiveSession`, `CommandRegistry`                            | Parse leading slash, call SDK command execution, route skill/plugin fallback.               |
+| `useSideEffects()`              | `agent-cli/src/ui/hooks/useSideEffects.ts`              | UI effect application      | `AppInner`                               | CLI settings/UI adapters, `InteractiveSession`                     | Render generic interactions and apply typed command effects.                                |
+| `TuiStateManager`               | `agent-cli/src/ui/tui-state-manager.ts`                 | UI state projection        | `useInteractiveSession()`                | agent-core history/context types                                   | Convert SDK events into stable render state.                                                |
+| `ICommandModule`                | `agent-sdk/src/command-api/command-module.ts`           | SDK command contract       | command packages, CLI, SDK executor      | agent-sdk command API                                              | Module boundary for command sources, system commands, descriptors, requirements.            |
+| `ICommandResult`                | `agent-sdk/src/command-api/command-result.ts`           | SDK command contract       | command packages, SDK, CLI               | command effects/interactions                                       | Structured command output consumed by generic hosts.                                        |
+| `TCommandEffect`                | `agent-sdk/src/command-api/effects.ts`                  | SDK command contract       | command packages, CLI effect handlers    | agent-core end reason types                                        | Typed host-side work requested by commands.                                                 |
+| `CommandRegistry`               | `agent-sdk/src/commands/command-registry.ts`            | SDK command infrastructure | CLI, tests                               | `ICommandSource`                                                   | Aggregate command palette entries from modules, skills, and plugins.                        |
+| `BuiltinCommandSource`          | `agent-sdk/src/commands/builtin-source.ts`              | SDK command infrastructure | CLI, SDK tests                           | SDK command API                                                    | Expose SDK-default built-ins; currently empty.                                              |
+| `SystemCommandExecutor`         | `agent-sdk/src/commands/system-command-executor.ts`     | SDK command infrastructure | `InteractiveSession`                     | `ISystemCommand`                                                   | Execute matching system command with SDK host context.                                      |
+| `InteractiveSession`            | `agent-sdk/src/interactive/interactive-session.ts`      | SDK entrypoint             | CLI, command tests, SDK consumers        | sessions, runtime, tools, core, command API                        | Event-driven wrapper over `Session`, prompt queueing, command execution, persistence.       |
+| `createProjectSessionStore()`   | `agent-sdk/src/interactive/session-persistence.ts`      | SDK facade                 | CLI, SDK consumers                       | agent-sessions, project paths                                      | Create project-local `.robota/sessions` persistence without exposing `SessionStore` to CLI. |
+| `IResumableSessionSummary`      | `agent-sdk/src/interactive/session-persistence.ts`      | SDK facade type            | CLI session picker, SDK consumers        | none                                                               | Host-facing saved-session list item with id/name/cwd/update time/message count/preview.     |
+| `createInteractiveSession()`    | `agent-sdk/src/interactive/interactive-session-init.ts` | SDK assembly               | `InteractiveSession`                     | config/context, plugin hooks, `createSession()`                    | Load config/context/project data and construct `Session`.                                   |
+| `createSession()`               | `agent-sdk/src/assembly/create-session.ts`              | SDK assembly               | `createInteractiveSession()`, SDK tests  | sessions, tools, runtime, core                                     | Assemble provider, tools, system prompt, command tool, background/subagent runtime.         |
+| `Session`                       | `agent-sessions`                                        | Session runtime            | SDK assembly                             | agent-core                                                         | Run conversation lifecycle, permissions, compaction, context tracking.                      |
+| `SessionStore`                  | `agent-sessions`                                        | Session persistence        | SDK facade and generic session consumers | filesystem                                                         | Persist/resume session JSON behind `ISessionStore`. CLI must not consume it directly.       |
+| `IProviderDefinition`           | `agent-core`                                            | Core/provider contract     | provider packages, CLI, provider command | core provider config types                                         | Provider defaults, setup metadata, aliases, probes, factory.                                |
+| `createProviderFromSettings()`  | `agent-cli/src/utils/provider-factory.ts`               | CLI provider composition   | `startCli()`                             | provider definitions, settings I/O                                 | Resolve effective provider settings and instantiate provider.                               |
+| `createProviderCommandModule()` | `agent-command-provider`                                | Command package            | CLI composition                          | SDK command and provider common APIs                               | Own `/provider` metadata, setup interactions, settings patches, restart effects.            |
+| `createModelCommandModule()`    | `agent-command-model`                                   | Command package            | CLI composition                          | SDK model common API                                               | Own `/model` metadata and model-change effects.                                             |
+| `createAgentCommandModule()`    | `agent-command-agent`                                   | Command package            | CLI composition                          | SDK command/runtime APIs                                           | Own `/agent` metadata and background agent command execution.                               |
+| `createHeadlessTransport()`     | `agent-transport-headless`                              | Transport                  | CLI print mode                           | SDK transport contract                                             | Drive non-interactive prompt input and output formatting.                                   |
 
 ## Layering Audit
 
 ### CLI-AUDIT-001: CLI imports `agent-sessions` directly
 
-Status: confirmed violation.
+Status: resolved in `fix/cli-session-store-boundary`.
 
-Current files:
+Former files:
 
 - `packages/agent-cli/src/cli.ts`
 - `packages/agent-cli/src/ui/render.tsx`
@@ -340,15 +341,18 @@ Problem:
 `packages/agent-cli/docs/SPEC.md` says CLI must not import from
 `@robota-sdk/agent-sessions`, but the CLI creates and passes `SessionStore` directly.
 
-Recommended fix:
+Resolution:
 
-Move session persistence construction and the public resume/picker data contract behind an SDK-owned
-API or port. CLI should ask SDK for a project session persistence adapter or use an SDK-exported
-host-facing interface that does not expose `agent-sessions` concrete classes.
+Session persistence construction and the public resume/picker data contract now live behind
+SDK-owned APIs in `agent-sdk/src/interactive/session-persistence.ts`. CLI calls
+`createProjectSessionStore(cwd)`, `resolveLatestSessionId()`, `resolveSessionIdByIdOrName()`, and
+`listResumableSessionSummaries()` from `@robota-sdk/agent-sdk`; it does not import
+`@robota-sdk/agent-sessions` or declare it in `packages/agent-cli/package.json`.
 
-Tracked follow-up:
+Mechanical guard:
 
-- `.agents/backlog/cli-session-store-boundary-cleanup.md`
+- `scripts/harness/check-command-layering.mjs` flags production CLI imports from
+  `@robota-sdk/agent-sessions` and direct CLI package dependencies on it.
 
 ### CLI-AUDIT-002: TUI command effects are queued by mutating `InteractiveSession`
 
@@ -430,7 +434,7 @@ Before merging a CLI architecture change:
 Suggested mechanical checks from this audit:
 
 - Scan `packages/agent-cli/src` for forbidden imports from `@robota-sdk/agent-sessions` and
-  `@robota-sdk/agent-tools`.
+  `@robota-sdk/agent-tools`; the `agent-sessions` import/dependency edge is now enforced.
 - Scan `packages/agent-sdk/src` for imports from `@robota-sdk/agent-command-*`.
 - Scan `packages/agent-command-*/src` for imports from `packages/agent-cli` or
   `@robota-sdk/agent-cli`.

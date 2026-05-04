@@ -26,6 +26,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - For every changed package, inspect and update `packages/<pkg>/README.md`.
 - For every changed package with website-visible package docs, inspect and update `packages/<pkg>/docs/README.md`.
 - For every changed package contract, update `packages/<pkg>/docs/SPEC.md`.
+- For every changed package composition, import edge, execution mode, or class/interface ownership, inspect and update any package-local `packages/<pkg>/docs/ARCHITECTURE-MAP.md`.
 - For every user-facing feature, update at least one matching robota.io source page under `content/`.
 - If no README or robota.io update is needed, the PR/task summary MUST explicitly say why the existing docs remain correct.
 

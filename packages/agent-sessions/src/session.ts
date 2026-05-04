@@ -17,7 +17,7 @@ import type {
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
-import type { SessionStore } from './session-store.js';
+import type { ISessionStore } from './session-store.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import { PermissionEnforcer } from './permission-enforcer.js';
 import type {
@@ -68,7 +68,7 @@ export class Session {
   private readonly sessionId: string;
   private permissionMode: TPermissionMode;
   private readonly terminal: ITerminalOutput;
-  private readonly sessionStore?: SessionStore;
+  private readonly sessionStore?: ISessionStore;
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
   private readonly systemMessage: string;

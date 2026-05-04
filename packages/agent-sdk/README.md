@@ -82,19 +82,22 @@ The SDK is **pure TypeScript with no React dependency**. The CLI is a thin TUI-o
 `InteractiveSession` wraps `Session` (composition over inheritance) to provide event-driven interaction for any client. It manages streaming text accumulation, tool execution state tracking, prompt queuing, abort orchestration, and message history. Logic that was previously embedded in CLI React hooks now lives here.
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession, createProjectSessionStore } from '@robota-sdk/agent-sdk';
 import type { IInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
+
+const cwd = process.cwd();
+const sessionStore = createProjectSessionStore(cwd);
 
 const session = new InteractiveSession({
   config,
   context,
   projectInfo,
-  sessionStore, // SessionStore instance for persistence
+  sessionStore, // SDK-owned project-local persistence facade
   resumeSessionId, // Session ID to restore (optional)
   forkSession, // Session ID to fork from (optional)
   permissionMode: 'default',
   maxTurns: 10,
-  cwd: process.cwd(),
+  cwd,
   permissionHandler: async (toolName, toolArgs) => ({ allowed: true }),
 });
 
@@ -288,7 +291,7 @@ Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Hai
 
 `createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
 
-Background subagent lifecycle events are persisted through `InteractiveSession` when a `SessionStore` is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
+Background subagent lifecycle events are persisted through `InteractiveSession` when an SDK session persistence facade is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
 
 ## Hook Executors (SDK-Specific)
 

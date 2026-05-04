@@ -28,4 +28,4 @@ export type { ISessionLogger, TSessionLogData } from './session-logger.js';
 
 // Session persistence
 export { SessionStore } from './session-store.js';
-export type { ISessionRecord } from './session-store.js';
+export type { ISessionRecord, ISessionStore } from './session-store.js';

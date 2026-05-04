@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -41,11 +41,11 @@ Recommended shape:
 
 ## Acceptance Criteria
 
-- [ ] No production file under `packages/agent-cli/src` imports from `@robota-sdk/agent-sessions`.
-- [ ] `packages/agent-cli/package.json` no longer declares `@robota-sdk/agent-sessions`.
-- [ ] Resume, fork, continue, and session picker behavior still work through SDK-owned APIs.
-- [ ] `packages/agent-cli/docs/SPEC.md` and `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflect the final boundary.
-- [ ] Add or extend a mechanical harness/import check for this forbidden edge if feasible.
+- [x] No production file under `packages/agent-cli/src` imports from `@robota-sdk/agent-sessions`.
+- [x] `packages/agent-cli/package.json` no longer declares `@robota-sdk/agent-sessions`.
+- [x] Resume, fork, continue, and session picker behavior still work through SDK-owned APIs.
+- [x] `packages/agent-cli/docs/SPEC.md` and `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflect the final boundary.
+- [x] Add or extend a mechanical harness/import check for this forbidden edge if feasible.
 
 ## Verification Plan
 

@@ -8,9 +8,9 @@ import { randomUUID } from 'node:crypto';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 import { collectAssistantUsageMetadata } from '@robota-sdk/agent-core';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
@@ -146,7 +146,7 @@ function extractTurnUsage(
  * Silently ignores errors (persist failure must not break execution).
  */
 export function persistSession(
-  sessionStore: SessionStore,
+  sessionStore: IInteractiveSessionStore,
   session: Session,
   sessionName: string | undefined,
   cwd: string,
