@@ -5,7 +5,7 @@
  */
 
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
-import { getModelContextWindow } from '@robota-sdk/agent-core';
+import { estimateContextTokensFromMessages, getModelContextWindow } from '@robota-sdk/agent-core';
 
 /** Percentage conversion factor */
 const PERCENT = 100;
@@ -64,38 +64,11 @@ export class ContextWindowTracker {
   /**
    * Estimate token usage from conversation history.
    *
-   * First tries to read actual token counts from message metadata
-   * (provider response). Falls back to character-based estimation
-   * (chars / 4) which is a reasonable approximation for English/code.
+   * Uses the shared core estimator so session display, /context, auto-compact, and core
+   * execution guards reason about the same effective token state.
    */
   updateFromHistory(history: TUniversalMessage[]): void {
-    // Try metadata-based counting first
-    let metadataTokens = 0;
-    let hasMetadata = false;
-    for (const msg of history) {
-      if (msg.metadata) {
-        const input = msg.metadata['inputTokens'];
-        if (typeof input === 'number') {
-          metadataTokens += input;
-          hasMetadata = true;
-        }
-        const output = msg.metadata['outputTokens'];
-        if (typeof output === 'number') {
-          metadataTokens += output;
-          hasMetadata = true;
-        }
-      }
-    }
-
-    if (hasMetadata) {
-      this.contextUsedTokens = metadataTokens;
-      return;
-    }
-
-    // Fallback: estimate from character count (chars / 4)
-    const CHARS_PER_TOKEN = 4;
-    const totalChars = JSON.stringify(history).length;
-    this.contextUsedTokens = Math.ceil(totalChars / CHARS_PER_TOKEN);
+    this.contextUsedTokens = estimateContextTokensFromMessages(history).usedTokens;
   }
 
   /** Reset token tracking */

@@ -13,6 +13,7 @@ import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { ConversationStore } from '../managers/conversation-history-manager';
+import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
 import { isExecutionError, PREVIEW_LENGTH, type IExecutionRoundState } from './execution-types';
 import type { IRoundDependencies } from './execution-round';
@@ -184,7 +185,6 @@ export function addToolResultsToHistory(
   logger: ILogger,
   contextBudget?: { contextLimit: number; cumulativeInputTokens: number },
 ): IToolResultsOutcome {
-  const CHARS_PER_TOKEN = 2;
   const TOOL_RESULT_OVERFLOW_THRESHOLD = 0.8;
   let contextOverflowed = false;
   let addedCount = 0;
@@ -267,11 +267,10 @@ export function addToolResultsToHistory(
     conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
 
     if (contextBudget) {
-      const historyChars = JSON.stringify(conversationStore.getMessages()).length;
-      const estimatedTokens = Math.max(
-        contextBudget.cumulativeInputTokens,
-        Math.ceil(historyChars / CHARS_PER_TOKEN),
-      );
+      const estimate = estimateContextTokensFromMessages(conversationStore.getMessages(), {
+        usageFloorTokens: contextBudget.cumulativeInputTokens,
+      });
+      const estimatedTokens = estimate.usedTokens;
       if (estimatedTokens > contextBudget.contextLimit * TOOL_RESULT_OVERFLOW_THRESHOLD) {
         logger.warn(
           '[ROUND] Context budget exceeded after tool result — skipping remaining tools',

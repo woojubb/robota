@@ -109,6 +109,8 @@ This package is the single source of truth (SSOT) for the following types:
 | `IHookResult`                   | `hooks/types.ts`                    | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                                                 |
 | `IContextTokenUsage`            | `context/types.ts`                  | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                                                 |
 | `IContextWindowState`           | `context/types.ts`                  | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                |
+| `IContextTokenEstimate`         | `context/estimation.ts`             | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                  |
+| `IMessageTokenUsage`            | `context/token-usage.ts`            | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                     |
 | `IHistoryEntry`                 | `interfaces/history.ts`             | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                            |
 
 Provider packages import these types. They must not re-declare them.
@@ -209,12 +211,17 @@ Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools own
 
 ### Context Window Tracking
 
-| Export                | Kind      | Description                                                           |
-| --------------------- | --------- | --------------------------------------------------------------------- |
-| `IContextTokenUsage`  | interface | Token usage from a single API call (inputTokens, outputTokens, cache) |
-| `IContextWindowState` | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage) |
+| Export                              | Kind      | Description                                                                                       |
+| ----------------------------------- | --------- | ------------------------------------------------------------------------------------------------- |
+| `IContextTokenUsage`                | interface | Token usage from a single API call (inputTokens, outputTokens, cache)                             |
+| `IContextWindowState`               | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage)                             |
+| `IContextTokenEstimate`             | interface | Effective estimate with serialized, provider, and caller floor token candidates                    |
+| `IMessageTokenUsage`                | interface | Normalized message token usage from metadata or provider usage payloads                           |
+| `estimateContextTokensFromMessages` | function  | Returns the maximum effective token estimate from serialized messages and latest provider metadata |
+| `estimateSerializedContextTokens`   | function  | Deterministic serialized-history fallback estimate                                                |
+| `readTokenUsageFromMessage`         | function  | Reads normalized token usage from a single message                                                |
 
-These types are consumed by `@robota-sdk/agent-sessions` to track cumulative token usage and context window state across conversation turns.
+These types and helpers are consumed by `@robota-sdk/agent-sessions` to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
 
 Provider response usage is normalized before assistant messages are committed:
 
@@ -567,7 +574,7 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. The estimate uses `Math.max(cumulativeInputTokens, chars/2)` — the higher of the API-reported token count and the character-based estimate. `chars/2` (not `chars/3`) is used because Korean text, JSON, and code content have a higher char-to-token ratio. If usage exceeds 83.5% of the context window, the execution loop stops early with a clear assistant message prompting the user to `/compact`.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by `@robota-sdk/agent-sessions` at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
 
 ### Provider Error Recovery
 
