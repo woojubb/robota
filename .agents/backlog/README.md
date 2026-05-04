@@ -13,3 +13,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 - [CLI session store boundary cleanup](cli-session-store-boundary-cleanup.md)
 - [CLI command effect state boundary](cli-command-effect-state-boundary.md)
+- [CLI premature context capacity block](cli-premature-context-capacity-block.md)
