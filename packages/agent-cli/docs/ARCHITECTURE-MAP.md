@@ -285,12 +285,13 @@ Current model catalog state:
 
 - `/model` is supplied by `@robota-sdk/agent-command-model`.
 - The command consumes SDK model command common APIs.
-- Active-provider model choices resolve through `IProviderDefinition.modelCatalog` metadata owned by
-  provider packages and the SDK model command common API.
+- Active-provider model choices resolve through provider-owned `IProviderDefinition.modelCatalog`
+  fallback metadata and optional provider-owned `refreshModelCatalog` hooks orchestrated by the SDK
+  model command common API.
 - Provider definitions include conservative fallback catalog metadata with source URLs and
   verification timestamps where the provider has known defaults.
-- Live/generated catalog refresh adapters are not implemented yet; that is a follow-up architecture
-  task, not a TUI concern.
+- Live/generated catalog refresh adapters are provider-package responsibilities. The CLI/TUI must
+  only render freshness state returned by command results.
 
 ## Execution Modes
 
@@ -464,7 +465,7 @@ Mechanical guard:
 
 ### CLI-AUDIT-003: Provider model catalog refresh layer is incomplete
 
-Status: confirmed design debt.
+Status: partially resolved.
 
 Current state:
 
@@ -472,18 +473,19 @@ Current state:
 - The command reads active-provider catalog metadata through SDK model common APIs.
 - Provider packages own fallback `IProviderDefinition.modelCatalog` data with source URLs and
   verification timestamps.
-- The current contract models `live`, `generated`, `fallback`, and `unavailable` catalog states,
-  but there is no provider-owned live/generated refresh adapter yet.
+- The core provider contract supports provider-owned catalog refresh hooks.
+- The OpenAI provider owns a live refresh adapter backed by the OpenAI Models API.
 
 Problem:
 
 Static fallback catalog data is staleable by design. The CLI/TUI should not compensate for that by
-hardcoding model lists or provider branches. The missing work is a provider/SDK catalog adapter
-layer that can refresh, cache, and surface stale/unavailable status without blocking startup.
+hardcoding model lists or provider branches. Remaining work is cache/generation policy expansion for
+providers beyond the first live adapter.
 
 Tracked follow-up:
 
-- `.agents/backlog/provider-model-catalog-refresh-adapters.md`
+- provider-specific generated catalog refresh and cache invalidation work after the initial adapter
+  layer.
 
 ### CLI-AUDIT-004: Legacy assembly architecture doc was stale
 

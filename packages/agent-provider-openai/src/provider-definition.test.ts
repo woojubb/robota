@@ -27,6 +27,7 @@ describe('createOpenAIProviderDefinition', () => {
       title: 'OpenAI API key',
       defaultValue: '$ENV:OPENAI_API_KEY',
     });
+    expect(typeof definition.refreshModelCatalog).toBe('function');
   });
 
   it('passes explicit apiSurface provider options into construction', () => {

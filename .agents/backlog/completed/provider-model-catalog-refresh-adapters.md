@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -42,14 +42,22 @@ Recommended design:
 
 ## Acceptance Criteria
 
-- [ ] Provider model catalog refresh is represented by a provider-owned public contract or SDK common
+- [x] Provider model catalog refresh is represented by a provider-owned public contract or SDK common
       API extension, not a CLI constant.
-- [ ] At least one provider has a live or generated refresh adapter covered by tests.
-- [ ] `/model` exposes catalog freshness state when available.
-- [ ] Refresh failure does not block CLI startup or manual model input.
-- [ ] Fallback metadata remains source-stamped and provider-owned.
-- [ ] Package specs identify the owner of live discovery, generated metadata, fallback metadata, and
+- [x] At least one provider has a live or generated refresh adapter covered by tests.
+- [x] `/model` exposes catalog freshness state when available.
+- [x] Refresh failure does not block CLI startup or manual model input.
+- [x] Fallback metadata remains source-stamped and provider-owned.
+- [x] Package specs identify the owner of live discovery, generated metadata, fallback metadata, and
       stale-data policy.
+
+## Result
+
+Implemented an optional provider-owned `refreshModelCatalog` contract on `IProviderDefinition`.
+`@robota-sdk/agent-provider-openai` now provides the first live adapter through the OpenAI Models API,
+and `@robota-sdk/agent-sdk` exposes async model command common APIs that invoke refresh hooks without
+moving provider logic into command modules or the CLI/TUI. `/model` now surfaces catalog freshness and
+keeps manual model input available when refresh is unavailable.
 
 ## Verification Plan
 

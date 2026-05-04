@@ -12,6 +12,7 @@ OpenAI Provider for Robota SDK - type-safe integration with the official OpenAI 
 - **🛠️ Function Calling**: Native OpenAI function calling with type validation
 - **🧩 Structured Outputs**: JSON object and JSON Schema response formats
 - **🌐 Capability Reporting**: Explicit native web search/fetch capability state without hidden local-tool fallback
+- **Provider-Owned Model Catalog Refresh**: `/model` can discover OpenAI models through the provider definition without CLI/TUI-owned model lists
 - **🔄 Provider-Agnostic Design**: Seamless integration with other Robota providers
 - **📊 Payload Logging**: Optional API request/response logging for debugging
 
@@ -83,6 +84,13 @@ streamed text.
 For provider packages that share OpenAI-compatible transport code, the reusable primitives live in `@robota-sdk/agent-provider-openai-compatible`. This package owns OpenAI product semantics and an explicit compatibility mode; model-family behavior such as Gemma reasoning/tool-call projection belongs in that model-family provider.
 
 OpenAI-compatible Chat Completions profiles, including LM Studio-style `baseURL` profiles, are custom function-tool capable but are not treated as provider-native hosted web search/fetch providers. Use Robota local `WebSearch`/`WebFetch` tools for explicit local web access unless a concrete provider package documents hosted web support.
+
+### Model Catalog Refresh
+
+`createOpenAIProviderDefinition()` exposes a provider-owned `refreshModelCatalog` hook. SDK command
+common APIs may call this hook to query the OpenAI Models API with the effective provider profile and
+surface catalog freshness in `/model` output. CLI/TUI layers must render that result rather than
+owning OpenAI model metadata.
 
 ### Streaming Responses
 
