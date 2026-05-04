@@ -11,7 +11,7 @@
  * @public
  */
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
+import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
 import type {
   IPluginContract,
   IPluginHooks,

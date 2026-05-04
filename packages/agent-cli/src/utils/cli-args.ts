@@ -22,6 +22,7 @@ export interface IParsedCliArgs {
   outputFormat: string | undefined;
   systemPrompt: string | undefined;
   appendSystemPrompt: string | undefined;
+  taskFile: string | undefined;
   version: boolean;
   reset: boolean;
   bare: boolean;
@@ -79,6 +80,7 @@ export function parseCliArgs(): IParsedCliArgs {
       'output-format': { type: 'string' },
       'system-prompt': { type: 'string' },
       'append-system-prompt': { type: 'string' },
+      'task-file': { type: 'string' },
       version: { type: 'boolean', default: false },
       reset: { type: 'boolean', default: false },
       bare: { type: 'boolean', default: false },
@@ -113,6 +115,7 @@ export function parseCliArgs(): IParsedCliArgs {
     outputFormat: values['output-format'],
     systemPrompt: values['system-prompt'],
     appendSystemPrompt: values['append-system-prompt'],
+    taskFile: values['task-file'],
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
     bare: values['bare'] ?? false,

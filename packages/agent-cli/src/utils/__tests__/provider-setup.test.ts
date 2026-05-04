@@ -6,6 +6,7 @@ import type { IParsedCliArgs } from '../cli-args.js';
 import {
   ensureConfig,
   formatMissingProviderConfigMessage,
+  handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from '../provider-setup.js';
 import type { IProviderDefinition } from '../provider-definition.js';
@@ -98,6 +99,7 @@ function baseArgs(): IParsedCliArgs {
     outputFormat: undefined,
     systemPrompt: undefined,
     appendSystemPrompt: undefined,
+    taskFile: undefined,
     version: false,
     reset: false,
     bare: false,
@@ -302,6 +304,48 @@ describe('provider setup', () => {
       type: 'qwen',
       model: 'qwen-plus',
     });
+  });
+
+  it('sets current provider in the effective project-local settings scope by default', () => {
+    const home = join(TMP_BASE, 'home-provider-switch');
+    const project = join(TMP_BASE, 'project-provider-switch');
+    process.env.HOME = home;
+    writeJson(join(home, '.robota', 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: 'sk-ant-user',
+        },
+      },
+    });
+    writeJson(join(project, '.robota', 'settings.local.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        qwen: {
+          type: 'qwen',
+          model: 'qwen-plus',
+          apiKey: '$ENV:DASHSCOPE_API_KEY',
+        },
+      },
+    });
+
+    const handled = handleProviderConfigurationArgs(
+      project,
+      { ...baseArgs(), provider: 'qwen', setCurrent: true },
+      providerDefinitions,
+    );
+
+    const userSettings = JSON.parse(
+      readFileSync(join(home, '.robota', 'settings.json'), 'utf8'),
+    ) as { currentProvider?: string };
+    const projectSettings = JSON.parse(
+      readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
+    ) as { currentProvider?: string };
+    expect(handled).toBe(true);
+    expect(userSettings.currentProvider).toBe('anthropic');
+    expect(projectSettings.currentProvider).toBe('qwen');
   });
 
   it('formats missing-config guidance from injected provider definitions', () => {

@@ -1,6 +1,10 @@
-import { IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { IToolManager } from '../interfaces/manager';
-import type { TToolParameters, TToolMetadata } from '../interfaces/tool';
+import type {
+  IToolExecutionContext,
+  IToolExecutionResult,
+  TToolParameters,
+  TToolMetadata,
+} from '../interfaces/tool';
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import { SilentLogger, type ILogger } from '../utils/logger';
