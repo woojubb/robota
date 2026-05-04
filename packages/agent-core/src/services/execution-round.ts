@@ -225,7 +225,16 @@ export async function executeRound(
 
   conversationStore.beginAssistant();
 
+  let streamDeltaSequence = 0;
   const wrappedOnTextDelta = (delta: string): void => {
+    fullContext.onExecutionEvent?.('provider_stream_raw_delta', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      sequence: streamDeltaSequence,
+      delta,
+    } as TExecutionEventData);
+    streamDeltaSequence++;
     conversationStore.appendStreaming(delta);
     runTextDelta?.(delta);
   };
@@ -245,6 +254,13 @@ export async function executeRound(
       signal: fullContext.signal,
       onTextDelta: wrappedOnTextDelta,
     });
+    fullContext.onExecutionEvent?.('provider_response_raw', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      response,
+      responseKind: 'provider-normalized-message',
+    } as TExecutionEventData);
     fullContext.onExecutionEvent?.('provider_response_normalized', {
       executionId,
       conversationId: fullContext.conversationId,
@@ -322,12 +338,23 @@ export async function executeRound(
     round: currentRound,
     ...(usageMetadata ?? {}),
   });
+  const committedAssistantMessage = conversationStore.getMessages().at(-1);
   fullContext.onExecutionEvent?.('assistant_message_committed', {
     executionId,
     conversationId: fullContext.conversationId,
     round: currentRound,
     message: assistantResponse,
   } as TExecutionEventData);
+  if (committedAssistantMessage) {
+    fullContext.onExecutionEvent?.('history_mutation', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      mutation: 'append_message',
+      index: conversationStore.getMessages().length - 1,
+      message: committedAssistantMessage,
+    } as TExecutionEventData);
+  }
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
 

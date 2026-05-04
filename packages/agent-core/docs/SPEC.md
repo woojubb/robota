@@ -434,6 +434,25 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled       |
 | `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`          |
 
+### Replay Boundary Events
+
+`onExecutionEvent` emits provider-neutral, append-only replay events. `agent-core` must not expose concrete provider SDK objects or branch on provider names. The required event families are:
+
+| Event                          | Emitted When                                      | Required Data                                                                                   |
+| ------------------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `provider_request`             | Immediately before a provider call                | executionId, conversationId, round, provider, model, messages, tools                            |
+| `provider_stream_raw_delta`    | A provider text delta reaches core streaming path | executionId, conversationId, round, sequence, delta                                             |
+| `provider_response_raw`        | Immediately after provider `chat()` returns       | executionId, conversationId, round, response, responseKind                                      |
+| `provider_response_normalized` | After provider response is accepted by core       | executionId, conversationId, round, response, toolCallsCount                                    |
+| `assistant_message_committed`  | Assistant message is committed to history         | executionId, conversationId, round, message                                                     |
+| `tool_batch_started`           | Before a tool batch executes                      | executionId, conversationId, round, batchId, mode, maxConcurrency, requestCount, tools          |
+| `tool_execution_request`       | For each parsed tool call                         | executionId, conversationId, round, batchId, index, toolName, toolCallId, parameters, ownerPath |
+| `tool_execution_result`        | For each terminal tool result                     | executionId, conversationId, round, batchId, index, toolName, toolCallId, success/result/error  |
+| `tool_message_committed`       | Tool result message is committed to history       | executionId, conversationId, round, batchId, index, message                                     |
+| `history_mutation`             | A chat message is appended to canonical history   | executionId, conversationId, mutation, index, message                                           |
+
+`provider_response_raw.responseKind` is `provider-normalized-message` until provider packages add provider-owned SDK-payload capture hooks. This keeps replay validation deterministic without making core depend on concrete provider SDK response types.
+
 ### Signal Propagation
 
 AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.

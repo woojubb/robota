@@ -54,7 +54,9 @@ Types owned by this package (SSOT):
 | `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                           |
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)                   |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
+| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy             |
+| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                |
 | `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields) |
 
 Types consumed from other packages (not owned here):
@@ -188,15 +190,23 @@ The session log records structured events to a JSONL file for diagnostics and re
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
 - **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, provider-native web capability/enabled state, full enriched input, and current message history before the model call.
 - **`provider_request` event** -- Recorded before each provider call. Includes the provider-neutral request envelope: provider, model, messages, tool schemas/options, round, and execution identifiers.
+- **`provider_stream_raw_delta` event** -- Recorded for each provider text delta observed by the core streaming callback. Includes sequence, delta, round, and execution identifiers.
+- **`provider_response_raw` event** -- Recorded immediately after provider `chat()` returns and before core validates/extracts the assistant message. Includes the provider-returned response object and `responseKind`.
 - **`provider_response_normalized` event** -- Recorded immediately after the provider adapter returns a `TUniversalMessage`. Includes the normalized assistant message, tool call count, provider/model metadata, round, and execution identifiers.
 - **`tool_batch_started` event** -- Recorded before a tool batch executes. Includes batch mode, max concurrency, request count, ordered tool names, round, and execution identifiers.
 - **`tool_execution_request` event** -- Recorded for each parsed tool request. Includes tool name, toolCallId/executionId, parsed parameters, batch index, owner path, round, and execution identifiers.
 - **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, batch index, round, and execution identifiers.
+- **`tool_message_committed` event** -- Recorded when a tool result message is appended to canonical history.
+- **`history_mutation` event** -- Recorded for append-only canonical chat history changes used by replay readers.
 - **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
 - **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
 - **`session_shutdown` event** -- Recorded once when `Session.shutdown()` begins. Includes the Claude-compatible shutdown reason.
 - **Provider-native web configuration** -- Session calls `IAIProvider.configureNativeWebTools?.({ webSearch: true })` during construction. Providers that own auto-enabled hosted web behavior may implement the hook; Session must not branch on concrete provider names or import provider packages.
 - **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
+
+`FileSessionLogger` applies recursive secret redaction before persistence. Keys such as `apiKey`, `authorization`, `accessToken`, `refreshToken`, `secret`, `password`, and `xApiKey` are replaced with `[REDACTED]`. Log fields larger than the inline threshold are stored as content-addressed JSON payload files in `{sessionId}.payloads/{sha256}.json`, and the JSONL line stores an `IExternalPayloadReference`.
+
+`session-log-replay.ts` owns replay readers and validators. `replaySessionLogEntries()` reconstructs provider messages and chat history from `history_mutation` events. `validateSessionReplayLogEntries()` reports missing raw provider responses, missing normalized responses, unmatched tool requests/results, and invalid external payload references.
 
 ## Hook Lifecycle
 

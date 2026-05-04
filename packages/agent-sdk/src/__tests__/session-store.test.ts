@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { SessionStore } from '@robota-sdk/agent-sessions';
 import type { ISessionRecord } from '@robota-sdk/agent-sessions';
+import { createProjectSessionStore } from '../interactive/session-persistence.js';
 
 function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
   return {
@@ -85,6 +86,101 @@ describe('SessionStore', () => {
     it('returns undefined for a missing session', () => {
       const result = store.load('nonexistent-id');
       expect(result).toBeUndefined();
+    });
+
+    it('falls back to append-only replay logs when project session json is missing', () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'robota-project-session-'));
+      const logsDir = join(cwd, '.robota', 'logs');
+      mkdirSync(logsDir, { recursive: true });
+      writeFileSync(
+        join(logsDir, 'log-only-session.jsonl'),
+        [
+          JSON.stringify({
+            timestamp: '2026-05-05T00:00:00.000Z',
+            sessionId: 'log-only-session',
+            event: 'session_init',
+            cwd,
+          }),
+          JSON.stringify({
+            timestamp: '2026-05-05T00:00:01.000Z',
+            sessionId: 'log-only-session',
+            event: 'history_mutation',
+            mutation: 'append_message',
+            message: {
+              id: 'u1',
+              role: 'user',
+              content: 'hello',
+              state: 'complete',
+              timestamp: '2026-05-05T00:00:01.000Z',
+            },
+          }),
+          JSON.stringify({
+            timestamp: '2026-05-05T00:00:02.000Z',
+            sessionId: 'log-only-session',
+            event: 'history_mutation',
+            mutation: 'append_message',
+            message: {
+              id: 'a1',
+              role: 'assistant',
+              content: 'hi',
+              state: 'complete',
+              timestamp: '2026-05-05T00:00:02.000Z',
+            },
+          }),
+          JSON.stringify({
+            timestamp: '2026-05-05T00:00:03.000Z',
+            sessionId: 'log-only-session',
+            event: 'background_task_event',
+            backgroundEvent: {
+              type: 'background_task_completed',
+              task: {
+                id: 'task-1',
+                kind: 'process',
+                label: 'Replay task',
+                status: 'completed',
+                mode: 'background',
+                parentSessionId: 'log-only-session',
+                depth: 0,
+                cwd,
+                updatedAt: '2026-05-05T00:00:03.000Z',
+                unread: false,
+              },
+            },
+          }),
+          JSON.stringify({
+            timestamp: '2026-05-05T00:00:04.000Z',
+            sessionId: 'log-only-session',
+            event: 'background_job_group_event',
+            backgroundJobGroupEvent: {
+              type: 'background_job_group_completed',
+              group: {
+                id: 'group-1',
+                parentSessionId: 'log-only-session',
+                waitPolicy: 'wait_all',
+                taskIds: ['task-1'],
+                status: 'completed',
+                createdAt: '2026-05-05T00:00:03.000Z',
+                updatedAt: '2026-05-05T00:00:04.000Z',
+                results: [],
+              },
+            },
+          }),
+        ].join('\n') + '\n',
+        'utf-8',
+      );
+
+      try {
+        const projectStore = createProjectSessionStore(cwd);
+        const loaded = projectStore.load('log-only-session');
+
+        expect(loaded?.cwd).toBe(cwd);
+        expect(loaded?.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
+        expect(loaded?.history).toHaveLength(2);
+        expect(loaded?.backgroundTasks?.map((task) => task.id)).toEqual(['task-1']);
+        expect(loaded?.backgroundJobGroups?.map((group) => group.id)).toEqual(['group-1']);
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
     });
   });
 
