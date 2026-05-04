@@ -55,7 +55,7 @@ Types owned by this package (SSOT):
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
 | `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)                   |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, diagnostic extension fields)        |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields) |
 
 Types consumed from other packages (not owned here):
 

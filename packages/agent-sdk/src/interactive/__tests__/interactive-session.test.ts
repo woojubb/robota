@@ -109,6 +109,13 @@ describe('InteractiveSession', () => {
       expect(runInput).toContain('Use repo guidance.');
       expect(mockSession.run).toHaveBeenCalledWith(expect.any(String), 'Summarize @AGENTS.md');
       expect(completedResults[0]?.promptFileReferences?.[0]?.relativePath).toBe('AGENTS.md');
+      expect(session.listContextReferences()[0]).toEqual(
+        expect.objectContaining({
+          relativePath: 'AGENTS.md',
+          loadType: 'prompt-reference',
+          status: 'observed',
+        }),
+      );
       expect(session.getFullHistory()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -116,6 +123,36 @@ describe('InteractiveSession', () => {
             type: 'prompt-file-reference',
           }),
         ]),
+      );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('adds manual context references to future prompt model input', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'robota-interactive-manual-ref-'));
+    try {
+      await writeFile(join(cwd, 'notes.md'), 'manual context body\n');
+      const mockSession = createMockSession({ runResult: 'done' });
+      const session = new InteractiveSession({
+        session: mockSession as never,
+        cwd,
+      });
+
+      const addResult = await session.addContextReference('notes.md');
+      await session.submit('Use the active context.');
+
+      const runInput = mockSession.run.mock.calls[0]?.[0] as string;
+      expect(addResult.reference?.relativePath).toBe('notes.md');
+      expect(runInput).toContain('<file path="notes.md"');
+      expect(runInput).toContain('manual context body');
+      expect(mockSession.run).toHaveBeenCalledWith(expect.any(String), 'Use the active context.');
+      expect(session.listContextReferences()[0]).toEqual(
+        expect.objectContaining({
+          relativePath: 'notes.md',
+          loadType: 'manual',
+          status: 'active',
+        }),
       );
     } finally {
       await rm(cwd, { recursive: true, force: true });

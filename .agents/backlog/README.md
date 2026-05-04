@@ -13,4 +13,3 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 - [Provider model catalog refresh adapters](provider-model-catalog-refresh-adapters.md)
 - [TUI remove activity prefix from status bar](tui-remove-activity-label.md)
-- [CLI `/context` reference inventory](cli-context-command-reference-list.md)

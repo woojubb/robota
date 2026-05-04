@@ -42,6 +42,8 @@ export interface ISessionRecord {
   memoryEvents?: unknown[];
   /** Memory references used by the latest prompt turn. */
   usedMemoryReferences?: unknown[];
+  /** SDK-owned context reference inventory for resume/debugging. */
+  contextReferences?: unknown[];
 }
 
 /** Minimal persistence port consumed by Session. */

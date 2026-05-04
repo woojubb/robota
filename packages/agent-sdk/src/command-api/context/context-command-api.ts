@@ -3,6 +3,18 @@ import { AUTO_COMPACT_THRESHOLD } from '@robota-sdk/agent-sessions';
 import type { ICommandSettingsAdapter, ICommandSettingsDocument } from '../host-adapters.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { TAutoCompactThresholdSource } from '../host-context.js';
+import type {
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from '../../context/context-reference-inventory.js';
+export type {
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from '../../context/context-reference-inventory.js';
 
 export type TAutoCompactThreshold = number | false;
 
@@ -84,6 +96,42 @@ export async function compactCommandContext(
   await context.compactContext(instructions);
   const after = readCommandContextState(context);
   return { before, after };
+}
+
+/** List context reference inventory entries through the command host facade. */
+export function listCommandContextReferences(
+  context: ICommandHostContext,
+): IContextReferenceItem[] {
+  return context.listContextReferences?.() ?? [];
+}
+
+/** Add a manual context reference through the command host facade. */
+export async function addCommandContextReference(
+  context: ICommandHostContext,
+  path: string,
+): Promise<IContextReferenceAddResult> {
+  if (!context.addContextReference) {
+    return {
+      evicted: [],
+      diagnostics: ['Command host does not support context reference additions.'],
+    };
+  }
+  return context.addContextReference(path);
+}
+
+/** Remove a context reference through the command host facade. */
+export function removeCommandContextReference(
+  context: ICommandHostContext,
+  path: string,
+): IContextReferenceRemoveResult {
+  return context.removeContextReference?.(path) ?? {};
+}
+
+/** Clear all context references through the command host facade. */
+export function clearCommandContextReferences(
+  context: ICommandHostContext,
+): IContextReferenceClearResult {
+  return context.clearContextReferences?.() ?? { removed: [] };
 }
 
 function getSettingsAdapter(

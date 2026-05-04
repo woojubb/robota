@@ -145,6 +145,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
+│   ├── context-reference-inventory.ts ← session context reference metadata, active/observed status, and bounded inventory policy
 │   ├── prompt-file-reference-*.ts ← `@file` prompt reference parser/resolver, path policy, formatting, and diagnostics
 │   └── task-context.ts         ← active `.agents/tasks/*.md` discovery, selection, formatting, and status updates
 ├── src/memory/                 ← project memory store, reusable capture policy, retrieval services

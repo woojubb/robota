@@ -1,4 +1,4 @@
-export type TPromptFileReferenceReason = 'prompt-reference';
+export type TPromptFileReferenceReason = 'manual' | 'prompt-reference';
 
 export type TPromptFileReferenceDiagnosticCode =
   | 'not-found'
@@ -48,6 +48,7 @@ export interface IPromptFileReferenceLimits {
 export interface IPromptFileReferenceResolveOptions {
   cwd: string;
   limits?: IPromptFileReferenceLimits;
+  reason?: TPromptFileReferenceReason;
 }
 
 export interface IResolvedPromptFileReferences {
