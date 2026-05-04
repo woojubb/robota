@@ -12,15 +12,25 @@ import {
 import {
   EXECUTION_PROGRESS_EVENTS,
   TASK_PROGRESS_EVENTS,
+  applyRunProgressEventToNodeStateMap,
+  applyRunResultToNodeStateMap,
+  createDefaultDagNodeState,
+  isDagNodeStateMapRunnable,
+  markDagNodeOperationDone,
+  markDagNodeOperationStarted,
+  reconcileDagNodeStateMap,
+  resetDagNodeExecutionStateMap,
   type IDagDefinition,
   type IDagEdgeDefinition,
   type IDagError,
   type IDagNode,
+  type IDagNodeState,
   type INodeManifest,
   type INodeObjectInfo,
   type IRunResult,
   type TObjectInfo,
   type TRunProgressEvent,
+  type TNodeExecutionStatus,
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
@@ -37,13 +47,9 @@ import {
   stripDefinitionNodePortDefinitions,
 } from './canvas-utils.js';
 
-export type TNodeExecutionStatus = 'idle' | 'running' | 'success' | 'failed';
+export type { TNodeExecutionStatus, TNodeOperationStatus } from '@robota-sdk/dag-core';
 
-export type TNodeOperationStatus = 'idle' | 'uploading' | 'running' | 'success' | 'failed';
-
-export interface INodeState {
-  operationStatus: TNodeOperationStatus;
-  pendingDescription?: string;
+export interface INodeState extends IDagNodeState {
   trace?: IDagNodeIoTrace;
   isSelected: boolean;
 }
@@ -54,10 +60,11 @@ export interface INodeUiState {
   isSelected: boolean;
 }
 
-const DEFAULT_NODE_STATE: INodeState = { operationStatus: 'idle', isSelected: false };
-
-function getNodeStateOrDefault(map: Record<string, INodeState>, nodeId: string): INodeState {
-  return map[nodeId] ?? DEFAULT_NODE_STATE;
+function createDesignerNodeState(): INodeState {
+  return {
+    ...createDefaultDagNodeState(),
+    isSelected: false,
+  };
 }
 
 export interface IRunProgressState {
@@ -250,12 +257,9 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
   const [runProgress, setRunProgress] = useState<IRunProgressState>(INITIAL_RUN_PROGRESS_STATE);
   useEffect(() => {
     setNodeStateMap((currentState) => {
-      const nextState: Record<string, INodeState> = {};
-      for (const node of props.definition.nodes) {
-        const existingState = currentState[node.nodeId];
-        nextState[node.nodeId] = existingState ?? DEFAULT_NODE_STATE;
-      }
-      return nextState;
+      return reconcileDagNodeStateMap({ nodes: props.definition.nodes }, currentState, {
+        createState: createDesignerNodeState,
+      });
     });
     setSelectedNodeIdState((currentNodeId) => {
       if (!currentNodeId) {
@@ -278,31 +282,26 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
   );
 
   const setNodeUploading = useCallback((nodeId: string, description: string): void => {
-    setNodeStateMap((prev) => ({
-      ...prev,
-      [nodeId]: {
-        ...getNodeStateOrDefault(prev, nodeId),
-        operationStatus: 'uploading',
-        pendingDescription: description,
-      },
-    }));
+    setNodeStateMap((prev) =>
+      markDagNodeOperationStarted(
+        prev,
+        nodeId,
+        {
+          status: 'uploading',
+          description,
+        },
+        { createState: createDesignerNodeState },
+      ),
+    );
   }, []);
 
   const setNodeUploadDone = useCallback((nodeId: string): void => {
-    setNodeStateMap((prev) => ({
-      ...prev,
-      [nodeId]: {
-        ...getNodeStateOrDefault(prev, nodeId),
-        operationStatus: 'idle',
-        pendingDescription: undefined,
-      },
-    }));
+    setNodeStateMap((prev) =>
+      markDagNodeOperationDone(prev, nodeId, { createState: createDesignerNodeState }),
+    );
   }, []);
 
-  const isRunnable = useMemo(
-    () => Object.values(nodeStateMap).every((s) => s.operationStatus !== 'uploading'),
-    [nodeStateMap],
-  );
+  const isRunnable = useMemo(() => isDagNodeStateMapRunnable(nodeStateMap), [nodeStateMap]);
 
   const clearPendingStatusTimers = useCallback((): void => {
     for (const timerId of pendingStatusTimersRef.current.values()) {
@@ -319,24 +318,13 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
   }, [clearPendingStatusTimers]);
 
   useEffect(() => {
-    const traces = runResult?.traces ?? [];
-    if (traces.length === 0) {
+    if (!runResult) {
       return;
     }
     setNodeStateMap((currentState) => {
-      const nextState: Record<string, INodeState> = { ...currentState };
-      for (const trace of traces) {
-        const existing = getNodeStateOrDefault(nextState, trace.nodeId);
-        nextState[trace.nodeId] = {
-          ...existing,
-          trace: {
-            nodeId: trace.nodeId,
-            input: trace.input,
-            output: trace.output,
-          },
-        };
-      }
-      return nextState;
+      return applyRunResultToNodeStateMap(currentState, runResult, {
+        createState: createDesignerNodeState,
+      });
     });
   }, [runResult]);
 
@@ -369,15 +357,9 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
       clearPendingStatusTimers();
       nodeRunningSinceRef.current.clear();
       setNodeStateMap((currentState) => {
-        const nextState: Record<string, INodeState> = {};
-        for (const node of definitionRef.current.nodes) {
-          const existingState = currentState[node.nodeId];
-          nextState[node.nodeId] = {
-            operationStatus: 'idle',
-            isSelected: existingState?.isSelected ?? false,
-          };
-        }
-        return nextState;
+        return resetDagNodeExecutionStateMap({ nodes: definitionRef.current.nodes }, currentState, {
+          createState: createDesignerNodeState,
+        });
       });
       setRunProgress({
         activeDagRunId: dagRunId,
@@ -394,28 +376,10 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
       event.eventType === TASK_PROGRESS_EVENTS.COMPLETED ||
       event.eventType === TASK_PROGRESS_EVENTS.FAILED
     ) {
-      const operationStatus: TNodeOperationStatus =
-        event.eventType === TASK_PROGRESS_EVENTS.STARTED
-          ? 'running'
-          : event.eventType === TASK_PROGRESS_EVENTS.COMPLETED
-            ? 'success'
-            : 'failed';
       setNodeStateMap((currentState) => {
-        const existing = getNodeStateOrDefault(currentState, event.nodeId);
-        const currentTrace = existing.trace;
-        const nextTrace: IDagNodeIoTrace = {
-          nodeId: event.nodeId,
-          input: event.input ?? currentTrace?.input,
-          output: event.output ?? currentTrace?.output,
-        };
-        return {
-          ...currentState,
-          [event.nodeId]: {
-            ...existing,
-            operationStatus,
-            trace: nextTrace,
-          },
-        };
+        return applyRunProgressEventToNodeStateMap(currentState, event, {
+          createState: createDesignerNodeState,
+        });
       });
     }
     setRunProgress((currentState) => {
