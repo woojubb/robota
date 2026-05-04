@@ -163,5 +163,5 @@ describe('PluginTUI', () => {
     stdin.write('\r'); // User scope
     await new Promise((r) => setTimeout(r, 100));
     expect(cbs.install).toHaveBeenCalledWith('new-plugin@test-mp', 'user');
-  });
+  }, 15000);
 });

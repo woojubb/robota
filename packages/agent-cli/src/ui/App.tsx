@@ -77,6 +77,7 @@ function AppInner(
   const {
     interactiveSession,
     registry,
+    commandEffectQueue,
     history,
     addEntry,
     streamingText,
@@ -132,6 +133,7 @@ function AppInner(
     cwd,
     providerOverride: props.providerOverride,
     interactiveSession,
+    commandEffectQueue,
     addEntry,
     baseHandleSubmit,
     setSessionName,

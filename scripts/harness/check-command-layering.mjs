@@ -48,6 +48,12 @@ const CLI_UI_FORBIDDEN_PATTERNS = [
     detail:
       'CLI/TUI rendering code must not import provider setup/command helpers; render generic SDK prompts instead.',
   },
+  {
+    type: 'cli-command-effect-session-state',
+    pattern: /(_pendingCommand(?:Interaction|Effects)|InteractiveSession\s*&\s*ISideEffects)/,
+    detail:
+      'CLI/TUI command effect transport must use an explicit CLI-owned queue, not ad hoc fields on InteractiveSession.',
+  },
 ];
 
 const CLI_FORBIDDEN_PATTERNS = [
