@@ -11,34 +11,9 @@ import {
   HTTP_ACCEPTED,
   HTTP_OK,
   HTTP_CONFLICT,
+  toRuntimeAssetProblemDetails,
 } from './route-utils.js';
-import {
-  resolvePromptAssetsForRuntime,
-  type IRuntimeAssetUploadError,
-} from './runtime-asset-upload.js';
-
-function toRuntimeAssetProblemDetails(
-  error: IRuntimeAssetUploadError,
-  instance: string,
-): {
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  instance: string;
-  code: string;
-  retryable: boolean;
-} {
-  return {
-    type: 'urn:robota:problems:dag:runtime-asset',
-    title: 'Runtime asset upload failed',
-    status: error.status,
-    detail: error.detail,
-    instance,
-    code: error.code,
-    retryable: error.retryable,
-  };
-}
+import { resolvePromptAssetsForRuntime } from './runtime-asset-upload.js';
 
 export function registerRunRoutes(
   router: Router,

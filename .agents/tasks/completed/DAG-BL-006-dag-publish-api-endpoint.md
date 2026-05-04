@@ -1,6 +1,6 @@
 ---
 title: DAG Publish → API Endpoint 생성 + 외부 서비스 연동
-status: backlog
+status: completed
 created: 2026-03-15
 priority: high
 urgency: later
@@ -61,3 +61,26 @@ dag-designer에서 Publish 버튼을 누르면 해당 DAG에 대한 API endpoint
 - 구현 완료 후 관련 패키지 빌드 성공 확인
 - 연관 유닛 테스트 통과 확인
 - typecheck 및 lint 에러 없음 확인
+
+## 계획
+
+- [x] published workflow HTTP 계약을 `dag-orchestrator-server` SPEC에 명시
+- [x] published definition 조회, 버전 선택, draft 차단, override 검증 테스트 추가
+- [x] `/v1/dag/workflows/:dagId/runs` 라우트 구현 및 서버 등록
+- [x] runtime asset 동기화와 기존 run service 실행 경로 재사용 확인
+- [x] 타깃 테스트/typecheck/lint/build 및 workspace 검증 실행
+- [x] 완료 후 task를 completed로 이동
+
+## 진행 기록
+
+- 2026-05-05: 우선 published DAG를 서버가 저장소에서 조회해 외부 API로 실행하는 최소 안정 계약을 구현한다. Input Schema 자동 생성은 별도 메타 모델이 필요하므로 초기 구현에서는 명시적 `input`과 `overrides` 요청 계약으로 고정한다.
+- 2026-05-05: 외부 API 경로는 기존 Robota DAG 네임스페이스와 맞춰 `POST /v1/dag/workflows/:dagId/runs`로 둔다. `?version=`이 없으면 최신 published 버전을 실행하고, body는 `{ input?, overrides? }`만 받는다.
+- 2026-05-05: published workflow route contract 테스트를 추가하고 RED를 확인한 뒤 라우트 구현, 서버 등록, runtime asset 동기화 재사용까지 완료했다.
+- 2026-05-05: 서버 패키지 test/typecheck/lint/build, `pnpm harness:scan:specs`, `pnpm build`, `pnpm harness:verify -- --base-ref origin/develop --skip-record-check` 통과를 확인했다.
+
+## 결과
+
+- `POST /v1/dag/workflows/:dagId/runs` endpoint를 추가해 published DAG definition을 외부 API로 즉시 실행할 수 있게 했다.
+- `?version=`이 없으면 최신 published definition을 실행하고, 특정 version 요청은 published 상태만 허용한다.
+- 실행 body는 `{ input?, overrides? }`로 고정하고, node config override는 요청 단위 shallow merge만 수행하며 저장된 definition은 변경하지 않는다.
+- input schema 자동 생성, 인증, 크레딧, rate limiting, webhook은 별도 설계가 필요한 후속 범위로 남긴다.
