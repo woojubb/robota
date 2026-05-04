@@ -3,7 +3,7 @@ import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
 import { EdgeInspectorPanel } from './edge-inspector-panel.js';
-import { useDagDesignerContext, type TNodeExecutionStatus } from './dag-designer-context.js';
+import { useDagDesignerContext } from './dag-designer-context.js';
 import type { IDagNodeIoTrace } from './dag-node-view.js';
 
 export interface IDagDesignerNodeExplorerProps {
@@ -120,10 +120,7 @@ export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): Rea
   const selectedNodeState = context.selectedNodeId
     ? context.nodeStateMap[context.selectedNodeId]
     : undefined;
-  const selectedExecutionStatus =
-    selectedNodeState?.operationStatus === 'uploading'
-      ? ('idle' as const)
-      : ((selectedNodeState?.operationStatus ?? 'idle') as TNodeExecutionStatus);
+  const selectedExecutionStatus = selectedNodeState?.executionStatus ?? 'idle';
   return (
     <div className={props.className ?? ''}>
       <NodeIoTracePanel
@@ -145,9 +142,9 @@ export function DagDesignerRunProgressSummary(
     let failed = 0;
     let success = 0;
     for (const nodeState of Object.values(context.nodeStateMap)) {
-      if (nodeState.operationStatus === 'running') running++;
-      else if (nodeState.operationStatus === 'failed') failed++;
-      else if (nodeState.operationStatus === 'success') success++;
+      if (nodeState.executionStatus === 'running') running++;
+      else if (nodeState.executionStatus === 'failed') failed++;
+      else if (nodeState.executionStatus === 'success') success++;
     }
     return { runningNodeCount: running, failedNodeCount: failed, successNodeCount: success };
   }, [context.nodeStateMap]);

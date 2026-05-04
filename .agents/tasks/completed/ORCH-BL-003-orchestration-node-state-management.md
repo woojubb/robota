@@ -1,6 +1,6 @@
 ---
 title: 오케스트레이션 레벨 노드 공통 상태 관리
-status: backlog
+status: completed
 created: 2026-03-15
 priority: high
 urgency: later
@@ -36,6 +36,18 @@ urgency: later
 - 오케스트레이션 레벨에 `INodeStateMap` 같은 공통 상태 모델 정의
 - 각 노드의 상태를 통합 (pending operations + execution status + results)
 - dag-designer는 이 상태를 참조하여 UI 표시 및 액션 제어
+
+## 진행 기록
+
+- 2026-05-05: 기존 구현 확인 결과 `dag-designer` 내부 `nodeStateMap`이 업로드/실행 상태를 일부 통합하고 있으나, 타입과 전이 규칙이 React context에 남아 있어 공통 오케스트레이션 상태 SSOT가 없음. `dag-core`에 공통 노드 상태 타입과 순수 상태 reducer를 추가하고 `dag-designer`가 이를 소비하도록 마이그레이션한다.
+- 2026-05-05: `dag-core`에 `IDagNodeState`/`TNodeStateMap` 및 순수 reducer를 추가하고, `dag-designer`의 React context가 이를 소비하도록 마이그레이션 완료. 업로드 같은 노드 부수작업 상태와 실행 상태를 분리했고, Run 가능 여부는 `isDagNodeStateMapRunnable()`으로 판단한다.
+
+## 결과
+
+- 공통 노드 상태 SSOT: `packages/dag-core/src/types/node-state.ts`
+- 순수 상태 reducer: `packages/dag-core/src/state/dag-node-state.ts`
+- 디자이너 연동: `packages/dag-designer/src/components/dag-designer-context.tsx`
+- 검증: `pnpm build`, `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`
 
 ## 검증
 

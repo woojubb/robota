@@ -7,13 +7,14 @@ import {
   type INodeManifest,
   type INodeObjectInfo,
   type IPortDefinition,
+  type TNodeExecutionStatus,
   type TObjectInfo,
   type TPortValueType,
 } from '@robota-sdk/dag-core';
 import type { Edge, Node, XYPosition } from '@xyflow/react';
 import type { IDagNodeIoTrace, IDagNodeViewData, TDagCanvasNode } from './dag-node-view.js';
 import type { IDagBindingEdgeData } from './dag-binding-edge.js';
-import type { INodeState, TNodeExecutionStatus } from './dag-designer-context.js';
+import type { INodeState } from './dag-designer-context.js';
 
 export function toNode(
   nodeDefinition: IDagNode,
@@ -45,10 +46,7 @@ export function toNode(
       nodeType: nodeDefinition.nodeType,
       inputs,
       outputs,
-      executionStatus:
-        nodeState?.operationStatus === 'uploading'
-          ? 'idle'
-          : ((nodeState?.operationStatus ?? 'idle') as TNodeExecutionStatus),
+      executionStatus: nodeState?.executionStatus ?? 'idle',
       isSelected: nodeState?.isSelected ?? false,
       latestTrace,
       assetBaseUrl,
