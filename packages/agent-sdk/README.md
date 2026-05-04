@@ -1,6 +1,6 @@
 # @robota-sdk/agent-sdk
 
-Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, session management, SDK-owned command/common APIs, permissions, hooks, streaming, and context loading.
+Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, and bounded prompt file references.
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-sessions`, `agent-provider-anthropic`) into a cohesive SDK.
 
@@ -49,6 +49,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
 - **Streaming** — Real-time text delta callbacks via `onTextDelta`
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
+- **Prompt File References** — Path-like `@file` prompt references are resolved by the SDK under the session `cwd`, bounded by size/recursion limits, and recorded as structured history events
 - **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider API keys
 - **Context Window Management** — Token tracking, configurable auto-compaction (default ~83.5%), manual `session.compact()`
 - **Background Jobs** — Runtime-managed subagent tasks with transcripts and task snapshots
@@ -136,6 +137,10 @@ session.on('interrupted', (result) => {
 
 // Submit a prompt (queues if already executing, max 1 queued)
 await session.submit('Explain this code');
+
+// Path-like @file references are expanded into model-only prompt context by the SDK.
+// The user-visible history keeps the original prompt plus a structured file-reference event.
+await session.submit('Explain @AGENTS.md and @docs/SPEC.md');
 
 // Submit with display override (shown in UI) and raw input (for hook matching)
 await session.submit(fullPrompt, '/audit', '/rulebased-harness:audit');

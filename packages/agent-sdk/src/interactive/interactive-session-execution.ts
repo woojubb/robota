@@ -18,6 +18,22 @@ import type {
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import {
+  buildPromptWithFileReferences,
+  createPromptFileReferenceHistoryEntry,
+  formatPromptFileReferenceDiagnostics,
+  hasBlockingPromptFileReferenceDiagnostics,
+  resolvePromptFileReferences,
+  toPromptFileReferenceRecords,
+} from '../context/prompt-file-references.js';
+
+export interface IPreparedPromptInput {
+  modelInput: string;
+  hookInput?: string;
+  promptFileReferenceRecords: IPromptFileReferenceRecord[];
+  promptFileReferenceEntry?: IHistoryEntry;
+}
 
 /** Detect whether an error represents an abort/cancel action. */
 export function isAbortError(err: unknown): boolean {
@@ -60,6 +76,7 @@ export function buildResult(
   interactiveHistory: IHistoryEntry[],
   historyBefore: number,
   contextState: IContextWindowState,
+  promptFileReferences?: readonly IPromptFileReferenceRecord[],
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
   const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
@@ -69,6 +86,9 @@ export function buildResult(
     toolSummaries,
     contextState,
     ...(usage && { usage }),
+    ...(promptFileReferences && promptFileReferences.length > 0
+      ? { promptFileReferences: [...promptFileReferences] }
+      : {}),
   };
 }
 
@@ -105,6 +125,34 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
     category: 'event',
     type: 'usage-summary',
     data: usage,
+  };
+}
+
+export async function preparePromptInput(
+  input: string,
+  cwd: string,
+  rawInput?: string,
+): Promise<IPreparedPromptInput> {
+  const promptFileReferenceResult = await resolvePromptFileReferences(input, { cwd });
+  if (hasBlockingPromptFileReferenceDiagnostics(promptFileReferenceResult.diagnostics)) {
+    throw new Error(formatPromptFileReferenceDiagnostics(promptFileReferenceResult.diagnostics));
+  }
+
+  const modelInput = buildPromptWithFileReferences(input, promptFileReferenceResult.references);
+  const hookInput = rawInput ?? (modelInput === input ? undefined : input);
+  const promptFileReferenceRecords = toPromptFileReferenceRecords(
+    promptFileReferenceResult.references,
+  );
+  const promptFileReferenceEntry =
+    promptFileReferenceResult.references.length > 0
+      ? createPromptFileReferenceHistoryEntry(promptFileReferenceResult.references)
+      : undefined;
+
+  return {
+    modelInput,
+    ...(hookInput !== undefined ? { hookInput } : {}),
+    promptFileReferenceRecords,
+    ...(promptFileReferenceEntry !== undefined ? { promptFileReferenceEntry } : {}),
   };
 }
 
