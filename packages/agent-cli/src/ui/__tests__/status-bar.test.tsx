@@ -53,9 +53,9 @@ describe('StatusBar', () => {
   it('shows thinking indicator when isThinking is true', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} isThinking={true} />);
     const frame = lastFrame()!;
-    expect(frame).toContain('Activity:');
+    expect(frame).not.toContain('Activity:');
     expect(frame).toContain('Thinking');
-    expect(frame.indexOf('Activity:')).toBeLessThan(frame.indexOf('Mode:'));
+    expect(frame.indexOf('Thinking')).toBeLessThan(frame.indexOf('Mode:'));
   });
 
   it('restores the lower-right prompt-processing indicator while thinking', () => {
@@ -82,7 +82,7 @@ describe('StatusBar', () => {
       />,
     );
     const frame = lastFrame()!;
-    expect(frame).toContain('Activity:');
+    expect(frame).not.toContain('Activity:');
     expect(frame).toContain('Tools x2');
     expect(frame).toContain('queued');
     expect(frame).toContain('thinking...');
