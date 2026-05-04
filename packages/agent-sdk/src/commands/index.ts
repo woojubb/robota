@@ -116,8 +116,15 @@ export type {
 } from '../background-tasks/index.js';
 export {
   buildModelCommandSubcommands,
+  formatModelCommandUsageMessage,
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,
+  resolveActiveProviderModelCatalog,
+} from '../command-api/model/model-command-api.js';
+export type {
+  IBuildModelCommandSubcommandsOptions,
+  IModelCommandModuleOptions,
+  IModelCommandSettingsAdapter,
 } from '../command-api/model/model-command-api.js';
 export type { TRecommendedResponseLanguage } from '../command-api/language/language-command-api.js';
 export type { IPermissionsCommandState } from '../command-api/permissions/permission-mode-command-api.js';

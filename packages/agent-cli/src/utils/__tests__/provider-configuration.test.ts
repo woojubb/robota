@@ -6,6 +6,7 @@ import {
   applyActiveModelChange,
   applyProviderConfiguration,
   applyProviderSwitch,
+  resolveProviderSettingsWriteTargetPath,
 } from '../provider-configuration.js';
 import { readProviderSettings } from '../provider-factory.js';
 
@@ -153,6 +154,49 @@ describe('provider configuration writes', () => {
     expect((projectSettings.providers as Record<string, Record<string, unknown>>).qwen?.model).toBe(
       'qwen-plus',
     );
+  });
+
+  it('targets the highest-precedence currentProvider document for runtime provider switches', () => {
+    const cwd = join(TMP_BASE, 'project');
+    const userPath = join(TMP_BASE, 'home', '.robota', 'settings.json');
+    const projectPath = join(cwd, '.robota', 'settings.local.json');
+    mkdirSync(join(TMP_BASE, 'home', '.robota'), { recursive: true });
+    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    writeFileSync(
+      userPath,
+      JSON.stringify({
+        currentProvider: 'anthropic',
+        providers: {
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      projectPath,
+      JSON.stringify({
+        currentProvider: 'anthropic',
+        providers: {
+          qwen: { type: 'qwen', model: 'qwen-plus', apiKey: 'sk-qwen' },
+        },
+      }),
+      'utf8',
+    );
+
+    const targetPath = resolveProviderSettingsWriteTargetPath(cwd, {
+      settingsPaths: [userPath, projectPath],
+    });
+    applyProviderSwitch(targetPath, 'qwen', {
+      knownProviders: {
+        qwen: { type: 'qwen', model: 'qwen-plus', apiKey: 'sk-qwen' },
+      },
+    });
+
+    expect(targetPath).toBe(projectPath);
+    expect(readJson(userPath).currentProvider).toBe('anthropic');
+    expect(readJson(projectPath).currentProvider).toBe('qwen');
+    expect(readProviderSettings(cwd).name).toBe('qwen');
+    expect(readProviderSettings(cwd).model).toBe('qwen-plus');
   });
 
   it('updates the provider override profile model resolved by the next session', () => {

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -193,6 +193,61 @@ describe('publish workflow', () => {
     expect(versionSkill).toContain('script explicitly syncs `beta` afterward');
     expect(publishRules).not.toContain('No manual dist-tag sync needed');
     expect(versionSkill).not.toContain('No dist-tag sync needed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CLI dev source resolution
+// ---------------------------------------------------------------------------
+describe('CLI dev source resolution', () => {
+  const cliDevSourcePackages = [
+    'packages/agent-cli',
+    'packages/agent-command-agent',
+    'packages/agent-command-background',
+    'packages/agent-command-compact',
+    'packages/agent-command-context',
+    'packages/agent-command-exit',
+    'packages/agent-command-help',
+    'packages/agent-command-language',
+    'packages/agent-command-memory',
+    'packages/agent-command-mode',
+    'packages/agent-command-model',
+    'packages/agent-command-permissions',
+    'packages/agent-command-plugin',
+    'packages/agent-command-provider',
+    'packages/agent-command-reset',
+    'packages/agent-command-rewind',
+    'packages/agent-command-session',
+    'packages/agent-command-statusline',
+    'packages/agent-core',
+    'packages/agent-provider-anthropic',
+    'packages/agent-provider-gemini',
+    'packages/agent-provider-gemma',
+    'packages/agent-provider-openai',
+    'packages/agent-provider-openai-compatible',
+    'packages/agent-provider-qwen',
+    'packages/agent-runtime',
+    'packages/agent-sdk',
+    'packages/agent-sessions',
+    'packages/agent-tools',
+    'packages/agent-transport-headless',
+  ];
+
+  it('runs cli:dev with source export conditions', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(packageJson.scripts['cli:dev']).toContain('--conditions=source');
+  });
+
+  it('declares source root exports for the CLI dependency closure', () => {
+    for (const packageDir of cliDevSourcePackages) {
+      const packageJson = JSON.parse(readFileSync(`${packageDir}/package.json`, 'utf8'));
+
+      expect(existsSync(`${packageDir}/src/index.ts`)).toBe(true);
+      expect(packageJson.exports['.'].source).toBe('./src/index.ts');
+      expect(packageJson.exports['.'].node).toBeDefined();
+      expect(packageJson.exports['.'].default).toBeDefined();
+    }
   });
 });
 

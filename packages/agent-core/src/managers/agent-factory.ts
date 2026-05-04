@@ -1,17 +1,17 @@
-import { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
+import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
 import { createLogger, type ILogger } from '../utils/logger';
 import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
 import {
-  IAgentFactoryOptions,
-  IAgentCreationStats,
-  IAgentLifecycleEvents,
-  TResolvedFactoryOptions,
-  resolveFactoryOptions,
   applyAgentDefaults,
   generateAgentId,
+  resolveFactoryOptions,
   updateCreationStats,
+  type IAgentFactoryOptions,
+  type IAgentCreationStats,
+  type IAgentLifecycleEvents,
+  type TResolvedFactoryOptions,
 } from './agent-factory-helpers';
 
 export type {
