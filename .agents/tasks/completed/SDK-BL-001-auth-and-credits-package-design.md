@@ -1,6 +1,6 @@
 ---
 title: 인증 + 크레딧 시스템 패키지 설계
-status: backlog
+status: completed
 created: 2026-03-15
 priority: high
 urgency: later
@@ -85,3 +85,18 @@ billing → credits (추후)
 - 구현 완료 후 관련 패키지 빌드 성공 확인
 - 연관 유닛 테스트 통과 확인
 - typecheck 및 lint 에러 없음 확인
+
+## 계획
+
+- [x] 인증/크레딧/결제 패키지 경계 ADR 작성
+- [x] `@robota-sdk/auth` private package 스캐폴드 및 인증 포트/스코프 정책 구현
+- [x] `@robota-sdk/credits` private package 스캐폴드 및 크레딧 예약/정산 순수 정책 구현
+- [x] package SPEC, docs index, project structure, publish registry 갱신
+- [x] 타깃 package test/typecheck/lint/build 및 workspace 검증 실행
+- [x] 완료 후 task를 completed로 이동
+
+## 진행 기록
+
+- 2026-05-05: published workflow API 후속 기반으로 인증/크레딧 경계를 먼저 고정한다. `billing`은 payment provider가 정해지기 전까지 빈 패키지를 만들지 않고 ADR의 후속 독립 패키지로 남긴다.
+- 2026-05-05: ADR-002를 추가하고 `@robota-sdk/auth`, `@robota-sdk/credits` private package의 SPEC, 포트, 순수 정책 함수, 단위 테스트를 추가했다.
+- 2026-05-05: `pnpm install`, 타깃 패키지 test/typecheck/lint/build, `pnpm harness:scan:specs`, `pnpm build`, `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`, `git diff --check`가 모두 통과했다.
