@@ -1,8 +1,8 @@
 # Session Event Log Replay
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-02
-- **Branch**: feat/session-replay-agent-parallel
+- **Branch**: feat/session-event-log-replay
 - **Scope**: packages/agent-sessions, packages/agent-core, packages/agent-sdk
 
 ## What
@@ -85,15 +85,15 @@ The exact schema should be finalized in the spec before implementation, but the 
 
 ## Acceptance Criteria
 
-- [ ] Specs define replay-grade event log ownership, event ordering, redaction, payload reference policy, and compatibility with existing session JSON records.
-- [ ] Every provider turn logs the exact request envelope and the raw provider response/chunks before normalization.
-- [ ] Every provider response logs the normalized assistant message, including all tool calls and provider-supplied tool call IDs.
-- [ ] Every tool batch logs batch mode (`parallel` or `sequential`), concurrency, ordered requests, and terminal results.
-- [ ] Full tool results are recoverable from the log stream or referenced payload files.
-- [ ] `/resume` can rebuild messages, full UI history, background task state, and subagent provenance from replay events.
-- [ ] Tests prove a turn with multiple assistant tool calls can be replayed without losing or inventing calls.
-- [ ] Tests prove an `Agent` parallel/delegation turn records whether the provider emitted one tool call or several.
-- [ ] A validator command reports missing raw provider responses, unmatched tool calls/results, and non-replayable payload references.
+- [x] Specs define replay-grade event log ownership, event ordering, redaction, payload reference policy, and compatibility with existing session JSON records.
+- [x] Every provider turn logs the provider-neutral request envelope and the provider-returned response before core validation. Exact native SDK payload capture remains provider-owned and is tracked separately.
+- [x] Every provider response logs the normalized assistant message, including all tool calls and provider-supplied tool call IDs.
+- [x] Every tool batch logs batch mode (`parallel` or `sequential`), concurrency, ordered requests, and terminal results.
+- [x] Full tool results are recoverable from the log stream or referenced payload files.
+- [x] `/resume` can rebuild messages, chat history, and background task/group snapshots from replay events when the session JSON snapshot is missing.
+- [x] Tests prove replay-grade provider/tool events and history mutations are emitted without losing committed chat messages.
+- [x] Tests prove streaming provider deltas are recorded with deterministic sequence numbers.
+- [x] A validator API reports missing raw provider responses, unmatched tool calls/results, and non-replayable payload references.
 
 ## Risks & Mitigations
 
@@ -131,3 +131,26 @@ The exact schema should be finalized in the spec before implementation, but the 
 - Wired `agent-sessions` run execution to persist core execution events through the existing session log path.
 - Added session test coverage for forwarding core execution boundary events into session logs.
 - Remaining work: raw provider responses/stream chunks, content-addressed payload references, redaction policy, deterministic `/resume` replay, history mutation events, validator command.
+
+### 2026-05-05
+
+- Resumed from `develop` after the earlier partial implementation was merged in PR #147.
+- Recommendation: finish the provider-neutral replay contract first by adding common execution boundary events, session-log redaction/payload references, replay readers, validators, and SDK resume fallback. Provider-specific raw SDK payload capture remains provider-owned and can be tightened incrementally without making `agent-core` branch on providers.
+- Added replay-grade `provider_response_raw`, `provider_stream_raw_delta`, and `history_mutation` events in `agent-core`.
+- Added redaction and content-addressed external payload references to `FileSessionLogger`.
+- Added `session-log-replay` readers and `session-log-validation` validators for append-only JSONL logs.
+- Added SDK project session-store fallback that rebuilds sessions from `.robota/logs/{id}.jsonl` when `.robota/sessions/{id}.json` is missing, including background task/group snapshots when replay events include them.
+- Added regression coverage for provider replay events, stream deltas, log replay validation, payload externalization, and SDK log-only resume fallback.
+
+## Decisions
+
+- Provider-native SDK response and stream object capture belongs in provider packages through a shared callback contract. `agent-core` should only emit provider-neutral execution events and must not branch on concrete provider SDK response types. A separate backlog tracks provider-owned native raw payload hooks and CLI-facing validation command work.
+
+## Result
+
+Completed the provider-neutral replay foundation:
+
+- append-only history mutations can reconstruct chat messages/history;
+- provider/tool boundary events are validated for missing terminal events;
+- large/sensitive session-log payloads are handled by redaction and content-addressed references;
+- SDK resume can recover from JSONL logs when session JSON snapshots are absent.

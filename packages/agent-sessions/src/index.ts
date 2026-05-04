@@ -24,7 +24,24 @@ export type { IContextWindowState } from '@robota-sdk/agent-core';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
-export type { ISessionLogger, TSessionLogData } from './session-logger.js';
+export type {
+  IExternalPayloadReference,
+  IFileSessionLoggerOptions,
+  ISessionLogger,
+  TSessionLogData,
+  TSessionLogValue,
+} from './session-logger.js';
+export {
+  loadSessionLogEntries,
+  replaySessionLogEntries,
+  validateSessionReplayLogEntries,
+} from './session-log-replay.js';
+export type {
+  ISessionLogEntry,
+  ISessionReplayRecord,
+  ISessionReplayValidationIssue,
+  ISessionReplayValidationResult,
+} from './session-log-replay.js';
 
 // Session persistence
 export { SessionStore } from './session-store.js';
