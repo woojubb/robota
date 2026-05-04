@@ -48,7 +48,7 @@ Run client contract: `createRun -> startRun -> getRunResult`.
 - **Lifecycle** (`lifecycle/run-engine.ts`): Re-exports `IRunNodeTrace` and `IRunResult` types.
 - **Utilities**: `port-editor-utils.ts` (port editing helpers).
 - **Runtime Port Projection**: `canvas-utils.ts` enriches no-port DAG definitions with `TObjectInfo`/`INodeManifest` ports for rendering and validation, and strips runtime ports before emitting persisted definition changes.
-- **Config Form**: Node configuration uses ComfyUI `TInputTypeSpec` (from `/object_info`) instead of Zod schemas for field rendering.
+- **Config Form**: Node configuration uses ComfyUI `TInputTypeSpec` (from `/object_info`) instead of Zod schemas for field rendering. A single string item (`["INT"]`, `["IMAGE"]`) is a type tuple; two or more string items are enum options. Upload enum tuples (`[["upload"], { image_upload: true }]`, `[["upload"], { video_upload: true }]`) render as file upload parameters.
 - **Node Catalog**: `NodeExplorerPanel` uses `INodeObjectInfo`/`TObjectInfo` from the `/object_info` endpoint for node discovery and categorization.
 
 **INodeManifest vs TObjectInfo coexistence:**
