@@ -14,6 +14,8 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own prompt file-reference parsing, path resolution, file reads, recursion limits, size
   limits, or diagnostics for `@file` syntax — handled by `@robota-sdk/agent-sdk`; CLI only passes
   submitted non-command prompt text to `InteractiveSession.submit()`
+- Does NOT own context reference inventory or `/context add/remove/clear` file operations — handled
+  by SDK command common APIs and `@robota-sdk/agent-command-context`; CLI/TUI only renders command output
 - Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only render command output and notices
 - Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
@@ -442,25 +444,25 @@ Tool: [5 tools]
 
 ## Slash Commands
 
-| Command                   | Description                                                     |
-| ------------------------- | --------------------------------------------------------------- |
-| `/help`                   | Show available commands                                         |
-| `/clear`                  | Clear conversation history through the session module           |
-| `/mode [mode]`            | Show/change permission mode                                     |
-| `/model [model]`          | Select AI model through the injected model command module       |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts      |
-| `/compact [instructions]` | Compress context window                                         |
-| `/cost`                   | Show session info through the session command module            |
-| `/context`                | Context window info and `/context auto ...` controls            |
-| `/agent`                  | Run and manage background subagent jobs                         |
-| `/permissions`            | Permission rules                                                |
-| `/memory`                 | Route project memory commands to the memory command module      |
-| `/rewind`                 | Route edit checkpoint list/restore commands to SDK              |
-| `/background`             | Route background task controls to the background command module |
-| `/plugin [subcommand]`    | Plugin management through the injected plugin command module    |
-| `/resume`                 | Show session picker to resume a saved session                   |
-| `/rename <name>`          | Rename the current session (name displayed in StatusBar)        |
-| `/exit`                   | Exit through the injected exit command module                   |
+| Command                   | Description                                                                |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `/help`                   | Show available commands                                                    |
+| `/clear`                  | Clear conversation history through the session module                      |
+| `/mode [mode]`            | Show/change permission mode                                                |
+| `/model [model]`          | Select AI model through the injected model command module                  |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts                 |
+| `/compact [instructions]` | Compress context window                                                    |
+| `/cost`                   | Show session info through the session command module                       |
+| `/context`                | Context window info, reference inventory, and `/context auto ...` controls |
+| `/agent`                  | Run and manage background subagent jobs                                    |
+| `/permissions`            | Permission rules                                                           |
+| `/memory`                 | Route project memory commands to the memory command module                 |
+| `/rewind`                 | Route edit checkpoint list/restore commands to SDK                         |
+| `/background`             | Route background task controls to the background command module            |
+| `/plugin [subcommand]`    | Plugin management through the injected plugin command module               |
+| `/resume`                 | Show session picker to resume a saved session                              |
+| `/rename <name>`          | Rename the current session (name displayed in StatusBar)                   |
+| `/exit`                   | Exit through the injected exit command module                              |
 
 ### Slash Command Autocomplete
 

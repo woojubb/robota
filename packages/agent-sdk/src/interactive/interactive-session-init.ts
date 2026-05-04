@@ -39,6 +39,7 @@ import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 
@@ -264,6 +265,7 @@ export function loadSessionRecord(
   backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
   memoryEvents: IMemoryEvent[];
   usedMemoryReferences: IMemoryReference[];
+  contextReferences: IContextReferenceItem[];
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -277,6 +279,7 @@ export function loadSessionRecord(
       backgroundJobGroupEvents: [],
       memoryEvents: [],
       usedMemoryReferences: [],
+      contextReferences: [],
     };
   }
 
@@ -287,6 +290,7 @@ export function loadSessionRecord(
   const backgroundJobGroupEvents = record.backgroundJobGroupEvents ?? [];
   const memoryEvents = record.memoryEvents ?? [];
   const usedMemoryReferences = record.usedMemoryReferences ?? [];
+  const contextReferences = record.contextReferences ?? [];
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
@@ -316,6 +320,7 @@ export function loadSessionRecord(
     backgroundJobGroupEvents,
     memoryEvents,
     usedMemoryReferences,
+    contextReferences,
   };
 }
 

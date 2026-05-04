@@ -92,10 +92,16 @@ export type {
   ICommandInstalledPlugin,
   ICommandMarketplaceSource,
   TPluginInstallScope,
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
 } from './commands/index.js';
 export {
+  addCommandContextReference,
   buildProviderProfile,
   buildProviderSetupPatch,
+  clearCommandContextReferences,
   createProviderSetupFlow,
   formatEnvReference,
   formatProviderSetupChoiceLabel,
@@ -106,6 +112,7 @@ export {
   isEnvReference,
   mergeProviderPatch,
   probeProviderProfile,
+  listCommandContextReferences,
   resolveEnvReference,
   resolveProviderSetupSelection,
   runProviderSetupPromptFlow,
@@ -118,6 +125,7 @@ export {
   readAutoCompactThreshold,
   readAutoCompactThresholdSource,
   readCommandContextState,
+  removeCommandContextReference,
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
   upsertProviderProfile,
@@ -456,8 +464,17 @@ export {
   hasBlockingPromptFileReferenceDiagnostics,
   parsePromptFileReferences,
   resolvePromptFileReferences,
+  resolvePromptFileReferencePaths,
   toPromptFileReferenceRecords,
 } from './context/prompt-file-references.js';
+export {
+  clearContextReferences,
+  createContextReferenceItem,
+  listActiveContextReferences,
+  removeContextReference,
+  toContextReferenceRecords,
+  upsertContextReference,
+} from './context/context-reference-inventory.js';
 export type {
   IPromptFileReferenceDiagnostic,
   IPromptFileReferenceHistoryData,
@@ -470,6 +487,12 @@ export type {
   TPromptFileReferenceDiagnosticCode,
   TPromptFileReferenceReason,
 } from './context/prompt-file-references.js';
+export type {
+  IContextReferenceInventoryLimits,
+  IContextReferenceUpsertResult,
+  TContextReferenceLoadType,
+  TContextReferenceStatus,
+} from './context/context-reference-inventory.js';
 
 // ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';

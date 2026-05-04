@@ -13,6 +13,12 @@ import type {
 } from '../checkpoints/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
+import type {
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from '../context/context-reference-inventory.js';
 
 export interface ICommandListEntry {
   name: string;
@@ -46,6 +52,10 @@ export interface ICommandHostContext {
   ): void;
   getCommandHostAdapters?(): ICommandHostAdapters;
   compactContext(instructions?: string): Promise<void>;
+  listContextReferences?(): IContextReferenceItem[];
+  addContextReference?(path: string): Promise<IContextReferenceAddResult>;
+  removeContextReference?(path: string): IContextReferenceRemoveResult;
+  clearContextReferences?(): IContextReferenceClearResult;
   getCwd(): string;
   listCommands?(): ICommandListEntry[];
   listEditCheckpoints(): IEditCheckpointSummary[];

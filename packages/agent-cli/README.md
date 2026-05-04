@@ -265,22 +265,22 @@ When a session has a name, it appears in three places:
 
 ## Slash Commands
 
-| Command                   | Description                                                |
-| ------------------------- | ---------------------------------------------------------- |
-| `/help`                   | Show available commands                                    |
-| `/clear`                  | Clear conversation history                                 |
-| `/mode [mode]`            | Show or change permission mode                             |
-| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)        |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
-| `/compact [instructions]` | Compress context window                                    |
-| `/cost`                   | Show session info                                          |
-| `/context`                | Context window details                                     |
-| `/agent`                  | Run and manage background subagent jobs                    |
-| `/permissions`            | Show permission rules                                      |
-| `/plugin [subcommand]`    | Plugin management                                          |
-| `/resume`                 | List recent sessions and resume one                        |
-| `/rename <name>`          | Rename the current session                                 |
-| `/exit`                   | Exit CLI                                                   |
+| Command                   | Description                                                            |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `/help`                   | Show available commands                                                |
+| `/clear`                  | Clear conversation history                                             |
+| `/mode [mode]`            | Show or change permission mode                                         |
+| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)                    |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts             |
+| `/compact [instructions]` | Compress context window                                                |
+| `/cost`                   | Show session info                                                      |
+| `/context`                | Context window details, reference inventory, and auto-compact controls |
+| `/agent`                  | Run and manage background subagent jobs                                |
+| `/permissions`            | Show permission rules                                                  |
+| `/plugin [subcommand]`    | Plugin management                                                      |
+| `/resume`                 | List recent sessions and resume one                                    |
+| `/rename <name>`          | Rename the current session                                             |
+| `/exit`                   | Exit CLI                                                               |
 
 Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 

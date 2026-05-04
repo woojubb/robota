@@ -2,6 +2,10 @@ import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-cor
 import { describe, expect, it } from 'vitest';
 import type {
   ICommandHostContext,
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
   ICommandResult,
   ICommandSessionRuntime,
   ISystemCommand,
@@ -16,6 +20,8 @@ import {
   clearConversationHistory,
   createCommandMemoryStores,
   createCommandPendingMemoryStore,
+  addCommandContextReference,
+  clearCommandContextReferences,
   createPluginTuiRequestedEffect,
   createSessionExitRequestedEffect,
   createSessionPickerRequestedEffect,
@@ -31,9 +37,11 @@ import {
   hasSensitiveCommandMemoryContent,
   isCommandMemoryType,
   isStatusLineCommandSettingsPatch,
+  listCommandContextReferences,
   listCommandUsedMemoryReferences,
   parseSessionNameArgument,
   readCommandSessionInfo,
+  removeCommandContextReference,
   readCommandPermissionsState,
   readCommandPermissionMode,
   resolvePluginCommandAdapter,
@@ -49,6 +57,18 @@ const CONTEXT_STATE: IContextWindowState = {
   usedTokens: 25,
   usedPercentage: 25,
   remainingPercentage: 75,
+};
+
+const CONTEXT_REFERENCE: IContextReferenceItem = {
+  id: 'manual:AGENTS.md',
+  sourcePath: '/workspace/AGENTS.md',
+  relativePath: 'AGENTS.md',
+  originalReference: '@AGENTS.md',
+  loadType: 'manual',
+  status: 'active',
+  byteLength: 32,
+  loadedAt: '2026-05-05T00:00:00.000Z',
+  lastUsedAt: '2026-05-05T00:00:00.000Z',
 };
 
 function createCommandSessionRuntime(): ICommandSessionRuntime {
@@ -89,6 +109,7 @@ function createCommandHostContext(): ICommandHostContext {
   const runtime = createCommandSessionRuntime();
   let settings: Record<string, number | false> = {};
   let threshold: number | false = 0.8;
+  let contextReferences: IContextReferenceItem[] = [];
   return {
     getSession: () => runtime,
     getContextState: () => CONTEXT_STATE,
@@ -107,6 +128,27 @@ function createCommandHostContext(): ICommandHostContext {
       },
     }),
     compactContext: async () => undefined,
+    listContextReferences: () => [...contextReferences],
+    addContextReference: async (path): Promise<IContextReferenceAddResult> => {
+      const reference = {
+        ...CONTEXT_REFERENCE,
+        relativePath: path,
+        sourcePath: `/workspace/${path}`,
+        originalReference: `@${path}`,
+      };
+      contextReferences = [...contextReferences, reference];
+      return { reference, evicted: [], diagnostics: [] };
+    },
+    removeContextReference: (path): IContextReferenceRemoveResult => {
+      const removed = contextReferences.find((reference) => reference.relativePath === path);
+      contextReferences = contextReferences.filter((reference) => reference.relativePath !== path);
+      return removed ? { removed } : {};
+    },
+    clearContextReferences: (): IContextReferenceClearResult => {
+      const removed = [...contextReferences];
+      contextReferences = [];
+      return { removed };
+    },
     getCwd: () => '/workspace',
     listCommands: () => [{ name: 'example', description: 'Example command' }],
     listEditCheckpoints: () => [],
@@ -168,6 +210,22 @@ describe('command-api contracts', () => {
     expect(context.getAutoCompactThreshold()).toBe(0.7);
 
     expect(resetAutoCompactThresholdSetting(context)).toBe(true);
+  });
+
+  it('exposes context reference inventory APIs without command implementation imports', async () => {
+    const context = createCommandHostContext();
+
+    const addResult = await addCommandContextReference(context, 'AGENTS.md');
+
+    expect(addResult.reference?.relativePath).toBe('AGENTS.md');
+    expect(listCommandContextReferences(context)).toHaveLength(1);
+    expect(removeCommandContextReference(context, 'AGENTS.md').removed?.relativePath).toBe(
+      'AGENTS.md',
+    );
+    expect(listCommandContextReferences(context)).toEqual([]);
+
+    await addCommandContextReference(context, 'AGENTS.md');
+    expect(clearCommandContextReferences(context).removed).toHaveLength(1);
   });
 
   it('exposes permission mode common APIs without command implementation imports', () => {

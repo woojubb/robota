@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   ICommandHostContext,
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
   ICommandSessionRuntime,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-sdk';
@@ -15,6 +19,30 @@ const CONTEXT_STATE: TContextWindowState = {
   maxTokens: 200000,
   usedPercentage: 2.5,
   remainingPercentage: 97.5,
+};
+
+const MANUAL_REFERENCE: IContextReferenceItem = {
+  id: 'manual:AGENTS.md',
+  sourcePath: '/workspace/AGENTS.md',
+  relativePath: 'AGENTS.md',
+  originalReference: '@AGENTS.md',
+  loadType: 'manual',
+  status: 'active',
+  byteLength: 42,
+  loadedAt: '2026-05-05T00:00:00.000Z',
+  lastUsedAt: '2026-05-05T00:00:00.000Z',
+};
+
+const PROMPT_REFERENCE: IContextReferenceItem = {
+  id: 'prompt-reference:packages/agent-sdk/docs/SPEC.md',
+  sourcePath: '/workspace/packages/agent-sdk/docs/SPEC.md',
+  relativePath: 'packages/agent-sdk/docs/SPEC.md',
+  originalReference: '@packages/agent-sdk/docs/SPEC.md',
+  loadType: 'prompt-reference',
+  status: 'observed',
+  byteLength: 200,
+  loadedAt: '2026-05-05T00:00:01.000Z',
+  lastUsedAt: '2026-05-05T00:00:01.000Z',
 };
 
 function createRuntime(state: { threshold: number | false }): ICommandSessionRuntime {
@@ -40,11 +68,13 @@ function createRuntime(state: { threshold: number | false }): ICommandSessionRun
 function createCommandHostContext(threshold: number | false = 0.835): ICommandHostContext & {
   settings: Record<string, number | false>;
   source: TAutoCompactThresholdSource;
+  references: IContextReferenceItem[];
 } {
   const state = {
     threshold,
     source: 'settings' as TAutoCompactThresholdSource,
     settings: {} as Record<string, number | false>,
+    references: [] as IContextReferenceItem[],
   };
   const runtime = createRuntime(state);
   return {
@@ -53,6 +83,9 @@ function createCommandHostContext(threshold: number | false = 0.835): ICommandHo
     },
     get source() {
       return state.source;
+    },
+    get references() {
+      return state.references;
     },
     getSession: () => runtime,
     getContextState: () => CONTEXT_STATE,
@@ -73,6 +106,27 @@ function createCommandHostContext(threshold: number | false = 0.835): ICommandHo
       },
     }),
     compactContext: vi.fn(),
+    listContextReferences: () => [...state.references],
+    addContextReference: async (path): Promise<IContextReferenceAddResult> => {
+      const reference = {
+        ...MANUAL_REFERENCE,
+        relativePath: path,
+        sourcePath: `/workspace/${path}`,
+        originalReference: `@${path}`,
+      };
+      state.references = [...state.references, reference];
+      return { reference, evicted: [], diagnostics: [] };
+    },
+    removeContextReference: (path): IContextReferenceRemoveResult => {
+      const removed = state.references.find((reference) => reference.relativePath === path);
+      state.references = state.references.filter((reference) => reference.relativePath !== path);
+      return removed ? { removed } : {};
+    },
+    clearContextReferences: (): IContextReferenceClearResult => {
+      const removed = [...state.references];
+      state.references = [];
+      return { removed };
+    },
     getCwd: () => '/workspace',
     listCommands: () => [],
     listEditCheckpoints: () => [],
@@ -101,7 +155,7 @@ describe('createContextCommandModule', () => {
     expect(entry).toEqual(
       expect.objectContaining({
         name: 'context',
-        description: 'Context window info and auto-compact controls',
+        description: 'Context window info, reference inventory, and auto-compact controls',
       }),
     );
     expect(command).toEqual(
@@ -118,13 +172,61 @@ describe('createContextCommandModule', () => {
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('Context: 5,000 / 200,000 tokens (3%)');
     expect(result?.message).toContain('Auto compact: 75% (settings)');
+    expect(result?.message).toContain('References: 0 active, 0 observed');
     expect(result?.data).toEqual({
       usedTokens: 5000,
       maxTokens: 200000,
       percentage: 2.5,
       autoCompactThreshold: 0.75,
       autoCompactThresholdSource: 'settings',
+      references: [],
     });
+  });
+
+  it('lists active and observed context references', async () => {
+    const context = createCommandHostContext();
+    context.references.push(MANUAL_REFERENCE, PROMPT_REFERENCE);
+
+    const result = await createExecutor().execute('context', context, 'list');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('AGENTS.md [manual, active] 42 B');
+    expect(result?.message).toContain(
+      'packages/agent-sdk/docs/SPEC.md [prompt-reference, observed] 200 B',
+    );
+    expect(result?.data?.references).toEqual([MANUAL_REFERENCE, PROMPT_REFERENCE]);
+  });
+
+  it('adds manual context references through the SDK command API', async () => {
+    const context = createCommandHostContext();
+
+    const result = await createExecutor().execute('context', context, 'add AGENTS.md');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Context reference added: AGENTS.md [manual, active] 42 B.');
+    expect(context.references[0]?.relativePath).toBe('AGENTS.md');
+  });
+
+  it('removes context references through the SDK command API', async () => {
+    const context = createCommandHostContext();
+    context.references.push(MANUAL_REFERENCE);
+
+    const result = await createExecutor().execute('context', context, 'remove AGENTS.md');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('Context reference removed: AGENTS.md [manual, active] 42 B.');
+    expect(context.references).toEqual([]);
+  });
+
+  it('clears context references through the SDK command API', async () => {
+    const context = createCommandHostContext();
+    context.references.push(MANUAL_REFERENCE, PROMPT_REFERENCE);
+
+    const result = await createExecutor().execute('context', context, 'clear');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('Context references cleared: 2 removed.');
+    expect(context.references).toEqual([]);
   });
 
   it('formats disabled auto compact policy', async () => {

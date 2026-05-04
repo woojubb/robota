@@ -7,6 +7,7 @@ import type {
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import { projectPaths } from '../paths.js';
 
 export interface IInteractiveSessionRecord {
@@ -25,6 +26,7 @@ export interface IInteractiveSessionRecord {
   backgroundJobGroupEvents?: TBackgroundJobGroupEvent[];
   memoryEvents?: IMemoryEvent[];
   usedMemoryReferences?: IMemoryReference[];
+  contextReferences?: IContextReferenceItem[];
 }
 
 export interface IInteractiveSessionStore {
@@ -147,6 +149,9 @@ function fromSessionRecord(session: ISessionRecord): IInteractiveSessionRecord {
       : {}),
     ...(session.usedMemoryReferences !== undefined
       ? { usedMemoryReferences: session.usedMemoryReferences as IMemoryReference[] }
+      : {}),
+    ...(session.contextReferences !== undefined
+      ? { contextReferences: session.contextReferences as IContextReferenceItem[] }
       : {}),
   };
 }

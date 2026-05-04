@@ -1,5 +1,9 @@
 # CLI `/context` Command — Document Reference List
 
+## Status
+
+Completed.
+
 ## Priority
 
 P2 - developer experience and debugging convenience.
