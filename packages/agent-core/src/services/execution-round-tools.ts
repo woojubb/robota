@@ -11,7 +11,6 @@ import type {
 import type { IToolCall } from '../interfaces/messages';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
-import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
@@ -142,6 +141,7 @@ export async function executeAndRecordToolCalls(
   );
 
   const contextLimit = getModelContextWindow(config?.defaultModel?.model ?? '');
+  const messageCountBeforeToolResults = conversationStore.getMessages().length;
   const toolResultsOutcome = addToolResultsToHistory(
     assistantToolCalls,
     toolSummary,
@@ -150,6 +150,26 @@ export async function executeAndRecordToolCalls(
     logger,
     { contextLimit, cumulativeInputTokens: roundState.cumulativeInputTokens },
   );
+  const addedToolMessages = conversationStore.getMessages().slice(messageCountBeforeToolResults);
+  addedToolMessages.forEach((message, offset) => {
+    onExecutionEvent?.('tool_message_committed', {
+      executionId,
+      conversationId,
+      round: currentRound,
+      batchId,
+      index: offset,
+      message,
+    } as TExecutionEventData);
+    onExecutionEvent?.('history_mutation', {
+      executionId,
+      conversationId,
+      round: currentRound,
+      batchId,
+      mutation: 'append_message',
+      index: messageCountBeforeToolResults + offset,
+      message,
+    } as TExecutionEventData);
+  });
 
   eventEmitter.emitToolResultsEvents(
     assistantToolCalls,

@@ -1,5 +1,12 @@
 import type { IHistoryEntry, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
-import { SessionStore, type ISessionRecord } from '@robota-sdk/agent-sessions';
+import {
+  loadSessionLogEntries,
+  replaySessionLogEntries,
+  SessionStore,
+  type ISessionRecord,
+} from '@robota-sdk/agent-sessions';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
@@ -46,7 +53,8 @@ export interface IResumableSessionSummary {
 }
 
 export function createProjectSessionStore(cwd: string): IInteractiveSessionStore {
-  return new ProjectSessionStoreFacade(projectPaths(cwd).sessions);
+  const paths = projectPaths(cwd);
+  return new ProjectSessionStoreFacade(paths.sessions, paths.logs);
 }
 
 export function listResumableSessionSummaries(
@@ -85,9 +93,11 @@ export function resolveSessionIdByIdOrName(
 
 class ProjectSessionStoreFacade implements IInteractiveSessionStore {
   private readonly store: SessionStore;
+  private readonly logsDir: string | undefined;
 
-  constructor(baseDir: string) {
+  constructor(baseDir: string, logsDir?: string) {
     this.store = new SessionStore(baseDir);
+    this.logsDir = logsDir;
   }
 
   save(session: IInteractiveSessionRecord): void {
@@ -96,15 +106,62 @@ class ProjectSessionStoreFacade implements IInteractiveSessionStore {
 
   load(id: string): IInteractiveSessionRecord | undefined {
     const session = this.store.load(id);
-    return session === undefined ? undefined : fromSessionRecord(session);
+    if (session !== undefined) {
+      return fromSessionRecord(session);
+    }
+    return this.loadFromReplayLog(id);
   }
 
   list(): IInteractiveSessionRecord[] {
-    return this.store.list().map(fromSessionRecord);
+    const records = this.store.list().map(fromSessionRecord);
+    const seen = new Set(records.map((record) => record.id));
+    for (const replayRecord of this.listReplayLogRecords()) {
+      if (!seen.has(replayRecord.id)) {
+        records.push(replayRecord);
+      }
+    }
+    return records.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
   }
 
   delete(id: string): void {
     this.store.delete(id);
+  }
+
+  private loadFromReplayLog(id: string): IInteractiveSessionRecord | undefined {
+    if (!this.logsDir) return undefined;
+    const replay = replaySessionLogEntries(
+      loadSessionLogEntries(join(this.logsDir, `${id}.jsonl`)),
+    );
+    if (!replay.sessionId || replay.messages.length === 0) {
+      return undefined;
+    }
+    const backgroundTaskEvents = replay.backgroundTaskEvents as TBackgroundTaskEvent[];
+    const backgroundJobGroupEvents = replay.backgroundJobGroupEvents as TBackgroundJobGroupEvent[];
+    return {
+      id: replay.sessionId,
+      cwd: replay.cwd ?? '',
+      createdAt: replay.createdAt ?? replay.updatedAt ?? new Date(0).toISOString(),
+      updatedAt: replay.updatedAt ?? replay.createdAt ?? new Date(0).toISOString(),
+      messages: replay.messages,
+      history: replay.history,
+      backgroundTasks: deriveBackgroundTasks(backgroundTaskEvents),
+      backgroundTaskEvents,
+      backgroundJobGroups: deriveBackgroundJobGroups(backgroundJobGroupEvents),
+      backgroundJobGroupEvents,
+      memoryEvents: replay.memoryEvents as IMemoryEvent[],
+    };
+  }
+
+  private listReplayLogRecords(): IInteractiveSessionRecord[] {
+    if (!this.logsDir || !existsSync(this.logsDir)) {
+      return [];
+    }
+    return readdirSync(this.logsDir)
+      .filter((file) => file.endsWith('.jsonl'))
+      .map((file) => this.loadFromReplayLog(file.slice(0, -'.jsonl'.length)))
+      .filter((record): record is IInteractiveSessionRecord => record !== undefined);
   }
 }
 
@@ -154,4 +211,37 @@ function fromSessionRecord(session: ISessionRecord): IInteractiveSessionRecord {
       ? { contextReferences: session.contextReferences as IContextReferenceItem[] }
       : {}),
   };
+}
+
+function deriveBackgroundTasks(events: readonly TBackgroundTaskEvent[]): IBackgroundTaskState[] {
+  const tasks = new Map<string, IBackgroundTaskState>();
+  for (const event of events) {
+    const task = getBackgroundTaskSnapshot(event);
+    if (task) tasks.set(task.id, task);
+  }
+  return [...tasks.values()];
+}
+
+function getBackgroundTaskSnapshot(event: TBackgroundTaskEvent): IBackgroundTaskState | undefined {
+  switch (event.type) {
+    case 'background_task_created':
+    case 'background_task_started':
+    case 'background_task_updated':
+    case 'background_task_completed':
+    case 'background_task_failed':
+    case 'background_task_cancelled':
+      return event.task;
+    default:
+      return undefined;
+  }
+}
+
+function deriveBackgroundJobGroups(
+  events: readonly TBackgroundJobGroupEvent[],
+): IBackgroundJobGroupState[] {
+  const groups = new Map<string, IBackgroundJobGroupState>();
+  for (const event of events) {
+    groups.set(event.group.id, event.group);
+  }
+  return [...groups.values()];
 }

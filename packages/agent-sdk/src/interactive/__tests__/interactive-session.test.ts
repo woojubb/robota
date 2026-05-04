@@ -38,6 +38,31 @@ function createMockSession(options?: {
   };
 }
 
+function createControllableRun(): {
+  run: () => Promise<string>;
+  started: Promise<void>;
+  resolve: (value: string) => void;
+} {
+  let resolveRun: ((value: string) => void) | undefined;
+  let markStarted: () => void = () => {};
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+
+  return {
+    run: () =>
+      new Promise<string>((resolve) => {
+        resolveRun = resolve;
+        markStarted();
+      }),
+    started,
+    resolve: (value: string) => {
+      if (!resolveRun) throw new Error('run has not started');
+      resolveRun(value);
+    },
+  };
+}
+
 // Minimal mock SessionStore
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
@@ -160,14 +185,9 @@ describe('InteractiveSession', () => {
   });
 
   it('queues prompt when already executing', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -175,7 +195,7 @@ describe('InteractiveSession', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     expect(session.isExecuting()).toBe(true);
 
@@ -184,7 +204,7 @@ describe('InteractiveSession', () => {
     expect(session.getPendingPrompt()).toBe('second');
 
     // Complete first execution
-    resolveRun!('first response');
+    controllableRun.resolve('first response');
     await first;
 
     // Wait for queued prompt to auto-execute
@@ -271,21 +291,16 @@ describe('InteractiveSession', () => {
   });
 
   it('cancelQueue clears pending without aborting', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
     });
 
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     expect(session.getPendingPrompt()).toBe('queued');
@@ -294,7 +309,7 @@ describe('InteractiveSession', () => {
     expect(session.getPendingPrompt()).toBeNull();
     expect(mockSession.abort).not.toHaveBeenCalled();
 
-    resolveRun!('done');
+    controllableRun.resolve('done');
     await first;
   });
 

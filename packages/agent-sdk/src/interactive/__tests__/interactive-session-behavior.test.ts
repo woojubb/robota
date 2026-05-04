@@ -50,6 +50,31 @@ function createMockSession(options?: {
   };
 }
 
+function createControllableRun(): {
+  run: () => Promise<string>;
+  started: Promise<void>;
+  resolve: (value: string) => void;
+} {
+  let resolveRun: ((value: string) => void) | undefined;
+  let markStarted: () => void = () => {};
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+
+  return {
+    run: () =>
+      new Promise<string>((resolve) => {
+        resolveRun = resolve;
+        markStarted();
+      }),
+    started,
+    resolve: (value: string) => {
+      if (!resolveRun) throw new Error('run has not started');
+      resolveRun(value);
+    },
+  };
+}
+
 describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Scenario: Normal prompt execution ─────────────────────────
 
@@ -94,14 +119,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Scenario: Prompt queue ────────────────────────────────────
 
   it('submitting during execution queues the prompt (max 1)', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -109,7 +129,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
     expect(session.isExecuting()).toBe(true);
 
     // Queue second
@@ -121,7 +141,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(session.getPendingPrompt()).toBe('third');
 
     // Complete first
-    resolveRun!('first response');
+    controllableRun.resolve('first response');
     await first;
     await new Promise((r) => setTimeout(r, 50));
 
@@ -131,21 +151,16 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   it('cancelQueue clears queued prompt without affecting execution', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
     });
 
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     expect(session.getPendingPrompt()).toBe('queued');
@@ -154,7 +169,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(session.getPendingPrompt()).toBeNull();
     expect(mockSession.abort).not.toHaveBeenCalled(); // execution still running
 
-    resolveRun!('done');
+    controllableRun.resolve('done');
     await first;
     await new Promise((r) => setTimeout(r, 50));
 
@@ -474,14 +489,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Regression: queued prompt rawInput is preserved ────────────
 
   it('queued prompt preserves displayInput and rawInput', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -489,14 +499,14 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     // Queue with displayInput + rawInput
     await session.submit('expanded prompt', '/skill', '/plugin:skill args');
     expect(session.getPendingPrompt()).toBe('expanded prompt');
 
     // Complete first
-    resolveRun!('done');
+    controllableRun.resolve('done');
     await first;
     await new Promise((r) => setTimeout(r, 50));
 
