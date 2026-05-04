@@ -4,8 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import type { CommandRegistry } from '@robota-sdk/agent-sdk';
-import type { ISlashCommand } from '../../commands/types.js';
+import type { CommandRegistry, ICommand } from '@robota-sdk/agent-sdk';
 
 /** Parse input to determine autocomplete state */
 export function parseSlashInput(value: string): {
@@ -28,7 +27,7 @@ export function useAutocomplete(
   registry: CommandRegistry | undefined,
 ): {
   showPopup: boolean;
-  filteredCommands: ISlashCommand[];
+  filteredCommands: ICommand[];
   selectedIndex: number;
   setSelectedIndex: React.Dispatch<React.SetStateAction<number>>;
   isSubcommandMode: boolean;

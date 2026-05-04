@@ -13,7 +13,7 @@ import {
   resolveTabCompletion,
   shouldSubmitInput,
 } from '../flows/input-area-flow.js';
-import type { ISlashCommand } from '../../commands/types.js';
+import type { ICommand } from '@robota-sdk/agent-sdk';
 import {
   createAssistantMessage,
   createSystemMessage,
@@ -21,7 +21,7 @@ import {
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 
-const command = (name: string, subcommands?: ISlashCommand[]): ISlashCommand => ({
+const command = (name: string, subcommands?: ICommand[]): ICommand => ({
   name,
   description: `${name} command`,
   source: 'test',

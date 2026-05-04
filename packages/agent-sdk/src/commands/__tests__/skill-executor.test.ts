@@ -4,9 +4,9 @@ import {
   type ISkillExecutionCallbacks,
   type IForkExecutionOptions,
 } from '../skill-executor.js';
-import type { ISlashCommand } from '../types.js';
+import type { ICommand } from '../../command-api/types.js';
 
-function makeSkill(overrides?: Partial<ISlashCommand>): ISlashCommand {
+function makeSkill(overrides?: Partial<ICommand>): ICommand {
   return {
     name: 'test-skill',
     description: 'A test skill',

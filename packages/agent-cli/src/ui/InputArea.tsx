@@ -1,10 +1,9 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Box, Text, useInput, useWindowSize } from 'ink';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { CommandRegistry, ICommand } from '@robota-sdk/agent-sdk';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
-import type { CommandRegistry } from '../commands/command-registry.js';
-import type { ISlashCommand } from '../commands/types.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
 import { expandPasteLabels } from '../utils/paste-labels.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
@@ -122,7 +121,7 @@ export default function InputArea({
 
   /** Tab: insert command into input field without executing */
   const tabCompleteCommand = useCallback(
-    (cmd: ISlashCommand): void => {
+    (cmd: ICommand): void => {
       const result = resolveTabCompletion(value, cmd);
       if (result.type === 'insert') {
         setValue(result.value);
@@ -136,7 +135,7 @@ export default function InputArea({
 
   /** Enter: insert and execute command immediately */
   const enterSelectCommand = useCallback(
-    (cmd: ISlashCommand): void => {
+    (cmd: ICommand): void => {
       const result = resolveEnterCommandSelection(value, cmd);
       if (result.type === 'insert') {
         setValue(result.value);

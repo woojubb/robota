@@ -15,7 +15,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
-- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
+- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `ICommand`, or `ICommandSource` — all imported from `@robota-sdk/agent-sdk`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
@@ -622,19 +622,19 @@ Reusable CLI/TUI code must not special-case command module names such as `/agent
 ```typescript
 interface ICommandSource {
   name: string;
-  getCommands(): ISlashCommand[];
+  getCommands(): ICommand[];
 }
 ```
 
-### ISlashCommand Interface
+### ICommand Interface
 
 ```typescript
-interface ISlashCommand {
+interface ICommand {
   name: string;
   description: string;
   source: string;
   skillContent?: string; // Full SKILL.md content (skill commands only)
-  subcommands?: ISlashCommand[];
+  subcommands?: ICommand[];
   execute?: (args: string) => void | Promise<void>;
 }
 ```
@@ -728,8 +728,8 @@ The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that 
 | ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-core) |
 | ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-core)            |
 | IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                              |
-| ISlashCommand      | `src/commands/types.ts` | CLI alias for `ICommand` from agent-sdk                    |
-| ICommandSource     | `src/commands/types.ts` | Re-export of `ICommandSource` from agent-sdk               |
+| ICommand           | `@robota-sdk/agent-sdk` | SDK-owned command palette and slash command entry          |
+| ICommandSource     | `@robota-sdk/agent-sdk` | SDK-owned command source contract                          |
 
 ## Public API Surface
 
@@ -750,13 +750,6 @@ src/
 ├── print-terminal.ts                ← ITerminalOutput for print mode (-p)
 ├── types.ts                         ← ITerminalOutput, ISpinner
 ├── index.ts                         ← Public CLI entry exports
-├── commands/
-│   ├── types.ts                     ← ISlashCommand, ICommandSource interfaces
-│   ├── builtin-source.ts            ← Re-export shim: `export { BuiltinCommandSource } from '@robota-sdk/agent-sdk'`
-│   ├── command-registry.ts          ← Re-export shim: `export { CommandRegistry } from '@robota-sdk/agent-sdk'`
-│   ├── skill-source.ts              ← Re-export shim: `export { SkillCommandSource } from '@robota-sdk/agent-sdk'`
-│   ├── skill-executor.ts            ← Skill execution helpers (fork/inject modes); not in main flow
-│   │                                  (main flow uses buildSkillPrompt from @robota-sdk/agent-sdk)
 ├── plugins/
 │   └── plugin-command-adapter.ts    ← CLI implementation of ICommandPluginAdapter
 ├── utils/
@@ -806,7 +799,7 @@ src/
     └── types.ts                     ← IPermissionRequest
 ```
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility plus `skill-executor.ts` (fork/inject execution helpers). Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 
 ## CLI Usage
 

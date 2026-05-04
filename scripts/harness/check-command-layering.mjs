@@ -28,6 +28,8 @@ const FORBIDDEN_PATHS = [
   },
 ];
 
+const FORBIDDEN_PATH_SET = new Set(FORBIDDEN_PATHS.map((entry) => entry.path));
+
 const CLI_UI_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-provider-command-state',
@@ -160,6 +162,22 @@ async function readText(root, relativePath) {
   return await fs.readFile(path.join(root, relativePath), 'utf8');
 }
 
+async function findCliCommandShimSurfaceFindings(root) {
+  const findings = [];
+  for (const file of await walkFiles(root, 'packages/agent-cli/src/commands')) {
+    if (FORBIDDEN_PATH_SET.has(file)) {
+      continue;
+    }
+    findings.push({
+      file,
+      type: 'cli-command-shim-surface',
+      detail:
+        'agent-cli must not expose command infrastructure under src/commands; import SDK-owned command APIs from @robota-sdk/agent-sdk.',
+    });
+  }
+  return findings;
+}
+
 function findSdkPackageDependencyFindings(packageJson) {
   const dependencies = {
     ...(packageJson.dependencies ?? {}),
@@ -206,6 +224,7 @@ export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
       });
     }
   }
+  findings.push(...(await findCliCommandShimSurfaceFindings(root)));
 
   for (const file of await walkFiles(root, 'packages/agent-cli/src/ui')) {
     findings.push(
