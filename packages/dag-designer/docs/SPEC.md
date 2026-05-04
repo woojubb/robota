@@ -57,6 +57,7 @@ Run client contract: `createRun -> startRun -> getRunResult`.
 - `INodeManifest` is retained for backward compatibility in component props where existing consumers pass manifests directly.
 - Config form rendering uses ComfyUI `TInputTypeSpec` (from `/object_info`), not Zod schemas.
 - Persisted DAG JSON must not store runtime-owned `inputs`/`outputs`. The designer may enrich definitions in memory from `objectInfo` or manifests, but every mutation emitted through `onDefinitionChange` strips node-local port definitions.
+- Node side effects such as file uploads are represented in `nodeStateMap` with `operationStatus: 'uploading'` and a `pendingDescription`; `isRunnable` is false while any node has an upload operation in progress.
 
 ## Type Ownership
 
@@ -133,6 +134,14 @@ Mutation paths (`addNodeFromManifest`, `addNodeFromObjectInfo`, `updateNode`, `u
 Rendering, edge editing, binding validation, list-handle compaction, and port display must use `definitionWithRuntimePorts`. Runtime catalog data is the SSOT for ports; node-local ports in loaded legacy definitions are ignored when a current catalog entry exists.
 
 `createNodeFromManifest()` and `createNodeFromObjectInfo()` create nodes with only node identity, type, position, dependencies, and config. They must not copy manifest or object-info ports into the node.
+
+## Node Operation Gate
+
+`DagDesignerRoot` owns node-local operation state in `nodeStateMap`. Long-running node side effects that must complete before execution, currently asset uploads, call `setNodeUploading(nodeId, description)` when they start and `setNodeUploadDone(nodeId)` in completion/failure cleanup.
+
+`isRunnable` is derived from `nodeStateMap`; it is false while any node has `operationStatus: 'uploading'`. Host UIs must use this flag to disable Run actions. The selected node inspector receives `pendingOperationDescription` so users can see which selected node is still processing.
+
+Run progress events may also mark nodes as `running`, `success`, or `failed`, but those states describe server execution. They do not replace the pre-run operation gate for upload and other designer-side side effects.
 
 ## List Port Handle Behavior
 
