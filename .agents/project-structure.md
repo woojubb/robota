@@ -2,6 +2,8 @@
 
 ```text
 packages/
+├── auth/                        # Auth contracts, verifier ports, scope policy
+├── credits/                     # Credit account, reservation, and settlement contracts
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
 ├── agent-runtime/               # Reusable background task and subagent lifecycle/state/ports
 ├── agent-sessions/              # Session lifecycle and persistence
@@ -75,10 +77,10 @@ apps/
 
 ## Related Documents
 
-| Document                                                   | Content                                   |
-| ---------------------------------------------------------- | ----------------------------------------- |
-| [publish-registry.md](publish-registry.md)                 | npm publish rules, package registry table |
-| [dag-dependency-direction.md](dag-dependency-direction.md) | DAG package dependency flow and rules     |
+| Document                                                                                         | Content                                   |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table |
+| [dag-dependency-direction.md](dag-dependency-direction.md)                                       | DAG package dependency flow and rules     |
 | [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI composition map and layer audit       |
 
 ## Command Package Rule

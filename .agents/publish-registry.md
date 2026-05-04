@@ -6,6 +6,8 @@ Packages marked **publish** are published to npm under `@robota-sdk/` scope. All
 
 | Package                          | Publish | npm tag | Notes                              |
 | -------------------------------- | ------- | ------- | ---------------------------------- |
+| auth                             | no      | —       | private: true, beta contracts      |
+| credits                          | no      | —       | private: true, beta contracts      |
 | agent-core                       | yes     | beta    | Foundation — zero @robota-sdk deps |
 | agent-runtime                    | yes     | beta    | Runtime lifecycle/ports for SDK    |
 | agent-sessions                   | yes     | beta    | Session management                 |
