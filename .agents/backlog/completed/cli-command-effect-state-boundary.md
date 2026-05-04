@@ -2,7 +2,11 @@
 
 ## Status
 
-Backlog.
+Completed.
+
+Completed: 2026-05-05
+
+Implementation branch: fix/cli-command-effect-boundary
 
 ## Priority
 
@@ -43,13 +47,13 @@ Longer-term option:
 
 ## Acceptance Criteria
 
-- [ ] `InteractiveSession` is no longer cast to `InteractiveSession & ISideEffects` for command
+- [x] `InteractiveSession` is no longer cast to `InteractiveSession & ISideEffects` for command
       effect transport.
-- [ ] No `_pendingCommandInteraction` or `_pendingCommandEffects` fields are written to the SDK
+- [x] No `_pendingCommandInteraction` or `_pendingCommandEffects` fields are written to the SDK
       session instance.
-- [ ] Command interactions and effects remain generic and typed.
-- [ ] Existing slash routing and command effect tests are updated to assert the explicit boundary.
-- [ ] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflects the final state.
+- [x] Command interactions and effects remain generic and typed.
+- [x] Existing slash routing and command effect tests are updated to assert the explicit boundary.
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflects the final state.
 
 ## Verification Plan
 
@@ -57,3 +61,10 @@ Longer-term option:
 - `pnpm --filter @robota-sdk/agent-cli test -- slash-routing`
 - `pnpm --filter @robota-sdk/agent-cli test`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
+
+## Result
+
+Completed by adding `CommandEffectQueue` as the explicit CLI-owned boundary between slash routing
+and side-effect application. Command interactions and host effects are no longer stored on
+`InteractiveSession`, and command-layering harness coverage prevents the old `_pendingCommand*`
+pattern from returning.

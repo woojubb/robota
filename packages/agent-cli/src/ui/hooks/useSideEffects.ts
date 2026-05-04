@@ -26,6 +26,7 @@ export function useSideEffects({
   cwd,
   providerOverride,
   interactiveSession,
+  commandEffectQueue,
   addEntry,
   baseHandleSubmit,
   setSessionName,
@@ -84,36 +85,34 @@ export function useSideEffects({
       commandInteractionRef.current = null;
       setPendingInteractionPrompt(null);
       if (result.effects !== undefined && result.effects.length > 0) {
-        applyEffects(result.effects, interactiveSession as InteractiveSession & ISideEffects);
+        applyEffects(result.effects, getHostSideEffects(interactiveSession));
       }
     },
     [addEntry, applyEffects, interactiveSession],
   );
 
   const applyQueuedCommandState = useCallback(
-    (sideEffects: InteractiveSession & ISideEffects): boolean => {
-      if (sideEffects._pendingCommandInteraction !== undefined) {
-        const interaction = sideEffects._pendingCommandInteraction;
-        delete sideEffects._pendingCommandInteraction;
+    (sideEffects: ISideEffects): boolean => {
+      const queued = commandEffectQueue.drain();
+      if (queued === undefined) {
+        return false;
+      }
+      if (queued.type === 'interaction') {
+        const { interaction } = queued;
         commandInteractionRef.current = interaction;
         setPendingInteractionPrompt(interaction.prompt);
         return true;
       }
-      if (sideEffects._pendingCommandEffects !== undefined) {
-        const effects = sideEffects._pendingCommandEffects;
-        delete sideEffects._pendingCommandEffects;
-        return applyEffects(effects, sideEffects);
-      }
-      return false;
+      return applyEffects(queued.effects, sideEffects);
     },
-    [applyEffects],
+    [applyEffects, commandEffectQueue],
   );
 
   const handleSubmit = useCallback(
     async (input: string): Promise<void> => {
       await baseHandleSubmit(input);
 
-      const sideEffects = interactiveSession as InteractiveSession & ISideEffects;
+      const sideEffects = getHostSideEffects(interactiveSession);
       if (applyQueuedCommandState(sideEffects)) return;
 
       if (sideEffects._pendingModelId) {
@@ -235,4 +234,8 @@ export function useSideEffects({
     handleInteractionSubmit,
     handleInteractionCancel,
   };
+}
+
+function getHostSideEffects(interactiveSession: InteractiveSession): ISideEffects {
+  return interactiveSession as unknown as ISideEffects;
 }
