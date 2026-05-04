@@ -37,6 +37,11 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Architecture
 
+For an LLM-scannable source-verified composition map, dependency graph, execution-mode diagrams,
+and layer audit findings, see [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md). This `SPEC.md` remains
+the owner contract; the architecture map is the scan-friendly companion that must be updated when
+CLI composition changes.
+
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
 
 1. Reads config to determine which provider profile to use.
