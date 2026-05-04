@@ -49,6 +49,25 @@ describe('findCommandLayeringFindings', () => {
     expect(findings.map((finding) => finding.type)).toContain('cli-command-specific-router-branch');
   });
 
+  it('flags command effect state stored on InteractiveSession', async () => {
+    const root = await createFixture({
+      'packages/agent-cli/src/ui/hooks/useSideEffects.ts':
+        'const effects = interactiveSession as InteractiveSession & ISideEffects;\neffects._pendingCommandEffects = [];\n',
+      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+    });
+
+    const findings = await findCommandLayeringFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-cli/src/ui/hooks/useSideEffects.ts',
+        type: 'cli-command-effect-session-state',
+        detail:
+          'CLI/TUI command effect transport must use an explicit CLI-owned queue, not ad hoc fields on InteractiveSession.',
+      },
+    ]);
+  });
+
   it('flags the legacy CLI slash executor file', async () => {
     const root = await createFixture({
       'packages/agent-cli/src/commands/slash-executor.ts':

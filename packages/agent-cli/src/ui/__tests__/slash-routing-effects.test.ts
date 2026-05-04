@@ -7,7 +7,7 @@ import { CommandRegistry } from '@robota-sdk/agent-sdk';
 import type { ICommandInteraction, InteractiveSession } from '@robota-sdk/agent-sdk';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/useSlashRouting.js';
-import type { ISideEffects } from '../hooks/side-effects-types.js';
+import { CommandEffectQueue } from '../hooks/command-effect-queue.js';
 
 describe('applySystemCommandResult', () => {
   afterEach(() => {
@@ -18,11 +18,16 @@ describe('applySystemCommandResult', () => {
     return new CommandRegistry();
   }
 
+  function legacyCommandField(suffix: 'Interaction' | 'Effects'): string {
+    return `_pendingCommand${suffix}`;
+  }
+
   it('stores statusline settings patch as a CLI side effect', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession & ISideEffects;
+    } as unknown as InteractiveSession;
     const manager = new TuiStateManager();
+    const queue = new CommandEffectQueue();
 
     applySystemCommandResult(
       {
@@ -33,18 +38,22 @@ describe('applySystemCommandResult', () => {
       session,
       createRegistry(),
       manager,
+      queue,
     );
 
-    expect(session._pendingCommandEffects).toEqual([
-      { type: 'statusline-settings-patch', patch: { enabled: false } },
-    ]);
+    expect(queue.drain()).toEqual({
+      type: 'effects',
+      effects: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
+    });
+    expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
   });
 
   it('stores generic command interactions without interpreting command-specific data', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession & ISideEffects;
+    } as unknown as InteractiveSession;
     const manager = new TuiStateManager();
+    const queue = new CommandEffectQueue();
     const interaction: ICommandInteraction = {
       prompt: {
         kind: 'choice',
@@ -66,16 +75,19 @@ describe('applySystemCommandResult', () => {
       session,
       createRegistry(),
       manager,
+      queue,
     );
 
-    expect(session._pendingCommandInteraction).toBe(interaction);
+    expect(queue.drain()).toEqual({ type: 'interaction', interaction });
+    expect(Object.hasOwn(session, legacyCommandField('Interaction'))).toBe(false);
   });
 
   it('stores host command side effects', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession & ISideEffects;
+    } as unknown as InteractiveSession;
     const manager = new TuiStateManager();
+    const queue = new CommandEffectQueue();
 
     applySystemCommandResult(
       {
@@ -86,16 +98,22 @@ describe('applySystemCommandResult', () => {
       session,
       createRegistry(),
       manager,
+      queue,
     );
 
-    expect(session._pendingCommandEffects).toEqual([{ type: 'plugin-tui-requested' }]);
+    expect(queue.drain()).toEqual({
+      type: 'effects',
+      effects: [{ type: 'plugin-tui-requested' }],
+    });
+    expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
   });
 
   it('applies conversation history clearing immediately before adding the command result', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession & ISideEffects;
+    } as unknown as InteractiveSession;
     const manager = new TuiStateManager();
+    const queue = new CommandEffectQueue();
     manager.addEntry({
       id: 'old',
       timestamp: new Date('2026-05-03T00:00:00.000Z'),
@@ -113,12 +131,14 @@ describe('applySystemCommandResult', () => {
       session,
       createRegistry(),
       manager,
+      queue,
     );
 
     expect(manager.history).toHaveLength(1);
     expect(manager.history[0]?.type).toBe('system');
     expect(manager.history[0]?.data).toMatchObject({ content: 'Conversation cleared.' });
-    expect(session._pendingCommandEffects).toBeUndefined();
+    expect(queue.drain()).toBeUndefined();
+    expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
   });
 
   it('reloads plugin command source immediately when requested', () => {
@@ -152,8 +172,9 @@ describe('applySystemCommandResult', () => {
     vi.stubEnv('HOME', home);
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession & ISideEffects;
+    } as unknown as InteractiveSession;
     const registry = createRegistry();
+    const queue = new CommandEffectQueue();
     registry.addSource({
       name: 'plugin',
       getCommands: () => [{ name: 'stale-skill', description: 'Stale', source: 'plugin' }],
@@ -169,9 +190,11 @@ describe('applySystemCommandResult', () => {
       session,
       registry,
       manager,
+      queue,
     );
 
     expect(registry.getCommands().map((command) => command.name)).toEqual(['fresh-skill']);
-    expect(session._pendingCommandEffects).toBeUndefined();
+    expect(queue.drain()).toBeUndefined();
+    expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
   });
 });

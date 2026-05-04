@@ -1,14 +1,11 @@
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type {
-  ICommandInteraction,
-  InteractiveSession,
-  TCommandEffect,
-} from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
 import type {
   IStatusLineSettings,
   TStatusLineSettingsPatch,
 } from '../../utils/statusline-settings.js';
+import type { ICommandEffectQueue } from './command-effect-queue.js';
 
 /** Side-effect flags for TUI-specific actions */
 export interface ISideEffects {
@@ -17,8 +14,6 @@ export interface ISideEffects {
   _exitRequested?: boolean;
   _triggerResumePicker?: boolean;
   _sessionName?: string;
-  _pendingCommandInteraction?: ICommandInteraction;
-  _pendingCommandEffects?: readonly TCommandEffect[];
   _statusLinePatch?: TStatusLineSettingsPatch;
 }
 
@@ -26,6 +21,7 @@ export interface IUseSideEffectsOptions {
   cwd: string;
   providerOverride?: string | undefined;
   interactiveSession: InteractiveSession;
+  commandEffectQueue: ICommandEffectQueue;
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;

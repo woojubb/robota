@@ -13,15 +13,14 @@ import type {
 } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
-import type { ISideEffects } from './side-effects-types.js';
+import type { ICommandEffectQueue } from './command-effect-queue.js';
 import { reloadPluginCommandSource } from '../../plugins/plugin-command-source-loader.js';
-
-type TSessionWithEffects = InteractiveSession & ISideEffects;
 
 export function useSlashRouting(
   interactiveSession: InteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
+  commandEffectQueue: ICommandEffectQueue,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -40,7 +39,7 @@ export function useSlashRouting(
       // Try system command first
       const result = await interactiveSession.executeCommand(cmd, args);
       if (result) {
-        applySystemCommandResult(result, interactiveSession, registry, manager);
+        applySystemCommandResult(result, interactiveSession, registry, manager, commandEffectQueue);
         return;
       }
 
@@ -55,7 +54,7 @@ export function useSlashRouting(
         ),
       );
     },
-    [interactiveSession, registry, manager],
+    [interactiveSession, registry, manager, commandEffectQueue],
   );
 }
 
@@ -64,16 +63,16 @@ export function applySystemCommandResult(
   interactiveSession: InteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
+  commandEffectQueue: ICommandEffectQueue,
 ): void {
   const pendingEffects = applyImmediateCommandEffects(result.effects, registry, manager);
   manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
-  const effects = getEffects(interactiveSession);
 
   if (result.interaction !== undefined) {
-    effects._pendingCommandInteraction = result.interaction;
+    commandEffectQueue.enqueueInteraction(result.interaction);
   }
   if (pendingEffects.length > 0) {
-    effects._pendingCommandEffects = pendingEffects;
+    commandEffectQueue.enqueueEffects(pendingEffects);
   }
 
   const ctx = interactiveSession.getContextState();
@@ -137,8 +136,4 @@ async function routeSkillCommand(
   await interactiveSession.executeSkillCommand(skillCmd, args, input, hookInput);
   manager.setPendingPrompt(interactiveSession.getPendingPrompt());
   return true;
-}
-
-function getEffects(interactiveSession: InteractiveSession): TSessionWithEffects {
-  return interactiveSession as TSessionWithEffects;
 }

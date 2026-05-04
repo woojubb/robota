@@ -32,6 +32,7 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
+import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
 import { reloadPluginCommandSource } from '../../plugins/plugin-command-source-loader.js';
 
 export interface IInteractiveSessionProps {
@@ -52,6 +53,7 @@ export interface IInteractiveSessionProps {
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
+  commandEffectQueue: ICommandEffectQueue;
   history: IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
@@ -72,6 +74,7 @@ export interface IInteractiveSessionState {
 interface IInitState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
+  commandEffectQueue: ICommandEffectQueue;
   manager: TuiStateManager;
 }
 
@@ -120,8 +123,9 @@ function initializeSession(
   reloadPluginCommandSource(registry);
 
   const manager = new TuiStateManager();
+  const commandEffectQueue = new CommandEffectQueue();
 
-  return { interactiveSession, registry, manager };
+  return { interactiveSession, registry, manager, commandEffectQueue };
 }
 
 export function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState {
@@ -174,7 +178,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   if (stateRef.current === null) {
     stateRef.current = initializeSession(props, permissionHandler);
   }
-  const { interactiveSession, registry, manager } = stateRef.current;
+  const { interactiveSession, registry, manager, commandEffectQueue } = stateRef.current;
 
   // Connect TuiStateManager to React re-renders
   manager.onChange = () => forceRender((n) => n + 1);
@@ -248,7 +252,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, [manager.isThinking, interactiveSession, manager]);
 
   // Slash command routing (delegated to useSlashRouting)
-  const handleSubmit = useSlashRouting(interactiveSession, registry, manager);
+  const handleSubmit = useSlashRouting(interactiveSession, registry, manager, commandEffectQueue);
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);
@@ -273,6 +277,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   return {
     interactiveSession,
     registry,
+    commandEffectQueue,
     history: manager.history,
     addEntry: (entry: IHistoryEntry) => manager.addEntry(entry),
     streamingText: manager.streamingText,
