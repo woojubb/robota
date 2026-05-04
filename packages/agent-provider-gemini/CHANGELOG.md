@@ -1,5 +1,13 @@
 # @robota-sdk/agent-provider-gemini
 
+## 3.0.0-beta.60
+
+### Patch Changes
+
+- 3d6bdf6: Align Gemini direct requests with current Google GenAI config semantics, including `systemInstruction`, provider `defaultModel`, structured output, safety settings, thinking config, function responses, and streaming text callbacks.
+- Updated dependencies [7439391]
+  - @robota-sdk/agent-core@3.0.0-beta.60
+
 ## 3.0.0-beta.59
 
 ### Patch Changes

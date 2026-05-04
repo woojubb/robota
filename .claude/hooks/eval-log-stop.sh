@@ -14,7 +14,11 @@ LOG_FILE="$LOG_DIR/sessions.jsonl"
 mkdir -p "$LOG_DIR"
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "unknown")
+git_project() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX git -C "$PROJECT_DIR" "$@"
+}
+
+BRANCH=$(git_project branch --show-current 2>/dev/null || echo "unknown")
 SESSION_ID=""
 if [ -n "$INPUT" ]; then
   SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
@@ -25,7 +29,7 @@ if [ -f "$HOOK_DIR/revert-detect.sh" ]; then
 fi
 
 # Count recent commits (last 2 hours)
-COMMIT_COUNT=$(git -C "$PROJECT_DIR" log --since="2 hours ago" --oneline 2>/dev/null | wc -l | tr -d ' ')
+COMMIT_COUNT=$(git_project log --since="2 hours ago" --oneline 2>/dev/null | wc -l | tr -d ' ')
 if [ -z "$COMMIT_COUNT" ]; then
   COMMIT_COUNT=0
 fi
@@ -33,7 +37,7 @@ fi
 # Count test files changed in recent commits
 TEST_FILES_CHANGED=0
 if [[ "$COMMIT_COUNT" -gt 0 ]]; then
-  TEST_FILES_CHANGED=$(git -C "$PROJECT_DIR" diff --name-only "HEAD~${COMMIT_COUNT}" HEAD 2>/dev/null | grep -c '__tests__\|\.test\.\|\.spec\.' || true)
+  TEST_FILES_CHANGED=$(git_project diff --name-only "HEAD~${COMMIT_COUNT}" HEAD 2>/dev/null | grep -c '__tests__\|\.test\.\|\.spec\.' || true)
 fi
 
 count_records() {

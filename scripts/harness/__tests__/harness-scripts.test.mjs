@@ -175,7 +175,9 @@ describe('publish workflow', () => {
   it('syncs and verifies beta dist-tags after recursive publish', () => {
     const script = readFileSync('scripts/publish/publish-packages.sh', 'utf8');
 
-    expect(script).toContain('pnpm publish -r --no-git-checks --otp "$OTP"');
+    expect(script).toContain('command+=(publish -r --no-git-checks)');
+    expect(script).toContain('command+=(--otp "$OTP")');
+    expect(script).toContain('Already published packages will be skipped on retry.');
     expect(script).toContain('Syncing beta dist-tags');
     expect(script).toContain('npm dist-tag add "$package_name@$VERSION" beta');
     expect(script).toContain('Verifying npm dist-tags');
