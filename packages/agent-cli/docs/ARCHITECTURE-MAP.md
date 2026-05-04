@@ -385,7 +385,7 @@ this section must be updated in the same PR.
 | `createProviderCommandModule()` | `agent-command-provider`                                    | Command package            | CLI composition                             | SDK command and provider common APIs                                 | Own `/provider` metadata, setup interactions, settings patches, restart effects.             |
 | `createModelCommandModule()`    | `agent-command-model`                                       | Command package            | CLI composition                             | SDK model common API                                                 | Own `/model` metadata and model-change effects.                                              |
 | `createAgentCommandModule()`    | `agent-command-agent`                                       | Command package            | CLI composition                             | SDK command/runtime APIs                                             | Own `/agent` metadata and background agent command execution.                                |
-| `executeSkill()`                | `agent-cli/src/commands/skill-executor.ts`                  | CLI compatibility helper   | `useSlashRouting()`, CLI tests              | SDK skill prompt utilities                                           | Process skill prompts for legacy CLI skill execution paths; target owner needs audit.        |
+| `executeSkill()`                | `agent-sdk/src/commands/skill-executor.ts`                  | SDK command infrastructure | `InteractiveSession`, SDK tests             | SDK skill prompt utilities                                           | Process skill prompts for fork/inject execution paths behind SDK session APIs.               |
 | `ManagedShellProcessRunner`     | `agent-cli/src/background/managed-shell-process-runner.ts`  | Local runtime adapter      | `startCli()` runtime composition            | Node child process APIs, SDK/runtime background ports                | Terminal-hosted background process runner implementation.                                    |
 | `ChildProcessSubagentRunner`    | `agent-cli/src/subagents/child-process-subagent-runner.ts`  | Local runtime adapter      | `startCli()` runtime composition            | CLI IPC/transport/worker helpers, SDK subagent contracts             | Spawn isolated child-process subagent jobs for the CLI host.                                 |
 | `GitWorktreeIsolationAdapter`   | `agent-cli/src/subagents/git-worktree-isolation-adapter.ts` | Local runtime adapter      | child-process subagent runner tests/runtime | Git CLI, filesystem                                                  | Prepare and clean worktree isolation for local subagent execution.                           |
@@ -487,9 +487,9 @@ redirects to this master map so future readers do not treat stale architecture t
 
 ### CLI-AUDIT-005: CLI command compatibility shims blur command ownership
 
-Status: confirmed design debt.
+Status: resolved in `refactor/cli-command-shims-retirement`.
 
-Current files:
+Removed files:
 
 - `packages/agent-cli/src/commands/command-registry.ts`
 - `packages/agent-cli/src/commands/builtin-source.ts`
@@ -497,23 +497,16 @@ Current files:
 - `packages/agent-cli/src/commands/types.ts`
 - `packages/agent-cli/src/commands/skill-executor.ts`
 
-Problem:
+Resolution:
 
-Most files under `agent-cli/src/commands/` are compatibility re-export shims for SDK-owned command
-infrastructure. That keeps imports working but makes the CLI look like it owns command contracts it
-does not own. `skill-executor.ts` is the remaining non-trivial CLI skill execution helper and needs
-an ownership decision: keep it as a CLI-private host adapter, or move reusable skill execution into
-the SDK command/skill API.
+`agent-cli` no longer has a `src/commands/` compatibility surface. TUI code imports
+`CommandRegistry` and command contract types directly from `@robota-sdk/agent-sdk`, and the
+skill execution tests now live with the SDK-owned `executeSkill()` implementation. The command
+layering harness scans for new CLI command shim files under `packages/agent-cli/src/commands`.
 
-Recommended fix:
+Completed backlog:
 
-Remove public CLI command compatibility imports and update internal imports/tests to the owning SDK
-or command package. Audit `skill-executor.ts` separately from the re-export shims and keep only
-terminal-host-specific behavior in `agent-cli`.
-
-Tracked follow-up:
-
-- `.agents/backlog/cli-command-compat-shims-retirement.md`
+- `.agents/backlog/completed/cli-command-compat-shims-retirement.md`
 
 ### CLI-AUDIT-006: Local runtime adapters need an owner boundary audit
 

@@ -106,6 +106,25 @@ describe('findCommandLayeringFindings', () => {
     ]);
   });
 
+  it('flags CLI command shim surfaces', async () => {
+    const root = await createFixture({
+      'packages/agent-cli/src/commands/command-registry.ts':
+        'export { CommandRegistry } from "@robota-sdk/agent-sdk";\n',
+      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+    });
+
+    const findings = await findCommandLayeringFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-cli/src/commands/command-registry.ts',
+        type: 'cli-command-shim-surface',
+        detail:
+          'agent-cli must not expose command infrastructure under src/commands; import SDK-owned command APIs from @robota-sdk/agent-sdk.',
+      },
+    ]);
+  });
+
   it('flags agent-sdk dependencies on command implementation packages', async () => {
     const root = await createFixture({
       'packages/agent-sdk/package.json':

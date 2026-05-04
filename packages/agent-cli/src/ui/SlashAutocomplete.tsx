@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { ISlashCommand } from '../commands/types.js';
+import type { ICommand } from '@robota-sdk/agent-sdk';
 
 interface IProps {
   /** Filtered list of commands to display */
-  commands: ISlashCommand[];
+  commands: ICommand[];
   /** Currently highlighted item index */
   selectedIndex: number;
   /** Whether to show the popup */
@@ -17,7 +17,7 @@ const MAX_VISIBLE = 8;
 
 /** Render a single command row */
 function CommandRow(props: {
-  cmd: ISlashCommand;
+  cmd: ICommand;
   isSelected: boolean;
   showSlash: boolean;
 }): React.ReactElement {
