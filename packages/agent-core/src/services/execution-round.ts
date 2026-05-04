@@ -14,6 +14,7 @@ import type { ConversationStore } from '../managers/conversation-history-manager
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
+import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
@@ -37,6 +38,46 @@ export {
   validateAndExtractResponse,
 } from './execution-round-provider';
 export { executeAndRecordToolCalls, addToolResultsToHistory } from './execution-round-tools';
+
+export const CONTEXT_HARD_BLOCK_THRESHOLD = 0.95;
+
+export interface IContextCapacityDecision {
+  readonly shouldBlock: boolean;
+  readonly estimatedTokens: number;
+  readonly contextLimit: number;
+  readonly thresholdTokens: number;
+  readonly thresholdPercentage: number;
+  readonly usedPercentage: number;
+  readonly serializedTokens: number;
+  readonly providerTokens?: number;
+  readonly usageFloorTokens?: number;
+}
+
+export function getContextCapacityDecision(
+  messages: readonly TUniversalMessage[],
+  model: string,
+  usageFloorTokens: number,
+): IContextCapacityDecision {
+  const estimate = estimateContextTokensFromMessages(messages, { usageFloorTokens });
+  const contextLimit = getModelContextWindow(model);
+  const thresholdTokens = contextLimit * CONTEXT_HARD_BLOCK_THRESHOLD;
+  const usedPercentage =
+    contextLimit > 0 ? Math.round((estimate.usedTokens / contextLimit) * 10_000) / 100 : 100;
+
+  return {
+    shouldBlock: estimate.usedTokens > thresholdTokens,
+    estimatedTokens: estimate.usedTokens,
+    contextLimit,
+    thresholdTokens,
+    thresholdPercentage: CONTEXT_HARD_BLOCK_THRESHOLD * 100,
+    usedPercentage,
+    serializedTokens: estimate.serializedTokens,
+    ...(estimate.providerTokens !== undefined && { providerTokens: estimate.providerTokens }),
+    ...(estimate.usageFloorTokens !== undefined && {
+      usageFloorTokens: estimate.usageFloorTokens,
+    }),
+  };
+}
 
 /** Dependencies required by the round executor */
 export interface IRoundDependencies {
@@ -135,24 +176,40 @@ export async function executeRound(
     },
   );
 
-  // Pre-send context check
-  const CHARS_PER_TOKEN = 2;
-  const CONTEXT_OVERFLOW_THRESHOLD = 0.835;
-  const historyCharsEstimate = Math.ceil(
-    JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN,
+  // Pre-send hard-capacity check. Routine compaction is owned by agent-sessions; this guard is
+  // only a last safety stop when the effective context estimate is already near the model limit.
+  const contextDecision = getContextCapacityDecision(
+    conversationMessages,
+    config.defaultModel.model,
+    roundState.cumulativeInputTokens,
   );
-  const estimatedTokens = Math.max(roundState.cumulativeInputTokens, historyCharsEstimate);
-  const contextLimit = getModelContextWindow(config.defaultModel.model);
-  if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
-    logger.warn('[ROUND] Context overflow prevention — tokens exceed 83.5% of context window', {
-      estimatedTokens,
-      contextLimit,
+  if (contextDecision.shouldBlock) {
+    logger.warn('[ROUND] Context hard-capacity prevention before provider call', {
+      estimatedTokens: contextDecision.estimatedTokens,
+      contextLimit: contextDecision.contextLimit,
+      thresholdTokens: contextDecision.thresholdTokens,
+      thresholdPercentage: contextDecision.thresholdPercentage,
+      serializedTokens: contextDecision.serializedTokens,
+      providerTokens: contextDecision.providerTokens ?? 0,
+      usageFloorTokens: contextDecision.usageFloorTokens ?? 0,
       round: currentRound,
     });
+    const overflowMetadata = {
+      round: currentRound,
+      contextOverflow: true,
+      estimatedTokens: contextDecision.estimatedTokens,
+      contextLimit: contextDecision.contextLimit,
+      thresholdTokens: contextDecision.thresholdTokens,
+      thresholdPercentage: contextDecision.thresholdPercentage,
+      serializedTokens: contextDecision.serializedTokens,
+      providerTokens: contextDecision.providerTokens ?? 0,
+      usageFloorTokens: contextDecision.usageFloorTokens ?? 0,
+      usedPercentage: contextDecision.usedPercentage,
+    };
     conversationStore.addAssistantMessage(
-      'Context window is near capacity. Cannot process further in this round.',
+      `Context window is near capacity. Cannot process further in this round. Estimated ${contextDecision.estimatedTokens.toLocaleString()} / ${contextDecision.contextLimit.toLocaleString()} tokens (${Math.round(contextDecision.usedPercentage)}%) exceeds the hard-block threshold ${Math.round(contextDecision.thresholdPercentage)}%. Run /compact and retry.`,
       [],
-      { round: currentRound, contextOverflow: true },
+      overflowMetadata,
     );
     return true;
   }

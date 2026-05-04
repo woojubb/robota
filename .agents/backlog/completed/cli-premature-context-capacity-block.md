@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -88,17 +88,17 @@ max tokens, reserved tokens, threshold, and whether compaction was attempted.
 
 ## Acceptance Criteria
 
-- [ ] A session at approximately `80k/200k` visible usage does not hard-block unless the effective
+- [x] A session at approximately `80k/200k` visible usage does not hard-block unless the effective
       budget calculation explains why it is unsafe.
-- [ ] The status bar, `/context`, auto-compact logic, and hard-block guard use the same effective
+- [x] The status bar, `/context`, auto-compact logic, and hard-block guard use the same effective
       context state or expose their differences explicitly.
-- [ ] If reserved output/tool/system overhead causes the block, the user-facing diagnostic includes
+- [x] If reserved output/tool/system overhead causes the block, the user-facing diagnostic includes
       that reserve.
-- [ ] Compaction updates every cached context state used by subsequent prompts.
-- [ ] Auto-compact is attempted before a hard block when enabled and applicable.
-- [ ] Regression tests cover a mid-window state such as `80k/200k` and prove a normal prompt is not
+- [x] Compaction updates every cached context state used by subsequent prompts.
+- [x] Auto-compact is attempted before a hard block when enabled and applicable.
+- [x] Regression tests cover a mid-window state such as `80k/200k` and prove a normal prompt is not
       rejected prematurely.
-- [ ] Regression tests cover a truly near-capacity state and prove the hard block or compaction path
+- [x] Regression tests cover a truly near-capacity state and prove the hard block or compaction path
       includes actionable diagnostics.
 
 ## Verification Plan

@@ -2,7 +2,7 @@
 
 ## Token Tracking
 
-`ContextWindowTracker` (in `agent-sessions`) accumulates input token counts from provider response metadata after each `run()` call.
+`ContextWindowTracker` (in `agent-sessions`) reads the shared `agent-core` context estimator. Terminal provider usage is treated as the exact post-response state. If new user or tool messages appear after the latest provider usage, the estimator uses the maximum of serialized history, latest provider usage metadata, and any caller-provided usage floor, so previous metadata cannot hide a large prompt that has not been sent yet.
 
 ```typescript
 const state = session.getContextState();
@@ -13,8 +13,8 @@ const state = session.getContextState();
 
 | Model                         | Context Window   |
 | ----------------------------- | ---------------- |
-| Claude Sonnet 4.6 / Haiku 4.5 | 200,000 tokens   |
-| Claude Opus 4.6               | 1,000,000 tokens |
+| Claude Sonnet 4.6 / Opus 4.6  | 1,000,000 tokens |
+| Claude Haiku 4.5              | 200,000 tokens   |
 
 ## Compaction
 
@@ -30,6 +30,8 @@ Triggers at ~83.5% of the model's context window. The sequence:
 4. Token tracking resets
 5. `PostCompact` hook fires with the summary
 6. `onCompact` callback notifies the UI
+
+Core also has a last-resort hard-capacity guard before provider calls. That guard uses the same effective estimator and blocks only past 95% of the model context window, returning diagnostic values so the CLI can explain why a prompt was rejected.
 
 ### Manual Compaction
 
