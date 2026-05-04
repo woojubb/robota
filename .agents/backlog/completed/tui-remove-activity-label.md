@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -35,11 +35,16 @@ such as `Idle`, `Thinking`, `Tools xN`, `Background xN`, or `Queued`.
 
 ## Acceptance Criteria
 
-- [ ] The status bar renders activity state without the `Activity:` prefix.
-- [ ] Existing activity state text and colors remain unchanged.
-- [ ] Narrow-width status bar behavior does not regress.
-- [ ] Tests no longer assert the prefix.
-- [ ] CLI SPEC examples are updated if they still show the prefix.
+- [x] The status bar renders activity state without the `Activity:` prefix.
+- [x] Existing activity state text and colors remain unchanged.
+- [x] Narrow-width status bar behavior does not regress.
+- [x] Tests no longer assert the prefix.
+- [x] CLI SPEC examples are updated if they still show the prefix.
+
+## Result
+
+Removed the renderer-owned `Activity:` prefix from `StatusBar` while leaving the activity formatter
+unchanged. Tests and CLI SPEC examples now assert/show the compact activity text directly.
 
 ## Verification Plan
 

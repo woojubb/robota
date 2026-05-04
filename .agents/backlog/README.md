@@ -10,5 +10,3 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 3. When done, archive to `.agents/tasks/completed/`.
 
 ## Items
-
-- [TUI remove activity prefix from status bar](tui-remove-activity-label.md)

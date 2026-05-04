@@ -231,20 +231,20 @@ The StatusBar shows real-time session information:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Activity: Thinking  |  Mode: default  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  thinking... msgs: 12 │
+│ Thinking  |  Mode: default  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  thinking... msgs: 12 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Field    | Source                                     | Description                                           |
-| -------- | ------------------------------------------ | ----------------------------------------------------- |
-| Mode     | `session.getPermissionMode()`              | Current permission mode                               |
-| Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
-| Git      | `resolveGitBranch(cwd)`                    | Current git branch when available and enabled         |
-| Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
-| msgs     | message count                              | Number of messages in conversation                    |
-| Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
-| Activity | CLI-derived display state                  | Left-side primary activity label                      |
-| thinking | `isThinking`                               | Lower-right prompt-processing indicator               |
+| Field    | Source                                     | Description                                            |
+| -------- | ------------------------------------------ | ------------------------------------------------------ |
+| Mode     | `session.getPermissionMode()`              | Current permission mode                                |
+| Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6")  |
+| Git      | `resolveGitBranch(cwd)`                    | Current git branch when available and enabled          |
+| Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")     |
+| msgs     | message count                              | Number of messages in conversation                     |
+| Session  | `session.getName()`                        | Session name (shown only when a name is set)           |
+| Activity | CLI-derived display state                  | Left-side primary activity text without a field prefix |
+| thinking | `isThinking`                               | Lower-right prompt-processing indicator                |
 
 Activity priority is deterministic and renderer-owned:
 

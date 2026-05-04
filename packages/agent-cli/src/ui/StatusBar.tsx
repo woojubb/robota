@@ -64,14 +64,9 @@ function StatusActivityText({
   });
 
   return (
-    <>
-      <Text color="cyan" bold>
-        Activity:
-      </Text>{' '}
-      <Text color={activity.color} bold={activity.kind !== 'idle'}>
-        {activity.text}
-      </Text>
-    </>
+    <Text color={activity.color} bold={activity.kind !== 'idle'}>
+      {activity.text}
+    </Text>
   );
 }
 
