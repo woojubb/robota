@@ -1,5 +1,71 @@
 # Agent CLI Architecture Map and Layer Audit
 
+- **Status**: completed
+- **Created**: 2026-05-04
+- **Branch**: docs/agent-cli-architecture-map
+- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-command-*, packages/agent-core, .agents/rules
+
+## Objective
+
+Create an LLM-scannable architecture map for the `agent-cli` composition path, audit whether the
+current layers are correctly separated, and promote repeatable architecture lessons into repository
+rules or follow-up checks.
+
+## Plan
+
+- [x] Read package specs, current architecture docs, package manifests, and CLI assembly source.
+- [x] Build package dependency and composition diagrams from actual source references.
+- [x] Document built-in command, provider/model, interactive, and non-interactive execution flows.
+- [x] Inventory key classes/interfaces and audit the layer boundaries.
+- [x] Update relevant rule/common-mistakes guidance with durable architecture lessons.
+- [x] Verify docs and archive the completed task record.
+
+## Progress
+
+### 2026-05-04
+
+- Promoted the backlog into an active task on `docs/agent-cli-architecture-map`.
+- Created `packages/agent-cli/docs/ARCHITECTURE-MAP.md` from current source imports,
+  composition code, and package specs.
+- Replaced stale `ASSEMBLY-ARCHITECTURE.md` content with a pointer to the new master map.
+- Added follow-up backlog items for the `agent-sessions` import boundary and implicit command
+  effect state mutation.
+- Updated repository structural-doc and common-mistakes guidance so package-local architecture maps
+  stay current when composition changes.
+- Verified with `pnpm docs:build` and `pnpm harness:scan`.
+
+## Decisions
+
+- Prefer one master architecture map at `packages/agent-cli/docs/ARCHITECTURE-MAP.md`.
+- Keep package-specific facts in package docs/specs; rule documents should only receive durable
+  cross-cutting lessons.
+- Treat the current CLI `SessionStore` import and TUI mutation of `InteractiveSession` as follow-up
+  backlog work rather than expanding this documentation task into a refactor.
+
+## Blockers
+
+- (none)
+
+## Test Plan
+
+- Build the documentation site with `pnpm docs:build` after updating `packages/agent-cli/docs`.
+- Run `pnpm harness:scan` after changing repository rules, backlog/task files, and package docs.
+- Check generated architecture/backlog documents for merge markers with `rg`.
+- This task changes documentation and backlog records only, so package unit tests are not required
+  unless verification reveals code changes.
+
+## Result
+
+Completed the `agent-cli` architecture map and layer audit.
+
+- Added `packages/agent-cli/docs/ARCHITECTURE-MAP.md` as the master scan-friendly composition map.
+- Redirected stale `ASSEMBLY-ARCHITECTURE.md` content to the new architecture map.
+- Linked the new map from `packages/agent-cli/docs/SPEC.md`.
+- Registered follow-up backlog items for the CLI `SessionStore` boundary violation and implicit
+  command-effect state mutation.
+- Updated repository guidance so package-local architecture maps are kept current with composition
+  changes.
+
 ## Priority
 
 P1 - architecture clarity and ongoing governance for the CLI beta.
