@@ -17,6 +17,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `ICommand`, or `ICommandSource` — all imported from `@robota-sdk/agent-sdk`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
+- Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
@@ -28,7 +29,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 | Source             | Allowed                              | Examples                                                                                    |
 | ------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `agent-sdk`        | SDK-owned APIs                       | `InteractiveSession`, `TInteractivePermissionHandler`                                       |
+| `agent-sdk`        | SDK-owned APIs and facades           | `InteractiveSession`, `TInteractivePermissionHandler`, runtime contracts re-exported by SDK |
 | `agent-core`       | Public types + utilities only        | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`               |
 | `agent-core`       | ❌ Internal engine                   | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                               |
 | `agent-sessions`   | ❌ Forbidden                         | SDK provides its own session and permission types                                           |
@@ -1178,6 +1179,10 @@ Subagent execution (Agent tool, fork sessions, agent definition loading) is mana
 
 The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
 
+`createManagedShellProcessRunner()` owns only Node process spawning, stdin forwarding,
+termination, and process-environment wiring. Bounded output capture, source-prefixed log line
+projection, and cursor-based log pagination come from runtime-owned helpers re-exported by the SDK.
+
 The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner starts a child Node worker and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
 
 `child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
@@ -1194,6 +1199,9 @@ Child-process subagent runner responsibilities:
 - forward cancellation to the worker and terminate it after a grace period
 - forward follow-up prompts to workers that support input
 - keep runtime-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter
+
+Subagent transcript pagination uses the same runtime-owned log page helper as process background
+tasks. The CLI remains responsible for locating and reading the append-only transcript file.
 
 When an agent request sets `isolation: 'worktree'`, the CLI composes the runtime-owned `WorktreeSubagentRunner` exposed through SDK contracts around the child-process runner and injects a CLI-owned `GitWorktreeIsolationAdapter`.
 

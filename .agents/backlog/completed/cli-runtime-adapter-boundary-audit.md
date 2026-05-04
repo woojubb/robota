@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -49,14 +49,30 @@ Recommended first implementation:
 
 ## Acceptance Criteria
 
-- [ ] Every file under `packages/agent-cli/src/background` and `packages/agent-cli/src/subagents`
+- [x] Every file under `packages/agent-cli/src/background` and `packages/agent-cli/src/subagents`
       is classified as CLI adapter, SDK facade/port, or runtime primitive.
-- [ ] Reusable lifecycle/worktree contracts are owned outside `agent-cli`.
-- [ ] `agent-command-*` packages do not import `agent-cli` for runtime behavior.
-- [ ] Non-CLI hosts can depend on SDK/runtime contracts without pulling in React/Ink or CLI code.
-- [ ] Existing background/subagent/worktree behavior has regression coverage before extraction.
-- [ ] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` and affected package `SPEC.md` files reflect
+- [x] Reusable lifecycle/worktree contracts are owned outside `agent-cli`.
+- [x] `agent-command-*` packages do not import `agent-cli` for runtime behavior.
+- [x] Non-CLI hosts can depend on SDK/runtime contracts without pulling in React/Ink or CLI code.
+- [x] Existing background/subagent/worktree behavior has regression coverage before extraction.
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` and affected package `SPEC.md` files reflect
       the final ownership.
+
+## Result
+
+Runtime-owned bounded output capture and log pagination helpers moved to
+`packages/agent-runtime/src/background-tasks/log-pages.ts` and are re-exported through SDK facades.
+CLI background/subagent files are classified in `packages/agent-cli/docs/ARCHITECTURE-MAP.md`.
+Concrete child process, worker IPC, worker session reconstruction, and Git/filesystem I/O remain in
+`agent-cli` as terminal-host adapters.
+
+Key verification:
+
+- `pnpm build`
+- `pnpm --filter @robota-sdk/agent-cli test`
+- `pnpm --filter @robota-sdk/agent-runtime test`
+- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm harness:scan`
 
 ## Verification Plan
 

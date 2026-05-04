@@ -1,7 +1,7 @@
 # Agent CLI Architecture Map
 
-Source-verified against `develop` commit `5bc9244a3` and the
-`docs/cli-architecture-target-plan` working tree on 2026-05-05.
+Source-verified against `develop` commit `e7b9d76ff` and the
+`refactor/cli-runtime-adapter-boundary` working tree on 2026-05-05.
 
 This document is the LLM-scannable master map for how `@robota-sdk/agent-cli` is
 assembled. Package `SPEC.md` files remain the source of truth for ownership
@@ -70,8 +70,8 @@ Target migration order:
 1. Remove implicit command effect transport through mutable `InteractiveSession` fields.
 2. Retire CLI command compatibility shims so consumers import command infrastructure from the SDK
    owner directly.
-3. Audit local runtime adapters and move reusable lifecycle/process/worktree contracts behind
-   SDK/runtime-owned ports where they are not terminal-specific.
+3. Keep local runtime adapters classified: reusable lifecycle, log pagination, and worktree
+   contracts stay behind SDK/runtime-owned ports; CLI keeps only terminal-host I/O.
 4. Add provider model catalog live/generated refresh adapters on top of the existing provider-owned
    fallback catalog contract.
 5. Audit the SDK public export surface so owned APIs and compatibility re-exports are explicit and
@@ -386,9 +386,9 @@ this section must be updated in the same PR.
 | `createModelCommandModule()`    | `agent-command-model`                                       | Command package            | CLI composition                             | SDK model common API                                                 | Own `/model` metadata and model-change effects.                                              |
 | `createAgentCommandModule()`    | `agent-command-agent`                                       | Command package            | CLI composition                             | SDK command/runtime APIs                                             | Own `/agent` metadata and background agent command execution.                                |
 | `executeSkill()`                | `agent-sdk/src/commands/skill-executor.ts`                  | SDK command infrastructure | `InteractiveSession`, SDK tests             | SDK skill prompt utilities                                           | Process skill prompts for fork/inject execution paths behind SDK session APIs.               |
-| `ManagedShellProcessRunner`     | `agent-cli/src/background/managed-shell-process-runner.ts`  | Local runtime adapter      | `startCli()` runtime composition            | Node child process APIs, SDK/runtime background ports                | Terminal-hosted background process runner implementation.                                    |
-| `ChildProcessSubagentRunner`    | `agent-cli/src/subagents/child-process-subagent-runner.ts`  | Local runtime adapter      | `startCli()` runtime composition            | CLI IPC/transport/worker helpers, SDK subagent contracts             | Spawn isolated child-process subagent jobs for the CLI host.                                 |
-| `GitWorktreeIsolationAdapter`   | `agent-cli/src/subagents/git-worktree-isolation-adapter.ts` | Local runtime adapter      | child-process subagent runner tests/runtime | Git CLI, filesystem                                                  | Prepare and clean worktree isolation for local subagent execution.                           |
+| `ManagedShellProcessRunner`     | `agent-cli/src/background/managed-shell-process-runner.ts`  | Local runtime adapter      | `startCli()` runtime composition            | Node child process APIs, SDK-reexported runtime ports/log helpers    | Terminal-hosted background process runner implementation.                                    |
+| `ChildProcessSubagentRunner`    | `agent-cli/src/subagents/child-process-subagent-runner.ts`  | Local runtime adapter      | `startCli()` runtime composition            | CLI IPC/transport/worker helpers, SDK subagent/log contracts         | Spawn isolated child-process subagent jobs for the CLI host.                                 |
+| `GitWorktreeIsolationAdapter`   | `agent-cli/src/subagents/git-worktree-isolation-adapter.ts` | Local runtime adapter      | child-process subagent runner tests/runtime | Git CLI, filesystem, SDK-reexported runtime worktree port            | Prepare and clean worktree isolation for local subagent execution.                           |
 | `createHeadlessTransport()`     | `agent-transport-headless`                                  | Transport                  | CLI print mode                              | SDK transport contract                                               | Drive non-interactive prompt input and output formatting.                                    |
 
 ## Layering Audit
@@ -510,33 +510,31 @@ Completed backlog:
 
 ### CLI-AUDIT-006: Local runtime adapters need an owner boundary audit
 
-Status: confirmed design debt.
+Status: resolved.
 
-Current files:
+Classification:
 
-- `packages/agent-cli/src/background/managed-shell-process-runner.ts`
-- `packages/agent-cli/src/subagents/child-process-subagent-runner.ts`
-- `packages/agent-cli/src/subagents/child-process-subagent-transport.ts`
-- `packages/agent-cli/src/subagents/child-process-subagent-ipc.ts`
-- `packages/agent-cli/src/subagents/child-process-subagent-worker.ts`
-- `packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts`
+| File                                                                       | Classification       | Owner Boundary                                                                                  |
+| -------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| `packages/agent-cli/src/background/managed-shell-process-runner.ts`        | CLI adapter          | Owns Node `spawn`, stdin, env, and cancellation; uses SDK-reexported runtime log helpers/ports. |
+| `packages/agent-cli/src/subagents/child-process-subagent-runner.ts`        | CLI adapter          | Owns Node `fork`, worker path resolution, and payload composition.                              |
+| `packages/agent-cli/src/subagents/child-process-subagent-transport.ts`     | CLI adapter          | Owns child-process IPC send/cancel mechanics.                                                   |
+| `packages/agent-cli/src/subagents/child-process-subagent-runner-result.ts` | CLI adapter          | Owns child-worker result orchestration and adapter-specific timeout cleanup.                    |
+| `packages/agent-cli/src/subagents/child-process-subagent-ipc.ts`           | CLI adapter protocol | Owns serializable worker protocol for the CLI child process.                                    |
+| `packages/agent-cli/src/subagents/child-process-subagent-worker.ts`        | CLI adapter worker   | Owns child-process SDK session reconstruction.                                                  |
+| `packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts`       | CLI adapter          | Implements the runtime worktree port with Git/filesystem I/O.                                   |
+| `packages/agent-runtime/src/background-tasks/log-pages.ts`                 | Runtime primitive    | Owns bounded output capture, prefixed log projection, and cursor pagination.                    |
 
-Problem:
+Resolution:
 
-`agent-cli` is allowed to own concrete terminal-host adapters, but reusable background/subagent
-state, runner ports, worktree contracts, and process lifecycle semantics belong in `agent-runtime`
-or SDK-owned ports. The current local adapter set mixes concrete process spawning with behavior that
-may be reusable by non-CLI hosts.
+`agent-cli` keeps concrete terminal-host process, IPC, worker, and Git adapters. Reusable bounded
+output capture and task log pagination moved to `agent-runtime` and are exposed to CLI through
+SDK re-exports, preserving the import rule that CLI consumes runtime contracts through SDK
+composition/facades.
 
-Recommended fix:
+Completed backlog:
 
-Classify every local runtime file as either terminal-host adapter or reusable runtime contract.
-Move reusable contracts/logic behind SDK/runtime-owned public APIs and leave only concrete process
-I/O, executable resolution, and terminal lifecycle wiring in `agent-cli`.
-
-Tracked follow-up:
-
-- `.agents/backlog/cli-runtime-adapter-boundary-audit.md`
+- `.agents/backlog/completed/cli-runtime-adapter-boundary-audit.md`
 
 ### CLI-AUDIT-007: SDK public exports hide some package ownership
 

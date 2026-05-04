@@ -635,8 +635,12 @@ Background task runtime exports:
 | -------------------------------- | --------- | ----------------------------------------------------------------------- |
 | `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler                |
 | `BackgroundTaskError`            | class     | Typed background task error with category and recoverability            |
+| `createLimitedOutputCapture`     | function  | Runtime-owned UTF-8-safe bounded output capture helper                  |
+| `appendPrefixedLogLines`         | function  | Runtime-owned source-prefixed log line projection helper                |
+| `createBackgroundTaskLogPage`    | function  | Runtime-owned cursor-based log pagination helper                        |
 | `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
 | `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters                       |
+| `ILimitedOutputCapture`          | interface | Runtime-owned bounded output capture contract                           |
 | `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers                 |
 | `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task                         |
 | `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests           |
@@ -1195,6 +1199,10 @@ Responsibilities:
 - keep runner implementation details out of TUI, transports, and tool code
 
 The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. SDK code composes the manager with SDK-owned tools and `InteractiveSession`; it does not own the lifecycle state machine.
+
+SDK compatibility barrels also re-export runtime-owned helper primitives for bounded output
+capture and cursor-based log pagination so runtime shells can implement process adapters without
+importing `agent-runtime` directly.
 
 `InteractiveSession` exposes background task controls:
 
