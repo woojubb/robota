@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-plugin",
-  "version": "3.0.0-beta.59",
+  "version": "3.0.0-beta.60",
   "description": "Composable plugin management command module for Robota hosts",
   "type": "module",
   "main": "dist/node/index.js",

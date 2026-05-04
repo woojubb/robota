@@ -1,5 +1,11 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.60
+
+### Minor Changes
+
+- 7439391: Add provider-neutral native web search/fetch capability contracts, explicit unsupported handling for OpenAI-compatible/LM Studio profiles, and local WebFetch/WebSearch permission/documentation alignment.
+
 ## 3.0.0-beta.59
 
 ## 3.0.0-beta.58

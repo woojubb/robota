@@ -1,5 +1,12 @@
 # @robota-sdk/dag-orchestrator
 
+## 3.0.0-beta.60
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.60
+- @robota-sdk/dag-cost@3.0.0-beta.60
+
 ## 3.0.0-beta.59
 
 ### Patch Changes

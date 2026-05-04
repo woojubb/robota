@@ -44,6 +44,10 @@ SESSION_ID=$(read_json '.session_id')
 TRANSCRIPT_PATH=$(read_json '.transcript_path')
 TRANSCRIPT_PATH="${TRANSCRIPT_PATH/#\~/$HOME}"
 
+git_project() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX git -C "$PROJECT_DIR" "$@"
+}
+
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
   jq -r '
     [
@@ -74,7 +78,7 @@ if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
   fi
 fi
 
-git -C "$PROJECT_DIR" log --since="2 hours ago" --pretty=%s 2>/dev/null |
+git_project log --since="2 hours ago" --pretty=%s 2>/dev/null |
   grep -Ei '^(revert|fix:)' |
   while IFS= read -r subject; do
     append_event "fix-or-revert-commit" "" 1 "$subject"
