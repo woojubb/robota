@@ -153,9 +153,9 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
 ├── src/permissions/            ← permission-prompt.ts (terminal approval prompt)
 ├── src/paths.ts                ← projectPaths / userPaths helpers
-├── src/types.ts                ← re-exports shared types from agent-sessions
+├── src/types.ts                ← internal terminal type aliases; not a top-level public barrel
 ├── src/query.ts                ← createQuery() factory (provider-neutral; provider injected by consumer)
-└── src/index.ts                ← assembly exports + re-exports from agent-sessions/tools/core
+└── src/index.ts                ← SDK-owned APIs plus explicit SDK facade exports
 
 agent-cli (Ink TUI — CLI-specific)
 ├── src/commands/               ← Compatibility re-export shims and skill prompt helpers;
@@ -941,12 +941,15 @@ const query = createQuery({ provider });
 
 const response = await query('Show me the file list');
 
-const response = await query('Analyze the code', {
+const queryWithOptions = createQuery({
+  provider,
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   maxTurns: 10,
   onTextDelta: (delta) => process.stdout.write(delta),
 });
+
+const detailedResponse = await queryWithOptions('Analyze the code');
 ```
 
 `createSession()` is an **internal** assembly factory — it is not exported from `@robota-sdk/agent-sdk`. Config and context loading, tool assembly, and provider wiring happen inside `InteractiveSession` and `createQuery()`.
@@ -961,9 +964,32 @@ const session = new Session({ tools, provider, systemMessage, terminal });
 const response = await session.run('Hello');
 ```
 
-### History Types — Re-exported from agent-core
+### Public Surface Ownership
 
-`@robota-sdk/agent-sdk` re-exports the following history types and helpers from `@robota-sdk/agent-core`:
+The top-level `@robota-sdk/agent-sdk` entrypoint exposes SDK-owned APIs and explicit SDK facades.
+It must not pass through general-purpose `agent-core`, `agent-sessions`, or `agent-tools` exports
+only for convenience. See [PUBLIC-SURFACE.md](PUBLIC-SURFACE.md) for the export classification.
+
+Allowed public classes:
+
+- SDK-owned APIs: `InteractiveSession`, `createQuery`, command contracts/common APIs, project
+  memory, checkpoints, reversible execution, plugin management, and task context helpers.
+- SDK facades: project session store helpers, subagent assembly helpers, agent/background process
+  tools, and command host/common APIs that narrow lower-level behavior through SDK contracts.
+- Explicit runtime facades: background-task and subagent lifecycle contracts re-exported through
+  `src/background-tasks/index.ts` and `src/subagents/index.ts`.
+
+Owner-direct APIs:
+
+- `agent-core` owns history helpers, provider interfaces, permissions, hooks, context window types,
+  and generic message utilities.
+- `agent-tools` owns direct built-in tool exports and tool result types.
+- `agent-sessions` owns generic session APIs and terminal output primitives.
+
+`pnpm harness:scan:sdk-public-surface` prevents broad `export *` barrels, top-level lower-owner
+pass-through exports, and runtime re-exports outside the documented SDK facade barrels.
+
+### History Types — Owner Package
 
 ```typescript
 import {
@@ -972,7 +998,7 @@ import {
   chatEntryToMessage,
   messageToHistoryEntry,
   getMessagesForAPI,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-core';
 ```
 
 | Export                  | Kind      | Description                                                                           |
@@ -985,16 +1011,20 @@ import {
 
 ### Built-in Tools — Direct Usage
 
-`@robota-sdk/agent-sdk` re-exports 6 of the 8 built-in tools from `@robota-sdk/agent-tools`:
+`@robota-sdk/agent-sdk` assembles built-in tools internally for SDK sessions. Direct tool usage
+imports from `@robota-sdk/agent-tools`:
 
 ```typescript
-import { bashTool, readTool, writeTool, editTool, globTool, grepTool } from '@robota-sdk/agent-sdk';
-```
-
-`webFetchTool` and `webSearchTool` are NOT re-exported from `@robota-sdk/agent-sdk`. They must be imported directly from `@robota-sdk/agent-tools`:
-
-```typescript
-import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
+import {
+  bashTool,
+  editTool,
+  globTool,
+  grepTool,
+  readTool,
+  webFetchTool,
+  webSearchTool,
+  writeTool,
+} from '@robota-sdk/agent-tools';
 ```
 
 ### Permissions — Direct Usage
@@ -1187,7 +1217,7 @@ During `createSession()`, hooks from the merged settings configuration are wired
 
 ## Background Task Execution
 
-`BackgroundTaskManager` is owned by `agent-runtime` and re-exported by `agent-sdk` for compatibility. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
+`BackgroundTaskManager` is owned by `agent-runtime` and re-exported by `agent-sdk` through the explicit runtime facade. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
 
 Responsibilities:
 
@@ -1200,9 +1230,9 @@ Responsibilities:
 
 The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. SDK code composes the manager with SDK-owned tools and `InteractiveSession`; it does not own the lifecycle state machine.
 
-SDK compatibility barrels also re-export runtime-owned helper primitives for bounded output
-capture and cursor-based log pagination so runtime shells can implement process adapters without
-importing `agent-runtime` directly.
+SDK runtime facade barrels also re-export runtime-owned helper primitives for bounded output
+capture and cursor-based log pagination so runtime shells can implement process adapters through
+the documented SDK facade instead of importing `agent-runtime` directly.
 
 `InteractiveSession` exposes background task controls:
 
@@ -1249,7 +1279,7 @@ The product-composed `/background` command module maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is owned by `agent-runtime` and re-exported by `agent-sdk` for compatibility. It is the managed subagent compatibility facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
+`SubagentManager` is owned by `agent-runtime` and re-exported by `agent-sdk` through the explicit runtime facade. It is the managed subagent facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
 
 Responsibilities:
 

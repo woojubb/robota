@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -44,14 +44,21 @@ Recommended sequence:
 
 ## Acceptance Criteria
 
-- [ ] SDK public exports are classified as SDK-owned API, SDK facade, compatibility re-export, or
+- [x] SDK public exports are classified as SDK-owned API, SDK facade, compatibility re-export, or
       wrong-owner export.
-- [ ] Wrong-owner exports are removed or moved behind an explicit SDK-owned facade.
-- [ ] `packages/agent-sdk/docs/SPEC.md` describes the resulting public surface ownership.
-- [ ] Consumers in this monorepo import lower-package contracts from their owner unless an SDK facade
+- [x] Wrong-owner exports are removed or moved behind an explicit SDK-owned facade.
+- [x] `packages/agent-sdk/docs/SPEC.md` describes the resulting public surface ownership.
+- [x] Consumers in this monorepo import lower-package contracts from their owner unless an SDK facade
       is intentionally documented.
-- [ ] A mechanical check prevents broad pass-through export drift where feasible.
-- [ ] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflects the final SDK public surface boundary.
+- [x] A mechanical check prevents broad pass-through export drift where feasible.
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflects the final SDK public surface boundary.
+
+## Result
+
+- Removed top-level SDK pass-through exports from `agent-core`, `agent-tools`, and `agent-sessions`.
+- Documented the SDK public surface ownership classes in `packages/agent-sdk/docs/PUBLIC-SURFACE.md`.
+- Added `pnpm harness:scan:sdk-public-surface` and wired it into `pnpm harness:scan`.
+- Updated CLI architecture docs to mark the SDK public surface audit as resolved.
 
 ## Verification Plan
 

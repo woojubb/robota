@@ -2,9 +2,9 @@ import {
   createDefaultTools,
   createSubagentLogger,
   createSubagentSession,
-  type ITerminalOutput,
 } from '@robota-sdk/agent-sdk';
 import { createProviderFromProfile } from '../utils/provider-factory.js';
+import type { ITerminalOutput } from '../types.js';
 import {
   isSubagentWorkerParentMessage,
   type ISubagentWorkerStartPayload,

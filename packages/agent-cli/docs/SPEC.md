@@ -18,7 +18,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `ICommand`, or `ICommandSource` — all imported from `@robota-sdk/agent-sdk`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
-- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
+- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions`; CLI keeps local duplicate UI adapter types and must not import `agent-sessions` in production source
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Terminal UI command effect application and local command host adapters
@@ -724,13 +724,13 @@ The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that 
 
 ## Type Ownership
 
-| Type               | Location                | Purpose                                                    |
-| ------------------ | ----------------------- | ---------------------------------------------------------- |
-| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-core) |
-| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-core)            |
-| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                              |
-| ICommand           | `@robota-sdk/agent-sdk` | SDK-owned command palette and slash command entry          |
-| ICommandSource     | `@robota-sdk/agent-sdk` | SDK-owned command source contract                          |
+| Type               | Location                | Purpose                                                        |
+| ------------------ | ----------------------- | -------------------------------------------------------------- |
+| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
+| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-sessions)            |
+| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
+| ICommand           | `@robota-sdk/agent-sdk` | SDK-owned command palette and slash command entry              |
+| ICommandSource     | `@robota-sdk/agent-sdk` | SDK-owned command source contract                              |
 
 ## Public API Surface
 
@@ -1293,7 +1293,7 @@ Completed tool execution states are trimmed to the most recent 50 entries (`MAX_
 
 ## Message Architecture
 
-The CLI uses `IHistoryEntry` (from `@robota-sdk/agent-core`, re-exported by `@robota-sdk/agent-sdk`) as the primary message type for the message list. `TUniversalMessage` is still used in lower-level contexts (session history access, type guards, provider calls). There is no local `IChatMessage` type.
+The CLI uses `IHistoryEntry` from `@robota-sdk/agent-core` as the primary message type for the message list. `TUniversalMessage` is still used in lower-level contexts (session history access, type guards, provider calls). There is no local `IChatMessage` type.
 
 ### Type Unification
 

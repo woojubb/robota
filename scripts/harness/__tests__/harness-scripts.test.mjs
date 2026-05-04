@@ -314,6 +314,20 @@ describe('command layering scan', () => {
 });
 
 // ---------------------------------------------------------------------------
+// SDK public surface scan
+// ---------------------------------------------------------------------------
+describe('SDK public surface scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:sdk-public-surface']).toBe(
+      'node scripts/harness/check-sdk-public-surface.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:sdk-public-surface');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pre-push hook
 // ---------------------------------------------------------------------------
 describe('pre-push hook', () => {

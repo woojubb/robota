@@ -1,6 +1,6 @@
 # @robota-sdk/agent-sdk
 
-Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `query()` for one-shot use, session management, built-in tools, permissions, hooks, streaming, and context loading.
+Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, session management, SDK-owned command/common APIs, permissions, hooks, streaming, and context loading.
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-sessions`, `agent-provider-anthropic`) into a cohesive SDK.
 
@@ -15,18 +15,25 @@ pnpm add @robota-sdk/agent-sdk
 ## Quick Start
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const query = createQuery({ provider });
 
 // Simple one-shot query
 const response = await query('Show me the file list');
 
 // With options
-const response = await query('Analyze the code', {
+const queryWithOptions = createQuery({
+  provider,
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   maxTurns: 10,
   onTextDelta: (delta) => process.stdout.write(delta),
 });
+
+const detailedResponse = await queryWithOptions('Analyze the code');
 ```
 
 ## Features
@@ -34,9 +41,9 @@ const response = await query('Analyze the code', {
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
 - **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
-- **query()** — Single entry point for one-shot AI agent interactions with streaming support
-- **createSession()** — Assembly factory: wires tools, provider, config, and context into a Session
-- **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for sessions; six local file/process/search exports are re-exported from `@robota-sdk/agent-tools`
+- **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
+- **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
+- **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
 - **Permissions** — 3-step evaluation (deny list, allow list, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
@@ -61,8 +68,8 @@ agent-sdk (assembly layer)
   ├── CommandRegistry / BuiltinCommandSource / SkillCommandSource
   ├── Agent tool batch jobs and background orchestration
   ├── Edit checkpoints and command-driven memory
-  ├── query()             ← one-shot entry point
-  ├── createSession()     ← assembly factory
+  ├── createQuery()       ← one-shot entry point factory
+  ├── createSession()     ← internal assembly factory
   └── deps:
         agent-sessions  (Session, SessionStore)
         agent-tools     (tool infrastructure + 8 built-in tools)
@@ -220,50 +227,50 @@ registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 - `~/.robota/skills/*/SKILL.md`
 - `<cwd>/.agents/skills/*/SKILL.md`
 
-### query()
+### createQuery()
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const query = createQuery({ provider });
 
 const response = await query('Show me the file list');
 
-const response = await query('Analyze the code', {
+const queryWithOptions = createQuery({
+  provider,
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   maxTurns: 10,
-  autoCompactThreshold: 0.75,
   onTextDelta: (delta) => process.stdout.write(delta),
-  onCompact: () => console.log('Context compacted'),
 });
+
+const detailedResponse = await queryWithOptions('Analyze the code');
 ```
 
-### createSession()
+### Session Assembly
 
-```typescript
-import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
-
-const [config, context, projectInfo] = await Promise.all([
-  loadConfig(cwd),
-  loadContext(cwd),
-  detectProject(cwd),
-]);
-
-const session = createSession({ config, context, terminal, projectInfo, permissionMode });
-const response = await session.run('Hello');
-```
+`createSession()`, `loadConfig()`, `loadContext()`, and `detectProject()` are internal SDK assembly
+details. Use `InteractiveSession` for event-driven sessions or `createQuery()` for prompt-only
+one-shot calls.
 
 ### Built-in Tools
 
-`@robota-sdk/agent-sdk` re-exports 6 of the 8 built-in tools from `@robota-sdk/agent-tools`:
+`@robota-sdk/agent-sdk` assembles built-in tools for SDK sessions, but direct tool usage imports
+from the owner package:
 
 ```typescript
-import { bashTool, readTool, writeTool, editTool, globTool, grepTool } from '@robota-sdk/agent-sdk';
-```
-
-`webFetchTool` and `webSearchTool` are **not** re-exported from `@robota-sdk/agent-sdk`. Import them directly from the owning package:
-
-```typescript
-import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
+import {
+  bashTool,
+  editTool,
+  globTool,
+  grepTool,
+  readTool,
+  webFetchTool,
+  webSearchTool,
+  writeTool,
+} from '@robota-sdk/agent-tools';
 ```
 
 ## Subagent Sessions

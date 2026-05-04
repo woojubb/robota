@@ -15,3 +15,4 @@
 
 - [Package README](../README.md) — usage examples and SDK entry points.
 - [SPEC.md](./SPEC.md) — package contract, ownership boundaries, and public API surface.
+- [PUBLIC-SURFACE.md](./PUBLIC-SURFACE.md) — SDK export ownership classes and mechanical guard.
