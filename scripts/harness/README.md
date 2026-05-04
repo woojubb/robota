@@ -7,6 +7,7 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:scan`
 - `pnpm harness:scan:consistency`
 - `pnpm harness:scan:commands`
+- `pnpm harness:scan:sdk-public-surface`
 - `pnpm harness:scan:specs`
 - `pnpm harness:scan:coverage-scripts`
 - `pnpm harness:plan -- --changed-file <path> [--changed-file <path>] [--base-ref <git-ref>]`
@@ -50,6 +51,12 @@ These scripts are the executable layer of the Robota harness.
 - verifies that slash routing does not add command-specific built-in branches
 - verifies that `agent-sdk` does not import or depend on `agent-command-*` implementation packages
 - verifies that `agent-command-*` packages do not import `agent-cli`
+
+### `check-sdk-public-surface.mjs`
+
+- verifies that `agent-sdk` public barrels do not use broad export-star pass-throughs
+- verifies that the top-level SDK entrypoint does not hide `agent-core`, `agent-sessions`, or `agent-tools` ownership
+- verifies that `agent-runtime` re-exports stay in documented SDK runtime facade barrels
 
 ### `check-test-coverage-scripts.mjs`
 

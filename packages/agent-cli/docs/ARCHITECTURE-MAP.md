@@ -538,7 +538,7 @@ Completed backlog:
 
 ### CLI-AUDIT-007: SDK public exports hide some package ownership
 
-Status: confirmed design debt.
+Status: resolved.
 
 Current files:
 
@@ -547,22 +547,31 @@ Current files:
 - `packages/agent-sdk/src/background-tasks/index.ts`
 - `packages/agent-sdk/src/subagents/index.ts`
 
-Problem:
+Problem found:
 
 The SDK entrypoint intentionally exposes SDK-owned facades and command APIs, but it also re-exports
 selected lower-package symbols for compatibility and host convenience. Some exports are legitimate
 SDK facades; others may be pass-through surfaces that make consumers import through the SDK instead
 of the actual owner package.
 
-Recommended fix:
+Resolution:
 
-Classify the SDK public surface into owned SDK APIs, explicit facades, and compatibility
-re-exports. Remove or namespace compatibility exports that hide owner packages, update specs, and
-add harness coverage for broad pass-through exports where feasible.
+The SDK public surface is classified in `packages/agent-sdk/docs/PUBLIC-SURFACE.md`.
+Top-level `@robota-sdk/agent-sdk` exports now expose SDK-owned APIs plus explicit SDK facades only.
+General-purpose `agent-core`, `agent-tools`, and `agent-sessions` utilities are owner-direct imports.
+Runtime lifecycle contracts remain intentionally available through SDK facade barrels because CLI
+and transport hosts consume runtime contracts through SDK composition/facades.
 
-Tracked follow-up:
+Mechanical guard:
 
-- `.agents/backlog/sdk-public-surface-owner-audit.md`
+- `pnpm harness:scan:sdk-public-surface` rejects broad SDK `export *` barrels.
+- It rejects top-level pass-through exports from `agent-core`, `agent-sessions`, or `agent-tools`.
+- It allows `agent-runtime` re-exports only from `agent-sdk/src/background-tasks/index.ts` and
+  `agent-sdk/src/subagents/index.ts`.
+
+Completed backlog:
+
+- `.agents/backlog/completed/sdk-public-surface-owner-audit.md`
 
 ### No SDK-to-command-package edge found
 

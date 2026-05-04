@@ -7,4 +7,12 @@ describe('agent-sdk public API', () => {
     expect('DEFAULT_AUTOMATIC_MEMORY_CONFIG' in sdk).toBe(false);
     expect('normalizeAutomaticMemoryConfig' in sdk).toBe(false);
   });
+
+  it('does not pass through lower-level package utilities as top-level SDK runtime exports', () => {
+    expect('evaluatePermission' in sdk).toBe(false);
+    expect('runHooks' in sdk).toBe(false);
+    expect('TRUST_TO_MODE' in sdk).toBe(false);
+    expect('messageToHistoryEntry' in sdk).toBe(false);
+    expect('getMessagesForAPI' in sdk).toBe(false);
+  });
 });

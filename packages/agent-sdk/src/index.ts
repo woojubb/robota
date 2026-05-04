@@ -31,9 +31,6 @@ export type {
 export { createQuery } from './query.js';
 export type { ICreateQueryOptions } from './query.js';
 
-// ── Session event contracts ─────────────────────────────────
-export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-sessions';
-
 // ── Command system (managed by InteractiveSession) ──────────
 export {
   CommandRegistry,
@@ -236,25 +233,6 @@ export {
   preprocessShellCommands,
 } from './utils/skill-prompt.js';
 export type { SkillPromptContext } from './utils/skill-prompt.js';
-
-// ── Types (re-exported from owning packages) ────────────────
-export type { TToolResult, TTrustLevel, TPermissionDecision, TPermissionMode } from './types.js';
-export { TRUST_TO_MODE } from './types.js';
-export type { ITerminalOutput, ISpinner } from './types.js';
-export type {
-  IContextWindowState,
-  IContextTokenUsage,
-  IHistoryEntry,
-} from '@robota-sdk/agent-core';
-export {
-  isChatEntry,
-  chatEntryToMessage,
-  messageToHistoryEntry,
-  getMessagesForAPI,
-} from '@robota-sdk/agent-core';
-export type { TToolArgs, IPermissionLists } from '@robota-sdk/agent-core';
-export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
-export type { IAIProvider } from '@robota-sdk/agent-core';
 
 // ── Project memory ─────────────────────────────────────────
 export {
@@ -470,10 +448,8 @@ export type {
   TTaskFileStatus,
 } from './context/task-context.js';
 
-// ── Permissions (from agent-core) ───────────────────────────
-export { evaluatePermission } from '@robota-sdk/agent-core';
+// ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
-export { runHooks } from '@robota-sdk/agent-core';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

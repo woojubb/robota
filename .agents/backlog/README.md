@@ -11,7 +11,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [SDK public surface owner audit](sdk-public-surface-owner-audit.md)
 - [Provider model catalog refresh adapters](provider-model-catalog-refresh-adapters.md)
 - [TUI remove activity prefix from status bar](tui-remove-activity-label.md)
 - [CLI `@file` reference import](cli-at-file-reference-import.md)
