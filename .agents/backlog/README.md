@@ -11,6 +11,5 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [TUI provider/model state drift](tui-provider-model-state-drift.md)
 - [CLI session store boundary cleanup](cli-session-store-boundary-cleanup.md)
 - [CLI command effect state boundary](cli-command-effect-state-boundary.md)

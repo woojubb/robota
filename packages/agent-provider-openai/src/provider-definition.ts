@@ -14,6 +14,11 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     defaults: {
       apiKey: DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE,
     },
+    modelCatalog: {
+      status: 'unavailable',
+      sourceUrl: 'https://platform.openai.com/docs/api-reference/models/list',
+      message: 'OpenAI model availability should be discovered live from GET /v1/models.',
+    },
     setupSteps: [
       {
         key: 'model',

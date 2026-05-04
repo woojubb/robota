@@ -53,10 +53,15 @@ export {
 export type {
   IProviderConfig,
   IProviderDefinition,
+  IProviderModelCatalog,
+  IProviderModelCatalogEntry,
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
   IProviderSetupStepDefinition,
+  TProviderModelCapability,
+  TProviderModelCatalogStatus,
+  TProviderModelLifecycle,
   TProviderSetupField,
 } from './provider-definition';
 export { findProviderDefinition, formatSupportedProviderTypes } from './provider-definition';
