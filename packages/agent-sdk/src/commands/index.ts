@@ -124,15 +124,19 @@ export type {
 } from '../background-tasks/index.js';
 export {
   buildModelCommandSubcommands,
+  formatModelCommandUsageMessageAsync,
   formatModelCommandUsageMessage,
   MODEL_COMMAND_ARGUMENT_HINT,
   MODEL_COMMAND_DESCRIPTION,
   resolveActiveProviderModelCatalog,
+  resolveActiveProviderModelCatalogState,
 } from '../command-api/model/model-command-api.js';
 export type {
+  IActiveProviderModelCatalogState,
   IBuildModelCommandSubcommandsOptions,
   IModelCommandModuleOptions,
   IModelCommandSettingsAdapter,
+  IResolveActiveProviderModelCatalogStateOptions,
 } from '../command-api/model/model-command-api.js';
 export type { TRecommendedResponseLanguage } from '../command-api/language/language-command-api.js';
 export type { IPermissionsCommandState } from '../command-api/permissions/permission-mode-command-api.js';

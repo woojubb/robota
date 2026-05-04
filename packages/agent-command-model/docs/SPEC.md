@@ -43,6 +43,10 @@ import {
 
 When the active provider has no catalog metadata, `/model` still accepts manual model IDs and reports that manual input is required. It must not fall back to Claude/Anthropic model subcommands for non-Anthropic providers.
 
+When invoked without a model id, `/model` may ask the SDK model common API to refresh the active
+provider catalog through provider-owned adapters. Refresh failures must be reported as catalog
+freshness state and must not block manual model input.
+
 ## Verification
 
 ```bash

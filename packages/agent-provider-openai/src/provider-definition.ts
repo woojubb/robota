@@ -1,5 +1,6 @@
 import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
 import { probeOpenAICompatibleProfile } from '@robota-sdk/agent-provider-openai-compatible';
+import { refreshOpenAIModelCatalog } from './model-catalog-refresh';
 import { OpenAIProvider } from './provider';
 import type { IOpenAINativeWebToolsOptions, TOpenAIApiSurface } from './types';
 
@@ -34,6 +35,7 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     ],
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
+    refreshModelCatalog: ({ profile }) => refreshOpenAIModelCatalog(profile),
     createProvider: (config) => {
       const apiSurface = readApiSurface(config.options);
       const nativeWebTools = readNativeWebTools(config.options);

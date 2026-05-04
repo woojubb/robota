@@ -111,6 +111,26 @@ const providerDefinitions: readonly TTestProviderDefinition[] = [
   },
 ];
 
+const refreshableProviderDefinitions: readonly TTestProviderDefinition[] = [
+  {
+    type: 'openai',
+    modelCatalog: {
+      status: 'unavailable',
+      sourceUrl: 'https://platform.openai.com/docs/api-reference/models/list',
+      message: 'OpenAI models should be discovered live.',
+    },
+    refreshModelCatalog: async () => ({
+      status: 'live',
+      sourceUrl: 'https://platform.openai.com/docs/api-reference/models/list',
+      lastVerifiedAt: '2026-05-05T00:00:00.000Z',
+      entries: [{ id: 'gpt-5.1', displayName: 'gpt-5.1', lifecycle: 'active' }],
+    }),
+    createProvider: () => {
+      throw new Error('not used');
+    },
+  },
+];
+
 function createModelModuleForSettings(settings: TProviderSettingsDocument) {
   return createModelCommandModule({
     providerDefinitions,
@@ -202,6 +222,28 @@ describe('createModelCommandModule', () => {
     expect(usage?.message).toContain('No model catalog available for provider openai');
     expect(manual?.success).toBe(true);
     expect(manual?.effects).toEqual([{ type: 'model-change-requested', modelId: 'gpt-5.1' }]);
+  });
+
+  it('surfaces refreshed catalog freshness when usage is requested', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createModelCommandModule({
+        providerDefinitions: refreshableProviderDefinitions,
+        settings: {
+          readMergedSettings: () => ({
+            currentProvider: 'openai',
+            providers: {
+              openai: { type: 'openai', model: 'gpt-5.1', apiKey: 'sk-test' },
+            },
+          }),
+        },
+      }).systemCommands ?? []),
+    ]);
+
+    const usage = await executor.execute('model', commandHostContext, '');
+
+    expect(usage?.success).toBe(false);
+    expect(usage?.message).toContain('Catalog: live; 1 model(s)');
+    expect(usage?.message).toContain('verified 2026-05-05T00:00:00.000Z');
   });
 
   it('requests model changes through a typed command effect', async () => {

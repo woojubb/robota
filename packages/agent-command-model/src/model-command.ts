@@ -3,24 +3,29 @@ import type {
   ICommandResult,
   IModelCommandModuleOptions,
 } from '@robota-sdk/agent-sdk';
-import { formatModelCommandUsageMessage } from '@robota-sdk/agent-sdk';
+import { formatModelCommandUsageMessageAsync } from '@robota-sdk/agent-sdk';
 
 function parseModelId(args: string): string | undefined {
   const modelId = args.trim().split(/\s+/)[0];
   return modelId !== undefined && modelId.length > 0 ? modelId : undefined;
 }
 
-export function executeModelCommand(
+export async function executeModelCommand(
   _context: ICommandHostContext,
   args: string,
   options?: IModelCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const modelId = parseModelId(args);
   if (modelId === undefined) {
     return {
-      message: formatModelCommandUsageMessage({
-        settings: options?.settings.readMergedSettings(),
-        providerDefinitions: options?.providerDefinitions,
+      message: await formatModelCommandUsageMessageAsync({
+        ...(options?.settings !== undefined
+          ? { settings: options.settings.readMergedSettings() }
+          : {}),
+        ...(options?.providerDefinitions !== undefined
+          ? { providerDefinitions: options.providerDefinitions }
+          : {}),
+        refresh: true,
       }),
       success: false,
     };

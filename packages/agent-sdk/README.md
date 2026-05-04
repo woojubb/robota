@@ -41,6 +41,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
 - **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
+- **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
 - **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
@@ -204,6 +205,11 @@ executor.hasCommand('mode'); // boolean
 ```
 
 Product built-ins are supplied as `agent-command-*` modules. For example, `/help` is owned by `@robota-sdk/agent-command-help`, while `/compact` is owned by `@robota-sdk/agent-command-compact`.
+
+Command modules may use SDK common APIs for shared provider-neutral behavior. For `/model`, the SDK
+resolves the active provider from settings, reads provider-owned fallback metadata from injected
+`IProviderDefinition` records, and can invoke provider-owned catalog refresh hooks. The CLI/TUI must
+only render command results and must not own provider model lists.
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource
 
