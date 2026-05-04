@@ -11,7 +11,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [CLI command compatibility shims retirement](cli-command-compat-shims-retirement.md)
 - [CLI runtime adapter boundary audit](cli-runtime-adapter-boundary-audit.md)
 - [SDK public surface owner audit](sdk-public-surface-owner-audit.md)
 - [Provider model catalog refresh adapters](provider-model-catalog-refresh-adapters.md)
