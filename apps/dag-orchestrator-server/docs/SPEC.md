@@ -25,6 +25,7 @@ Express Application (http.Server)
 ├── Robota API Routes (/v1/dag/*)
 │   ├── definition-routes  → DagDesignController (dag-api)
 │   ├── run-routes         → OrchestratorRunService (dag-orchestrator)
+│   ├── published-workflow-routes → IStoragePort + OrchestratorRunService
 │   ├── asset-routes       → IAssetStore (dag-core)
 │   ├── admin-routes       → DagDesignController (dag-api)
 │   └── ws-routes          → WebSocket bridge to ComfyUI backend
@@ -53,10 +54,12 @@ Express Application (http.Server)
 
 This application does not define SSOT domain types. All domain types are imported from upstream packages.
 
-| Type                       | Source                                         | Purpose                                         |
-| -------------------------- | ---------------------------------------------- | ----------------------------------------------- |
-| `IComfyUiWsMessage`        | Local (`services/comfyui-event-translator.ts`) | ComfyUI WebSocket message shape for translation |
-| `TVersionQueryParseResult` | Local (`routes/route-utils.ts`)                | Version query parameter parse result union      |
+| Type                       | Source                                             | Purpose                                         |
+| -------------------------- | -------------------------------------------------- | ----------------------------------------------- |
+| `IComfyUiWsMessage`        | Local (`services/comfyui-event-translator.ts`)     | ComfyUI WebSocket message shape for translation |
+| `TVersionQueryParseResult` | Local (`routes/route-utils.ts`)                    | Version query parameter parse result union      |
+| `IWorkflowOverrideMap`     | Local (`routes/published-workflow-route-utils.ts`) | Request-local node config override map          |
+| `IWorkflowRunRequestBody`  | Local (`routes/published-workflow-route-utils.ts`) | Parsed published workflow run request body      |
 
 Helper functions and HTTP status constants in `route-utils.ts` are locally defined but not exported as SSOT types.
 
@@ -89,6 +92,22 @@ All Robota endpoints use a standard response envelope:
 | `/v1/dag/runs/:id/start`  | POST   | Start run execution | None                     | `202 { ok, data: { dagRunId, preparationId } }` |
 | `/v1/dag/runs/:id/result` | GET    | Get run result      | None                     | `200 { ok, data: { run } }`                     |
 | `/v1/dag/runs/:id`        | GET    | Get run status      | None                     | `200 { ok, data: { dagRunId, status } }`        |
+
+#### Published Workflow Routes
+
+| Endpoint                        | Method | Purpose                          | Request Body             | Success Response                                                |
+| ------------------------------- | ------ | -------------------------------- | ------------------------ | --------------------------------------------------------------- |
+| `/v1/dag/workflows/:dagId/runs` | POST   | Start a published definition run | `{ input?, overrides? }` | `202 { ok, data: { dagRunId, preparationId, dagId, version } }` |
+
+**Published workflow execution contract:**
+
+1. The route executes only persisted definitions whose `status` is `published`.
+2. `?version=<positive-int>` selects an exact published version. Without `version`, the route selects `IStoragePort.getLatestPublishedDefinition(dagId)`.
+3. `input` must be an object when provided and is forwarded as the run input payload.
+4. `overrides` must be an object keyed by `nodeId`. Each value must be an object and is shallow-merged into that node's `config` for this single run only.
+5. Unknown override node IDs are rejected. Overrides never mutate or persist the stored definition.
+6. Asset references are validated after overrides and before prompt translation. Runtime asset synchronization uses the same `resolvePromptAssetsForRuntime` path as `/v1/dag/runs/:id/start`.
+7. Published workflow runs are asynchronous. A successful request means the run was accepted by the runtime and returns identifiers for status/result polling.
 
 #### Asset Routes
 
@@ -192,29 +211,35 @@ Error objects follow RFC 7807 (IProblemDetails) structure where applicable:
 
 ### Error Code to HTTP Status Mapping
 
-| Error Code                                                    | HTTP Status | Context                                                     |
-| ------------------------------------------------------------- | ----------- | ----------------------------------------------------------- |
-| `DAG_VALIDATION_DEFINITION_REQUIRED`                          | 400         | Missing definition in request body                          |
-| `DAG_VALIDATION_VERSION_QUERY_INVALID`                        | 400         | Invalid version query parameter                             |
-| `DAG_VALIDATION_ASSET_FILENAME_REQUIRED`                      | 400         | Missing fileName in asset upload                            |
-| `DAG_VALIDATION_ASSET_MEDIATYPE_REQUIRED`                     | 400         | Missing mediaType in asset upload                           |
-| `DAG_VALIDATION_ASSET_BASE64_REQUIRED`                        | 400         | Missing base64Data in asset upload                          |
-| `DAG_VALIDATION_ASSET_EMPTY_CONTENT`                          | 400         | Decoded base64 content is empty                             |
-| `DAG_VALIDATION_ASSET_BASE64_INVALID`                         | 400         | Invalid base64 encoding                                     |
-| `DAG_RUNTIME_ASSET_UPLOAD_FAILED`                             | 502         | Runtime rejected or could not receive an asset upload       |
-| `DAG_RUNTIME_ASSET_RESPONSE_INVALID`                          | 502         | Runtime upload response did not contain a usable asset name |
-| `DAG_VALIDATION_ASSET_REFERENCE_OBJECT_REQUIRED`              | 400         | config.asset must be a media reference object               |
-| `DAG_VALIDATION_ASSET_REFERENCE_TYPE_INVALID`                 | 400         | referenceType must be asset or uri                          |
-| `DAG_VALIDATION_ASSET_REFERENCE_XOR_REQUIRED`                 | 400         | Exactly one of assetId or uri required                      |
-| `DAG_VALIDATION_ASSET_REFERENCE_TYPE_ASSET_REQUIRES_ASSET_ID` | 400         | referenceType asset requires assetId                        |
-| `DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND`                    | 400         | Referenced assetId does not exist                           |
-| `DAG_VALIDATION_RUN_DEFINITION_REQUIRED`                      | 400         | Missing definition in run create request                    |
-| `DAG_VALIDATION_RUN_INPUT_INVALID`                            | 400         | input must be an object when provided                       |
-| `DAG_ASSET_NOT_FOUND`                                         | 404         | Asset not found by assetId                                  |
-| `ORCHESTRATOR_RUN_NOT_FOUND`                                  | 404         | Run not found by dagRunId                                   |
-| `ORCHESTRATOR_RUN_NOT_COMPLETED`                              | 409         | Run result requested before completion                      |
-| `WS_BRIDGE_ERROR`                                             | N/A (WS)    | WebSocket bridge failure (sent as WS event)                 |
-| `COMFYUI_EXECUTION_ERROR`                                     | N/A (WS)    | ComfyUI execution error (sent as WS event)                  |
+| Error Code                                                    | HTTP Status | Context                                                          |
+| ------------------------------------------------------------- | ----------- | ---------------------------------------------------------------- |
+| `DAG_VALIDATION_DEFINITION_REQUIRED`                          | 400         | Missing definition in request body                               |
+| `DAG_VALIDATION_VERSION_QUERY_INVALID`                        | 400         | Invalid version query parameter                                  |
+| `DAG_VALIDATION_ASSET_FILENAME_REQUIRED`                      | 400         | Missing fileName in asset upload                                 |
+| `DAG_VALIDATION_ASSET_MEDIATYPE_REQUIRED`                     | 400         | Missing mediaType in asset upload                                |
+| `DAG_VALIDATION_ASSET_BASE64_REQUIRED`                        | 400         | Missing base64Data in asset upload                               |
+| `DAG_VALIDATION_ASSET_EMPTY_CONTENT`                          | 400         | Decoded base64 content is empty                                  |
+| `DAG_VALIDATION_ASSET_BASE64_INVALID`                         | 400         | Invalid base64 encoding                                          |
+| `DAG_RUNTIME_ASSET_UPLOAD_FAILED`                             | 502         | Runtime rejected or could not receive an asset upload            |
+| `DAG_RUNTIME_ASSET_RESPONSE_INVALID`                          | 502         | Runtime upload response did not contain a usable asset name      |
+| `DAG_VALIDATION_ASSET_REFERENCE_OBJECT_REQUIRED`              | 400         | config.asset must be a media reference object                    |
+| `DAG_VALIDATION_ASSET_REFERENCE_TYPE_INVALID`                 | 400         | referenceType must be asset or uri                               |
+| `DAG_VALIDATION_ASSET_REFERENCE_XOR_REQUIRED`                 | 400         | Exactly one of assetId or uri required                           |
+| `DAG_VALIDATION_ASSET_REFERENCE_TYPE_ASSET_REQUIRES_ASSET_ID` | 400         | referenceType asset requires assetId                             |
+| `DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND`                    | 400         | Referenced assetId does not exist                                |
+| `DAG_VALIDATION_RUN_DEFINITION_REQUIRED`                      | 400         | Missing definition in run create request                         |
+| `DAG_VALIDATION_RUN_INPUT_INVALID`                            | 400         | input must be an object when provided                            |
+| `DAG_PUBLISHED_DEFINITION_NOT_FOUND`                          | 404         | Published workflow endpoint could not find a runnable definition |
+| `DAG_PUBLISHED_DEFINITION_STATUS_INVALID`                     | 409         | Requested workflow version exists but is not published           |
+| `DAG_VALIDATION_WORKFLOW_REQUEST_INVALID`                     | 400         | Published workflow request body must be an object                |
+| `DAG_VALIDATION_WORKFLOW_INPUT_INVALID`                       | 400         | Published workflow input must be an object when provided         |
+| `DAG_VALIDATION_WORKFLOW_OVERRIDES_INVALID`                   | 400         | Published workflow overrides must be an object map               |
+| `DAG_VALIDATION_WORKFLOW_OVERRIDE_NODE_NOT_FOUND`             | 400         | Override references a node ID absent from the definition         |
+| `DAG_ASSET_NOT_FOUND`                                         | 404         | Asset not found by assetId                                       |
+| `ORCHESTRATOR_RUN_NOT_FOUND`                                  | 404         | Run not found by dagRunId                                        |
+| `ORCHESTRATOR_RUN_NOT_COMPLETED`                              | 409         | Run result requested before completion                           |
+| `WS_BRIDGE_ERROR`                                             | N/A (WS)    | WebSocket bridge failure (sent as WS event)                      |
+| `COMFYUI_EXECUTION_ERROR`                                     | N/A (WS)    | ComfyUI execution error (sent as WS event)                       |
 
 ### ComfyUI Proxy Error Format
 
@@ -227,10 +252,11 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 ### Current Coverage
 
-| Test File                                        | Scope                                 | Tests                                                                                 |
-| ------------------------------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------- |
-| `src/__tests__/comfyui-event-translator.test.ts` | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                    |
-| `src/__tests__/endpoint-contract.test.ts`        | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
+| Test File                                         | Scope                                 | Tests                                                                                 |
+| ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
+| `src/__tests__/comfyui-event-translator.test.ts`  | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                    |
+| `src/__tests__/endpoint-contract.test.ts`         | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
+| `src/__tests__/published-workflow-routes.test.ts` | Published workflow routes             | Latest/exact published selection, draft rejection, override validation                |
 
 ### Coverage Gaps
 
@@ -254,15 +280,16 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 ### Route Registration Functions
 
-| Function                     | Module                           | Dependencies                                              |
-| ---------------------------- | -------------------------------- | --------------------------------------------------------- |
-| `registerDefinitionRoutes`   | `routes/definition-routes.ts`    | `DagDesignController`, `IAssetStore`                      |
-| `registerRunRoutes`          | `routes/run-routes.ts`           | `OrchestratorRunService`, `IAssetStore`                   |
-| `registerAssetRoutes`        | `routes/asset-routes.ts`         | `IAssetStore`                                             |
-| `registerAdminRoutes`        | `routes/admin-routes.ts`         | `DagDesignController`                                     |
-| `registerRuntimeAssetRoutes` | `routes/runtime-asset-routes.ts` | `backendUrl`                                              |
-| `registerCostMetaRoutes`     | `routes/cost-meta-routes.ts`     | `ICostMetaStoragePort`, `CelCostEvaluator`                |
-| `registerWsRoutes`           | `routes/ws-routes.ts`            | `http.Server`, `OrchestratorRunService`, `backendBaseUrl` |
+| Function                          | Module                                | Dependencies                                              |
+| --------------------------------- | ------------------------------------- | --------------------------------------------------------- |
+| `registerDefinitionRoutes`        | `routes/definition-routes.ts`         | `DagDesignController`, `IAssetStore`                      |
+| `registerRunRoutes`               | `routes/run-routes.ts`                | `OrchestratorRunService`, `IAssetStore`                   |
+| `registerPublishedWorkflowRoutes` | `routes/published-workflow-routes.ts` | `IStoragePort`, `OrchestratorRunService`, `IAssetStore`   |
+| `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`                                             |
+| `registerAdminRoutes`             | `routes/admin-routes.ts`              | `DagDesignController`                                     |
+| `registerRuntimeAssetRoutes`      | `routes/runtime-asset-routes.ts`      | `backendUrl`                                              |
+| `registerCostMetaRoutes`          | `routes/cost-meta-routes.ts`          | `ICostMetaStoragePort`, `CelCostEvaluator`                |
+| `registerWsRoutes`                | `routes/ws-routes.ts`                 | `http.Server`, `OrchestratorRunService`, `backendBaseUrl` |
 
 ### Utility Functions (route-utils.ts)
 

@@ -1,5 +1,6 @@
 import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
 import type { IAssetStore } from '@robota-sdk/dag-core';
+import type { IRuntimeAssetUploadError } from './runtime-asset-upload.js';
 
 export const HTTP_BAD_REQUEST = 400;
 export const HTTP_NOT_FOUND = 404;
@@ -161,6 +162,29 @@ export function toRunProblemDetails(
     type: 'urn:robota:problems:dag:validation',
     title: 'DAG validation failed',
     status: HTTP_BAD_REQUEST,
+    detail: error.detail,
+    instance,
+    code: error.code,
+    retryable: error.retryable,
+  };
+}
+
+export function toRuntimeAssetProblemDetails(
+  error: IRuntimeAssetUploadError,
+  instance: string,
+): {
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  instance: string;
+  code: string;
+  retryable: boolean;
+} {
+  return {
+    type: 'urn:robota:problems:dag:runtime-asset',
+    title: 'Runtime asset upload failed',
+    status: error.status,
     detail: error.detail,
     instance,
     code: error.code,

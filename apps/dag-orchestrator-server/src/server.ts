@@ -24,6 +24,7 @@ import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
 
 import { registerDefinitionRoutes } from './routes/definition-routes.js';
 import { registerRunRoutes } from './routes/run-routes.js';
+import { registerPublishedWorkflowRoutes } from './routes/published-workflow-routes.js';
 import { registerAssetRoutes } from './routes/asset-routes.js';
 import { registerWsRoutes } from './routes/ws-routes.js';
 import { registerAdminRoutes } from './routes/admin-routes.js';
@@ -152,6 +153,7 @@ async function bootstrapOrchestratorServer(): Promise<void> {
   // Robota API routes
   registerDefinitionRoutes(app, controllers.design, assetStore);
   registerRunRoutes(app, runService, assetStore, backendUrl);
+  registerPublishedWorkflowRoutes(app, storage, runService, assetStore, backendUrl);
   registerAssetRoutes(app, assetStore, backendUrl);
   registerWsRoutes(server, runService, backendUrl);
   registerAdminRoutes(app, controllers.design);
