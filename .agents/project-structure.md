@@ -79,6 +79,7 @@ apps/
 | ---------------------------------------------------------- | ----------------------------------------- |
 | [publish-registry.md](publish-registry.md)                 | npm publish rules, package registry table |
 | [dag-dependency-direction.md](dag-dependency-direction.md) | DAG package dependency flow and rules     |
+| [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI composition map and layer audit       |
 
 ## Command Package Rule
 
