@@ -14,7 +14,6 @@ import {
   SkillCommandSource,
 } from '@robota-sdk/agent-sdk';
 import type {
-  IAIProvider,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
@@ -23,6 +22,7 @@ import type {
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
 import type {
+  IAIProvider,
   TPermissionMode,
   TToolArgs,
   IHistoryEntry,
