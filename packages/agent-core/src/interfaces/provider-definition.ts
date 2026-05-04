@@ -64,6 +64,14 @@ export interface IProviderModelCatalog {
   message?: string;
 }
 
+export interface IProviderModelCatalogRefreshOptions {
+  profile: IProviderProfileConfig;
+}
+
+export type TProviderModelCatalogRefresh = (
+  options: IProviderModelCatalogRefreshOptions,
+) => Promise<IProviderModelCatalog>;
+
 export interface IProviderSetupStepDefinition {
   key: TProviderSetupField;
   title: string;
@@ -79,6 +87,7 @@ export interface IProviderDefinition {
   description?: string;
   defaults?: IProviderProfileDefaults;
   modelCatalog?: IProviderModelCatalog;
+  refreshModelCatalog?: TProviderModelCatalogRefresh;
   setupSteps?: readonly IProviderSetupStepDefinition[];
   requiresApiKey?: boolean;
   createProvider: (config: IProviderConfig) => IAIProvider;
