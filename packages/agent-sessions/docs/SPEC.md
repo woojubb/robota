@@ -126,7 +126,7 @@ Types consumed from other packages (not owned here):
 | `getHistory`               | `() => TUniversalMessage[]`                                          | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                       |
 | `getFullHistory`           | `() => IHistoryEntry[]`                                              | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                   |
 | `addHistoryEntry`          | `(entry: IHistoryEntry) => void`                                     | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
-| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time context window usage (tokens, percentage).                                                                            |
+| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                              |
 | `getAutoCompactThreshold`  | `() => TAutoCompactThreshold`                                        | Returns the configured automatic compaction threshold, or `false` when disabled.                                                        |
 | `setAutoCompactThreshold`  | `(threshold: TAutoCompactThreshold) => void`                         | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
@@ -276,6 +276,8 @@ This ensures the AI retains project context (working directory, coding rules, av
 ### Auto-Compaction
 
 Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream. The trigger defaults to 83.5% of the context window and can be configured per session or disabled with `autoCompactThreshold: false`.
+
+`ContextWindowTracker.updateFromHistory()` delegates token estimation to `agent-core`'s shared context estimator. The tracker treats terminal provider usage as exact post-response state; when metadata-free messages follow the latest provider usage, it uses the maximum of serialized-history estimate, latest provider usage, and any future caller floor instead of summing all historical provider input counts. This keeps `/context`, status bars, automatic compaction, and core hard-capacity guards aligned on the same effective context state.
 
 ## Error Taxonomy
 

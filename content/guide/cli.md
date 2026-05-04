@@ -305,7 +305,7 @@ The status bar shows context usage with color coding:
 | 70–89% | Yellow | Approaching limit               |
 | 90%+   | Red    | Near limit, compaction imminent |
 
-Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact` with optional instructions for manual compaction:
+Auto-compaction triggers at ~83.5% of the model's context window. A separate hard-capacity guard blocks only when effective usage is near the actual model limit and includes diagnostic values in the resulting message. Use `/compact` with optional instructions for manual compaction:
 
 ```
 /compact focus on the API design decisions
