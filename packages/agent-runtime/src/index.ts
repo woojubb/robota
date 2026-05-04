@@ -4,6 +4,10 @@ export {
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
+  appendPrefixedLogLines,
+  createBackgroundTaskLogPage,
+  createLimitedOutputCapture,
+  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
 } from './background-tasks/index.js';
 export type {
   IAgentBackgroundTaskRequest,
@@ -36,6 +40,8 @@ export type {
   TBackgroundTaskStatus,
   TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
+  ICreateLimitedOutputCaptureOptions,
+  ILimitedOutputCapture,
 } from './background-tasks/index.js';
 export {
   SubagentManager,

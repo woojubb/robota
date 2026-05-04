@@ -4,6 +4,13 @@ export {
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
 } from './state-machine.js';
+export {
+  appendPrefixedLogLines,
+  createBackgroundTaskLogPage,
+  createLimitedOutputCapture,
+  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
+} from './log-pages.js';
+export type { ICreateLimitedOutputCaptureOptions, ILimitedOutputCapture } from './log-pages.js';
 export type { TBackgroundTaskTransitionEvent } from './state-machine.js';
 export {
   BackgroundTaskError,

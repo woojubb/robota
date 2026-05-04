@@ -25,6 +25,7 @@ agent-runtime
   ├── background-tasks/
   │   ├── state-machine.ts                 -- pure lifecycle transitions
   │   ├── background-task-manager.ts       -- registry, queue, wait/cancel/close/send/read
+  │   ├── log-pages.ts                     -- output capture and cursor-based log page helpers
   │   └── types.ts                         -- task requests, state, result, runner ports
   └── subagents/
       ├── types.ts                         -- subagent job contracts and runner port
@@ -51,6 +52,7 @@ Design rules:
 | `IBackgroundTaskResult`        | `src/background-tasks/types.ts`             | Completed task output and metadata                                                  |
 | `TBackgroundTaskEvent`         | `src/background-tasks/types.ts`             | Lifecycle/progress event union                                                      |
 | `TBackgroundTaskTimeoutReason` | `src/background-tasks/types.ts`             | Watchdog terminal reason union                                                      |
+| `ILimitedOutputCapture`        | `src/background-tasks/log-pages.ts`         | UTF-8-safe bounded output capture used by process-like adapters                     |
 | `ISerializableProviderProfile` | `src/background-tasks/types.ts`             | Provider profile handoff for background workers, including provider-owned `options` |
 | `ISubagentManager`             | `src/subagents/types.ts`                    | Subagent job compatibility facade                                                   |
 | `ISubagentRunner`              | `src/subagents/types.ts`                    | Port for executing one subagent job                                                 |
@@ -73,6 +75,9 @@ Hook event types and hook execution are owned by `agent-core`.
 | `transitionBackgroundTaskStatus` | function | Pure state transition function                       |
 | `isTerminalBackgroundTaskStatus` | function | Terminal-state predicate                             |
 | `getBackgroundTaskTransitions`   | function | Transition table snapshot for tests/audits           |
+| `createLimitedOutputCapture`     | function | UTF-8-safe bounded output capture helper             |
+| `appendPrefixedLogLines`         | function | Append source-prefixed non-empty log lines           |
+| `createBackgroundTaskLogPage`    | function | Cursor-based log pagination helper                   |
 
 ### Subagents
 
@@ -168,6 +173,7 @@ Unit tests cover:
 
 - background state-machine transitions
 - background task manager lifecycle, queueing, cancellation, progress, metadata projection, watchdogs, and shutdown
+- bounded output capture and cursor-based log pagination helpers
 - subagent manager lifecycle facade behavior
 - worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
 
@@ -180,6 +186,13 @@ Adapter packages or shells must add integration tests for concrete side effects 
 | `BackgroundTaskManager`  | `IBackgroundTaskManager` | `IBackgroundTaskRunner`, `TBackgroundTaskEventListener`, pure transition helpers |
 | `SubagentManager`        | `ISubagentManager`       | `IBackgroundTaskManager`, `IBackgroundTaskRunner`, `ISubagentRunner`             |
 | `WorktreeSubagentRunner` | `ISubagentRunner`        | inner `ISubagentRunner`, `ISubagentWorktreeAdapter`, agent-core hook runner      |
+
+Pure helper contracts:
+
+- `createLimitedOutputCapture()` owns bounded output truncation semantics for adapters that need a
+  provider-neutral output string.
+- `appendPrefixedLogLines()` owns source-prefixed log line projection.
+- `createBackgroundTaskLogPage()` owns cursor pagination for append-only task logs.
 
 Cross-package port consumers:
 
