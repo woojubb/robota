@@ -1,7 +1,7 @@
 # Agent CLI Architecture Map
 
-Source-verified against `develop` commit `e7b9d76ff` and the
-`refactor/cli-runtime-adapter-boundary` working tree on 2026-05-05.
+Source-verified against `develop` commit `6c05ddd04` and the
+`feat/cli-at-file-reference-import` working tree on 2026-05-05.
 
 This document is the LLM-scannable master map for how `@robota-sdk/agent-cli` is
 assembled. Package `SPEC.md` files remain the source of truth for ownership
@@ -35,7 +35,8 @@ agent-cli
       v
 agent-sdk
   owns InteractiveSession, command contracts/common APIs, provider-neutral facades,
-  host adapter ports, session orchestration, and SDK-specific safety layers
+  host adapter ports, prompt file-reference preprocessing, session orchestration,
+  and SDK-specific safety layers
       |
       +--> agent-sessions   owns conversation run loop, persistence, compaction
       +--> agent-runtime    owns reusable background/subagent lifecycle ports and state
@@ -59,6 +60,7 @@ Target ownership rules:
 | Command descriptors, command execution, lifecycle effects    | `agent-command-*`                             | Select default modules and render returned interactions/effects.      |
 | Command contracts, result/effect types, host adapter ports   | `agent-sdk`                                   | Consume SDK contracts without defining parallel command shapes.       |
 | Provider settings/profile setup common APIs                  | `agent-sdk` + provider packages               | Provide concrete settings adapters and provider definitions.          |
+| Prompt `@file` parsing, file reads, diagnostics, records     | `agent-sdk`                                   | Pass ordinary prompt text through `InteractiveSession.submit()`.      |
 | Provider-specific defaults, probes, model fallback data      | `agent-provider-*` via `agent-core` contracts | Compose definitions, never branch on provider names in TUI hooks.     |
 | Session persistence facade                                   | `agent-sdk`                                   | Request project-local store and display SDK-owned summaries.          |
 | Reusable background/subagent state machines and ports        | `agent-runtime`                               | Supply local process/worktree adapters when they are terminal-hosted. |
@@ -210,7 +212,7 @@ flowchart LR
   Product["agent-cli\ncomposition root"]
   Module["@robota-sdk/agent-command-*\nICommandModule owner"]
   SDKContracts["agent-sdk command-api\nICommandModule, ISystemCommand,\nICommandResult, effects, interactions"]
-  SDKCommon["agent-sdk common APIs\nprovider setup, model catalog,\nsession/context/background helpers"]
+  SDKCommon["agent-sdk common APIs\nprovider setup, model catalog,\nprompt file references,\nsession/context/background helpers"]
   Session["InteractiveSession\nSystemCommandExecutor"]
   TUI["agent-cli TUI\nslash prefix, generic prompts,\ntyped host effects"]
   HostAdapters["CLI host adapters\nsettings, plugin UI, local shell services"]
@@ -233,6 +235,7 @@ flowchart LR
 | Command metadata, subcommands, lifecycle policy, interactions, effects | Owning `agent-command-*` package                            |
 | Command contracts, registry, executor, effect/interactions types       | `agent-sdk`                                                 |
 | Reusable command common APIs and ports                                 | `agent-sdk/src/command-api/*`                               |
+| Prompt `@file` parsing, workspace-bound resolution, diagnostics        | `agent-sdk/src/context/prompt-file-reference-*.ts`          |
 | Host persistence, local process actions, UI shell actions              | `agent-cli` host adapters and TUI effect handlers           |
 | Provider setup semantics for `/provider`                               | `agent-command-provider` consuming SDK provider common APIs |
 | Model-change request semantics for `/model`                            | `agent-command-model` consuming SDK model common APIs       |
@@ -309,7 +312,8 @@ sequenceDiagram
     Bridge-->>TUI: message, interaction, or typed effects
   else model prompt
     Bridge->>SDK: submit(input)
-    SDK->>Session: run loop
+    SDK->>SDK: resolve @file references under cwd
+    SDK->>Session: run enriched prompt
     Session->>Provider: chat/stream request
     Provider-->>Session: text, tool calls, usage
     Session-->>SDK: history, context, tool events
@@ -325,6 +329,7 @@ Interactive mode currently supports:
 - generic `ICommandInteraction` rendering;
 - typed `TCommandEffect` application;
 - skill and plugin command discovery through SDK command sources;
+- prompt `@file` references through SDK-owned preprocessing, with CLI only passing submitted text;
 - session resume/fork/name flows through SDK-owned session persistence facade and summaries.
 
 ### Non-Interactive Print Mode
@@ -374,6 +379,7 @@ this section must be updated in the same PR.
 | `BuiltinCommandSource`          | `agent-sdk/src/commands/builtin-source.ts`                  | SDK command infrastructure | CLI, SDK tests                              | SDK command API                                                      | Expose SDK-default built-ins; currently empty.                                               |
 | `SystemCommandExecutor`         | `agent-sdk/src/commands/system-command-executor.ts`         | SDK command infrastructure | `InteractiveSession`                        | `ISystemCommand`                                                     | Execute matching system command with SDK host context.                                       |
 | `InteractiveSession`            | `agent-sdk/src/interactive/interactive-session.ts`          | SDK entrypoint             | CLI, command tests, SDK consumers           | sessions, runtime, tools, core, command API                          | Event-driven wrapper over `Session`, prompt queueing, command execution, persistence.        |
+| `resolvePromptFileReferences()` | `agent-sdk/src/context/prompt-file-reference-*.ts`          | SDK context common API     | `InteractiveSession`, SDK consumers         | Node filesystem/path APIs                                            | Parse path-like `@file` tokens, read bounded workspace-local files, and return diagnostics.  |
 | `createProjectSessionStore()`   | `agent-sdk/src/interactive/session-persistence.ts`          | SDK facade                 | CLI, SDK consumers                          | agent-sessions, project paths                                        | Create project-local `.robota/sessions` persistence without exposing `SessionStore` to CLI.  |
 | `IResumableSessionSummary`      | `agent-sdk/src/interactive/session-persistence.ts`          | SDK facade type            | CLI session picker, SDK consumers           | none                                                                 | Host-facing saved-session list item with id/name/cwd/update time/message count/preview.      |
 | `createInteractiveSession()`    | `agent-sdk/src/interactive/interactive-session-init.ts`     | SDK assembly               | `InteractiveSession`                        | config/context, plugin hooks, `createSession()`                      | Load config/context/project data and construct `Session`.                                    |
@@ -572,6 +578,31 @@ Mechanical guard:
 Completed backlog:
 
 - `.agents/backlog/completed/sdk-public-surface-owner-audit.md`
+
+### CLI-AUDIT-008: Prompt file references must not move into TUI input handling
+
+Status: resolved in `feat/cli-at-file-reference-import`.
+
+Current files:
+
+- `packages/agent-sdk/src/context/prompt-file-references.ts`
+- `packages/agent-sdk/src/context/prompt-file-reference-parser.ts`
+- `packages/agent-sdk/src/context/prompt-file-reference-paths.ts`
+- `packages/agent-sdk/src/interactive/interactive-session.ts`
+- `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`
+- `packages/agent-cli/src/ui/flows/input-area-flow.ts`
+
+Risk:
+
+`@file` prompt syntax is visible in the CLI, but parsing it in Ink input components or slash-routing
+hooks would make the CLI own context-loading semantics and would duplicate the SDK host contract.
+
+Resolution:
+
+The CLI continues to route non-slash prompt text directly to `InteractiveSession.submit()`.
+`agent-sdk` owns path-like token parsing, workspace-root enforcement, recursive reference bounds,
+file/total byte limits, diagnostics, and structured `prompt-file-reference` history records. The
+TUI renders those records as ordinary SDK history events and does not inspect `@file` tokens.
 
 ### No SDK-to-command-package edge found
 
