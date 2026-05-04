@@ -1,14 +1,29 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk';
+import type {
+  ICommandHostContext,
+  ICommandResult,
+  IModelCommandModuleOptions,
+} from '@robota-sdk/agent-sdk';
+import { formatModelCommandUsageMessage } from '@robota-sdk/agent-sdk';
 
 function parseModelId(args: string): string | undefined {
   const modelId = args.trim().split(/\s+/)[0];
   return modelId !== undefined && modelId.length > 0 ? modelId : undefined;
 }
 
-export function executeModelCommand(_context: ICommandHostContext, args: string): ICommandResult {
+export function executeModelCommand(
+  _context: ICommandHostContext,
+  args: string,
+  options?: IModelCommandModuleOptions,
+): ICommandResult {
   const modelId = parseModelId(args);
   if (modelId === undefined) {
-    return { message: 'Usage: model <model-id>', success: false };
+    return {
+      message: formatModelCommandUsageMessage({
+        settings: options?.settings.readMergedSettings(),
+        providerDefinitions: options?.providerDefinitions,
+      }),
+      success: false,
+    };
   }
 
   return {
