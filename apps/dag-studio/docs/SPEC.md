@@ -23,6 +23,8 @@ Next.js App Router application with the following route structure:
 
 The app composes workspace packages as React components and configures API access via `API_CONFIG` (versioned base URL, timeout, retry, rate limiting). Client-side caching is provided by `src/lib/cache.ts`.
 
+The DAG Designer editor header reads `@robota-sdk/dag-designer` context state for action gating. Save/Publish are blocked by binding validation errors, and Run is additionally blocked while `context.isRunnable` is false, for example while an asset upload is still in progress.
+
 ## Type Ownership
 
 This app is SSOT for:

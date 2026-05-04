@@ -1,6 +1,6 @@
 ---
 title: 노드 부수작업 진행 중 Run 차단 + 업로드 프로그레스 표시
-status: backlog
+status: completed
 created: 2026-03-15
 priority: high
 urgency: later
@@ -29,3 +29,16 @@ urgency: later
 - 구현 완료 후 관련 패키지 빌드 성공 확인
 - 연관 유닛 테스트 통과 확인
 - typecheck 및 lint 에러 없음 확인
+
+## 진행
+
+### 2026-05-05
+
+- 현재 구현을 점검했고, `dag-designer` context가 `nodeStateMap`의 `operationStatus: 'uploading'`, `pendingDescription`, `isRunnable` 파생 상태를 이미 제공함을 확인했다.
+- `ComfyFileUploadField`가 업로드 시작/종료 시 context action을 호출하고, `dag-studio` Run 버튼이 `context.isRunnable`이 false일 때 비활성화되는 것을 확인했다.
+- 누락된 계약 설명을 `packages/dag-designer/docs/SPEC.md`와 `apps/dag-studio/docs/SPEC.md`에 추가했다.
+
+## 결과
+
+- 노드 부수작업 진행 중 Run 차단 및 업로드 진행 표시 계약을 SPEC에 명시했다.
+- 검증: `pnpm --filter @robota-sdk/dag-designer test`, `build`, `typecheck`, `lint`, `pnpm --filter @robota-sdk/dag-studio typecheck`, `lint`, `pnpm harness:scan:specs`.
