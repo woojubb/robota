@@ -1,5 +1,45 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.60
+
+### Minor Changes
+
+- 7439391: Add provider-neutral native web search/fetch capability contracts, explicit unsupported handling for OpenAI-compatible/LM Studio profiles, and local WebFetch/WebSearch permission/documentation alignment.
+
+### Patch Changes
+
+- 0c77089: Validate the merged active provider profile during CLI startup so higher-priority provider selections with missing API keys are not masked by unrelated valid settings files.
+- 41ae788: Restore the CLI thinking indicator and add structured Agent tool batch provenance/count metadata.
+- Updated dependencies [41ae788]
+- Updated dependencies [3d6bdf6]
+- Updated dependencies [7439391]
+  - @robota-sdk/agent-sdk@3.0.0-beta.60
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.60
+  - @robota-sdk/agent-core@3.0.0-beta.60
+  - @robota-sdk/agent-sessions@3.0.0-beta.60
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.60
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.60
+  - @robota-sdk/agent-provider-gemma@3.0.0-beta.60
+  - @robota-sdk/agent-provider-qwen@3.0.0-beta.60
+  - @robota-sdk/agent-command-agent@3.0.0-beta.60
+  - @robota-sdk/agent-command-background@3.0.0-beta.60
+  - @robota-sdk/agent-command-compact@3.0.0-beta.60
+  - @robota-sdk/agent-command-context@3.0.0-beta.60
+  - @robota-sdk/agent-command-exit@3.0.0-beta.60
+  - @robota-sdk/agent-command-help@3.0.0-beta.60
+  - @robota-sdk/agent-command-language@3.0.0-beta.60
+  - @robota-sdk/agent-command-memory@3.0.0-beta.60
+  - @robota-sdk/agent-command-mode@3.0.0-beta.60
+  - @robota-sdk/agent-command-model@3.0.0-beta.60
+  - @robota-sdk/agent-command-permissions@3.0.0-beta.60
+  - @robota-sdk/agent-command-plugin@3.0.0-beta.60
+  - @robota-sdk/agent-command-provider@3.0.0-beta.60
+  - @robota-sdk/agent-command-reset@3.0.0-beta.60
+  - @robota-sdk/agent-command-rewind@3.0.0-beta.60
+  - @robota-sdk/agent-command-session@3.0.0-beta.60
+  - @robota-sdk/agent-command-statusline@3.0.0-beta.60
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.60
+
 ## 3.0.0-beta.59
 
 ### Patch Changes
