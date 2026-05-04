@@ -112,7 +112,7 @@ The default CLI binary assembles definitions from provider packages. Alternate e
 
 ### Provider Configuration UX
 
-The CLI owns provider setup and provider profile writes. Default writes go to `~/.robota/settings.json`; `.claude/settings.json` compatibility is read-only for Robota-specific provider profile creation.
+The CLI owns provider setup and provider profile writes. Default first-run writes go to `~/.robota/settings.json`; `.claude/settings.json` compatibility is read-only for Robota-specific provider profile creation. Runtime provider/model command writes must target the settings document that wins for the effective active provider scope, so a lower-priority user write cannot be masked by project-local `.robota` settings on the next startup.
 
 Supported setup flags:
 
@@ -137,15 +137,15 @@ Environment-variable API key references use the `$ENV:NAME` form. If a required 
 
 Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command-provider`, which consumes SDK provider common APIs the same way a third-party command module would.
 
-| Command                    | Behavior                                                                                                                                      |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/provider`                | Show current provider and subcommands                                                                                                         |
-| `/provider current`        | Show active profile, type, model, and baseURL                                                                                                 |
-| `/provider list`           | Show provider profiles from merged settings                                                                                                   |
-| `/provider use <profile>`  | The provider command module confirms, persists `currentProvider` through its injected settings adapter, and returns a restart effect          |
-| `/provider add`            | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions |
-| `/provider add <type>`     | Start setup for the selected provider type                                                                                                    |
-| `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                             |
+| Command                    | Behavior                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/provider`                | Show current provider and subcommands                                                                                                                |
+| `/provider current`        | Show active profile, type, model, and baseURL                                                                                                        |
+| `/provider list`           | Show provider profiles from merged settings                                                                                                          |
+| `/provider use <profile>`  | The provider command module confirms, persists `currentProvider` through its injected effective-scope settings adapter, and returns a restart effect |
+| `/provider add`            | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions        |
+| `/provider add <type>`     | Start setup for the selected provider type                                                                                                           |
+| `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                                    |
 
 Provider changes must follow the SDK command contract: the provider command module owns provider setup state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values, submits prompt values back to the active command interaction, and applies typed command effects.
 
@@ -479,7 +479,7 @@ Commands are grouped by source with separators: built-in commands appear first, 
 
 ### `/model` — Model Change Flow
 
-The `/model` command is provided by the `@robota-sdk/agent-command-model` module that the Robota binary composes into `InteractiveSession`. The command lists available models as subcommands with the format `Claude Opus 4.6 (1M)`. Model definitions come through the SDK model command common API, which formats the `CLAUDE_MODELS` registry from `@robota-sdk/agent-core`.
+The `/model` command is provided by the `@robota-sdk/agent-command-model` module that the Robota binary composes into `InteractiveSession`. The command lists available models for the effective active provider when provider-owned catalog metadata is available. Model definitions come through the SDK model command common API and injected provider definitions; the CLI/TUI must not show Claude-only subcommands while another provider is active.
 
 The `/mode` command is provided by the `@robota-sdk/agent-command-mode` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not mutate permission mode directly; it routes `/mode` into the generic command execution path, and the command module uses SDK permission-mode common APIs.
 

@@ -1,5 +1,9 @@
 # TUI Provider/Model State Drift
 
+Status: completed
+Completed: 2026-05-04
+Implementation branch: feat/cli-selected-backlogs
+
 ## Priority
 
 P0 - release blocker for the CLI beta.
@@ -114,3 +118,7 @@ The command-facing API should expose:
   - `pnpm --filter @robota-sdk/agent-sdk test`
   - `pnpm --filter @robota-sdk/agent-cli test`
   - `pnpm harness:verify -- --scope packages/agent-cli`
+
+## Result
+
+Completed via `.agents/tasks/completed/tui-provider-model-state-drift.md`. Provider/model state now resolves through the effective active profile, `/model` consumes active provider catalog metadata, provider switches write to the effective settings scope, and regression tests cover the observed drift.

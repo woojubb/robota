@@ -3,7 +3,7 @@
  *
  * Builtin registrations and helpers live in ./module-type-registry-helpers.ts.
  */
-import { IModuleDescriptor, ModuleCategory, ModuleLayer } from '../abstracts/abstract-module';
+import { ModuleCategory, ModuleLayer, type IModuleDescriptor } from '../abstracts/abstract-module';
 import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import {

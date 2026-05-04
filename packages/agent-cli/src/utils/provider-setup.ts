@@ -3,7 +3,11 @@ import { formatSupportedProviderTypes, type IProviderDefinition } from './provid
 import type { IParsedCliArgs } from './cli-args.js';
 import { checkSettingsDocument } from './settings-check.js';
 import { getUserSettingsPath, readSettings, writeSettings } from './settings-io.js';
-import { applyProviderConfiguration, applyProviderSwitch } from './provider-configuration.js';
+import {
+  applyProviderConfiguration,
+  applyProviderSwitch,
+  resolveProviderSettingsWriteTargetPath,
+} from './provider-configuration.js';
 import { getProviderSettingsPaths, readMergedProviderSettings } from './provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import { type IProviderSetupInput } from './provider-settings.js';
@@ -38,7 +42,9 @@ export function handleProviderConfigurationArgs(
     return !args.printMode && args.positional.length === 0;
   }
   if (args.provider && args.setCurrent) {
-    applyProviderSwitch(settingsPath, args.provider, {
+    const switchSettingsPath =
+      args.settingsScope === undefined ? resolveProviderSettingsWriteTargetPath(cwd) : settingsPath;
+    applyProviderSwitch(switchSettingsPath, args.provider, {
       knownProviders: readMergedProviderSettings(cwd).providers,
     });
     process.stdout.write(`Current provider set to ${args.provider}\n`);

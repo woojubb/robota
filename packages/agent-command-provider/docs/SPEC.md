@@ -50,17 +50,17 @@ The host owns provider definition selection and settings persistence. The comman
 
 ## Command Behavior
 
-| Command                    | Behavior                                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `/provider`                | Show current provider and subcommands                                                                                     |
-| `/provider current`        | Show active profile, type, model, and baseURL                                                                             |
-| `/provider list`           | Show provider profiles from merged settings                                                                               |
-| `/provider use <profile>`  | Confirm, persist `currentProvider` through the injected settings adapter, and return a `session-restart-requested` effect |
-| `/provider add`            | Start setup without a selected type and return a generic choice interaction generated from injected provider definitions  |
-| `/provider add <type>`     | Start setup for the selected provider type                                                                                |
-| `/provider test [profile]` | Validate fields and optionally probe the endpoint through SDK provider common APIs                                        |
+| Command                    | Behavior                                                                                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/provider`                | Show current provider and subcommands                                                                                                                          |
+| `/provider current`        | Show active profile, type, model, and baseURL                                                                                                                  |
+| `/provider list`           | Show provider profiles from merged settings                                                                                                                    |
+| `/provider use <profile>`  | Confirm, persist `currentProvider` through the injected settings adapter target that will win on next startup, and return a `session-restart-requested` effect |
+| `/provider add`            | Start setup without a selected type and return a generic choice interaction generated from injected provider definitions                                       |
+| `/provider add <type>`     | Start setup for the selected provider type                                                                                                                     |
+| `/provider test [profile]` | Validate fields and optionally probe the endpoint through SDK provider common APIs                                                                             |
 
-Provider setup owns defaults, required-field validation, environment-reference validation, masked-field metadata, settings patch construction, and restart effect emission.
+Provider setup owns defaults, required-field validation, environment-reference validation, masked-field metadata, settings patch construction, and restart effect emission. The command package does not choose settings file paths; the host adapter must expose the correct target document for the effective settings scope.
 
 ## Class Contract Registry
 

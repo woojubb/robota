@@ -22,11 +22,27 @@ export interface IActiveModelChangeOptions {
   providerOverride?: string | undefined;
 }
 
+export interface IProviderSettingsWriteTargetOptions {
+  settingsPaths?: readonly string[];
+}
+
 export interface IActiveModelChangeResult {
   settingsPath: string;
   settings: TProviderSettingsDocument;
   profileName?: string;
   legacyProvider?: boolean;
+}
+
+export function resolveProviderSettingsWriteTargetPath(
+  cwd: string,
+  options: IProviderSettingsWriteTargetOptions = {},
+): string {
+  const settingsPaths = options.settingsPaths ?? getProviderSettingsPaths(cwd);
+  const targetPath = findLastPathWithCurrentProvider(settingsPaths) ?? settingsPaths[0];
+  if (targetPath === undefined) {
+    throw new Error('No settings path available for provider update');
+  }
+  return targetPath;
 }
 
 function readProviderDocument(settingsPath: string): TProviderSettingsDocument {
@@ -145,6 +161,16 @@ function findLastPathWithLegacyProvider(settingsPaths: readonly string[]): strin
     if (settingsPath === undefined) continue;
     const settings = readProviderDocument(settingsPath);
     if (settings.provider !== undefined) return settingsPath;
+  }
+  return undefined;
+}
+
+function findLastPathWithCurrentProvider(settingsPaths: readonly string[]): string | undefined {
+  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
+    const settingsPath = settingsPaths[index];
+    if (settingsPath === undefined) continue;
+    const settings = readProviderDocument(settingsPath);
+    if (settings.currentProvider !== undefined) return settingsPath;
   }
   return undefined;
 }

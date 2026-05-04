@@ -1,4 +1,4 @@
-import { IAgentTemplate, IAgentConfig } from '../interfaces/agent';
+import type { IAgentTemplate, IAgentConfig } from '../interfaces/agent';
 import { createLogger, type ILogger } from '../utils/logger';
 
 /**

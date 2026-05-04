@@ -6,7 +6,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
@@ -51,6 +51,7 @@ import {
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from './utils/provider-setup.js';
+import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
@@ -124,6 +125,15 @@ function promptInput(label: string, masked = false): Promise<string> {
   });
 }
 
+function readTaskFilePrompt(cwd: string, taskFile: string): string {
+  const taskPath = resolve(cwd, taskFile);
+  const content = readFileSync(taskPath, 'utf8').trim();
+  if (content.length === 0) {
+    throw new Error(`Task file is empty: ${taskFile}`);
+  }
+  return `Task file (${taskFile}):\n${content}`;
+}
+
 /** Delete user settings and exit. */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
@@ -179,7 +189,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const commandModules: readonly ICommandModule[] = [
     createHelpCommandModule(),
     createAgentCommandModule(),
-    createModelCommandModule(),
+    createModelCommandModule({
+      providerDefinitions,
+      settings: {
+        readMergedSettings: () => readMergedProviderSettings(cwd),
+      },
+    }),
     createModeCommandModule(),
     createPermissionsCommandModule(),
     createLanguageCommandModule(),
@@ -197,8 +212,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       providerDefinitions,
       settings: {
         readMergedSettings: () => readMergedProviderSettings(cwd),
-        readTargetSettings: () => readSettings(getUserSettingsPath()) as TProviderSettingsDocument,
-        writeTargetSettings: (settings) => writeSettings(getUserSettingsPath(), settings),
+        readTargetSettings: () =>
+          readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+        writeTargetSettings: (settings) =>
+          writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
       },
     }),
     ...(options.commandModules ?? []),
@@ -283,6 +300,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // Build appendSystemPrompt from --append-system-prompt and --json-schema
     const appendParts: string[] = [];
     if (args.appendSystemPrompt) appendParts.push(args.appendSystemPrompt);
+    if (args.taskFile) {
+      try {
+        appendParts.push(readTaskFilePrompt(cwd, args.taskFile));
+      } catch (error) {
+        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+      }
+    }
     if (args.jsonSchema)
       appendParts.push(
         `Respond with valid JSON only, matching this JSON schema:\n${args.jsonSchema}`,

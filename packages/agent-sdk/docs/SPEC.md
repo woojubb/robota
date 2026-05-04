@@ -52,6 +52,8 @@ SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider a
 
 SDK command code is split between generic infrastructure and command-facing common APIs. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, and reusable command-facing common APIs. User-visible internal commands must be implemented as command modules selected by composition roots; `agent-sdk` no longer owns user-visible built-in command behavior.
 
+Model command common APIs are provider-aware but provider-neutral. They resolve the effective active provider profile from the provider settings document, read model catalog fallback metadata from injected `IProviderDefinition` records, and produce command descriptors without hardcoding CLI/TUI provider branches. If a provider does not expose catalog metadata, `/model` remains manually invocable and the command result must state that no catalog is available rather than showing another provider's models.
+
 ### Client–SDK–Session Relationship
 
 ```
@@ -124,7 +126,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/interactive/
 │   ├── interactive-session.ts  ← InteractiveSession: event-driven wrapper over Session
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
-├── src/command-api/            ← Command module contracts, host context, effects/interactions, provider common APIs
+├── src/command-api/            ← Command module contracts, host context, effects/interactions, provider/model common APIs
 │   ├── contracts.ts            ← ISystemCommand + lifecycle metadata
 │   ├── command-module.ts       ← ICommandModule composition contract
 │   ├── host-context.ts         ← ICommandHostContext narrow facade for command modules
