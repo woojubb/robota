@@ -104,4 +104,42 @@ describe('findCommandLayeringFindings', () => {
       },
     ]);
   });
+
+  it('flags direct CLI imports from agent-sessions', async () => {
+    const root = await createFixture({
+      'packages/agent-cli/src/cli.ts':
+        'import { SessionStore } from "@robota-sdk/agent-sessions";\n',
+      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+    });
+
+    const findings = await findCommandLayeringFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-cli/src/cli.ts',
+        type: 'cli-agent-sessions-import',
+        detail:
+          'agent-cli must not import @robota-sdk/agent-sessions; use SDK-owned session persistence APIs.',
+      },
+    ]);
+  });
+
+  it('flags direct CLI package dependencies on agent-sessions', async () => {
+    const root = await createFixture({
+      'packages/agent-cli/package.json':
+        '{"dependencies":{"@robota-sdk/agent-sessions":"workspace:*"}}',
+      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+    });
+
+    const findings = await findCommandLayeringFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'packages/agent-cli/package.json',
+        type: 'cli-agent-sessions-dependency',
+        detail:
+          'agent-cli must not depend on @robota-sdk/agent-sessions; use @robota-sdk/agent-sdk facade APIs.',
+      },
+    ]);
+  });
 });

@@ -11,7 +11,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [CLI session store boundary cleanup](cli-session-store-boundary-cleanup.md)
 - [CLI command effect state boundary](cli-command-effect-state-boundary.md)
 - [TUI remove activity prefix from status bar](tui-remove-activity-label.md)
 - [CLI `@file` reference import](cli-at-file-reference-import.md)

@@ -10,7 +10,6 @@
 
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type {
   TUniversalMessage,
   IContextWindowState,
@@ -93,6 +92,7 @@ import type {
   IInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-init.js';
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
@@ -122,10 +122,10 @@ export class InteractiveSession {
   private pendingDisplayInput: string | undefined;
   private pendingRawInput: string | undefined;
   private history: IHistoryEntry[] = [];
-  private sessionStore?: SessionStore;
+  private sessionStore?: IInteractiveSessionStore;
   private sessionName?: string;
   private cwd?: string;
-  private pendingRestoreMessages: unknown[] | null = null;
+  private pendingRestoreMessages: TUniversalMessage[] | null = null;
   private backgroundTasks: IBackgroundTaskState[] = [];
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private backgroundJobGroups: IBackgroundJobGroupState[] = [];

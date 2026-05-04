@@ -7,11 +7,11 @@ import { render } from 'ink';
 import App from './App.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSessionStore,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
 import type { ICliUpdateNotice } from '../utils/update-check.js';
@@ -25,8 +25,9 @@ export interface IRenderOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
+  showSessionPickerOnStart?: boolean;
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];

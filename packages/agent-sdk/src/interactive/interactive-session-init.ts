@@ -10,11 +10,11 @@ import type { ICreateSessionOptions } from '../assembly/index.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskRunner,
@@ -37,6 +37,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
@@ -48,7 +49,7 @@ export interface IInteractiveSessionStandardOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
@@ -86,7 +87,7 @@ export interface IInteractiveSessionInjectedOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
@@ -232,17 +233,15 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
 }
 
 /** Inject a saved message into a session, supporting all roles including 'tool'. */
-export function injectSavedMessage(session: Session, msg: unknown): void {
-  if (!msg || typeof msg !== 'object') return;
-  const m = msg as Record<string, unknown>;
-  if (!m.role || !m.content) return;
-  const role = m.role as string;
-  if (role === 'tool') {
-    const toolCallId = (m.toolCallId as string) ?? '';
-    const name = (m.name as string) ?? undefined;
-    session.injectMessage('tool', m.content as string, { toolCallId, name });
-  } else if (role === 'user' || role === 'assistant' || role === 'system') {
-    session.injectMessage(role, m.content as string);
+export function injectSavedMessage(session: Session, msg: TUniversalMessage): void {
+  if (typeof msg.content !== 'string') return;
+  if (msg.role === 'tool') {
+    session.injectMessage('tool', msg.content, {
+      toolCallId: msg.toolCallId,
+      ...(msg.name !== undefined ? { name: msg.name } : {}),
+    });
+  } else {
+    session.injectMessage(msg.role, msg.content);
   }
 }
 
@@ -251,14 +250,14 @@ export function injectSavedMessage(session: Session, msg: unknown): void {
  * Returns the loaded history and any pending messages that need injection once session is ready.
  */
 export function loadSessionRecord(
-  sessionStore: SessionStore,
+  sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
   forkSession: boolean,
   existingSession: Session | null,
 ): {
   history: IHistoryEntry[];
   sessionName: string | undefined;
-  pendingRestoreMessages: unknown[] | null;
+  pendingRestoreMessages: TUniversalMessage[] | null;
   backgroundTasks: IBackgroundTaskState[];
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
@@ -281,21 +280,19 @@ export function loadSessionRecord(
     };
   }
 
-  const history = (record.history ?? []) as IHistoryEntry[];
-  const restoredBackgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
-  const restoredBackgroundTaskEvents = (record.backgroundTaskEvents ??
-    []) as TBackgroundTaskEvent[];
-  const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
-  const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
-    []) as TBackgroundJobGroupEvent[];
-  const memoryEvents = (record.memoryEvents ?? []) as IMemoryEvent[];
-  const usedMemoryReferences = (record.usedMemoryReferences ?? []) as IMemoryReference[];
+  const history = record.history ?? [];
+  const restoredBackgroundTasks = record.backgroundTasks ?? [];
+  const restoredBackgroundTaskEvents = record.backgroundTaskEvents ?? [];
+  const backgroundJobGroups = record.backgroundJobGroups ?? [];
+  const backgroundJobGroupEvents = record.backgroundJobGroupEvents ?? [];
+  const memoryEvents = record.memoryEvents ?? [];
+  const usedMemoryReferences = record.usedMemoryReferences ?? [];
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
   );
   const sessionName = record.name;
-  let pendingRestoreMessages: unknown[] | null = null;
+  let pendingRestoreMessages: TUniversalMessage[] | null = null;
 
   if (!forkSession && record.messages) {
     if (existingSession) {

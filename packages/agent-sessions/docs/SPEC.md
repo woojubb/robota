@@ -97,6 +97,7 @@ Types consumed from other packages (not owned here):
 | `ISessionLogger`                 | Interface            | Pluggable session event logger interface                                                                       |
 | `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
 | `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
+| `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                  |
 | `IContextWindowState`            | Type                 | Context window usage state (re-exported from agent-core)                                                       |
 
 ### Session Constructor — sessionId Parameter
@@ -126,7 +127,7 @@ Types consumed from other packages (not owned here):
 | `getHistory`               | `() => TUniversalMessage[]`                                          | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                       |
 | `getFullHistory`           | `() => IHistoryEntry[]`                                              | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                   |
 | `addHistoryEntry`          | `(entry: IHistoryEntry) => void`                                     | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
-| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                              |
+| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                             |
 | `getAutoCompactThreshold`  | `() => TAutoCompactThreshold`                                        | Returns the configured automatic compaction threshold, or `false` when disabled.                                                        |
 | `setAutoCompactThreshold`  | `(threshold: TAutoCompactThreshold) => void`                         | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |

@@ -22,10 +22,10 @@ import { Session } from '@robota-sdk/agent-sessions';
 import type {
   ITerminalOutput,
   ICompactEvent,
+  ISessionOptions,
   TPermissionHandler,
   ISessionLogger,
 } from '@robota-sdk/agent-sessions';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IProjectInfo } from '../context/project-detector.js';
@@ -51,6 +51,7 @@ import type { IReversibleExecutionOptions } from '../reversible-execution/index.
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
@@ -67,7 +68,7 @@ const ID_RANDOM_LENGTH = 9;
 const DEFAULT_PROVIDER_IDLE_TIMEOUT_MS = 120_000;
 
 type TAutoCompactThreshold = number | false;
-type TSessionOptionsWithAutoCompact = ConstructorParameters<typeof Session>[0] & {
+type TSessionOptionsWithAutoCompact = ISessionOptions & {
   autoCompactThreshold?: TAutoCompactThreshold;
 };
 type TSessionConstructorWithAutoCompact = new (options: TSessionOptionsWithAutoCompact) => Session;
@@ -89,7 +90,7 @@ export interface ICreateSessionOptions {
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   /** Inject a pre-constructed AI provider (used by tests to avoid real API calls) */
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */

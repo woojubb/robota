@@ -50,6 +50,15 @@ const CLI_UI_FORBIDDEN_PATTERNS = [
   },
 ];
 
+const CLI_FORBIDDEN_PATTERNS = [
+  {
+    type: 'cli-agent-sessions-import',
+    pattern: /from\s+['"]@robota-sdk\/agent-sessions['"]/,
+    detail:
+      'agent-cli must not import @robota-sdk/agent-sessions; use SDK-owned session persistence APIs.',
+  },
+];
+
 const CLI_SLASH_ROUTER_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-command-specific-router-branch',
@@ -162,6 +171,23 @@ function findSdkPackageDependencyFindings(packageJson) {
     }));
 }
 
+function findCliPackageDependencyFindings(packageJson) {
+  const dependencies = {
+    ...(packageJson.dependencies ?? {}),
+    ...(packageJson.devDependencies ?? {}),
+    ...(packageJson.peerDependencies ?? {}),
+    ...(packageJson.optionalDependencies ?? {}),
+  };
+
+  return Object.keys(dependencies)
+    .filter((name) => name === '@robota-sdk/agent-sessions')
+    .map((name) => ({
+      file: 'packages/agent-cli/package.json',
+      type: 'cli-agent-sessions-dependency',
+      detail: `agent-cli must not depend on ${name}; use @robota-sdk/agent-sdk facade APIs.`,
+    }));
+}
+
 export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
   const findings = [];
 
@@ -179,6 +205,10 @@ export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
     findings.push(
       ...findPatternFindings(file, await readText(root, file), CLI_UI_FORBIDDEN_PATTERNS),
     );
+  }
+
+  for (const file of await walkFiles(root, 'packages/agent-cli/src')) {
+    findings.push(...findPatternFindings(file, await readText(root, file), CLI_FORBIDDEN_PATTERNS));
   }
 
   const slashRouter = 'packages/agent-cli/src/ui/hooks/useSlashRouting.ts';
@@ -201,6 +231,15 @@ export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
     findings.push(
       ...findSdkPackageDependencyFindings(
         JSON.parse(await fs.readFile(sdkPackageJsonPath, 'utf8')),
+      ),
+    );
+  }
+
+  const cliPackageJsonPath = path.join(root, 'packages/agent-cli/package.json');
+  if (await pathExists(cliPackageJsonPath)) {
+    findings.push(
+      ...findCliPackageDependencyFindings(
+        JSON.parse(await fs.readFile(cliPackageJsonPath, 'utf8')),
       ),
     );
   }

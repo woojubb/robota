@@ -30,6 +30,7 @@ export function useSideEffects({
   baseHandleSubmit,
   setSessionName,
   setStatusLineSettings,
+  showSessionPickerOnStart,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function useSideEffects({
     useState<TInteractivePrompt | null>(null);
   const commandInteractionRef = useRef<ICommandInteraction | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
-  const [showSessionPicker, setShowSessionPicker] = useState(false);
+  const [showSessionPicker, setShowSessionPicker] = useState(showSessionPickerOnStart ?? false);
 
   const requestShutdown = useCallback(
     (reason: TSessionEndReason, message: string): void => {
