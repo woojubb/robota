@@ -8,6 +8,7 @@ progress streaming. Run execution is server-authoritative via API; the designer 
 perform local orchestration.
 
 Run client contract: `createRun -> startRun -> getRunResult`.
+
 - `createRun` returns `{ preparationId }` (orchestrator-internal pre-start key).
 - `startRun` accepts `preparationId`, returns `{ dagRunId }` where `dagRunId` = `promptId` from runtime.
 - `subscribeRunProgress` uses `preparationId` (WS connects before start).
@@ -15,6 +16,7 @@ Run client contract: `createRun -> startRun -> getRunResult`.
 - `IRunResult` has `status` (`'success' | 'failed'`), `traces`, `nodeErrors: IRunNodeError[]`, and `totalCredits`.
 
 `text-template` node template syntax:
+
 - `%s`: replace with input text
 - `%%s`: render literal `%s`
 - default template is `%s` (pass-through behavior)
@@ -45,13 +47,16 @@ Run client contract: `createRun -> startRun -> getRunResult`.
   - `NodeIoTracePanel` -- execution trace viewer
 - **Lifecycle** (`lifecycle/run-engine.ts`): Re-exports `IRunNodeTrace` and `IRunResult` types.
 - **Utilities**: `port-editor-utils.ts` (port editing helpers).
+- **Runtime Port Projection**: `canvas-utils.ts` enriches no-port DAG definitions with `TObjectInfo`/`INodeManifest` ports for rendering and validation, and strips runtime ports before emitting persisted definition changes.
 - **Config Form**: Node configuration uses ComfyUI `TInputTypeSpec` (from `/object_info`) instead of Zod schemas for field rendering.
 - **Node Catalog**: `NodeExplorerPanel` uses `INodeObjectInfo`/`TObjectInfo` from the `/object_info` endpoint for node discovery and categorization.
 
 **INodeManifest vs TObjectInfo coexistence:**
+
 - `TObjectInfo`/`INodeObjectInfo` is the preferred path for node discovery (sourced from the `/object_info` API).
 - `INodeManifest` is retained for backward compatibility in component props where existing consumers pass manifests directly.
 - Config form rendering uses ComfyUI `TInputTypeSpec` (from `/object_info`), not Zod schemas.
+- Persisted DAG JSON must not store runtime-owned `inputs`/`outputs`. The designer may enrich definitions in memory from `objectInfo` or manifests, but every mutation emitted through `onDefinitionChange` strips node-local port definitions.
 
 ## Type Ownership
 
@@ -84,6 +89,8 @@ Imported from other packages (not owned here):
 - `NodeExplorerPanel`, `NodeConfigPanel`, `EdgeInspectorPanel` -- panel components
 - `NodeIoViewer`, `NodeIoTracePanel` -- data/trace viewer components
 - `listObjectInfo()` -- primary method on `IDesignerApiClient` for node catalog discovery (fetches `/object_info` from runtime)
+- `enrichDefinitionWithPorts()` -- derives runtime ports from `TObjectInfo`/`INodeManifest` for view/validation without mutating persisted definitions
+- `stripDefinitionNodePortDefinitions()` -- removes runtime port snapshots before saving or emitting DAG JSON
 
 ## Extension Points
 
@@ -103,8 +110,8 @@ Client-side errors use `IProblemDetails` (mirroring the server shape):
 
 ### Interface Implementations
 
-| Interface | Implementor | Kind | Location |
-|-----------|------------|------|----------|
+| Interface            | Implementor         | Kind       | Location                            |
+| -------------------- | ------------------- | ---------- | ----------------------------------- |
 | `IDesignerApiClient` | `DesignerApiClient` | production | `src/client/designer-api-client.ts` |
 
 ### Inheritance Chains
@@ -113,9 +120,19 @@ None. Classes are standalone.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner) | Consumer | Location |
-|--------------|---------|----------|
+| Port (Owner)                                                                        | Consumer                               | Location          |
+| ----------------------------------------------------------------------------------- | -------------------------------------- | ----------------- |
 | Domain types from dag-core (`IDagDefinition`, `INodeManifest`, `TRunProgressEvent`) | `DesignerApiClient`, hooks, components | Throughout `src/` |
+
+## Runtime Port Projection
+
+`DagDesignerRoot` exposes both `definition` (the persisted, no-port DAG JSON shape) and `definitionWithRuntimePorts` (an in-memory projection enriched from `objectInfo` first, then `INodeManifest`, then legacy node-local ports as a final compatibility fallback).
+
+Mutation paths (`addNodeFromManifest`, `addNodeFromObjectInfo`, `updateNode`, `updateEdge`, `removeEdgeById`, `removeNodeById`, canvas connection, and drag position changes) must emit stripped definitions that do not include `node.inputs` or `node.outputs`.
+
+Rendering, edge editing, binding validation, list-handle compaction, and port display must use `definitionWithRuntimePorts`. Runtime catalog data is the SSOT for ports; node-local ports in loaded legacy definitions are ignored when a current catalog entry exists.
+
+`createNodeFromManifest()` and `createNodeFromObjectInfo()` create nodes with only node identity, type, position, dependencies, and config. They must not copy manifest or object-info ports into the node.
 
 ## List Port Handle Behavior
 
@@ -169,12 +186,12 @@ Ports with `isList: true` support multiple connections via dynamically generated
 
 ## Dependencies
 
-| Package | Role |
-|---|---|
-| `@robota-sdk/dag-core` | Domain types (`IDagDefinition`, `IDagNode`, `INodeManifest`, `TRunProgressEvent`, etc.) |
-| `@robota-sdk/dag-api` | Controller contracts (`IProblemDetails`, `IDefinitionListItem`) |
-| `@xyflow/react` | React Flow graph rendering |
-| `@robota-sdk/dag-node-*` | devDependencies only — used for testing node catalog and port definitions |
+| Package                  | Role                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `@robota-sdk/dag-core`   | Domain types (`IDagDefinition`, `IDagNode`, `INodeManifest`, `TRunProgressEvent`, etc.) |
+| `@robota-sdk/dag-api`    | Controller contracts (`IProblemDetails`, `IDefinitionListItem`)                         |
+| `@xyflow/react`          | React Flow graph rendering                                                              |
+| `@robota-sdk/dag-node-*` | devDependencies only — used for testing node catalog and port definitions               |
 
 ## Test Strategy
 
