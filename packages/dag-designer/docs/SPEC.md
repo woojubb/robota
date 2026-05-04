@@ -57,7 +57,7 @@ Run client contract: `createRun -> startRun -> getRunResult`.
 - `INodeManifest` is retained for backward compatibility in component props where existing consumers pass manifests directly.
 - Config form rendering uses ComfyUI `TInputTypeSpec` (from `/object_info`), not Zod schemas.
 - Persisted DAG JSON must not store runtime-owned `inputs`/`outputs`. The designer may enrich definitions in memory from `objectInfo` or manifests, but every mutation emitted through `onDefinitionChange` strips node-local port definitions.
-- Node side effects such as file uploads are represented in `nodeStateMap` with `operationStatus: 'uploading'` and a `pendingDescription`; `isRunnable` is false while any node has an upload operation in progress. Upload fields call `POST /v1/dag/assets` and only write an asset reference into node config after the server has stored the asset locally and synchronized it to the runtime backend.
+- Node side effects such as file uploads are represented in `nodeStateMap` using the canonical `IDagNodeState` projection from `dag-core`; `isRunnable` is false while any node has a blocking operation or execution in progress. Upload fields call `POST /v1/dag/assets` and only write an asset reference into node config after the server has stored the asset locally and synchronized it to the runtime backend.
 
 ## Type Ownership
 
@@ -137,11 +137,13 @@ Rendering, edge editing, binding validation, list-handle compaction, and port di
 
 ## Node Operation Gate
 
-`DagDesignerRoot` owns node-local operation state in `nodeStateMap`. Long-running node side effects that must complete before execution, currently asset uploads, call `setNodeUploading(nodeId, description)` when they start and `setNodeUploadDone(nodeId)` in completion/failure cleanup.
+`dag-core` owns the node orchestration state contract and pure reducers (`IDagNodeState`, `TNodeStateMap`, `reconcileDagNodeStateMap`, `markDagNodeOperationStarted`, `markDagNodeOperationDone`, `applyRunProgressEventToNodeStateMap`, `applyRunResultToNodeStateMap`, `isDagNodeStateMapRunnable`). `DagDesignerRoot` owns only the React state container and UI-only extensions such as selected-node marking.
 
-`isRunnable` is derived from `nodeStateMap`; it is false while any node has `operationStatus: 'uploading'`. Host UIs must use this flag to disable Run actions. The selected node inspector receives `pendingOperationDescription` so users can see which selected node is still processing.
+Long-running node side effects that must complete before execution, currently asset uploads, call `setNodeUploading(nodeId, description)` when they start and `setNodeUploadDone(nodeId)` in completion/failure cleanup.
 
-Run progress events may also mark nodes as `running`, `success`, or `failed`, but those states describe server execution. They do not replace the pre-run operation gate for upload and other designer-side side effects.
+`isRunnable` is derived from `isDagNodeStateMapRunnable(nodeStateMap)`; it is false while any node has `operationStatus: 'uploading'` or `executionStatus: 'running'`. Host UIs must use this flag to disable Run actions. The selected node inspector receives `pendingOperationDescription` so users can see which selected node is still processing.
+
+Run progress events mark `executionStatus` as `running`, `success`, or `failed`. These states describe server execution and are separate from the pre-run operation gate for upload and other designer-side side effects.
 
 Upload success means the orchestrator returned a valid asset reference after runtime synchronization completed. The designer stores the returned orchestrator `assetId` in config; runtime-specific upload IDs are server metadata and must not be written directly into DAG JSON.
 

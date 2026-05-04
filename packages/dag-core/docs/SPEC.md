@@ -28,6 +28,7 @@ dag-core/
     state-machines/  -- DagRun and TaskRun finite state machines
     lifecycle/       -- Node lifecycle runner, cost policy evaluator, task executor port
     services/        -- Domain services (validation, definition mgmt, cost policy)
+    state/           -- Pure DAG node state reducers for orchestration views
     registry/        -- (emptied — extracted to node authoring package)
     schemas/         -- (emptied — extracted to node authoring package)
     value-objects/   -- (emptied — extracted to node authoring package)
@@ -59,6 +60,8 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `TAssetReference`           | `types/domain.ts`                | Discriminated union for asset-by-id or asset-by-uri references                                                                                              |
 | `TDagRunStatus`             | `types/domain.ts`                | DAG run states: `created`, `queued`, `running`, `success`, `failed`, `cancelled`                                                                            |
 | `TTaskRunStatus`            | `types/domain.ts`                | Task run states: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, `skipped`, `cancelled`                                             |
+| `TNodeExecutionStatus`      | `types/node-state.ts`            | Designer/orchestration node execution projection states: `idle`, `running`, `success`, `failed`                                                             |
+| `TNodeOperationStatus`      | `types/node-state.ts`            | Node side-effect operation states that gate execution, currently `idle` or `uploading`                                                                      |
 | `TDagTriggerType`           | `types/domain.ts`                | Trigger types: `manual`, `scheduled`, `api`                                                                                                                 |
 | `IPortDefinition`           | `types/domain.ts`                | Port schema (key, type, required, binary constraints, list constraints)                                                                                     |
 | `INodeManifest`             | `types/domain.ts`                | Node registration manifest (type, display name, category, ports, config schema)                                                                             |
@@ -86,6 +89,9 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `IRunCostPolicyEvaluator`   | `types/node-lifecycle.ts`        | Interface for budget enforcement                                                                                                                            |
 | `TRunProgressEvent`         | `types/run-progress.ts`          | Discriminated union of all run progress event types                                                                                                         |
 | `IRunProgressEventReporter` | `types/run-progress.ts`          | Interface for publishing progress events                                                                                                                    |
+| `IDagNodeExecutionTrace`    | `types/node-state.ts`            | Lightweight per-node execution trace projection used by orchestration views                                                                                 |
+| `IDagNodeState`             | `types/node-state.ts`            | Canonical per-node orchestration state combining side-effect status, execution status, and the latest execution trace                                       |
+| `TNodeStateMap`             | `types/node-state.ts`            | Node-id keyed map of `IDagNodeState` values                                                                                                                 |
 | `TPortValue`                | `interfaces/ports.ts`            | Union of all port value types (primitives, binary, arrays, objects)                                                                                         |
 | `TPortPayload`              | `interfaces/ports.ts`            | Key-value map of port values                                                                                                                                |
 | `IStoredAssetMetadata`      | `interfaces/asset-store-port.ts` | Asset metadata stored by infrastructure adapters, including optional `runtimeAssetId` when an orchestrator asset has been synchronized to a runtime backend |
@@ -113,6 +119,14 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `RunCostPolicyEvaluator`                                                                                           | Class     | Evaluates whether estimated cost fits within the run budget                                                                                                   |
 | `MissingNodeLifecycleFactory`                                                                                      | Class     | Sentinel factory that always returns an error (used as default)                                                                                               |
 | `LifecycleTaskExecutorPort`                                                                                        | Class     | `ITaskExecutorPort` adapter that delegates to `NodeLifecycleRunner`                                                                                           |
+| `createDefaultDagNodeState`                                                                                        | Function  | Creates the default per-node orchestration state                                                                                                              |
+| `reconcileDagNodeStateMap`                                                                                         | Function  | Keeps a node state map aligned to a DAG definition's current node set                                                                                         |
+| `markDagNodeOperationStarted`                                                                                      | Function  | Marks a node side-effect operation, such as upload, as in progress                                                                                            |
+| `markDagNodeOperationDone`                                                                                         | Function  | Clears a node side-effect operation gate                                                                                                                      |
+| `resetDagNodeExecutionStateMap`                                                                                    | Function  | Resets execution status for a new run while preserving non-execution UI extensions at consumer boundaries                                                     |
+| `applyRunProgressEventToNodeStateMap`                                                                              | Function  | Projects run progress events into per-node execution state and traces                                                                                         |
+| `applyRunResultToNodeStateMap`                                                                                     | Function  | Projects final run traces into per-node state                                                                                                                 |
+| `isDagNodeStateMapRunnable`                                                                                        | Function  | Returns whether no node has a blocking side-effect operation or running execution                                                                             |
 | `buildValidationError`                                                                                             | Function  | Error builder for `validation` category                                                                                                                       |
 | `buildDispatchError`                                                                                               | Function  | Error builder for `dispatch` category                                                                                                                         |
 | `buildLeaseError`                                                                                                  | Function  | Error builder for `lease` category                                                                                                                            |
@@ -301,6 +315,16 @@ failed --RETRY--> queued
 ```
 
 Each transition emits a domain event with the `task.*` prefix (e.g., `task.queued`, `task.running`).
+
+### Dag Node Orchestration State
+
+`IDagNodeState` is a read-model projection for orchestration surfaces that need to show or gate node-local state before, during, and after a run. It is not persisted in DAG definitions.
+
+- `operationStatus` tracks node side-effect operations that must finish before execution, currently file uploads.
+- `executionStatus` tracks run progress for the node independently from side-effect operations.
+- `trace` stores the latest lightweight input/output projection from progress events or final run traces.
+- `isDagNodeStateMapRunnable()` is the canonical gate for Run actions: all node operations must be idle and no node may be executing.
+- The reducer functions are pure and must not depend on React, HTTP, storage, timers, or backend adapters.
 
 ## Event Architecture
 
