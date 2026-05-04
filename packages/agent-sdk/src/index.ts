@@ -448,6 +448,29 @@ export type {
   TTaskFileStatus,
 } from './context/task-context.js';
 
+// ── Prompt file references ─────────────────────────────────
+export {
+  buildPromptWithFileReferences,
+  createPromptFileReferenceHistoryEntry,
+  formatPromptFileReferenceDiagnostics,
+  hasBlockingPromptFileReferenceDiagnostics,
+  parsePromptFileReferences,
+  resolvePromptFileReferences,
+  toPromptFileReferenceRecords,
+} from './context/prompt-file-references.js';
+export type {
+  IPromptFileReferenceDiagnostic,
+  IPromptFileReferenceHistoryData,
+  IPromptFileReferenceLimits,
+  IPromptFileReferenceRecord,
+  IPromptFileReferenceResolveOptions,
+  IPromptFileReferenceToken,
+  IResolvedPromptFileReference,
+  IResolvedPromptFileReferences,
+  TPromptFileReferenceDiagnosticCode,
+  TPromptFileReferenceReason,
+} from './context/prompt-file-references.js';
+
 // ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
 

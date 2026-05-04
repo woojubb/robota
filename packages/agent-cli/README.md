@@ -369,6 +369,11 @@ The CLI automatically discovers and loads:
 
 All context is assembled into the system prompt.
 
+Ordinary prompts may also reference workspace-local files with path-like `@file` tokens, for
+example `@AGENTS.md` or `@docs/SPEC.md`. The CLI passes those prompts through unchanged; the SDK
+resolves bounded file content under the active `cwd`, sends the enriched prompt to the model, and
+records a structured file-reference event in the session history.
+
 ## Memory Management
 
 - **Message windowing** — React state keeps the most recent 100 messages. Older messages are dropped from the render tree; full history remains in the session store.

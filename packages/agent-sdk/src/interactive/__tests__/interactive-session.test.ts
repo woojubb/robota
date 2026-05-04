@@ -3,6 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { InteractiveSession } from '../interactive-session.js';
 import type { IToolState, IExecutionResult } from '../types.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
@@ -82,6 +85,41 @@ describe('InteractiveSession', () => {
     expect(messages[0]!.role).toBe('user');
     expect(messages[0]!.content).toBe('test prompt');
     expect(messages[1]!.role).toBe('assistant');
+  });
+
+  it('expands @file references through SDK-owned prompt preprocessing', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'robota-interactive-file-ref-'));
+    try {
+      await writeFile(join(cwd, 'AGENTS.md'), '# Rules\nUse repo guidance.\n');
+      const mockSession = createMockSession({ runResult: 'done' });
+      const session = new InteractiveSession({
+        session: mockSession as never,
+        cwd,
+      });
+
+      const completedResults: IExecutionResult[] = [];
+      session.on('complete', (result) => {
+        completedResults.push(result);
+      });
+
+      await session.submit('Summarize @AGENTS.md');
+
+      const runInput = mockSession.run.mock.calls[0]?.[0] as string;
+      expect(runInput).toContain('<file path="AGENTS.md"');
+      expect(runInput).toContain('Use repo guidance.');
+      expect(mockSession.run).toHaveBeenCalledWith(expect.any(String), 'Summarize @AGENTS.md');
+      expect(completedResults[0]?.promptFileReferences?.[0]?.relativePath).toBe('AGENTS.md');
+      expect(session.getFullHistory()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            category: 'event',
+            type: 'prompt-file-reference',
+          }),
+        ]),
+      );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
   });
 
   it('queues prompt when already executing', async () => {

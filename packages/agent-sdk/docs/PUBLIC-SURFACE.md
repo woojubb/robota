@@ -8,7 +8,7 @@ general-purpose symbols through `packages/agent-sdk/src/index.ts`.
 
 | Class                   | Meaning                                                                    | Examples                                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| SDK-owned API           | Implemented or semantically owned by `agent-sdk`                           | `InteractiveSession`, `createQuery`, command contracts, project memory, checkpoints                            |
+| SDK-owned API           | Implemented or semantically owned by `agent-sdk`                           | `InteractiveSession`, `createQuery`, command contracts, prompt file references, project memory, checkpoints    |
 | SDK facade              | SDK narrows or assembles lower-level behavior behind an SDK contract       | project session store helpers, command host/common APIs, subagent assembly helpers                             |
 | Explicit runtime facade | Runtime lifecycle contracts intentionally re-exported for SDK hosts        | `BackgroundTaskManager`, `SubagentManager`, log pagination helpers                                             |
 | Owner-direct API        | General-purpose lower package surface that consumers import from the owner | history helpers from `agent-core`, tool exports from `agent-tools`, generic session APIs from `agent-sessions` |

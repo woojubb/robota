@@ -75,6 +75,7 @@ import {
   buildInterruptedResult,
   createUsageSummaryEntry,
   persistSession,
+  preparePromptInput,
 } from './interactive-session-execution.js';
 import {
   STREAMING_FLUSH_INTERVAL_MS,
@@ -908,8 +909,16 @@ export class InteractiveSession {
     this.usedMemoryReferences = [];
 
     try {
+      const preparedPrompt = await preparePromptInput(input, this.getCwd(), rawInput);
+      if (preparedPrompt.promptFileReferenceEntry) {
+        this.history.push(preparedPrompt.promptFileReferenceEntry);
+      }
+
       await this.beginEditCheckpointTurn(displayInput ?? input);
-      const response = await this.getSessionOrThrow().run(input, rawInput);
+      const response = await this.getSessionOrThrow().run(
+        preparedPrompt.modelInput,
+        preparedPrompt.hookInput,
+      );
       this.flushStreaming();
       pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
       this.clearStreaming();
@@ -919,6 +928,7 @@ export class InteractiveSession {
         this.history,
         historyBefore,
         this.getContextState(),
+        preparedPrompt.promptFileReferenceRecords,
       );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
       if (result.usage) this.history.push(createUsageSummaryEntry(result.usage));

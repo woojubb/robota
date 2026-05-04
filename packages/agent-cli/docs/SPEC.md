@@ -11,6 +11,9 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
 - Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
+- Does NOT own prompt file-reference parsing, path resolution, file reads, recursion limits, size
+  limits, or diagnostics for `@file` syntax — handled by `@robota-sdk/agent-sdk`; CLI only passes
+  submitted non-command prompt text to `InteractiveSession.submit()`
 - Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only render command output and notices
 - Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
@@ -158,6 +161,12 @@ Provider changes must follow the SDK command contract: the provider command modu
 Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
 
 TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
+
+Prompt file-reference semantics are not TUI input semantics. `@file` tokens in ordinary prompts are
+passed through as user input; SDK-owned prompt preprocessing decides whether a token is a path-like
+reference, reads bounded workspace-local file content, records structured context-reference events,
+and sends the enriched model prompt to the session runtime. The CLI must not add Ink hooks, slash
+router branches, or input-flow parsing for `@file` behavior.
 
 Flow ownership:
 
