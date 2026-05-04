@@ -27,7 +27,26 @@ function createGitRepo(): string {
 }
 
 function runGit(cwd: string, args: string[]): void {
-  execFileSync('git', args, { cwd, stdio: 'ignore' });
+  execFileSync('git', args, { cwd, stdio: 'ignore', env: createGitEnvironment() });
+}
+
+function readGit(cwd: string, args: string[]): string {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: createGitEnvironment(),
+  });
+}
+
+function createGitEnvironment(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GIT_')) {
+      delete env[key];
+    }
+  }
+  return env;
 }
 
 describe('GitWorktreeIsolationAdapter', () => {
@@ -50,6 +69,39 @@ describe('GitWorktreeIsolationAdapter', () => {
       adapter.remove(worktree);
 
       expect(existsSync(worktree.worktreePath)).toBe(false);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'ignores inherited Git hook environment variables',
+    () => {
+      const repo = createGitRepo();
+      const previousGitDir = process.env.GIT_DIR;
+      const previousGitWorkTree = process.env.GIT_WORK_TREE;
+      process.env.GIT_DIR = readGit(process.cwd(), ['rev-parse', '--absolute-git-dir']).trim();
+      process.env.GIT_WORK_TREE = process.cwd();
+
+      try {
+        const adapter = new GitWorktreeIsolationAdapter();
+        const worktree = adapter.prepare({ jobId: 'agent_1', cwd: repo });
+
+        expect(worktree.repoRoot).toBe(realpathSync(repo));
+        expect(worktree.parentStatus).toBe('');
+
+        adapter.remove(worktree);
+      } finally {
+        if (previousGitDir === undefined) {
+          delete process.env.GIT_DIR;
+        } else {
+          process.env.GIT_DIR = previousGitDir;
+        }
+        if (previousGitWorkTree === undefined) {
+          delete process.env.GIT_WORK_TREE;
+        } else {
+          process.env.GIT_WORK_TREE = previousGitWorkTree;
+        }
+      }
     },
     TEST_TIMEOUT_MS,
   );

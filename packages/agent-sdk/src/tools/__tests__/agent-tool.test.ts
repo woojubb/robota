@@ -46,7 +46,7 @@ vi.mock('../../agents/built-in-agents.js', () => ({
   }),
 }));
 
-import { createAgentTool } from '../agent-tool.js';
+import { createAgentTool, createAgentToolPromptDescription } from '../agent-tool.js';
 import type { IAgentToolDeps } from '../agent-tool.js';
 import { createSubagentSession } from '../../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../../agents/built-in-agents.js';
@@ -130,6 +130,7 @@ describe('Agent tool', () => {
     expect(schema.description).toContain('start the requested subagent job immediately');
     expect(schema.description).toContain('Do not ask a follow-up question');
     expect(schema.description).toContain('one Agent tool call with jobs');
+    expect(schema.description).toContain('base user-facing claims on returned mode and counts');
     expect(schema.description).not.toContain('<agent');
     expect(schema.description).not.toContain('pseudo-tags');
     // Verify parameters include prompt, subagent_type, model
@@ -141,6 +142,17 @@ describe('Agent tool', () => {
     expect(props).not.toHaveProperty('background');
     expect(props).not.toHaveProperty('detach');
     expect(props).toHaveProperty('isolation');
+  });
+
+  it('should describe the user-facing claim contract in the prompt description', () => {
+    const description = createAgentToolPromptDescription([
+      { name: 'developer', description: 'Implementation agent' },
+    ]);
+
+    expect(description).toContain('one Agent tool call with jobs');
+    expect(description).toContain('mode, requestedJobCount, startedJobCount');
+    expect(description).toContain('base user-facing claims on returned mode and counts');
+    expect(description).toContain('developer (Implementation agent)');
   });
 
   it('should resolve built-in agent type "Explore"', async () => {
@@ -260,11 +272,13 @@ describe('Agent tool', () => {
     );
     expect(subagentManager.wait).toHaveBeenCalledWith('agent_managed_1');
     expect(createSubagentSession).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      success: true,
-      output: 'managed output',
-      agentId: 'agent_managed_1',
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'managed output',
+        agentId: 'agent_managed_1',
+      }),
+    );
   });
 
   it('should forward worktree isolation and return handoff metadata', async () => {
@@ -322,21 +336,23 @@ describe('Agent tool', () => {
         isolation: 'worktree',
       }),
     );
-    expect(result).toEqual({
-      success: true,
-      output: 'changed files',
-      agentId: 'agent_worktree_1',
-      metadata: {
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'changed files',
+        agentId: 'agent_worktree_1',
+        metadata: {
+          worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
+          branchName: 'robota/agent_worktree_1',
+          worktreeStatus: ' M changed.ts',
+          worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_worktree_1.',
+        },
         worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
         branchName: 'robota/agent_worktree_1',
         worktreeStatus: ' M changed.ts',
         worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_worktree_1.',
-      },
-      worktreePath: '/workspace/.robota/worktrees/agent_worktree_1',
-      branchName: 'robota/agent_worktree_1',
-      worktreeStatus: ' M changed.ts',
-      worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_worktree_1.',
-    });
+      }),
+    );
   });
 
   it('should default to background mode and wait when background is omitted', async () => {
@@ -387,11 +403,13 @@ describe('Agent tool', () => {
       }),
     );
     expect(subagentManager.wait).toHaveBeenCalledWith('agent_background_1');
-    expect(result).toEqual({
-      success: true,
-      output: 'background output',
-      agentId: 'agent_background_1',
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'background output',
+        agentId: 'agent_background_1',
+      }),
+    );
   });
 
   it('should ignore undeclared background mode input and wait for terminal result', async () => {
@@ -443,11 +461,13 @@ describe('Agent tool', () => {
       }),
     );
     expect(subagentManager.wait).toHaveBeenCalledWith('agent_background_2');
-    expect(result).toEqual({
-      success: true,
-      output: 'explicit background output',
-      agentId: 'agent_background_2',
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'explicit background output',
+        agentId: 'agent_background_2',
+      }),
+    );
   });
 
   it('should ignore undeclared detach input and wait for terminal result', async () => {
@@ -499,11 +519,13 @@ describe('Agent tool', () => {
       }),
     );
     expect(subagentManager.wait).toHaveBeenCalledWith('agent_detached_1');
-    expect(result).toEqual({
-      success: true,
-      output: 'detached input still waited',
-      agentId: 'agent_detached_1',
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'detached input still waited',
+        agentId: 'agent_detached_1',
+      }),
+    );
   });
 
   it('should return a failed terminal result when a background subagent times out', async () => {
@@ -637,16 +659,20 @@ describe('Agent tool', () => {
     expect(subagentManager.wait).toHaveBeenNthCalledWith(1, 'agent_parallel_1');
     expect(subagentManager.wait).toHaveBeenNthCalledWith(2, 'agent_parallel_2');
     expect(subagentManager.wait).toHaveBeenNthCalledWith(3, 'agent_parallel_3');
-    expect(parseToolResult(developerResult)).toEqual({
-      success: true,
-      output: 'developer complete',
-      agentId: 'agent_parallel_1',
-    });
-    expect(parseToolResult(designerResult)).toEqual({
-      success: true,
-      output: 'designer complete',
-      agentId: 'agent_parallel_2',
-    });
+    expect(parseToolResult(developerResult)).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'developer complete',
+        agentId: 'agent_parallel_1',
+      }),
+    );
+    expect(parseToolResult(designerResult)).toEqual(
+      expect.objectContaining({
+        success: true,
+        output: 'designer complete',
+        agentId: 'agent_parallel_2',
+      }),
+    );
     const timedOut = parseToolResult(timeoutResult);
     expect(timedOut['success']).toBe(false);
     expect(timedOut['agentId']).toBe('agent_parallel_3');
@@ -734,6 +760,126 @@ describe('Agent tool', () => {
     ]);
   });
 
+  it('should return provenance and counts for a four-job batch Agent tool call', async () => {
+    const subagentManager = {
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'agent_batch_1',
+          type: 'Explore',
+          label: 'developer',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Developer analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce({
+          id: 'agent_batch_2',
+          type: 'Plan',
+          label: 'designer',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Designer analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce({
+          id: 'agent_batch_3',
+          type: 'Explore',
+          label: 'reviewer',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Review analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce({
+          id: 'agent_batch_4',
+          type: 'general-purpose',
+          label: 'tester',
+          parentSessionId: 'session_parent',
+          status: 'running',
+          mode: 'background',
+          depth: 1,
+          cwd: '/workspace',
+          promptPreview: 'Test analysis',
+          updatedAt: '2026-04-30T00:00:00.000Z',
+        }),
+      wait: vi
+        .fn()
+        .mockResolvedValueOnce({ jobId: 'agent_batch_1', output: 'developer complete' })
+        .mockResolvedValueOnce({ jobId: 'agent_batch_2', output: 'designer complete' })
+        .mockResolvedValueOnce({ jobId: 'agent_batch_3', output: 'reviewer complete' })
+        .mockResolvedValueOnce({ jobId: 'agent_batch_4', output: 'tester complete' }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      jobs: [
+        { label: 'developer', prompt: 'Developer analysis', subagent_type: 'Explore' },
+        { label: 'designer', prompt: 'Designer analysis', subagent_type: 'Plan' },
+        { label: 'reviewer', prompt: 'Review analysis', subagent_type: 'Explore' },
+        { label: 'tester', prompt: 'Test analysis' },
+      ],
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledTimes(4);
+    expect(subagentManager.wait).toHaveBeenCalledTimes(4);
+    expect(subagentManager.spawn.mock.invocationCallOrder[3]).toBeLessThan(
+      subagentManager.wait.mock.invocationCallOrder[0]!,
+    );
+    expect(subagentManager.spawn).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ label: 'developer', prompt: 'Developer analysis' }),
+    );
+    expect(subagentManager.spawn).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({ label: 'tester', prompt: 'Test analysis' }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        mode: 'batch',
+        requestedJobCount: 4,
+        startedJobCount: 4,
+        failedJobCount: 0,
+        agentIds: ['agent_batch_1', 'agent_batch_2', 'agent_batch_3', 'agent_batch_4'],
+        provenance: expect.objectContaining({
+          source: 'agent-tool-batch',
+          requestedJobCount: 4,
+          startedJobCount: 4,
+        }),
+      }),
+    );
+    expect(result['jobs']).toEqual([
+      expect.objectContaining({ index: 0, label: 'developer', groupId: result['groupId'] }),
+      expect.objectContaining({ index: 1, label: 'designer', groupId: result['groupId'] }),
+      expect.objectContaining({ index: 2, label: 'reviewer', groupId: result['groupId'] }),
+      expect.objectContaining({ index: 3, label: 'tester', groupId: result['groupId'] }),
+    ]);
+  });
+
   it('should ignore undeclared model-emitted orchestration hints without changing single-call execution', async () => {
     const subagentManager = {
       spawn: vi.fn().mockResolvedValue({
@@ -784,11 +930,16 @@ describe('Agent tool', () => {
       }),
     );
     expect(subagentManager.wait).toHaveBeenCalledWith('agent_parallel_hint_1');
-    expect(parseToolResult(toolResult)).toEqual({
-      success: true,
-      output: 'parallel hint complete',
-      agentId: 'agent_parallel_hint_1',
-    });
+    expect(parseToolResult(toolResult)).toEqual(
+      expect.objectContaining({
+        success: true,
+        mode: 'single',
+        requestedJobCount: 1,
+        startedJobCount: 1,
+        output: 'parallel hint complete',
+        agentId: 'agent_parallel_hint_1',
+      }),
+    );
   });
 
   it('should return error for unknown agent type', async () => {

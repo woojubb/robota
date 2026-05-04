@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -8,6 +8,7 @@ import { InteractiveSession } from '../interactive-session.js';
 import { ProjectMemoryStore } from '../../memory/project-memory-store.js';
 
 const TMP_BASE = join(tmpdir(), `robota-interactive-memory-${process.pid}`);
+const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
@@ -35,7 +36,14 @@ function latestUserMessage(provider: IAIProvider): TUniversalMessage | undefined
   return [...messages].reverse().find((message) => message.role === 'user');
 }
 
+beforeEach(() => {
+  const home = join(TMP_BASE, 'home');
+  mkdirSync(home, { recursive: true });
+  process.env.HOME = home;
+});
+
 afterEach(() => {
+  process.env.HOME = ORIGINAL_HOME;
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
