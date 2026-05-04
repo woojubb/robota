@@ -50,37 +50,19 @@ export function parseInputSpec(
     }
   }
 
-  // string[] enum: every item is a string AND first item is not a known type
+  // string-only arrays are either [typeName] tuples or enum option lists.
   if (Array.isArray(spec) && spec.length > 0 && spec.every((item) => typeof item === 'string')) {
     const firstItem = spec[0] as string;
-    // If first item is a known ComfyUI type name with optional metadata, it's TInputTypeSpec
-    if (
-      spec.length <= 2 &&
-      (PARAMETER_TYPES.has(firstItem.toUpperCase()) || !PARAMETER_TYPES.has(firstItem))
-    ) {
-      // Check if it looks like TInputTypeSpec [typeName] or [typeName, meta]
-      if (
-        spec.length === 1 ||
-        (spec.length === 2 && typeof spec[1] === 'object' && spec[1] !== null)
-      ) {
-        const typeName = firstItem.toUpperCase();
-        const metadata =
-          spec.length === 2 && typeof spec[1] === 'object'
-            ? (spec[1] as Record<string, unknown>)
-            : {};
-        const field: IParsedInputField = {
-          key,
-          typeName,
-          isParameter: PARAMETER_TYPES.has(typeName),
-          isRequired: required,
-          metadata,
-        };
-        if (metadata.image_upload === true) field.imageUpload = true;
-        if (metadata.video_upload === true) field.videoUpload = true;
-        return field;
-      }
+    if (spec.length === 1) {
+      const typeName = firstItem.toUpperCase();
+      return {
+        key,
+        typeName,
+        isParameter: PARAMETER_TYPES.has(typeName),
+        isRequired: required,
+        metadata: {},
+      };
     }
-    // Otherwise it's an enum
     return {
       key,
       typeName: 'ENUM',
