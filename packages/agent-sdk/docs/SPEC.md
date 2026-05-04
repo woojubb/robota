@@ -125,6 +125,7 @@ agent-sessions (generic — depends only on agent-core)
 agent-sdk (assembly layer — SDK-specific features only)
 ├── src/interactive/
 │   ├── interactive-session.ts  ← InteractiveSession: event-driven wrapper over Session
+│   ├── session-persistence.ts  ← SDK-owned session store facade and resumable-session summaries
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
 ├── src/command-api/            ← Command module contracts, host context, effects/interactions, provider/model common APIs
 │   ├── contracts.ts            ← ISystemCommand + lifecycle metadata
@@ -174,7 +175,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sessions` (generic, depends only on agent-core)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-sdk/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from config/context. Consumers use `InteractiveSession({ cwd, provider })` instead.
-- **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic consumers. CLI composition injects a project-local `.robota/sessions` directory so project runs keep resumable session JSON beside project logs.
+- **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic session consumers. SDK exposes `createProjectSessionStore(cwd)` and resumable-session helpers so CLI composition can use project-local `.robota/sessions` without importing `agent-sessions` directly.
 
 ### Permission System
 
@@ -259,7 +260,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
-- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
+- **Session persistence**: When an SDK-owned `sessionStore` facade is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references) after each `submit()` completion. The SDK facade delegates to the concrete `SessionStore` implementation from `agent-sessions` internally and exposes resumable-session summaries for hosts such as the CLI. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
 - **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). Memory event history and the last used memory references are restored for `/memory used` and debugging. This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.

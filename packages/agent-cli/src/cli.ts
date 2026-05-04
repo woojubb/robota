@@ -26,13 +26,18 @@ import { createResetCommandModule } from '@robota-sdk/agent-command-reset';
 import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
 import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
 import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
-import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
+import {
+  InteractiveSession,
+  createProjectSessionStore,
+  projectPaths,
+  resolveLatestSessionId,
+  resolveSessionIdByIdOrName,
+} from '@robota-sdk/agent-sdk';
 import type {
   ICommandHostAdapters,
   ICommandModule,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-sdk';
-import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import {
   getUserSettingsPath,
@@ -255,24 +260,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   });
 
   // Session management
-  const sessionStore = new SessionStore(paths.sessions);
+  const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
+  let showSessionPickerOnStart = false;
 
   if (args.continueMode) {
-    const sessions = sessionStore.list().filter((s) => s.cwd === cwd);
-    if (sessions.length > 0) {
-      resumeSessionId = sessions[0]!.id;
-    }
+    resumeSessionId = resolveLatestSessionId(sessionStore, cwd);
   } else if (args.resumeId !== undefined) {
     if (args.resumeId === '') {
-      // -r without argument = show picker (handled in App.tsx)
-      resumeSessionId = '__picker__';
+      showSessionPickerOnStart = true;
     } else {
-      const sessions = sessionStore.list();
-      const match = sessions.find((s) => s.id === args.resumeId || s.name === args.resumeId);
-      if (match) {
-        resumeSessionId = match.id;
-      } else {
+      resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
+      if (resumeSessionId === undefined) {
         process.stderr.write(`Session not found: ${args.resumeId}\n`);
         process.exit(1);
       }
@@ -359,6 +358,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     version,
     sessionStore,
     resumeSessionId,
+    showSessionPickerOnStart,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
     backgroundTaskRunners,

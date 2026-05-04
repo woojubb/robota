@@ -18,6 +18,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
@@ -33,14 +34,12 @@ import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
 import { reloadPluginCommandSource } from '../../plugins/plugin-command-source-loader.js';
 
-import type { SessionStore } from '@robota-sdk/agent-sessions';
-
 export interface IInteractiveSessionProps {
   cwd: string;
   provider: IAIProvider;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;

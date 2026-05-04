@@ -11,7 +11,7 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { SessionStore } from './session-store.js';
+import type { ISessionStore } from './session-store.js';
 import type { ISessionLogger } from './session-logger.js';
 import type { TAutoCompactThreshold } from './context-window-tracker.js';
 import type {
@@ -60,7 +60,7 @@ export interface ISessionOptions {
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */
-  sessionStore?: SessionStore;
+  sessionStore?: ISessionStore;
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */

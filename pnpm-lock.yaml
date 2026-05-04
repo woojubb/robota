@@ -624,9 +624,6 @@ importers:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:3.0.0-beta.60
-        version: link:../agent-sessions
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
         version: link:../agent-transport-headless

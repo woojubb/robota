@@ -3,9 +3,18 @@
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession } from './interactive/index.js';
+export {
+  createProjectSessionStore,
+  listResumableSessionSummaries,
+  resolveLatestSessionId,
+  resolveSessionIdByIdOrName,
+} from './interactive/index.js';
 export type {
   IInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
   IToolState,
   IDiffLine,
   IExecutionResult,

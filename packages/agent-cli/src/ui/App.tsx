@@ -6,8 +6,10 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSessionStore,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
+import { listResumableSessionSummaries } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
@@ -26,7 +28,6 @@ import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import UpdateNotice from './UpdateNotice.js';
 import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
 import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 interface IProps {
   cwd: string;
@@ -36,8 +37,9 @@ interface IProps {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
+  showSessionPickerOnStart?: boolean;
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
@@ -49,13 +51,20 @@ interface IProps {
 
 export default function App(props: IProps): React.ReactElement {
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
+  const [showInitialSessionPicker, setShowInitialSessionPicker] = useState(
+    props.showSessionPickerOnStart ?? false,
+  );
 
   return (
     <AppInner
       key={activeSessionId ?? '__new__'}
       {...props}
+      showSessionPickerOnStart={showInitialSessionPicker}
       resumeSessionId={activeSessionId}
-      onSessionSwitch={(sessionId) => setActiveSessionId(sessionId)}
+      onSessionSwitch={(sessionId) => {
+        setShowInitialSessionPicker(false);
+        setActiveSessionId(sessionId);
+      }}
     />
   );
 }
@@ -127,6 +136,7 @@ function AppInner(
     baseHandleSubmit,
     setSessionName,
     setStatusLineSettings,
+    showSessionPickerOnStart: props.showSessionPickerOnStart,
   });
 
   // Sync session name from InteractiveSession when resuming
@@ -248,8 +258,7 @@ function AppInner(
       )}
       {showSessionPicker && (
         <SessionPicker
-          sessionStore={props.sessionStore}
-          cwd={props.cwd}
+          sessions={listResumableSessionSummaries(props.sessionStore, props.cwd)}
           onSelect={(id) => {
             setShowSessionPicker(false);
             props.onSessionSwitch(id);

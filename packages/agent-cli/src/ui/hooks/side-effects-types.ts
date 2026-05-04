@@ -30,6 +30,7 @@ export interface IUseSideEffectsOptions {
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
   setStatusLineSettings: (settings: IStatusLineSettings) => void;
+  showSessionPickerOnStart?: boolean;
 }
 
 export interface IUseSideEffectsResult {
