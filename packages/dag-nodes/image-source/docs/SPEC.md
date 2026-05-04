@@ -10,7 +10,7 @@
 - Extends `AbstractNodeDefinition` from `dag-node`. Does not redefine core DAG contracts.
 - Uses `createMediaReferenceConfigSchema` from `dag-node` for config validation.
 - Uses `MediaReference.fromAssetReference` for reference construction and `toBinary` for output conversion.
-- Uses `BINARY_PORT_PRESETS.IMAGE_COMMON` from `dag-node` for the output port definition.
+- Uses `BINARY_PORT_PRESETS.IMAGE_COMMON` from `dag-node` for the output port definition, so the output accepts PNG, JPEG, and WebP image payloads.
 - No external provider dependencies. No inputs (source node).
 
 ## Architecture Overview
@@ -21,8 +21,8 @@
 
 ## Type Ownership
 
-| Type | Location | Purpose |
-|------|----------|---------|
+| Type                        | Location       | Purpose               |
+| --------------------------- | -------------- | --------------------- |
 | `ImageSourceNodeDefinition` | `src/index.ts` | Node definition class |
 
 ## Public API Surface
@@ -41,5 +41,4 @@ No node-specific error codes are defined. Config validation failures are handled
 
 ## Test Strategy
 
-- No test files exist yet. Coverage status: none.
-- Recommended: unit tests verifying output binary payload structure for different asset configs, MIME type resolution priority, and config schema validation.
+- `src/index.test.ts` verifies node metadata, common image MIME output support, binary payload structure, MIME type override behavior, and zero-cost estimation.
