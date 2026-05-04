@@ -12,3 +12,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 ## Items
 
 - [TUI provider/model state drift](tui-provider-model-state-drift.md)
+- [Agent CLI architecture map and layer audit](agent-cli-architecture-map-and-layer-audit.md)
