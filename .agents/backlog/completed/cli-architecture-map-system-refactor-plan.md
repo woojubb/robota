@@ -2,7 +2,11 @@
 
 ## Status
 
-Backlog.
+Completed.
+
+Completed: 2026-05-05
+
+Implementation branch: docs/cli-architecture-target-plan
 
 ## Priority
 
@@ -59,16 +63,16 @@ Recommended work sequence:
 
 ## Acceptance Criteria
 
-- [ ] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` is re-verified against current source and
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` is re-verified against current source and
       package specs.
-- [ ] The audit explicitly evaluates actual architecture quality, not document organization.
-- [ ] All confirmed contradictions are recorded with source file references and owner package.
-- [ ] A target architecture is documented with allowed dependency edges and contract ownership.
-- [ ] Each recommended structural change is split into an actionable backlog item.
-- [ ] Recommendations distinguish immediate beta refactors from optional polish.
-- [ ] Any mechanically enforceable boundary has either a harness check or a follow-up backlog for
+- [x] The audit explicitly evaluates actual architecture quality, not document organization.
+- [x] All confirmed contradictions are recorded with source file references and owner package.
+- [x] A target architecture is documented with allowed dependency edges and contract ownership.
+- [x] Each recommended structural change is split into an actionable backlog item.
+- [x] Recommendations distinguish immediate beta refactors from optional polish.
+- [x] Any mechanically enforceable boundary has either a harness check or a follow-up backlog for
       adding one.
-- [ ] Repository rules or common-mistakes guidance are updated only for durable lessons that apply
+- [x] Repository rules or common-mistakes guidance are updated only for durable lessons that apply
       beyond this one package.
 
 ## Verification Plan
@@ -81,3 +85,19 @@ Recommended work sequence:
 
 If the audit leads to code changes, run the affected package build/test/typecheck commands for every
 changed package.
+
+## Result
+
+Completed via `docs/cli-architecture-target-plan`. `ARCHITECTURE-MAP.md` now separates the verified
+current CLI composition from the recommended target architecture, records source-backed structural
+debts, and links each confirmed refactor to a dedicated backlog item:
+
+- `.agents/backlog/cli-command-effect-state-boundary.md`
+- `.agents/backlog/cli-command-compat-shims-retirement.md`
+- `.agents/backlog/cli-runtime-adapter-boundary-audit.md`
+- `.agents/backlog/provider-model-catalog-refresh-adapters.md`
+- `.agents/backlog/sdk-public-surface-owner-audit.md`
+
+No repository rule change was needed in this task because architecture-map update requirements were
+already present in `.agents/rules/spec-workflow.md`, `.agents/rules/documentation-sync.md`, and
+`.agents/rules/common-mistakes.md`.

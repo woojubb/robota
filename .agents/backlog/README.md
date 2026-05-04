@@ -11,8 +11,11 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [CLI architecture map system refactor plan](cli-architecture-map-system-refactor-plan.md)
 - [CLI command effect state boundary](cli-command-effect-state-boundary.md)
+- [CLI command compatibility shims retirement](cli-command-compat-shims-retirement.md)
+- [CLI runtime adapter boundary audit](cli-runtime-adapter-boundary-audit.md)
+- [SDK public surface owner audit](sdk-public-surface-owner-audit.md)
+- [Provider model catalog refresh adapters](provider-model-catalog-refresh-adapters.md)
 - [TUI remove activity prefix from status bar](tui-remove-activity-label.md)
 - [CLI `@file` reference import](cli-at-file-reference-import.md)
 - [CLI `/context` reference inventory](cli-context-command-reference-list.md)
