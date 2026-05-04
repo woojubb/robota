@@ -152,6 +152,25 @@ function StatusLeft({
   );
 }
 
+function StatusRight({
+  isThinking,
+  messageCount,
+}: {
+  isThinking: boolean;
+  messageCount: number;
+}): React.ReactElement {
+  return (
+    <Text>
+      {isThinking && (
+        <>
+          <Text color="yellow">thinking...</Text>{' '}
+        </>
+      )}
+      <Text dimColor>msgs: {messageCount}</Text>
+    </Text>
+  );
+}
+
 export default function StatusBar({
   permissionMode,
   modelName,
@@ -190,9 +209,7 @@ export default function StatusBar({
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
       />
-      <Text>
-        <Text dimColor>msgs: {messageCount}</Text>
-      </Text>
+      <StatusRight isThinking={isThinking} messageCount={messageCount} />
     </Box>
   );
 }

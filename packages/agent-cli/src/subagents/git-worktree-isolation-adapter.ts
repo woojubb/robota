@@ -94,11 +94,23 @@ function runGit(cwd: string, args: string[]): string {
       cwd,
       encoding: GIT_ENCODING,
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: createGitEnvironment(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new BackgroundTaskError('runner', `git ${args.join(' ')} failed: ${message}`);
   }
+}
+
+function createGitEnvironment(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  // Git hooks export GIT_* variables that force child git commands back to the hook repository.
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GIT_')) {
+      delete env[key];
+    }
+  }
+  return env;
 }
 
 function resolveRepoRoot(cwd: string): string {

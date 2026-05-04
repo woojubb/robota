@@ -1,8 +1,8 @@
 # CLI-BL-053 CLI Thinking Indicator Visibility Regression
 
-Status: backlog
+Status: completed
 Created: 2026-05-02
-Branch: TBD
+Branch: fix/cli-sdk-backlog-053-006
 Scope: packages/agent-cli
 
 ## Priority
@@ -39,10 +39,10 @@ Users need an immediate on-screen confirmation that the prompt was accepted and 
 
 ## Acceptance Criteria
 
-- [ ] During prompt processing, the TUI displays a visible processing indicator such as `thinking...` or an approved equivalent.
-- [ ] The indicator is visible in the expected lower-right area or another explicitly documented stable location.
-- [ ] The status activity label and the processing indicator do not conflict or duplicate confusingly on narrow terminals.
-- [ ] Tests cover prompt-processing visibility for the relevant `StatusBar`, `StreamingIndicator`, or app rendering path.
+- [x] During prompt processing, the TUI displays a visible processing indicator such as `thinking...` or an approved equivalent.
+- [x] The indicator is visible in the expected lower-right area or another explicitly documented stable location.
+- [x] The status activity label and the processing indicator do not conflict or duplicate confusingly on narrow terminals.
+- [x] Tests cover prompt-processing visibility for the relevant `StatusBar`, `StreamingIndicator`, or app rendering path.
 - [ ] Manual CLI smoke confirms the indicator appears after submitting a prompt and disappears when the turn settles.
 
 ## Test Plan
@@ -55,6 +55,20 @@ Run targeted CLI TUI tests for the renderer path that owns prompt-processing vis
 
 - Created after user reported the prompt-processing `thinking...` indicator disappeared during the CLI/TUI PR cleanup.
 
+### 2026-05-04
+
+- Resumed on `fix/cli-sdk-backlog-053-006`.
+- Recommended restoring a compact lower-right `thinking...` status-bar segment while keeping the existing primary `Activity:` scan path. This preserves the previous visible signal without reverting the status activity model.
+- Added StatusBar regression coverage for the lower-right `thinking...` indicator while thinking, its idle disappearance, and coexistence with tool-priority activity.
+- Implemented the renderer-owned right-side indicator in `packages/agent-cli/src/ui/StatusBar.tsx`.
+
+## Implementation Checklist
+
+- [x] Add a regression test for a right-side `thinking...` indicator while `isThinking=true`.
+- [x] Keep the primary activity segment compact and non-conflicting when tools are active.
+- [x] Implement the renderer-owned indicator in `packages/agent-cli`.
+- [x] Run targeted CLI TUI tests and package checks.
+
 ## Decisions
 
 - Treat as a CLI UX regression follow-up rather than a provider/runtime behavior change.
@@ -65,4 +79,10 @@ Run targeted CLI TUI tests for the renderer path that owns prompt-processing vis
 
 ## Result
 
-Pending.
+Completed in `fix/cli-sdk-backlog-053-006`.
+
+- `StatusBar` now renders a compact lower-right `thinking...` segment next to the message count while `isThinking=true`.
+- The primary `Activity:` segment remains the scan-path owner for tool/background/thinking priority.
+- Verified with `pnpm --filter @robota-sdk/agent-cli exec vitest run src/ui/__tests__/status-bar.test.tsx`, `pnpm --filter @robota-sdk/agent-cli test`, `pnpm --filter @robota-sdk/agent-cli typecheck`, and `pnpm --filter @robota-sdk/agent-cli lint`.
+
+Manual live-provider CLI smoke was not run in the isolated worktree because it would require a real provider turn; the renderer regression and full CLI test suite cover the state transition this task changes.

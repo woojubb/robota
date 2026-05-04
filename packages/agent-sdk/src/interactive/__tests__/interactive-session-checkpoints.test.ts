@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -6,6 +6,7 @@ import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-
 import { InteractiveSession } from '../interactive-session.js';
 
 const TMP_BASE = join(tmpdir(), `robota-interactive-checkpoints-${process.pid}`);
+const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
@@ -37,7 +38,14 @@ function createProvider(responses: TUniversalMessage[]): IAIProvider {
   } as unknown as IAIProvider;
 }
 
+beforeEach(() => {
+  const home = join(TMP_BASE, 'home');
+  mkdirSync(home, { recursive: true });
+  process.env.HOME = home;
+});
+
 afterEach(() => {
+  process.env.HOME = ORIGINAL_HOME;
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
