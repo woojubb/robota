@@ -38,7 +38,7 @@ await session.compact('Focus on the API changes');
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                     |
 | **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                       |
-| **Context tracking**       | Token usage from provider metadata, configurable auto-compact threshold (default ~83.5%)                   |
+| **Context tracking**       | Effective token usage from the shared core estimator, configurable auto-compact threshold (default ~83.5%) |
 | **Compaction**             | LLM-generated conversation summary to free context space                                                   |
 | **Persistence**            | `SessionStore` for JSON file-based session save/load                                                       |
 | **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller     |
@@ -54,7 +54,7 @@ await session.compact('Focus on the API changes');
 | `run(message)`                                    | Send a message, returns AI response                      |
 | `injectMessage(message)`                          | Inject a message into history without running the agent  |
 | `compact(instructions?)`                          | Compress conversation via LLM summary                    |
-| `getContextState()`                               | Token usage: `{ usedTokens, maxTokens, usedPercentage }` |
+| `getContextState()`                               | Effective token usage: `{ usedTokens, maxTokens, usedPercentage }` |
 | `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled  |
 | `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                              |
 | `getHistory()` / `clearHistory()`                 | Access or clear conversation history                     |
@@ -71,7 +71,7 @@ await session.compact('Focus on the API changes');
 | ------------------------ | --------- | ------------------------------------------------------------ |
 | `Session`                | Class     | Wraps Robota with permissions, hooks, streaming, persistence |
 | `PermissionEnforcer`     | Class     | Tool permission checking, hook execution, output truncation  |
-| `ContextWindowTracker`   | Class     | Token usage tracking and auto-compact threshold              |
+| `ContextWindowTracker`   | Class     | Effective token usage tracking and auto-compact threshold    |
 | `CompactionOrchestrator` | Class     | Conversation compaction via LLM summary                      |
 | `SessionStore`           | Class     | JSON file persistence for session records                    |
 | `FileSessionLogger`      | Class     | JSONL file-based session event logger                        |

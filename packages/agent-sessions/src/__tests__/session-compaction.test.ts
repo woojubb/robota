@@ -143,7 +143,7 @@ describe('Session compaction', () => {
     });
     mockHistory = [
       { role: 'user', content: 'hello', metadata: { inputTokens: 70, outputTokens: 10 } },
-      { role: 'assistant', content: 'hi', metadata: { inputTokens: 20, outputTokens: 10 } },
+      { role: 'assistant', content: 'hi', metadata: { inputTokens: 90_000, outputTokens: 10_000 } },
     ];
 
     await session.compact();
