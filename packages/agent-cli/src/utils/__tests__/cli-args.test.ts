@@ -88,6 +88,12 @@ describe('parseCliArgs', () => {
     expect(args.appendSystemPrompt).toBe('Focus on tests');
   });
 
+  it('parses --task-file flag', () => {
+    process.argv = ['node', 'cli', '-p', '--task-file', 'task.md', 'test'];
+    const args = parseCliArgs();
+    expect(args.taskFile).toBe('task.md');
+  });
+
   it('defaults outputFormat to undefined', () => {
     process.argv = ['node', 'cli', '-p', 'test'];
     const args = parseCliArgs();

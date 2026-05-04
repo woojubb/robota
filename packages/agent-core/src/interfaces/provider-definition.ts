@@ -35,6 +35,35 @@ export interface IProviderProbeResult {
 
 export type TProviderSetupField = 'baseURL' | 'model' | 'apiKey';
 
+export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
+export type TProviderModelLifecycle = 'active' | 'preview' | 'deprecated' | 'unavailable';
+export type TProviderModelCapability =
+  | 'tools'
+  | 'vision'
+  | 'json_schema'
+  | 'reasoning'
+  | 'native_web'
+  | 'streaming';
+
+export interface IProviderModelCatalogEntry {
+  id: string;
+  displayName: string;
+  aliases?: readonly string[];
+  contextWindow?: number;
+  capabilities?: readonly TProviderModelCapability[];
+  lifecycle?: TProviderModelLifecycle;
+  lastVerifiedAt?: string;
+  sourceUrl?: string;
+}
+
+export interface IProviderModelCatalog {
+  status: TProviderModelCatalogStatus;
+  entries?: readonly IProviderModelCatalogEntry[];
+  lastVerifiedAt?: string;
+  sourceUrl?: string;
+  message?: string;
+}
+
 export interface IProviderSetupStepDefinition {
   key: TProviderSetupField;
   title: string;
@@ -49,6 +78,7 @@ export interface IProviderDefinition {
   displayName?: string;
   description?: string;
   defaults?: IProviderProfileDefaults;
+  modelCatalog?: IProviderModelCatalog;
   setupSteps?: readonly IProviderSetupStepDefinition[];
   requiresApiKey?: boolean;
   createProvider: (config: IProviderConfig) => IAIProvider;

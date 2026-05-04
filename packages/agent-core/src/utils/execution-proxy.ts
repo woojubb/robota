@@ -5,13 +5,12 @@ import { AGENT_EVENTS } from '../agents/constants';
 import { TASK_EVENTS } from '../event-service/index';
 import type { TUniversalValue } from '../interfaces/types';
 import {
-  IExecutionProxyConfig,
-  IMethodConfig,
-  TMetadataExtractor,
-  TExecutionProxyTarget,
-  TExecutionProxyArgs,
   asObjectValue,
   getStringLength,
+  type IExecutionProxyConfig,
+  type IMethodConfig,
+  type TExecutionProxyTarget,
+  type TExecutionProxyArgs,
 } from './execution-proxy-types';
 
 export type {
