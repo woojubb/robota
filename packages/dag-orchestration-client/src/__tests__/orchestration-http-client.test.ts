@@ -192,4 +192,67 @@ describe('DagOrchestrationHttpClient', () => {
       },
     });
   });
+
+  it('calls asset upload and metadata endpoints while leaving content as a binary URL', async () => {
+    const { client, requests } = createClient([
+      {
+        ok: true,
+        status: 201,
+        data: {
+          asset: {
+            referenceType: 'asset',
+            assetId: 'asset 1',
+            mediaType: 'image/png',
+            uri: `${TEST_SERVER_URL}/v1/dag/assets/asset%201/content`,
+            name: 'photo.png',
+            sizeBytes: 4,
+            runtimeAssetId: 'runtime-asset-1',
+          },
+        },
+      },
+      {
+        ok: true,
+        status: 200,
+        data: {
+          asset: {
+            referenceType: 'asset',
+            assetId: 'asset 1',
+            mediaType: 'image/png',
+            uri: `${TEST_SERVER_URL}/v1/dag/assets/asset%201/content`,
+            name: 'photo.png',
+            sizeBytes: 4,
+          },
+        },
+      },
+    ]);
+
+    const uploadResult = await client.uploadAsset({
+      fileName: 'photo.png',
+      mediaType: 'image/png',
+      base64Data: 'AQIDBA==',
+    });
+    const metadataResult = await client.getAssetMetadata('asset 1');
+    const contentInfo = client.getAssetContentDownloadInfo('asset 1');
+
+    expect(uploadResult.status).toBe(201);
+    expect(metadataResult.status).toBe(200);
+    expect(requests.map((request) => request.url)).toEqual([
+      `${TEST_SERVER_URL}/v1/dag/assets`,
+      `${TEST_SERVER_URL}/v1/dag/assets/asset%201`,
+    ]);
+    expect(requests.map((request) => request.init.method)).toEqual(['POST', 'GET']);
+    expect(JSON.parse(String(requests[0]?.init.body))).toEqual({
+      fileName: 'photo.png',
+      mediaType: 'image/png',
+      base64Data: 'AQIDBA==',
+    });
+    expect(contentInfo).toEqual({
+      assetId: 'asset 1',
+      url: `${TEST_SERVER_URL}/v1/dag/assets/asset%201/content`,
+      method: 'GET',
+      responseType: 'binary',
+      contentTypeHeader: 'Content-Type',
+      contentDispositionHeader: 'Content-Disposition',
+    });
+  });
 });

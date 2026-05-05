@@ -67,6 +67,7 @@ Helper functions and HTTP status constants in `route-utils.ts` are locally defin
 
 Run draft HTTP request and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
 Published workflow run request, override map, and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
+Asset upload request, asset reference, asset success-envelope, and content download helper aliases are imported from `@robota-sdk/dag-orchestration-client`.
 
 ## Endpoint Contract Ownership Inventory
 
@@ -81,7 +82,7 @@ health, or validated ComfyUI compatibility surfaces.
 | Run create/start/status/result and partial-run request                           | `routes/run-routes.ts`                | `dag-orchestrator` service + `dag-orchestration-client`           | Package-owned and eligible for operational clients.                                                  |
 | Run drafts under `/v1/dag/run-drafts*`                                           | `routes/run-draft-routes.ts`          | `dag-core` domain types + `dag-orchestration-client` HTTP aliases | Package-owned and eligible for operational client expansion.                                         |
 | Published workflow runs `/v1/dag/workflows/:dagId/runs`                          | `routes/published-workflow-routes.ts` | `dag-core` definitions + `dag-orchestration-client` HTTP aliases  | Package-owned and eligible for operational client expansion.                                         |
-| Assets under `/v1/dag/assets*`                                                   | `routes/asset-routes.ts`              | `dag-core` asset store types + route-local upload envelope        | Extract upload/metadata/content contract aliases before CLI/MCP expansion; see `ORCH-BL-010`.        |
+| Assets under `/v1/dag/assets*`                                                   | `routes/asset-routes.ts`              | `dag-core` asset store types + `dag-orchestration-client` aliases | Package-owned and eligible for operational client expansion. Binary content remains transport-owned. |
 | Cost metadata under `/v1/cost-meta*`                                             | `routes/cost-meta-routes.ts`          | `dag-cost` domain types + route-local HTTP envelopes              | Normalize/package HTTP envelopes before client expansion; see `ORCH-BL-011`.                         |
 | Admin bootstrap `/v1/dag/admin/bootstrap`                                        | `routes/admin-routes.ts`              | `dag-orchestrator-server`                                         | App-local development/bootstrap endpoint; no operational client expansion planned.                   |
 | Runtime asset compatibility `/view`, `/upload/image`                             | `routes/runtime-asset-routes.ts`      | ComfyUI-compatible backend shape + server validation              | Validated compatibility surface; response remains backend-native.                                    |
@@ -160,11 +161,17 @@ Run drafts persist execution state separately from `IDagDefinition`. Reset and o
 
 #### Asset Routes
 
-| Endpoint                          | Method | Purpose                                                           | Request Body                          | Success Response                |
-| --------------------------------- | ------ | ----------------------------------------------------------------- | ------------------------------------- | ------------------------------- |
-| `/v1/dag/assets`                  | POST   | Upload asset (base64) to orchestrator storage and runtime storage | `{ fileName, mediaType, base64Data }` | `201 { ok, data: { asset } }`   |
-| `/v1/dag/assets/:assetId`         | GET    | Get asset metadata                                                | None                                  | `200 { ok, data: { asset } }`   |
-| `/v1/dag/assets/:assetId/content` | GET    | Download asset content                                            | None                                  | Binary stream with Content-Type |
+| Endpoint                          | Method | Purpose                                                           | Request Body                          | Success Response                                        |
+| --------------------------------- | ------ | ----------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| `/v1/dag/assets`                  | POST   | Upload asset (base64) to orchestrator storage and runtime storage | `IDagOrchestrationAssetUploadRequest` | `IDagOrchestrationAssetSuccessPayload`                  |
+| `/v1/dag/assets/:assetId`         | GET    | Get asset metadata                                                | None                                  | `IDagOrchestrationAssetSuccessPayload`                  |
+| `/v1/dag/assets/:assetId/content` | GET    | Download asset content                                            | None                                  | Binary stream with Content-Type and Content-Disposition |
+
+Asset upload and metadata responses use `IDagOrchestrationAssetReference`, which is an operational
+HTTP shape. It includes the orchestrator `assetId`, runtime metadata when available, and a content
+download URI for clients. Persisted asset metadata and storage ports remain owned by `dag-core`.
+The content endpoint is intentionally not a JSON envelope; consumers use
+`IDagOrchestrationAssetContentDownloadInfo` to locate the endpoint and then own byte streaming.
 
 #### Cost Meta Routes
 
@@ -310,12 +317,13 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
 | `src/__tests__/comfyui-event-translator.test.ts`  | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                    |
 | `src/__tests__/endpoint-contract.test.ts`         | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
+| `src/__tests__/asset-routes.test.ts`              | Asset route endpoint contracts        | Upload success, validation errors, metadata envelope, content stream headers          |
 | `src/__tests__/run-draft-routes.test.ts`          | Run draft endpoint contracts          | Draft create/get/update, reset, overwrite, and response envelopes                     |
 | `src/__tests__/published-workflow-routes.test.ts` | Published workflow routes             | Latest/exact published selection, draft rejection, override validation                |
 
 ### Coverage Gaps
 
-- **Endpoint contract tests:** Definition, asset, admin routes are untested.
+- **Endpoint contract tests:** Definition and admin routes are untested.
 - **WebSocket bridge tests:** No tests for ws-routes connection lifecycle, message buffering, or cleanup.
 - **Route utility tests:** No tests for `validateAssetReferences`, `parseOptionalPositiveIntegerQuery`, `toRunProblemDetails`.
 - **Integration tests:** No tests for the bootstrap sequence or middleware configuration.
@@ -341,7 +349,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | `registerRunRoutes`               | `routes/run-routes.ts`                | `OrchestratorRunService`, `IAssetStore`                                                          |
 | `registerRunDraftRoutes`          | `routes/run-draft-routes.ts`          | `IRunDraftStore`, `dag-orchestration-client` HTTP aliases                                        |
 | `registerPublishedWorkflowRoutes` | `routes/published-workflow-routes.ts` | `IStoragePort`, `OrchestratorRunService`, `IAssetStore`, `dag-orchestration-client` HTTP aliases |
-| `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`                                                                                    |
+| `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`, `dag-orchestration-client` HTTP aliases                                           |
 | `registerAdminRoutes`             | `routes/admin-routes.ts`              | `DagDesignController`                                                                            |
 | `registerRuntimeAssetRoutes`      | `routes/runtime-asset-routes.ts`      | `backendUrl`                                                                                     |
 | `registerCostMetaRoutes`          | `routes/cost-meta-routes.ts`          | `ICostMetaStoragePort`, `CelCostEvaluator`                                                       |

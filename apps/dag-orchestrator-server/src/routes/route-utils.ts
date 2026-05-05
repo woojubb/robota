@@ -1,5 +1,6 @@
 import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
 import type { IAssetStore } from '@robota-sdk/dag-core';
+import type { IDagOrchestrationAssetReference } from '@robota-sdk/dag-orchestration-client';
 import type { IRuntimeAssetUploadError } from './runtime-asset-upload.js';
 
 export const HTTP_BAD_REQUEST = 400;
@@ -67,15 +68,7 @@ export function toAssetReference(
     runtimeAssetId?: string;
   },
   contentUri: string,
-): {
-  referenceType: 'asset';
-  assetId: string;
-  mediaType: string;
-  uri: string;
-  name: string;
-  sizeBytes: number;
-  runtimeAssetId?: string;
-} {
+): IDagOrchestrationAssetReference {
   return {
     referenceType: 'asset',
     assetId: metadata.assetId,
