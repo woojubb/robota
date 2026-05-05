@@ -7,13 +7,14 @@ Owns the Robota Playground UI package: React components, hooks, executor logic, 
 ## Boundaries
 
 - Does not own core agent contracts (`IExecutor`, `IAIProvider`, `TUniversalMessage`); imports from `@robota-sdk/agent-core`.
-- Does not own remote transport contracts; imports `RemoteExecutor` from `@robota-sdk/agent-remote`.
-- Does not own WebSocket message types; imports `IPlaygroundWebSocketMessage` from `@robota-sdk/agent-remote`.
+- Does not own remote transport contracts; imports `RemoteExecutor` from `@robota-sdk/agent-remote-client`.
+- Does not own WebSocket transport hosting; playground WebSocket message types are local UI
+  contracts in `src/lib/playground/types.ts`.
 - Does not define deployment or hosting behavior; that belongs to `apps/agent-web`.
 
 ## Architecture Overview
 
-Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) are standalone classes that collect conversation events and UX metrics. React hooks (`usePlaygroundBoot`, `usePlaygroundData`, `useRobotaExecution`, etc.) provide state management; these hooks are used internally by the React components and are not part of the public package API. A `PlaygroundWebSocketClient` enables real-time communication with the API server. Block-tracking layer (`PlaygroundBlockCollector`, `LLMTracker`, `PlaygroundBlockVisualizationSubscriber`) handles execution block collection and real-time visualization data. Tool catalog (`ToolRegistry`) provides built-in playground tools created via factory functions; it is used internally and is not exported from the public entry point. Static component catalogs such as code editor examples and template gallery entries are directory modules under `src/components/playground/*-data/`; their `index.ts` files preserve the previous component import paths while keeping large data payloads out of one monolithic file.
+Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) are standalone classes that collect conversation events and UX metrics. React hooks (`usePlaygroundBoot`, `usePlaygroundData`, `useRobotaExecution`, etc.) provide state management; these hooks are used internally by the React components and are not part of the public package API. A `PlaygroundWebSocketClient` enables real-time communication with the API server. Block-tracking layer (`PlaygroundBlockCollector`, `LLMTracker`, `PlaygroundBlockVisualizationSubscriber`) handles execution block collection and real-time visualization data. Tool catalog (`ToolRegistry`) provides built-in playground tools created via factory functions; it is used internally and is not exported from the public entry point. Static component catalogs such as code editor examples and template gallery entries are directory modules under `src/components/playground/*-data/`; their `index.ts` files preserve the previous component import paths while keeping large data payloads out of one monolithic file. Demo execution data is a directory module under `src/lib/playground/demo-execution-data/` with the public generator functions in `index.ts` and the large scenario payload isolated in `scenario.ts`.
 
 ## Type Ownership
 
@@ -79,14 +80,16 @@ None. `PlaygroundStatisticsPlugin` and `PlaygroundHistoryPlugin` are standalone 
 | -------------------------------------- | --------------------------- | ---------------------------------------- |
 | `Robota` (agent-core)                  | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
 | `FunctionTool` (agent-tools)           | Tool factory functions      | `src/tools/`                             |
-| `RemoteExecutor` (remote)              | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
-| `IPlaygroundWebSocketMessage` (remote) | `PlaygroundWebSocketClient` | `src/lib/playground/websocket-client.ts` |
+| `RemoteExecutor` (agent-remote-client) | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
+| `IPlaygroundWebSocketMessage` (local)  | `PlaygroundWebSocketClient` | `src/lib/playground/websocket-client.ts` |
 
 ## Test Strategy
 
 - `components/ui/__tests__/button.test.tsx` covers the shared button primitive.
 - `components/playground/__tests__/code-editor-templates.test.ts` characterizes the public code editor template keys, default template, and required metadata.
 - `components/playground/__tests__/template-gallery-data.test.ts` characterizes curated gallery template ids, display-map alignment, and required metadata.
+- `lib/playground/__tests__/demo-execution-data.test.ts` characterizes the demo block sequence,
+  timing offsets, and complex-demo wrapper behavior.
 - Statistics types and plugin logic have no unit test coverage.
 - React components and hooks have no behavioral test coverage.
 - Recommended: unit tests for `PlaygroundExecutor` methods, `toPlaygroundUiError` classification, statistics plugin recording, and hook-level state transitions before further decomposition.
