@@ -20,13 +20,19 @@ blocked-by: dag-api runtime/projection/worker dependencies and repo-split extrac
 - `dag-api`는 아직 순수 orchestration API package가 아니다. 현재 `@robota-sdk/dag-runtime`, `@robota-sdk/dag-worker`, `@robota-sdk/dag-projection`을 직접 import하므로, 그대로 새 레포로 옮기면 runtime 레벨을 다시 끌고 간다.
 - 따라서 물리적 fork 전에 extraction manifest와 dependency guard를 먼저 만들어야 한다. 목표는 가져갈 패키지의 `@robota-sdk/*` 의존 closure가 runtime 레벨로 새지 않는 상태다.
 
+### 2026-05-05 guardrail
+
+- `scripts/harness/check-orchestration-split-baseline.mjs`를 추가해 fork 대상 패키지와 현재 알려진 `dag-api` runtime blocker를 코드로 고정했다.
+- `pnpm harness:scan:orchestration-split`를 `pnpm harness:scan`에 포함했다.
+- 이 guard는 새 runtime-level 의존이 추가되면 실패하고, 기존 blocker가 해결되면 baseline/task 갱신을 요구한다.
+
 ## Recommendation
 
 지금 바로 별도 레포를 만들지 않는다. 먼저 현재 repo 안에서 분리 가능한 경계를 코드로 검증한다.
 
 1. `dag-api`를 orchestration controller/contracts와 runtime/projection/worker composition으로 분리한다.
-2. fork 대상 package manifest를 작성하고 dependency closure 검증 스크립트를 추가한다.
-3. `dag-studio`/`dag-designer`가 runtime package에 직접 의존하지 않는지 CI에서 검증한다.
+2. guard에 고정한 fork 대상 package manifest를 기준으로 `dag-api` runtime-level 의존을 제거한다.
+3. `dag-studio`/`dag-designer`가 runtime package에 직접 의존하지 않는 상태를 CI에서 계속 검증한다.
 4. manifest가 통과하면 새 레포 초기 import 또는 git-filter 기반 split을 수행한다.
 
 ## 가져갈 것 (오케스트레이션 이상)
