@@ -68,6 +68,7 @@ Helper functions and HTTP status constants in `route-utils.ts` are locally defin
 Run draft HTTP request and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
 Published workflow run request, override map, and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
 Asset upload request, asset reference, asset success-envelope, and content download helper aliases are imported from `@robota-sdk/dag-orchestration-client`.
+Cost metadata request and response-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`; cost metadata domain types remain imported from `@robota-sdk/dag-cost`.
 
 ## Endpoint Contract Ownership Inventory
 
@@ -83,7 +84,7 @@ health, or validated ComfyUI compatibility surfaces.
 | Run drafts under `/v1/dag/run-drafts*`                                           | `routes/run-draft-routes.ts`          | `dag-core` domain types + `dag-orchestration-client` HTTP aliases | Package-owned and eligible for operational client expansion.                                         |
 | Published workflow runs `/v1/dag/workflows/:dagId/runs`                          | `routes/published-workflow-routes.ts` | `dag-core` definitions + `dag-orchestration-client` HTTP aliases  | Package-owned and eligible for operational client expansion.                                         |
 | Assets under `/v1/dag/assets*`                                                   | `routes/asset-routes.ts`              | `dag-core` asset store types + `dag-orchestration-client` aliases | Package-owned and eligible for operational client expansion. Binary content remains transport-owned. |
-| Cost metadata under `/v1/cost-meta*`                                             | `routes/cost-meta-routes.ts`          | `dag-cost` domain types + route-local HTTP envelopes              | Normalize/package HTTP envelopes before client expansion; see `ORCH-BL-011`.                         |
+| Cost metadata under `/v1/cost-meta*`                                             | `routes/cost-meta-routes.ts`          | `dag-cost` domain types + `dag-orchestration-client` aliases      | Package-owned and eligible for operational client expansion.                                         |
 | Admin bootstrap `/v1/dag/admin/bootstrap`                                        | `routes/admin-routes.ts`              | `dag-orchestrator-server`                                         | App-local development/bootstrap endpoint; no operational client expansion planned.                   |
 | Runtime asset compatibility `/view`, `/upload/image`                             | `routes/runtime-asset-routes.ts`      | ComfyUI-compatible backend shape + server validation              | Validated compatibility surface; response remains backend-native.                                    |
 | ComfyUI proxy `/prompt`, `/queue`, `/history*`, `/object_info*`, `/system_stats` | `server.ts`                           | ComfyUI-compatible backend shape                                  | Pass-through compatibility surface; not a Robota package contract.                                   |
@@ -175,15 +176,17 @@ The content endpoint is intentionally not a JSON envelope; consumers use
 
 #### Cost Meta Routes
 
-| Endpoint                  | Method | Purpose                            | Request Body                            | Success Response                        |
-| ------------------------- | ------ | ---------------------------------- | --------------------------------------- | --------------------------------------- |
-| `/v1/cost-meta`           | GET    | List all cost meta                 | None                                    | `200 { ok, data: [...] }`               |
-| `/v1/cost-meta`           | POST   | Create cost meta                   | `ICostMeta`                             | `201 { ok, data }`                      |
-| `/v1/cost-meta/validate`  | POST   | Validate CEL formula               | `{ formula }`                           | `200 { ok }` or `{ ok: false, errors }` |
-| `/v1/cost-meta/preview`   | POST   | Evaluate formula with test context | `{ formula, variables?, testContext? }` | `200 { ok, result }`                    |
-| `/v1/cost-meta/:nodeType` | GET    | Get single cost meta               | None                                    | `200 { ok, data }`                      |
-| `/v1/cost-meta/:nodeType` | PUT    | Update cost meta                   | `ICostMeta`                             | `200 { ok, data }`                      |
-| `/v1/cost-meta/:nodeType` | DELETE | Delete cost meta                   | None                                    | `200 { ok }`                            |
+| Endpoint                  | Method | Purpose                            | Request Body                               | Success Response                                    |
+| ------------------------- | ------ | ---------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| `/v1/cost-meta`           | GET    | List all cost meta                 | None                                       | `IDagOrchestrationCostMetaListSuccessPayload`       |
+| `/v1/cost-meta`           | POST   | Create cost meta                   | `TDagOrchestrationCostMetaRequest`         | `IDagOrchestrationCostMetaSuccessPayload`           |
+| `/v1/cost-meta/validate`  | POST   | Validate CEL formula               | `IDagOrchestrationCostMetaValidateRequest` | `IDagOrchestrationCostMetaValidationSuccessPayload` |
+| `/v1/cost-meta/preview`   | POST   | Evaluate formula with test context | `IDagOrchestrationCostMetaPreviewRequest`  | `IDagOrchestrationCostMetaPreviewSuccessPayload`    |
+| `/v1/cost-meta/:nodeType` | GET    | Get single cost meta               | None                                       | `IDagOrchestrationCostMetaSuccessPayload`           |
+| `/v1/cost-meta/:nodeType` | PUT    | Update cost meta                   | `TDagOrchestrationCostMetaRequest`         | `IDagOrchestrationCostMetaSuccessPayload`           |
+| `/v1/cost-meta/:nodeType` | DELETE | Delete cost meta                   | None                                       | `IDagOrchestrationCostMetaDeleteSuccessPayload`     |
+
+Formula validation returns a success envelope with `{ valid, errors }` because an invalid formula is the expected validation result, not a transport failure. Formula preview returns a standard problem envelope when the request cannot produce a numeric result.
 
 #### Admin Routes
 
@@ -297,6 +300,14 @@ Error objects follow RFC 7807 (IProblemDetails) structure where applicable:
 | `DAG_VALIDATION_WORKFLOW_OVERRIDES_INVALID`                   | 400         | Published workflow overrides must be an object map               |
 | `DAG_VALIDATION_WORKFLOW_OVERRIDE_NODE_NOT_FOUND`             | 400         | Override references a node ID absent from the definition         |
 | `DAG_ASSET_NOT_FOUND`                                         | 404         | Asset not found by assetId                                       |
+| `DAG_VALIDATION_COST_META_INVALID`                            | 400         | Cost metadata request body is missing required fields            |
+| `DAG_VALIDATION_COST_META_FORMULA_REQUIRED`                   | 400         | Cost metadata formula validation/preview request lacks a formula |
+| `DAG_VALIDATION_COST_META_CONTEXT_INVALID`                    | 400         | Cost metadata preview variables/testContext is not an object     |
+| `DAG_VALIDATION_COST_META_ESTIMATE_FORMULA_INVALID`           | 400         | Cost metadata estimateFormula failed CEL validation              |
+| `DAG_VALIDATION_COST_META_CALCULATE_FORMULA_INVALID`          | 400         | Cost metadata calculateFormula failed CEL validation             |
+| `DAG_COST_META_NOT_FOUND`                                     | 404         | Cost metadata not found by nodeType                              |
+| `CEL_EVAL_ERROR`                                              | 400         | Cost metadata preview formula evaluation failed                  |
+| `CEL_NON_NUMERIC`                                             | 400         | Cost metadata preview did not evaluate to a finite number        |
 | `ORCHESTRATOR_RUN_NOT_FOUND`                                  | 404         | Run not found by dagRunId                                        |
 | `ORCHESTRATOR_RUN_NOT_COMPLETED`                              | 409         | Run result requested before completion                           |
 | `WS_BRIDGE_ERROR`                                             | N/A (WS)    | WebSocket bridge failure (sent as WS event)                      |

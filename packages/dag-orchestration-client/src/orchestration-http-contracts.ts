@@ -6,6 +6,7 @@ import type {
   TNodeConfigRecord,
   TPortPayload,
 } from '@robota-sdk/dag-core';
+import type { ICostMeta } from '@robota-sdk/dag-cost';
 
 export type TDagOrchestrationPayloadValue =
   | string
@@ -101,6 +102,72 @@ export interface IDagOrchestrationAssetContentDownloadInfo extends IDagOrchestra
   readonly contentDispositionHeader: 'Content-Disposition';
 }
 
+export type TDagOrchestrationCostMetaRequest = ICostMeta;
+
+export interface IDagOrchestrationCostMetaListData extends IDagOrchestrationJsonObject {
+  readonly items: readonly ICostMeta[];
+}
+
+export interface IDagOrchestrationCostMetaData extends IDagOrchestrationJsonObject {
+  readonly meta: ICostMeta;
+}
+
+export interface IDagOrchestrationCostMetaDeleteData extends IDagOrchestrationJsonObject {
+  readonly nodeType: string;
+}
+
+export interface IDagOrchestrationCostMetaValidateRequest {
+  readonly formula: string;
+}
+
+export interface IDagOrchestrationCostMetaValidationData extends IDagOrchestrationJsonObject {
+  readonly valid: boolean;
+  readonly errors: readonly string[];
+}
+
+export interface IDagOrchestrationCostMetaPreviewRequest {
+  readonly formula: string;
+  readonly variables?: IDagOrchestrationJsonObject;
+  readonly testContext?: IDagOrchestrationJsonObject;
+}
+
+export interface IDagOrchestrationCostMetaPreviewData extends IDagOrchestrationJsonObject {
+  readonly result: number;
+}
+
+export interface IDagOrchestrationCostMetaListSuccessPayload extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationCostMetaListData;
+}
+
+export interface IDagOrchestrationCostMetaSuccessPayload extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationCostMetaData;
+}
+
+export interface IDagOrchestrationCostMetaDeleteSuccessPayload
+  extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationCostMetaDeleteData;
+}
+
+export interface IDagOrchestrationCostMetaValidationSuccessPayload
+  extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationCostMetaValidationData;
+}
+
+export interface IDagOrchestrationCostMetaPreviewSuccessPayload
+  extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationCostMetaPreviewData;
+}
+
 export type TDagOrchestrationCreateRunDraftRequest = ISaveRunDraftInput;
 
 export type TDagOrchestrationReplaceRunDraftRequest = Omit<ISaveRunDraftInput, 'draftId'>;
@@ -160,6 +227,20 @@ export interface IDagOrchestrationHttpClient {
   uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
   getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
   getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
+  listCostMeta(): Promise<IDagOrchestrationHttpResponse>;
+  getCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse>;
+  createCostMeta(input: TDagOrchestrationCostMetaRequest): Promise<IDagOrchestrationHttpResponse>;
+  updateCostMeta(
+    nodeType: string,
+    input: TDagOrchestrationCostMetaRequest,
+  ): Promise<IDagOrchestrationHttpResponse>;
+  deleteCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse>;
+  validateCostMetaFormula(
+    input: IDagOrchestrationCostMetaValidateRequest,
+  ): Promise<IDagOrchestrationHttpResponse>;
+  previewCostMetaFormula(
+    input: IDagOrchestrationCostMetaPreviewRequest,
+  ): Promise<IDagOrchestrationHttpResponse>;
   createRunDraft(
     input: TDagOrchestrationCreateRunDraftRequest,
   ): Promise<IDagOrchestrationHttpResponse>;

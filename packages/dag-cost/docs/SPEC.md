@@ -8,24 +8,25 @@
 
 - **CEL evaluation only.** Cost computation is delegated to CEL formula evaluation; no hardcoded pricing logic.
 - **No persistence.** This package defines the storage port interface (`ICostMetaStoragePort`) but does not implement it. Adapter packages provide concrete implementations.
+- **No HTTP transport contract ownership.** Operational HTTP request/response aliases for cost metadata live in `@robota-sdk/dag-orchestration-client` and import this package's domain types.
 - **No domain logic beyond cost.** This package does not manage DAG execution, scheduling, or node lifecycle.
 - **Result-based error handling.** All evaluator methods return `TResult` — no thrown exceptions cross the public API boundary.
 
 ## Dependencies
 
-| Dependency | Purpose |
-|------------|---------|
-| `@marcbachmann/cel-js` | CEL expression parsing and evaluation |
+| Dependency             | Purpose                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| `@marcbachmann/cel-js` | CEL expression parsing and evaluation                         |
 | `@robota-sdk/dag-core` | `TResult` and `IDagError` types for structured error handling |
 
 ## Public API Surface
 
-| Export | Kind | Description |
-|--------|------|-------------|
-| `CelCostEvaluator` | Class | Evaluates and validates CEL cost formulas against variable contexts |
-| `ICostMeta` | Interface | Cost metadata for a node type (formula, category, variables, enabled flag) |
-| `TCostMetaCategory` | Type | Union of cost categories: `'ai-inference' \| 'transform' \| 'io' \| 'custom'` |
-| `ICostMetaStoragePort` | Interface | Port for CRUD operations on cost metadata (get, getAll, save, delete) |
+| Export                 | Kind      | Description                                                                   |
+| ---------------------- | --------- | ----------------------------------------------------------------------------- |
+| `CelCostEvaluator`     | Class     | Evaluates and validates CEL cost formulas against variable contexts           |
+| `ICostMeta`            | Interface | Cost metadata for a node type (formula, category, variables, enabled flag)    |
+| `TCostMetaCategory`    | Type      | Union of cost categories: `'ai-inference' \| 'transform' \| 'io' \| 'custom'` |
+| `ICostMetaStoragePort` | Interface | Port for CRUD operations on cost metadata (get, getAll, save, delete)         |
 
 ## Key Behaviors
 
@@ -38,6 +39,7 @@
 ### ICostMeta
 
 Each cost metadata entry contains:
+
 - `nodeType` — identifier for the node type
 - `displayName` — human-readable name
 - `category` — one of the `TCostMetaCategory` values

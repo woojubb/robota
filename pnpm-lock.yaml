@@ -2479,6 +2479,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
     devDependencies:
       eslint:
         specifier: ^8.56.0
