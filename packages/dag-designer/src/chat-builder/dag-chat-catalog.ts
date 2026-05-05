@@ -1,6 +1,5 @@
 import type { INodeObjectInfo, TInputTypeSpec, TObjectInfo } from '@robota-sdk/dag-core';
 import type { ICatalogEntry, IChatIntent, IPortDescriptor } from './dag-chat-draft-types.js';
-
 const IMAGE_TERMS = ['image', 'photo', 'picture', '이미지', '사진', '그림'];
 const VIDEO_TERMS = ['video', 'movie', 'animation', '비디오', '영상', '동영상'];
 const COMPOSE_TERMS = [
@@ -45,8 +44,8 @@ const LLM_TERM_SCORE = 30;
 const OUTPUT_TERM_SCORE = 8;
 const SOURCE_WITHOUT_IMAGE_INPUT_SCORE = 8;
 const TEXT_NODE_INPUT_SCORE = 15;
-const DEFAULT_SOURCE_COUNT = 1;
-const COMPOSE_SOURCE_COUNT = 2;
+const DEFAULT_SOURCE_COUNT = 1,
+  COMPOSE_SOURCE_COUNT = 2;
 
 export interface IDagChatCandidates {
   imageSource?: ICatalogEntry;
