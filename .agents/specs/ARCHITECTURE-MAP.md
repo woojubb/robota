@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-websocket-client` commit `646be2c31` on 2026-05-05.
+Source-verified against `refactor/agent-playground-websocket-hook` commit `c5bd69b45` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -131,6 +131,7 @@ flowchart TD
   BlockHooks["block tracking hooks module\nhandlers + block messages"]
   ExecutionSubscriber["execution subscriber module\nSDK events + realtime blocks"]
   WebSocketClient["websocket client module\nconnection + auth routing"]
+  WebSocketHook["websocket connection hook module\nstate + uptime + handlers"]
   Hooks["playground hooks\ninput, websocket, execution, stats"]
   Context["playground context + reducer"]
   Executor["PlaygroundExecutor\nbrowser execution facade"]
@@ -153,8 +154,11 @@ flowchart TD
   Components --> ProjectManager
   Components --> Hooks
   Components --> Context
+  Hooks --> WebSocketHook
   Hooks --> Executor
   Hooks --> WebSocketClient
+  WebSocketHook --> Context
+  WebSocketHook --> WebSocketClient
   RemoteInjection --> CodeAnalyzer
   Executor --> WebSocketClient
   Executor --> RemoteClient
@@ -179,6 +183,7 @@ Playground ownership:
 | Block tracking hook factories                      | `agent-playground`         | Keep hook factories thin; handlers and block messages stay internal.           |
 | SDK event subscription and real-time block updates | `agent-playground`         | Keep event guards and handlers internal to the execution subscriber module.    |
 | Playground WebSocket client                        | `agent-playground`         | Keep connection state in the client class; message/auth helpers stay internal. |
+| Playground WebSocket connection hook               | `agent-playground`         | Keep state math, uptime effects, constants, and handler registry internal.     |
 | User-code diagnostics and config parsing           | `agent-playground`         | Code analyzer remains package-internal and feeds playground execution.         |
 | Secure provider execution from browser playground  | `agent-remote-client` edge | API keys stay server-side through `RemoteExecutor`/remote injection.           |
 
