@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-usage-monitor
+- **Branch**: refactor/agent-playground-agent-container-block
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -45,6 +45,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `execution-tree-visualizer.tsx` into a stable directory module.
 - [x] Add characterization tests for `usage-monitor`.
 - [x] Split `usage-monitor.tsx` into a stable directory module.
+- [x] Add characterization tests for `agent-container-block`.
+- [x] Split `agent-container-block.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -63,7 +65,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `tool-container-block.tsx` (383 lines)
 - `block-visualization/block-visualization-panel.tsx` (362 lines)
 - `block-visualization/block-tree.tsx` (336 lines)
-- `agent-container-block.tsx` (327 lines)
 
 ### contexts
 
@@ -167,6 +168,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   availability, and close action behavior.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the sixteenth slice: `agent-container-block.tsx` is now a same-name directory module
+  with a public component facade plus resolved props, local state hook, team role catalog, shell,
+  header rows, details, capabilities, system-message, and action sections.
+- Added characterization coverage for collapsed summary rendering, expanded details, editing,
+  leader/configure/remove callbacks, and drag callback forwarding.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -192,6 +200,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   building, statistics, and recursive rendering.
 - Keep mock data providers internal to component modules when they exist only to preserve current
   playground UI behavior.
+- Preserve Radix `asChild` injected props when extracting trigger children; custom trigger
+  components must pass received div props through to the concrete DOM/UI primitive.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -209,6 +219,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 10 production source files still exceed the guideline. The current
-branch delivers the fifteenth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 9 production source files still exceed the guideline. The current
+branch delivers the sixteenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
