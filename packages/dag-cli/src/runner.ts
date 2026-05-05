@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
-import { DagOrchestrationApiClient } from './orchestrator-api-client.js';
+import { DagOrchestrationHttpClient } from '@robota-sdk/dag-api';
 import { parseGlobalConfig } from './arguments.js';
 import { dispatchDagCliCommand } from './runner-dispatch.js';
 import { formatJsonOutput } from './json.js';
@@ -31,7 +31,7 @@ export async function runDagCli(
     return USAGE_ERROR_EXIT_CODE;
   }
 
-  const client = new DagOrchestrationApiClient({
+  const client = new DagOrchestrationHttpClient({
     baseUrl: config.serverUrl,
     fetch: fetchImpl,
   });

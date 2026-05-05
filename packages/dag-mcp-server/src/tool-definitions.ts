@@ -1,0 +1,109 @@
+import type { IDagMcpToolDefinition } from './types.js';
+
+type TDagMcpInputSchema = IDagMcpToolDefinition['inputSchema'];
+
+const EMPTY_OBJECT_SCHEMA = {
+  type: 'object',
+  properties: {},
+} satisfies TDagMcpInputSchema;
+
+export const DAG_MCP_TOOL_DEFINITIONS: readonly IDagMcpToolDefinition[] = [
+  {
+    name: 'dag_definitions_list',
+    description: 'List DAG definitions, optionally filtered by dagId.',
+    inputSchema: objectSchema({
+      dagId: { type: 'string', description: 'Optional DAG id filter.' },
+    }),
+  },
+  {
+    name: 'dag_definitions_get',
+    description: 'Get a DAG definition by dagId and optional version.',
+    inputSchema: objectSchema(
+      {
+        dagId: { type: 'string' },
+        version: { type: 'number' },
+      },
+      ['dagId'],
+    ),
+  },
+  {
+    name: 'dag_definitions_create',
+    description: 'Create a DAG definition draft.',
+    inputSchema: objectSchema({ definition: { type: 'object' } }, ['definition']),
+  },
+  {
+    name: 'dag_definitions_update_draft',
+    description: 'Update an existing DAG definition draft.',
+    inputSchema: objectSchema(
+      {
+        dagId: { type: 'string' },
+        version: { type: 'number' },
+        definition: { type: 'object' },
+      },
+      ['dagId', 'version', 'definition'],
+    ),
+  },
+  {
+    name: 'dag_definitions_validate',
+    description: 'Validate a DAG definition draft.',
+    inputSchema: objectSchema(
+      {
+        dagId: { type: 'string' },
+        version: { type: 'number' },
+      },
+      ['dagId', 'version'],
+    ),
+  },
+  {
+    name: 'dag_definitions_publish',
+    description: 'Publish a DAG definition.',
+    inputSchema: objectSchema(
+      {
+        dagId: { type: 'string' },
+        version: { type: 'number' },
+      },
+      ['dagId'],
+    ),
+  },
+  {
+    name: 'dag_nodes_list',
+    description: 'List runtime node catalog object_info.',
+    inputSchema: EMPTY_OBJECT_SCHEMA,
+  },
+  {
+    name: 'dag_runs_create',
+    description: 'Create a DAG run preparation from a definition.',
+    inputSchema: objectSchema(
+      {
+        definition: { type: 'object' },
+        input: { type: 'object' },
+        partialStartNodeId: { type: 'string' },
+      },
+      ['definition'],
+    ),
+  },
+  {
+    name: 'dag_runs_start',
+    description: 'Start a prepared DAG run.',
+    inputSchema: objectSchema({ preparationId: { type: 'string' } }, ['preparationId']),
+  },
+  {
+    name: 'dag_runs_status',
+    description: 'Get DAG run status.',
+    inputSchema: objectSchema({ dagRunId: { type: 'string' } }, ['dagRunId']),
+  },
+  {
+    name: 'dag_runs_result',
+    description: 'Get DAG run result.',
+    inputSchema: objectSchema({ dagRunId: { type: 'string' } }, ['dagRunId']),
+  },
+];
+
+function objectSchema(
+  properties: Record<string, object>,
+  required: readonly string[] = [],
+): TDagMcpInputSchema {
+  return required.length > 0
+    ? { type: 'object', properties, required: [...required] }
+    : { type: 'object', properties };
+}

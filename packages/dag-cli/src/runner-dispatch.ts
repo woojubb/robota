@@ -1,5 +1,5 @@
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
-import type { DagOrchestrationApiClient } from './orchestrator-api-client.js';
+import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-api';
 import type {
   IDagCliCommandResult,
   IDagCliIo,
@@ -16,7 +16,7 @@ const COMMAND_GROUP_RUNS = 'runs';
 
 export async function dispatchDagCliCommand(
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const [group, command, ...rest] = args;
@@ -35,7 +35,7 @@ export async function dispatchDagCliCommand(
 async function runDefinitionsCommand(
   command: string | undefined,
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   if (command === 'list') {
@@ -55,7 +55,7 @@ async function runDefinitionsCommand(
 
 async function getDefinitionCommand(
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
 ): Promise<IDagCliCommandResult> {
   const [dagId] = args;
   if (!dagId) return usageResult('definitions get requires <dagId>.');
@@ -68,7 +68,7 @@ async function getDefinitionCommand(
 
 async function createDefinitionCommand(
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const file = takeStringOption(args, '--file');
@@ -83,7 +83,7 @@ async function createDefinitionCommand(
 
 async function publishDefinitionCommand(
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
 ): Promise<IDagCliCommandResult> {
   const [dagId] = args;
   if (!dagId) return usageResult('definitions publish requires <dagId>.');
@@ -96,7 +96,7 @@ async function publishDefinitionCommand(
 
 async function runNodesCommand(
   command: string | undefined,
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
 ): Promise<IDagCliCommandResult> {
   if (command === 'list') {
     return serverResult(await client.listNodes());
@@ -107,7 +107,7 @@ async function runNodesCommand(
 async function runRunsCommand(
   command: string | undefined,
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   if (command === 'create') {
@@ -139,7 +139,7 @@ async function runRunsCommand(
 
 async function createRunCommand(
   args: readonly string[],
-  client: DagOrchestrationApiClient,
+  client: IDagOrchestrationHttpClient,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const parsed = parseRunCreateOptions(args);

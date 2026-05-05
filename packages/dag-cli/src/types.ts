@@ -1,4 +1,8 @@
-import type { IProblemDetails } from '@robota-sdk/dag-api';
+import type {
+  IProblemDetails,
+  TDagOrchestrationFetch,
+  IDagOrchestrationHttpPayload,
+} from '@robota-sdk/dag-api';
 
 export const DEFAULT_DAG_SERVER_URL = 'http://localhost:3012';
 export const SUCCESS_EXIT_CODE = 0;
@@ -21,7 +25,7 @@ export interface IDagCliIo {
   readTextFile(filePath: string): Promise<string>;
 }
 
-export type TDagCliFetch = (url: string, init?: RequestInit) => Promise<Response>;
+export type TDagCliFetch = TDagOrchestrationFetch;
 
 export interface IDagCliRunOptions {
   readonly env?: IDagCliEnvironment;
@@ -35,10 +39,7 @@ export interface IDagCliFailure {
   readonly errors: readonly IProblemDetails[];
 }
 
-export type TDagCliServerResponse = TJsonObject & {
-  readonly ok?: boolean;
-  readonly status?: number;
-};
+export type TDagCliServerResponse = IDagOrchestrationHttpPayload;
 
 export type TDagCliOutputPayload = TDagCliServerResponse | IDagCliFailure;
 
