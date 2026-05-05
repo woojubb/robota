@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-api';
+import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
 import { callDagMcpTool, createDagMcpToolDefinitions } from '../dag-mcp-tools.js';
 

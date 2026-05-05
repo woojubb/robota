@@ -115,7 +115,7 @@ flowchart TD
   DagStudio["dag-studio / dag-designer\nweb UI"]
   DagCLI["dag-cli\nJSON-first operational CLI"]
   DagMCP["dag-mcp-server\nMCP tool surface"]
-  SharedClient["dag-api\nDagOrchestrationHttpClient\n(current shared REST client)"]
+  SharedClient["dag-orchestration-client\nDagOrchestrationHttpClient\noperational REST client"]
   Server["dag-orchestrator-server\nExpress gateway + WebSocket bridge"]
   ApiControllers["dag-api\ncontrollers/composition/contracts"]
   Orchestrator["dag-orchestrator\nrun lifecycle + prompt translation"]
@@ -149,16 +149,15 @@ DAG stack ownership:
 | DAG domain types, reducers, ports, error contracts                | `dag-core`                                    | Same.                                                              |
 | Prompt translation and run lifecycle services                     | `dag-orchestrator`                            | Same.                                                              |
 | API controller request/response mapping                           | `dag-api`                                     | Same.                                                              |
-| Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-api`                                     | Dedicated client/contracts package; see `ORCH-BL-006`.             |
+| Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-orchestration-client`                    | Dedicated thin client package.                                     |
 | Full orchestrator REST endpoint contract inventory                | Split between `dag-api` and server route code | Central contract owner before new client tools; see `ORCH-BL-007`. |
 | HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                     | Same imperative shell.                                             |
 | Human operational CLI                                             | `dag-cli`                                     | Same thin client.                                                  |
 | Agent/MCP operational surface                                     | `dag-mcp-server`                              | Same thin client.                                                  |
 
-The current `dag-api` client placement is acceptable for the first beta slice because it avoided
-duplicating endpoint calls between `dag-cli` and `dag-mcp-server`. It should not become permanent:
-operational clients should not depend on a package that also owns server-side controller composition
-and pulls runtime/projection/worker dependencies into the client boundary.
+Operational clients must use `dag-orchestration-client` instead of importing `dag-api` for HTTP
+client behavior. `dag-api` remains responsible for controller contracts and composition; the client
+package remains thin and depends only on `dag-core` for payload domain types.
 
 ## Documentation Deployment Stack
 
@@ -230,28 +229,28 @@ terminal product composition.
 
 ### SYS-AUDIT-002: `dag-api` owns both server-side composition and operational HTTP client
 
-Status: accepted debt.
+Status: resolved by `ORCH-BL-006`.
 
 Current source:
 
-- `packages/dag-api/src/orchestration-http-client.ts`
+- `packages/dag-orchestration-client/src/orchestration-http-client.ts`
 - `packages/dag-cli/src/runner.ts`
 - `packages/dag-mcp-server/src/runner.ts`
 
 Problem:
 
-`dag-cli` and `dag-mcp-server` depend on `dag-api` to reuse `DagOrchestrationHttpClient`. That keeps
-endpoint calls consistent, but it also couples thin operational clients to a package that owns
-server-side controller composition and production dependencies on runtime/projection/worker layers.
+`dag-cli` and `dag-mcp-server` need one shared endpoint caller, but must not depend on server-side
+controller composition packages for that caller.
 
-Target:
+Resolution:
 
-Move operational endpoint contracts and the REST client to a dedicated thin package after the API
-surface stabilizes.
+`@robota-sdk/dag-orchestration-client` owns `DagOrchestrationHttpClient`, operational payload
+types, and the injectable fetch port. `dag-api` owns server-side controller contracts and
+composition.
 
 Follow-up:
 
-- `.agents/tasks/ORCH-BL-006-orchestration-client-contract-package.md`
+- `.agents/tasks/ORCH-BL-007-orchestrator-rest-contract-coverage.md` tracks full endpoint contract inventory.
 
 ### SYS-AUDIT-003: Orchestrator REST contract coverage is split across owners
 
@@ -261,7 +260,7 @@ Current source:
 
 - `apps/dag-orchestrator-server/src/routes/*`
 - `packages/dag-api/src/contracts/*`
-- `packages/dag-api/src/orchestration-http-client.ts`
+- `packages/dag-orchestration-client/src/orchestration-http-client.ts`
 - `packages/dag-mcp-server/src/tool-definitions.ts`
 
 Problem:
