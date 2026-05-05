@@ -6,7 +6,6 @@ export * from './contracts/common-api.js';
 export * from './contracts/diagnostics-api.js';
 export * from './contracts/observability-api.js';
 export * from './contracts/runtime-api.js';
-export * from './orchestration-http-client.js';
 export * from './controllers/dag-diagnostics-controller.js';
 export * from './controllers/dag-design-controller.js';
 export * from './controllers/dag-observability-controller.js';

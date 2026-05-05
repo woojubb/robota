@@ -28,6 +28,7 @@ packages/
 ├── dag-scheduler/               # DAG scheduler layer
 ├── dag-projection/              # DAG projection/read-model layer
 ├── dag-api/                     # DAG API/composition layer
+├── dag-orchestration-client/    # DAG orchestration HTTP client contracts
 ├── dag-cli/                     # JSON-first CLI client for DAG orchestration APIs
 ├── dag-mcp-server/              # MCP server for DAG orchestration APIs
 ├── dag-designer/                # DAG web designer layer

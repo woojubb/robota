@@ -1,5 +1,5 @@
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
-import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-api';
+import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import type {
   IDagCliCommandResult,
   IDagCliIo,

@@ -1,10 +1,6 @@
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
 
-export interface IDagApiJsonObject {
-  readonly [key: string]: TDagApiPayloadValue;
-}
-
-export type TDagApiPayloadValue =
+export type TDagOrchestrationPayloadValue =
   | string
   | number
   | boolean
@@ -13,6 +9,21 @@ export type TDagApiPayloadValue =
   | object
   | readonly object[];
 
+export interface IDagOrchestrationJsonObject {
+  readonly [key: string]: TDagOrchestrationPayloadValue;
+}
+
+export interface IOrchestrationProblemDetails extends IDagOrchestrationJsonObject {
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance: string;
+  readonly code?: string;
+  readonly correlationId?: string;
+  readonly retryable?: boolean;
+}
+
 export type TDagOrchestrationFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export interface IDagOrchestrationHttpClientConfig {
@@ -20,10 +31,11 @@ export interface IDagOrchestrationHttpClientConfig {
   readonly fetch: TDagOrchestrationFetch;
 }
 
-export type IDagOrchestrationHttpPayload = IDagApiJsonObject & {
+export interface IDagOrchestrationHttpPayload extends IDagOrchestrationJsonObject {
   readonly ok?: boolean;
   readonly status?: number;
-};
+  readonly errors?: readonly IOrchestrationProblemDetails[];
+}
 
 export interface IDagOrchestrationHttpResponse {
   readonly ok: boolean;
