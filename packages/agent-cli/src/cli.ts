@@ -249,6 +249,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
+  const activeProviderSettings = readMergedProviderSettings(cwd);
+  const providerProfileName = args.provider ?? activeProviderSettings.currentProvider;
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
@@ -351,6 +353,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     cwd,
     provider,
     providerOverride: args.provider,
+    providerProfileName,
+    providerType: providerSettings.name,
     modelId,
     language: args.language,
     permissionMode: args.permissionMode,

@@ -299,7 +299,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `ICommandResult` — command output, structured diagnostics, typed host effects, and generic interactions.
   - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
   - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs.
-- **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation helpers, environment reference helpers, setup-flow primitives, provider command settings adapter contracts, and provider probe defaults. `/provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
+- **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation helpers, environment reference helpers, setup-flow primitives, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `/provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
 - **Context/compact common APIs**: `agent-sdk/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `/context` and `/compact` command behavior lives in `@robota-sdk/agent-command-context` and `@robota-sdk/agent-command-compact`; both consume these APIs as external command modules.
 - **Model common APIs**: `agent-sdk/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `/model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Language common APIs**: `agent-sdk/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `/language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
@@ -361,27 +361,27 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/config/`
 - **Rationale**: `.robota/settings.json` file-based configuration is for local development environments only (servers use environment variables/DB)
 - **Implementation**: settings file merge, `$ENV:VAR` substitution for provider API keys, Zod validation, provider profile resolution
-- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`.
+- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`. Profile identity is the profile key, not the provider type or model pair. Setup helpers suggest readable model-derived keys and append numeric suffixes when the key already exists.
 - **Legacy compatibility**: legacy `provider` settings remain supported and are used when no active provider profile is configured.
 
 Provider profile shape:
 
 ```json
 {
-  "currentProvider": "gemma",
+  "currentProvider": "supergemma4-26b-uncensored-v2",
   "providers": {
-    "gemma": {
+    "supergemma4-26b-uncensored-v2": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
     },
-    "openai": {
+    "gpt-4o": {
       "type": "openai",
-      "model": "<openai-compatible-model>",
+      "model": "gpt-4o",
       "apiKey": "$ENV:OPENAI_API_KEY"
     },
-    "qwen": {
+    "qwen3-6-plus": {
       "type": "qwen",
       "model": "qwen3.6-plus",
       "apiKey": "$ENV:DASHSCOPE_API_KEY",
@@ -399,6 +399,8 @@ Provider profile shape:
 Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
 
 Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys. OpenAI-compatible local endpoints such as LM Studio should use local `WebSearch`/`WebFetch` function tools for web access unless their concrete provider package documents and enables provider-native hosted web capabilities.
+
+Generated provider profile keys are normalized to lowercase ASCII slugs. The setup flow prefers the selected model id, falls back to provider type, and appends `-2`, `-3`, etc. for duplicates. Secrets, organizations, accounts, and API key fragments must not be included in generated keys.
 
 Resolved provider fields:
 
@@ -1163,7 +1165,7 @@ Provider profile schema:
 | `baseURL` | Optional OpenAI-compatible or provider-specific endpoint                        |
 | `timeout` | Optional provider idle timeout and provider construction timeout when supported |
 
-`currentProvider` must point to an existing profile. Missing profiles and profiles without `type` are configuration errors. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
+`currentProvider` must point to an existing profile key. Missing profiles and profiles without `type` are configuration errors. Profile keys are stable user-facing identifiers; two profiles may have the same `type` and `model` when they represent different credentials, accounts, endpoints, or operational defaults. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
 
 The SDK remains provider-neutral: it resolves provider metadata for session assembly, but consumers such as `agent-cli` still construct concrete provider instances. During session assembly, `config.provider.timeout` is forwarded to `Session.providerTimeout`; when omitted, SDK assembly uses a 120-second provider idle timeout so headless/TUI sessions cannot wait forever for a stalled provider call.
 

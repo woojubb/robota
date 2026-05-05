@@ -60,24 +60,27 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 
 The CLI owns provider profile resolution and provider definition composition. It must not branch on provider type names to decide defaults, required fields, setup prompts, endpoint probes, or constructor behavior. Those values come from injected `IProviderDefinition` records.
 
-Settings may define an active provider profile:
+Settings may define an active provider profile. The profile key is the stable selection identity; it
+is not required to equal provider `type`, and multiple profile keys may point at the same provider
+type/model pair when they represent different credentials, endpoints, accounts, or operational
+defaults:
 
 ```json
 {
-  "currentProvider": "gemma",
+  "currentProvider": "supergemma4-26b-uncensored-v2",
   "providers": {
-    "gemma": {
+    "supergemma4-26b-uncensored-v2": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
     },
-    "openai": {
+    "gpt-4o": {
       "type": "openai",
-      "model": "<openai-compatible-model>",
+      "model": "gpt-4o",
       "apiKey": "$ENV:OPENAI_API_KEY"
     },
-    "qwen": {
+    "qwen3-6-plus": {
       "type": "qwen",
       "model": "qwen3.6-plus",
       "apiKey": "$ENV:DASHSCOPE_API_KEY",
@@ -140,6 +143,12 @@ Supported setup flags:
 
 First-run setup must offer the injected provider definitions as a selectable list when stdin/stdout are TTYs. The list is generated from `IProviderDefinition[]` and may render `displayName`, `type`, and `description`, but it must not branch on concrete provider names. Selecting a provider starts the same provider setup flow used by runtime provider setup.
 
+Interactive setup generates a readable profile key from the selected model id through SDK provider
+common APIs. If that key already exists, setup appends a numeric suffix such as `-2` or `-3`.
+Generated keys must not include API keys, key fragments, account identifiers, organization ids, or
+other sensitive credential hints. Explicit headless setup with `--configure-provider <profile>`
+continues to use the caller-provided profile key.
+
 Startup setup validation must evaluate the merged settings document and the provider selected for this invocation. A valid lower-priority legacy `provider` entry or another valid settings file must not mask an unusable `currentProvider` profile from a higher-priority layer or `--provider` override. When interactive startup setup is opened because a project `.robota` file already selects an unusable provider, the setup write target must be project-local settings so the new selection actually wins in the merged configuration.
 
 Non-interactive print/headless execution must not prompt. Missing provider config must produce an actionable error generated from the injected provider definitions, pointing to `robota --configure` and `robota --configure-provider` without hardcoded provider-specific examples.
@@ -155,10 +164,14 @@ Provider slash commands are command-module interactions rendered through generic
 | `/provider list`           | Show provider profiles from merged settings                                                                                                          |
 | `/provider use <profile>`  | The provider command module confirms, persists `currentProvider` through its injected effective-scope settings adapter, and returns a restart effect |
 | `/provider add`            | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions        |
-| `/provider add <type>`     | Start setup for the selected provider type                                                                                                           |
+| `/provider add <type>`     | Start setup for the selected provider type and create a model-derived profile key with numeric suffixes for duplicates                               |
 | `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                                    |
 
 Provider changes must follow the SDK command contract: the provider command module owns provider setup state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values, submits prompt values back to the active command interaction, and applies typed command effects.
+
+The TUI status area must show enough active profile identity for users to verify the selected
+runtime profile. When profile metadata is available, it renders profile key, provider type, and
+model; when only model metadata is available, it falls back to the model label.
 
 Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
 

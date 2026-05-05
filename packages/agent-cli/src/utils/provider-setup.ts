@@ -91,7 +91,9 @@ export async function runInteractiveProviderSetup(
   const providerChoice = await promptInput(formatProviderSetupSelectionPrompt(providerDefinitions));
   const type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
   const settingsPath = getSettingsPathForScope(cwd, args.settingsScope);
-  const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions);
+  const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
+    existingProfileNames: Object.keys(readMergedProviderSettings(cwd).providers ?? {}),
+  });
   applyProviderConfiguration(settingsPath, input, {
     providerDefinitions,
   });

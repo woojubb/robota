@@ -131,6 +131,9 @@ When no usable settings file exists, the CLI prompts for:
 Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
 
 Provider setup is generated from provider definitions. The default CLI build includes Anthropic, OpenAI-compatible, Gemma, and Qwen providers; other embeddings can inject their own provider definitions.
+Interactive setup creates a readable profile key from the selected model id, such as
+`claude-sonnet-4-6` or `gpt-4o`, and appends `-2`, `-3`, etc. when that key already exists. Generated
+profile keys never include API keys or credential hints.
 
 Non-interactive/headless mode never prompts. Configure a provider ahead of time with `robota --configure` in an interactive terminal, or use `robota --configure-provider <profile> --type <type> ... --set-current`.
 
@@ -315,26 +318,26 @@ Settings are merged in this order, from lowest to highest priority:
 {
   "defaultMode": "default",
   "language": "en",
-  "currentProvider": "qwen",
+  "currentProvider": "qwen-plus",
   "providers": {
-    "qwen": {
+    "qwen-plus": {
       "type": "qwen",
       "model": "qwen-plus",
       "apiKey": "$ENV:DASHSCOPE_API_KEY",
       "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     },
-    "gemma": {
+    "supergemma4-26b-uncensored-v2": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
     },
-    "openai": {
+    "gpt-4o": {
       "type": "openai",
-      "model": "<openai-compatible-model>",
+      "model": "gpt-4o",
       "apiKey": "$ENV:OPENAI_API_KEY"
     },
-    "anthropic": {
+    "claude-sonnet-4-6": {
       "type": "anthropic",
       "model": "claude-sonnet-4-6",
       "apiKey": "$ENV:ANTHROPIC_API_KEY"
@@ -347,7 +350,16 @@ Settings are merged in this order, from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects a profile from `providers`. Qwen Model Studio profiles use `type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as `$ENV:DASHSCOPE_API_KEY`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply provider-specific projection. The legacy single-provider shape remains supported:
+`currentProvider` selects a profile key from `providers`. The key is the stable profile identity, not
+the provider type; multiple profile keys may use the same provider type and model when they represent
+different credentials, endpoints, accounts, or operational defaults. Qwen Model Studio profiles use
+`type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as
+`$ENV:DASHSCOPE_API_KEY`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply
+Gemma-specific channel-marker projection while still talking to the OpenAI-compatible
+`/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use
+`type: "openai"` and do not apply provider-specific projection. Use `--provider <profile>` for a
+one-shot invocation override; add `--set-current` only when the selected profile should become the
+persisted default. The legacy single-provider shape remains supported:
 
 ```json
 {
