@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `eeaf047de` on 2026-05-05.
+Source-verified against `develop` commit `644da21d6` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -13,15 +13,17 @@ separate ownership silos.
 1. Start with [System Layers](#system-layers) for the top-level dependency model.
 2. Read [Agent Product Stack](#agent-product-stack) before changing `agent-cli`, `agent-sdk`,
    command modules, providers, runtime, sessions, or transports.
-3. Read [DAG Orchestration Stack](#dag-orchestration-stack) before changing `dag-cli`,
+3. Read [Agent Playground Stack](#agent-playground-stack) before changing `agent-playground`,
+   `agent-web` playground pages, browser execution, or playground template catalogs.
+4. Read [DAG Orchestration Stack](#dag-orchestration-stack) before changing `dag-cli`,
    `dag-mcp-server`, `dag-api`, `dag-orchestrator-server`, or ComfyUI-facing runtime boundaries.
-4. Read [DAG Service Deployment Stack](#dag-service-deployment-stack) before changing DAG frontend,
+5. Read [DAG Service Deployment Stack](#dag-service-deployment-stack) before changing DAG frontend,
    orchestrator, runtime, storage, or hosting boundaries.
-5. Read [Documentation Deployment Stack](#documentation-deployment-stack) before changing docs
+6. Read [Documentation Deployment Stack](#documentation-deployment-stack) before changing docs
    build, release, or deploy behavior.
-6. Use [Target Architecture](#target-architecture) and [Architecture Audit](#architecture-audit)
+7. Use [Target Architecture](#target-architecture) and [Architecture Audit](#architecture-audit)
    before introducing a new package edge or moving a contract.
-7. Use [Document Distribution Policy](#document-distribution-policy) before adding another
+8. Use [Document Distribution Policy](#document-distribution-policy) before adding another
    architecture file.
 
 ## Document Distribution Policy
@@ -111,6 +113,49 @@ Agent stack ownership:
 | Provider defaults, setup metadata, model catalogs | `agent-provider-*` through `agent-core` contracts | CLI must not hardcode provider branches.                 |
 | Session lifecycle and compaction                  | `agent-sessions`                                  | CLI consumes through SDK facades, not direct imports.    |
 | Background/subagent lifecycle ports               | `agent-runtime`                                   | CLI keeps concrete local process/worktree adapters.      |
+
+## Agent Playground Stack
+
+```mermaid
+flowchart TD
+  AgentWeb["agent-web playground pages\nproduct host"]
+  ClientEntry["agent-playground/client\nbrowser-safe React entry"]
+  RootEntry["agent-playground root entry\nservices + components"]
+  Components["playground React components\neditor, gallery, panels, visualizers"]
+  ComponentData["component data modules\ncode-editor-templates,\ntemplate-gallery-data"]
+  Hooks["playground hooks\ninput, websocket, execution, stats"]
+  Context["playground context + reducer"]
+  Executor["PlaygroundExecutor\nbrowser execution facade"]
+  RemoteInjection["code executor + remote injection\nsandboxed user-code path"]
+  RemoteClient["agent-remote-client\nRemoteExecutor"]
+  Core["agent-core / agent-tools\nRobota, tools, contracts"]
+  Providers["agent-provider-openai / anthropic\nprovider adapters"]
+
+  AgentWeb --> ClientEntry
+  ClientEntry --> Components
+  RootEntry --> Components
+  RootEntry --> Executor
+  Components --> ComponentData
+  Components --> Hooks
+  Components --> Context
+  Hooks --> Executor
+  Executor --> RemoteClient
+  Executor --> Core
+  Executor --> Providers
+  RemoteInjection --> RemoteClient
+  RemoteInjection --> Core
+```
+
+Playground ownership:
+
+| Concern                                           | Owner                      | Notes                                                                 |
+| ------------------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
+| Product route and deployment host                 | `agent-web`                | Imports the browser-safe playground entry only.                       |
+| Browser-safe React package entry                  | `agent-playground/client`  | Must not expose Node-only services to browser consumers.              |
+| Reusable playground services and public root API  | `agent-playground` root    | Owns executor and service exports for runtime consumers.              |
+| React composition, panels, visualizers, UI state  | `agent-playground`         | Hooks and context remain package-internal unless explicitly exported. |
+| Static template/example catalogs                  | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.        |
+| Secure provider execution from browser playground | `agent-remote-client` edge | API keys stay server-side through `RemoteExecutor`/remote injection.  |
 
 ## DAG Orchestration Stack
 
