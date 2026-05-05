@@ -2,6 +2,8 @@ import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type {
   IDagOrchestrationAssetContentDownloadInfo,
   IDagOrchestrationAssetUploadRequest,
+  IDagOrchestrationCostMetaPreviewRequest,
+  IDagOrchestrationCostMetaValidateRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpClient,
   IDagOrchestrationHttpClientConfig,
@@ -12,11 +14,12 @@ import type {
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
   TDagOrchestrationCreateRunDraftRequest,
+  TDagOrchestrationCostMetaRequest,
   TDagOrchestrationFetch,
   TDagOrchestrationReplaceRunDraftRequest,
 } from './orchestration-http-contracts.js';
 
-type THttpMethod = 'GET' | 'POST' | 'PUT';
+type THttpMethod = 'DELETE' | 'GET' | 'POST' | 'PUT';
 
 export class DagOrchestrationHttpClient implements IDagOrchestrationHttpClient {
   private readonly baseUrl: string;
@@ -119,6 +122,43 @@ export class DagOrchestrationHttpClient implements IDagOrchestrationHttpClient {
       contentTypeHeader: 'Content-Type',
       contentDispositionHeader: 'Content-Disposition',
     };
+  }
+
+  public async listCostMeta(): Promise<IDagOrchestrationHttpResponse> {
+    return this.request('/v1/cost-meta', 'GET');
+  }
+
+  public async getCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/cost-meta/${encodeURIComponent(nodeType)}`, 'GET');
+  }
+
+  public async createCostMeta(
+    input: TDagOrchestrationCostMetaRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request('/v1/cost-meta', 'POST', input);
+  }
+
+  public async updateCostMeta(
+    nodeType: string,
+    input: TDagOrchestrationCostMetaRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/cost-meta/${encodeURIComponent(nodeType)}`, 'PUT', input);
+  }
+
+  public async deleteCostMeta(nodeType: string): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/cost-meta/${encodeURIComponent(nodeType)}`, 'DELETE');
+  }
+
+  public async validateCostMetaFormula(
+    input: IDagOrchestrationCostMetaValidateRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request('/v1/cost-meta/validate', 'POST', input);
+  }
+
+  public async previewCostMetaFormula(
+    input: IDagOrchestrationCostMetaPreviewRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request('/v1/cost-meta/preview', 'POST', input);
   }
 
   public async createRunDraft(

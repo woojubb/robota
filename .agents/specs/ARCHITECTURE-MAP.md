@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `f9e388fd7` on 2026-05-05.
+Source-verified against `develop` commit `c9b0189ce` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -154,13 +154,15 @@ DAG stack ownership:
 | Run draft operational HTTP contracts                              | `dag-orchestration-client` + `dag-core`      | Add CLI/MCP tools through the shared client only.                       |
 | Published workflow operational HTTP contracts                     | `dag-orchestration-client` + `dag-core`      | Add CLI/MCP tools through the shared client only.                       |
 | Asset operational HTTP contracts                                  | `dag-orchestration-client` + `dag-core`      | JSON metadata through the shared client; binary streaming by transport. |
+| Cost metadata operational HTTP contracts                          | `dag-orchestration-client` + `dag-cost`      | Add CLI/MCP tools through the shared client only.                       |
 | HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                                  |
 | Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                                       |
 | Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                                       |
 
 Operational clients must use `dag-orchestration-client` instead of importing `dag-api` for HTTP
 client behavior. `dag-api` remains responsible for controller contracts and composition; the client
-package remains thin and depends only on `dag-core` for payload domain types.
+package remains thin and depends on endpoint domain owners such as `dag-core` and `dag-cost` for
+payload domain types.
 
 ## Documentation Deployment Stack
 
@@ -204,8 +206,8 @@ Recommended target ownership:
    command module that consumes SDK command contracts.
 3. Split the operational orchestration HTTP client out of `dag-api` when endpoint coverage grows
    beyond the current first slice.
-4. Centralize orchestrator REST contracts before exposing additional DAG mutation, cost, asset, or
-   published-workflow operations through CLI/MCP clients.
+4. Centralize orchestrator REST contracts before exposing additional DAG mutation, asset,
+   cost-metadata, or published-workflow operations through CLI/MCP clients.
 5. Keep `dag-orchestrator-server` as the imperative shell. Domain rules stay in `dag-core`,
    orchestration use cases stay in `dag-orchestrator`, controller mapping stays in `dag-api`, and
    persistence/runtime technology stays behind adapters.
@@ -268,10 +270,9 @@ Current source:
 
 Problem:
 
-Definition, node catalog, run lifecycle, run draft, published workflow run, and asset metadata
-endpoints are reusable through the shared client. Other server-owned endpoints such as cost
-metadata, admin, and ComfyUI proxy routes have explicit ownership classifications in the server
-SPEC.
+Definition, node catalog, run lifecycle, run draft, published workflow run, asset metadata, and
+cost metadata endpoints are reusable through the shared client. Other server-owned endpoints such
+as admin and ComfyUI proxy routes have explicit ownership classifications in the server SPEC.
 
 Resolution:
 
@@ -281,11 +282,11 @@ into follow-up extraction tasks.
 
 Follow-up:
 
-- `.agents/tasks/ORCH-BL-011-cost-meta-contract-normalization.md`
 - `.agents/tasks/ORCH-BL-012-run-progress-websocket-contract-tests.md`
 - `.agents/tasks/ORCH-BL-013-run-draft-cli-mcp-expansion.md`
 - `.agents/tasks/ORCH-BL-014-published-workflow-cli-mcp-expansion.md`
 - `.agents/tasks/ORCH-BL-015-asset-cli-mcp-expansion.md`
+- `.agents/tasks/ORCH-BL-016-cost-meta-cli-mcp-expansion.md`
 
 ### SYS-AUDIT-004: DAG operational tools are not part of `agent-cli`
 
