@@ -33,12 +33,7 @@ const FORBIDDEN_RUNTIME_PACKAGES = new Set([
   '@robota-sdk/dag-node',
 ]);
 
-const EXPECTED_BLOCKERS = new Set([
-  '@robota-sdk/dag-api -> @robota-sdk/dag-projection',
-  '@robota-sdk/dag-api -> @robota-sdk/dag-runtime',
-  '@robota-sdk/dag-api -> @robota-sdk/dag-scheduler',
-  '@robota-sdk/dag-api -> @robota-sdk/dag-worker',
-]);
+const EXPECTED_BLOCKERS = new Set();
 
 function listProductionDeps(packageJson) {
   return Object.keys(packageJson.dependencies ?? {}).filter((name) =>
@@ -117,6 +112,4 @@ if (unexpectedBlockers.length > 0 || resolvedBlockers.length > 0) {
   process.exit(1);
 }
 
-console.log(
-  `Orchestration split baseline passed with ${EXPECTED_BLOCKERS.size} known dag-api blocker(s).`,
-);
+console.log('Orchestration split baseline passed with no runtime-level target blocker(s).');

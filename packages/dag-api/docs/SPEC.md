@@ -2,28 +2,29 @@
 
 ## Scope
 
-API-layer composition for DAG design, runtime, diagnostics, and observability operations.
-Exposes endpoint-facing contracts, response shapes, and controller implementations that
-orchestrate domain services from `dag-core`, `dag-runtime`, `dag-projection`, and `dag-worker`.
+API-layer contracts and thin controllers for DAG design, runtime, diagnostics, and
+observability operations. This package exposes endpoint-facing request/response shapes,
+controller implementations, and narrow service ports consumed by those controllers.
 
 ## Boundaries
 
 - Does not own core domain contracts (`IDagDefinition`, `IDagRun`, `ITaskRun`, state machines) -- those belong to `dag-core`.
-- Does not own runtime orchestration logic -- delegates to `dag-runtime` services.
-- Does not own worker execution or DLQ behavior -- delegates to `dag-worker`.
-- Does not own projection read-model logic -- delegates to `dag-projection`.
+- Does not own runtime orchestration logic -- delegates through API-owned service ports.
+- Does not own worker execution or DLQ behavior -- delegates through API-owned service ports.
+- Does not own projection read-model logic -- delegates through API-owned service ports.
 - Does not own operational HTTP client behavior -- that belongs to `@robota-sdk/dag-orchestration-client`.
-- Depends on `dag-core` (SSOT), `dag-runtime`, `dag-projection`, and `dag-worker` as sibling dependencies.
+- Depends on `dag-core` only for production domain contracts. Runtime, worker, scheduler,
+  and projection packages must not be production dependencies of this package.
 
 ## Architecture Overview
 
 The package follows a controller-composition pattern:
 
 - **Contracts** (`contracts/`): Define API request/response types and the `IProblemDetails` error shape.
+- **Ports** (`ports/`): Define the minimal runtime, diagnostics, and observability service capabilities required by controllers.
 - **Controllers** (`controllers/`): Thin API controllers that delegate to domain services and map results to API responses. Four controllers: Design, Runtime, Diagnostics, Observability.
-- **Composition roots** (`composition/`): Factory functions that wire domain services and controllers together from port dependencies.
-  - `createDagControllerComposition` -- assembles all four controllers.
-  - `createDagExecutionComposition` -- assembles runtime + worker loop for in-process execution.
+- **Composition roots** (`composition/`): Factory functions that wire controllers from already-created port implementations.
+  - `createDagControllerComposition` -- assembles all four controllers from API-owned ports.
   - `RunProgressEventBus` -- pub/sub bus for `TRunProgressEvent` streaming.
 
 ## Type Ownership
@@ -38,8 +39,10 @@ This package is SSOT for:
 - `ITriggerRunRequest`, `IQueryRunRequest`, `ICancelRunRequest` -- runtime API request types
 - `IAnalyzeFailureRequest`, `IRerunRequest`, `IReinjectDeadLetterRequest`, `IFailureCodeCount`, `IFailureAnalysis` -- diagnostics API types
 - `IQueryRunProjectionRequest`, `IQueryLineageProjectionRequest`, `IObservabilityDashboardData` -- observability API types
+- `IRunProjectionView`, `ILineageProjectionView`, `IObservabilityProjectionReaderPort` -- observability controller DTO and port contracts
+- `IRuntimeRunStarterPort`, `IRuntimeRunReaderPort`, `IRuntimeRunCancellerPort`, `IDiagnosticsDeadLetterReinjectPort` -- runtime and diagnostics controller service ports
 - `IDagControllerComposition`, `IDagControllerCompositionDependencies`, `IDagControllerCompositionOptions` -- controller composition types
-- `IDagExecutionComposition`, `IDagExecutionCompositionDependencies`, `IDagExecutionCompositionOptions` -- execution composition types
+- `IDagExecutionComposition` -- runtime execution composition port consumed by Prompt API backends
 - `IRunProgressEventBus`, `TRunProgressEventListener` -- event bus types
 - `INodeCatalogService` -- runtime `TObjectInfo` node catalog port interface
 - `IDiagnosticsPolicy` -- diagnostics policy interface
@@ -52,8 +55,8 @@ This package is SSOT for:
 - `DagRuntimeController` -- trigger, query, cancel runs
 - `DagObservabilityController` -- run/lineage/dashboard projection queries
 - `DagDiagnosticsController` -- failure analysis, rerun, DLQ reinject
-- `createDagControllerComposition(deps, options?)` -- wires all controllers
-- `createDagExecutionComposition(deps, options)` -- wires runtime + worker loop
+- `createDagControllerComposition(deps, options?)` -- wires all controllers from explicit service ports
+- `IDagExecutionComposition` -- interface-only execution composition contract; implementations live in runtime composition roots
 - `RunProgressEventBus` -- in-memory pub/sub for run progress events
 
 ## Extension Points
@@ -83,11 +86,16 @@ Controller-specific codes:
 
 ### Interface Implementations
 
-| Interface              | Implementor                                     | Kind       | Location                                    |
-| ---------------------- | ----------------------------------------------- | ---------- | ------------------------------------------- |
-| `IRunProgressEventBus` | `RunProgressEventBus`                           | production | `src/composition/run-progress-event-bus.ts` |
-| `INodeCatalogService`  | (external: runtime object-info catalog service) | port       | N/A (consumed via DI)                       |
-| `IDiagnosticsPolicy`   | (external)                                      | port       | N/A (consumed via DI)                       |
+| Interface                            | Implementor                                     | Kind       | Location                                    |
+| ------------------------------------ | ----------------------------------------------- | ---------- | ------------------------------------------- |
+| `IRunProgressEventBus`               | `RunProgressEventBus`                           | production | `src/composition/run-progress-event-bus.ts` |
+| `INodeCatalogService`                | (external: runtime object-info catalog service) | port       | N/A (consumed via DI)                       |
+| `IRuntimeRunStarterPort`             | (external runtime service)                      | port       | N/A (consumed via DI)                       |
+| `IRuntimeRunReaderPort`              | (external runtime service)                      | port       | N/A (consumed via DI)                       |
+| `IRuntimeRunCancellerPort`           | (external runtime service)                      | port       | N/A (consumed via DI)                       |
+| `IObservabilityProjectionReaderPort` | (external projection service)                   | port       | N/A (consumed via DI)                       |
+| `IDiagnosticsDeadLetterReinjectPort` | (external worker/DLQ service)                   | port       | N/A (consumed via DI)                       |
+| `IDiagnosticsPolicy`                 | (external)                                      | port       | N/A (consumed via DI)                       |
 
 ### Inheritance Chains
 
@@ -95,28 +103,26 @@ None. Controller and composition classes are standalone.
 
 ### Port Consumption via DI
 
-| Service/Controller               | Injected Port (from dag-core)                                                 | Location           |
-| -------------------------------- | ----------------------------------------------------------------------------- | ------------------ |
-| `createDagControllerComposition` | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
-| `createDagExecutionComposition`  | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
+| Service/Controller               | Injected Port                                                                                          | Location           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------ |
+| `createDagControllerComposition` | `IStoragePort`, `IRuntimeRunStarterPort`, `IRuntimeRunReaderPort`, `IRuntimeRunCancellerPort`          | `src/composition/` |
+| `createDagControllerComposition` | `IObservabilityProjectionReaderPort`, `IDiagnosticsDeadLetterReinjectPort`, optional node catalog port | `src/composition/` |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                                  | Consumer                         | Location           |
-| --------------------------------------------- | -------------------------------- | ------------------ |
-| `IStoragePort` (dag-core)                     | Controller composition factories | `src/composition/` |
-| `IQueuePort` (dag-core)                       | Controller composition factories | `src/composition/` |
-| `IClockPort` (dag-core)                       | Controller composition factories | `src/composition/` |
-| `ILeasePort` (dag-core)                       | Controller composition factories | `src/composition/` |
-| `ITaskExecutorPort` (dag-core)                | Controller composition factories | `src/composition/` |
-| `RunOrchestratorService` (dag-runtime)        | `DagRuntimeController`           | `src/controllers/` |
-| `ProjectionReadModelService` (dag-projection) | `DagObservabilityController`     | `src/controllers/` |
-| `WorkerLoopService` (dag-worker)              | Execution composition            | `src/composition/` |
+| Port (Owner)                                   | Consumer                                       | Location           |
+| ---------------------------------------------- | ---------------------------------------------- | ------------------ |
+| `IStoragePort` (dag-core)                      | Controller composition factories               | `src/composition/` |
+| `IRuntimeRunStarterPort` (dag-api)             | `DagRuntimeController`, diagnostics controller | `src/controllers/` |
+| `IRuntimeRunReaderPort` (dag-api)              | `DagRuntimeController`, diagnostics controller | `src/controllers/` |
+| `IRuntimeRunCancellerPort` (dag-api)           | `DagRuntimeController`                         | `src/controllers/` |
+| `IObservabilityProjectionReaderPort` (dag-api) | `DagObservabilityController`                   | `src/controllers/` |
+| `IDiagnosticsDeadLetterReinjectPort` (dag-api) | `DagDiagnosticsController`                     | `src/controllers/` |
 
 ## Test Strategy
 
-- **Unit tests**: `src/__tests__/run-progress-event-bus.test.ts`, `execution-composition.test.ts`
-- **E2E tests**: `design-flow-e2e.test.ts`, `runtime-flow-e2e.test.ts`, `diagnostics-flow-e2e.test.ts`, `observability-flow-e2e.test.ts`, `single-dagrun-e2e.test.ts`
-- Tests use in-memory port implementations from `dag-core`.
-- Coverage focus: controller request/response mapping, composition wiring, error-to-problem-details translation, event bus pub/sub lifecycle.
+- **Unit tests**: `src/__tests__/run-progress-event-bus.test.ts`, controller tests, controller composition tests
+- **E2E tests**: `design-flow-e2e.test.ts`
+- Tests use in-memory port implementations from `dag-adapters-local` and controller service stubs.
+- Coverage focus: controller request/response mapping, port-driven composition wiring, error-to-problem-details translation, event bus pub/sub lifecycle.
 - Run: `pnpm --filter @robota-sdk/dag-api test`

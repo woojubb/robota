@@ -4,7 +4,7 @@ status: blocked
 created: 2026-03-15
 priority: medium
 urgency: later
-blocked-by: dag-api runtime/projection/worker dependencies and repo-split extraction manifest missing
+blocked-by: physical repository target/name and import strategy decision
 ---
 
 ## 구상
@@ -26,14 +26,24 @@ blocked-by: dag-api runtime/projection/worker dependencies and repo-split extrac
 - `pnpm harness:scan:orchestration-split`를 `pnpm harness:scan`에 포함했다.
 - 이 guard는 새 runtime-level 의존이 추가되면 실패하고, 기존 blocker가 해결되면 baseline/task 갱신을 요구한다.
 
+### 2026-05-05 boundary refactor
+
+- `dag-api`의 production dependency를 `dag-core`로 축소했다.
+- `dag-api` 컨트롤러는 이제 `IRuntimeRunStarterPort`, `IRuntimeRunReaderPort`, `IRuntimeRunCancellerPort`, `IObservabilityProjectionReaderPort`, `IDiagnosticsDeadLetterReinjectPort`를 통해 외부 서비스를 주입받는다.
+- `createDagExecutionComposition`은 `dag-api`에서 제거하고 `dag-runtime-server`의 app-level composition root로 이동했다.
+- `dag-orchestrator-server`는 전체 `createDagControllerComposition` 대신 필요한 `DagDesignController`만 직접 조립한다.
+- `scripts/harness/check-orchestration-split-baseline.mjs`의 expected blocker는 0개로 갱신했다.
+- 검증은 `pnpm harness:scan`과 `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`로 통과했다.
+- 남은 blocker는 코드 경계가 아니라 실제 별도 repo 대상, 이름, import/fork 전략 결정이다.
+
 ## Recommendation
 
 지금 바로 별도 레포를 만들지 않는다. 먼저 현재 repo 안에서 분리 가능한 경계를 코드로 검증한다.
 
-1. `dag-api`를 orchestration controller/contracts와 runtime/projection/worker composition으로 분리한다.
-2. guard에 고정한 fork 대상 package manifest를 기준으로 `dag-api` runtime-level 의존을 제거한다.
-3. `dag-studio`/`dag-designer`가 runtime package에 직접 의존하지 않는 상태를 CI에서 계속 검증한다.
-4. manifest가 통과하면 새 레포 초기 import 또는 git-filter 기반 split을 수행한다.
+1. 새 repo 대상 이름과 import 전략을 결정한다.
+2. guard에 고정한 fork 대상 package manifest를 기준으로 초기 import 또는 git-filter 기반 split을 수행한다.
+3. 새 repo CI에서 `pnpm build`, `pnpm harness:scan:orchestration-split`, `dag-studio`, `dag-designer`, `dag-orchestrator-server`, `dag-cli`, `dag-mcp-server` 검증을 구성한다.
+4. 원본 repo에는 split 이후 유지할 sync 정책을 별도 ADR로 남긴다.
 
 ## 가져갈 것 (오케스트레이션 이상)
 

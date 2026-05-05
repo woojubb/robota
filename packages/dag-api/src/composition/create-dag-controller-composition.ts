@@ -1,46 +1,44 @@
+import { DagDefinitionService, type IStoragePort } from '@robota-sdk/dag-core';
 import {
-    DagDefinitionService,
-    type IClockPort,
-    type ILeasePort,
-    type IQueuePort,
-    type IStoragePort
-} from '@robota-sdk/dag-core';
-import {
-    RunCancelService,
-    RunOrchestratorService,
-    RunQueryService
-} from '@robota-sdk/dag-runtime';
-import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
-import { DlqReinjectService } from '@robota-sdk/dag-worker';
-import {
-    DagDiagnosticsController,
-    type IDiagnosticsPolicy
+  DagDiagnosticsController,
+  type IDiagnosticsPolicy,
 } from '../controllers/dag-diagnostics-controller.js';
-import { DagDesignController, type INodeCatalogService } from '../controllers/dag-design-controller.js';
+import {
+  DagDesignController,
+  type INodeCatalogService,
+} from '../controllers/dag-design-controller.js';
 import { DagObservabilityController } from '../controllers/dag-observability-controller.js';
 import { DagRuntimeController } from '../controllers/dag-runtime-controller.js';
+import type {
+  IDiagnosticsDeadLetterReinjectPort,
+  IObservabilityProjectionReaderPort,
+  IRuntimeRunCancellerPort,
+  IRuntimeRunReaderPort,
+  IRuntimeRunStarterPort,
+} from '../ports/controller-service-ports.js';
 
 /** Infrastructure dependencies required to compose all DAG controllers. */
 export interface IDagControllerCompositionDependencies {
-    storage: IStoragePort;
-    queue: IQueuePort;
-    deadLetterQueue: IQueuePort;
-    lease: ILeasePort;
-    clock: IClockPort;
+  storage: IStoragePort;
+  runStarter: IRuntimeRunStarterPort;
+  runReader: IRuntimeRunReaderPort;
+  runCanceller: IRuntimeRunCancellerPort;
+  projectionReader: IObservabilityProjectionReaderPort;
+  deadLetterReinject: IDiagnosticsDeadLetterReinjectPort;
 }
 
 /** Optional configuration for controller composition behavior. */
 export interface IDagControllerCompositionOptions {
-    diagnosticsPolicy?: IDiagnosticsPolicy;
-    nodeCatalogService?: INodeCatalogService;
+  diagnosticsPolicy?: IDiagnosticsPolicy;
+  nodeCatalogService?: INodeCatalogService;
 }
 
 /** Composed set of all DAG API controllers. */
 export interface IDagControllerComposition {
-    design: DagDesignController;
-    runtime: DagRuntimeController;
-    observability: DagObservabilityController;
-    diagnostics: DagDiagnosticsController;
+  design: DagDesignController;
+  runtime: DagRuntimeController;
+  observability: DagObservabilityController;
+  diagnostics: DagDiagnosticsController;
 }
 
 /**
@@ -50,35 +48,24 @@ export interface IDagControllerComposition {
  * @returns Composed controller instances for design, runtime, observability, and diagnostics.
  */
 export function createDagControllerComposition(
-    dependencies: IDagControllerCompositionDependencies,
-    options?: IDagControllerCompositionOptions
+  dependencies: IDagControllerCompositionDependencies,
+  options?: IDagControllerCompositionOptions,
 ): IDagControllerComposition {
-    const definitionService = new DagDefinitionService(dependencies.storage);
-    const runOrchestrator = new RunOrchestratorService(
-        dependencies.storage,
-        dependencies.queue,
-        dependencies.clock
-    );
-    const runQuery = new RunQueryService(dependencies.storage);
-    const runCancel = new RunCancelService(dependencies.storage, dependencies.clock);
-    const projectionService = new ProjectionReadModelService(dependencies.storage);
-    const dlqReinject = new DlqReinjectService(
-        dependencies.storage,
-        dependencies.deadLetterQueue,
-        dependencies.queue,
-        dependencies.lease,
-        dependencies.clock
-    );
+  const definitionService = new DagDefinitionService(dependencies.storage);
 
-    return {
-        design: new DagDesignController(definitionService, options?.nodeCatalogService),
-        runtime: new DagRuntimeController(runOrchestrator, runQuery, runCancel),
-        observability: new DagObservabilityController(projectionService),
-        diagnostics: new DagDiagnosticsController(
-            runQuery,
-            runOrchestrator,
-            dlqReinject,
-            options?.diagnosticsPolicy
-        )
-    };
+  return {
+    design: new DagDesignController(definitionService, options?.nodeCatalogService),
+    runtime: new DagRuntimeController(
+      dependencies.runStarter,
+      dependencies.runReader,
+      dependencies.runCanceller,
+    ),
+    observability: new DagObservabilityController(dependencies.projectionReader),
+    diagnostics: new DagDiagnosticsController(
+      dependencies.runReader,
+      dependencies.runStarter,
+      dependencies.deadLetterReinject,
+      options?.diagnosticsPolicy,
+    ),
+  };
 }
