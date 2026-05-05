@@ -1,0 +1,2 @@
+export const PROMPT_PREVIEW_LENGTH = 100;
+export const WS_CHECK_INTERVAL_MS = 1000;

@@ -1,8 +1,8 @@
 # agent-playground Monolith Decomposition
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-use-robota-execution
+- **Branch**: refactor/agent-playground-playground-context
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -63,14 +63,15 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `agent-configuration-block.tsx` into a stable directory module.
 - [x] Add characterization tests for `use-robota-execution`.
 - [x] Split `use-robota-execution.ts` into a stable directory module.
+- [x] Add characterization tests for `playground-context`.
+- [x] Split `playground-context.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
-- [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
+- [x] Confirm no remaining >300 line production source files in `agent-playground`.
 
 ## Current >300 Line Files
 
-### contexts
-
-- `contexts/playground-context.tsx` (390 lines)
+None in production source files. Test fixtures and characterization suites may exceed 300 lines
+when they capture broad behavior, but production modules are now below the guideline threshold.
 
 ## Progress
 
@@ -237,6 +238,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   metric calculation, and local clear behavior.
 - Updated package SPEC and the central architecture map for the hook module without adding new
   architecture document fragments. One production source file still exceeds the 300-line guideline.
+- Completed the final context slice: `playground-context.tsx` is now a same-name directory module
+  with provider composition, context hooks, refs, executor lifecycle, execution actions, common
+  state actions, event conversion, and result shaping split into internal modules.
+- Added characterization coverage for provider initialization, split context hooks, constructor
+  failures, agent creation, prompt/stream execution, auth/tool/history actions, and the deprecated
+  combined `usePlayground()` hook.
+- Confirmed the package no longer has production source files over the 300-line guideline.
 
 ## Decisions
 
@@ -253,6 +261,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to WebSocket connection hook internals.
 - Apply the same stable-import directory module pattern to chat input hook internals.
 - Apply the same stable-import directory module pattern to Robota execution hook internals.
+- Apply the same stable-import directory module pattern to playground context internals while
+  keeping the provider facade thin and action/lifecycle behavior in focused helpers.
 - Apply the same stable-import directory module pattern to executor internals while keeping
   `PlaygroundExecutor` as the stateful browser execution facade.
 - Apply the same stable-import directory module pattern to large playground component internals,
@@ -294,6 +304,5 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 3 production source files still exceed the guideline. The current
-branch delivers the twenty-second tested decomposition slice and extends the repeatable pattern for
-follow-up files.
+This task is complete. `agent-playground` no longer has production source files over the 300-line
+guideline; remaining long files are tests or generated/package-external artifacts.
