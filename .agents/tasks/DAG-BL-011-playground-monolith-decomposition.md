@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-demo-data
+- **Branch**: refactor/agent-playground-code-analyzer
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -19,6 +19,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `template-gallery-data.ts` into a stable directory module.
 - [x] Add characterization tests for `demo-execution-data`.
 - [x] Split `demo-execution-data.ts` into a stable directory module.
+- [x] Add characterization tests for `code-analyzer`.
+- [x] Split `code-analyzer.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -53,7 +55,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `execution-subscriber.ts` (443 lines)
 - `project-manager.ts` (387 lines)
 - `block-tracking/block-hooks.ts` (324 lines)
-- `code-analyzer.ts` (320 lines)
 
 ### contexts
 
@@ -73,6 +74,11 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for demo block order, hierarchy, timeline offsets, and the
   complex-demo wrapper behavior.
 - Updated package SPEC and the central architecture map for the demo data module.
+- Completed the third low-risk slice: `code-analyzer.ts` now delegates through a same-name
+  directory module with analyzer, environment validation, config parser, and shared local types.
+- Added characterization coverage for analyzer diagnostics, environment warnings, and parsed agent
+  metadata.
+- Updated package SPEC and the central architecture map for the code analyzer module.
 
 ## Decisions
 
@@ -80,6 +86,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Preserve consumer imports (`./code-editor-templates`, `./template-gallery-data`) by replacing
   files with same-name directory modules.
 - Apply the same stable-import directory module pattern to demo execution data.
+- Apply the same stable-import directory module pattern to code analyzer utilities.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -97,6 +104,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 23 source files still exceed the guideline. The current branch
-delivers the second tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 22 source files still exceed the guideline. The current branch
+delivers the third tested decomposition slice and extends the repeatable pattern for follow-up
 files.
