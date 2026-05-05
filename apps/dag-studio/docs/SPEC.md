@@ -11,6 +11,8 @@ Owns the Robota web application. A Next.js 15 host that serves the Playground UI
 - Does not proxy ComfyUI traffic or own run-progress WebSocket handling; `dag-designer` connects to the configured orchestrator origin.
 - Keeps deployment, auth configuration, and frontend integration behavior within this app.
 - Styling uses Tailwind CSS v4 utility classes only.
+- Does not own DAG chat-draft planning logic. The editor composes the `dag-designer` Assistant
+  panel and keeps node catalog loading, panel toggles, and user feedback in the app shell.
 
 ## Architecture Overview
 
@@ -24,7 +26,7 @@ Next.js App Router application with the following route structure:
 
 The app composes workspace packages as React components. Generic app API access is configured via `API_CONFIG` (versioned base URL, timeout, retry, rate limiting), while DAG Designer calls use `NEXT_PUBLIC_DAG_API_BASE_URL` directly and default to `http://localhost:3012` for local development. Client-side caching is provided by `src/lib/cache.ts`.
 
-The DAG Designer editor header reads `@robota-sdk/dag-designer` context state for action gating. Save/Publish are blocked by binding validation errors, and Run is additionally blocked while `context.isRunnable` is false, for example while an asset upload is still in progress.
+The DAG Designer editor header reads `@robota-sdk/dag-designer` context state for action gating. Save/Publish are blocked by binding validation errors, and Run is additionally blocked while `context.isRunnable` is false, for example while an asset upload is still in progress. The editor also exposes an Assistant panel toggle that hosts `DagDesigner.ChatBuilder`; the package-level panel owns draft generation while this app owns placement and visibility.
 
 ## Type Ownership
 
@@ -54,6 +56,8 @@ This is a private app (`"private": true`); it has no published API surface. Inte
 - `NEXT_PUBLIC_DAG_API_BASE_URL` -- deployed `dag-orchestrator-server` origin for DAG Designer REST and WebSocket calls.
 - DAG Designer templates -- template definitions in `src/app/dag-designer/templates.ts`.
 - Layout composition -- `src/app/layout.tsx` provides the root layout shell.
+- DAG Designer Assistant panel placement -- editor route state controls whether the package-level
+  chat builder panel is visible.
 
 ## Deployment Contract
 

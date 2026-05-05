@@ -35,6 +35,7 @@ import {
   DagDesignerEdgeInspector,
   DagDesignerRunProgressSummary,
 } from './dag-designer-panels.js';
+import { DagDesignerChatBuilder } from './dag-designer-chat-builder.js';
 import '@xyflow/react/dist/style.css';
 
 // Re-export public types and components so existing consumers are unaffected.
@@ -56,6 +57,7 @@ export type {
   IDagDesignerNodeIoTraceProps,
   IDagDesignerRunProgressSummaryProps,
 } from './dag-designer-panels.js';
+export type { IDagDesignerChatBuilderProps } from './dag-designer-chat-builder.js';
 export {
   DagDesignerNodeExplorer,
   DagDesignerInspector,
@@ -64,6 +66,7 @@ export {
   DagDesignerEdgeInspector,
   DagDesignerRunProgressSummary,
 } from './dag-designer-panels.js';
+export { DagDesignerChatBuilder } from './dag-designer-chat-builder.js';
 
 const FIT_VIEW_OPTIONS = { padding: 0.35, maxZoom: 0.8 } as const;
 
@@ -454,4 +457,5 @@ export const DagDesigner = {
   NodeIoTrace: DagDesignerNodeIoTrace,
   EdgeInspector: DagDesignerEdgeInspector,
   RunProgressSummary: DagDesignerRunProgressSummary,
+  ChatBuilder: DagDesignerChatBuilder,
 } as const;
