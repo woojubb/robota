@@ -14,6 +14,7 @@ export * from './components/node-explorer-panel.js';
 export * from './components/node-config-panel.js';
 export * from './components/edge-inspector-panel.js';
 export * from './components/node-io-trace-panel.js';
+export * from './chat-builder/index.js';
 export {
   enrichDefinitionWithPorts,
   stripDefinitionNodePortDefinitions,

@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-playground-context` on 2026-05-05.
+Source-verified against `feat/dag-chat-builder-batch` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -206,7 +206,9 @@ Playground ownership:
 
 ```mermaid
 flowchart TD
-  DagStudio["dag-studio / dag-designer\nweb UI"]
+  DagStudio["dag-studio\nNext.js route shell"]
+  DagDesigner["dag-designer\nReact canvas, panels, API client"]
+  DagChatBuilder["dag-designer/chat-builder\nobjectInfo draft core"]
   DagCLI["dag-cli\nJSON-first operational CLI"]
   DagMCP["dag-mcp-server\nMCP tool surface"]
   SharedClient["dag-orchestration-client\nDagOrchestrationHttpClient\noperational REST client"]
@@ -218,7 +220,11 @@ flowchart TD
   Adapters["dag-adapters-local\nfile/in-memory ports"]
   Backend["Prompt API backend\ndag-runtime-server or ComfyUI"]
 
+  DagStudio --> DagDesigner
   DagStudio --> Server
+  DagDesigner --> DagChatBuilder
+  DagDesigner --> Core
+  DagChatBuilder --> Core
   DagCLI --> SharedClient
   DagMCP --> SharedClient
   SharedClient --> Server
@@ -249,6 +255,8 @@ DAG stack ownership:
 | Published workflow operational HTTP contracts                     | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                  |
 | Asset operational HTTP contracts                                  | `dag-orchestration-client` + `dag-core`      | JSON metadata through the shared client; binary bytes by transport. |
 | Cost metadata operational HTTP contracts                          | `dag-orchestration-client` + `dag-cost`      | Exposed by CLI/MCP through the shared client only.                  |
+| Chat-assisted DAG draft generation                                | `dag-designer/chat-builder`                  | Deterministic objectInfo-based authoring helper; no provider calls. |
+| DAG Assistant panel placement                                     | `dag-studio`                                 | Thin route-shell state only; does not own draft planning.           |
 | HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                              |
 | Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                                   |
 | Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                                   |
@@ -257,6 +265,13 @@ Operational clients must use `dag-orchestration-client` instead of importing `da
 client behavior. `dag-api` remains responsible for controller contracts and composition; the client
 package remains thin and depends on endpoint domain owners such as `dag-core` and `dag-cost` for
 payload domain types.
+
+`dag-designer/chat-builder` is a functional core for local authoring assistance. It consumes the
+runtime `TObjectInfo` catalog and current `IDagDefinition`, then emits a draft definition without
+runtime-owned node port snapshots. `dag-studio` may place or hide the Assistant panel, but provider
+setup, model selection, credentials, and provider-backed planning must not move into the frontend
+shell. A future LLM planner needs an explicit planner port before it can replace or augment the
+deterministic draft core.
 
 ## DAG Service Deployment Stack
 

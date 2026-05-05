@@ -2,10 +2,10 @@
 
 ## Scope
 
-Composable React DAG designer UI package. Provides components, hooks, and an API client
-for authoring DAG definitions, managing node catalogs, and executing runs with real-time
-progress streaming. Run execution is server-authoritative via API; the designer does not
-perform local orchestration.
+Composable React DAG designer UI package. Provides components, hooks, an API client,
+and local authoring helpers for authoring DAG definitions, managing node catalogs, and
+executing runs with real-time progress streaming. Run execution is server-authoritative
+via API; the designer does not perform local orchestration.
 
 Run client contract: `createRun -> startRun -> getRunResult`.
 
@@ -28,6 +28,9 @@ Run client contract: `createRun -> startRun -> getRunResult`.
 - Does NOT import `dag-runtime`, `dag-worker`, or `dag-scheduler` implementations directly.
 - Does not own backend storage or execution infrastructure.
 - Does not own API contract definitions for the server side -- those belong to `dag-api`.
+- Does not own provider-backed AI planning, provider credentials, model selection, or cost policy.
+  Chat-assisted DAG authoring in this package is limited to deterministic draft generation from
+  the runtime `TObjectInfo` catalog.
 
 ## Architecture Overview
 
@@ -42,15 +45,21 @@ Run client contract: `createRun -> startRun -> getRunResult`.
   - `DagNodeView` -- node rendering
   - `DagBindingEdge` -- edge rendering with binding visualization
   - `NodeExplorerPanel` -- node catalog browser
+  - `DagDesignerChatBuilder` -- assistant panel that turns a natural-language request into a local DAG draft
   - `NodeConfigPanel` -- node configuration editor
   - `EdgeInspectorPanel` -- edge/binding inspector
   - `NodeIoViewer` -- input/output data viewer
   - `NodeIoTracePanel` -- execution trace viewer
+- **Chat Builder** (`chat-builder/`): Pure functional core for deterministic DAG draft generation
+  from `TObjectInfo`, separated from the React shell and external provider calls.
 - **Lifecycle** (`lifecycle/run-engine.ts`): Re-exports `IRunNodeTrace` and `IRunResult` types.
 - **Utilities**: `port-editor-utils.ts` (port editing helpers).
 - **Runtime Port Projection**: `canvas-utils.ts` enriches no-port DAG definitions with `TObjectInfo`/`INodeManifest` ports for rendering and validation, and strips runtime ports before emitting persisted definition changes.
 - **Config Form**: Node configuration uses ComfyUI `TInputTypeSpec` (from `/object_info`) instead of Zod schemas for field rendering. A single string item (`["INT"]`, `["IMAGE"]`) is a type tuple; two or more string items are enum options. Upload enum tuples (`[["upload"], { image_upload: true }]`, `[["upload"], { video_upload: true }]`) render as file upload parameters.
 - **Node Catalog**: `NodeExplorerPanel` uses `INodeObjectInfo`/`TObjectInfo` from the `/object_info` endpoint for node discovery and categorization.
+- **Chat-assisted Drafting**: `buildDagChatDraft()` uses `TObjectInfo` as the only node catalog SSOT.
+  It may prefill text prompt config on source nodes and create bindings between catalog-confirmed node
+  types, but it must not invent node types that are absent from the catalog.
 
 **INodeManifest vs TObjectInfo coexistence:**
 
@@ -75,6 +84,7 @@ This package is SSOT for:
 - `IUseDagDesignApi` -- hook return type interface
 - `IUseDagDesignApiOptions` -- hook options interface
 - `IRunProgressState` -- run progress tracking state
+- `IDagChatDraftInput`, `IDagChatDraftResult`, `IDagChatDraftMessage`, `TDagChatDraftStatus` -- chat-assisted DAG draft contracts
 
 Imported from other packages (not owned here):
 
@@ -91,6 +101,8 @@ Imported from other packages (not owned here):
 - `DagNodeView`, `DagBindingEdge` -- graph element components
 - `NodeExplorerPanel`, `NodeConfigPanel`, `EdgeInspectorPanel` -- panel components
 - `NodeIoViewer`, `NodeIoTracePanel` -- data/trace viewer components
+- `DagDesignerChatBuilder` -- context-aware React panel for chat-assisted DAG draft creation
+- `buildDagChatDraft()` -- pure objectInfo-based DAG draft generator
 - `listObjectInfo()` -- primary method on `IDesignerApiClient` for node catalog discovery (fetches `/object_info` from runtime)
 - `saveRunDraft()`, `getRunDraft()`, `resetRunDraftNodeResult()`, `overwriteRunDraftNodeResult()` -- execution draft APIs backed by `/v1/dag/run-drafts`
 - `enrichDefinitionWithPorts()` -- derives runtime ports from `TObjectInfo`/`INodeManifest` for view/validation without mutating persisted definitions
@@ -101,6 +113,8 @@ Imported from other packages (not owned here):
 - `IDesignerApiClient` -- implement to provide a custom API client (e.g., mock client for testing, alternative transport).
 - `useDagDesignApi({ client })` -- accepts a custom client instance, enabling dependency injection in React.
 - Canvas component accepts `onRunResult` callback for custom run result handling.
+- Future provider-backed planners must be introduced through an explicit planner port instead of
+  embedding provider setup or network calls in `DagDesignerChatBuilder`.
 
 ## Error Taxonomy
 
@@ -137,6 +151,29 @@ Mutation paths (`addNodeFromManifest`, `addNodeFromObjectInfo`, `updateNode`, `u
 Rendering, edge editing, binding validation, list-handle compaction, and port display must use `definitionWithRuntimePorts`. Runtime catalog data is the SSOT for ports; node-local ports in loaded legacy definitions are ignored when a current catalog entry exists.
 
 `createNodeFromManifest()` and `createNodeFromObjectInfo()` create nodes with only node identity, type, position, dependencies, and config. They must not copy manifest or object-info ports into the node.
+
+## Chat-assisted Draft Builder
+
+`buildDagChatDraft()` is a pure function. It accepts a natural-language prompt, the current
+`IDagDefinition`, and the runtime `TObjectInfo` catalog, then returns a draft result with the next
+definition, assistant message, added node IDs, and warnings.
+
+Draft generation rules:
+
+- Empty prompts return an `empty-prompt` result without changing the definition.
+- Empty catalogs return a `needs-catalog` result without changing the definition.
+- The builder selects only node types present in `TObjectInfo`; it never hardcodes unavailable node
+  types into the output.
+- Generated nodes use stable, collision-free IDs derived from node type names and existing node IDs.
+- Generated definitions preserve the current DAG metadata and append draft nodes/edges without
+  storing runtime-owned `inputs` or `outputs`.
+- `dependsOn` is recomputed from generated edges before the definition is emitted.
+- Prompt text may be stored in a catalog-confirmed source node config when that source is available.
+
+`DagDesignerChatBuilder` is the React shell around this pure function. It reads `definition` and
+`objectInfo` from `DagDesignerRoot`, calls `buildDagChatDraft()`, applies the returned definition
+through `onDefinitionChange`, resets run progress, and displays warnings. It must not call external
+LLM providers directly.
 
 ## Node Operation Gate
 
@@ -217,7 +254,7 @@ Ports with `isList: true` support multiple connections via dynamically generated
 
 ## Test Strategy
 
-- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation), `comfyui-field-renderers.test.ts` (ComfyUI input spec parsing tests).
+- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation), `comfyui-field-renderers.test.ts` (ComfyUI input spec parsing tests), `dag-chat-draft.test.ts` (objectInfo-based chat draft generation).
 - Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` and `hasValidRunDraft` contracts).
 - API client HTTP request/response shape tests and WebSocket reconnection logic tests are planned.
 - The designer also relies on integration testing through app-level UI tests.
