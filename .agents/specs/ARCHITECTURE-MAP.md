@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `8c26d74a` on 2026-05-05.
+Source-verified against `develop` commit `eeaf047de` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -218,6 +218,9 @@ Deployment decision:
   cold-start, model-storage, and private-networking requirements.
 - When the frontend is served from HTTPS, run progress must use `wss://` to the orchestrator origin.
   `dag-designer` derives this from `NEXT_PUBLIC_DAG_API_BASE_URL`.
+- Verify external ComfyUI compatibility locally with `docker-compose.dag-comfyui.yml` and
+  `pnpm dag:comfyui:verify`. This check is opt-in because the Docker build, model files, and GPU
+  policy are host-dependent.
 
 ## Documentation Deployment Stack
 
@@ -384,6 +387,23 @@ Resolution:
 The master map now records the three-unit deployment topology and the app-local docs record only
 owned environment variables and runtime constraints. `dag-orchestrator-server` remains a
 long-running Express/WebSocket service, while `dag-studio` remains a thin frontend host.
+
+### SYS-AUDIT-007: External ComfyUI verification was only a backlog note
+
+Status: resolved by `DAG-BL-004`.
+
+Problem:
+
+The orchestrator is intended to work with native ComfyUI through the Prompt API, but the repository
+did not provide a reproducible local verification path for replacing `dag-runtime-server` with a
+real ComfyUI process.
+
+Resolution:
+
+The repository now includes a local Docker Compose template that builds ComfyUI from the official
+source repository and an opt-in integration test that validates runtime route availability,
+orchestrator proxying, WebSocket upgrade capability, node catalog envelope behavior, and asset
+upload forwarding.
 
 ## Governance and Update Policy
 

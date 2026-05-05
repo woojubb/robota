@@ -342,14 +342,15 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 ### Current Coverage
 
-| Test File                                         | Scope                                 | Tests                                                                                 |
-| ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
-| `src/__tests__/comfyui-event-translator.test.ts`  | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                    |
-| `src/__tests__/ws-routes.test.ts`                 | Run progress WebSocket route contract | Event envelope, buffering before dagRunId resolution, terminal cleanup, backend error |
-| `src/__tests__/endpoint-contract.test.ts`         | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
-| `src/__tests__/asset-routes.test.ts`              | Asset route endpoint contracts        | Upload success, validation errors, metadata envelope, content stream headers          |
-| `src/__tests__/run-draft-routes.test.ts`          | Run draft endpoint contracts          | Draft create/get/update, reset, overwrite, and response envelopes                     |
-| `src/__tests__/published-workflow-routes.test.ts` | Published workflow routes             | Latest/exact published selection, draft rejection, override validation                |
+| Test File                                            | Scope                                 | Tests                                                                                                                                          |
+| ---------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/__tests__/comfyui-event-translator.test.ts`     | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                                                                             |
+| `src/__tests__/ws-routes.test.ts`                    | Run progress WebSocket route contract | Event envelope, buffering before dagRunId resolution, terminal cleanup, backend error                                                          |
+| `src/__tests__/endpoint-contract.test.ts`            | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails)                                                          |
+| `src/__tests__/asset-routes.test.ts`                 | Asset route endpoint contracts        | Upload success, validation errors, metadata envelope, content stream headers                                                                   |
+| `src/__tests__/run-draft-routes.test.ts`             | Run draft endpoint contracts          | Draft create/get/update, reset, overwrite, and response envelopes                                                                              |
+| `src/__tests__/published-workflow-routes.test.ts`    | Published workflow routes             | Latest/exact published selection, draft rejection, override validation                                                                         |
+| `src/__tests__/external-comfyui-integration.test.ts` | External ComfyUI integration          | Opt-in (`COMFYUI_INTEGRATION=1`) check for runtime routes, orchestrator proxying, WebSocket upgrade, node catalog, and asset upload forwarding |
 
 ### Coverage Gaps
 
@@ -363,6 +364,21 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 1. Route contract tests: verify each endpoint returns correct status codes and envelope shapes for success and error cases (mock service dependencies).
 2. Asset validation tests: verify `validateAssetReferences` handles all reference type combinations.
 3. WebSocket bridge expansion tests: add client reconnection and malformed backend message cases if those behaviors become product requirements.
+
+### External ComfyUI Verification
+
+The external ComfyUI integration test is skipped by default so CI does not require Docker, GPU
+hardware, downloaded models, or a long-running backend. To run it locally:
+
+```bash
+pnpm dag:comfyui:up
+BACKEND_URL=http://127.0.0.1:8188 pnpm --filter @robota-sdk/dag-orchestrator-server dev
+pnpm dag:comfyui:verify
+```
+
+The Docker compose template builds from the official ComfyUI source repository and defaults to CPU
+PyTorch. Full prompt execution is intentionally outside the default check because it depends on
+model files and workflow-specific node availability.
 
 ## Class Contract Registry
 
