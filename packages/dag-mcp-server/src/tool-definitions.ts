@@ -97,6 +97,50 @@ export const DAG_MCP_TOOL_DEFINITIONS: readonly IDagMcpToolDefinition[] = [
     description: 'Get DAG run result.',
     inputSchema: objectSchema({ dagRunId: { type: 'string' } }, ['dagRunId']),
   },
+  {
+    name: 'dag_run_drafts_create',
+    description: 'Create or replace an execution run draft.',
+    inputSchema: objectSchema({ draft: { type: 'object' } }, ['draft']),
+  },
+  {
+    name: 'dag_run_drafts_get',
+    description: 'Get an execution run draft.',
+    inputSchema: objectSchema({ draftId: { type: 'string' } }, ['draftId']),
+  },
+  {
+    name: 'dag_run_drafts_replace',
+    description: 'Replace an execution run draft.',
+    inputSchema: objectSchema(
+      {
+        draftId: { type: 'string' },
+        draft: { type: 'object' },
+      },
+      ['draftId', 'draft'],
+    ),
+  },
+  {
+    name: 'dag_run_drafts_reset_node_result',
+    description: 'Reset one run draft node result and downstream results.',
+    inputSchema: objectSchema(
+      {
+        draftId: { type: 'string' },
+        nodeId: { type: 'string' },
+      },
+      ['draftId', 'nodeId'],
+    ),
+  },
+  {
+    name: 'dag_run_drafts_overwrite_node_result',
+    description: 'Manually overwrite one run draft node result.',
+    inputSchema: objectSchema(
+      {
+        draftId: { type: 'string' },
+        nodeId: { type: 'string' },
+        result: { type: 'object' },
+      },
+      ['draftId', 'nodeId', 'result'],
+    ),
+  },
 ];
 
 function objectSchema(

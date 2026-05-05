@@ -38,6 +38,11 @@ Commands:
 - `runs start <preparationId>`
 - `runs status <dagRunId>`
 - `runs result <dagRunId>`
+- `run-drafts create --json <json|@file>`
+- `run-drafts get <draftId>`
+- `run-drafts replace <draftId> --json <json|@file>`
+- `run-drafts reset <draftId> <nodeId>`
+- `run-drafts overwrite <draftId> <nodeId> --json <json|@file>`
 
 Output is JSON. Success responses are printed as returned by the server. CLI validation failures use a JSON envelope with `ok: false`, `status: 2`, and a single problem entry.
 
@@ -53,7 +58,7 @@ This package is SSOT for:
 Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
-- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, run draft request aliases, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
 
 ## Public API Surface
 
@@ -84,6 +89,6 @@ None.
 
 ## Test Strategy
 
-- Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, and JSON output.
+- Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, and JSON output.
 - Tests inject a fake fetch and fake file reader; no network or filesystem access is required.
 - Run: `pnpm --filter @robota-sdk/dag-cli test`

@@ -247,6 +247,11 @@ describe('DAG MCP tools', () => {
       'dag_runs_start',
       'dag_runs_status',
       'dag_runs_result',
+      'dag_run_drafts_create',
+      'dag_run_drafts_get',
+      'dag_run_drafts_replace',
+      'dag_run_drafts_reset_node_result',
+      'dag_run_drafts_overwrite_node_result',
     ]);
   });
 
@@ -279,5 +284,43 @@ describe('DAG MCP tools', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('dagId is required');
     expect(client.calls).toHaveLength(0);
+  });
+
+  it('dispatches run draft tools through the orchestration client', async () => {
+    const client = new FakeDagClient();
+    const draft = {
+      draftId: 'draft-1',
+      definition: createDefinition(),
+      input: { prompt: 'hello' },
+    };
+    const resultPayload = {
+      input: { prompt: 'hello' },
+      output: { text: 'done' },
+    };
+
+    await callDagMcpTool('dag_run_drafts_create', { draft }, client);
+    await callDagMcpTool('dag_run_drafts_get', { draftId: 'draft-1' }, client);
+    await callDagMcpTool('dag_run_drafts_replace', { draftId: 'draft-1', draft }, client);
+    await callDagMcpTool(
+      'dag_run_drafts_reset_node_result',
+      { draftId: 'draft-1', nodeId: 'source' },
+      client,
+    );
+    await callDagMcpTool(
+      'dag_run_drafts_overwrite_node_result',
+      { draftId: 'draft-1', nodeId: 'source', result: resultPayload },
+      client,
+    );
+
+    expect(client.calls.slice(-5)).toEqual([
+      { method: 'createRunDraft', payload: draft },
+      { method: 'getRunDraft', payload: { draftId: 'draft-1' } },
+      { method: 'replaceRunDraft', payload: { draftId: 'draft-1', input: draft } },
+      { method: 'resetRunDraftNodeResult', payload: { draftId: 'draft-1', nodeId: 'source' } },
+      {
+        method: 'overwriteRunDraftNodeResult',
+        payload: { draftId: 'draft-1', nodeId: 'source', input: resultPayload },
+      },
+    ]);
   });
 });
