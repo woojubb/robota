@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-agent-container-block
+- **Branch**: refactor/agent-playground-block-tree
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -47,6 +47,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `usage-monitor.tsx` into a stable directory module.
 - [x] Add characterization tests for `agent-container-block`.
 - [x] Split `agent-container-block.tsx` into a stable directory module.
+- [x] Add characterization tests for `block-visualization/block-tree`.
+- [x] Split `block-visualization/block-tree.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -64,7 +66,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `error-panel.tsx` (403 lines)
 - `tool-container-block.tsx` (383 lines)
 - `block-visualization/block-visualization-panel.tsx` (362 lines)
-- `block-visualization/block-tree.tsx` (336 lines)
 
 ### contexts
 
@@ -175,6 +176,14 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   leader/configure/remove callbacks, and drag callback forwarding.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the seventeenth slice: `block-visualization/block-tree.tsx` is now a same-name
+  directory module with a public facade plus pure tree builder, height mapping, collector snapshot
+  hook, collector event hook, expansion actions, controls, stats badges, action menu, and recursive
+  content rendering.
+- Added characterization coverage for stats badges, debug metadata toggling, hierarchy expansion,
+  selection, collector event updates, and clear handling.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -204,6 +213,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   components must pass received div props through to the concrete DOM/UI primitive.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
+- Preserve collector snapshot behavior for block tree rendering by rebuilding tree nodes on each
+  render; collectors and tests may reuse the same blocks array reference while changing contents.
 
 ## Test Plan
 
@@ -219,6 +230,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 9 production source files still exceed the guideline. The current
-branch delivers the sixteenth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 8 production source files still exceed the guideline. The current
+branch delivers the seventeenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
