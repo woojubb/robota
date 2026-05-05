@@ -45,6 +45,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 ### Deployment
 
 - **Cloudflare Pages** (blog, docs) deploys automatically when `main` is updated.
+- Manual docs deployment uses `pnpm docs:deploy`, which uploads `apps/docs/.vitepress/dist` to Cloudflare Pages with Wrangler.
 - Changes on release branches are NOT deployed until merged to `main`.
 - When deployment is needed, create a PR from the release branch to `main` and ask the user to merge it.
 
