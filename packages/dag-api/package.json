@@ -49,11 +49,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/dag-projection": "workspace:*",
-    "@robota-sdk/dag-runtime": "workspace:*",
-    "@robota-sdk/dag-scheduler": "workspace:*",
-    "@robota-sdk/dag-worker": "workspace:*"
+    "@robota-sdk/dag-core": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/dag-adapters-local": "workspace:*",
