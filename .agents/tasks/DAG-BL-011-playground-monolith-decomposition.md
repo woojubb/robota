@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-project-manager
+- **Branch**: refactor/agent-playground-block-hooks
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -25,6 +25,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `components/ui/accessibility.tsx` into a stable directory module.
 - [x] Add characterization tests for `project-manager`.
 - [x] Split `project-manager.ts` into a stable directory module.
+- [x] Add characterization tests for `block-tracking/block-hooks`.
+- [x] Split `block-tracking/block-hooks.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -56,7 +58,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `websocket-client.ts` (445 lines)
 - `robota-executor.ts` (447 lines)
 - `execution-subscriber.ts` (443 lines)
-- `block-tracking/block-hooks.ts` (324 lines)
 
 ### contexts
 
@@ -92,6 +93,12 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for project creation, storage restoration, import validation,
   update/duplicate/search/export, templates, deletion, and stats.
 - Updated package SPEC and the central architecture map for the project manager module.
+- Completed the sixth low-risk slice: `block-tracking/block-hooks.ts` is now a same-name
+  directory module with public hook factories plus internal handler, block message, error, and type
+  modules.
+- Added characterization coverage for tool start, completion, error, missing execution id, and
+  delegation wrapper behavior.
+- Updated package SPEC and the central architecture map for the block tracking hooks module.
 
 ## Decisions
 
@@ -102,6 +109,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to code analyzer utilities.
 - Apply the same stable-import directory module pattern to accessibility UI primitives.
 - Apply the same stable-import directory module pattern to project manager internals.
+- Apply the same stable-import directory module pattern to block tracking hook factories.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -119,6 +127,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 20 source files still exceed the guideline. The current branch
-delivers the fifth tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 19 source files still exceed the guideline. The current branch
+delivers the sixth tested decomposition slice and extends the repeatable pattern for follow-up
 files.

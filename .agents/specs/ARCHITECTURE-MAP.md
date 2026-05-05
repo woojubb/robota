@@ -1,7 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-project-manager` commit `4092bc619` on
-2026-05-05.
+Source-verified against `refactor/agent-playground-block-hooks` commit `c8f242f3d` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -127,6 +126,7 @@ flowchart TD
   UiPrimitives["shared UI primitives\naccessibility + controls"]
   DemoData["demo execution data module\nscenario + timeline offsets"]
   ProjectManager["project manager module\nstorage + metadata"]
+  BlockHooks["block tracking hooks module\nhandlers + block messages"]
   Hooks["playground hooks\ninput, websocket, execution, stats"]
   Context["playground context + reducer"]
   Executor["PlaygroundExecutor\nbrowser execution facade"]
@@ -140,6 +140,7 @@ flowchart TD
   ClientEntry --> Components
   RootEntry --> Components
   RootEntry --> Executor
+  RootEntry --> BlockHooks
   Components --> ComponentData
   Components --> UiPrimitives
   Components --> DemoData
@@ -166,6 +167,7 @@ Playground ownership:
 | Static template/example catalogs                  | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.           |
 | Shared UI primitives                              | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.           |
 | Playground project storage and metadata           | `agent-playground`         | LocalStorage-backed service; keep import path stable through `index.ts`. |
+| Block tracking hook factories                     | `agent-playground`         | Keep hook factories thin; handlers and block messages stay internal.     |
 | User-code diagnostics and config parsing          | `agent-playground`         | Code analyzer remains package-internal and feeds playground execution.   |
 | Secure provider execution from browser playground | `agent-remote-client` edge | API keys stay server-side through `RemoteExecutor`/remote injection.     |
 
