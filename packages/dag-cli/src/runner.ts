@@ -1,4 +1,8 @@
+import { createWriteStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import { parseGlobalConfig } from './arguments.js';
@@ -14,6 +18,12 @@ const defaultIo: IDagCliIo = {
     process.stdout.write(text);
   },
   readTextFile: async (filePath: string) => readFile(filePath, UTF8_ENCODING),
+  writeBinaryStream: async (filePath, stream) => {
+    await pipeline(
+      Readable.fromWeb(stream as NodeReadableStream<Uint8Array>),
+      createWriteStream(filePath),
+    );
+  },
 };
 
 const defaultFetch: TDagCliFetch = async (url: string, init?: RequestInit) => fetch(url, init);
@@ -35,7 +45,7 @@ export async function runDagCli(
     baseUrl: config.serverUrl,
     fetch: fetchImpl,
   });
-  const result = await dispatchDagCliCommand(config.args, client, io);
+  const result = await dispatchDagCliCommand(config.args, client, fetchImpl, io);
   io.write(formatJsonOutput(result.payload));
   return result.exitCode;
 }

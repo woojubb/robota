@@ -34,6 +34,9 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 - `dag_definitions_validate`
 - `dag_definitions_publish`
 - `dag_nodes_list`
+- `dag_assets_upload`
+- `dag_assets_get_metadata`
+- `dag_assets_get_content_info`
 - `dag_runs_create`
 - `dag_runs_start`
 - `dag_runs_status`
@@ -58,7 +61,7 @@ This package is SSOT for:
 
 Imported from other packages:
 
-- `DagOrchestrationHttpClient`, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and response payload types from `@robota-sdk/dag-orchestration-client`
+- `DagOrchestrationHttpClient`, asset request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and response payload types from `@robota-sdk/dag-orchestration-client`
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
 
 ## Public API Surface
@@ -87,6 +90,6 @@ None.
 
 ## Test Strategy
 
-- Unit tests cover tool definition registration, required argument validation, run draft tool dispatch, published workflow version/override dispatch, and client dispatch payloads.
+- Unit tests cover tool definition registration, required argument validation, run draft tool dispatch, published workflow version/override dispatch, asset upload/metadata/content-info dispatch, and client dispatch payloads.
 - Tests inject a fake `IDagOrchestrationHttpClient`; no network access is required.
 - Run: `pnpm --filter @robota-sdk/dag-mcp-server test`

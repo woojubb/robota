@@ -71,6 +71,21 @@ export const DAG_MCP_TOOL_DEFINITIONS: readonly IDagMcpToolDefinition[] = [
     inputSchema: EMPTY_OBJECT_SCHEMA,
   },
   {
+    name: 'dag_assets_upload',
+    description: 'Upload an asset from a JSON base64 payload.',
+    inputSchema: objectSchema({ asset: { type: 'object' } }, ['asset']),
+  },
+  {
+    name: 'dag_assets_get_metadata',
+    description: 'Get asset metadata.',
+    inputSchema: objectSchema({ assetId: { type: 'string' } }, ['assetId']),
+  },
+  {
+    name: 'dag_assets_get_content_info',
+    description: 'Get binary asset content download information.',
+    inputSchema: objectSchema({ assetId: { type: 'string' } }, ['assetId']),
+  },
+  {
     name: 'dag_runs_create',
     description: 'Create a DAG run preparation from a definition.',
     inputSchema: objectSchema(

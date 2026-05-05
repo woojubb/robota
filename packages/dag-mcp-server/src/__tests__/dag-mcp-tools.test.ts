@@ -243,6 +243,9 @@ describe('DAG MCP tools', () => {
       'dag_definitions_validate',
       'dag_definitions_publish',
       'dag_nodes_list',
+      'dag_assets_upload',
+      'dag_assets_get_metadata',
+      'dag_assets_get_content_info',
       'dag_runs_create',
       'dag_runs_start',
       'dag_runs_status',
@@ -351,6 +354,35 @@ describe('DAG MCP tools', () => {
       ok: true,
       status: 202,
       data: { dagRunId: 'run-1', dagId: 'published dag', version: 3 },
+    });
+  });
+
+  it('dispatches asset tools and exposes content download info without binary payloads', async () => {
+    const client = new FakeDagClient();
+    const asset = {
+      fileName: 'photo.png',
+      mediaType: 'image/png',
+      base64Data: 'AQIDBA==',
+    };
+
+    await callDagMcpTool('dag_assets_upload', { asset }, client);
+    await callDagMcpTool('dag_assets_get_metadata', { assetId: 'asset 1' }, client);
+    const contentInfo = await callDagMcpTool(
+      'dag_assets_get_content_info',
+      { assetId: 'asset 1' },
+      client,
+    );
+
+    expect(client.calls.slice(-3)).toEqual([
+      { method: 'uploadAsset', payload: asset },
+      { method: 'getAssetMetadata', payload: { assetId: 'asset 1' } },
+      { method: 'getAssetContentDownloadInfo', payload: { assetId: 'asset 1' } },
+    ]);
+    expect(contentInfo.isError).toBe(false);
+    expect(JSON.parse(contentInfo.content[0]?.text ?? '{}')).toMatchObject({
+      assetId: 'asset 1',
+      url: 'http://test.invalid/v1/dag/assets/asset 1/content',
+      responseType: 'binary',
     });
   });
 });
