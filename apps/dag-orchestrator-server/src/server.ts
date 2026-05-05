@@ -30,6 +30,7 @@ import { registerWsRoutes } from './routes/ws-routes.js';
 import { registerAdminRoutes } from './routes/admin-routes.js';
 import { registerRuntimeAssetRoutes } from './routes/runtime-asset-routes.js';
 import { registerCostMetaRoutes } from './routes/cost-meta-routes.js';
+import { RuntimeNodeCatalogService } from './services/runtime-node-catalog-service.js';
 
 dotenv.config({
   path: path.resolve(process.cwd(), '.env'),
@@ -84,6 +85,7 @@ async function bootstrapOrchestratorServer(): Promise<void> {
 
   const backendUrl = resolveBackendUrl();
   const apiClient = new HttpPromptApiClient(backendUrl);
+  const nodeCatalogService = new RuntimeNodeCatalogService(apiClient);
   const orchestrator = new PromptOrchestratorService(
     apiClient,
     costEstimator,
@@ -104,6 +106,7 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     { storage, queue, deadLetterQueue, lease, clock },
     {
       diagnosticsPolicy: { reinjectEnabled: false },
+      nodeCatalogService,
     },
   );
 
@@ -220,16 +223,6 @@ async function bootstrapOrchestratorServer(): Promise<void> {
       return;
     }
     res.json(result.value);
-  });
-
-  // Robota API: node catalog via object_info proxy
-  app.get('/v1/dag/nodes', async (_req: Request, res: Response) => {
-    const result = await orchestrator.getObjectInfo();
-    if (!result.ok) {
-      res.status(502).json({ ok: false, error: result.error });
-      return;
-    }
-    res.json({ ok: true, status: 200, data: result.value });
   });
 
   app.get('/system_stats', async (_req, res) => {
