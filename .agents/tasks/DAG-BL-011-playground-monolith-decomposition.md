@@ -1,59 +1,95 @@
----
-title: agent-playground monolith decomposition (26 files)
-status: backlog
-priority: low
-urgency: later
-created: 2026-03-27
-packages:
-  - agent-playground
----
+# agent-playground Monolith Decomposition
 
-## 요약
+- **Status**: in-progress
+- **Created**: 2026-03-27
+- **Branch**: refactor/agent-playground-decompose-p1
+- **Scope**: packages/agent-playground
+- **Priority**: low
 
-agent-playground에 300줄 초과 프로덕션 파일 26개. 레포 전체에서 가장 많은 위반.
+## Objective
 
-## 위반 파일
+Reduce `agent-playground` source files that exceed the repository file-size guideline without
+changing runtime behavior. Decompose one responsibility at a time under characterization tests.
 
-### hooks (3 files)
+## Plan
 
-- `hooks/use-websocket-connection.ts` (471줄)
-- `hooks/use-chat-input.ts` (460줄)
-- `hooks/use-robota-execution.ts` (396줄)
+- [x] Add characterization tests for `code-editor-templates`.
+- [x] Split `code-editor-templates.ts` into a stable directory module.
+- [x] Add characterization tests for `template-gallery-data`.
+- [x] Split `template-gallery-data.ts` into a stable directory module.
+- [x] Update package SPEC and central architecture map for the new module boundary.
+- [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
-### components/playground (15 files)
+## Current >300 Line Files
 
-- `agent-configuration-block.tsx` (467줄)
-- `project-browser.tsx` (422줄)
-- `execution-tree-debug.tsx` (421줄)
-- `error-panel.tsx` (403줄)
-- `tool-container-block.tsx` (383줄)
-- `template-gallery-data.ts` (371줄)
-- `block-visualization/block-visualization-panel.tsx` (362줄)
-- `code-editor-templates.ts` (350줄)
-- `block-visualization/block-tree.tsx` (336줄)
-- `agent-container-block.tsx` (327줄)
-- `usage-monitor.tsx` (323줄)
-- `execution-tree-visualizer.tsx` (321줄)
-- `individual-plugin-block.tsx` (318줄)
-- `chat-interface.tsx` (307줄)
-- `components/ui/accessibility.tsx` (303줄)
+### hooks
 
-### lib/playground (7 files)
+- `hooks/use-websocket-connection.ts` (471 lines)
+- `hooks/use-chat-input.ts` (460 lines)
+- `hooks/use-robota-execution.ts` (396 lines)
 
-- `websocket-client.ts` (451줄)
-- `robota-executor.ts` (447줄)
-- `execution-subscriber.ts` (443줄)
-- `project-manager.ts` (387줄)
-- `block-tracking/block-hooks.ts` (324줄)
-- `code-analyzer.ts` (320줄)
-- `demo-execution-data.ts` (310줄)
+### components/playground
 
-### contexts (1 file)
+- `agent-configuration-block.tsx` (467 lines)
+- `project-browser.tsx` (422 lines)
+- `execution-tree-debug.tsx` (421 lines)
+- `error-panel.tsx` (403 lines)
+- `tool-container-block.tsx` (383 lines)
+- `block-visualization/block-visualization-panel.tsx` (362 lines)
+- `block-visualization/block-tree.tsx` (336 lines)
+- `agent-container-block.tsx` (327 lines)
+- `usage-monitor.tsx` (323 lines)
+- `execution-tree-visualizer.tsx` (321 lines)
+- `individual-plugin-block.tsx` (318 lines)
+- `chat-interface.tsx` (307 lines)
+- `components/ui/accessibility.tsx` (303 lines)
 
-- `contexts/playground-context.tsx` (390줄)
+### lib/playground
 
-## 테스트 계획
+- `websocket-client.ts` (445 lines)
+- `robota-executor.ts` (447 lines)
+- `execution-subscriber.ts` (443 lines)
+- `project-manager.ts` (387 lines)
+- `block-tracking/block-hooks.ts` (324 lines)
+- `code-analyzer.ts` (320 lines)
+- `demo-execution-data.ts` (310 lines)
 
-- playground는 테스트가 제한적이므로 빌드 성공이 주요 검증 수단
-- `pnpm --filter @robota-sdk/agent-playground build` 전후 성공 확인
-- 분해 후 300줄 초과 파일 0개 확인
+### contexts
+
+- `contexts/playground-context.tsx` (390 lines)
+
+## Progress
+
+### 2026-05-05
+
+- Completed the first safe P1 slice: static component catalog decomposition.
+- Removed `code-editor-templates.ts` and `template-gallery-data.ts` from the >300 line set while
+  preserving the existing import paths through directory `index.ts` modules.
+- Added characterization tests before each extraction.
+- Updated `packages/agent-playground/docs/SPEC.md` and `.agents/specs/ARCHITECTURE-MAP.md`.
+
+## Decisions
+
+- Start with static data modules because they have no UI state, network, or browser side effects.
+- Preserve consumer imports (`./code-editor-templates`, `./template-gallery-data`) by replacing
+  files with same-name directory modules.
+- Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
+  SPEC only records package-local contract details.
+
+## Test Plan
+
+- Run targeted characterization tests after each data-module extraction.
+- Run the full `@robota-sdk/agent-playground` Vitest suite after all slice changes.
+- Run `typecheck`, `lint`, and `build` for `@robota-sdk/agent-playground`.
+- Run documentation and harness scans because this slice updates package SPEC, the central
+  architecture map, and the task record.
+
+## Blockers
+
+- None for this slice.
+
+## Result
+
+This task remains open because 24 source files still exceed the guideline. The current branch
+delivers the first tested decomposition slice and establishes the repeatable pattern for follow-up
+files.
