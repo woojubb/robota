@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-execution-tree-debug
+- **Branch**: refactor/agent-playground-project-browser
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -57,6 +57,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `error-panel.tsx` into a stable directory module.
 - [x] Add characterization tests for `execution-tree-debug`.
 - [x] Split `execution-tree-debug.tsx` into a stable directory module.
+- [x] Add characterization tests for `project-browser`.
+- [x] Split `project-browser.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -69,7 +71,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 ### components/playground
 
 - `agent-configuration-block.tsx` (467 lines)
-- `project-browser.tsx` (422 lines)
 
 ### contexts
 
@@ -217,6 +218,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   and raw previews, simple demo generation, and complex demo generation.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the twenty-second slice: `project-browser.tsx` is now a same-name directory module
+  with project list loading, filter state, dialog actions, header, import/create dialogs, filters,
+  empty state, project card, and grid rendering split from the facade.
+- Added characterization coverage for project loading/sorting/searching, current project display,
+  empty-state create callback, create dialog submission, and import dialog submission.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -256,6 +264,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   and pure issue formatting stay separate from rendering branches.
 - Keep debug-only visualizer data builders pure and separate from control actions so diagnostic UI
   can be tested without depending on interval refresh behavior.
+- Keep browser project management UI actions separate from list/filter rendering so localStorage
+  service calls and DOM export side effects remain isolated behind action helpers.
 
 ## Test Plan
 
@@ -271,6 +281,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 4 production source files still exceed the guideline. The current
-branch delivers the twenty-first tested decomposition slice and extends the repeatable pattern for
+This task remains open because 3 production source files still exceed the guideline. The current
+branch delivers the twenty-second tested decomposition slice and extends the repeatable pattern for
 follow-up files.
