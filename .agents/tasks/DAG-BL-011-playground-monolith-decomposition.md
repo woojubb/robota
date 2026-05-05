@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-accessibility-ui
+- **Branch**: refactor/agent-playground-project-manager
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -23,6 +23,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `code-analyzer.ts` into a stable directory module.
 - [x] Add characterization tests for `components/ui/accessibility`.
 - [x] Split `components/ui/accessibility.tsx` into a stable directory module.
+- [x] Add characterization tests for `project-manager`.
+- [x] Split `project-manager.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -54,7 +56,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `websocket-client.ts` (445 lines)
 - `robota-executor.ts` (447 lines)
 - `execution-subscriber.ts` (443 lines)
-- `project-manager.ts` (387 lines)
 - `block-tracking/block-hooks.ts` (324 lines)
 
 ### contexts
@@ -85,6 +86,12 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for skip links, screen-reader text, live regions, keyboard
   navigation, and announcer timing.
 - Updated package SPEC and the central architecture map for the shared accessibility primitives.
+- Completed the fifth low-risk slice: `project-manager.ts` is now a same-name directory module
+  with a stateful facade plus storage, import validation, provider defaults, stats, id, and type
+  helpers.
+- Added characterization coverage for project creation, storage restoration, import validation,
+  update/duplicate/search/export, templates, deletion, and stats.
+- Updated package SPEC and the central architecture map for the project manager module.
 
 ## Decisions
 
@@ -94,12 +101,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to demo execution data.
 - Apply the same stable-import directory module pattern to code analyzer utilities.
 - Apply the same stable-import directory module pattern to accessibility UI primitives.
+- Apply the same stable-import directory module pattern to project manager internals.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
 ## Test Plan
 
-- Run targeted characterization tests after each data-module extraction.
+- Run targeted characterization tests after each decomposition extraction.
 - Run the full `@robota-sdk/agent-playground` Vitest suite after all slice changes.
 - Run `typecheck`, `lint`, and `build` for `@robota-sdk/agent-playground`.
 - Run documentation and harness scans because this slice updates package SPEC, the central
@@ -111,6 +119,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 21 source files still exceed the guideline. The current branch
-delivers the fourth tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 20 source files still exceed the guideline. The current branch
+delivers the fifth tested decomposition slice and extends the repeatable pattern for follow-up
 files.
