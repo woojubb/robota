@@ -17,7 +17,7 @@ This package is consumed by command-line and MCP clients that call `dag-orchestr
 
 - `orchestration-http-client.ts` owns endpoint path construction, request serialization, response parsing, and the injectable fetch port.
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output.
-- Endpoint inventory remains intentionally limited to the routes currently consumed by operational clients.
+- Endpoint inventory remains intentionally limited to routes with package-owned request/response contracts.
 
 ## Endpoint Coverage Policy
 
@@ -29,7 +29,7 @@ contracts are already package-owned.
 | Definition CRUD/publish/validate      | active  | `dag-api` + this package                               | Current CLI/MCP surface.                   |
 | Node catalog list                     | active  | `dag-api` + this package                               | Current CLI/MCP surface.                   |
 | Run create/start/status/result        | active  | `dag-orchestrator` + this package                      | Current CLI/MCP surface.                   |
-| Run drafts                            | blocked | `dag-core` domain types, route-local HTTP aliases      | Add aliases before client methods.         |
+| Run drafts                            | active  | `dag-core` domain types + this package                 | Current package contract surface.          |
 | Published workflow runs               | blocked | route-local HTTP aliases                               | Add aliases before client methods.         |
 | Asset upload/metadata/content         | blocked | `dag-core` asset store types, route-local HTTP aliases | Add aliases before client methods.         |
 | Cost metadata                         | blocked | `dag-cost` domain types, route-local HTTP envelopes    | Normalize envelopes before client methods. |
@@ -54,15 +54,25 @@ This package is SSOT for:
 - `IDagOrchestrationListDefinitionsInput`
 - `IDagOrchestrationUpdateDraftInput`
 - `IDagOrchestrationCreateRunInput`
+- `TDagOrchestrationCreateRunDraftRequest`
+- `TDagOrchestrationReplaceRunDraftRequest`
+- `IDagOrchestrationOverwriteRunDraftNodeResultRequest`
+- `IDagOrchestrationRunDraftData`
+- `IDagOrchestrationRunDraftSuccessPayload`
 - `IDagOrchestrationHttpClient`
 
 Imported from other packages:
 
-- `IDagDefinition`, `IPartialRunRequest`, and `TPortPayload` from `@robota-sdk/dag-core`
+- `IDagDefinition`, `IPartialRunRequest`, `IRunDraft`, `ISaveRunDraftInput`, and `TPortPayload` from `@robota-sdk/dag-core`
 
 ## Public API Surface
 
-- `DagOrchestrationHttpClient` -- shared HTTP client for definition, node catalog, and run lifecycle endpoints.
+- `DagOrchestrationHttpClient` -- shared HTTP client for definition, node catalog, run lifecycle, and run draft endpoints.
+- `createRunDraft(input)` -- `POST /v1/dag/run-drafts`.
+- `getRunDraft(draftId)` -- `GET /v1/dag/run-drafts/:draftId`.
+- `replaceRunDraft(draftId, input)` -- `PUT /v1/dag/run-drafts/:draftId`.
+- `resetRunDraftNodeResult(draftId, nodeId)` -- `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`.
+- `overwriteRunDraftNodeResult(draftId, nodeId, input)` -- `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/result`.
 
 ## Extension Points
 

@@ -305,6 +305,9 @@ importers:
       '@robota-sdk/dag-cost':
         specifier: workspace:*
         version: link:../../packages/dag-cost
+      '@robota-sdk/dag-orchestration-client':
+        specifier: workspace:*
+        version: link:../../packages/dag-orchestration-client
       '@robota-sdk/dag-orchestrator':
         specifier: workspace:*
         version: link:../../packages/dag-orchestrator

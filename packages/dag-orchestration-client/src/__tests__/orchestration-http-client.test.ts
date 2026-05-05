@@ -28,7 +28,7 @@ function createClient(responses: readonly IFakePayload[]): {
       const payload = responses[responseIndex] ?? { ok: true, status: 200 };
       responseIndex += 1;
       return new Response(JSON.stringify(payload), {
-        status: payload.ok === false ? 400 : 200,
+        status: payload.status ?? (payload.ok === false ? 400 : 200),
         headers: { 'content-type': 'application/json' },
       });
     },
@@ -95,6 +95,63 @@ describe('DagOrchestrationHttpClient', () => {
       definition,
       input: { prompt: 'hello' },
       partialRun: { startNodeId: 'node-a' },
+    });
+  });
+
+  it('calls run draft endpoints through package-owned HTTP contracts', async () => {
+    const definition = createDefinition();
+    const { client, requests } = createClient([
+      { ok: true, status: 201, data: { draft: { draftId: 'draft 1' } } },
+      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
+      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
+      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
+      { ok: true, status: 200, data: { draft: { draftId: 'draft 1' } } },
+    ]);
+
+    const createResult = await client.createRunDraft({
+      draftId: 'draft 1',
+      definition,
+      input: { prompt: 'hello' },
+    });
+    await client.getRunDraft('draft 1');
+    await client.replaceRunDraft('draft 1', {
+      definition,
+      input: { prompt: 'updated' },
+    });
+    await client.resetRunDraftNodeResult('draft 1', 'source node');
+    await client.overwriteRunDraftNodeResult('draft 1', 'source node', {
+      input: { prompt: 'manual' },
+      output: { text: 'manual result' },
+    });
+
+    expect(createResult.status).toBe(201);
+    expect(requests.map((request) => request.url)).toEqual([
+      `${TEST_SERVER_URL}/v1/dag/run-drafts`,
+      `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`,
+      `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`,
+      `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/reset`,
+      `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/result`,
+    ]);
+    expect(requests.map((request) => request.init.method)).toEqual([
+      'POST',
+      'GET',
+      'PUT',
+      'PUT',
+      'PUT',
+    ]);
+    expect(JSON.parse(String(requests[0]?.init.body))).toEqual({
+      draftId: 'draft 1',
+      definition,
+      input: { prompt: 'hello' },
+    });
+    expect(JSON.parse(String(requests[2]?.init.body))).toEqual({
+      definition,
+      input: { prompt: 'updated' },
+    });
+    expect(JSON.parse(String(requests[3]?.init.body))).toEqual({});
+    expect(JSON.parse(String(requests[4]?.init.body))).toEqual({
+      input: { prompt: 'manual' },
+      output: { text: 'manual result' },
     });
   });
 });
