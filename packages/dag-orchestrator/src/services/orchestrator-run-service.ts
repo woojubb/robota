@@ -37,8 +37,10 @@ export class OrchestratorRunService {
   /** Maps dagRunId (= promptId) → preparationId for post-start lookups. */
   private readonly dagRunIdIndex = new Map<string, string>();
 
-  getDagRunId(preparationId: string): string | undefined {
-    return this.runs.get(preparationId)?.dagRunId ?? undefined;
+  getDagRunId(id: string): string | undefined {
+    const run = this.runs.get(id);
+    if (run) return run.dagRunId ?? undefined;
+    return this.dagRunIdIndex.has(id) ? id : undefined;
   }
 
   getPendingPromptRequest(preparationId: string): IPromptRequest | undefined {

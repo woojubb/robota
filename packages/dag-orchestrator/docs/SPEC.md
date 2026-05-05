@@ -42,7 +42,7 @@ index.ts (public surface)
 **Key design decisions:**
 
 - All public methods return `TResult<T, IDagError>`. No exceptions are thrown for domain failures.
-- `OrchestratorRunService` manages run state in-memory via a `Map<string, IRunState>`. It is stateful and scoped to the server process lifetime.
+- `OrchestratorRunService` manages run state in-memory via a `Map<string, IRunState>`. It is stateful and scoped to the server process lifetime. `getDagRunId(id)` accepts either a pre-start `preparationId` or a started `dagRunId` and returns the runtime prompt id when the run is known.
 - Partial run requests accept `IPartialRunRequest.startNodeId`. The service resolves the start node and downstream dependents to `partial_execution_targets` on the generated `IPromptRequest`.
 - `PromptOrchestratorService` is stateless; each call delegates to the injected ports.
 - `translateDefinitionToPrompt` is a pure function (no side effects, no I/O). It must not require node-local `inputs`/`outputs`; persisted DAG definitions may omit runtime-owned port catalogs.
