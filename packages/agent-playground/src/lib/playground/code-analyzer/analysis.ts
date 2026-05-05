@@ -1,12 +1,9 @@
-/**
- * Code analysis and validation utilities for CodeExecutor
- */
-
-import type { IErrorInfo } from './code-executor-types';
+import type { IErrorInfo } from '../code-executor-types';
+import type { IAnalyzeCodeResult } from './types';
 
 const MAX_SYNTAX_WARNINGS = 3;
 
-export function analyzeCode(code: string): { errors: IErrorInfo[]; warnings: IErrorInfo[] } {
+export function analyzeCode(code: string): IAnalyzeCodeResult {
   const errors: IErrorInfo[] = [];
   const warnings: IErrorInfo[] = [];
   const lines = code.split('\n');
@@ -19,7 +16,12 @@ export function analyzeCode(code: string): { errors: IErrorInfo[]; warnings: IEr
   return { errors, warnings };
 }
 
-function checkSyntax(code: string, lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
+function checkSyntax(
+  code: string,
+  lines: string[],
+  errors: IErrorInfo[],
+  warnings: IErrorInfo[],
+): void {
   if (code.includes('import') && !code.includes('from')) {
     const importLine = lines.findIndex((line) => line.includes('import') && !line.includes('from'));
     if (importLine !== -1) {
@@ -39,8 +41,8 @@ function checkSyntax(code: string, lines: string[], errors: IErrorInfo[], warnin
     }
   }
 
-  const openBrackets = (code.match(/\{/g) || []).length;
-  const closeBrackets = (code.match(/\}/g) || []).length;
+  const openBrackets = (code.match(/\{/g) ?? []).length;
+  const closeBrackets = (code.match(/\}/g) ?? []).length;
   if (openBrackets !== closeBrackets) {
     errors.push({
       type: 'syntax',
@@ -80,7 +82,7 @@ function checkSyntax(code: string, lines: string[], errors: IErrorInfo[], warnin
   });
 }
 
-function checkImports(code: string, errors: IErrorInfo[], warnings: IErrorInfo[]) {
+function checkImports(code: string, errors: IErrorInfo[], warnings: IErrorInfo[]): void {
   if (!code.includes('Robota') && !code.includes("from '@robota-sdk/agent-core'")) {
     errors.push({
       type: 'import',
@@ -139,7 +141,7 @@ function checkProviderImport(
   providerName: string,
   packageName: string,
   errors: IErrorInfo[],
-) {
+): void {
   if (code.includes(providerName) && !code.includes(`from '${packageName}'`)) {
     errors.push({
       type: 'import',
@@ -153,7 +155,7 @@ function checkProviderImport(
   }
 }
 
-function checkAgentConfig(code: string, errors: IErrorInfo[], warnings: IErrorInfo[]) {
+function checkAgentConfig(code: string, errors: IErrorInfo[], warnings: IErrorInfo[]): void {
   if (!code.includes('new Robota(')) {
     errors.push({
       type: 'configuration',
@@ -214,10 +216,10 @@ function checkAgentConfig(code: string, errors: IErrorInfo[], warnings: IErrorIn
   }
 }
 
-function checkEnvironmentUsage(code: string, warnings: IErrorInfo[]) {
+function checkEnvironmentUsage(code: string, warnings: IErrorInfo[]): void {
   const envVarPattern = /process\.env\.(\w+)/g;
   const envVars: string[] = [];
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = envVarPattern.exec(code)) !== null) {
     envVars.push(match[1]);
@@ -235,86 +237,4 @@ function checkEnvironmentUsage(code: string, warnings: IErrorInfo[]) {
       ],
     });
   });
-}
-
-export function validateEnvironment(provider: string): {
-  errors: IErrorInfo[];
-  warnings: IErrorInfo[];
-} {
-  const errors: IErrorInfo[] = [];
-  const warnings: IErrorInfo[] = [];
-
-  const commonEnvVars: Record<string, string[]> = {
-    openai: ['OPENAI_API_KEY'],
-    anthropic: ['ANTHROPIC_API_KEY'],
-    google: ['GOOGLE_API_KEY'],
-  };
-
-  const requiredVars = commonEnvVars[provider] || [];
-  requiredVars.forEach((envVar) => {
-    warnings.push({
-      type: 'configuration',
-      severity: 'warning',
-      message: `${envVar} should be set in environment`,
-      suggestions: [
-        `Add ${envVar}=your_key_here to .env file`,
-        'Check API key configuration',
-        'Verify environment variables are loaded',
-      ],
-      documentation: `https://robota.dev/docs/providers/${provider}`,
-    });
-  });
-
-  return { errors, warnings };
-}
-
-export function parseAgentConfig(code: string): {
-  name: string;
-  model: string;
-  tools: Array<{ name: string; description: string }>;
-  systemMessage?: string;
-  plugins: string[];
-} {
-  const tools: Array<{ name: string; description: string }> = [];
-
-  const toolMatches =
-    code.match(/createFunctionTool\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]+)['"`]/g) || [];
-  for (const match of toolMatches) {
-    const parts = match.match(
-      /createFunctionTool\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]+)['"`]/,
-    );
-    if (parts) {
-      tools.push({ name: parts[1], description: parts[2] });
-    }
-  }
-
-  const toolsArrayMatch = code.match(/tools:\s*\[([^\]]+)\]/);
-  if (toolsArrayMatch) {
-    const toolVariables = toolsArrayMatch[1].match(/\w+Tool/g) || [];
-    toolVariables.forEach((varName) => {
-      if (!tools.find((t) => t.name === varName.replace('Tool', ''))) {
-        tools.push({ name: varName.replace('Tool', ''), description: 'Custom tool function' });
-      }
-    });
-  }
-
-  const nameMatch = code.match(/name:\s*['"`]([^'"`]+)['"`]/);
-  const name = nameMatch ? nameMatch[1] : 'UnnamedAgent';
-
-  const modelMatch = code.match(/model:\s*['"`]([^'"`]+)['"`]/);
-  const model = modelMatch ? modelMatch[1] : 'gpt-3.5-turbo';
-
-  const systemMatch = code.match(/systemMessage:\s*['"`]([^'"`]+)['"`]/);
-  const systemMessage = systemMatch ? systemMatch[1] : undefined;
-
-  const plugins: string[] = [];
-  const pluginMatches = code.match(/new\s+(\w+Plugin)/g) || [];
-  pluginMatches.forEach((match) => {
-    const pluginName = match.replace('new ', '');
-    if (!plugins.includes(pluginName)) {
-      plugins.push(pluginName);
-    }
-  });
-
-  return { name, model, tools, systemMessage, plugins };
 }
