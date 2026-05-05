@@ -22,6 +22,21 @@ Anthropic 또는 OpenAI가 서드파티용 공식 OAuth를 제공하면 적용. 
 - **OpenAI**: 서드파티 도구용 OAuth 자체가 없음. ChatGPT Apps SDK는 역방향 (우리가 OAuth 서버). 구독을 서드파티 도구에 연결하는 메커니즘 없음
 - **Robota 현재**: `agent-provider-anthropic`, `agent-provider-openai` 모두 API Key 방식으로 구현 완료. 추가 작업 불필요
 
+## Recheck (2026-05-05)
+
+- OpenAI API reference는 API key + HTTP Bearer 인증을 공식 인증 방식으로 안내한다.
+- OpenAI GPT Actions의 OAuth는 ChatGPT가 외부 API에 로그인하기 위한 역방향 OAuth 흐름이다. Robota가 OpenAI 모델 API를 호출하기 위한 third-party OAuth provider 계약이 아니다.
+- Anthropic API overview는 모든 API 요청에 `x-api-key` header가 필요하다고 안내한다.
+- Anthropic Claude Code는 Anthropic Console 또는 Claude.ai 계정으로 OAuth 로그인을 지원하지만 Claude Code 제품 전용 credential flow이다. `agent-provider-anthropic`이 재사용할 수 있는 범용 third-party OAuth provider 계약으로 공개되어 있지 않다.
+- 결론: provider package 인증은 계속 API key 방식이 SSOT다. 이 task는 공식 provider OAuth가 발표될 때까지 blocked 상태를 유지한다.
+
+## References
+
+- OpenAI API authentication: https://platform.openai.com/docs/api-reference/authentication
+- OpenAI GPT Action authentication: https://platform.openai.com/docs/actions/authentication
+- Anthropic API overview: https://docs.anthropic.com/en/api/overview
+- Anthropic Claude Code setup/authentication: https://docs.anthropic.com/en/docs/claude-code/getting-started
+
 ## 트리거 조건
 
 Anthropic 또는 OpenAI가 서드파티 OAuth Provider 역할을 공식 발표하면 이 태스크를 active로 전환.
