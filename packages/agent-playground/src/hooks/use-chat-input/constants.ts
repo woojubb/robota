@@ -1,0 +1,5 @@
+export const TOKEN_ESTIMATE_MULTIPLIER = 1.3;
+export const TYPING_TIMEOUT_MS = 1000;
+export const MAX_MESSAGE_LENGTH = 4000;
+export const CHARS_PER_TOKEN_ESTIMATE = 4;
+export const MAX_TOKEN_WARNING = 1000;
