@@ -66,6 +66,36 @@ This application does not define SSOT domain types. All domain types are importe
 
 Helper functions and HTTP status constants in `route-utils.ts` are locally defined but not exported as SSOT types.
 
+## Endpoint Contract Ownership Inventory
+
+Robota endpoints can be exposed by operational clients only when their request/response contracts
+have a package owner. Server-local routes can remain local when they are bootstrap-only, deployment
+health, or validated ComfyUI compatibility surfaces.
+
+| Surface                                                                          | Source Module                         | Current Contract Owner                                            | Reuse Policy                                                                                         |
+| -------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `GET /health`                                                                    | `server.ts`                           | `dag-orchestrator-server`                                         | App-local operational health endpoint; not a CLI/MCP expansion target.                               |
+| Definition CRUD/publish/validate and `GET /v1/dag/nodes`                         | `routes/definition-routes.ts`         | `dag-api` controller contracts + `dag-orchestration-client`       | Package-owned and eligible for operational clients.                                                  |
+| Run create/start/status/result and partial-run request                           | `routes/run-routes.ts`                | `dag-orchestrator` service + `dag-orchestration-client`           | Package-owned and eligible for operational clients.                                                  |
+| Run drafts under `/v1/dag/run-drafts*`                                           | `routes/run-draft-routes.ts`          | `dag-core` domain types + route-local parsers                     | Extract HTTP request/response aliases before CLI/MCP expansion; see `ORCH-BL-008`.                   |
+| Published workflow runs `/v1/dag/workflows/:dagId/runs`                          | `routes/published-workflow-routes.ts` | `dag-core` definitions + route-local override/request types       | Extract reusable workflow-run aliases before CLI/MCP expansion; see `ORCH-BL-009`.                   |
+| Assets under `/v1/dag/assets*`                                                   | `routes/asset-routes.ts`              | `dag-core` asset store types + route-local upload envelope        | Extract upload/metadata/content contract aliases before CLI/MCP expansion; see `ORCH-BL-010`.        |
+| Cost metadata under `/v1/cost-meta*`                                             | `routes/cost-meta-routes.ts`          | `dag-cost` domain types + route-local HTTP envelopes              | Normalize/package HTTP envelopes before client expansion; see `ORCH-BL-011`.                         |
+| Admin bootstrap `/v1/dag/admin/bootstrap`                                        | `routes/admin-routes.ts`              | `dag-orchestrator-server`                                         | App-local development/bootstrap endpoint; no operational client expansion planned.                   |
+| Runtime asset compatibility `/view`, `/upload/image`                             | `routes/runtime-asset-routes.ts`      | ComfyUI-compatible backend shape + server validation              | Validated compatibility surface; response remains backend-native.                                    |
+| ComfyUI proxy `/prompt`, `/queue`, `/history*`, `/object_info*`, `/system_stats` | `server.ts`                           | ComfyUI-compatible backend shape                                  | Pass-through compatibility surface; not a Robota package contract.                                   |
+| Run progress WebSocket `/v1/dag/runs/:id/ws`                                     | `routes/ws-routes.ts`                 | `dag-core` `TRunProgressEvent` + route-local `{ event }` envelope | Keep event ownership in `dag-core`; add bridge contract tests before new clients; see `ORCH-BL-012`. |
+
+Expansion gate:
+
+1. CLI/MCP must not infer request/response shapes from route-local TypeScript.
+2. A reusable endpoint group must first expose package-owned aliases and tests in the documented
+   owner package.
+3. ComfyUI compatibility endpoints keep backend-native shapes and should not be wrapped by
+   `dag-orchestration-client` unless Robota owns a stable abstraction over that behavior.
+4. Binary/streaming endpoints may expose metadata helpers, but content streaming remains transport
+   specific.
+
 ## Public API Surface
 
 ### Robota API Endpoints
