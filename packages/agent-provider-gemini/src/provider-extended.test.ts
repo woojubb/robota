@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { GeminiProvider } from './provider';
-import type { TUniversalMessage, IExecutor } from '@robota-sdk/agent-core';
+import type {
+  IProviderNativeRawPayloadEvent,
+  TUniversalMessage,
+  IExecutor,
+} from '@robota-sdk/agent-core';
 
 // Shared mock for generateContent and generateContentStream
 const generateContentMock = vi.fn();
@@ -84,6 +88,40 @@ describe('GeminiProvider - chat error paths', () => {
     ]);
     expect(response.content).toBe('done');
     expect(generateContentMock.mock.calls[0]?.[0].model).toBe('gemini-pro');
+  });
+
+  it('emits native Gemini request and response payloads before normalization', async () => {
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key', defaultModel: 'gemini-pro' });
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
+      { onProviderNativeRawPayload: (event) => events.push(event) },
+    );
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        provider: 'gemini',
+        apiSurface: 'gemini-generate-content',
+        payloadKind: 'request',
+        payload: expect.objectContaining({ model: 'gemini-pro' }),
+      }),
+      expect.objectContaining({
+        provider: 'gemini',
+        apiSurface: 'gemini-generate-content',
+        payloadKind: 'response',
+        payload: expect.objectContaining({ candidates: expect.any(Array) }),
+      }),
+    ]);
   });
 
   it('passes tool messages as function responses', async () => {
@@ -396,6 +434,43 @@ describe('GeminiProvider - chatStream', () => {
     expect(response.content).toBe('Hello Gemini');
     expect(onTextDelta).toHaveBeenNthCalledWith(1, 'Hello ');
     expect(onTextDelta).toHaveBeenNthCalledWith(2, 'Gemini');
+  });
+
+  it('emits ordered native Gemini stream chunks', async () => {
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'Hello ' };
+        yield { text: 'Gemini' };
+      })(),
+    );
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
+      {
+        model: 'gemini-pro',
+        onTextDelta: vi.fn(),
+        onProviderNativeRawPayload: (event) => events.push(event),
+      },
+    );
+
+    expect(events.map((event) => event.payloadKind)).toEqual([
+      'request',
+      'stream_event',
+      'stream_event',
+    ]);
+    expect(
+      events.filter((event) => event.payloadKind === 'stream_event').map((event) => event.sequence),
+    ).toEqual([0, 1]);
   });
 
   it('wraps stream errors', async () => {

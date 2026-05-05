@@ -70,6 +70,7 @@ agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 `run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:
 
 - `provider_request`
+- `provider_native_raw_payload`
 - `provider_stream_raw_delta`
 - `provider_response_raw`
 - `provider_response_normalized`
@@ -80,7 +81,7 @@ agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 - `tool_message_committed`
 - `history_mutation`
 
-Provider-specific SDK payload capture remains provider-owned. `provider_response_raw.responseKind` is currently `provider-normalized-message`, which keeps common replay validation provider-neutral.
+Provider-specific SDK payload capture remains provider-owned. Providers may call `IChatOptions.onProviderNativeRawPayload` with exact SDK request, response, or stream event objects; `Robota` forwards those callbacks as provider-neutral `provider_native_raw_payload` execution events without importing concrete provider SDK types. `provider_response_raw.responseKind` remains `provider-normalized-message`, which keeps common replay validation provider-neutral.
 
 ## IAgentConfig
 

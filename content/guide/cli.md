@@ -161,6 +161,7 @@ The available command list is built from SDK-owned command sources: `BuiltinComm
 | `/background`             | List and control background tasks       |
 | `/agent`                  | Run and manage background subagent jobs |
 | `/rename`                 | Rename the current session              |
+| `/validate-session`       | Validate replay-grade session log data  |
 | `/exit`                   | Exit CLI                                |
 | `/plugin`                 | Plugin management                       |
 | `/reload-plugins`         | Reload all plugin resources             |
@@ -278,7 +279,7 @@ robota -r <session-id> --fork-session # Fork a session (new session with copied 
 robota --name "my-task"      # Assign a name to the session at startup
 ```
 
-Within the TUI, use `/resume` to list recent sessions and select one to resume. Use `/rename <name>` to rename the current session.
+Within the TUI, use `/resume` to list recent sessions and select one to resume. Use `/rename <name>` to rename the current session. Use `/validate-session` to validate the current JSONL session log for replay-grade provider/tool coverage.
 
 ### Session Names
 
@@ -356,7 +357,9 @@ For explicit multi-agent or parallel-agent requests, the model-visible Agent too
 
 Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `text_delta`, `assistant`, `server_tool`, `context`, and `background_task_event`.
 
-The session log also records execution-boundary events emitted by the core run loop: `provider_request`, `provider_response_normalized`, `assistant_message_committed`, `tool_batch_started`, `tool_execution_request`, and `tool_execution_result`. These events are the first replay-grade provenance layer; raw provider payload storage and deterministic `/resume` reconstruction remain active follow-up work.
+The session log also records execution-boundary events emitted by the core run loop: `provider_request`, `provider_native_raw_payload`, `provider_response_raw`, `provider_response_normalized`, `assistant_message_committed`, `tool_batch_started`, `tool_execution_request`, and `tool_execution_result`. Provider packages own the exact native SDK request, response, and stream payload objects; the core routes them through provider-neutral events, and the session logger redacts or externalizes large payloads before writing JSONL.
+
+Use `/validate-session` to check that the current session log has replay-grade provider/tool coverage, including provider-native raw response or stream payload events paired with each provider request.
 
 Background subagents write append-only transcripts to `.robota/logs/{sessionId}/subagents/{agentId}.jsonl`. These transcripts include streaming deltas, tool calls/results, final output, and errors as they occur. The resumable `.robota/sessions/{sessionId}.json` file stores background task snapshots and transcript paths, not every token chunk.
 

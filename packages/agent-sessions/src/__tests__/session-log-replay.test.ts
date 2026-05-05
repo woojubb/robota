@@ -103,7 +103,52 @@ describe('session log replay support', () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues.map((issue) => issue.code)).toEqual(
-      expect.arrayContaining(['PROVIDER_RESPONSE_RAW_MISSING', 'TOOL_RESULT_MISSING']),
+      expect.arrayContaining([
+        'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING',
+        'PROVIDER_RESPONSE_RAW_MISSING',
+        'TOOL_RESULT_MISSING',
+      ]),
     );
+  });
+
+  it('accepts provider-native raw response or stream payloads for replay validation', () => {
+    const baseProviderRequest: ISessionLogEntry = {
+      timestamp: '2026-05-05T00:00:00.000Z',
+      sessionId: 's1',
+      event: 'provider_request',
+      executionId: 'exec-1',
+      round: 1,
+    };
+
+    const result = validateSessionReplayLogEntries([
+      baseProviderRequest,
+      {
+        timestamp: '2026-05-05T00:00:01.000Z',
+        sessionId: 's1',
+        event: 'provider_native_raw_payload',
+        executionId: 'exec-1',
+        round: 1,
+        provider: 'openai',
+        payloadKind: 'stream_event',
+        sequence: 0,
+        payload: { id: 'chunk-1' },
+      },
+      {
+        timestamp: '2026-05-05T00:00:02.000Z',
+        sessionId: 's1',
+        event: 'provider_response_raw',
+        executionId: 'exec-1',
+        round: 1,
+      },
+      {
+        timestamp: '2026-05-05T00:00:03.000Z',
+        sessionId: 's1',
+        event: 'provider_response_normalized',
+        executionId: 'exec-1',
+        round: 1,
+      },
+    ]);
+
+    expect(result).toEqual({ ok: true, issues: [] });
   });
 });

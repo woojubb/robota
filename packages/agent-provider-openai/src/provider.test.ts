@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OpenAIProvider } from './provider';
-import type { TUniversalMessage, ILogger } from '@robota-sdk/agent-core';
+import type {
+  IProviderNativeRawPayloadEvent,
+  TUniversalMessage,
+  ILogger,
+} from '@robota-sdk/agent-core';
 import type { IPayloadLogger } from './interfaces/payload-logger';
 
 // Mock OpenAI SDK
@@ -214,6 +218,43 @@ describe('OpenAIProvider', () => {
       );
     });
 
+    it('emits native Responses request and response payloads before normalization', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const client = (
+        provider as unknown as {
+          client: { responses: { create: ReturnType<typeof vi.fn> } };
+        }
+      ).client;
+      client.responses.create.mockResolvedValue({
+        id: 'resp-native',
+        model: 'gpt-4o',
+        output_text: 'Native payload',
+        output: [],
+        status: 'completed',
+      });
+      const events: IProviderNativeRawPayloadEvent[] = [];
+
+      await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4o',
+        onProviderNativeRawPayload: (event) => events.push(event),
+      });
+
+      expect(events).toEqual([
+        expect.objectContaining({
+          provider: 'openai',
+          apiSurface: 'responses',
+          payloadKind: 'request',
+          payload: expect.objectContaining({ model: 'gpt-4o' }),
+        }),
+        expect.objectContaining({
+          provider: 'openai',
+          apiSurface: 'responses',
+          payloadKind: 'response',
+          payload: expect.objectContaining({ id: 'resp-native' }),
+        }),
+      ]);
+    });
+
     it('maps function tools and function_call output items through Responses', async () => {
       const provider = new OpenAIProvider({ apiKey: 'sk-test' });
       const messages: TUniversalMessage[] = [createUserMessage('Weather in Seoul')];
@@ -345,6 +386,51 @@ describe('OpenAIProvider', () => {
         expect.objectContaining({ model: 'gpt-4o', stream: true }),
         undefined,
       );
+    });
+
+    it('emits ordered native Responses stream events', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const client = (
+        provider as unknown as {
+          client: { responses: { create: ReturnType<typeof vi.fn> } };
+        }
+      ).client;
+      async function* streamResponses() {
+        yield { type: 'response.output_text.delta', delta: 'Hello' };
+        yield {
+          type: 'response.completed',
+          response: {
+            id: 'resp-stream-native',
+            output_text: 'Hello',
+            output: [],
+            status: 'completed',
+          },
+        };
+      }
+      client.responses.create.mockResolvedValue(streamResponses());
+      const events: IProviderNativeRawPayloadEvent[] = [];
+
+      await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4o',
+        onTextDelta: vi.fn(),
+        onProviderNativeRawPayload: (event) => events.push(event),
+      });
+
+      expect(events.map((event) => event.payloadKind)).toEqual([
+        'request',
+        'stream_event',
+        'stream_event',
+      ]);
+      expect(events.filter((event) => event.payloadKind === 'stream_event')).toEqual([
+        expect.objectContaining({
+          sequence: 0,
+          payload: expect.objectContaining({ delta: 'Hello' }),
+        }),
+        expect.objectContaining({
+          sequence: 1,
+          payload: expect.objectContaining({ type: 'response.completed' }),
+        }),
+      ]);
     });
 
     it('yields Responses chatStream deltas before the stream completes', async () => {
@@ -486,6 +572,50 @@ describe('OpenAIProvider', () => {
           max_tokens: 100,
         }),
       );
+    });
+
+    it('emits native Chat Completions request and response payloads before normalization', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue({
+        id: 'chatcmpl-native',
+        object: 'chat.completion',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'Hi', refusal: null },
+            finish_reason: 'stop',
+            logprobs: null,
+          },
+        ],
+      });
+      const events: IProviderNativeRawPayloadEvent[] = [];
+
+      await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4',
+        onProviderNativeRawPayload: (event) => events.push(event),
+      });
+
+      expect(events).toEqual([
+        expect.objectContaining({
+          provider: 'openai',
+          apiSurface: 'chat-completions',
+          payloadKind: 'request',
+          payload: expect.objectContaining({ model: 'gpt-4' }),
+        }),
+        expect.objectContaining({
+          provider: 'openai',
+          apiSurface: 'chat-completions',
+          payloadKind: 'response',
+          payload: expect.objectContaining({ id: 'chatcmpl-native' }),
+        }),
+      ]);
     });
 
     it('should include tools in request when provided', async () => {
@@ -980,6 +1110,35 @@ describe('OpenAIProvider', () => {
         expect.objectContaining({ model: 'gpt-4', stream: true }),
         undefined,
       );
+    });
+
+    it('emits ordered native Chat Completions stream chunks', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue(createTextStream());
+      const events: IProviderNativeRawPayloadEvent[] = [];
+
+      await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4',
+        onTextDelta: vi.fn(),
+        onProviderNativeRawPayload: (event) => events.push(event),
+      });
+
+      expect(events.map((event) => event.payloadKind)).toEqual([
+        'request',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+      ]);
+      expect(
+        events
+          .filter((event) => event.payloadKind === 'stream_event')
+          .map((event) => event.sequence),
+      ).toEqual([0, 1, 2]);
     });
 
     it('streams through the provider-level onTextDelta callback when configured by Session', async () => {

@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type OpenAI from 'openai';
 import { GemmaProvider } from './index';
-import type { IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IProviderNativeRawPayloadEvent,
+  IToolSchema,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 
 vi.mock('openai', () => {
   const MockOpenAI = vi.fn().mockImplementation(() => ({
@@ -166,6 +170,49 @@ describe('GemmaProvider', () => {
     );
   });
 
+  it('emits native Chat Completions request and response payloads before Gemma projection', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue({
+      id: 'gemma-native',
+      object: 'chat.completion',
+      created: 1,
+      model: 'supergemma4',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'Visible answer', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    });
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      onProviderNativeRawPayload: (event) => events.push(event),
+    });
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+      }),
+      expect.objectContaining({
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        payloadKind: 'response',
+        payload: expect.objectContaining({ id: 'gemma-native' }),
+      }),
+    ]);
+  });
+
   it('filters Gemma reasoning markers from streaming chat assembly and deltas', async () => {
     const provider = new GemmaProvider({ apiKey: 'lm-studio' });
     const client = (
@@ -193,6 +240,34 @@ describe('GemmaProvider', () => {
     expect(onTextDelta).toHaveBeenNthCalledWith(1, 'Visible');
     expect(onTextDelta).toHaveBeenNthCalledWith(2, ' answer');
     expect(result.metadata?.['gemmaReasoningFiltered']).toBe(true);
+  });
+
+  it('emits ordered native Chat Completions stream chunks before Gemma projection', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createChunk('Visible'), createChunk(' answer', 'stop')]),
+    );
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      onTextDelta: vi.fn(),
+      onProviderNativeRawPayload: (event) => events.push(event),
+    });
+
+    expect(events.map((event) => event.payloadKind)).toEqual([
+      'request',
+      'stream_event',
+      'stream_event',
+    ]);
+    expect(
+      events.filter((event) => event.payloadKind === 'stream_event').map((event) => event.sequence),
+    ).toEqual([0, 1]);
   });
 
   it('projects Gemma native tool-call text from non-streaming chat content', async () => {

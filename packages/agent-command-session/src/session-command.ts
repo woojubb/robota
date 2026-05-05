@@ -4,8 +4,10 @@ import {
   clearConversationHistory,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
+  formatCommandSessionReplayValidationReport,
   parseSessionNameArgument,
   readCommandSessionInfo,
+  validateCommandSessionReplayLog,
 } from '@robota-sdk/agent-sdk';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
@@ -50,6 +52,23 @@ export function executeCostCommand(context: ICommandHostContext, _args: string):
     data: {
       sessionId: sessionInfo.sessionId,
       messageCount: sessionInfo.messageCount,
+    },
+  };
+}
+
+export function executeValidateSessionCommand(
+  context: ICommandHostContext,
+  _args: string,
+): ICommandResult {
+  const report = validateCommandSessionReplayLog(context);
+  return {
+    success: report.validation.ok,
+    message: formatCommandSessionReplayValidationReport(report),
+    data: {
+      logFile: report.logFile,
+      entryCount: report.entryCount,
+      issueCount: report.validation.issues.length,
+      ok: report.validation.ok,
     },
   };
 }

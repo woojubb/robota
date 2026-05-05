@@ -11,6 +11,7 @@ export type {
   ICommandPluginAdapter,
   ICommandProcessAdapter,
   ICommandResult,
+  ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
@@ -199,11 +200,14 @@ export {
   COST_COMMAND_DESCRIPTION,
   createSessionExitRequestedEffect,
   EXIT_COMMAND_DESCRIPTION,
+  formatCommandSessionReplayValidationReport,
   parseSessionNameArgument,
   readCommandSessionInfo,
+  validateCommandSessionReplayLog,
   RENAME_COMMAND_DESCRIPTION,
   RENAME_COMMAND_USAGE,
   RESUME_COMMAND_DESCRIPTION,
+  VALIDATE_SESSION_COMMAND_DESCRIPTION,
 } from '../command-api/session/session-command-api.js';
 export type { ICommandSessionInfo } from '../command-api/session/session-command-api.js';
 export {

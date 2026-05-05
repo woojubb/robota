@@ -5,6 +5,7 @@ import {
   assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
   convertToOpenAICompatibleTools,
+  observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IOpenAICompatibleError } from '@robota-sdk/agent-provider-openai-compatible';
@@ -123,7 +124,19 @@ export class QwenProvider extends AbstractAIProvider {
         );
       }
 
+      options?.onProviderNativeRawPayload?.({
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+        payload: requestParams,
+      });
       const response = await client.chat.completions.create(requestParams);
+      options?.onProviderNativeRawPayload?.({
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        payloadKind: 'response',
+        payload: response,
+      });
       return this.responseParser.parseResponse(response);
     } catch (error) {
       const qwenError = error as IOpenAICompatibleError;
@@ -173,9 +186,21 @@ export class QwenProvider extends AbstractAIProvider {
 
     try {
       const requestParams = this.buildStreamingRequestParams(messages, options);
+      options?.onProviderNativeRawPayload?.({
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+        payload: requestParams,
+      });
       const stream = await this.client.chat.completions.create(requestParams);
 
-      for await (const chunk of this.streamWithAbort(stream, options?.signal)) {
+      const observedStream = observeProviderNativeRawPayloadStream(stream, {
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        onProviderNativeRawPayload: options?.onProviderNativeRawPayload,
+      });
+
+      for await (const chunk of this.streamWithAbort(observedStream, options?.signal)) {
         const universalMessage = this.responseParser.parseStreamingChunk(chunk);
         if (universalMessage) {
           yield universalMessage;
@@ -275,13 +300,23 @@ export class QwenProvider extends AbstractAIProvider {
     }
 
     try {
+      options.onProviderNativeRawPayload?.({
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+        payload: requestParams,
+      });
       const stream = await this.client.chat.completions.create(
         requestParams,
         options.signal ? { signal: options.signal } : undefined,
       );
 
       return assembleOpenAICompatibleStream({
-        stream,
+        stream: observeProviderNativeRawPayloadStream(stream, {
+          provider: 'qwen',
+          apiSurface: 'chat-completions',
+          onProviderNativeRawPayload: options.onProviderNativeRawPayload,
+        }),
         onTextDelta: options.onTextDelta,
         signal: options.signal,
       });

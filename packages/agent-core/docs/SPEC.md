@@ -81,6 +81,9 @@ This package is the single source of truth (SSOT) for the following types:
 | `IAIProvider`                         | `interfaces/provider.ts`            | Provider integration contract                                                                                                                                                                                                                                                                   |
 | `IProviderCapabilities`               | `interfaces/provider.ts`            | Provider-neutral capability report for function calling and provider-native web search/fetch support.                                                                                                                                                                                           |
 | `IProviderNativeWebToolRequest`       | `interfaces/provider.ts`            | Provider-neutral request shape for native web search/fetch enablement.                                                                                                                                                                                                                          |
+| `IProviderNativeRawPayloadEvent`      | `interfaces/provider.ts`            | Provider-owned native SDK request/response/stream payload envelope emitted through `IChatOptions.onProviderNativeRawPayload` for replay-grade session logs without leaking provider SDK types into core.                                                                                        |
+| `TProviderNativeRawPayloadCallback`   | `interfaces/provider.ts`            | Per-call callback type used by provider packages to report exact provider-native SDK payloads.                                                                                                                                                                                                  |
+| `TProviderNativeRawPayloadKind`       | `interfaces/provider.ts`            | Native payload phase union: `request`, `response`, or `stream_event`.                                                                                                                                                                                                                           |
 | `IProviderDefinition`                 | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with display metadata, compatibility aliases, defaults, setup prompts, validation requirements, model catalog fallback metadata, optional provider-owned catalog refresh hooks, probe hooks, and `createProvider()` factories. |
 | `IProviderModelCatalog`               | `interfaces/provider-definition.ts` | Provider-owned model catalog contract used by command UX. Static entries are staleable fallback metadata with source and verification timestamps; live/generated catalogs come only from provider-owned refresh hooks.                                                                          |
 | `IProviderModelCatalogEntry`          | `interfaces/provider-definition.ts` | Minimal provider model metadata for display and selection. Provider packages own entries; generic layers must not hardcode provider-specific model lists.                                                                                                                                       |
@@ -158,6 +161,9 @@ Provider packages import these types. They must not re-declare them.
 | `TProviderModelCapability`              | type           | Provider-owned model capability labels                                                                                                                                                              |
 | `IProviderCapabilities`                 | interface      | Provider-neutral capability report, including native web search/fetch support and enabled state                                                                                                     |
 | `IProviderNativeWebToolRequest`         | interface      | Provider-neutral requested native web search/fetch flags                                                                                                                                            |
+| `IProviderNativeRawPayloadEvent`        | interface      | Provider-owned native request/response/stream payload envelope routed through core execution events for replay logs                                                                                 |
+| `TProviderNativeRawPayloadCallback`     | type           | Per-call callback providers use to emit native payload events without mutating provider instances                                                                                                   |
+| `TProviderNativeRawPayloadKind`         | type           | `request`, `response`, or `stream_event` payload phase label                                                                                                                                        |
 | `getProviderCapabilities`               | function       | Return provider capabilities with safe defaults when a provider does not implement a capability hook                                                                                                |
 | `assertProviderNativeWebToolsAvailable` | function       | Fail before provider transport execution when requested native web search/fetch is unsupported or disabled                                                                                          |
 | `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                  |
@@ -204,6 +210,19 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
 This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. Higher-level callers should prefer `IRunOptions.onTextDelta` for per-run streaming output so multiple sessions can share a provider instance without overwriting mutable provider callback state.
+
+### Provider-Native Replay Payloads
+
+`IChatOptions.onProviderNativeRawPayload` is the provider-neutral callback bridge for replay-grade raw payload capture. Provider packages own the native SDK request/response/stream objects and call this callback with `IProviderNativeRawPayloadEvent`:
+
+- `provider`: concrete provider identifier as known by the provider package.
+- `apiSurface`: optional provider-owned API surface label such as `responses`, `chat-completions`, `anthropic-messages`, or `gemini-generate-content`.
+- `payloadKind`: `request`, `response`, or `stream_event`.
+- `sequence`: optional provider-owned stream/request order. Core assigns a monotonically increasing fallback when omitted.
+- `payload`: the SDK-native payload object or primitive chosen by the provider package.
+- `metadata`: provider-owned scalar diagnostics only.
+
+`agent-core` must not import concrete provider SDK types, inspect provider names, or choose provider-specific payload fields. During a provider call, core wraps the callback and emits a `provider_native_raw_payload` execution event with the current `executionId`, `conversationId`, and `round`. The existing `provider_response_raw` event remains the provider-normalized Robota message snapshot and is not a substitute for provider-native payload capture.
 
 ### Provider Capabilities
 

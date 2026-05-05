@@ -26,6 +26,7 @@ import {
   createSessionExitRequestedEffect,
   createSessionPickerRequestedEffect,
   createSessionRenamedEffect,
+  formatCommandSessionReplayValidationReport,
   formatCommandBackgroundTaskList,
   buildBackgroundCommandSubcommands,
   listCommandBackgroundTasks,
@@ -41,6 +42,7 @@ import {
   listCommandUsedMemoryReferences,
   parseSessionNameArgument,
   readCommandSessionInfo,
+  validateCommandSessionReplayLog,
   removeCommandContextReference,
   readCommandPermissionsState,
   readCommandPermissionMode,
@@ -352,6 +354,30 @@ describe('command-api contracts', () => {
       sessionId: 'session_1',
       messageCount: 2,
     });
+
+    const replayContext = {
+      ...context,
+      validateCurrentSessionReplayLog: () => ({
+        logFile: '/workspace/.robota/logs/session_1.jsonl',
+        entryCount: 1,
+        validation: {
+          ok: false,
+          issues: [
+            {
+              code: 'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING' as const,
+              message: 'Provider request exec-1:1 has no provider-native payload.',
+              executionId: 'exec-1',
+              round: 1,
+            },
+          ],
+        },
+      }),
+    };
+    const report = validateCommandSessionReplayLog(replayContext);
+    expect(report.validation.ok).toBe(false);
+    expect(formatCommandSessionReplayValidationReport(report)).toContain(
+      'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING',
+    );
   });
 
   it('exposes plugin command common APIs without command implementation imports', () => {

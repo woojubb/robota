@@ -273,6 +273,47 @@ describe('Robota Core', () => {
       );
     });
 
+    it('should route provider-native raw payload callbacks into execution events', async () => {
+      class NativePayloadProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          options?.onProviderNativeRawPayload?.({
+            provider: this.name,
+            apiSurface: 'test-surface',
+            payloadKind: 'response',
+            payload: { id: 'native-response-1', choices: [{ index: 0 }] },
+          });
+          return super.chat(messages, options);
+        }
+      }
+
+      const provider = new NativePayloadProvider();
+      const config = createConfig({ aiProviders: [provider] });
+      const robota = new Robota(config);
+      const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+      await robota.run('Native replay', {
+        onExecutionEvent: (event, data) => {
+          events.push({ event, data });
+        },
+      });
+
+      const nativeEvent = events.find((entry) => entry.event === 'provider_native_raw_payload');
+      expect(nativeEvent?.data).toEqual(
+        expect.objectContaining({
+          executionId: expect.any(String),
+          round: 1,
+          provider: 'tracking-provider',
+          apiSurface: 'test-surface',
+          payloadKind: 'response',
+          sequence: 0,
+          payload: { id: 'native-response-1', choices: [{ index: 0 }] },
+        }),
+      );
+    });
+
     it('should emit provider stream raw delta events when provider text deltas arrive', async () => {
       class DeltaProvider extends TrackingProvider {
         override async chat(

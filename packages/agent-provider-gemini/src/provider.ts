@@ -80,6 +80,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         this.options,
         messages,
         this.withProviderCallbacks(options),
+        this.name,
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
@@ -116,6 +117,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         this.options,
         messages,
         this.withProviderCallbacks(options),
+        this.name,
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';

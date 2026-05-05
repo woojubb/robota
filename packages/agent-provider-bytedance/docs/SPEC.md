@@ -10,6 +10,7 @@ Owns ByteDance and BytePlus media provider integration for Robota SDK. Implement
 - Does not own DAG contracts or agent execution contracts.
 - Provider-specific request/response mapping and HTTP transport are fully contained in this package.
 - No direct dependency on other provider packages (`openai`, `anthropic`, `google`).
+- Does not implement `IAIProvider.chat()` and therefore does not participate in chat-session native replay payload hooks. Media replay payload capture must be designed separately for media provider contracts.
 
 ## Architecture Overview
 

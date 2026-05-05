@@ -91,6 +91,10 @@ if (result.ok) {
 
 Input messages can include `image_inline` parts (`mimeType` + base64 `data`). `image_uri` parts are not supported directly.
 
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, chat paths emit Google GenAI request, response, and stream event payloads. `agent-core` routes these provider-owned callbacks into provider-neutral `provider_native_raw_payload` execution events for replay-grade session logs. Media generation methods remain governed by the media provider contracts rather than the chat replay hook.
+
 ## Configuration
 
 ```typescript

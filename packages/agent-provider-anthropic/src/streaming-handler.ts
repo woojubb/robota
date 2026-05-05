@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import type { TUniversalMessage, TTextDeltaCallback } from '@robota-sdk/agent-core';
+import type {
+  TProviderNativeRawPayloadCallback,
+  TUniversalMessage,
+  TTextDeltaCallback,
+} from '@robota-sdk/agent-core';
 import { formatWebSearchResults } from './message-converter';
 
 /**
@@ -15,12 +19,19 @@ export async function streamAndAssemble(
   onTextDelta: TTextDeltaCallback,
   onServerToolUse: ((toolName: string, input: Record<string, string>) => void) | undefined,
   signal: AbortSignal | undefined,
+  onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback,
 ): Promise<TUniversalMessage> {
   const streamParams: Anthropic.MessageCreateParamsStreaming = {
     ...params,
     stream: true,
   };
 
+  onProviderNativeRawPayload?.({
+    provider: 'anthropic',
+    apiSurface: 'anthropic-messages',
+    payloadKind: 'request',
+    payload: streamParams,
+  });
   const stream = await client.messages.create(streamParams, signal ? { signal } : undefined);
 
   // Accumulate the full response from stream events
@@ -33,13 +44,21 @@ export async function streamAndAssemble(
   let currentToolId = '';
   let currentToolName = '';
   let currentToolJson = '';
-  let currentBlockType = '';
   let usage = { input_tokens: 0, output_tokens: 0 };
   let model = '';
   let stopReason: string | null = null;
 
   try {
+    let sequence = 0;
     for await (const event of streamWithAbort(stream, signal)) {
+      onProviderNativeRawPayload?.({
+        provider: 'anthropic',
+        apiSurface: 'anthropic-messages',
+        payloadKind: 'stream_event',
+        sequence,
+        payload: event,
+      });
+      sequence++;
       switch (event.type) {
         case 'message_start':
           usage = event.message.usage;
@@ -47,7 +66,6 @@ export async function streamAndAssemble(
           break;
 
         case 'content_block_start':
-          currentBlockType = event.content_block.type;
           if (event.content_block.type === 'tool_use') {
             currentToolId = event.content_block.id;
             currentToolName = event.content_block.name;
@@ -99,7 +117,6 @@ export async function streamAndAssemble(
             currentToolName = '';
             currentToolJson = '';
           }
-          currentBlockType = '';
           break;
 
         case 'message_delta':
