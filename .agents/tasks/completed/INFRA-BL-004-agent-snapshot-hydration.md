@@ -1,11 +1,12 @@
 ---
 title: Agent 워크스페이스 스냅샷/하이드레이션
-status: backlog
+status: completed
 created: 2026-04-19
-updated: 2026-04-19
+updated: 2026-05-05
 priority: low
 urgency: later
 depends_on: INFRA-BL-002, INFRA-BL-003
+branch: feat/agent-snapshot-hydration
 ---
 
 ## What
@@ -19,7 +20,7 @@ depends_on: INFRA-BL-002, INFRA-BL-003
 
 ## 구현 접근법 (2가지)
 
-### 접근법 A — Provider-level snapshot (추천)
+### 접근법 A — Provider-level snapshot (채택)
 
 샌드박스 provider(E2B, Fly.io Sprites)가 스냅샷을 직접 처리. Robota는 **스냅샷 ID만 저장/복원**.
 
@@ -136,11 +137,50 @@ robota --resume my-session
 - **INFRA-BL-003** (선행조건) — Manifest entry 중 localFile/localDir/gitRepo만 스냅샷 대상, 클라우드 마운트는 ephemeral
 - **SDK-BL-004** (Ralph Loop) — 실패한 반복을 snapshot에서 재시도 가능
 
+## 2026-05-05 리서치 및 추천안
+
+- E2B는 현재 `pause`/`connect` 기반 일시정지/재개와 별도의 `createSnapshot()` 체크포인트 흐름을 모두 제공한다. Robota의 현재 `ISandboxClient.snapshot()`/`restore(snapshotId)` 포트는 provider별 구체 동작을 숨길 수 있으므로 유지한다.
+- Fly.io는 volume snapshot 문서는 안정적이지만 Robota 샌드박스 클라이언트에 직접 대응하는 TypeScript SDK 계약은 아직 없다. 이번 구현에서는 provider-neutral 포트를 먼저 연결하고 Fly 전용 구현은 별도 adapter가 생길 때 추가한다.
+- Temporal durable execution은 프로세스 전체 재시도 모델이라 sandbox hydration의 선행 구현이 아니라 별도 장기 아키텍처로 분리한다.
+- 추천: `agent-tools`가 이미 소유한 `ISandboxClient.snapshot()`/`restore()` 포트를 유지하고, `agent-sdk`가 `InteractiveSession` 종료 시 snapshot id를 세션 JSON에 저장하며 non-fork resume 시 session message replay 전에 sandbox를 restore한다.
+
 ## Open Design Questions
 
-1. E2B 다중 재개 버그(issue #884) 해결 전까지 Fly.io Sprites 우선 검토할지
-2. snapshotId를 SessionStore에 저장할지, 별도 SnapshotStore로 분리할지
-3. Temporal 통합은 별도 INFRA-BL-005로 분리할지
+1. ~~E2B 다중 재개 버그(issue #884) 해결 전까지 Fly.io Sprites 우선 검토할지~~ → 현재는 provider-neutral 포트 연결을 우선한다.
+2. ~~snapshotId를 SessionStore에 저장할지, 별도 SnapshotStore로 분리할지~~ → 세션 resume과 함께 움직이는 단일 값이므로 session record 필드로 저장한다.
+3. ~~Temporal 통합은 별도 INFRA-BL-005로 분리할지~~ → 이번 범위에서 제외한다. 추후 durable execution 백로그로 분리한다.
+
+## Plan
+
+- [x] Research current provider capabilities and choose the provider-neutral port approach.
+- [x] Add failing tests for persisted sandbox snapshot id and resume-time restore ordering.
+- [x] Add `sandboxSnapshotId` to session records and SDK persistence facade.
+- [x] Restore sandbox snapshots before deferred message replay on non-fork resume.
+- [x] Snapshot sandbox state during interactive shutdown and persist the new id.
+- [x] Update SPEC/README/content docs without editing generated API reference docs.
+- [x] Run targeted package tests, typecheck, lint, build, docs, harness verification.
+- [x] Move task to completed, commit, push, open PR, and merge after CI.
+
+## Progress
+
+### 2026-05-05
+
+- Started from `develop` on `feat/agent-snapshot-hydration`.
+- Confirmed `agent-tools` already owns optional `ISandboxClient.snapshot()`/`restore()` plus E2B and in-memory adapter implementations.
+- Chose SDK session persistence/hydration wiring as the remaining implementation scope.
+- Added sandbox snapshot persistence tests in `agent-sdk` and E2B snapshot factory tests in `agent-tools`.
+- Wired `sandboxSnapshotId` through session records, SDK persistence, non-fork resume initialization, and interactive shutdown.
+- Updated package SPEC/README files and non-generated content docs; left generated `content/api-reference/**` untouched.
+- Verified targeted package tests, typecheck, lint, build, docs build, SSOT scan, root build, harness scan, and harness verify.
+
+## Result
+
+Completed provider-neutral sandbox snapshot hydration for interactive sessions.
+
+- `agent-tools` E2B adapter now prefers explicit snapshot APIs and falls back to pause/connect semantics.
+- `agent-sdk` persists sandbox snapshot IDs on shutdown and restores them before session message replay on non-fork resume.
+- `agent-sessions` records can carry `sandboxSnapshotId` without changing generated API reference docs.
+- Follow-up: add provider-specific Fly/Sprites adapter behavior when Robota owns that sandbox client.
 
 ## Test Plan
 

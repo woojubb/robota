@@ -116,6 +116,7 @@ import type {
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -160,6 +161,8 @@ export class InteractiveSession {
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
+  private readonly sandboxClient?: ISandboxClient;
+  private sandboxSnapshotId?: string;
 
   constructor(options: IInteractiveSessionOptions) {
     const sdkBuiltinModule = createBuiltinCommandModule();
@@ -180,37 +183,53 @@ export class InteractiveSession {
     this.forkSession = options.forkSession ?? false;
     this.commandHostAdapters =
       'commandHostAdapters' in options ? options.commandHostAdapters : undefined;
+    this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
+    this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
 
-    if ('session' in options && options.session) {
-      this.session = options.session;
-      this.autoCompactThresholdSource = 'session';
-      this.initialized = true;
-    } else {
-      const stdOpts = options as IInteractiveSessionStandardOptions;
-      this.initPromise = this.initializeAsync(stdOpts);
-    }
-
-    if (options.resumeSessionId && this.sessionStore) {
-      const restored = loadSessionRecord(
-        this.sessionStore,
-        options.resumeSessionId,
-        this.forkSession,
-        this.session,
-      );
-      if (restored.history.length > 0) this.history = restored.history;
-      if (restored.sessionName) this.sessionName = restored.sessionName;
-      this.backgroundTasks = restored.backgroundTasks;
-      this.backgroundTaskEvents = restored.backgroundTaskEvents;
-      this.backgroundJobGroups = restored.backgroundJobGroups;
-      this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
-      this.memoryEvents = restored.memoryEvents;
-      this.usedMemoryReferences = restored.usedMemoryReferences;
-      this.contextReferences = restored.contextReferences;
-      this.pendingRestoreMessages = restored.pendingRestoreMessages;
-    }
+    const hasInjectedSession = this.configureInjectedSession(options);
+    this.restoreSessionRecordIfNeeded(options);
+    this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
 
     if (this.initialized) this.subscribeBackgroundTaskEvents();
     if (this.initialized) this.persistCurrentSession();
+  }
+
+  private configureInjectedSession(options: IInteractiveSessionOptions): boolean {
+    if (!('session' in options && options.session)) return false;
+    this.session = options.session;
+    this.autoCompactThresholdSource = 'session';
+    this.initialized = true;
+    return true;
+  }
+
+  private restoreSessionRecordIfNeeded(options: IInteractiveSessionOptions): void {
+    if (!options.resumeSessionId || !this.sessionStore) return;
+    const restored = loadSessionRecord(
+      this.sessionStore,
+      options.resumeSessionId,
+      this.forkSession,
+      this.session,
+    );
+    if (restored.history.length > 0) this.history = restored.history;
+    if (restored.sessionName) this.sessionName = restored.sessionName;
+    this.backgroundTasks = restored.backgroundTasks;
+    this.backgroundTaskEvents = restored.backgroundTaskEvents;
+    this.backgroundJobGroups = restored.backgroundJobGroups;
+    this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
+    this.memoryEvents = restored.memoryEvents;
+    this.usedMemoryReferences = restored.usedMemoryReferences;
+    this.contextReferences = restored.contextReferences;
+    this.pendingRestoreMessages = restored.pendingRestoreMessages;
+    this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+  }
+
+  private startAsyncInitializationIfNeeded(
+    options: IInteractiveSessionOptions,
+    hasInjectedSession: boolean,
+  ): void {
+    if (hasInjectedSession) return;
+    const stdOpts = options as IInteractiveSessionStandardOptions;
+    this.initPromise = this.initializeAsync(stdOpts);
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -244,6 +263,7 @@ export class InteractiveSession {
       ...(options.sandboxWorkspaceRoot
         ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot }
         : {}),
+      ...(this.sandboxSnapshotId ? { sandboxSnapshotId: this.sandboxSnapshotId } : {}),
       commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
       ...(this.commandExecutor.listModelInvocableCommands().length > 0
         ? {
@@ -388,6 +408,7 @@ export class InteractiveSession {
       this.backgroundJobUnsubscribe = null;
       this.backgroundJobOrchestrator?.dispose();
       this.backgroundJobOrchestrator = null;
+      await this.captureSandboxSnapshot();
       this.persistCurrentSession();
       await session?.shutdown({ reason: options.reason ?? 'other' });
     })();
@@ -833,7 +854,23 @@ export class InteractiveSession {
       {
         references: this.contextReferences,
       },
+      {
+        snapshotId: this.sandboxSnapshotId,
+      },
     );
+  }
+
+  private async captureSandboxSnapshot(): Promise<void> {
+    if (!this.sandboxClient?.snapshot) return;
+    try {
+      this.sandboxSnapshotId = await this.sandboxClient.snapshot();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.history.push(
+        messageToHistoryEntry(createSystemMessage(`Sandbox snapshot error: ${err.message}`)),
+      );
+      this.emit('error', err);
+    }
   }
 
   private startForkSkillExecution(displayInput: string): void {

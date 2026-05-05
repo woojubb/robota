@@ -133,4 +133,4 @@ const agent = new Robota({
 });
 ```
 
-`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`. Workspace manifests use the same sandbox port and prepare files/directories before the tools run.
+`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`. Workspace manifests use the same sandbox port and prepare files/directories before the tools run. When a session store is present, snapshot-capable sandbox clients can persist a `sandboxSnapshotId` on shutdown and hydrate that workspace during non-fork resume.

@@ -111,7 +111,9 @@ export interface ISandboxClient {
     manifest: IWorkspaceManifest,
     options?: IWorkspaceManifestApplyOptions,
   ): Promise<IWorkspaceManifestApplyResult>;
+  /** Return a provider-owned resumable workspace reference. */
   snapshot?(): Promise<string>;
+  /** Hydrate this client from a provider-owned workspace reference. */
   restore?(snapshotId: string): Promise<void>;
 }
 

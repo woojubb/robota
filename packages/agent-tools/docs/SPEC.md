@@ -50,7 +50,7 @@ builtins/
 - **Registry** -- `ToolRegistry` provides central tool registration, lookup, and schema management.
 - **Factory** -- `createFunctionTool` and `createZodFunctionTool` provide ergonomic tool construction.
 - **Adapter** -- `zodToJsonSchema` adapts Zod schemas into the JSON Schema format expected by AI providers; `E2BSandboxClient` adapts E2B-compatible sandbox instances to `ISandboxClient`.
-- **Ports and adapters** -- `ISandboxClient` separates tool execution intent from the concrete execution plane.
+- **Ports and adapters** -- `ISandboxClient` separates tool execution intent, workspace preparation, and provider-owned snapshot hydration from the concrete execution plane.
 - **Declarative workspace setup** -- `IWorkspaceManifest` describes fresh-session sandbox files, directories, Git repositories, and future ephemeral storage mounts without putting manifest algorithms in SDK or CLI layers.
 
 **Dependency direction:** `@robota-sdk/agent-tools` has a peer dependency on `@robota-sdk/agent-core`. No reverse dependency exists.
@@ -59,48 +59,48 @@ builtins/
 
 Types owned by this package (SSOT):
 
-| Type                             | Kind      | File                                     | Description                                      |
-| -------------------------------- | --------- | ---------------------------------------- | ------------------------------------------------ |
-| `TToolResult`                    | Interface | `types/tool-result.ts`                   | Result shape for CLI tool invocations            |
-| `IZodSchema`                     | Interface | `implementations/function-tool/types.ts` | Zod schema shape for function tools              |
-| `IZodParseResult`                | Interface | `implementations/function-tool/types.ts` | Zod parse result shape                           |
-| `IZodSchemaDef`                  | Interface | `implementations/function-tool/types.ts` | Zod schema definition shape                      |
-| `IFunctionToolValidationOptions` | Interface | `implementations/function-tool/types.ts` | Validation options for function tools            |
-| `ISchemaConversionOptions`       | Interface | `implementations/function-tool/types.ts` | Options for Zod-to-JSON-Schema conversion        |
-| `IFunctionToolExecutionMetadata` | Interface | `implementations/function-tool/types.ts` | Metadata returned by function tool execution     |
-| `IFunctionToolResult`            | Interface | `implementations/function-tool/types.ts` | Extended result type for function tool execution |
-| `ISandboxClient`                 | Interface | `sandbox/types.ts`                       | Provider-neutral command and file sandbox port   |
-| `ISandboxRunOptions`             | Interface | `sandbox/types.ts`                       | Sandbox command execution options                |
-| `ISandboxRunResult`              | Interface | `sandbox/types.ts`                       | Sandbox command execution result                 |
-| `ISandboxToolOptions`            | Interface | `sandbox/types.ts`                       | Built-in tool factory options for sandbox use    |
-| `IWorkspaceManifest`             | Interface | `sandbox/types.ts`                       | Declarative sandbox workspace setup contract     |
-| `IWorkspaceManifestApplyOptions` | Interface | `sandbox/types.ts`                       | Generic manifest application options             |
-| `IWorkspaceManifestApplyResult`  | Interface | `sandbox/types.ts`                       | Per-entry manifest application result            |
-| `IWorkspaceManifestAppliedEntry` | Interface | `sandbox/types.ts`                       | Per-entry manifest application status            |
-| `IE2BSandboxAdapter`             | Interface | `sandbox/e2b-sandbox-client.ts`          | Structural E2B-compatible adapter input          |
-| `IE2BSandboxClientOptions`       | Interface | `sandbox/e2b-sandbox-client.ts`          | E2B adapter construction options                 |
-| `IInMemorySandboxClientOptions`  | Interface | `sandbox/in-memory-sandbox-client.ts`    | In-memory sandbox construction options           |
+| Type                             | Kind      | File                                     | Description                                                         |
+| -------------------------------- | --------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| `TToolResult`                    | Interface | `types/tool-result.ts`                   | Result shape for CLI tool invocations                               |
+| `IZodSchema`                     | Interface | `implementations/function-tool/types.ts` | Zod schema shape for function tools                                 |
+| `IZodParseResult`                | Interface | `implementations/function-tool/types.ts` | Zod parse result shape                                              |
+| `IZodSchemaDef`                  | Interface | `implementations/function-tool/types.ts` | Zod schema definition shape                                         |
+| `IFunctionToolValidationOptions` | Interface | `implementations/function-tool/types.ts` | Validation options for function tools                               |
+| `ISchemaConversionOptions`       | Interface | `implementations/function-tool/types.ts` | Options for Zod-to-JSON-Schema conversion                           |
+| `IFunctionToolExecutionMetadata` | Interface | `implementations/function-tool/types.ts` | Metadata returned by function tool execution                        |
+| `IFunctionToolResult`            | Interface | `implementations/function-tool/types.ts` | Extended result type for function tool execution                    |
+| `ISandboxClient`                 | Interface | `sandbox/types.ts`                       | Provider-neutral command, file, manifest, and snapshot sandbox port |
+| `ISandboxRunOptions`             | Interface | `sandbox/types.ts`                       | Sandbox command execution options                                   |
+| `ISandboxRunResult`              | Interface | `sandbox/types.ts`                       | Sandbox command execution result                                    |
+| `ISandboxToolOptions`            | Interface | `sandbox/types.ts`                       | Built-in tool factory options for sandbox use                       |
+| `IWorkspaceManifest`             | Interface | `sandbox/types.ts`                       | Declarative sandbox workspace setup contract                        |
+| `IWorkspaceManifestApplyOptions` | Interface | `sandbox/types.ts`                       | Generic manifest application options                                |
+| `IWorkspaceManifestApplyResult`  | Interface | `sandbox/types.ts`                       | Per-entry manifest application result                               |
+| `IWorkspaceManifestAppliedEntry` | Interface | `sandbox/types.ts`                       | Per-entry manifest application status                               |
+| `IE2BSandboxAdapter`             | Interface | `sandbox/e2b-sandbox-client.ts`          | Structural E2B-compatible adapter input                             |
+| `IE2BSandboxClientOptions`       | Interface | `sandbox/e2b-sandbox-client.ts`          | E2B adapter construction and restore options                        |
+| `IInMemorySandboxClientOptions`  | Interface | `sandbox/in-memory-sandbox-client.ts`    | In-memory sandbox construction options                              |
 
 ## Public API Surface
 
 ### Tool Infrastructure
 
-| Export                          | Kind     | Description                                              |
-| ------------------------------- | -------- | -------------------------------------------------------- |
-| `ToolRegistry`                  | Class    | Central tool registration and schema lookup              |
-| `FunctionTool`                  | Class    | JS function tool with Zod schema validation              |
-| `createFunctionTool`            | Function | Factory for creating function tools                      |
-| `createZodFunctionTool`         | Function | Factory with Zod validation and conversion               |
-| `OpenAPITool`                   | Class    | Tool generated from OpenAPI specification                |
-| `createOpenAPITool`             | Function | Factory for creating OpenAPI tools                       |
-| `zodToJsonSchema`               | Function | Converts Zod schemas to JSON Schema format               |
-| `TToolResult`                   | Type     | Result shape for CLI tool invocations                    |
-| `E2BSandboxClient`              | Class    | Adapter for E2B-compatible sandbox instances             |
-| `InMemorySandboxClient`         | Class    | Deterministic sandbox client for tests                   |
-| `ISandboxClient`                | Type     | Provider-neutral sandbox execution port                  |
-| `IWorkspaceManifest`            | Type     | Provider-neutral sandbox workspace manifest              |
-| `applyWorkspaceManifest`        | Function | Applies a workspace manifest through an `ISandboxClient` |
-| `validateWorkspaceManifestPath` | Function | Validates and normalizes manifest entry paths            |
+| Export                          | Kind     | Description                                                |
+| ------------------------------- | -------- | ---------------------------------------------------------- |
+| `ToolRegistry`                  | Class    | Central tool registration and schema lookup                |
+| `FunctionTool`                  | Class    | JS function tool with Zod schema validation                |
+| `createFunctionTool`            | Function | Factory for creating function tools                        |
+| `createZodFunctionTool`         | Function | Factory with Zod validation and conversion                 |
+| `OpenAPITool`                   | Class    | Tool generated from OpenAPI specification                  |
+| `createOpenAPITool`             | Function | Factory for creating OpenAPI tools                         |
+| `zodToJsonSchema`               | Function | Converts Zod schemas to JSON Schema format                 |
+| `TToolResult`                   | Type     | Result shape for CLI tool invocations                      |
+| `E2BSandboxClient`              | Class    | Adapter for E2B-compatible sandbox instances and snapshots |
+| `InMemorySandboxClient`         | Class    | Deterministic sandbox client for tests                     |
+| `ISandboxClient`                | Type     | Provider-neutral sandbox execution and hydration port      |
+| `IWorkspaceManifest`            | Type     | Provider-neutral sandbox workspace manifest                |
+| `applyWorkspaceManifest`        | Function | Applies a workspace manifest through an `ISandboxClient`   |
+| `validateWorkspaceManifestPath` | Function | Validates and normalizes manifest entry paths              |
 
 ### Built-in CLI Tools
 
@@ -145,7 +145,7 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 3. **OpenAPITool / createOpenAPITool** -- Consumers create tools from OpenAPI specifications for API integration.
 
-4. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; `InMemorySandboxClient` supports deterministic contract tests.
+4. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. The optional `snapshot()` and `restore(snapshotId)` methods return and hydrate provider-owned resumable workspace references. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; it supports both `createSnapshot()` style checkpoint references and `pause()`/`connect()` style resumable sandbox IDs. `InMemorySandboxClient` supports deterministic contract tests.
 
 5. **IWorkspaceManifest / applyWorkspaceManifest** -- Consumers declare fresh-session sandbox contents using workspace-relative paths. The generic applicator writes inline/local files, creates directories, and clones Git repositories through `ISandboxClient`; provider-specific storage mounts are represented in the contract but return explicit `unsupported` entries until an adapter supplies native mount capability.
 
@@ -183,14 +183,14 @@ None. `FunctionTool` and `OpenAPITool` implement their respective interfaces dir
 
 ### Current Test Coverage
 
-| File                                       | Scope | Description                                                             |
-| ------------------------------------------ | ----- | ----------------------------------------------------------------------- |
-| `src/__tests__/atomic-file-write.test.ts`  | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff |
-| `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, and E2B adapter behavior |
-| `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application      |
-| `src/__tests__/function-tool.test.ts`      | Unit  | FunctionTool creation, execution, schema validation                     |
-| `src/__tests__/schema-converter.test.ts`   | Unit  | Zod-to-JSON-Schema conversion                                           |
-| `src/__tests__/tool-registry.test.ts`      | Unit  | ToolRegistry registration, lookup, listing                              |
+| File                                       | Scope | Description                                                                                     |
+| ------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------- |
+| `src/__tests__/atomic-file-write.test.ts`  | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                         |
+| `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths |
+| `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application                              |
+| `src/__tests__/function-tool.test.ts`      | Unit  | FunctionTool creation, execution, schema validation                                             |
+| `src/__tests__/schema-converter.test.ts`   | Unit  | Zod-to-JSON-Schema conversion                                                                   |
+| `src/__tests__/tool-registry.test.ts`      | Unit  | ToolRegistry registration, lookup, listing                                                      |
 
 ### Gaps
 

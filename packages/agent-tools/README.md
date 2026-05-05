@@ -74,7 +74,7 @@ const bashTool = createBashTool({ sandboxClient });
 const readTool = createReadTool({ sandboxClient });
 ```
 
-The package does not depend on E2B directly. `E2BSandboxClient` adapts an E2B-compatible object with `commands.run`, `files.read`, `files.write`, and optional `pause`/`connect` methods, so applications can choose whether to install the provider SDK. `InMemorySandboxClient` is available for deterministic tests and contract verification.
+The package does not depend on E2B directly. `E2BSandboxClient` adapts an E2B-compatible object with `commands.run`, `files.read`, `files.write`, and optional `createSnapshot`, `pause`, `connect`, or factory methods supplied by the application. `snapshot()` returns a provider-owned resumable workspace reference; `restore(snapshotId)` hydrates the adapter from that reference. `InMemorySandboxClient` is available for deterministic tests and contract verification.
 
 ### Workspace Manifests
 
@@ -104,21 +104,21 @@ Recent file tool updates keep write/edit behavior atomic and make Edit tool resu
 
 ## Tool Infrastructure
 
-| Export                   | Description                                            |
-| ------------------------ | ------------------------------------------------------ |
-| `ToolRegistry`           | Central tool registration and schema lookup            |
-| `FunctionTool`           | JS function tool with Zod schema validation            |
-| `createFunctionTool`     | Factory for creating function tools                    |
-| `createZodFunctionTool`  | Factory with Zod validation and JSON Schema conversion |
-| `OpenAPITool`            | Tool generated from OpenAPI specification              |
-| `createOpenAPITool`      | Factory for creating OpenAPI tools                     |
-| `zodToJsonSchema`        | Converts Zod schemas to JSON Schema format             |
-| `TToolResult`            | Result type for built-in CLI tool invocations          |
-| `ISandboxClient`         | Provider-neutral sandbox execution port                |
-| `IWorkspaceManifest`     | Declarative sandbox workspace setup contract           |
-| `applyWorkspaceManifest` | Generic manifest applicator for sandbox clients        |
-| `E2BSandboxClient`       | Adapter for E2B-compatible sandbox instances           |
-| `InMemorySandboxClient`  | Deterministic sandbox client for tests                 |
+| Export                   | Description                                                |
+| ------------------------ | ---------------------------------------------------------- |
+| `ToolRegistry`           | Central tool registration and schema lookup                |
+| `FunctionTool`           | JS function tool with Zod schema validation                |
+| `createFunctionTool`     | Factory for creating function tools                        |
+| `createZodFunctionTool`  | Factory with Zod validation and JSON Schema conversion     |
+| `OpenAPITool`            | Tool generated from OpenAPI specification                  |
+| `createOpenAPITool`      | Factory for creating OpenAPI tools                         |
+| `zodToJsonSchema`        | Converts Zod schemas to JSON Schema format                 |
+| `TToolResult`            | Result type for built-in CLI tool invocations              |
+| `ISandboxClient`         | Provider-neutral sandbox execution port                    |
+| `IWorkspaceManifest`     | Declarative sandbox workspace setup contract               |
+| `applyWorkspaceManifest` | Generic manifest applicator for sandbox clients            |
+| `E2BSandboxClient`       | Adapter for E2B-compatible sandbox instances and snapshots |
+| `InMemorySandboxClient`  | Deterministic sandbox client for tests                     |
 
 ## TToolResult Shape
 

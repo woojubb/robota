@@ -34,6 +34,7 @@ export interface IInteractiveSessionRecord {
   memoryEvents?: IMemoryEvent[];
   usedMemoryReferences?: IMemoryReference[];
   contextReferences?: IContextReferenceItem[];
+  sandboxSnapshotId?: string;
 }
 
 export interface IInteractiveSessionStore {
@@ -209,6 +210,9 @@ function fromSessionRecord(session: ISessionRecord): IInteractiveSessionRecord {
       : {}),
     ...(session.contextReferences !== undefined
       ? { contextReferences: session.contextReferences as IContextReferenceItem[] }
+      : {}),
+    ...(session.sandboxSnapshotId !== undefined
+      ? { sandboxSnapshotId: session.sandboxSnapshotId }
       : {}),
   };
 }

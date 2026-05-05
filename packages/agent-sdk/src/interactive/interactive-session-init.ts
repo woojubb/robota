@@ -86,6 +86,8 @@ export interface IInteractiveSessionStandardOptions {
   workspaceManifest?: IWorkspaceManifest;
   /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
   sandboxWorkspaceRoot?: string;
+  /** Provider sandbox snapshot id to restore before replaying saved messages. */
+  sandboxSnapshotId?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -161,6 +163,8 @@ export interface IInitOptions {
   workspaceManifest?: IWorkspaceManifest;
   /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
   sandboxWorkspaceRoot?: string;
+  /** Provider sandbox snapshot id to restore before replaying saved messages. */
+  sandboxSnapshotId?: string;
 }
 
 /**
@@ -203,7 +207,10 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
 
   const paths = projectPaths(cwd);
 
-  await applyInteractiveWorkspaceManifest(options, cwd);
+  const sandboxRestored = await restoreInteractiveSandboxSnapshot(options);
+  if (!sandboxRestored) {
+    await applyInteractiveWorkspaceManifest(options, cwd);
+  }
 
   // For non-fork resume, reuse the original session ID so saves update the same file
   const sessionId =
@@ -264,6 +271,15 @@ async function applyInteractiveWorkspaceManifest(
   });
 }
 
+async function restoreInteractiveSandboxSnapshot(options: IInitOptions): Promise<boolean> {
+  if (!options.sandboxSnapshotId) return false;
+  if (!options.sandboxClient?.restore) {
+    throw new Error('sandboxSnapshotId requires sandboxClient with restore().');
+  }
+  await options.sandboxClient.restore(options.sandboxSnapshotId);
+  return true;
+}
+
 /** Inject a saved message into a session, supporting all roles including 'tool'. */
 export function injectSavedMessage(session: Session, msg: TUniversalMessage): void {
   if (typeof msg.content !== 'string') return;
@@ -297,6 +313,7 @@ export function loadSessionRecord(
   memoryEvents: IMemoryEvent[];
   usedMemoryReferences: IMemoryReference[];
   contextReferences: IContextReferenceItem[];
+  sandboxSnapshotId: string | undefined;
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -311,6 +328,7 @@ export function loadSessionRecord(
       memoryEvents: [],
       usedMemoryReferences: [],
       contextReferences: [],
+      sandboxSnapshotId: undefined,
     };
   }
 
@@ -322,6 +340,7 @@ export function loadSessionRecord(
   const memoryEvents = record.memoryEvents ?? [];
   const usedMemoryReferences = record.usedMemoryReferences ?? [];
   const contextReferences = record.contextReferences ?? [];
+  const sandboxSnapshotId = record.sandboxSnapshotId;
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
@@ -352,6 +371,7 @@ export function loadSessionRecord(
     memoryEvents,
     usedMemoryReferences,
     contextReferences,
+    sandboxSnapshotId,
   };
 }
 

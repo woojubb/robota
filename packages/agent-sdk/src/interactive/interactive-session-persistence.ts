@@ -33,10 +33,14 @@ export function persistSession(
   contextReferenceState?: {
     references: readonly IContextReferenceItem[];
   },
+  sandboxState?: {
+    snapshotId?: string;
+  },
 ): void {
   try {
     const sessionId = session.getSessionId();
     const existing = sessionStore.load(sessionId);
+    const sandboxSnapshotId = sandboxState?.snapshotId ?? existing?.sandboxSnapshotId;
     sessionStore.save(
       buildInteractiveSessionRecord({
         session,
@@ -48,6 +52,7 @@ export function persistSession(
         backgroundState,
         memoryState,
         contextReferenceState,
+        ...(sandboxSnapshotId !== undefined ? { sandboxSnapshotId } : {}),
       }),
     );
   } catch {
@@ -75,6 +80,7 @@ interface IBuildInteractiveSessionRecordInput {
   contextReferenceState?: {
     references: readonly IContextReferenceItem[];
   };
+  sandboxSnapshotId?: string;
 }
 
 function buildInteractiveSessionRecord(
@@ -90,6 +96,9 @@ function buildInteractiveSessionRecord(
     history: input.history,
     systemPrompt: input.session.getSystemMessage(),
     toolSchemas: input.session.getToolSchemas(),
+    ...(input.sandboxSnapshotId !== undefined
+      ? { sandboxSnapshotId: input.sandboxSnapshotId }
+      : {}),
     ...buildBackgroundRecordFields(input.backgroundState),
     ...buildMemoryRecordFields(input.memoryState),
     ...buildContextReferenceRecordFields(input.contextReferenceState),
