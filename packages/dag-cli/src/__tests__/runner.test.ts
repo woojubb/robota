@@ -61,6 +61,26 @@ function createAssetUploadRequest() {
   };
 }
 
+function createCostMeta() {
+  return {
+    nodeType: 'llm text openai',
+    displayName: 'OpenAI text node',
+    category: 'ai-inference',
+    estimateFormula: 'baseCost + tokens * perToken',
+    variables: { baseCost: 1, perToken: 0.01 },
+    enabled: true,
+    updatedAt: '2026-05-05T00:00:00.000Z',
+  };
+}
+
+function createCostMetaPreviewRequest() {
+  return {
+    formula: 'baseCost + tokens * perToken',
+    variables: { baseCost: 1, perToken: 0.01 },
+    testContext: { tokens: 200 },
+  };
+}
+
 function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOptions & {
   readonly requests: ICapturedRequest[];
   readonly output: string[];
@@ -94,6 +114,15 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
         }
         if (filePath === 'asset.json') {
           return JSON.stringify(createAssetUploadRequest());
+        }
+        if (filePath === 'cost-meta.json') {
+          return JSON.stringify(createCostMeta());
+        }
+        if (filePath === 'cost-meta-validate.json') {
+          return JSON.stringify({ formula: 'baseCost + tokens * perToken' });
+        }
+        if (filePath === 'cost-meta-preview.json') {
+          return JSON.stringify(createCostMetaPreviewRequest());
         }
         return '{}';
       },
@@ -301,5 +330,79 @@ describe('runDagCli', () => {
     expect(options.requests[2]?.init.body).toBeUndefined();
     expect(options.binaryWrites).toHaveLength(1);
     expect(options.binaryWrites[0]?.filePath).toBe('photo.png');
+  });
+
+  it('routes cost metadata commands through shared HTTP contracts', async () => {
+    const meta = createCostMeta();
+    const options = createOptions([
+      { ok: true, status: 200, data: { items: [meta] } },
+      { ok: true, status: 200, data: { meta } },
+      { ok: true, status: 201, data: { meta } },
+      { ok: true, status: 200, data: { meta } },
+      { ok: true, status: 200, data: { nodeType: meta.nodeType } },
+      { ok: true, status: 200, data: { valid: true, errors: [] } },
+      { ok: true, status: 200, data: { result: 3 } },
+    ]);
+
+    const listExit = await runDagCli(['cost-meta', 'list'], options);
+    const getExit = await runDagCli(['cost-meta', 'get', meta.nodeType], options);
+    const createExit = await runDagCli(
+      ['cost-meta', 'create', '--json', '@cost-meta.json'],
+      options,
+    );
+    const updateExit = await runDagCli(
+      ['cost-meta', 'update', meta.nodeType, '--json', '@cost-meta.json'],
+      options,
+    );
+    const deleteExit = await runDagCli(['cost-meta', 'delete', meta.nodeType], options);
+    const validateExit = await runDagCli(
+      ['cost-meta', 'validate', '--json', '@cost-meta-validate.json'],
+      options,
+    );
+    const previewExit = await runDagCli(
+      ['cost-meta', 'preview', '--json', '@cost-meta-preview.json'],
+      options,
+    );
+
+    expect([
+      listExit,
+      getExit,
+      createExit,
+      updateExit,
+      deleteExit,
+      validateExit,
+      previewExit,
+    ]).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(options.requests.map((request) => [request.init.method, request.url])).toEqual([
+      ['GET', `${TEST_SERVER_URL}/v1/cost-meta`],
+      ['GET', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
+      ['POST', `${TEST_SERVER_URL}/v1/cost-meta`],
+      ['PUT', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
+      ['DELETE', `${TEST_SERVER_URL}/v1/cost-meta/llm%20text%20openai`],
+      ['POST', `${TEST_SERVER_URL}/v1/cost-meta/validate`],
+      ['POST', `${TEST_SERVER_URL}/v1/cost-meta/preview`],
+    ]);
+    expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(meta);
+    expect(JSON.parse(String(options.requests[3]?.init.body))).toEqual(meta);
+    expect(JSON.parse(String(options.requests[5]?.init.body))).toEqual({
+      formula: 'baseCost + tokens * perToken',
+    });
+    expect(JSON.parse(String(options.requests[6]?.init.body))).toEqual(
+      createCostMetaPreviewRequest(),
+    );
+  });
+
+  it('rejects cost metadata commands with missing required JSON before server calls', async () => {
+    const options = createOptions([]);
+
+    const exitCode = await runDagCli(['cost-meta', 'create'], options);
+
+    expect(exitCode).toBe(2);
+    expect(options.requests).toHaveLength(0);
+    expect(JSON.parse(options.output.join(''))).toMatchObject({
+      ok: false,
+      status: 2,
+      errors: [{ code: 'DAG_CLI_USAGE_ERROR' }],
+    });
   });
 });

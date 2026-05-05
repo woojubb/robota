@@ -2,7 +2,7 @@
 
 ## Scope
 
-Command-line client for the Robota DAG orchestration HTTP API. This package is an operational tool for humans and AI agents that need to inspect definitions, list runtime nodes, create runs, start runs, and fetch run status/results from `dag-orchestrator-server`.
+Command-line client for the Robota DAG orchestration HTTP API. This package is an operational tool for humans and AI agents that need to inspect definitions, list runtime nodes, manage cost metadata, create runs, start runs, and fetch run status/results from `dag-orchestrator-server`.
 
 ## Boundaries
 
@@ -32,6 +32,13 @@ Commands:
 - `assets upload --json <json|@file>`
 - `assets get <assetId>`
 - `assets download <assetId> --output <path>`
+- `cost-meta list`
+- `cost-meta get <nodeType>`
+- `cost-meta create --json <json|@file>`
+- `cost-meta update <nodeType> --json <json|@file>`
+- `cost-meta delete <nodeType>`
+- `cost-meta validate --json <json|@file>`
+- `cost-meta preview --json <json|@file>`
 - `definitions list`
 - `definitions get <dagId> [--version <version>]`
 - `definitions create --file <definition.json>`
@@ -62,7 +69,7 @@ This package is SSOT for:
 Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
-- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
 
 ## Public API Surface
 
@@ -93,6 +100,6 @@ None.
 
 ## Test Strategy
 
-- Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, and JSON output.
+- Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, cost metadata CRUD/formula routing, cost metadata argument validation, and JSON output.
 - Tests inject a fake fetch and fake file reader; no network or filesystem access is required.
 - Run: `pnpm --filter @robota-sdk/dag-cli test`

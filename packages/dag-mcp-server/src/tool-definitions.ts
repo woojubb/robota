@@ -86,6 +86,54 @@ export const DAG_MCP_TOOL_DEFINITIONS: readonly IDagMcpToolDefinition[] = [
     inputSchema: objectSchema({ assetId: { type: 'string' } }, ['assetId']),
   },
   {
+    name: 'dag_cost_meta_list',
+    description: 'List cost metadata entries.',
+    inputSchema: EMPTY_OBJECT_SCHEMA,
+  },
+  {
+    name: 'dag_cost_meta_get',
+    description: 'Get cost metadata for a node type.',
+    inputSchema: objectSchema({ nodeType: { type: 'string' } }, ['nodeType']),
+  },
+  {
+    name: 'dag_cost_meta_create',
+    description: 'Create cost metadata for a node type.',
+    inputSchema: objectSchema({ meta: { type: 'object' } }, ['meta']),
+  },
+  {
+    name: 'dag_cost_meta_update',
+    description: 'Update cost metadata for a node type.',
+    inputSchema: objectSchema(
+      {
+        nodeType: { type: 'string' },
+        meta: { type: 'object' },
+      },
+      ['nodeType', 'meta'],
+    ),
+  },
+  {
+    name: 'dag_cost_meta_delete',
+    description: 'Delete cost metadata for a node type.',
+    inputSchema: objectSchema({ nodeType: { type: 'string' } }, ['nodeType']),
+  },
+  {
+    name: 'dag_cost_meta_validate_formula',
+    description: 'Validate a cost metadata CEL formula.',
+    inputSchema: objectSchema({ formula: { type: 'string' } }, ['formula']),
+  },
+  {
+    name: 'dag_cost_meta_preview_formula',
+    description: 'Preview a cost metadata formula with variables and optional test context.',
+    inputSchema: objectSchema(
+      {
+        formula: { type: 'string' },
+        variables: { type: 'object' },
+        testContext: { type: 'object' },
+      },
+      ['formula'],
+    ),
+  },
+  {
     name: 'dag_runs_create',
     description: 'Create a DAG run preparation from a definition.',
     inputSchema: objectSchema(
