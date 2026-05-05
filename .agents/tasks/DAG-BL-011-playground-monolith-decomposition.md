@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-project-browser
+- **Branch**: refactor/agent-playground-agent-configuration-block
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -59,6 +59,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `execution-tree-debug.tsx` into a stable directory module.
 - [x] Add characterization tests for `project-browser`.
 - [x] Split `project-browser.tsx` into a stable directory module.
+- [x] Add characterization tests for `agent-configuration-block`.
+- [x] Split `agent-configuration-block.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -67,10 +69,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 ### hooks
 
 - `hooks/use-robota-execution.ts` (396 lines)
-
-### components/playground
-
-- `agent-configuration-block.tsx` (467 lines)
 
 ### contexts
 
@@ -225,6 +223,14 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   empty-state create callback, create dialog submission, and import dialog submission.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the twenty-third slice: `agent-configuration-block.tsx` is now a same-name directory
+  module with validation/state, header actions, model fields, tool/plugin/settings tabs, constants,
+  and local prop types split from the visual configuration facade.
+- Added characterization coverage for editable model settings, invalid-config execution blocking,
+  running-state editing lockout, header callbacks, and tab rendering.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments. Two production source files still exceed the 300-line
+  guideline.
 
 ## Decisions
 
