@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-execution-subscriber
+- **Branch**: refactor/agent-playground-websocket-client
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -29,6 +29,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `block-tracking/block-hooks.ts` into a stable directory module.
 - [x] Add characterization tests for `execution-subscriber`.
 - [x] Split `execution-subscriber.ts` into a stable directory module.
+- [x] Add characterization tests for `websocket-client`.
+- [x] Split `websocket-client.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -57,7 +59,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ### lib/playground
 
-- `websocket-client.ts` (445 lines)
 - `robota-executor.ts` (447 lines)
 
 ### contexts
@@ -106,6 +107,12 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for SDK tool lifecycle, progress step parsing, execution
   hierarchy blocks, and dispose behavior.
 - Updated package SPEC and the central architecture map for the execution subscriber module.
+- Completed the eighth low-risk slice: `websocket-client.ts` is now a same-name directory module
+  with connection state in the client class plus internal constants, message guards, message
+  builders, auth response parsing, and event type modules.
+- Added characterization coverage for connection URL/status events, timestamped outbound messages,
+  broadcast identity, authentication, and update routing.
+- Updated package SPEC and the central architecture map for the WebSocket client module.
 
 ## Decisions
 
@@ -118,6 +125,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to project manager internals.
 - Apply the same stable-import directory module pattern to block tracking hook factories.
 - Apply the same stable-import directory module pattern to execution subscriber internals.
+- Apply the same stable-import directory module pattern to WebSocket client internals.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -135,6 +143,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 18 production source files still exceed the guideline. The current
-branch delivers the seventh tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 17 production source files still exceed the guideline. The current
+branch delivers the eighth tested decomposition slice and extends the repeatable pattern for follow-up
 files.
