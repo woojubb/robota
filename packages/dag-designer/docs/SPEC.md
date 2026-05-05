@@ -9,11 +9,12 @@ perform local orchestration.
 
 Run client contract: `createRun -> startRun -> getRunResult`.
 
-- `createRun` returns `{ preparationId }` (orchestrator-internal pre-start key).
+- `createRun` accepts optional `{ partialRun: { startNodeId } }` and returns `{ preparationId }` (orchestrator-internal pre-start key).
 - `startRun` accepts `preparationId`, returns `{ dagRunId }` where `dagRunId` = `promptId` from runtime.
 - `subscribeRunProgress` uses `preparationId` (WS connects before start).
 - `getRunResult` uses `dagRunId`.
 - `IRunResult` has `status` (`'success' | 'failed'`), `traces`, `nodeErrors: IRunNodeError[]`, and `totalCredits`.
+- Run draft client contract: `saveRunDraft -> getRunDraft`, plus `resetRunDraftNodeResult` and `overwriteRunDraftNodeResult`. Draft payloads keep `nodeStateMap` and `runResult` outside `IDagDefinition`.
 
 `text-template` node template syntax:
 
@@ -67,6 +68,7 @@ This package is SSOT for:
 - `IDesignerApiClientConfig` -- client configuration (baseUrl)
 - `ICreateDefinitionInput`, `IUpdateDraftInput`, `IValidateDefinitionInput`, `IPublishDefinitionInput`, `IGetDefinitionInput`, `IListDefinitionsInput` -- client-side input types
 - `IDesignerCreateRunInput`, `IDesignerStartRunInput`, `IGetRunResultInput` -- run operation inputs (designer-prefixed to avoid collision with dag-runtime)
+- `ISaveRunDraftInput`, `IGetRunDraftInput`, `IResetRunDraftNodeResultInput`, `IOverwriteRunDraftNodeResultInput` -- run draft operation inputs
 - `ISubscribeRunProgressInput` -- run progress subscription input
 - `IDagDesignerState` -- React designer state interface
 - `IDagDesignerActions` -- React designer action interface
@@ -90,6 +92,7 @@ Imported from other packages (not owned here):
 - `NodeExplorerPanel`, `NodeConfigPanel`, `EdgeInspectorPanel` -- panel components
 - `NodeIoViewer`, `NodeIoTracePanel` -- data/trace viewer components
 - `listObjectInfo()` -- primary method on `IDesignerApiClient` for node catalog discovery (fetches `/object_info` from runtime)
+- `saveRunDraft()`, `getRunDraft()`, `resetRunDraftNodeResult()`, `overwriteRunDraftNodeResult()` -- execution draft APIs backed by `/v1/dag/run-drafts`
 - `enrichDefinitionWithPorts()` -- derives runtime ports from `TObjectInfo`/`INodeManifest` for view/validation without mutating persisted definitions
 - `stripDefinitionNodePortDefinitions()` -- removes runtime port snapshots before saving or emitting DAG JSON
 
@@ -146,6 +149,12 @@ Long-running node side effects that must complete before execution, currently as
 Run progress events mark `executionStatus` as `running`, `success`, or `failed`. These states describe server execution and are separate from the pre-run operation gate for upload and other designer-side side effects.
 
 Upload success means the orchestrator returned a valid asset reference after runtime synchronization completed. The designer stores the returned orchestrator `assetId` in config; runtime-specific upload IDs are server metadata and must not be written directly into DAG JSON.
+
+## Run Draft Behavior
+
+Run drafts use `IRunDraft` from `dag-core`. The designer may save and restore `nodeStateMap`, `runResult`, `definition`, and `input` through `IDesignerApiClient`, but it must continue to emit persisted DAG definitions without node execution state.
+
+Manual reset of a node result resets that node and downstream dependents because downstream traces are no longer valid. Manual overwrite stores a trace for one node and marks that node successful in `nodeStateMap`. Host UIs may expose controls for these operations, but the package-level client contract is transport-only and does not perform local orchestration.
 
 ## List Port Handle Behavior
 
@@ -209,7 +218,7 @@ Ports with `isList: true` support multiple connections via dynamically generated
 ## Test Strategy
 
 - Unit tests: `port-editor-utils.test.ts` (port editing helpers), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation), `comfyui-field-renderers.test.ts` (ComfyUI input spec parsing tests).
-- Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` contract for `IRunResult` shape — status, dagRunId, traces, nodeErrors, totalCredits).
+- Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` and `hasValidRunDraft` contracts).
 - API client HTTP request/response shape tests and WebSocket reconnection logic tests are planned.
 - The designer also relies on integration testing through app-level UI tests.
 - Coverage priorities: API client request/response contract validation, WebSocket reconnection logic, hook state management, component rendering with manifests and definitions.
