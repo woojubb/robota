@@ -78,6 +78,9 @@ export function evaluateReversibleToolSafety(
   }
 
   if (FILE_MUTATION_TOOLS.has(toolName)) {
+    if (input.context.isolation === 'worktree' || input.context.isolation === 'provider-sandbox') {
+      return evaluateIsolatedSideEffect(toolName, 'file-mutation', input.context);
+    }
     if (input.context.checkpointAvailable) {
       return {
         toolName,

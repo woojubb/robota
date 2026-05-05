@@ -61,6 +61,21 @@ describe('reversible execution policy', () => {
     });
   });
 
+  it('classifies provider-sandbox file mutations as reversible without host checkpoints', () => {
+    const report = evaluateReversibleToolSafety({
+      toolName: 'Write',
+      toolArgs: { filePath: '/workspace/generated.ts' },
+      context: { checkpointAvailable: false, isolation: 'provider-sandbox' },
+    });
+
+    expect(report).toMatchObject({
+      reversible: true,
+      sideEffect: 'file-mutation',
+      rollbackLayer: 'provider-sandbox',
+      status: 'reversible',
+    });
+  });
+
   it('treats worktree-isolated Agent jobs as reversible through the worktree layer', () => {
     const report = evaluateReversibleToolSafety({
       toolName: 'Agent',

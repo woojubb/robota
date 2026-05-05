@@ -19,6 +19,8 @@ Defined in `agent-core`, consumed by `agent-sessions`. Provides deterministic 3-
 | `acceptEdits`       | auto | auto             | approve (prompt) |
 | `bypassPermissions` | auto | auto             | auto             |
 
+Permissions and hooks run before tool execution regardless of whether a tool executes locally or through an injected sandbox client. A sandbox changes the execution plane for Bash and file operations; it does not bypass the permission matrix or hook pipeline.
+
 ### Pattern Syntax
 
 ```

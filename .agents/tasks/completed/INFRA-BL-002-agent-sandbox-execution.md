@@ -1,8 +1,8 @@
 ---
 title: Agent 샌드박스 실행 환경
-status: backlog
+status: completed
 created: 2026-03-15
-updated: 2026-04-19
+updated: 2026-05-05
 priority: medium
 urgency: later
 ---
@@ -155,6 +155,43 @@ await sandbox.kill();
 1. Open design questions 답변 후 스펙 작성
 2. E2B 통합부터 시작 (TS SDK 있음, 가장 간단)
 3. Branch: `feat/agent-sandbox-execution` (구현 시점에 생성)
+
+## Progress
+
+- [x] `ISandboxClient` owner를 `agent-tools`로 확정하고 command/file/snapshot/restore 포트를 정의
+- [x] Bash, Read, Write, Edit 도구를 sandbox-aware factory로 확장하고 기존 singleton host-local export 유지
+- [x] `agent-sdk` `InteractiveSession`/`createSession()`에 `sandboxClient` 주입 경로 추가
+- [x] `reversibleExecution`에서 sandbox 주입 시 기본 isolation을 `provider-sandbox`로 분류
+- [x] E2B-compatible structural adapter와 deterministic in-memory contract adapter 추가
+- [x] package SPEC/README/content 문서 업데이트
+- [x] 최종 검증, PR 생성, 머지 후 completed로 이동
+
+## Decisions
+
+- `ISandboxClient`는 `agent-tools`가 소유한다. 실제 command/file tool 구현이 이 패키지에 있으므로 `agent-core`에 실행-plane 세부 계약을 올리지 않는다.
+- E2B는 직접 dependency로 추가하지 않고 structural adapter로 지원한다. 애플리케이션 composition root가 `e2b` 설치와 `Sandbox.create()`를 담당하고, Robota는 해당 객체를 `E2BSandboxClient`로 감싼다.
+- sandbox가 주입된 SDK session은 Bash/Read/Write/Edit만 sandbox-aware로 전환한다. Glob/Grep은 기존 host-local 구현을 유지하며, provider-native file search가 필요하면 별도 manifest/catalog 백로그에서 확장한다.
+
+## Result
+
+- `agent-tools`에 provider-neutral `ISandboxClient` 포트, E2B-compatible structural adapter, in-memory contract adapter를 추가했다.
+- Bash/Read/Write/Edit built-in tool을 sandbox-aware factory로 확장하고 기존 singleton host-local export는 유지했다.
+- `agent-sdk`의 `createSession()`과 `InteractiveSession`이 `sandboxClient`를 받아 기본 도구를 sandbox execution plane으로 조립하도록 연결했다.
+- sandbox 주입 시 reversible execution 기본 isolation을 `provider-sandbox`로 분류하고, sandbox file mutation에는 host edit checkpoint wrapping을 적용하지 않도록 했다.
+- SPEC, README, content 문서, changeset을 갱신했고 검증을 통과했다.
+
+검증:
+
+- `pnpm --filter @robota-sdk/agent-tools test -- src/__tests__/sandbox-tools.test.ts`
+- `pnpm --filter @robota-sdk/agent-sdk test -- src/assembly/__tests__/create-tools.test.ts src/__tests__/create-session-new-options.test.ts src/reversible-execution/__tests__/reversible-execution-policy.test.ts`
+- `pnpm --filter @robota-sdk/agent-tools typecheck`
+- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-tools lint`
+- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm build`
+- `pnpm docs:build`
+- `pnpm harness:scan`
+- `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`
 
 ## References
 

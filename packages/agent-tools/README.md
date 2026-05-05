@@ -1,6 +1,6 @@
 # @robota-sdk/agent-tools
 
-Tool registry, tool creation infrastructure, and 8 built-in CLI tools for the Robota SDK.
+Tool registry, tool creation infrastructure, 8 built-in CLI tools, and sandbox execution ports for the Robota SDK.
 
 ## Installation
 
@@ -46,16 +46,35 @@ const agent = new Robota({
 
 ## Built-in Tools (8)
 
-| Export          | Tool Name | Description                                      |
-| --------------- | --------- | ------------------------------------------------ |
-| `bashTool`      | Bash      | Execute shell commands via `child_process.spawn` |
-| `readTool`      | Read      | Read file contents with line numbers (cat -n)    |
-| `writeTool`     | Write     | Write content to a file (creates parent dirs)    |
-| `editTool`      | Edit      | Replace a specific string in a file              |
-| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)   |
-| `grepTool`      | Grep      | Search file contents with regex patterns         |
-| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)      |
-| `webSearchTool` | WebSearch | Web search via Brave Search API                  |
+| Export          | Tool Name | Description                                               |
+| --------------- | --------- | --------------------------------------------------------- |
+| `bashTool`      | Bash      | Execute shell commands via host process or sandbox client |
+| `readTool`      | Read      | Read file contents with line numbers (cat -n)             |
+| `writeTool`     | Write     | Write content to a file (creates parent dirs)             |
+| `editTool`      | Edit      | Replace a specific string in a file                       |
+| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)            |
+| `grepTool`      | Grep      | Search file contents with regex patterns                  |
+| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)               |
+| `webSearchTool` | WebSearch | Web search via Brave Search API                           |
+
+Factory exports (`createBashTool`, `createReadTool`, `createWriteTool`, `createEditTool`) accept an optional `sandboxClient`. The default singleton exports keep host-local behavior.
+
+## Sandbox Execution
+
+`ISandboxClient` is the provider-neutral execution-plane port used by sandbox-aware built-in tools:
+
+```typescript
+import { E2BSandboxClient, createBashTool, createReadTool } from '@robota-sdk/agent-tools';
+import { Sandbox } from 'e2b';
+
+const e2b = await Sandbox.create();
+const sandboxClient = new E2BSandboxClient({ sandbox: e2b });
+
+const bashTool = createBashTool({ sandboxClient });
+const readTool = createReadTool({ sandboxClient });
+```
+
+The package does not depend on E2B directly. `E2BSandboxClient` adapts an E2B-compatible object with `commands.run`, `files.read`, `files.write`, and optional `pause`/`connect` methods, so applications can choose whether to install the provider SDK. `InMemorySandboxClient` is available for deterministic tests and contract verification.
 
 ## Edit and Write Safety
 
@@ -73,6 +92,9 @@ Recent file tool updates keep write/edit behavior atomic and make Edit tool resu
 | `createOpenAPITool`     | Factory for creating OpenAPI tools                     |
 | `zodToJsonSchema`       | Converts Zod schemas to JSON Schema format             |
 | `TToolResult`           | Result type for built-in CLI tool invocations          |
+| `ISandboxClient`        | Provider-neutral sandbox execution port                |
+| `E2BSandboxClient`      | Adapter for E2B-compatible sandbox instances           |
+| `InMemorySandboxClient` | Deterministic sandbox client for tests                 |
 
 ## TToolResult Shape
 
