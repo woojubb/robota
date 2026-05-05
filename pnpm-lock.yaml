@@ -1999,6 +1999,19 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/dag-cli:
+    dependencies:
+      '@robota-sdk/dag-api':
+        specifier: workspace:*
+        version: link:../dag-api
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+    devDependencies:
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+
   packages/dag-core:
     dependencies:
       zod:
