@@ -47,7 +47,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/dag-core": "workspace:*"
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-cost": "workspace:*"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

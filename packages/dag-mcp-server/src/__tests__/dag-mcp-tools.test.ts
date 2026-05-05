@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type {
   IDagOrchestrationAssetContentDownloadInfo,
   IDagOrchestrationAssetUploadRequest,
+  IDagOrchestrationCostMetaPreviewRequest,
+  IDagOrchestrationCostMetaValidateRequest,
   IDagOrchestrationHttpClient,
   IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPublishedWorkflowRunRequest,
   TDagOrchestrationCreateRunDraftRequest,
+  TDagOrchestrationCostMetaRequest,
   TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
@@ -126,6 +129,49 @@ class FakeDagClient implements IDagOrchestrationHttpClient {
       contentTypeHeader: 'Content-Type',
       contentDispositionHeader: 'Content-Disposition',
     };
+  }
+
+  public async listCostMeta() {
+    this.calls.push({ method: 'listCostMeta' });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { items: [] } } };
+  }
+
+  public async getCostMeta(nodeType: string) {
+    this.calls.push({ method: 'getCostMeta', payload: { nodeType } });
+    return {
+      ok: true,
+      status: 200,
+      payload: { ok: true, status: 200, data: { meta: { nodeType } } },
+    };
+  }
+
+  public async createCostMeta(input: TDagOrchestrationCostMetaRequest) {
+    this.calls.push({ method: 'createCostMeta', payload: input });
+    return { ok: true, status: 201, payload: { ok: true, status: 201, data: { meta: input } } };
+  }
+
+  public async updateCostMeta(nodeType: string, input: TDagOrchestrationCostMetaRequest) {
+    this.calls.push({ method: 'updateCostMeta', payload: { nodeType, input } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { meta: input } } };
+  }
+
+  public async deleteCostMeta(nodeType: string) {
+    this.calls.push({ method: 'deleteCostMeta', payload: { nodeType } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { nodeType } } };
+  }
+
+  public async validateCostMetaFormula(input: IDagOrchestrationCostMetaValidateRequest) {
+    this.calls.push({ method: 'validateCostMetaFormula', payload: input });
+    return {
+      ok: true,
+      status: 200,
+      payload: { ok: true, status: 200, data: { valid: true, errors: [] } },
+    };
+  }
+
+  public async previewCostMetaFormula(input: IDagOrchestrationCostMetaPreviewRequest) {
+    this.calls.push({ method: 'previewCostMetaFormula', payload: input });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { result: 1 } } };
   }
 
   public async createRunDraft(input: TDagOrchestrationCreateRunDraftRequest) {
