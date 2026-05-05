@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-decompose-p1
+- **Branch**: refactor/agent-playground-demo-data
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -17,7 +17,9 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `code-editor-templates.ts` into a stable directory module.
 - [x] Add characterization tests for `template-gallery-data`.
 - [x] Split `template-gallery-data.ts` into a stable directory module.
-- [x] Update package SPEC and central architecture map for the new module boundary.
+- [x] Add characterization tests for `demo-execution-data`.
+- [x] Split `demo-execution-data.ts` into a stable directory module.
+- [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
 ## Current >300 Line Files
@@ -52,7 +54,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `project-manager.ts` (387 lines)
 - `block-tracking/block-hooks.ts` (324 lines)
 - `code-analyzer.ts` (320 lines)
-- `demo-execution-data.ts` (310 lines)
 
 ### contexts
 
@@ -67,12 +68,18 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   preserving the existing import paths through directory `index.ts` modules.
 - Added characterization tests before each extraction.
 - Updated `packages/agent-playground/docs/SPEC.md` and `.agents/specs/ARCHITECTURE-MAP.md`.
+- Completed the second low-risk slice: `demo-execution-data.ts` now delegates through a same-name
+  directory module with `index.ts`, `offsets.ts`, and `scenario.ts`.
+- Added characterization coverage for demo block order, hierarchy, timeline offsets, and the
+  complex-demo wrapper behavior.
+- Updated package SPEC and the central architecture map for the demo data module.
 
 ## Decisions
 
 - Start with static data modules because they have no UI state, network, or browser side effects.
 - Preserve consumer imports (`./code-editor-templates`, `./template-gallery-data`) by replacing
   files with same-name directory modules.
+- Apply the same stable-import directory module pattern to demo execution data.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -90,6 +97,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 24 source files still exceed the guideline. The current branch
-delivers the first tested decomposition slice and establishes the repeatable pattern for follow-up
+This task remains open because 23 source files still exceed the guideline. The current branch
+delivers the second tested decomposition slice and extends the repeatable pattern for follow-up
 files.

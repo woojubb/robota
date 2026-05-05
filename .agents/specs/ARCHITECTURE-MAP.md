@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `644da21d6` on 2026-05-05.
+Source-verified against `develop` commit `ede199ac6` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -123,6 +123,7 @@ flowchart TD
   RootEntry["agent-playground root entry\nservices + components"]
   Components["playground React components\neditor, gallery, panels, visualizers"]
   ComponentData["component data modules\ncode-editor-templates,\ntemplate-gallery-data"]
+  DemoData["demo execution data module\nscenario + timeline offsets"]
   Hooks["playground hooks\ninput, websocket, execution, stats"]
   Context["playground context + reducer"]
   Executor["PlaygroundExecutor\nbrowser execution facade"]
@@ -136,6 +137,7 @@ flowchart TD
   RootEntry --> Components
   RootEntry --> Executor
   Components --> ComponentData
+  Components --> DemoData
   Components --> Hooks
   Components --> Context
   Hooks --> Executor
