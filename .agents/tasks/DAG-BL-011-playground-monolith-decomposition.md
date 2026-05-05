@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-individual-plugin-block
+- **Branch**: refactor/agent-playground-chat-interface
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -39,6 +39,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `robota-executor.ts` into a stable directory module.
 - [x] Add characterization tests for `individual-plugin-block`.
 - [x] Split `individual-plugin-block.tsx` into a stable directory module.
+- [x] Add characterization tests for `chat-interface`.
+- [x] Split `chat-interface.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -60,7 +62,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `agent-container-block.tsx` (327 lines)
 - `usage-monitor.tsx` (323 lines)
 - `execution-tree-visualizer.tsx` (321 lines)
-- `chat-interface.tsx` (307 lines)
 
 ### contexts
 
@@ -143,6 +144,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   updates, stats tab success-rate display, and info tab metadata.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the thirteenth slice: `chat-interface.tsx` is now a same-name directory module with
+  the public component facade plus header, messages area, message card, input area, copy feedback,
+  send controller, message factories, and simulated response helper split into internal files.
+- Added characterization coverage for disabled empty state, ready-agent send/loading/response
+  flow, Enter submission, error retry restoration, and clearing.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -162,6 +170,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   `PlaygroundExecutor` as the stateful browser execution facade.
 - Apply the same stable-import directory module pattern to large playground component internals,
   preserving Radix `asChild` trigger props/ref when extracting trigger children.
+- Split large component state controllers separately from presentational children when that avoids
+  introducing new lint warnings.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -179,6 +189,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 13 production source files still exceed the guideline. The current
-branch delivers the twelfth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 12 production source files still exceed the guideline. The current
+branch delivers the thirteenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
