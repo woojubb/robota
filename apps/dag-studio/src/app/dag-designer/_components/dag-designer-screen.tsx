@@ -1,7 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+} from 'react';
 import {
   DagDesigner,
   enrichDefinitionWithPorts,
@@ -183,6 +191,9 @@ function toDagError(code?: string): IDagError {
 
 const DAG_API_BASE_URL = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? 'http://localhost:3012';
 const DAG_API_CONFIG = { baseUrl: DAG_API_BASE_URL };
+const ASSISTANT_PANEL_EDGE_INSET_PX = 12;
+const ASSISTANT_PANEL_EXPLORER_INSET_PX = 272;
+const ASSISTANT_PANEL_INSPECTOR_INSET_PX = 312;
 
 export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const designApi = useDagDesignApi(DAG_API_CONFIG);
@@ -209,6 +220,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const [objectInfo, setObjectInfo] = useState<TObjectInfo>({});
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
+  const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [actionToast, setActionToast] = useState<IActionToastState | undefined>(undefined);
@@ -269,6 +281,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
 
   const toggleNodeExplorer = useCallback(() => setIsNodeExplorerOpen((c) => !c), []);
   const toggleInspector = useCallback(() => setIsInspectorOpen((c) => !c), []);
+  const toggleAssistant = useCallback(() => setIsAssistantOpen((c) => !c), []);
+  const assistantPanelStyle = useMemo<CSSProperties>(
+    () => ({
+      left: isNodeExplorerOpen ? ASSISTANT_PANEL_EXPLORER_INSET_PX : ASSISTANT_PANEL_EDGE_INSET_PX,
+      right: isInspectorOpen ? ASSISTANT_PANEL_INSPECTOR_INSET_PX : ASSISTANT_PANEL_EDGE_INSET_PX,
+      top: ASSISTANT_PANEL_EDGE_INSET_PX,
+      height: 'min(280px, calc(100% - 180px))',
+    }),
+    [isInspectorOpen, isNodeExplorerOpen],
+  );
 
   const bindingBlockingErrorsRef = useRef(bindingBlockingErrors);
   bindingBlockingErrorsRef.current = bindingBlockingErrors;
@@ -591,6 +613,13 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                 <button
                   type="button"
                   className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
+                  onClick={toggleAssistant}
+                >
+                  {isAssistantOpen ? 'Hide Assistant' : 'Show Assistant'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
                   onClick={toggleInspector}
                 >
                   {isInspectorOpen ? 'Hide Inspector' : 'Show Inspector'}
@@ -608,6 +637,15 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
 
             <div className="relative min-h-0 flex-1">
               <DagDesigner.Canvas className="h-full w-full" />
+
+              {isAssistantOpen ? (
+                <div
+                  className="absolute z-30 shadow-lg shadow-black/20"
+                  style={assistantPanelStyle}
+                >
+                  <DagDesigner.ChatBuilder className="h-full rounded backdrop-blur-sm" />
+                </div>
+              ) : null}
 
               {isNodeExplorerOpen ? (
                 <div className="absolute bottom-0 left-0 top-0 z-20 w-[260px]">
