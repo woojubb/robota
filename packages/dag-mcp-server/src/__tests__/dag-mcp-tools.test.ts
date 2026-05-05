@@ -252,6 +252,7 @@ describe('DAG MCP tools', () => {
       'dag_run_drafts_replace',
       'dag_run_drafts_reset_node_result',
       'dag_run_drafts_overwrite_node_result',
+      'dag_workflows_start_run',
     ]);
   });
 
@@ -322,5 +323,34 @@ describe('DAG MCP tools', () => {
         payload: { draftId: 'draft-1', nodeId: 'source', input: resultPayload },
       },
     ]);
+  });
+
+  it('dispatches published workflow starts with version and overrides', async () => {
+    const client = new FakeDagClient();
+    const request: IDagOrchestrationPublishedWorkflowRunRequest = {
+      input: { prompt: 'hello' },
+      overrides: {
+        source: {
+          template: 'override prompt',
+        },
+      },
+    };
+
+    const result = await callDagMcpTool(
+      'dag_workflows_start_run',
+      { dagId: 'published dag', version: 3, request },
+      client,
+    );
+
+    expect(result.isError).toBe(false);
+    expect(client.calls.at(-1)).toEqual({
+      method: 'startPublishedWorkflowRun',
+      payload: { dagId: 'published dag', input: request, version: 3 },
+    });
+    expect(JSON.parse(result.content[0]?.text ?? '{}')).toMatchObject({
+      ok: true,
+      status: 202,
+      data: { dagRunId: 'run-1', dagId: 'published dag', version: 3 },
+    });
   });
 });

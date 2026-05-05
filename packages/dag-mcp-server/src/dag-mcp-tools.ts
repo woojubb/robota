@@ -2,6 +2,7 @@ import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-s
 import type {
   IDagOrchestrationHttpClient,
   IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  IDagOrchestrationPublishedWorkflowRunRequest,
   TDagOrchestrationCreateRunDraftRequest,
   TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
@@ -157,6 +158,19 @@ const handlers: Record<string, TToolHandler> = {
         ids.draftId,
         ids.nodeId,
         result.value as object as IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+      ),
+    );
+  },
+  dag_workflows_start_run: async (args, client) => {
+    const dagId = requireString(args, 'dagId');
+    if (!dagId.ok) return usageError(dagId.detail);
+    const request = optionalObject(args, 'request');
+    const version = optionalNumber(args, 'version');
+    return toMcpResult(
+      await client.startPublishedWorkflowRun(
+        dagId.value,
+        request as object as IDagOrchestrationPublishedWorkflowRunRequest | undefined,
+        version,
       ),
     );
   },
