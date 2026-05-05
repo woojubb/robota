@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-chat-interface
+- **Branch**: refactor/agent-playground-execution-tree-visualizer
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -41,6 +41,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `individual-plugin-block.tsx` into a stable directory module.
 - [x] Add characterization tests for `chat-interface`.
 - [x] Split `chat-interface.tsx` into a stable directory module.
+- [x] Add characterization tests for `execution-tree-visualizer`.
+- [x] Split `execution-tree-visualizer.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -61,7 +63,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `block-visualization/block-tree.tsx` (336 lines)
 - `agent-container-block.tsx` (327 lines)
 - `usage-monitor.tsx` (323 lines)
-- `execution-tree-visualizer.tsx` (321 lines)
 
 ### contexts
 
@@ -151,6 +152,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   flow, Enter submission, error retry restoration, and clearing.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the fourteenth slice: `execution-tree-visualizer.tsx` is now a same-name directory
+  module with pure tree/stat calculations, header, content, node view, empty state, constants, and
+  local types split from the component facade.
+- Added characterization coverage for empty state, status/duration statistics, sorted hierarchy
+  rendering, filtering, block selection, and expand-state updates.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -172,6 +180,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   preserving Radix `asChild` trigger props/ref when extracting trigger children.
 - Split large component state controllers separately from presentational children when that avoids
   introducing new lint warnings.
+- Extract pure calculations before component presentation when a visualizer mixes hierarchy
+  building, statistics, and recursive rendering.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -189,6 +199,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 12 production source files still exceed the guideline. The current
-branch delivers the thirteenth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 11 production source files still exceed the guideline. The current
+branch delivers the fourteenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
