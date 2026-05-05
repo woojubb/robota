@@ -18,6 +18,8 @@ const lease = new InMemoryLeasePort();
 const clock = new SystemClockPort();
 ```
 
+`InMemoryQueuePort.dequeue(workerId, visibilityTimeoutMs, waitTimeoutMs)` can wait for a later `enqueue` in the same process, which lets local worker loops avoid fixed sleep polling while idle.
+
 ## Specification
 
 See [SPEC.md](./SPEC.md) for the full contract and API surface.

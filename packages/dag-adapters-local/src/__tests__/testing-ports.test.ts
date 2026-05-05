@@ -252,6 +252,9 @@ describe('InMemoryStoragePort', () => {
 // ---- InMemoryQueuePort ----
 
 describe('InMemoryQueuePort', () => {
+  const WAIT_FOR_MESSAGE_MS = 50;
+  const ENQUEUE_DELAY_MS = 5;
+
   function makeMessage(messageId: string): IQueueMessage {
     return {
       messageId,
@@ -275,6 +278,17 @@ describe('InMemoryQueuePort', () => {
   it('returns undefined when queue is empty', async () => {
     const queue = new InMemoryQueuePort();
     expect(await queue.dequeue('worker-1', 30000)).toBeUndefined();
+  });
+
+  it('waits for an enqueued message before returning empty', async () => {
+    const queue = new InMemoryQueuePort();
+    const pendingDequeue = queue.dequeue('worker-1', 30000, WAIT_FOR_MESSAGE_MS);
+
+    await new Promise((resolve) => setTimeout(resolve, ENQUEUE_DELAY_MS));
+    await queue.enqueue(makeMessage('msg-1'));
+
+    const msg = await pendingDequeue;
+    expect(msg?.messageId).toBe('msg-1');
   });
 
   it('ack removes message from in-flight', async () => {

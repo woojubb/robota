@@ -69,6 +69,9 @@ function createDefinitionForRun(dagRun: IDagRun): IDagDefinition {
 }
 
 describe('WorkerLoopService', () => {
+  const IDLE_WAIT_MS = 50;
+  const ENQUEUE_DELAY_MS = 5;
+
   function createService(
     executor: MockTaskExecutorPort,
     storage: InMemoryStoragePort,
@@ -121,6 +124,48 @@ describe('WorkerLoopService', () => {
 
     const next = await queue.dequeue('worker-2', 1_000);
     expect(next).toBeUndefined();
+  });
+
+  it('waits for a queued task during idle wait before returning unprocessed', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+
+    const executor = new MockTaskExecutorPort(async () => ({
+      ok: true,
+      output: { done: true },
+    }));
+
+    const service = new WorkerLoopService(storage, queue, lease, executor, clock, {
+      workerId: 'worker-1',
+      leaseDurationMs: 30_000,
+      visibilityTimeoutMs: 30_000,
+      retryEnabled: false,
+      maxAttempts: 3,
+      defaultTimeoutMs: 50,
+      idleWaitMs: IDLE_WAIT_MS,
+    });
+
+    const pendingProcess = service.processOnce();
+    await new Promise((resolve) => setTimeout(resolve, ENQUEUE_DELAY_MS));
+    await queue.enqueue(message);
+
+    const result = await pendingProcess;
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.processed).toBe(true);
+
+    const updated = await storage.getTaskRun(taskRun.taskRunId);
+    expect(updated?.status).toBe('success');
   });
 
   it('keeps failed status when retry policy is disabled even with retryable error', async () => {

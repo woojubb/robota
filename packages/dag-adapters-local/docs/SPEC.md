@@ -13,31 +13,40 @@
 
 ## Dependencies
 
-| Dependency | Purpose |
-|------------|---------|
+| Dependency             | Purpose                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `@robota-sdk/dag-core` | Port interface definitions (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`) |
-| `@robota-sdk/dag-cost` | Cost meta port interface (`ICostMetaStoragePort`, `ICostMeta`) |
+| `@robota-sdk/dag-cost` | Cost meta port interface (`ICostMetaStoragePort`, `ICostMeta`)                                             |
 
 ## Public API Surface
 
-| Export | Kind | Implements | Description |
-|--------|------|------------|-------------|
-| `InMemoryStoragePort` | Class | `IStoragePort` | In-memory storage for DAG definitions, runs, and tasks |
-| `InMemoryQueuePort` | Class | `IQueuePort` | In-memory message queue (enqueue, dequeue, ack, nack) |
-| `InMemoryLeasePort` | Class | `ILeasePort` | In-memory lease management (acquire, renew, release) |
-| `SystemClockPort` | Class | `IClockPort` | Real system clock (`Date.now()`) |
-| `FakeClockPort` | Class | `IClockPort` | Deterministic clock for tests (manually advance time) |
-| `MockTaskExecutorPort` | Class | `ITaskExecutorPort` | Configurable mock for task execution |
-| `TTaskExecutorHandler` | Type | -- | Handler function type for `MockTaskExecutorPort` |
-| `createStubPromptBackend` | Function | -- | Factory for stub prompt backend used in node testing |
-| `FileStoragePort` | Class | `IStoragePort` | File-based JSON storage for DAG definitions, runs, and tasks |
-| `FileCostMetaStorage` | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata |
+| Export                    | Kind     | Implements             | Description                                                     |
+| ------------------------- | -------- | ---------------------- | --------------------------------------------------------------- |
+| `InMemoryStoragePort`     | Class    | `IStoragePort`         | In-memory storage for DAG definitions, runs, and tasks          |
+| `InMemoryQueuePort`       | Class    | `IQueuePort`           | In-memory message queue (enqueue, long-poll dequeue, ack, nack) |
+| `InMemoryLeasePort`       | Class    | `ILeasePort`           | In-memory lease management (acquire, renew, release)            |
+| `SystemClockPort`         | Class    | `IClockPort`           | Real system clock (`Date.now()`)                                |
+| `FakeClockPort`           | Class    | `IClockPort`           | Deterministic clock for tests (manually advance time)           |
+| `MockTaskExecutorPort`    | Class    | `ITaskExecutorPort`    | Configurable mock for task execution                            |
+| `TTaskExecutorHandler`    | Type     | --                     | Handler function type for `MockTaskExecutorPort`                |
+| `createStubPromptBackend` | Function | --                     | Factory for stub prompt backend used in node testing            |
+| `FileStoragePort`         | Class    | `IStoragePort`         | File-based JSON storage for DAG definitions, runs, and tasks    |
+| `FileCostMetaStorage`     | Class    | `ICostMetaStoragePort` | File-based JSON storage for cost metadata                       |
 
 ## Use Cases
 
 - **Unit / integration tests:** Deterministic, fast, no external setup required.
 - **Local development:** Run the full DAG pipeline on a single machine without Docker or external services.
 - **Demos and prototyping:** Quick start with zero infrastructure.
+
+## Queue Notification Semantics
+
+`InMemoryQueuePort.dequeue(workerId, visibilityTimeoutMs, waitTimeoutMs?)` supports the optional wait timeout from `IQueuePort`.
+
+- If a message is already pending, dequeue returns it immediately.
+- If the queue is empty and `waitTimeoutMs` is positive, dequeue waits until `enqueue` or `nack` makes a message available, then returns it without requiring an external sleep/poll loop.
+- If no message arrives before the timeout, dequeue returns `undefined`.
+- This notification is single-process only and does not provide distributed queue wake-up semantics.
 
 ## Future Direction
 
