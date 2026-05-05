@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `3d44d54f20` on 2026-05-05.
+Source-verified against `develop` commit `2cc70cf256` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -123,6 +123,7 @@ flowchart TD
   RootEntry["agent-playground root entry\nservices + components"]
   Components["playground React components\neditor, gallery, panels, visualizers"]
   ComponentData["component data modules\ncode-editor-templates,\ntemplate-gallery-data"]
+  UiPrimitives["shared UI primitives\naccessibility + controls"]
   DemoData["demo execution data module\nscenario + timeline offsets"]
   Hooks["playground hooks\ninput, websocket, execution, stats"]
   Context["playground context + reducer"]
@@ -138,6 +139,7 @@ flowchart TD
   RootEntry --> Components
   RootEntry --> Executor
   Components --> ComponentData
+  Components --> UiPrimitives
   Components --> DemoData
   Components --> Hooks
   Components --> Context
@@ -159,6 +161,7 @@ Playground ownership:
 | Reusable playground services and public root API  | `agent-playground` root    | Owns executor and service exports for runtime consumers.               |
 | React composition, panels, visualizers, UI state  | `agent-playground`         | Hooks and context remain package-internal unless explicitly exported.  |
 | Static template/example catalogs                  | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.         |
+| Shared UI primitives                              | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.         |
 | User-code diagnostics and config parsing          | `agent-playground`         | Code analyzer remains package-internal and feeds playground execution. |
 | Secure provider execution from browser playground | `agent-remote-client` edge | API keys stay server-side through `RemoteExecutor`/remote injection.   |
 
