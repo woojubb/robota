@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `6799f181e` on 2026-05-05.
+Source-verified against `develop` commit `e69fa47f6` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -146,20 +146,20 @@ flowchart TD
 
 DAG stack ownership:
 
-| Concern                                                           | Current owner                                | Target owner                                                            |
-| ----------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| DAG domain types, reducers, ports, error contracts                | `dag-core`                                   | Same.                                                                   |
-| Prompt translation and run lifecycle services                     | `dag-orchestrator`                           | Same.                                                                   |
-| API controller request/response mapping                           | `dag-api`                                    | Same.                                                                   |
-| Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-orchestration-client`                   | Dedicated thin client package.                                          |
-| Full orchestrator REST endpoint contract inventory                | Documented in `dag-orchestrator-server` SPEC | Extract blocked endpoint groups before new client tools.                |
-| Run draft operational HTTP contracts                              | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                      |
-| Published workflow operational HTTP contracts                     | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                      |
-| Asset operational HTTP contracts                                  | `dag-orchestration-client` + `dag-core`      | JSON metadata through the shared client; binary streaming by transport. |
-| Cost metadata operational HTTP contracts                          | `dag-orchestration-client` + `dag-cost`      | Add CLI/MCP tools through the shared client only.                       |
-| HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                                  |
-| Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                                       |
-| Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                                       |
+| Concern                                                           | Current owner                                | Target owner                                                        |
+| ----------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| DAG domain types, reducers, ports, error contracts                | `dag-core`                                   | Same.                                                               |
+| Prompt translation and run lifecycle services                     | `dag-orchestrator`                           | Same.                                                               |
+| API controller request/response mapping                           | `dag-api`                                    | Same.                                                               |
+| Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-orchestration-client`                   | Dedicated thin client package.                                      |
+| Full orchestrator REST endpoint contract inventory                | Documented in `dag-orchestrator-server` SPEC | Extract blocked endpoint groups before new client tools.            |
+| Run draft operational HTTP contracts                              | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                  |
+| Published workflow operational HTTP contracts                     | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                  |
+| Asset operational HTTP contracts                                  | `dag-orchestration-client` + `dag-core`      | JSON metadata through the shared client; binary bytes by transport. |
+| Cost metadata operational HTTP contracts                          | `dag-orchestration-client` + `dag-cost`      | Add CLI/MCP tools through the shared client only.                   |
+| HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                              |
+| Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                                   |
+| Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                                   |
 
 Operational clients must use `dag-orchestration-client` instead of importing `dag-api` for HTTP
 client behavior. `dag-api` remains responsible for controller contracts and composition; the client
@@ -284,7 +284,6 @@ into follow-up extraction tasks.
 
 Follow-up:
 
-- `.agents/tasks/ORCH-BL-015-asset-cli-mcp-expansion.md`
 - `.agents/tasks/ORCH-BL-016-cost-meta-cli-mcp-expansion.md`
 
 Resolved extraction guardrail:
@@ -296,6 +295,8 @@ Resolved extraction guardrail:
   shells do not import server route modules or route-local types.
 - Published workflow run starts are exposed through `dag-orchestration-client` only; CLI/MCP accept
   optional version and JSON request bodies without duplicating route validation.
+- Asset upload and metadata operations are exposed through `dag-orchestration-client`; binary
+  content uses `getAssetContentDownloadInfo()` and remains outside the JSON client abstraction.
 
 ### SYS-AUDIT-004: DAG operational tools are not part of `agent-cli`
 

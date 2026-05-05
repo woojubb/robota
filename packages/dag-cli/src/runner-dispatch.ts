@@ -3,15 +3,18 @@ import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-
 import type {
   IDagCliCommandResult,
   IDagCliIo,
+  TDagCliFetch,
   TDagCliOutputPayload,
   TDagCliValueResult,
 } from './types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './types.js';
 import { rejectUnexpectedArgs, takeNumberOption, takeStringOption } from './arguments.js';
 import { createCliFailure, isJsonObject, parseJsonArgument, parseJsonFile } from './json.js';
+import { runAssetsCommand } from './asset-commands.js';
 import { runRunDraftsCommand } from './run-draft-commands.js';
 import { runWorkflowsCommand } from './workflow-commands.js';
 
+const COMMAND_GROUP_ASSETS = 'assets';
 const COMMAND_GROUP_DEFINITIONS = 'definitions';
 const COMMAND_GROUP_NODES = 'nodes';
 const COMMAND_GROUP_RUNS = 'runs';
@@ -21,9 +24,13 @@ const COMMAND_GROUP_WORKFLOWS = 'workflows';
 export async function dispatchDagCliCommand(
   args: readonly string[],
   client: IDagOrchestrationHttpClient,
+  fetchImpl: TDagCliFetch,
   io: IDagCliIo,
 ): Promise<IDagCliCommandResult> {
   const [group, command, ...rest] = args;
+  if (group === COMMAND_GROUP_ASSETS) {
+    return runAssetsCommand(command, rest, client, fetchImpl, io);
+  }
   if (group === COMMAND_GROUP_DEFINITIONS) {
     return runDefinitionsCommand(command, rest, client, io);
   }
@@ -39,7 +46,9 @@ export async function dispatchDagCliCommand(
   if (group === COMMAND_GROUP_WORKFLOWS) {
     return runWorkflowsCommand(command, rest, client, io);
   }
-  return usageResult('Expected command group: definitions, nodes, runs, run-drafts, or workflows.');
+  return usageResult(
+    'Expected command group: assets, definitions, nodes, runs, run-drafts, or workflows.',
+  );
 }
 
 async function runDefinitionsCommand(

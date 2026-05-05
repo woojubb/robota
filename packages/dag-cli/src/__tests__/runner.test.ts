@@ -53,12 +53,22 @@ function createPublishedWorkflowRequest() {
   };
 }
 
+function createAssetUploadRequest() {
+  return {
+    fileName: 'photo.png',
+    mediaType: 'image/png',
+    base64Data: 'AQIDBA==',
+  };
+}
+
 function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOptions & {
   readonly requests: ICapturedRequest[];
   readonly output: string[];
+  readonly binaryWrites: Array<{ readonly filePath: string; readonly bytes: Uint8Array }>;
 } {
   const requests: ICapturedRequest[] = [];
   const output: string[] = [];
+  const binaryWrites: Array<{ readonly filePath: string; readonly bytes: Uint8Array }> = [];
   let responseIndex = 0;
   return {
     env: { ROBOTA_DAG_SERVER_URL: TEST_SERVER_URL },
@@ -82,7 +92,27 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
         if (filePath === 'workflow-run.json') {
           return JSON.stringify(createPublishedWorkflowRequest());
         }
+        if (filePath === 'asset.json') {
+          return JSON.stringify(createAssetUploadRequest());
+        }
         return '{}';
+      },
+      writeBinaryStream: async (filePath, stream) => {
+        const chunks: Uint8Array[] = [];
+        const reader = stream.getReader();
+        for (;;) {
+          const result = await reader.read();
+          if (result.done) break;
+          chunks.push(result.value);
+        }
+        const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+        const bytes = new Uint8Array(size);
+        let offset = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        binaryWrites.push({ filePath, bytes });
       },
     },
     fetch: async (url, init) => {
@@ -96,6 +126,7 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
     },
     requests,
     output,
+    binaryWrites,
   };
 }
 
@@ -232,5 +263,43 @@ describe('runDagCli', () => {
       createPublishedWorkflowRequest(),
     );
     expect(JSON.parse(options.output.join(''))).toEqual(response);
+  });
+
+  it('routes asset upload, metadata, and binary content downloads through asset contracts', async () => {
+    const options = createOptions([
+      {
+        ok: true,
+        status: 201,
+        data: { asset: { assetId: 'asset 1', name: 'photo.png' } },
+      },
+      {
+        ok: true,
+        status: 200,
+        data: { asset: { assetId: 'asset 1', name: 'photo.png' } },
+      },
+      {
+        ok: true,
+        status: 200,
+        data: { ignored: true },
+      },
+    ]);
+
+    const uploadExit = await runDagCli(['assets', 'upload', '--json', '@asset.json'], options);
+    const metadataExit = await runDagCli(['assets', 'get', 'asset 1'], options);
+    const downloadExit = await runDagCli(
+      ['assets', 'download', 'asset 1', '--output', 'photo.png'],
+      options,
+    );
+
+    expect([uploadExit, metadataExit, downloadExit]).toEqual([0, 0, 0]);
+    expect(options.requests.map((request) => [request.init.method, request.url])).toEqual([
+      ['POST', `${TEST_SERVER_URL}/v1/dag/assets`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/assets/asset%201`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/assets/asset%201/content`],
+    ]);
+    expect(JSON.parse(String(options.requests[0]?.init.body))).toEqual(createAssetUploadRequest());
+    expect(options.requests[2]?.init.body).toBeUndefined();
+    expect(options.binaryWrites).toHaveLength(1);
+    expect(options.binaryWrites[0]?.filePath).toBe('photo.png');
   });
 });

@@ -29,6 +29,9 @@ Server URL resolution:
 
 Commands:
 
+- `assets upload --json <json|@file>`
+- `assets get <assetId>`
+- `assets download <assetId> --output <path>`
 - `definitions list`
 - `definitions get <dagId> [--version <version>]`
 - `definitions create --file <definition.json>`
@@ -59,7 +62,7 @@ This package is SSOT for:
 Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
-- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
 
 ## Public API Surface
 
@@ -90,6 +93,6 @@ None.
 
 ## Test Strategy
 
-- Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, and JSON output.
+- Unit tests cover command parsing, server URL resolution, file JSON payloads, run creation payloads, run draft routing, published workflow version/override routing, asset upload/metadata/content download routing, and JSON output.
 - Tests inject a fake fetch and fake file reader; no network or filesystem access is required.
 - Run: `pnpm --filter @robota-sdk/dag-cli test`

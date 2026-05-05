@@ -23,6 +23,7 @@ export interface IDagCliEnvironment {
 export interface IDagCliIo {
   write(text: string): void;
   readTextFile(filePath: string): Promise<string>;
+  writeBinaryStream(filePath: string, stream: ReadableStream<Uint8Array>): Promise<void>;
 }
 
 export type TDagCliFetch = TDagOrchestrationFetch;
