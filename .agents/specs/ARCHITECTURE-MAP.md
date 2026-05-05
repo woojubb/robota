@@ -1,6 +1,7 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `2cc70cf256` on 2026-05-05.
+Source-verified against `refactor/agent-playground-project-manager` commit `4092bc619` on
+2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -125,6 +126,7 @@ flowchart TD
   ComponentData["component data modules\ncode-editor-templates,\ntemplate-gallery-data"]
   UiPrimitives["shared UI primitives\naccessibility + controls"]
   DemoData["demo execution data module\nscenario + timeline offsets"]
+  ProjectManager["project manager module\nstorage + metadata"]
   Hooks["playground hooks\ninput, websocket, execution, stats"]
   Context["playground context + reducer"]
   Executor["PlaygroundExecutor\nbrowser execution facade"]
@@ -141,6 +143,7 @@ flowchart TD
   Components --> ComponentData
   Components --> UiPrimitives
   Components --> DemoData
+  Components --> ProjectManager
   Components --> Hooks
   Components --> Context
   Hooks --> Executor
@@ -154,16 +157,17 @@ flowchart TD
 
 Playground ownership:
 
-| Concern                                           | Owner                      | Notes                                                                  |
-| ------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------- |
-| Product route and deployment host                 | `agent-web`                | Imports the browser-safe playground entry only.                        |
-| Browser-safe React package entry                  | `agent-playground/client`  | Must not expose Node-only services to browser consumers.               |
-| Reusable playground services and public root API  | `agent-playground` root    | Owns executor and service exports for runtime consumers.               |
-| React composition, panels, visualizers, UI state  | `agent-playground`         | Hooks and context remain package-internal unless explicitly exported.  |
-| Static template/example catalogs                  | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.         |
-| Shared UI primitives                              | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.         |
-| User-code diagnostics and config parsing          | `agent-playground`         | Code analyzer remains package-internal and feeds playground execution. |
-| Secure provider execution from browser playground | `agent-remote-client` edge | API keys stay server-side through `RemoteExecutor`/remote injection.   |
+| Concern                                           | Owner                      | Notes                                                                    |
+| ------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| Product route and deployment host                 | `agent-web`                | Imports the browser-safe playground entry only.                          |
+| Browser-safe React package entry                  | `agent-playground/client`  | Must not expose Node-only services to browser consumers.                 |
+| Reusable playground services and public root API  | `agent-playground` root    | Owns executor and service exports for runtime consumers.                 |
+| React composition, panels, visualizers, UI state  | `agent-playground`         | Hooks and context remain package-internal unless explicitly exported.    |
+| Static template/example catalogs                  | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.           |
+| Shared UI primitives                              | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.           |
+| Playground project storage and metadata           | `agent-playground`         | LocalStorage-backed service; keep import path stable through `index.ts`. |
+| User-code diagnostics and config parsing          | `agent-playground`         | Code analyzer remains package-internal and feeds playground execution.   |
+| Secure provider execution from browser playground | `agent-remote-client` edge | API keys stay server-side through `RemoteExecutor`/remote injection.     |
 
 ## DAG Orchestration Stack
 
