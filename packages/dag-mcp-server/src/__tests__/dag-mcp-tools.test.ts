@@ -231,6 +231,18 @@ function createDefinition(): IDagDefinition {
   };
 }
 
+function createCostMeta(): TDagOrchestrationCostMetaRequest {
+  return {
+    nodeType: 'llm text openai',
+    displayName: 'OpenAI text node',
+    category: 'ai-inference',
+    estimateFormula: 'baseCost + tokens * perToken',
+    variables: { baseCost: 1, perToken: 0.01 },
+    enabled: true,
+    updatedAt: '2026-05-05T00:00:00.000Z',
+  };
+}
+
 describe('DAG MCP tools', () => {
   it('registers tools for the current orchestrator HTTP surface', () => {
     const toolNames = createDagMcpToolDefinitions().map((tool) => tool.name);
@@ -246,6 +258,13 @@ describe('DAG MCP tools', () => {
       'dag_assets_upload',
       'dag_assets_get_metadata',
       'dag_assets_get_content_info',
+      'dag_cost_meta_list',
+      'dag_cost_meta_get',
+      'dag_cost_meta_create',
+      'dag_cost_meta_update',
+      'dag_cost_meta_delete',
+      'dag_cost_meta_validate_formula',
+      'dag_cost_meta_preview_formula',
       'dag_runs_create',
       'dag_runs_start',
       'dag_runs_status',
@@ -384,5 +403,67 @@ describe('DAG MCP tools', () => {
       url: 'http://test.invalid/v1/dag/assets/asset 1/content',
       responseType: 'binary',
     });
+  });
+
+  it('dispatches cost metadata tools through the orchestration client', async () => {
+    const client = new FakeDagClient();
+    const meta = createCostMeta();
+
+    await callDagMcpTool('dag_cost_meta_list', {}, client);
+    await callDagMcpTool('dag_cost_meta_get', { nodeType: meta.nodeType }, client);
+    await callDagMcpTool('dag_cost_meta_create', { meta }, client);
+    await callDagMcpTool('dag_cost_meta_update', { nodeType: meta.nodeType, meta }, client);
+    await callDagMcpTool('dag_cost_meta_delete', { nodeType: meta.nodeType }, client);
+    await callDagMcpTool(
+      'dag_cost_meta_validate_formula',
+      { formula: meta.estimateFormula },
+      client,
+    );
+    const preview = await callDagMcpTool(
+      'dag_cost_meta_preview_formula',
+      {
+        formula: meta.estimateFormula,
+        variables: meta.variables,
+        testContext: { tokens: 200 },
+      },
+      client,
+    );
+
+    expect(client.calls.slice(-7)).toEqual([
+      { method: 'listCostMeta' },
+      { method: 'getCostMeta', payload: { nodeType: meta.nodeType } },
+      { method: 'createCostMeta', payload: meta },
+      { method: 'updateCostMeta', payload: { nodeType: meta.nodeType, input: meta } },
+      { method: 'deleteCostMeta', payload: { nodeType: meta.nodeType } },
+      { method: 'validateCostMetaFormula', payload: { formula: meta.estimateFormula } },
+      {
+        method: 'previewCostMetaFormula',
+        payload: {
+          formula: meta.estimateFormula,
+          variables: meta.variables,
+          testContext: { tokens: 200 },
+        },
+      },
+    ]);
+    expect(preview.isError).toBe(false);
+    expect(JSON.parse(preview.content[0]?.text ?? '{}')).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { result: 1 },
+    });
+  });
+
+  it('rejects cost metadata MCP calls with missing required arguments', async () => {
+    const client = new FakeDagClient();
+
+    const result = await callDagMcpTool(
+      'dag_cost_meta_update',
+      { nodeType: 'missing meta' },
+      client,
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain('meta is required');
+    expect(client.calls).toHaveLength(0);
   });
 });

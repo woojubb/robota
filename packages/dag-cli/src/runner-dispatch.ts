@@ -11,10 +11,12 @@ import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './t
 import { rejectUnexpectedArgs, takeNumberOption, takeStringOption } from './arguments.js';
 import { createCliFailure, isJsonObject, parseJsonArgument, parseJsonFile } from './json.js';
 import { runAssetsCommand } from './asset-commands.js';
+import { runCostMetaCommand } from './cost-meta-commands.js';
 import { runRunDraftsCommand } from './run-draft-commands.js';
 import { runWorkflowsCommand } from './workflow-commands.js';
 
 const COMMAND_GROUP_ASSETS = 'assets';
+const COMMAND_GROUP_COST_META = 'cost-meta';
 const COMMAND_GROUP_DEFINITIONS = 'definitions';
 const COMMAND_GROUP_NODES = 'nodes';
 const COMMAND_GROUP_RUNS = 'runs';
@@ -30,6 +32,9 @@ export async function dispatchDagCliCommand(
   const [group, command, ...rest] = args;
   if (group === COMMAND_GROUP_ASSETS) {
     return runAssetsCommand(command, rest, client, fetchImpl, io);
+  }
+  if (group === COMMAND_GROUP_COST_META) {
+    return runCostMetaCommand(command, rest, client, io);
   }
   if (group === COMMAND_GROUP_DEFINITIONS) {
     return runDefinitionsCommand(command, rest, client, io);
@@ -47,7 +52,7 @@ export async function dispatchDagCliCommand(
     return runWorkflowsCommand(command, rest, client, io);
   }
   return usageResult(
-    'Expected command group: assets, definitions, nodes, runs, run-drafts, or workflows.',
+    'Expected command group: assets, cost-meta, definitions, nodes, runs, run-drafts, or workflows.',
   );
 }
 

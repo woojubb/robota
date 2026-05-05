@@ -1,33 +1,30 @@
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
 import type {
   IDagOrchestrationAssetUploadRequest,
+  IDagOrchestrationCostMetaPreviewRequest,
+  IDagOrchestrationCostMetaValidateRequest,
   IDagOrchestrationHttpClient,
   IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPublishedWorkflowRunRequest,
   TDagOrchestrationCreateRunDraftRequest,
+  TDagOrchestrationCostMetaRequest,
   TDagOrchestrationReplaceRunDraftRequest,
 } from '@robota-sdk/dag-orchestration-client';
-import type {
-  IDagMcpToolCallResult,
-  IDagMcpToolDefinition,
-  IDagMcpUsageErrorPayload,
-} from './types.js';
+import type { IDagMcpToolCallResult, IDagMcpToolDefinition } from './types.js';
 import { DAG_MCP_TOOL_DEFINITIONS } from './tool-definitions.js';
-type TDagMcpArgumentValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | TToolArgs
-  | readonly TDagMcpArgumentValue[];
-interface TToolArgs {
-  readonly [key: string]: TDagMcpArgumentValue;
-}
-type TToolHandler = (
-  args: TToolArgs,
-  client: IDagOrchestrationHttpClient,
-) => Promise<IDagMcpToolCallResult>;
+import {
+  optionalNumber,
+  optionalObject,
+  optionalString,
+  requireNumber,
+  requireObject,
+  requireString,
+  toMcpResult,
+  toToolArgs,
+  type TToolArgs,
+  type TToolHandler,
+  usageError,
+} from './tool-runtime.js';
 
 export function createDagMcpToolDefinitions(): readonly IDagMcpToolDefinition[] {
   return DAG_MCP_TOOL_DEFINITIONS;
@@ -112,6 +109,54 @@ const handlers: Record<string, TToolHandler> = {
       ],
       isError: false,
     };
+  },
+  dag_cost_meta_list: async (_args, client) => toMcpResult(await client.listCostMeta()),
+  dag_cost_meta_get: async (args, client) => {
+    const nodeType = requireString(args, 'nodeType');
+    if (!nodeType.ok) return usageError(nodeType.detail);
+    return toMcpResult(await client.getCostMeta(nodeType.value));
+  },
+  dag_cost_meta_create: async (args, client) => {
+    const meta = requireObject(args, 'meta');
+    if (!meta.ok) return usageError(meta.detail);
+    return toMcpResult(
+      await client.createCostMeta(meta.value as object as TDagOrchestrationCostMetaRequest),
+    );
+  },
+  dag_cost_meta_update: async (args, client) => {
+    const nodeType = requireString(args, 'nodeType');
+    if (!nodeType.ok) return usageError(nodeType.detail);
+    const meta = requireObject(args, 'meta');
+    if (!meta.ok) return usageError(meta.detail);
+    return toMcpResult(
+      await client.updateCostMeta(
+        nodeType.value,
+        meta.value as object as TDagOrchestrationCostMetaRequest,
+      ),
+    );
+  },
+  dag_cost_meta_delete: async (args, client) => {
+    const nodeType = requireString(args, 'nodeType');
+    if (!nodeType.ok) return usageError(nodeType.detail);
+    return toMcpResult(await client.deleteCostMeta(nodeType.value));
+  },
+  dag_cost_meta_validate_formula: async (args, client) => {
+    const formula = requireString(args, 'formula');
+    if (!formula.ok) return usageError(formula.detail);
+    const request: IDagOrchestrationCostMetaValidateRequest = { formula: formula.value };
+    return toMcpResult(await client.validateCostMetaFormula(request));
+  },
+  dag_cost_meta_preview_formula: async (args, client) => {
+    const formula = requireString(args, 'formula');
+    if (!formula.ok) return usageError(formula.detail);
+    const variables = optionalObject(args, 'variables');
+    const testContext = optionalObject(args, 'testContext');
+    const request: IDagOrchestrationCostMetaPreviewRequest = {
+      formula: formula.value,
+      variables: variables as object as IDagOrchestrationCostMetaPreviewRequest['variables'],
+      testContext: testContext as object as IDagOrchestrationCostMetaPreviewRequest['testContext'],
+    };
+    return toMcpResult(await client.previewCostMetaFormula(request));
   },
   dag_runs_create: async (args, client) => {
     const definition = requireObject(args, 'definition');
@@ -201,67 +246,6 @@ const handlers: Record<string, TToolHandler> = {
   },
 };
 
-function toMcpResult(response: {
-  readonly ok: boolean;
-  readonly payload: object;
-}): IDagMcpToolCallResult {
-  return {
-    content: [{ type: 'text', text: JSON.stringify(response.payload, null, 2) }],
-    isError: !response.ok,
-  };
-}
-
-function usageError(detail: string): IDagMcpToolCallResult {
-  const payload: IDagMcpUsageErrorPayload = {
-    ok: false,
-    status: 2,
-    errors: [
-      {
-        type: 'urn:robota:problems:dag:mcp_usage',
-        title: 'Invalid MCP tool arguments',
-        status: 2,
-        detail,
-        instance: 'mcp://dag',
-        code: 'DAG_MCP_USAGE_ERROR',
-        retryable: false,
-      },
-    ],
-  };
-  return {
-    content: [{ type: 'text', text: `Error: ${detail}\n${JSON.stringify(payload, null, 2)}` }],
-    isError: true,
-  };
-}
-
-function toToolArgs(args: object | null | undefined): TToolArgs {
-  return typeof args === 'object' && args !== null && !Array.isArray(args)
-    ? (args as TToolArgs)
-    : {};
-}
-
-function requireString(
-  args: TToolArgs,
-  key: string,
-): { readonly ok: true; readonly value: string } | { readonly ok: false; readonly detail: string } {
-  const value = args[key];
-  if (typeof value === 'string' && value.trim().length > 0) return { ok: true, value };
-  return { ok: false, detail: `${key} is required` };
-}
-
-function optionalString(args: TToolArgs, key: string): string | undefined {
-  const value = args[key];
-  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
-}
-
-function requireNumber(
-  args: TToolArgs,
-  key: string,
-): { readonly ok: true; readonly value: number } | { readonly ok: false; readonly detail: string } {
-  const value = args[key];
-  if (typeof value === 'number' && Number.isFinite(value)) return { ok: true, value };
-  return { ok: false, detail: `${key} is required` };
-}
-
 function requireDraftNodeIds(
   args: TToolArgs,
 ):
@@ -272,29 +256,4 @@ function requireDraftNodeIds(
   const nodeId = requireString(args, 'nodeId');
   if (!nodeId.ok) return nodeId;
   return { ok: true, draftId: draftId.value, nodeId: nodeId.value };
-}
-
-function optionalNumber(args: TToolArgs, key: string): number | undefined {
-  const value = args[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function requireObject(
-  args: TToolArgs,
-  key: string,
-):
-  | { readonly ok: true; readonly value: TToolArgs }
-  | { readonly ok: false; readonly detail: string } {
-  const value = args[key];
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return { ok: true, value: value as TToolArgs };
-  }
-  return { ok: false, detail: `${key} is required` };
-}
-
-function optionalObject(args: TToolArgs, key: string): TToolArgs | undefined {
-  const value = args[key];
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as TToolArgs)
-    : undefined;
 }

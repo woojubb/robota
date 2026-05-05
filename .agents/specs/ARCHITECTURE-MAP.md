@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `e69fa47f6` on 2026-05-05.
+Source-verified against `develop` commit `4a1535ff9` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -156,7 +156,7 @@ DAG stack ownership:
 | Run draft operational HTTP contracts                              | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                  |
 | Published workflow operational HTTP contracts                     | `dag-orchestration-client` + `dag-core`      | Exposed by CLI/MCP through the shared client only.                  |
 | Asset operational HTTP contracts                                  | `dag-orchestration-client` + `dag-core`      | JSON metadata through the shared client; binary bytes by transport. |
-| Cost metadata operational HTTP contracts                          | `dag-orchestration-client` + `dag-cost`      | Add CLI/MCP tools through the shared client only.                   |
+| Cost metadata operational HTTP contracts                          | `dag-orchestration-client` + `dag-cost`      | Exposed by CLI/MCP through the shared client only.                  |
 | HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                              |
 | Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                                   |
 | Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                                   |
@@ -282,10 +282,6 @@ Resolution:
 expansion is allowed only for endpoint groups marked package-owned/active. Blocked groups are split
 into follow-up extraction tasks.
 
-Follow-up:
-
-- `.agents/tasks/ORCH-BL-016-cost-meta-cli-mcp-expansion.md`
-
 Resolved extraction guardrail:
 
 - Run progress WebSocket events keep `TRunProgressEvent` ownership in `dag-core`; the
@@ -297,6 +293,9 @@ Resolved extraction guardrail:
   optional version and JSON request bodies without duplicating route validation.
 - Asset upload and metadata operations are exposed through `dag-orchestration-client`; binary
   content uses `getAssetContentDownloadInfo()` and remains outside the JSON client abstraction.
+- Cost metadata CRUD, validation, and preview operations are exposed through
+  `dag-orchestration-client` only; CLI/MCP parse product-shell arguments without importing route
+  modules or route-local cost metadata types.
 
 ### SYS-AUDIT-004: DAG operational tools are not part of `agent-cli`
 
