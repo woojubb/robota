@@ -9,10 +9,12 @@ import type {
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './types.js';
 import { rejectUnexpectedArgs, takeNumberOption, takeStringOption } from './arguments.js';
 import { createCliFailure, isJsonObject, parseJsonArgument, parseJsonFile } from './json.js';
+import { runRunDraftsCommand } from './run-draft-commands.js';
 
 const COMMAND_GROUP_DEFINITIONS = 'definitions';
 const COMMAND_GROUP_NODES = 'nodes';
 const COMMAND_GROUP_RUNS = 'runs';
+const COMMAND_GROUP_RUN_DRAFTS = 'run-drafts';
 
 export async function dispatchDagCliCommand(
   args: readonly string[],
@@ -29,7 +31,10 @@ export async function dispatchDagCliCommand(
   if (group === COMMAND_GROUP_RUNS) {
     return runRunsCommand(command, rest, client, io);
   }
-  return usageResult('Expected command group: definitions, nodes, or runs.');
+  if (group === COMMAND_GROUP_RUN_DRAFTS) {
+    return runRunDraftsCommand(command, rest, client, io);
+  }
+  return usageResult('Expected command group: definitions, nodes, runs, or run-drafts.');
 }
 
 async function runDefinitionsCommand(

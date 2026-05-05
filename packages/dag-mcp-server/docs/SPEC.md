@@ -38,8 +38,13 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 - `dag_runs_start`
 - `dag_runs_status`
 - `dag_runs_result`
+- `dag_run_drafts_create`
+- `dag_run_drafts_get`
+- `dag_run_drafts_replace`
+- `dag_run_drafts_reset_node_result`
+- `dag_run_drafts_overwrite_node_result`
 
-The tool surface mirrors existing `dag-orchestrator-server` HTTP endpoints. DAG deletion, node graph mutation helpers, and cost estimation are not exposed until the server owns those endpoint contracts.
+The tool surface mirrors existing `dag-orchestrator-server` HTTP endpoints through `DagOrchestrationHttpClient`. DAG deletion and node graph mutation helpers are not exposed until the server owns those endpoint contracts.
 
 ## Type Ownership
 
@@ -52,7 +57,7 @@ This package is SSOT for:
 
 Imported from other packages:
 
-- `DagOrchestrationHttpClient` and response payload types from `@robota-sdk/dag-orchestration-client`
+- `DagOrchestrationHttpClient`, run draft request aliases, and response payload types from `@robota-sdk/dag-orchestration-client`
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
 
 ## Public API Surface
@@ -81,6 +86,6 @@ None.
 
 ## Test Strategy
 
-- Unit tests cover tool definition registration, required argument validation, and client dispatch payloads.
+- Unit tests cover tool definition registration, required argument validation, run draft tool dispatch, and client dispatch payloads.
 - Tests inject a fake `IDagOrchestrationHttpClient`; no network access is required.
 - Run: `pnpm --filter @robota-sdk/dag-mcp-server test`
