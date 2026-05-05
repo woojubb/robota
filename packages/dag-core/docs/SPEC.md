@@ -97,7 +97,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `IStoredAssetMetadata`      | `interfaces/asset-store-port.ts` | Asset metadata stored by infrastructure adapters, including optional `runtimeAssetId` when an orchestrator asset has been synchronized to a runtime backend |
 | `ICreateAssetInput`         | `interfaces/asset-store-port.ts` | Asset creation input with binary content and optional `runtimeAssetId` metadata                                                                             |
 | `IAssetStore`               | `interfaces/asset-store-port.ts` | Asset storage infrastructure port for saving, reading metadata, and streaming content                                                                       |
-| `IQueuePort`                | `interfaces/ports.ts`            | Queue infrastructure port (enqueue, dequeue, ack, nack)                                                                                                     |
+| `IQueuePort`                | `interfaces/ports.ts`            | Queue infrastructure port (enqueue, dequeue with optional wait timeout, ack, nack)                                                                          |
 | `ILeasePort`                | `interfaces/ports.ts`            | Lease infrastructure port (acquire, renew, release, get)                                                                                                    |
 | `IStoragePort`              | `interfaces/ports.ts`            | Storage infrastructure port (definitions, runs, tasks)                                                                                                      |
 | `ITaskExecutorPort`         | `interfaces/ports.ts`            | Task execution infrastructure port                                                                                                                          |
@@ -163,7 +163,7 @@ The primary extension point for node implementors. `dag-core` defines the `IDagN
 Consumer packages implement these interfaces to provide infrastructure:
 
 - `IStoragePort` -- persistence for definitions, runs, and tasks.
-- `IQueuePort` -- message queue for task dispatch (enqueue, dequeue, ack, nack).
+- `IQueuePort` -- message queue for task dispatch (enqueue, dequeue, ack, nack). `dequeue(workerId, visibilityTimeoutMs, waitTimeoutMs?)` may wait up to the optional timeout before returning `undefined`; adapters that cannot support long-polling may ignore the optional timeout and return immediately.
 - `ILeasePort` -- distributed lease management (acquire, renew, release).
 - `IClockPort` -- clock abstraction for deterministic time in tests.
 - `ITaskExecutorPort` -- task execution delegation.

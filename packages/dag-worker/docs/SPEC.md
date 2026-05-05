@@ -26,6 +26,8 @@ The package has three main modules:
 Supporting utility:
 
 - `replaceAttemptSegment(path, nextAttempt)` -- updates the attempt segment in an execution path array.
+- `loadWorkerExecutionContext(storage, message)` -- resolves DAG run, definition snapshot, and node definition for a dequeued message.
+- `resolveCurrentTotalCredits(taskRuns)` -- calculates accumulated credit progress for task execution input.
 
 ## Behavioral Contracts
 
@@ -65,6 +67,14 @@ A DAG run is `success` when all tasks are terminal and **none** are in the `fail
 
 When `WorkerLoopService` fails to acquire a lease (another worker already holds it), this is a normal contention scenario, not an error. The method should return a non-error result indicating no work was processed (`processed: false`), allowing the message to remain in the queue for the lease holder to process.
 
+### Idle Wait / Queue Wake-up
+
+`IWorkerLoopOptions.idleWaitMs` is optional and defaults to immediate dequeue semantics when omitted. When configured, `WorkerLoopService.processOnce()` passes the value to `IQueuePort.dequeue(..., waitTimeoutMs)`.
+
+- Queue adapters that support long-polling can wake the worker immediately when a new task is enqueued.
+- Queue adapters that do not support long-polling may ignore the optional timeout and return immediately.
+- Worker-level polling loops should prefer `idleWaitMs` over an external fixed sleep interval so downstream tasks can start as soon as the queue receives them.
+
 ### Timeout Enforcement Scope
 
 Task timeout (`defaultTimeoutMs`) is enforced via `AbortController` signal during execution. However, if the executor does not respect the abort signal, the timeout has no effect. This is a known limitation — node implementations must cooperate with the abort signal for timeout to be effective.
@@ -73,7 +83,7 @@ Task timeout (`defaultTimeoutMs`) is enforced via `AbortController` signal durin
 
 This package is SSOT for:
 
-- `IWorkerLoopOptions` -- worker configuration (workerId, leaseDurationMs, visibilityTimeoutMs, retryEnabled, deadLetterEnabled, maxAttempts, defaultTimeoutMs)
+- `IWorkerLoopOptions` -- worker configuration (workerId, leaseDurationMs, visibilityTimeoutMs, retryEnabled, deadLetterEnabled, maxAttempts, defaultTimeoutMs, idleWaitMs)
 - `IWorkerLoopResult` -- processing result (processed, taskRunId, retried)
 - `IDlqReinjectResult` -- reinject result (reinjected, taskRunId)
 - `IWorkerLoopDependencies` -- dependency injection shape for the composition factory
@@ -100,9 +110,11 @@ This package is SSOT for:
 All errors use `IDagError` from `dag-core` with the following codes:
 
 **Lease errors** (`category: 'lease'`):
+
 - `DAG_LEASE_CONTRACT_VIOLATION` -- failed to acquire lease for a task run
 
 **Validation errors** (`category: 'validation'`):
+
 - `DAG_VALIDATION_TASK_RUN_NOT_FOUND` -- task run missing for dequeued message
 - `DAG_VALIDATION_DAG_RUN_NOT_FOUND` -- DAG run missing
 - `DAG_VALIDATION_NODE_NOT_FOUND` -- node definition missing for task
@@ -113,12 +125,14 @@ All errors use `IDagError` from `dag-core` with the following codes:
 - `DAG_VALIDATION_DEAD_LETTER_QUEUE_NOT_CONFIGURED` -- DLQ enabled but not configured
 
 **Dispatch errors** (`category: 'dispatch'`):
+
 - `DAG_DISPATCH_ENQUEUE_RETRY_FAILED` -- retry enqueue failure
 - `DAG_DISPATCH_ENQUEUE_DOWNSTREAM_FAILED` -- downstream enqueue failure
 - `DAG_DISPATCH_DEAD_LETTER_ENQUEUE_FAILED` -- DLQ enqueue failure
 - `DAG_DISPATCH_REINJECT_ENQUEUE_FAILED` -- reinject enqueue failure
 
 **Task execution errors** (`category: 'task_execution'`):
+
 - `DAG_TASK_EXECUTION_TIMEOUT` -- task exceeded timeout
 - `DAG_TASK_EXECUTION_EXCEPTION` -- executor threw an exception
 - `DAG_TASK_EXECUTION_FAILED` -- generic run failure
@@ -135,20 +149,20 @@ None. Service classes are standalone (no `extends`).
 
 ### Port Consumption via DI
 
-| Service Class | Injected Port (from dag-core) | Location |
-|---------------|------------------------------|----------|
-| `WorkerLoopService` | `IStoragePort`, `IQueuePort`, `ILeasePort`, `ITaskExecutorPort`, `IClockPort` | `src/services/worker-loop-service.ts` |
-| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `ILeasePort`, `IClockPort` | `src/services/dlq-reinject-service.ts` |
+| Service Class        | Injected Port (from dag-core)                                                 | Location                               |
+| -------------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
+| `WorkerLoopService`  | `IStoragePort`, `IQueuePort`, `ILeasePort`, `ITaskExecutorPort`, `IClockPort` | `src/services/worker-loop-service.ts`  |
+| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `ILeasePort`, `IClockPort`                 | `src/services/dlq-reinject-service.ts` |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner) | Consumer Class | Location |
-|--------------|---------------|----------|
-| `IStoragePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
-| `IQueuePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
-| `ILeasePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
-| `ITaskExecutorPort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
-| `IClockPort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
+| Port (Owner)                   | Consumer Class                            | Location                              |
+| ------------------------------ | ----------------------------------------- | ------------------------------------- |
+| `IStoragePort` (dag-core)      | `WorkerLoopService`, `DlqReinjectService` | `src/services/`                       |
+| `IQueuePort` (dag-core)        | `WorkerLoopService`, `DlqReinjectService` | `src/services/`                       |
+| `ILeasePort` (dag-core)        | `WorkerLoopService`, `DlqReinjectService` | `src/services/`                       |
+| `ITaskExecutorPort` (dag-core) | `WorkerLoopService`                       | `src/services/worker-loop-service.ts` |
+| `IClockPort` (dag-core)        | `WorkerLoopService`, `DlqReinjectService` | `src/services/`                       |
 
 ## Test Strategy
 
