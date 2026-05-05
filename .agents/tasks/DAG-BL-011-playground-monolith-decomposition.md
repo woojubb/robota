@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-agent-configuration-block
+- **Branch**: refactor/agent-playground-use-robota-execution
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -61,14 +61,12 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `project-browser.tsx` into a stable directory module.
 - [x] Add characterization tests for `agent-configuration-block`.
 - [x] Split `agent-configuration-block.tsx` into a stable directory module.
+- [x] Add characterization tests for `use-robota-execution`.
+- [x] Split `use-robota-execution.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
 ## Current >300 Line Files
-
-### hooks
-
-- `hooks/use-robota-execution.ts` (396 lines)
 
 ### contexts
 
@@ -231,6 +229,14 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments. Two production source files still exceed the 300-line
   guideline.
+- Completed the twenty-fourth slice: `use-robota-execution.ts` is now a same-name directory module
+  with derived local state, context synchronization, execution history, timeout cleanup, action
+  hooks, configuration helpers, and return-shaping split from the public hook facade.
+- Added characterization coverage for derived state, execution readiness blocking, agent creation
+  failure handling, prompt execution, retry, streaming accumulation, context result collection,
+  metric calculation, and local clear behavior.
+- Updated package SPEC and the central architecture map for the hook module without adding new
+  architecture document fragments. One production source file still exceeds the 300-line guideline.
 
 ## Decisions
 
@@ -246,6 +252,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to WebSocket client internals.
 - Apply the same stable-import directory module pattern to WebSocket connection hook internals.
 - Apply the same stable-import directory module pattern to chat input hook internals.
+- Apply the same stable-import directory module pattern to Robota execution hook internals.
 - Apply the same stable-import directory module pattern to executor internals while keeping
   `PlaygroundExecutor` as the stateful browser execution facade.
 - Apply the same stable-import directory module pattern to large playground component internals,
