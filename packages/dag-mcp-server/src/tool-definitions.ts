@@ -141,6 +141,18 @@ export const DAG_MCP_TOOL_DEFINITIONS: readonly IDagMcpToolDefinition[] = [
       ['draftId', 'nodeId', 'result'],
     ),
   },
+  {
+    name: 'dag_workflows_start_run',
+    description: 'Start a published workflow run.',
+    inputSchema: objectSchema(
+      {
+        dagId: { type: 'string' },
+        version: { type: 'number' },
+        request: { type: 'object' },
+      },
+      ['dagId'],
+    ),
+  },
 ];
 
 function objectSchema(
