@@ -1,5 +1,6 @@
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
 import type {
+  IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationHttpClient,
   IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPublishedWorkflowRunRequest,
@@ -12,7 +13,6 @@ import type {
   IDagMcpUsageErrorPayload,
 } from './types.js';
 import { DAG_MCP_TOOL_DEFINITIONS } from './tool-definitions.js';
-
 type TDagMcpArgumentValue =
   | string
   | number
@@ -88,6 +88,31 @@ const handlers: Record<string, TToolHandler> = {
     return toMcpResult(await client.publishDefinition(dagId.value, version));
   },
   dag_nodes_list: async (_args, client) => toMcpResult(await client.listNodes()),
+  dag_assets_upload: async (args, client) => {
+    const asset = requireObject(args, 'asset');
+    if (!asset.ok) return usageError(asset.detail);
+    return toMcpResult(
+      await client.uploadAsset(asset.value as object as IDagOrchestrationAssetUploadRequest),
+    );
+  },
+  dag_assets_get_metadata: async (args, client) => {
+    const assetId = requireString(args, 'assetId');
+    if (!assetId.ok) return usageError(assetId.detail);
+    return toMcpResult(await client.getAssetMetadata(assetId.value));
+  },
+  dag_assets_get_content_info: async (args, client) => {
+    const assetId = requireString(args, 'assetId');
+    if (!assetId.ok) return usageError(assetId.detail);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(client.getAssetContentDownloadInfo(assetId.value), null, 2),
+        },
+      ],
+      isError: false,
+    };
+  },
   dag_runs_create: async (args, client) => {
     const definition = requireObject(args, 'definition');
     if (!definition.ok) return usageError(definition.detail);
