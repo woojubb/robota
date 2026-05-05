@@ -48,8 +48,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/dag-api": "workspace:*",
-    "@robota-sdk/dag-core": "workspace:*"
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-orchestration-client": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.1"

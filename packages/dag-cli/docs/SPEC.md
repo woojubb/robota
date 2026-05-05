@@ -7,7 +7,8 @@ Command-line client for the Robota DAG orchestration HTTP API. This package is a
 ## Boundaries
 
 - Does not own DAG domain contracts. Those belong to `@robota-sdk/dag-core`.
-- Does not own API problem details. Those belong to `@robota-sdk/dag-api`.
+- Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
+- Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains a separate thin UI.
 - Does not execute DAGs locally. All execution commands call `dag-orchestrator-server`.
 
@@ -15,7 +16,7 @@ Command-line client for the Robota DAG orchestration HTTP API. This package is a
 
 - `bin.ts` is the executable entrypoint for `robota-dag`.
 - `runner.ts` parses argv, applies environment/default config, dispatches commands, and writes JSON output.
-- `@robota-sdk/dag-api` owns the shared `DagOrchestrationHttpClient` used for HTTP calls.
+- `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
 
 ## Command Surface
@@ -52,7 +53,7 @@ This package is SSOT for:
 Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
-- `IProblemDetails`, `DagOrchestrationHttpClient`, and orchestrator HTTP response types from `@robota-sdk/dag-api`
+- `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
 
 ## Public API Surface
 
@@ -62,7 +63,7 @@ Imported from other packages:
 
 - `DAG_CLI_USAGE_ERROR` — invalid command, missing argument, or invalid option.
 - `DAG_CLI_JSON_PARSE_ERROR` — JSON argument or file content could not be parsed.
-- Server-originated `IProblemDetails` are passed through unchanged.
+- Server-originated problem detail payloads are passed through unchanged.
 
 ## Class Contract Registry
 
@@ -76,10 +77,10 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Contract Owner                          | Consumer   | Location |
-| --------------------------------------- | ---------- | -------- |
-| `dag-core` domain types                 | CLI runner | `src/`   |
-| `dag-api` problem shape and HTTP client | CLI runner | `src/`   |
+| Contract Owner                                      | Consumer   | Location |
+| --------------------------------------------------- | ---------- | -------- |
+| `dag-core` domain types                             | CLI runner | `src/`   |
+| `dag-orchestration-client` HTTP client and payloads | CLI runner | `src/`   |
 
 ## Test Strategy
 

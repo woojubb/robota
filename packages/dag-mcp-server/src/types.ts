@@ -1,7 +1,7 @@
 import type {
   IDagOrchestrationHttpClient,
   IDagOrchestrationHttpPayload,
-} from '@robota-sdk/dag-api';
+} from '@robota-sdk/dag-orchestration-client';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
 export const DEFAULT_DAG_SERVER_URL = 'http://localhost:3012';

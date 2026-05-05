@@ -7,7 +7,8 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 ## Boundaries
 
 - Does not own DAG domain contracts. Those belong to `@robota-sdk/dag-core`.
-- Does not own API response shapes or orchestrator endpoint contracts. Those belong to `@robota-sdk/dag-api`.
+- Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
+- Does not own server-side API response mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains separate.
 - Does not execute DAGs locally. All execution tools call `dag-orchestrator-server`.
 
@@ -16,7 +17,7 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 - `bin.ts` starts an MCP stdio server.
 - `mcp-server.ts` creates the low-level MCP `Server` and registers `tools/list` and `tools/call` handlers.
 - `dag-mcp-tools.ts` owns the tool definitions and command dispatch.
-- `@robota-sdk/dag-api` owns the shared `DagOrchestrationHttpClient`.
+- `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient`.
 
 ## Server URL Resolution
 
@@ -51,7 +52,7 @@ This package is SSOT for:
 
 Imported from other packages:
 
-- `DagOrchestrationHttpClient` and response payload types from `@robota-sdk/dag-api`
+- `DagOrchestrationHttpClient` and response payload types from `@robota-sdk/dag-orchestration-client`
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
 
 ## Public API Surface
@@ -73,10 +74,10 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Contract Owner                     | Consumer             | Location |
-| ---------------------------------- | -------------------- | -------- |
-| `dag-api` orchestrator HTTP client | MCP server and tools | `src/`   |
-| `dag-core` DAG types               | MCP tool arguments   | `src/`   |
+| Contract Owner                         | Consumer             | Location |
+| -------------------------------------- | -------------------- | -------- |
+| `dag-orchestration-client` HTTP client | MCP server and tools | `src/`   |
+| `dag-core` DAG types                   | MCP tool arguments   | `src/`   |
 
 ## Test Strategy
 

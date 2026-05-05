@@ -1,5 +1,5 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { DagOrchestrationHttpClient } from '@robota-sdk/dag-api';
+import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import { resolveDagMcpConfig } from './config.js';
 import { createDagMcpServer } from './mcp-server.js';
 import type { IDagMcpRunOptions } from './types.js';

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
-import { DagOrchestrationHttpClient } from '@robota-sdk/dag-api';
+import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import { parseGlobalConfig } from './arguments.js';
 import { dispatchDagCliCommand } from './runner-dispatch.js';
 import { formatJsonOutput } from './json.js';

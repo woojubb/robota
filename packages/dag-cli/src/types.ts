@@ -1,8 +1,8 @@
 import type {
-  IProblemDetails,
+  IOrchestrationProblemDetails,
   TDagOrchestrationFetch,
   IDagOrchestrationHttpPayload,
-} from '@robota-sdk/dag-api';
+} from '@robota-sdk/dag-orchestration-client';
 
 export const DEFAULT_DAG_SERVER_URL = 'http://localhost:3012';
 export const SUCCESS_EXIT_CODE = 0;
@@ -36,7 +36,7 @@ export interface IDagCliRunOptions {
 export interface IDagCliFailure {
   readonly ok: false;
   readonly status: number;
-  readonly errors: readonly IProblemDetails[];
+  readonly errors: readonly IOrchestrationProblemDetails[];
 }
 
 export type TDagCliServerResponse = IDagOrchestrationHttpPayload;
