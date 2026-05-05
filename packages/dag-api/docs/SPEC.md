@@ -24,6 +24,7 @@ The package follows a controller-composition pattern:
   - `createDagControllerComposition` -- assembles all four controllers.
   - `createDagExecutionComposition` -- assembles runtime + worker loop for in-process execution.
   - `RunProgressEventBus` -- pub/sub bus for `TRunProgressEvent` streaming.
+- **HTTP client** (`orchestration-http-client.ts`): Shared thin client for `dag-orchestrator-server` REST endpoints used by operational clients such as `dag-cli` and `dag-mcp-server`.
 
 ## Type Ownership
 
@@ -40,6 +41,7 @@ This package is SSOT for:
 - `IDagControllerComposition`, `IDagControllerCompositionDependencies`, `IDagControllerCompositionOptions` -- controller composition types
 - `IDagExecutionComposition`, `IDagExecutionCompositionDependencies`, `IDagExecutionCompositionOptions` -- execution composition types
 - `IRunProgressEventBus`, `TRunProgressEventListener` -- event bus types
+- `DagOrchestrationHttpClient`, `IDagOrchestrationHttpClient`, `IDagOrchestrationHttpResponse` -- shared REST client contract for orchestrator-server consumers
 - `INodeCatalogService` -- runtime `TObjectInfo` node catalog port interface
 - `IDiagnosticsPolicy` -- diagnostics policy interface
 
@@ -54,6 +56,7 @@ This package is SSOT for:
 - `createDagControllerComposition(deps, options?)` -- wires all controllers
 - `createDagExecutionComposition(deps, options)` -- wires runtime + worker loop
 - `RunProgressEventBus` -- in-memory pub/sub for run progress events
+- `DagOrchestrationHttpClient` -- shared HTTP client for definition, node catalog, and run lifecycle endpoints
 
 ## Extension Points
 
@@ -82,11 +85,12 @@ Controller-specific codes:
 
 ### Interface Implementations
 
-| Interface              | Implementor                                     | Kind       | Location                                    |
-| ---------------------- | ----------------------------------------------- | ---------- | ------------------------------------------- |
-| `IRunProgressEventBus` | `RunProgressEventBus`                           | production | `src/composition/run-progress-event-bus.ts` |
-| `INodeCatalogService`  | (external: runtime object-info catalog service) | port       | N/A (consumed via DI)                       |
-| `IDiagnosticsPolicy`   | (external)                                      | port       | N/A (consumed via DI)                       |
+| Interface                     | Implementor                                     | Kind       | Location                                    |
+| ----------------------------- | ----------------------------------------------- | ---------- | ------------------------------------------- |
+| `IRunProgressEventBus`        | `RunProgressEventBus`                           | production | `src/composition/run-progress-event-bus.ts` |
+| `INodeCatalogService`         | (external: runtime object-info catalog service) | port       | N/A (consumed via DI)                       |
+| `IDiagnosticsPolicy`          | (external)                                      | port       | N/A (consumed via DI)                       |
+| `IDagOrchestrationHttpClient` | `DagOrchestrationHttpClient`                    | production | `src/orchestration-http-client.ts`          |
 
 ### Inheritance Chains
 
@@ -115,6 +119,7 @@ None. Controller and composition classes are standalone.
 ## Test Strategy
 
 - **Unit tests**: `src/__tests__/run-progress-event-bus.test.ts`, `execution-composition.test.ts`
+- **HTTP client tests**: `src/__tests__/orchestration-http-client.test.ts`
 - **E2E tests**: `design-flow-e2e.test.ts`, `runtime-flow-e2e.test.ts`, `diagnostics-flow-e2e.test.ts`, `observability-flow-e2e.test.ts`, `single-dagrun-e2e.test.ts`
 - Tests use in-memory port implementations from `dag-core`.
 - Coverage focus: controller request/response mapping, composition wiring, error-to-problem-details translation, event bus pub/sub lifecycle.

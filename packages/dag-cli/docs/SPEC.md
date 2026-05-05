@@ -15,7 +15,7 @@ Command-line client for the Robota DAG orchestration HTTP API. This package is a
 
 - `bin.ts` is the executable entrypoint for `robota-dag`.
 - `runner.ts` parses argv, applies environment/default config, dispatches commands, and writes JSON output.
-- `orchestrator-api-client.ts` owns HTTP calls to the orchestrator server.
+- `@robota-sdk/dag-api` owns the shared `DagOrchestrationHttpClient` used for HTTP calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
 
 ## Command Surface
@@ -52,12 +52,11 @@ This package is SSOT for:
 Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
-- `IProblemDetails` from `@robota-sdk/dag-api`
+- `IProblemDetails`, `DagOrchestrationHttpClient`, and orchestrator HTTP response types from `@robota-sdk/dag-api`
 
 ## Public API Surface
 
 - `runDagCli(args, options)` — programmatic command runner used by the bin entrypoint and tests.
-- `DagOrchestrationApiClient` — thin HTTP client for the orchestrator API.
 
 ## Error Taxonomy
 
@@ -69,7 +68,7 @@ Imported from other packages:
 
 ### Interface Implementations
 
-None. `DagOrchestrationApiClient` is a standalone class with constructor-injected fetch.
+None.
 
 ### Inheritance Chains
 
@@ -77,10 +76,10 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Contract Owner          | Consumer                   | Location |
-| ----------------------- | -------------------------- | -------- |
-| `dag-core` domain types | CLI runner and HTTP client | `src/`   |
-| `dag-api` problem shape | CLI runner and HTTP client | `src/`   |
+| Contract Owner                          | Consumer   | Location |
+| --------------------------------------- | ---------- | -------- |
+| `dag-core` domain types                 | CLI runner | `src/`   |
+| `dag-api` problem shape and HTTP client | CLI runner | `src/`   |
 
 ## Test Strategy
 
