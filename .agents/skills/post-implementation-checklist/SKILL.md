@@ -96,9 +96,9 @@ For each modified package:
 
 - [ ] Verify: every modified SPEC.md has a matching README.md update
 - [ ] Verify: every user-facing behavior change has a matching content/guide/\*.md update
-- [ ] `cd apps/docs && pnpm build` — must succeed
-- [ ] Deploy to gh-pages
-- [ ] Cleanup temp clone
+- [ ] `pnpm docs:build` — must succeed
+- [ ] Deploy by merging to `main` for Cloudflare Pages automatic production deployment
+- [ ] Use `pnpm docs:deploy` only for explicit manual Cloudflare Pages direct upload
 
 ## Abbreviated Form
 
@@ -115,4 +115,4 @@ For small changes (1-2 packages, no new features):
 - NEVER publish without build + test passing
 - NEVER deploy docs without building first
 - content/v2.0.0/ is frozen — never modify
-- gh-pages deploy must preserve CNAME and .nojekyll
+- Cloudflare Pages production docs deploy from `main`; manual direct upload requires explicit intent

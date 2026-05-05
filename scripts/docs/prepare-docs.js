@@ -6,8 +6,8 @@
  * Actual deployment is performed separately in GitHub Actions
  */
 
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs';
 import { execSync } from 'child_process';
 
 const ROOT_DIR = process.cwd();
@@ -38,18 +38,13 @@ async function main() {
   log('🔨 Building documentation...');
   executeCommand('pnpm run build', { cwd: DOCS_DIR });
 
-  // 2. Add .nojekyll file (for GitHub Pages)
-  log('📄 Adding .nojekyll file...');
-  const nojekyllPath = path.join(DOCS_DIR, '.vitepress/dist/.nojekyll');
-  fs.writeFileSync(nojekyllPath, '');
-
-  // 3. Check build results
+  // 2. Check build results
   const distDir = path.join(DOCS_DIR, '.vitepress/dist');
   const files = fs.readdirSync(distDir);
   log(`📁 Generated files: ${files.join(', ')}`);
 
   log('🎉 Documentation build completed!');
-  log('📤 Ready for deployment to GitHub Pages');
+  log('📤 Ready for deployment to Cloudflare Pages');
 }
 
 // Execute script
