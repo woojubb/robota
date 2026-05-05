@@ -1,32 +1,7 @@
-import type { IPlaygroundBlockCollector } from './block-tracking/block-collector';
-import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-tracking/types';
-import { WebLogger } from '../web-logger';
+import type { IRealTimeBlockMessage } from '../block-tracking/types';
+import { DEMO_TIMELINE_OFFSETS_MS } from './offsets';
 
-// Demo timeline offsets in milliseconds
-const OFFSET_USER_END = 100;
-const OFFSET_TEAM_START = 200;
-const OFFSET_TEAM_END = 15000;
-const OFFSET_AGENT_START = 500;
-const OFFSET_AGENT_END = 14500;
-const OFFSET_TOOL1_START = 1000;
-const OFFSET_TOOL1_END = 6000;
-const OFFSET_TOOL2_START = 7000;
-const OFFSET_TOOL2_END = 12000;
-const OFFSET_LLM_START = 13000;
-const OFFSET_LLM_END = 14500;
-
-/**
- * Generate demo execution data for testing the tree visualization
- */
-export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollector): void {
-  WebLogger.debug('Generating demo execution data');
-
-  const now = new Date();
-
-  // Clear existing blocks
-  blockCollector.clearBlocks();
-
-  // 1. Root level - User message
+export function createDemoExecutionBlocks(now: Date): IRealTimeBlockMessage[] {
   const userMessage: IRealTimeBlockMessage = {
     role: 'user',
     content: 'Compare React vs Vue for a new project and search for recent performance benchmarks',
@@ -40,19 +15,18 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       isExpanded: true,
       visualState: 'completed',
       startTime: new Date(now.getTime()),
-      endTime: new Date(now.getTime() + OFFSET_USER_END),
-      actualDuration: OFFSET_USER_END,
+      endTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.userEnd),
+      actualDuration: DEMO_TIMELINE_OFFSETS_MS.userEnd,
       executionContext: {
         timestamp: new Date(now.getTime()),
       },
     },
   };
 
-  // 2. Team level execution
   const teamExecution: IRealTimeBlockMessage = {
     role: 'system',
     content: 'Team execution started - Processing comparison request',
-    timestamp: new Date(now.getTime() + OFFSET_TEAM_START),
+    timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.teamStart),
     blockMetadata: {
       id: 'team_001',
       type: 'group',
@@ -61,8 +35,8 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       children: ['agent_001'],
       isExpanded: true,
       visualState: 'completed',
-      startTime: new Date(now.getTime() + OFFSET_TEAM_START),
-      endTime: new Date(now.getTime() + OFFSET_TEAM_END),
+      startTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.teamStart),
+      endTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.teamEnd),
       actualDuration: 14800,
       executionHierarchy: {
         level: 0,
@@ -71,16 +45,15 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       },
       executionContext: {
         executionId: 'team_001',
-        timestamp: new Date(now.getTime() + OFFSET_TEAM_START),
+        timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.teamStart),
       },
     },
   };
 
-  // 3. Agent level execution
   const agentExecution: IRealTimeBlockMessage = {
     role: 'assistant',
     content: 'Agent processing: I need to research both frameworks and find recent benchmarks',
-    timestamp: new Date(now.getTime() + OFFSET_AGENT_START),
+    timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.agentStart),
     blockMetadata: {
       id: 'agent_001',
       type: 'assistant',
@@ -89,8 +62,8 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       children: ['tool_001', 'tool_002'],
       isExpanded: true,
       visualState: 'completed',
-      startTime: new Date(now.getTime() + OFFSET_AGENT_START),
-      endTime: new Date(now.getTime() + OFFSET_AGENT_END),
+      startTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.agentStart),
+      endTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.agentEnd),
       actualDuration: 14000,
       executionHierarchy: {
         parentExecutionId: 'team_001',
@@ -101,16 +74,15 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       executionContext: {
         agentId: 'research_agent',
         executionId: 'agent_001',
-        timestamp: new Date(now.getTime() + OFFSET_AGENT_START),
+        timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.agentStart),
       },
     },
   };
 
-  // 4. First tool - Web search for React vs Vue
   const webSearchTool: IRealTimeBlockMessage = {
     role: 'tool',
     content: 'Executing webSearch tool for React vs Vue comparison',
-    timestamp: new Date(now.getTime() + OFFSET_TOOL1_START),
+    timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool1Start),
     blockMetadata: {
       id: 'tool_001',
       type: 'tool_call',
@@ -119,8 +91,8 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       children: ['tool_result_001'],
       isExpanded: true,
       visualState: 'completed',
-      startTime: new Date(now.getTime() + OFFSET_TOOL1_START),
-      endTime: new Date(now.getTime() + OFFSET_TOOL1_END),
+      startTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool1Start),
+      endTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool1End),
       actualDuration: 5000,
       toolParameters: {
         query: 'React vs Vue 2024 performance comparison',
@@ -142,7 +114,7 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       executionContext: {
         toolName: 'webSearch',
         executionId: 'tool_001',
-        timestamp: new Date(now.getTime() + OFFSET_TOOL1_START),
+        timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool1Start),
         duration: 5000,
       },
       renderData: {
@@ -164,11 +136,10 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
     },
   };
 
-  // 5. Second tool - Performance benchmarks search
   const benchmarkSearchTool: IRealTimeBlockMessage = {
     role: 'tool',
     content: 'Executing webSearch tool for performance benchmarks',
-    timestamp: new Date(now.getTime() + OFFSET_TOOL2_START),
+    timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool2Start),
     blockMetadata: {
       id: 'tool_002',
       type: 'tool_call',
@@ -177,8 +148,8 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       children: ['tool_result_002'],
       isExpanded: true,
       visualState: 'completed',
-      startTime: new Date(now.getTime() + OFFSET_TOOL2_START),
-      endTime: new Date(now.getTime() + OFFSET_TOOL2_END),
+      startTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool2Start),
+      endTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool2End),
       actualDuration: 5000,
       toolParameters: {
         query: 'JavaScript framework performance benchmarks 2024',
@@ -200,7 +171,7 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
       executionContext: {
         toolName: 'webSearch',
         executionId: 'tool_002',
-        timestamp: new Date(now.getTime() + OFFSET_TOOL2_START),
+        timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.tool2Start),
         duration: 5000,
       },
       renderData: {
@@ -222,7 +193,6 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
     },
   };
 
-  // 6. Final LLM response
   const finalResponse: IRealTimeBlockMessage = {
     role: 'assistant',
     content: `Based on my research, here's a comprehensive comparison of React vs Vue for 2024:
@@ -245,7 +215,7 @@ export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollec
 - React performs better in complex state management scenarios
 
 I recommend React for larger teams and complex applications, Vue for smaller projects and teams preferring simplicity.`,
-    timestamp: new Date(now.getTime() + OFFSET_LLM_START),
+    timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.llmStart),
     blockMetadata: {
       id: 'llm_response_001',
       type: 'assistant',
@@ -254,8 +224,8 @@ I recommend React for larger teams and complex applications, Vue for smaller pro
       children: [],
       isExpanded: true,
       visualState: 'completed',
-      startTime: new Date(now.getTime() + OFFSET_LLM_START),
-      endTime: new Date(now.getTime() + OFFSET_LLM_END),
+      startTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.llmStart),
+      endTime: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.llmEnd),
       actualDuration: 1500,
       executionHierarchy: {
         parentExecutionId: 'agent_001',
@@ -266,7 +236,7 @@ I recommend React for larger teams and complex applications, Vue for smaller pro
       executionContext: {
         agentId: 'research_agent',
         executionId: 'llm_response_001',
-        timestamp: new Date(now.getTime() + OFFSET_LLM_START),
+        timestamp: new Date(now.getTime() + DEMO_TIMELINE_OFFSETS_MS.llmStart),
         duration: 1500,
       },
       renderData: {
@@ -279,32 +249,12 @@ I recommend React for larger teams and complex applications, Vue for smaller pro
     },
   };
 
-  // Add all blocks to collector
-  [
+  return [
     userMessage,
     teamExecution,
     agentExecution,
     webSearchTool,
     benchmarkSearchTool,
     finalResponse,
-  ].forEach((block) => {
-    blockCollector.collectBlock(block);
-  });
-
-  WebLogger.debug('Demo execution data generated successfully', { blockCount: 6 });
-}
-
-/**
- * Generate a second demo scenario - Complex multi-tool execution
- */
-export function generateComplexDemoData(blockCollector: IPlaygroundBlockCollector): void {
-  WebLogger.debug('Generating complex demo execution data');
-
-  const now = new Date();
-  blockCollector.clearBlocks();
-
-  // Simple implementation for now - just call the regular demo
-  generateDemoExecutionData(blockCollector);
-
-  WebLogger.debug('Complex demo data generation complete');
+  ];
 }
