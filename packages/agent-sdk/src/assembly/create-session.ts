@@ -32,6 +32,7 @@ import type { IProjectInfo } from '../context/project-detector.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 import {
   createAgentTool,
@@ -158,6 +159,8 @@ export interface ICreateSessionOptions {
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  sandboxClient?: ISandboxClient;
 }
 
 /**
@@ -176,14 +179,26 @@ export function createSession(options: ICreateSessionOptions): Session {
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
 
-  const defaultTools = options.editCheckpointRecorder
-    ? wrapEditCheckpointTools(createDefaultTools(), options.editCheckpointRecorder)
-    : createDefaultTools();
+  const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient });
+  const shouldWrapHostEditCheckpoints =
+    options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
+  const defaultTools =
+    shouldWrapHostEditCheckpoints && options.editCheckpointRecorder
+      ? wrapEditCheckpointTools(baseDefaultTools, options.editCheckpointRecorder)
+      : baseDefaultTools;
   const assembledTools = [...defaultTools, ...(options.additionalTools ?? [])];
-  const tools = options.reversibleExecution
-    ? wrapReversibleExecutionTools(assembledTools, {
+  const reversibleExecution = options.reversibleExecution
+    ? {
         ...options.reversibleExecution,
-        checkpointAvailable: options.editCheckpointRecorder !== undefined,
+        isolation:
+          options.reversibleExecution.isolation ??
+          (options.sandboxClient ? ('provider-sandbox' as const) : undefined),
+      }
+    : undefined;
+  const tools = reversibleExecution
+    ? wrapReversibleExecutionTools(assembledTools, {
+        ...reversibleExecution,
+        checkpointAvailable: shouldWrapHostEditCheckpoints,
       })
     : assembledTools;
   if (options.modelCommandExecutor && options.isModelCommandInvocable) {

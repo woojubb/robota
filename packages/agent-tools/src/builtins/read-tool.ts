@@ -9,6 +9,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
+import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 
 const DEFAULT_LIMIT = 2000;
@@ -57,9 +58,55 @@ function formatWithLineNumbers(lines: string[], startLine: number): string {
     .join('\n');
 }
 
-async function readFileTool(args: TReadArgs): Promise<string> {
+function formatReadResult(
+  filePath: string,
+  content: string,
+  startLine: number,
+  limit: number,
+): string {
+  const allLines = content.split('\n');
+
+  // Remove trailing empty line if file ends with newline (common in Unix files)
+  if (allLines[allLines.length - 1] === '') {
+    allLines.pop();
+  }
+
+  const zeroBasedStart = startLine - 1;
+  const selectedLines = allLines.slice(zeroBasedStart, zeroBasedStart + limit);
+
+  const output = formatWithLineNumbers(selectedLines, startLine);
+
+  const totalLines = allLines.length;
+  const returnedLines = selectedLines.length;
+  const header =
+    returnedLines < totalLines
+      ? `[File: ${filePath} (lines ${startLine}-${startLine + returnedLines - 1} of ${totalLines})]\n`
+      : `[File: ${filePath} (${totalLines} lines)]\n`;
+
+  const result: TToolResult = {
+    success: true,
+    output: header + output,
+  };
+  return JSON.stringify(result);
+}
+
+async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { filePath, offset, limit = DEFAULT_LIMIT } = args;
   const startLine = offset !== undefined && offset > 0 ? offset : 1;
+
+  if (options.sandboxClient) {
+    try {
+      const content = await options.sandboxClient.readFile(filePath);
+      return formatReadResult(filePath, content, startLine, limit);
+    } catch (err) {
+      const result: TToolResult = {
+        success: false,
+        output: '',
+        error: err instanceof Error ? err.message : String(err),
+      };
+      return JSON.stringify(result);
+    }
+  }
 
   let fileStats: Awaited<ReturnType<typeof stat>> | undefined;
   try {
@@ -104,40 +151,24 @@ async function readFileTool(args: TReadArgs): Promise<string> {
   }
 
   const content = buffer.toString('utf8');
-  const allLines = content.split('\n');
+  return formatReadResult(filePath, content, startLine, limit);
+}
 
-  // Remove trailing empty line if file ends with newline (common in Unix files)
-  if (allLines[allLines.length - 1] === '') {
-    allLines.pop();
-  }
-
-  const zeroBasedStart = startLine - 1;
-  const selectedLines = allLines.slice(zeroBasedStart, zeroBasedStart + limit);
-
-  const output = formatWithLineNumbers(selectedLines, startLine);
-
-  const totalLines = allLines.length;
-  const returnedLines = selectedLines.length;
-  const header =
-    returnedLines < totalLines
-      ? `[File: ${filePath} (lines ${startLine}-${startLine + returnedLines - 1} of ${totalLines})]\n`
-      : `[File: ${filePath} (${totalLines} lines)]\n`;
-
-  const result: TToolResult = {
-    success: true,
-    output: header + output,
-  };
-  return JSON.stringify(result);
+/**
+ * Create a ReadTool instance — register with Robota agent tools registry.
+ */
+export function createReadTool(options: ISandboxToolOptions = {}) {
+  return createZodFunctionTool(
+    'Read',
+    'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',
+    ReadSchema as unknown as IZodSchema,
+    async (params) => {
+      return readFileTool(params as TReadArgs, options);
+    },
+  );
 }
 
 /**
  * ReadTool instance — register with Robota agent tools registry.
  */
-export const readTool = createZodFunctionTool(
-  'Read',
-  'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',
-  ReadSchema as unknown as IZodSchema,
-  async (params) => {
-    return readFileTool(params as TReadArgs);
-  },
-);
+export const readTool = createReadTool();

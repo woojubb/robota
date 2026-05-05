@@ -42,6 +42,7 @@ import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -78,6 +79,8 @@ export interface IInteractiveSessionStandardOptions {
   config?: IResolvedConfig;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  sandboxClient?: ISandboxClient;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -147,6 +150,8 @@ export interface IInitOptions {
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  sandboxClient?: ISandboxClient;
 }
 
 /**
@@ -230,6 +235,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
+    sandboxClient: options.sandboxClient,
   });
 }
 

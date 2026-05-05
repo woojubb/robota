@@ -225,6 +225,30 @@ const session = new InteractiveSession({
 | **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                                      |
 | **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                                   |
 | **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                                   |
+| **Sandbox execution**      | Optional sandbox clients route Bash and core file tools through an injected execution plane                                                                                           |
+
+## Sandbox Execution
+
+`InteractiveSession` accepts `sandboxClient?: ISandboxClient`. When present, the SDK creates sandbox-aware Bash, Read, Write, and Edit tools. This keeps the CLI/TUI thin: hosts choose whether to supply a sandbox, while tool command/file behavior remains in `agent-tools`.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import { Sandbox } from 'e2b';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const sandbox = await Sandbox.create();
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sandboxClient: new E2BSandboxClient({ sandbox }),
+  reversibleExecution: { mode: 'local-first' },
+});
+```
+
+`E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-sdk` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK.
 
 ## Subagent Sessions
 
