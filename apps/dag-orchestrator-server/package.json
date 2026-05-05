@@ -23,6 +23,7 @@
     "@robota-sdk/dag-api": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-cost": "workspace:*",
+    "@robota-sdk/dag-orchestration-client": "workspace:*",
     "@robota-sdk/dag-orchestrator": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

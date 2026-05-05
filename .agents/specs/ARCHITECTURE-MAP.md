@@ -151,6 +151,7 @@ DAG stack ownership:
 | API controller request/response mapping                           | `dag-api`                                    | Same.                                                    |
 | Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-orchestration-client`                   | Dedicated thin client package.                           |
 | Full orchestrator REST endpoint contract inventory                | Documented in `dag-orchestrator-server` SPEC | Extract blocked endpoint groups before new client tools. |
+| Run draft operational HTTP contracts                              | `dag-orchestration-client` + `dag-core`      | Add CLI/MCP tools through the shared client only.        |
 | HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                   |
 | Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                        |
 | Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                        |
@@ -265,8 +266,8 @@ Current source:
 
 Problem:
 
-Definition, node catalog, and run lifecycle endpoints are reusable through the shared client. Other
-server-owned endpoints such as run drafts, published workflows, assets, cost metadata, admin, and
+Definition, node catalog, run lifecycle, and run draft endpoints are reusable through the shared
+client. Other server-owned endpoints such as published workflows, assets, cost metadata, admin, and
 ComfyUI proxy routes have explicit ownership classifications in the server SPEC.
 
 Resolution:
@@ -277,11 +278,11 @@ into follow-up extraction tasks.
 
 Follow-up:
 
-- `.agents/tasks/ORCH-BL-008-run-draft-operational-client-contracts.md`
 - `.agents/tasks/ORCH-BL-009-published-workflow-operational-client-contracts.md`
 - `.agents/tasks/ORCH-BL-010-asset-operational-client-contracts.md`
 - `.agents/tasks/ORCH-BL-011-cost-meta-contract-normalization.md`
 - `.agents/tasks/ORCH-BL-012-run-progress-websocket-contract-tests.md`
+- `.agents/tasks/ORCH-BL-013-run-draft-cli-mcp-expansion.md`
 
 ### SYS-AUDIT-004: DAG operational tools are not part of `agent-cli`
 
