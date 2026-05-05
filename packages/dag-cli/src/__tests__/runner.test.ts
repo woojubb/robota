@@ -42,6 +42,17 @@ function createNodeResultInput() {
   };
 }
 
+function createPublishedWorkflowRequest() {
+  return {
+    input: { prompt: 'hello' },
+    overrides: {
+      source: {
+        template: 'override prompt',
+      },
+    },
+  };
+}
+
 function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOptions & {
   readonly requests: ICapturedRequest[];
   readonly output: string[];
@@ -67,6 +78,9 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
         }
         if (filePath === 'node-result.json') {
           return JSON.stringify(createNodeResultInput());
+        }
+        if (filePath === 'workflow-run.json') {
+          return JSON.stringify(createPublishedWorkflowRequest());
         }
         return '{}';
       },
@@ -189,5 +203,34 @@ describe('runDagCli', () => {
     expect(JSON.parse(String(options.requests[0]?.init.body))).toEqual(createRunDraftInput());
     expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(createRunDraftInput());
     expect(JSON.parse(String(options.requests[4]?.init.body))).toEqual(createNodeResultInput());
+  });
+
+  it('starts published workflows with version and override JSON through shared HTTP contracts', async () => {
+    const response = {
+      ok: true,
+      status: 202,
+      data: {
+        dagRunId: 'run-1',
+        preparationId: 'prep-1',
+        dagId: 'published dag',
+        version: 3,
+      },
+    };
+    const options = createOptions([response]);
+
+    const exitCode = await runDagCli(
+      ['workflows', 'start', 'published dag', '--version', '3', '--json', '@workflow-run.json'],
+      options,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(options.requests[0]?.url).toBe(
+      `${TEST_SERVER_URL}/v1/dag/workflows/published%20dag/runs?version=3`,
+    );
+    expect(options.requests[0]?.init.method).toBe('POST');
+    expect(JSON.parse(String(options.requests[0]?.init.body))).toEqual(
+      createPublishedWorkflowRequest(),
+    );
+    expect(JSON.parse(options.output.join(''))).toEqual(response);
   });
 });

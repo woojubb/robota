@@ -10,11 +10,13 @@ import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from './t
 import { rejectUnexpectedArgs, takeNumberOption, takeStringOption } from './arguments.js';
 import { createCliFailure, isJsonObject, parseJsonArgument, parseJsonFile } from './json.js';
 import { runRunDraftsCommand } from './run-draft-commands.js';
+import { runWorkflowsCommand } from './workflow-commands.js';
 
 const COMMAND_GROUP_DEFINITIONS = 'definitions';
 const COMMAND_GROUP_NODES = 'nodes';
 const COMMAND_GROUP_RUNS = 'runs';
 const COMMAND_GROUP_RUN_DRAFTS = 'run-drafts';
+const COMMAND_GROUP_WORKFLOWS = 'workflows';
 
 export async function dispatchDagCliCommand(
   args: readonly string[],
@@ -34,7 +36,10 @@ export async function dispatchDagCliCommand(
   if (group === COMMAND_GROUP_RUN_DRAFTS) {
     return runRunDraftsCommand(command, rest, client, io);
   }
-  return usageResult('Expected command group: definitions, nodes, runs, or run-drafts.');
+  if (group === COMMAND_GROUP_WORKFLOWS) {
+    return runWorkflowsCommand(command, rest, client, io);
+  }
+  return usageResult('Expected command group: definitions, nodes, runs, run-drafts, or workflows.');
 }
 
 async function runDefinitionsCommand(
