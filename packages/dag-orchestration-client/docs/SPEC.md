@@ -15,7 +15,8 @@ This package is consumed by command-line and MCP clients that call `dag-orchestr
 
 ## Architecture Overview
 
-- `orchestration-http-client.ts` owns endpoint path construction, request serialization, response parsing, and the injectable fetch port.
+- `orchestration-http-contracts.ts` owns exported request, response, payload, fetch, and HTTP client interface contracts.
+- `orchestration-http-client.ts` owns concrete endpoint path construction, request serialization, response parsing, and fetch execution.
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output.
 - Endpoint inventory remains intentionally limited to routes with package-owned request/response contracts.
 
@@ -30,7 +31,7 @@ contracts are already package-owned.
 | Node catalog list                     | active  | `dag-api` + this package                               | Current CLI/MCP surface.                   |
 | Run create/start/status/result        | active  | `dag-orchestrator` + this package                      | Current CLI/MCP surface.                   |
 | Run drafts                            | active  | `dag-core` domain types + this package                 | Current package contract surface.          |
-| Published workflow runs               | blocked | route-local HTTP aliases                               | Add aliases before client methods.         |
+| Published workflow runs               | active  | `dag-core` definition types + this package             | Current package contract surface.          |
 | Asset upload/metadata/content         | blocked | `dag-core` asset store types, route-local HTTP aliases | Add aliases before client methods.         |
 | Cost metadata                         | blocked | `dag-cost` domain types, route-local HTTP envelopes    | Normalize envelopes before client methods. |
 | Admin bootstrap                       | local   | `dag-orchestrator-server`                              | Not planned for operational clients.       |
@@ -59,11 +60,15 @@ This package is SSOT for:
 - `IDagOrchestrationOverwriteRunDraftNodeResultRequest`
 - `IDagOrchestrationRunDraftData`
 - `IDagOrchestrationRunDraftSuccessPayload`
+- `IDagOrchestrationWorkflowOverrideMap`
+- `IDagOrchestrationPublishedWorkflowRunRequest`
+- `IDagOrchestrationPublishedWorkflowRunData`
+- `IDagOrchestrationPublishedWorkflowRunSuccessPayload`
 - `IDagOrchestrationHttpClient`
 
 Imported from other packages:
 
-- `IDagDefinition`, `IPartialRunRequest`, `IRunDraft`, `ISaveRunDraftInput`, and `TPortPayload` from `@robota-sdk/dag-core`
+- `IDagDefinition`, `IPartialRunRequest`, `IRunDraft`, `ISaveRunDraftInput`, `TNodeConfigRecord`, and `TPortPayload` from `@robota-sdk/dag-core`
 
 ## Public API Surface
 
@@ -73,6 +78,7 @@ Imported from other packages:
 - `replaceRunDraft(draftId, input)` -- `PUT /v1/dag/run-drafts/:draftId`.
 - `resetRunDraftNodeResult(draftId, nodeId)` -- `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`.
 - `overwriteRunDraftNodeResult(draftId, nodeId, input)` -- `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/result`.
+- `startPublishedWorkflowRun(dagId, input?, version?)` -- `POST /v1/dag/workflows/:dagId/runs`.
 
 ## Extension Points
 
@@ -97,9 +103,10 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Port/Type Owner | Consumer                     | Location                           |
-| --------------- | ---------------------------- | ---------------------------------- |
-| `dag-core`      | `DagOrchestrationHttpClient` | `src/orchestration-http-client.ts` |
+| Port/Type Owner | Consumer                     | Location                              |
+| --------------- | ---------------------------- | ------------------------------------- |
+| `dag-core`      | HTTP contract aliases        | `src/orchestration-http-contracts.ts` |
+| `dag-core`      | `DagOrchestrationHttpClient` | `src/orchestration-http-client.ts`    |
 
 ## Test Strategy
 
