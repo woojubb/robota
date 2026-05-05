@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-error-panel
+- **Branch**: refactor/agent-playground-execution-tree-debug
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -55,6 +55,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `tool-container-block.tsx` into a stable directory module.
 - [x] Add characterization tests for `error-panel`.
 - [x] Split `error-panel.tsx` into a stable directory module.
+- [x] Add characterization tests for `execution-tree-debug`.
+- [x] Split `execution-tree-debug.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -68,7 +70,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 - `agent-configuration-block.tsx` (467 lines)
 - `project-browser.tsx` (422 lines)
-- `execution-tree-debug.tsx` (421 lines)
 
 ### contexts
 
@@ -209,6 +210,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   expansion, suggestion callbacks, documentation links, and debug-info copying.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the twenty-first slice: `execution-tree-debug.tsx` is now a same-name directory module
+  with debug tree/raw block data builders, demo actions, state hook, header, tree card, and raw
+  block sections split from the visual debug facade.
+- Added characterization coverage for empty debug panes, clear behavior, real-time block hierarchy
+  and raw previews, simple demo generation, and complex demo generation.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -246,6 +254,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   trigger props remain attached to the concrete header element.
 - Prefer a thin panel facade plus detail-section components for troubleshooting UI so copy state
   and pure issue formatting stay separate from rendering branches.
+- Keep debug-only visualizer data builders pure and separate from control actions so diagnostic UI
+  can be tested without depending on interval refresh behavior.
 
 ## Test Plan
 
@@ -261,6 +271,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 5 production source files still exceed the guideline. The current
-branch delivers the twentieth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 4 production source files still exceed the guideline. The current
+branch delivers the twenty-first tested decomposition slice and extends the repeatable pattern for
 follow-up files.
