@@ -282,11 +282,16 @@ into follow-up extraction tasks.
 
 Follow-up:
 
-- `.agents/tasks/ORCH-BL-012-run-progress-websocket-contract-tests.md`
 - `.agents/tasks/ORCH-BL-013-run-draft-cli-mcp-expansion.md`
 - `.agents/tasks/ORCH-BL-014-published-workflow-cli-mcp-expansion.md`
 - `.agents/tasks/ORCH-BL-015-asset-cli-mcp-expansion.md`
 - `.agents/tasks/ORCH-BL-016-cost-meta-cli-mcp-expansion.md`
+
+Resolved extraction guardrail:
+
+- Run progress WebSocket events keep `TRunProgressEvent` ownership in `dag-core`; the
+  server-owned route envelope is `{ event: TRunProgressEvent }` and is covered by
+  `apps/dag-orchestrator-server/src/__tests__/ws-routes.test.ts`.
 
 ### SYS-AUDIT-004: DAG operational tools are not part of `agent-cli`
 

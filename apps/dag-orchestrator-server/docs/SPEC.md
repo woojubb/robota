@@ -88,7 +88,7 @@ health, or validated ComfyUI compatibility surfaces.
 | Admin bootstrap `/v1/dag/admin/bootstrap`                                        | `routes/admin-routes.ts`              | `dag-orchestrator-server`                                         | App-local development/bootstrap endpoint; no operational client expansion planned.                   |
 | Runtime asset compatibility `/view`, `/upload/image`                             | `routes/runtime-asset-routes.ts`      | ComfyUI-compatible backend shape + server validation              | Validated compatibility surface; response remains backend-native.                                    |
 | ComfyUI proxy `/prompt`, `/queue`, `/history*`, `/object_info*`, `/system_stats` | `server.ts`                           | ComfyUI-compatible backend shape                                  | Pass-through compatibility surface; not a Robota package contract.                                   |
-| Run progress WebSocket `/v1/dag/runs/:id/ws`                                     | `routes/ws-routes.ts`                 | `dag-core` `TRunProgressEvent` + route-local `{ event }` envelope | Keep event ownership in `dag-core`; add bridge contract tests before new clients; see `ORCH-BL-012`. |
+| Run progress WebSocket `/v1/dag/runs/:id/ws`                                     | `routes/ws-routes.ts`                 | `dag-core` `TRunProgressEvent` + route-local `{ event }` envelope | Keep event ownership in `dag-core`; public route contract is covered by `ws-routes.test.ts`.         |
 
 Expansion gate:
 
@@ -327,6 +327,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | Test File                                         | Scope                                 | Tests                                                                                 |
 | ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
 | `src/__tests__/comfyui-event-translator.test.ts`  | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                    |
+| `src/__tests__/ws-routes.test.ts`                 | Run progress WebSocket route contract | Event envelope, buffering before dagRunId resolution, terminal cleanup, backend error |
 | `src/__tests__/endpoint-contract.test.ts`         | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
 | `src/__tests__/asset-routes.test.ts`              | Asset route endpoint contracts        | Upload success, validation errors, metadata envelope, content stream headers          |
 | `src/__tests__/run-draft-routes.test.ts`          | Run draft endpoint contracts          | Draft create/get/update, reset, overwrite, and response envelopes                     |
@@ -335,7 +336,6 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 ### Coverage Gaps
 
 - **Endpoint contract tests:** Definition and admin routes are untested.
-- **WebSocket bridge tests:** No tests for ws-routes connection lifecycle, message buffering, or cleanup.
 - **Route utility tests:** No tests for `validateAssetReferences`, `parseOptionalPositiveIntegerQuery`, `toRunProblemDetails`.
 - **Integration tests:** No tests for the bootstrap sequence or middleware configuration.
 - **Error response shape tests:** No contract tests verifying RFC 7807 compliance of error responses.
@@ -344,7 +344,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 1. Route contract tests: verify each endpoint returns correct status codes and envelope shapes for success and error cases (mock service dependencies).
 2. Asset validation tests: verify `validateAssetReferences` handles all reference type combinations.
-3. WebSocket bridge unit tests: verify message buffering before promptId, terminal event cleanup, error forwarding.
+3. WebSocket bridge expansion tests: add client reconnection and malformed backend message cases if those behaviors become product requirements.
 
 ## Class Contract Registry
 
