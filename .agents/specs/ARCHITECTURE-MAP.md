@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-agent-configuration-block` commit `ea6977385`
+Source-verified against `refactor/agent-playground-use-robota-execution` commit `4b36c5590`
 on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
@@ -134,6 +134,7 @@ flowchart TD
   ExecutionSubscriber["execution subscriber module\nSDK events + realtime blocks"]
   WebSocketClient["websocket client module\nconnection + auth routing"]
   ChatInputHook["chat input hook module\ninput state + validation + focus"]
+  RobotaExecutionHook["robota execution hook module\nstate + history + actions"]
   WebSocketHook["websocket connection hook module\nstate + uptime + handlers"]
   Hooks["playground hooks\ninput, websocket, execution, stats"]
   Context["playground context + reducer"]
@@ -160,6 +161,7 @@ flowchart TD
   Components --> Hooks
   Components --> Context
   Hooks --> ChatInputHook
+  Hooks --> RobotaExecutionHook
   Hooks --> WebSocketHook
   Hooks --> Executor
   Hooks --> WebSocketClient
@@ -192,6 +194,7 @@ Playground ownership:
 | SDK event subscription and real-time block updates | `agent-playground`         | Keep event guards and handlers internal to the execution subscriber module.                  |
 | Playground WebSocket client                        | `agent-playground`         | Keep connection state in the client class; message/auth helpers stay internal.               |
 | Playground chat input hook                         | `agent-playground`         | Keep input state calculation, validation, focus wiring, and constants internal.              |
+| Playground Robota execution hook                   | `agent-playground`         | Keep execution state, history metrics, timeout, and action wiring behind `index.ts`.         |
 | Playground WebSocket connection hook               | `agent-playground`         | Keep state math, uptime effects, constants, and handler registry internal.                   |
 | Playground executor facade                         | `agent-playground`         | Keep agent session, remote provider wiring, tool normalization, and result shaping internal. |
 | User-code diagnostics and config parsing           | `agent-playground`         | Code analyzer remains package-internal and feeds playground execution.                       |
