@@ -27,6 +27,21 @@ function createDefinition() {
   };
 }
 
+function createRunDraftInput() {
+  return {
+    draftId: 'draft-1',
+    definition: createDefinition(),
+    input: { prompt: 'hello' },
+  };
+}
+
+function createNodeResultInput() {
+  return {
+    input: { prompt: 'hello' },
+    output: { text: 'done' },
+  };
+}
+
 function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOptions & {
   readonly requests: ICapturedRequest[];
   readonly output: string[];
@@ -44,8 +59,14 @@ function createOptions(responses: readonly IFakeResponsePayload[]): IDagCliRunOp
         if (filePath === 'definition.json') {
           return JSON.stringify(createDefinition());
         }
+        if (filePath === 'draft.json') {
+          return JSON.stringify(createRunDraftInput());
+        }
         if (filePath === 'input.json') {
           return JSON.stringify({ prompt: 'hello' });
+        }
+        if (filePath === 'node-result.json') {
+          return JSON.stringify(createNodeResultInput());
         }
         return '{}';
       },
@@ -134,5 +155,39 @@ describe('runDagCli', () => {
       status: 2,
       errors: [{ code: 'DAG_CLI_USAGE_ERROR' }],
     });
+  });
+
+  it('routes run draft commands through shared HTTP contracts', async () => {
+    const options = createOptions([
+      { ok: true, status: 201, data: { draft: createRunDraftInput() } },
+      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
+      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
+      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
+      { ok: true, status: 200, data: { draft: createRunDraftInput() } },
+    ]);
+
+    const createExit = await runDagCli(['run-drafts', 'create', '--json', '@draft.json'], options);
+    const getExit = await runDagCli(['run-drafts', 'get', 'draft 1'], options);
+    const replaceExit = await runDagCli(
+      ['run-drafts', 'replace', 'draft 1', '--json', '@draft.json'],
+      options,
+    );
+    const resetExit = await runDagCli(['run-drafts', 'reset', 'draft 1', 'source node'], options);
+    const overwriteExit = await runDagCli(
+      ['run-drafts', 'overwrite', 'draft 1', 'source node', '--json', '@node-result.json'],
+      options,
+    );
+
+    expect([createExit, getExit, replaceExit, resetExit, overwriteExit]).toEqual([0, 0, 0, 0, 0]);
+    expect(options.requests.map((request) => [request.init.method, request.url])).toEqual([
+      ['POST', `${TEST_SERVER_URL}/v1/dag/run-drafts`],
+      ['GET', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`],
+      ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201`],
+      ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/reset`],
+      ['PUT', `${TEST_SERVER_URL}/v1/dag/run-drafts/draft%201/nodes/source%20node/result`],
+    ]);
+    expect(JSON.parse(String(options.requests[0]?.init.body))).toEqual(createRunDraftInput());
+    expect(JSON.parse(String(options.requests[2]?.init.body))).toEqual(createRunDraftInput());
+    expect(JSON.parse(String(options.requests[4]?.init.body))).toEqual(createNodeResultInput());
   });
 });

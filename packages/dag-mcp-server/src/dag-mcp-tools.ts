@@ -1,5 +1,10 @@
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
-import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
+import type {
+  IDagOrchestrationHttpClient,
+  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  TDagOrchestrationCreateRunDraftRequest,
+  TDagOrchestrationReplaceRunDraftRequest,
+} from '@robota-sdk/dag-orchestration-client';
 import type {
   IDagMcpToolCallResult,
   IDagMcpToolDefinition,
@@ -113,6 +118,48 @@ const handlers: Record<string, TToolHandler> = {
     if (!dagRunId.ok) return usageError(dagRunId.detail);
     return toMcpResult(await client.getRunResult(dagRunId.value));
   },
+  dag_run_drafts_create: async (args, client) => {
+    const draft = requireObject(args, 'draft');
+    if (!draft.ok) return usageError(draft.detail);
+    return toMcpResult(
+      await client.createRunDraft(draft.value as object as TDagOrchestrationCreateRunDraftRequest),
+    );
+  },
+  dag_run_drafts_get: async (args, client) => {
+    const draftId = requireString(args, 'draftId');
+    if (!draftId.ok) return usageError(draftId.detail);
+    return toMcpResult(await client.getRunDraft(draftId.value));
+  },
+  dag_run_drafts_replace: async (args, client) => {
+    const draftId = requireString(args, 'draftId');
+    if (!draftId.ok) return usageError(draftId.detail);
+    const draft = requireObject(args, 'draft');
+    if (!draft.ok) return usageError(draft.detail);
+    return toMcpResult(
+      await client.replaceRunDraft(
+        draftId.value,
+        draft.value as object as TDagOrchestrationReplaceRunDraftRequest,
+      ),
+    );
+  },
+  dag_run_drafts_reset_node_result: async (args, client) => {
+    const ids = requireDraftNodeIds(args);
+    if (!ids.ok) return usageError(ids.detail);
+    return toMcpResult(await client.resetRunDraftNodeResult(ids.draftId, ids.nodeId));
+  },
+  dag_run_drafts_overwrite_node_result: async (args, client) => {
+    const ids = requireDraftNodeIds(args);
+    if (!ids.ok) return usageError(ids.detail);
+    const result = requireObject(args, 'result');
+    if (!result.ok) return usageError(result.detail);
+    return toMcpResult(
+      await client.overwriteRunDraftNodeResult(
+        ids.draftId,
+        ids.nodeId,
+        result.value as object as IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+      ),
+    );
+  },
 };
 
 function toMcpResult(response: {
@@ -174,6 +221,18 @@ function requireNumber(
   const value = args[key];
   if (typeof value === 'number' && Number.isFinite(value)) return { ok: true, value };
   return { ok: false, detail: `${key} is required` };
+}
+
+function requireDraftNodeIds(
+  args: TToolArgs,
+):
+  | { readonly ok: true; readonly draftId: string; readonly nodeId: string }
+  | { readonly ok: false; readonly detail: string } {
+  const draftId = requireString(args, 'draftId');
+  if (!draftId.ok) return draftId;
+  const nodeId = requireString(args, 'nodeId');
+  if (!nodeId.ok) return nodeId;
+  return { ok: true, draftId: draftId.value, nodeId: nodeId.value };
 }
 
 function optionalNumber(args: TToolArgs, key: string): number | undefined {
