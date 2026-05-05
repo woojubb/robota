@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-block-hooks
+- **Branch**: refactor/agent-playground-execution-subscriber
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -27,6 +27,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `project-manager.ts` into a stable directory module.
 - [x] Add characterization tests for `block-tracking/block-hooks`.
 - [x] Split `block-tracking/block-hooks.ts` into a stable directory module.
+- [x] Add characterization tests for `execution-subscriber`.
+- [x] Split `execution-subscriber.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -57,7 +59,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 - `websocket-client.ts` (445 lines)
 - `robota-executor.ts` (447 lines)
-- `execution-subscriber.ts` (443 lines)
 
 ### contexts
 
@@ -99,6 +100,12 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for tool start, completion, error, missing execution id, and
   delegation wrapper behavior.
 - Updated package SPEC and the central architecture map for the block tracking hooks module.
+- Completed the seventh low-risk slice: `execution-subscriber.ts` is now a same-name directory
+  module with a stateful bridge plus internal SDK event guard, tool handler, execution handler,
+  block id, step parser, and type modules.
+- Added characterization coverage for SDK tool lifecycle, progress step parsing, execution
+  hierarchy blocks, and dispose behavior.
+- Updated package SPEC and the central architecture map for the execution subscriber module.
 
 ## Decisions
 
@@ -110,6 +117,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to accessibility UI primitives.
 - Apply the same stable-import directory module pattern to project manager internals.
 - Apply the same stable-import directory module pattern to block tracking hook factories.
+- Apply the same stable-import directory module pattern to execution subscriber internals.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -127,6 +135,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 19 source files still exceed the guideline. The current branch
-delivers the sixth tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 18 production source files still exceed the guideline. The current
+branch delivers the seventh tested decomposition slice and extends the repeatable pattern for follow-up
 files.
