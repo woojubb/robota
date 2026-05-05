@@ -19,6 +19,27 @@ This package is consumed by command-line and MCP clients that call `dag-orchestr
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output.
 - Endpoint inventory remains intentionally limited to the routes currently consumed by operational clients.
 
+## Endpoint Coverage Policy
+
+`DagOrchestrationHttpClient` exposes only endpoint groups whose operational request/response
+contracts are already package-owned.
+
+| Endpoint Group                        | Status  | Contract Owner                                         | Notes                                      |
+| ------------------------------------- | ------- | ------------------------------------------------------ | ------------------------------------------ |
+| Definition CRUD/publish/validate      | active  | `dag-api` + this package                               | Current CLI/MCP surface.                   |
+| Node catalog list                     | active  | `dag-api` + this package                               | Current CLI/MCP surface.                   |
+| Run create/start/status/result        | active  | `dag-orchestrator` + this package                      | Current CLI/MCP surface.                   |
+| Run drafts                            | blocked | `dag-core` domain types, route-local HTTP aliases      | Add aliases before client methods.         |
+| Published workflow runs               | blocked | route-local HTTP aliases                               | Add aliases before client methods.         |
+| Asset upload/metadata/content         | blocked | `dag-core` asset store types, route-local HTTP aliases | Add aliases before client methods.         |
+| Cost metadata                         | blocked | `dag-cost` domain types, route-local HTTP envelopes    | Normalize envelopes before client methods. |
+| Admin bootstrap                       | local   | `dag-orchestrator-server`                              | Not planned for operational clients.       |
+| ComfyUI proxy and runtime asset proxy | local   | Backend-native compatibility shape                     | Not wrapped by this package.               |
+| Run progress WebSocket                | blocked | `dag-core` event type, route-local envelope            | Add bridge contract tests before clients.  |
+
+Client expansion rule: CLI and MCP packages may add a command or tool only after the endpoint group
+is `active` in this table.
+
 ## Type Ownership
 
 This package is SSOT for:
