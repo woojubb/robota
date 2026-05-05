@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -70,20 +70,42 @@ persistent default selection, one-shot invocation override, and interactive prof
 
 ## Acceptance Criteria
 
-- [ ] Research compares at least three naming UX options for interactive setup.
-- [ ] Recommendation covers same provider/model duplicates with different credentials.
-- [ ] Recommendation defines what profile list rows show so users can distinguish profiles safely.
-- [ ] Recommendation covers explicit naming flags for non-interactive setup.
-- [ ] Recommendation defines rename/edit behavior for generated or temporary names.
-- [ ] Recommendation identifies the easiest persistent switch surface for interactive users.
-- [ ] Recommendation distinguishes persistent default selection from one-shot invocation overrides.
-- [ ] Recommendation distinguishes one-shot headless startup, headless default-profile update, and
+- [x] Research compares at least three naming UX options for interactive setup.
+- [x] Recommendation covers same provider/model duplicates with different credentials.
+- [x] Recommendation defines what profile list rows show so users can distinguish profiles safely.
+- [x] Recommendation covers explicit naming flags for non-interactive setup.
+- [x] Recommendation defines rename/edit behavior for generated or temporary names.
+- [x] Recommendation identifies the easiest persistent switch surface for interactive users.
+- [x] Recommendation distinguishes persistent default selection from one-shot invocation overrides.
+- [x] Recommendation distinguishes one-shot headless startup, headless default-profile update, and
       headless-launched profile management TUI.
-- [ ] Recommendation defines whether first-run setup and profile management TUI share one component
+- [x] Recommendation defines whether first-run setup and profile management TUI share one component
       or workflow.
-- [ ] Recommendation identifies any required config shape changes, such as separating profile key from
+- [x] Recommendation identifies any required config shape changes, such as separating profile key from
       display label.
-- [ ] Recommendation keeps profile management semantics in SDK-owned APIs consumed by agent-cli.
+- [x] Recommendation keeps profile management semantics in SDK-owned APIs consumed by agent-cli.
+
+## Result
+
+Recommended and implemented the low-friction naming path:
+
+- Do not prompt for a profile key in the first setup path. Generate a readable key from the selected
+  model id and let users proceed with Enter-only defaults.
+- Prefer model-derived keys such as `claude-sonnet-4-6`, `gpt-4o`, or
+  `supergemma4-26b-uncensored-v2`; fall back to provider type only when no model is available.
+- For duplicate keys, append numeric suffixes (`-2`, `-3`, ...). This supports same
+  provider/model duplicates without treating `(type, model)` as unique identity.
+- Do not include secrets, account identifiers, organization ids, or API key fragments in generated
+  keys. `/provider list` and status output distinguish profiles with key, provider type, model, and
+  non-secret endpoint metadata.
+- Keep explicit non-interactive names through `--configure-provider <profile>`. Keep
+  `--provider <profile>` as a one-shot override unless `--set-current` is also supplied.
+- Keep persistent interactive switching in `/provider use <profile>`, with `/provider add` sharing
+  the same SDK setup-flow primitives as first-run setup.
+- Treat rename/edit/delete and a dedicated profile manager TUI as extensions of the same command
+  interaction contract. They do not require a config-shape change because the profile key remains the
+  stable identity and an optional display label can be added later if user research shows it is
+  needed.
 
 ## Verification Plan
 

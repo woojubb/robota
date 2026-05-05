@@ -10,7 +10,12 @@ import type {
   ICommandSessionRuntime,
   ISystemCommand,
 } from '../index.js';
-import { buildProviderProfile, formatEnvReference, validateProviderProfile } from '../index.js';
+import {
+  buildProviderProfile,
+  formatEnvReference,
+  suggestProviderProfileName,
+  validateProviderProfile,
+} from '../index.js';
 import {
   buildLanguageCommandSubcommands,
   buildMemoryCommandSubcommands,
@@ -202,6 +207,18 @@ describe('command-api contracts', () => {
 
     expect(profile.apiKey).toBe(formatEnvReference('OPENAI_API_KEY'));
     expect(() => validateProviderProfile('openai-main', profile)).not.toThrow();
+  });
+
+  it('suggests provider profile names from models and disambiguates duplicates', () => {
+    expect(suggestProviderProfileName({ type: 'anthropic', model: 'Claude Sonnet 4.6' })).toBe(
+      'claude-sonnet-4-6',
+    );
+    expect(
+      suggestProviderProfileName(
+        { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        { existingProfileNames: ['claude-sonnet-4-6', 'claude-sonnet-4-6-2'] },
+      ),
+    ).toBe('claude-sonnet-4-6-3');
   });
 
   it('exposes auto compact common APIs without command implementation imports', () => {

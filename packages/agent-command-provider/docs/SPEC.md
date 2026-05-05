@@ -57,10 +57,15 @@ The host owns provider definition selection and settings persistence. The comman
 | `/provider list`           | Show provider profiles from merged settings                                                                                                                    |
 | `/provider use <profile>`  | Confirm, persist `currentProvider` through the injected settings adapter target that will win on next startup, and return a `session-restart-requested` effect |
 | `/provider add`            | Start setup without a selected type and return a generic choice interaction generated from injected provider definitions                                       |
-| `/provider add <type>`     | Start setup for the selected provider type                                                                                                                     |
+| `/provider add <type>`     | Start setup for the selected provider type and create a model-derived profile key through SDK provider common APIs                                             |
 | `/provider test [profile]` | Validate fields and optionally probe the endpoint through SDK provider common APIs                                                                             |
 
 Provider setup owns defaults, required-field validation, environment-reference validation, masked-field metadata, settings patch construction, and restart effect emission. The command package does not choose settings file paths; the host adapter must expose the correct target document for the effective settings scope.
+
+Generated setup profile keys are suggestions, not identity derivations from provider type/model.
+The SDK setup flow prefers a sanitized model id and appends numeric suffixes when an existing
+profile key conflicts. Two profiles may still share the same provider type and model when they use
+different credentials, endpoints, accounts, or operational defaults.
 
 ## Class Contract Registry
 

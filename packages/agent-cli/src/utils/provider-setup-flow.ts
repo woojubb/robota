@@ -1,5 +1,6 @@
 export type {
   IProviderSetupFlowState,
+  IProviderSetupFlowOptions,
   IProviderSetupPromptStep,
   TProviderSetupFlowSubmitResult,
   TProviderSetupType,

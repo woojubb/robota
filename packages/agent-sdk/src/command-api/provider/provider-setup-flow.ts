@@ -5,6 +5,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
 import type { IProviderSetupInput } from './provider-settings.js';
+import { suggestProviderProfileName } from './provider-profile-names.js';
 
 export type TProviderSetupType = string;
 export type TPromptInput = (label: string, masked?: boolean) => Promise<string>;
@@ -18,6 +19,11 @@ export interface IProviderSetupFlowState {
   steps: readonly IProviderSetupPromptStep[];
   stepIndex: number;
   values: Partial<Record<TProviderSetupField, string>>;
+  existingProfileNames: readonly string[];
+}
+
+export interface IProviderSetupFlowOptions {
+  existingProfileNames?: readonly string[];
 }
 
 export type TProviderSetupFlowSubmitResult =
@@ -38,12 +44,14 @@ export type TProviderSetupFlowSubmitResult =
 export function createProviderSetupFlow(
   type: TProviderSetupType,
   providerDefinitions: readonly IProviderDefinition[],
+  options: IProviderSetupFlowOptions = {},
 ): IProviderSetupFlowState {
   return {
     type,
     steps: getProviderSetupSteps(type, providerDefinitions),
     stepIndex: 0,
     values: {},
+    existingProfileNames: options.existingProfileNames ?? [],
   };
 }
 
@@ -122,8 +130,9 @@ export async function runProviderSetupPromptFlow(
   type: TProviderSetupType,
   promptInput: TPromptInput,
   providerDefinitions: readonly IProviderDefinition[],
+  options: IProviderSetupFlowOptions = {},
 ): Promise<IProviderSetupInput> {
-  let state = createProviderSetupFlow(type, providerDefinitions);
+  let state = createProviderSetupFlow(type, providerDefinitions, options);
   const stepCount = state.steps.length;
   while (state.stepIndex < stepCount) {
     const step = getProviderSetupStep(state);
@@ -212,8 +221,12 @@ function getProviderSetupSteps(
 }
 
 function buildProviderSetupInput(state: IProviderSetupFlowState): IProviderSetupInput {
+  const profile = suggestProviderProfileName(
+    { type: state.type, model: state.values.model },
+    { existingProfileNames: state.existingProfileNames },
+  );
   return {
-    profile: state.type,
+    profile,
     type: state.type,
     model: state.values.model,
     apiKey: state.values.apiKey,

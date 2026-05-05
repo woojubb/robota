@@ -164,9 +164,9 @@ describe('provider setup', () => {
 
     const settings = readUserSettings(home);
     const providers = settings.providers as Record<string, Record<string, unknown>>;
-    expect(settings.currentProvider).toBe('openai');
+    expect(settings.currentProvider).toBe('gpt-4o');
     expect(settings.language).toBe('ko');
-    expect(providers.openai).toMatchObject({
+    expect(providers['gpt-4o']).toMatchObject({
       type: 'openai',
       model: 'gpt-4o',
       apiKey: openaiDefaults.apiKey,
@@ -196,9 +196,9 @@ describe('provider setup', () => {
     const providers = settings.providers as Record<string, Record<string, unknown>>;
     expect(prompts[0]).toContain('Select provider');
     expect(prompts[0]).toContain('Qwen (qwen)');
-    expect(settings.currentProvider).toBe('qwen');
+    expect(settings.currentProvider).toBe('qwen-plus');
     expect(settings.language).toBe('ko');
-    expect(providers.qwen).toMatchObject({
+    expect(providers['qwen-plus']).toMatchObject({
       type: 'qwen',
       model: 'qwen-plus',
       apiKey: '$ENV:DASHSCOPE_API_KEY',
@@ -293,9 +293,9 @@ describe('provider setup', () => {
       language?: string;
       providers?: Record<string, Record<string, unknown>>;
     };
-    expect(settings.currentProvider).toBe('anthropic');
+    expect(settings.currentProvider).toBe('claude-sonnet-4-6');
     expect(settings.language).toBe('ko');
-    expect(settings.providers?.anthropic).toMatchObject({
+    expect(settings.providers?.['claude-sonnet-4-6']).toMatchObject({
       type: 'anthropic',
       model: 'claude-sonnet-4-6',
       apiKey: 'sk-ant-project',

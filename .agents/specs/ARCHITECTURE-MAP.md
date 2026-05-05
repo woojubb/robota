@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `feat/dag-chat-builder-batch` on 2026-05-05.
+Source-verified against `feat/provider-profile-switching` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -107,14 +107,21 @@ flowchart TD
 
 Agent stack ownership:
 
-| Concern                                           | Owner                                             | Notes                                                    |
-| ------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------- |
-| Terminal input/rendering and host adapters        | `agent-cli`                                       | Thin product shell only.                                 |
-| Command contracts/common APIs                     | `agent-sdk`                                       | Command packages consume these like third-party modules. |
-| User-visible built-in command behavior            | `agent-command-*`                                 | CLI composes default modules; SDK must not import them.  |
-| Provider defaults, setup metadata, model catalogs | `agent-provider-*` through `agent-core` contracts | CLI must not hardcode provider branches.                 |
-| Session lifecycle and compaction                  | `agent-sessions`                                  | CLI consumes through SDK facades, not direct imports.    |
-| Background/subagent lifecycle ports               | `agent-runtime`                                   | CLI keeps concrete local process/worktree adapters.      |
+| Concern                                           | Owner                                             | Notes                                                                                           |
+| ------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Terminal input/rendering and host adapters        | `agent-cli`                                       | Thin product shell only.                                                                        |
+| Command contracts/common APIs                     | `agent-sdk`                                       | Command packages consume these like third-party modules.                                        |
+| User-visible built-in command behavior            | `agent-command-*`                                 | CLI composes default modules; SDK must not import them.                                         |
+| Provider profile settings/setup helpers           | `agent-sdk` command-api                           | Includes profile validation, setup flow, generated profile-name suggestions, and probe helpers. |
+| Provider defaults, setup metadata, model catalogs | `agent-provider-*` through `agent-core` contracts | CLI must not hardcode provider branches.                                                        |
+| Session lifecycle and compaction                  | `agent-sessions`                                  | CLI consumes through SDK facades, not direct imports.                                           |
+| Background/subagent lifecycle ports               | `agent-runtime`                                   | CLI keeps concrete local process/worktree adapters.                                             |
+
+Provider profile identity is the settings profile key, not provider `type` or model uniqueness.
+Generated interactive setup keys are model-derived SDK suggestions with numeric duplicate suffixes;
+credential details must stay out of profile names. `agent-cli` may display the active profile key,
+provider type, and model in the status area, but profile creation and switching semantics stay in SDK
+common APIs and the `agent-command-provider` module.
 
 ## Agent Playground Stack
 

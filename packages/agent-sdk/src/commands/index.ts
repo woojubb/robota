@@ -78,6 +78,14 @@ export {
   validateProviderProfile,
 } from '../command-api/provider/provider-settings.js';
 export {
+  sanitizeProviderProfileName,
+  suggestProviderProfileName,
+} from '../command-api/provider/provider-profile-names.js';
+export type {
+  IProviderProfileNameSuggestionInput,
+  IProviderProfileNameSuggestionOptions,
+} from '../command-api/provider/provider-profile-names.js';
+export {
   createProviderSetupFlow,
   formatProviderSetupChoiceLabel,
   formatProviderSetupPromptLabel,
@@ -89,6 +97,7 @@ export {
   validateProviderSetupValue,
 } from '../command-api/provider/provider-setup-flow.js';
 export type {
+  IProviderSetupFlowOptions,
   IProviderSetupFlowState,
   IProviderSetupPromptStep,
   TProviderSetupFlowSubmitResult,

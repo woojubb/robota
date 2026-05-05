@@ -174,10 +174,7 @@ function buildProviderSetup(
   return {
     message: `Provider setup requested: ${type}`,
     success: true,
-    interaction: createProviderSetupInteraction(
-      createProviderSetupFlow(type, options.providerDefinitions),
-      options,
-    ),
+    interaction: createProviderSetupInteraction(createSetupFlow(type, options), options),
   };
 }
 
@@ -195,7 +192,7 @@ function createProviderSelectionInteraction(
       maxVisible: 6,
     },
     submit: (value) => {
-      const flow = createProviderSetupFlow(value, options.providerDefinitions);
+      const flow = createSetupFlow(value, options);
       return {
         message: `Provider setup requested: ${value}`,
         success: true,
@@ -204,6 +201,15 @@ function createProviderSelectionInteraction(
     },
     cancel: () => ({ message: 'Provider setup cancelled.', success: true }),
   };
+}
+
+function createSetupFlow(
+  type: string,
+  options: IProviderCommandModuleOptions,
+): IProviderSetupFlowState {
+  return createProviderSetupFlow(type, options.providerDefinitions, {
+    existingProfileNames: Object.keys(options.settings.readMergedSettings().providers ?? {}),
+  });
 }
 
 function createProviderSetupInteraction(
