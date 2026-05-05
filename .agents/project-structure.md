@@ -7,7 +7,7 @@ packages/
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
 ├── agent-runtime/               # Reusable background task and subagent lifecycle/state/ports
 ├── agent-sessions/              # Session lifecycle and persistence
-├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers
+├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-command-agent/         # Command module that contributes /agent

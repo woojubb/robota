@@ -33,6 +33,7 @@ agent-sdk            ← InteractiveSession (single entry point)
   ├── optional: Agent tool + AgentDefinitionLoader when a module requests agent-runtime
   ├── composed: agent-runtime BackgroundTaskManager, SubagentManager, runner ports
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
+  ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
 
@@ -90,7 +91,7 @@ The SDK layer has **no React dependency** and **no provider dependency**. The CL
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | **agent-core**        | Robota engine, execution loop, provider abstraction, permissions, hooks                                                                  | General             |
 | **agent-runtime**     | Background task and subagent lifecycle primitives, runner ports, worktree runner decorator                                               | General             |
-| **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                                                          | General             |
+| **agent-tools**       | Tool creation infrastructure, sandbox execution ports, and 8 built-in tools                                                              | General             |
 | **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                                                        | General             |
 | **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), command contracts/common APIs, createQuery(), config, context                   | SDK-specific        |
 | **agent-command-\***  | Built-in/optional command modules that consume SDK command interfaces/common APIs and can be selected by composition roots               | Command-specific    |
@@ -111,6 +112,7 @@ agent-runtime (reusable runtime primitives — depends only on agent-core)
 
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
+├── src/sandbox/              ← ISandboxClient, E2B structural adapter, and in-memory contract adapter
 ├── src/types/tool-result.ts  ← TToolResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
@@ -205,6 +207,14 @@ agent-cli (Ink TUI — CLI-specific)
 - **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit user requests to create, run, spawn, delegate to, or use agents/subagents should start `Agent` tool calls immediately unless impossible or unsafe; one `Agent` tool call creates one background subagent job and waits for terminal completed/failed/timed-out result data before returning to the parent conversation.
 - **Edit checkpoint wrapper**: `agent-sdk/checkpoints/edit-checkpoint-tools.ts` wraps `Write` and `Edit` at SDK session assembly time. The underlying tool package stays generic; the SDK wrapper snapshots the target file before the first mutation in each prompt turn.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
+
+### Sandbox Execution
+
+- **Port owner**: `agent-tools/sandbox/` owns `ISandboxClient`, `ISandboxRunOptions`, and `ISandboxRunResult`.
+- **Adapter owner**: `agent-tools` owns structural sandbox adapters such as `E2BSandboxClient` and `InMemorySandboxClient`. It does not install provider SDKs; application composition roots may install `e2b` or another provider and wrap its sandbox object.
+- **SDK assembly**: `createSession()` and `InteractiveSession` accept `sandboxClient?: ISandboxClient`. When present, SDK-created Bash, Read, Write, and Edit tools are created through sandbox-aware factories and route command/filesystem operations through the injected client.
+- **Reversible execution**: If `reversibleExecution.mode` is enabled and no explicit isolation is set, a supplied `sandboxClient` makes the SDK classify Bash and sandbox-routed file mutations as `provider-sandbox` isolated instead of host checkpoint-backed mutations.
+- **Boundary**: `agent-cli` and other hosts only decide whether to provide a sandbox client. They must not implement sandbox command/file algorithms or provider-specific restore behavior in UI code.
 
 ### Edit Checkpointing
 

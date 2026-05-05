@@ -11,6 +11,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IResolvedConfig } from '../config/config-types.js';
+import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { TToolResult } from '@robota-sdk/agent-tools';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -308,6 +311,84 @@ describe('createSession — provider timeout option', () => {
     });
 
     expect(sessionCtorCalls[0]!['providerTimeout']).toBe(120000);
+  });
+});
+
+describe('createSession — sandbox client option', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('assembles sandbox-aware default tools when sandboxClient is provided', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const sandboxClient = new InMemorySandboxClient({
+      runHandler: () => ({ stdout: 'from sandbox', stderr: '', exitCode: 0 }),
+    });
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      sandboxClient,
+    });
+
+    const tools = sessionCtorCalls[0]!['tools'] as IToolWithEventService[];
+    const bashTool = tools.find((tool) => tool.getName() === 'Bash');
+    expect(bashTool).toBeDefined();
+
+    const rawResult = await bashTool!.execute(
+      { command: 'echo host should not run' },
+      { toolName: 'Bash', parameters: { command: 'echo host should not run' } },
+    );
+    const result = JSON.parse(rawResult.data as string) as TToolResult;
+    expect(result.output).toBe('from sandbox');
+  });
+
+  it('treats reversible execution as provider-sandbox isolated when sandboxClient is present', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const sandboxClient = new InMemorySandboxClient({
+      runHandler: () => ({ stdout: 'isolated', stderr: '', exitCode: 0 }),
+    });
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      sandboxClient,
+      reversibleExecution: { mode: 'local-first' },
+    });
+
+    const tools = sessionCtorCalls[0]!['tools'] as IToolWithEventService[];
+    const bashTool = tools.find((tool) => tool.getName() === 'Bash');
+    const writeTool = tools.find((tool) => tool.getName() === 'Write');
+    const rawResult = await bashTool!.execute(
+      { command: 'touch isolated.txt' },
+      { toolName: 'Bash', parameters: { command: 'touch isolated.txt' } },
+    );
+    const result = JSON.parse(rawResult.data as string) as TToolResult;
+    const rawWriteResult = await writeTool!.execute(
+      { filePath: '/workspace/generated.ts', content: 'export const isolated = true;\n' },
+      {
+        toolName: 'Write',
+        parameters: {
+          filePath: '/workspace/generated.ts',
+          content: 'export const isolated = true;\n',
+        },
+      },
+    );
+    const writeResult = JSON.parse(rawWriteResult.data as string) as TToolResult;
+
+    expect(result).toMatchObject({
+      success: true,
+      output: 'isolated',
+      exitCode: 0,
+    });
+    expect(writeResult.success).toBe(true);
+    expect(sandboxClient.getFile('/workspace/generated.ts')).toBe(
+      'export const isolated = true;\n',
+    );
   });
 });
 

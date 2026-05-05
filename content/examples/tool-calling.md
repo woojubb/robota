@@ -94,3 +94,35 @@ const agent = new Robota({
 
 const response = await agent.run('Find all TODO comments in the project');
 ```
+
+## Sandbox-Aware Built-in Tools
+
+Use factory exports when Bash or file tools should run inside a provider sandbox instead of the host workspace:
+
+```typescript
+import {
+  E2BSandboxClient,
+  createBashTool,
+  createEditTool,
+  createReadTool,
+  createWriteTool,
+} from '@robota-sdk/agent-tools';
+import { Sandbox } from 'e2b';
+
+const sandbox = await Sandbox.create();
+const sandboxClient = new E2BSandboxClient({ sandbox });
+
+const agent = new Robota({
+  name: 'SandboxedDevAgent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  tools: [
+    createBashTool({ sandboxClient }),
+    createReadTool({ sandboxClient }),
+    createWriteTool({ sandboxClient }),
+    createEditTool({ sandboxClient }),
+  ],
+});
+```
+
+`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`.

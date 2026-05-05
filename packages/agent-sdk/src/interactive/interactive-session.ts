@@ -239,6 +239,7 @@ export class InteractiveSession {
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       editCheckpointRecorder: this.editCheckpointStore,
       ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
+      ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
       commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
       ...(this.commandExecutor.listModelInvocableCommands().length > 0
         ? {
