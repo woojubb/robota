@@ -40,7 +40,7 @@ This package is SSOT for:
 - `IDagControllerComposition`, `IDagControllerCompositionDependencies`, `IDagControllerCompositionOptions` -- controller composition types
 - `IDagExecutionComposition`, `IDagExecutionCompositionDependencies`, `IDagExecutionCompositionOptions` -- execution composition types
 - `IRunProgressEventBus`, `TRunProgressEventListener` -- event bus types
-- `INodeCatalogService` -- node catalog port interface
+- `INodeCatalogService` -- runtime `TObjectInfo` node catalog port interface
 - `IDiagnosticsPolicy` -- diagnostics policy interface
 
 ## Public API Surface
@@ -57,7 +57,7 @@ This package is SSOT for:
 
 ## Extension Points
 
-- `INodeCatalogService` -- implement to provide node manifest listing and type validation.
+- `INodeCatalogService` -- implement to provide runtime `TObjectInfo` listing and async node type validation. Implementations return `TResult` so catalog/runtime failures are mapped to API problem details instead of escaping the controller layer.
 - `IDiagnosticsPolicy` -- configure to enable/disable DLQ reinject.
 - All composition factories accept port interfaces (`IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort`) from `dag-core`, allowing custom implementations.
 
@@ -82,11 +82,11 @@ Controller-specific codes:
 
 ### Interface Implementations
 
-| Interface | Implementor | Kind | Location |
-|-----------|------------|------|----------|
-| `IRunProgressEventBus` | `RunProgressEventBus` | production | `src/composition/run-progress-event-bus.ts` |
-| `INodeCatalogService` | (external: `BundledNodeCatalogService` in dag-server-core) | port | N/A (consumed via DI) |
-| `IDiagnosticsPolicy` | (external) | port | N/A (consumed via DI) |
+| Interface              | Implementor                                     | Kind       | Location                                    |
+| ---------------------- | ----------------------------------------------- | ---------- | ------------------------------------------- |
+| `IRunProgressEventBus` | `RunProgressEventBus`                           | production | `src/composition/run-progress-event-bus.ts` |
+| `INodeCatalogService`  | (external: runtime object-info catalog service) | port       | N/A (consumed via DI)                       |
+| `IDiagnosticsPolicy`   | (external)                                      | port       | N/A (consumed via DI)                       |
 
 ### Inheritance Chains
 
@@ -94,23 +94,23 @@ None. Controller and composition classes are standalone.
 
 ### Port Consumption via DI
 
-| Service/Controller | Injected Port (from dag-core) | Location |
-|-------------------|------------------------------|----------|
+| Service/Controller               | Injected Port (from dag-core)                                                 | Location           |
+| -------------------------------- | ----------------------------------------------------------------------------- | ------------------ |
 | `createDagControllerComposition` | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
-| `createDagExecutionComposition` | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
+| `createDagExecutionComposition`  | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner) | Consumer | Location |
-|--------------|---------|----------|
-| `IStoragePort` (dag-core) | Controller composition factories | `src/composition/` |
-| `IQueuePort` (dag-core) | Controller composition factories | `src/composition/` |
-| `IClockPort` (dag-core) | Controller composition factories | `src/composition/` |
-| `ILeasePort` (dag-core) | Controller composition factories | `src/composition/` |
-| `ITaskExecutorPort` (dag-core) | Controller composition factories | `src/composition/` |
-| `RunOrchestratorService` (dag-runtime) | `DagRuntimeController` | `src/controllers/` |
-| `ProjectionReadModelService` (dag-projection) | `DagObservabilityController` | `src/controllers/` |
-| `WorkerLoopService` (dag-worker) | Execution composition | `src/composition/` |
+| Port (Owner)                                  | Consumer                         | Location           |
+| --------------------------------------------- | -------------------------------- | ------------------ |
+| `IStoragePort` (dag-core)                     | Controller composition factories | `src/composition/` |
+| `IQueuePort` (dag-core)                       | Controller composition factories | `src/composition/` |
+| `IClockPort` (dag-core)                       | Controller composition factories | `src/composition/` |
+| `ILeasePort` (dag-core)                       | Controller composition factories | `src/composition/` |
+| `ITaskExecutorPort` (dag-core)                | Controller composition factories | `src/composition/` |
+| `RunOrchestratorService` (dag-runtime)        | `DagRuntimeController`           | `src/controllers/` |
+| `ProjectionReadModelService` (dag-projection) | `DagObservabilityController`     | `src/controllers/` |
+| `WorkerLoopService` (dag-worker)              | Execution composition            | `src/composition/` |
 
 ## Test Strategy
 

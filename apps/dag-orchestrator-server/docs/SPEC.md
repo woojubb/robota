@@ -35,6 +35,7 @@ Express Application (http.Server)
 │
 └── Services
     ├── LocalFsAssetStore (IAssetStore)
+    ├── RuntimeNodeCatalogService (INodeCatalogService → /object_info)
     └── comfyui-event-translator (pure function)
 ```
 
@@ -43,7 +44,7 @@ Express Application (http.Server)
 1. Load environment variables (`ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, `ASSET_STORAGE_ROOT`, `COST_META_DIR`, `DAG_STORAGE_ROOT`).
 2. Create `HttpPromptApiClient` pointing to the backend URL.
 3. Compose infrastructure ports (`FileStoragePort` for persistence, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
-4. Create `DagDesignController` via `createDagControllerComposition`.
+4. Create `RuntimeNodeCatalogService` from the `HttpPromptApiClient` and inject it into `createDagControllerComposition`.
 5. Initialize `LocalFsAssetStore`.
 6. Register all route modules.
 7. Start HTTP server and register SIGTERM/SIGINT handlers.
@@ -74,15 +75,15 @@ All Robota endpoints use a standard response envelope:
 
 #### Definition Routes
 
-| Endpoint                              | Method | Purpose                                               | Request Body                     | Success Response                    |
-| ------------------------------------- | ------ | ----------------------------------------------------- | -------------------------------- | ----------------------------------- |
-| `/v1/dag/definitions`                 | POST   | Create definition                                     | `{ definition: IDagDefinition }` | `201 { ok, data: { definition } }`  |
-| `/v1/dag/definitions/:dagId/draft`    | PUT    | Update draft                                          | `{ definition, version }`        | `200 { ok, data: { definition } }`  |
-| `/v1/dag/definitions/:dagId/validate` | POST   | Validate definition                                   | `{ version }`                    | `200 { ok, data }`                  |
-| `/v1/dag/definitions/:dagId/publish`  | POST   | Publish definition                                    | `{ version }`                    | `200 { ok, data }`                  |
-| `/v1/dag/definitions/:dagId`          | GET    | Get definition                                        | Query: `?version=<int>`          | `200 { ok, data: { definition } }`  |
-| `/v1/dag/definitions`                 | GET    | List definitions                                      | Query: `?dagId=<string>`         | `200 { ok, data: { definitions } }` |
-| `/v1/dag/nodes`                       | GET    | List node catalog (proxies to runtime `/object_info`) | None                             | `200 { ok, data: <TObjectInfo> }`   |
+| Endpoint                              | Method | Purpose                                                                    | Request Body                     | Success Response                    |
+| ------------------------------------- | ------ | -------------------------------------------------------------------------- | -------------------------------- | ----------------------------------- |
+| `/v1/dag/definitions`                 | POST   | Create definition                                                          | `{ definition: IDagDefinition }` | `201 { ok, data: { definition } }`  |
+| `/v1/dag/definitions/:dagId/draft`    | PUT    | Update draft                                                               | `{ definition, version }`        | `200 { ok, data: { definition } }`  |
+| `/v1/dag/definitions/:dagId/validate` | POST   | Validate definition                                                        | `{ version }`                    | `200 { ok, data }`                  |
+| `/v1/dag/definitions/:dagId/publish`  | POST   | Publish definition                                                         | `{ version }`                    | `200 { ok, data }`                  |
+| `/v1/dag/definitions/:dagId`          | GET    | Get definition                                                             | Query: `?version=<int>`          | `200 { ok, data: { definition } }`  |
+| `/v1/dag/definitions`                 | GET    | List definitions                                                           | Query: `?dagId=<string>`         | `200 { ok, data: { definitions } }` |
+| `/v1/dag/nodes`                       | GET    | List node catalog through `DagDesignController` and runtime `/object_info` | None                             | `200 { ok, data: <TObjectInfo> }`   |
 
 #### Run Routes
 
@@ -172,11 +173,12 @@ These endpoints forward requests to the ComfyUI-compatible backend and return th
 
 ## Extension Points
 
-| Interface                                     | Implementation            | Purpose                                                  |
-| --------------------------------------------- | ------------------------- | -------------------------------------------------------- |
-| `IAssetStore` (dag-core)                      | `LocalFsAssetStore`       | File-system-based asset storage with metadata JSON files |
-| `ICostEstimatorPort` (dag-orchestrator)       | `CelCostEstimatorAdapter` | CEL-based cost estimation using cost meta formulas       |
-| `ICostPolicyEvaluatorPort` (dag-orchestrator) | Stub (inline)             | Cost policy evaluation (currently always passes)         |
+| Interface                                     | Implementation              | Purpose                                                           |
+| --------------------------------------------- | --------------------------- | ----------------------------------------------------------------- |
+| `IAssetStore` (dag-core)                      | `LocalFsAssetStore`         | File-system-based asset storage with metadata JSON files          |
+| `INodeCatalogService` (dag-api)               | `RuntimeNodeCatalogService` | Runtime `/object_info` catalog discovery and node type validation |
+| `ICostEstimatorPort` (dag-orchestrator)       | `CelCostEstimatorAdapter`   | CEL-based cost estimation using cost meta formulas                |
+| `ICostPolicyEvaluatorPort` (dag-orchestrator) | Stub (inline)               | Cost policy evaluation (currently always passes)                  |
 
 Consumers can swap `LocalFsAssetStore` for a cloud-backed `IAssetStore` implementation without changing route code.
 
