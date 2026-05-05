@@ -1,6 +1,11 @@
 import type { Router, Request, Response } from 'express';
 import { toProblemDetails } from '@robota-sdk/dag-api';
-import type { IDagDefinition, TPortPayload, IAssetStore } from '@robota-sdk/dag-core';
+import type {
+  IDagDefinition,
+  IPartialRunRequest,
+  TPortPayload,
+  IAssetStore,
+} from '@robota-sdk/dag-core';
 import type { OrchestratorRunService } from '@robota-sdk/dag-orchestrator';
 import {
   toRunProblemDetails,
@@ -62,6 +67,15 @@ export function registerRunRoutes(
       });
       return;
     }
+    const partialRunResult = parsePartialRun(req.body?.partialRun, runInstance);
+    if (!partialRunResult.ok) {
+      res.status(HTTP_BAD_REQUEST).json({
+        ok: false,
+        status: HTTP_BAD_REQUEST,
+        errors: [partialRunResult.error],
+      });
+      return;
+    }
     const assetErrors = await validateAssetReferences(definition, assetStore);
     if (assetErrors.length > 0) {
       res.status(HTTP_BAD_REQUEST).json({
@@ -71,7 +85,13 @@ export function registerRunRoutes(
       });
       return;
     }
-    const result = await runService.createRun(definition, (input ?? {}) as TPortPayload);
+    const result = await runService.createRun(
+      definition,
+      (input ?? {}) as TPortPayload,
+      typeof partialRunResult.value === 'undefined'
+        ? undefined
+        : { partialRun: partialRunResult.value },
+    );
     if (!result.ok) {
       res.status(HTTP_BAD_REQUEST).json({
         ok: false,
@@ -173,4 +193,66 @@ export function registerRunRoutes(
       });
     },
   );
+}
+
+type TPartialRunParseResult =
+  | { ok: true; value: IPartialRunRequest | undefined }
+  | {
+      ok: false;
+      error: {
+        type: string;
+        title: string;
+        status: number;
+        detail: string;
+        instance: string;
+        code: string;
+        retryable: boolean;
+      };
+    };
+
+type TPartialRunBodyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly TPartialRunBodyValue[]
+  | { readonly [key: string]: TPartialRunBodyValue };
+
+interface IPartialRunBodyObject {
+  readonly startNodeId?: TPartialRunBodyValue;
+}
+
+function parsePartialRun(value: TPartialRunBodyValue, instance: string): TPartialRunParseResult {
+  if (typeof value === 'undefined') {
+    return { ok: true, value: undefined };
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {
+      ok: false,
+      error: toRunProblemDetails(
+        {
+          code: 'DAG_VALIDATION_RUN_PARTIAL_INVALID',
+          detail: 'partialRun must be an object when provided',
+          retryable: false,
+        },
+        instance,
+      ),
+    };
+  }
+  const startNodeId = (value as IPartialRunBodyObject).startNodeId;
+  if (typeof startNodeId !== 'string' || startNodeId.trim().length === 0) {
+    return {
+      ok: false,
+      error: toRunProblemDetails(
+        {
+          code: 'DAG_VALIDATION_RUN_PARTIAL_INVALID',
+          detail: 'partialRun.startNodeId must be a non-empty string',
+          retryable: false,
+        },
+        instance,
+      ),
+    };
+  }
+  return { ok: true, value: { startNodeId: startNodeId.trim() } };
 }

@@ -1,6 +1,6 @@
 import { TASK_PROGRESS_EVENTS } from '../constants/events.js';
 import type { IDagDefinition } from '../types/domain.js';
-import type { IRunResult } from '../types/run-result.js';
+import type { IRunNodeTrace, IRunResult } from '../types/run-result.js';
 import type { TRunProgressEvent } from '../types/run-progress.js';
 import type {
   IDagNodeExecutionTrace,
@@ -88,6 +88,44 @@ export function resetDagNodeExecutionStateMap<TState extends IDagNodeState>(
   return nextState;
 }
 
+export function resetDagNodeExecutionStateFromNode<TState extends IDagNodeState>(
+  definition: Pick<IDagDefinition, 'nodes'> & Partial<Pick<IDagDefinition, 'edges'>>,
+  currentState: Record<string, TState>,
+  nodeId: string,
+  options?: INodeStateReducerOptions<TState>,
+): Record<string, TState> {
+  const affectedNodeIds = collectNodeAndDownstreamIds(definition, nodeId);
+  const reconciled = reconcileDagNodeStateMap(definition, currentState, {
+    createState: options?.createState,
+  });
+  const nextState: Record<string, TState> = { ...reconciled };
+  for (const affectedNodeId of affectedNodeIds) {
+    const existing = getStateOrDefault(nextState, affectedNodeId, options);
+    nextState[affectedNodeId] = {
+      ...existing,
+      executionStatus: 'idle',
+      trace: undefined,
+    };
+  }
+  return nextState;
+}
+
+export function overwriteDagNodeExecutionTrace<TState extends IDagNodeState>(
+  currentState: Record<string, TState>,
+  trace: IDagNodeExecutionTrace,
+  options?: INodeStateReducerOptions<TState>,
+): Record<string, TState> {
+  const existing = getStateOrDefault(currentState, trace.nodeId, options);
+  return {
+    ...currentState,
+    [trace.nodeId]: {
+      ...existing,
+      executionStatus: 'success',
+      trace,
+    },
+  };
+}
+
 export function applyRunProgressEventToNodeStateMap<TState extends IDagNodeState>(
   currentState: Record<string, TState>,
   event: TRunProgressEvent,
@@ -146,6 +184,40 @@ export function applyRunResultToNodeStateMap<TState extends IDagNodeState>(
   return nextState;
 }
 
+export function resetRunResultFromNode(
+  definition: Pick<IDagDefinition, 'nodes'> & Partial<Pick<IDagDefinition, 'edges'>>,
+  result: IRunResult,
+  nodeId: string,
+): IRunResult {
+  const affectedNodeIds = collectNodeAndDownstreamIds(definition, nodeId);
+  const traces = result.traces.filter((trace) => !affectedNodeIds.has(trace.nodeId));
+  const nodeErrors = result.nodeErrors.filter(
+    (nodeError) => !affectedNodeIds.has(nodeError.nodeId),
+  );
+  return {
+    ...result,
+    status: nodeErrors.length > 0 ? 'failed' : 'success',
+    traces,
+    nodeErrors,
+    totalCredits: sumTraceCredits(traces),
+  };
+}
+
+export function overwriteRunResultNodeTrace(result: IRunResult, trace: IRunNodeTrace): IRunResult {
+  const traces = [
+    ...result.traces.filter((existingTrace) => existingTrace.nodeId !== trace.nodeId),
+    trace,
+  ];
+  const nodeErrors = result.nodeErrors.filter((nodeError) => nodeError.nodeId !== trace.nodeId);
+  return {
+    ...result,
+    status: nodeErrors.length > 0 ? 'failed' : 'success',
+    traces,
+    nodeErrors,
+    totalCredits: sumTraceCredits(traces),
+  };
+}
+
 export function isDagNodeStateMapRunnable<TState extends IDagNodeState>(
   currentState: Record<string, TState>,
 ): boolean {
@@ -186,4 +258,36 @@ function eventToExecutionStatus(
     return 'success';
   }
   return 'failed';
+}
+
+function collectNodeAndDownstreamIds(
+  definition: Pick<IDagDefinition, 'nodes'> & Partial<Pick<IDagDefinition, 'edges'>>,
+  nodeId: string,
+): Set<string> {
+  const affectedNodeIds = new Set<string>([nodeId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of definition.nodes) {
+      if (affectedNodeIds.has(node.nodeId)) {
+        continue;
+      }
+      const dependsOnAffectedNode = node.dependsOn.some((dependencyId) =>
+        affectedNodeIds.has(dependencyId),
+      );
+      const hasIncomingAffectedEdge =
+        definition.edges?.some(
+          (edge) => edge.to === node.nodeId && affectedNodeIds.has(edge.from),
+        ) ?? false;
+      if (dependsOnAffectedNode || hasIncomingAffectedEdge) {
+        affectedNodeIds.add(node.nodeId);
+        changed = true;
+      }
+    }
+  }
+  return affectedNodeIds;
+}
+
+function sumTraceCredits(traces: IRunNodeTrace[]): number {
+  return traces.reduce((total, trace) => total + trace.totalCredits, 0);
 }

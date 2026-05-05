@@ -6,14 +6,14 @@ Robota API gateway application that serves the dag-designer frontend. It orchest
 
 ## Boundaries
 
-| Responsibility                                                              | Owner                  | Not This Package                          |
-| --------------------------------------------------------------------------- | ---------------------- | ----------------------------------------- |
-| Runtime execution (ComfyUI compat)                                          | `dag-runtime-server`   | Does not execute DAG nodes                |
-| Domain types (`IDagDefinition`, `TRunProgressEvent`, `IAssetStore`)         | `dag-core`             | Does not define domain types              |
-| Orchestration logic (`OrchestratorRunService`, `PromptOrchestratorService`) | `dag-orchestrator`     | Does not own orchestration business logic |
-| Controller composition (`DagDesignController`)                              | `dag-api`              | Does not own controller contracts         |
-| Designer UI                                                                 | `dag-designer` / `web` | Does not own frontend                     |
-| Node definitions                                                            | `dag-node-*` packages  | Does not define or bundle nodes           |
+| Responsibility                                                                        | Owner                  | Not This Package                          |
+| ------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------- |
+| Runtime execution (ComfyUI compat)                                                    | `dag-runtime-server`   | Does not execute DAG nodes                |
+| Domain types (`IDagDefinition`, `TRunProgressEvent`, `IAssetStore`, `IRunDraftStore`) | `dag-core`             | Does not define domain types              |
+| Orchestration logic (`OrchestratorRunService`, `PromptOrchestratorService`)           | `dag-orchestrator`     | Does not own orchestration business logic |
+| Controller composition (`DagDesignController`)                                        | `dag-api`              | Does not own controller contracts         |
+| Designer UI                                                                           | `dag-designer` / `web` | Does not own frontend                     |
+| Node definitions                                                                      | `dag-node-*` packages  | Does not define or bundle nodes           |
 
 ## Architecture Overview
 
@@ -25,6 +25,7 @@ Express Application (http.Server)
 ├── Robota API Routes (/v1/dag/*)
 │   ├── definition-routes  → DagDesignController (dag-api)
 │   ├── run-routes         → OrchestratorRunService (dag-orchestrator)
+│   ├── run-draft-routes   → IRunDraftStore + dag-core reducers
 │   ├── published-workflow-routes → IStoragePort + OrchestratorRunService
 │   ├── asset-routes       → IAssetStore (dag-core)
 │   ├── admin-routes       → DagDesignController (dag-api)
@@ -35,15 +36,16 @@ Express Application (http.Server)
 │
 └── Services
     ├── LocalFsAssetStore (IAssetStore)
+    ├── FileRunDraftStore (IRunDraftStore)
     ├── RuntimeNodeCatalogService (INodeCatalogService → /object_info)
     └── comfyui-event-translator (pure function)
 ```
 
 **Bootstrap sequence:**
 
-1. Load environment variables (`ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, `ASSET_STORAGE_ROOT`, `COST_META_DIR`, `DAG_STORAGE_ROOT`).
+1. Load environment variables (`ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, `ASSET_STORAGE_ROOT`, `COST_META_DIR`, `DAG_STORAGE_ROOT`, `RUN_DRAFT_STORAGE_ROOT`).
 2. Create `HttpPromptApiClient` pointing to the backend URL.
-3. Compose infrastructure ports (`FileStoragePort` for persistence, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
+3. Compose infrastructure ports (`FileStoragePort` for persistence, `FileRunDraftStore`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
 4. Create `RuntimeNodeCatalogService` from the `HttpPromptApiClient` and inject it into `createDagControllerComposition`.
 5. Initialize `LocalFsAssetStore`.
 6. Register all route modules.
@@ -93,6 +95,20 @@ All Robota endpoints use a standard response envelope:
 | `/v1/dag/runs/:id/start`  | POST   | Start run execution | None                     | `202 { ok, data: { dagRunId, preparationId } }` |
 | `/v1/dag/runs/:id/result` | GET    | Get run result      | None                     | `200 { ok, data: { run } }`                     |
 | `/v1/dag/runs/:id`        | GET    | Get run status      | None                     | `200 { ok, data: { dagRunId, status } }`        |
+
+`POST /v1/dag/runs` also accepts `{ partialRun: { startNodeId } }`. The server passes this through to `OrchestratorRunService`, which resolves runtime `partial_execution_targets` from the start node and its downstream dependents.
+
+#### Run Draft Routes
+
+| Endpoint                                           | Method | Purpose                                      | Request Body                                                  | Success Response              |
+| -------------------------------------------------- | ------ | -------------------------------------------- | ------------------------------------------------------------- | ----------------------------- |
+| `/v1/dag/run-drafts`                               | POST   | Create or replace execution draft            | `{ draftId?, definition, input?, nodeStateMap?, runResult? }` | `201 { ok, data: { draft } }` |
+| `/v1/dag/run-drafts/:draftId`                      | GET    | Restore execution draft                      | None                                                          | `200 { ok, data: { draft } }` |
+| `/v1/dag/run-drafts/:draftId`                      | PUT    | Replace execution draft                      | `{ definition, input?, nodeStateMap?, runResult? }`           | `200 { ok, data: { draft } }` |
+| `/v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`  | PUT    | Reset one node result and downstream results | None                                                          | `200 { ok, data: { draft } }` |
+| `/v1/dag/run-drafts/:draftId/nodes/:nodeId/result` | PUT    | Manually overwrite one node result           | `{ input?, output }`                                          | `200 { ok, data: { draft } }` |
+
+Run drafts persist execution state separately from `IDagDefinition`. Reset and overwrite operations use dag-core pure reducers and must never mutate stored definition JSON.
 
 #### Published Workflow Routes
 
@@ -231,6 +247,10 @@ Error objects follow RFC 7807 (IProblemDetails) structure where applicable:
 | `DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND`                    | 400         | Referenced assetId does not exist                                |
 | `DAG_VALIDATION_RUN_DEFINITION_REQUIRED`                      | 400         | Missing definition in run create request                         |
 | `DAG_VALIDATION_RUN_INPUT_INVALID`                            | 400         | input must be an object when provided                            |
+| `DAG_VALIDATION_RUN_PARTIAL_INVALID`                          | 400         | partialRun must contain a valid startNodeId                      |
+| `DAG_VALIDATION_RUN_DRAFT_INVALID`                            | 400         | Run draft request body is invalid                                |
+| `DAG_RUN_DRAFT_NOT_FOUND`                                     | 404         | Run draft not found by draftId                                   |
+| `ORCHESTRATOR_PARTIAL_RUN_START_NODE_NOT_FOUND`               | 400         | Partial run start node does not exist in the definition          |
 | `DAG_PUBLISHED_DEFINITION_NOT_FOUND`                          | 404         | Published workflow endpoint could not find a runnable definition |
 | `DAG_PUBLISHED_DEFINITION_STATUS_INVALID`                     | 409         | Requested workflow version exists but is not published           |
 | `DAG_VALIDATION_WORKFLOW_REQUEST_INVALID`                     | 400         | Published workflow request body must be an object                |
@@ -258,6 +278,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
 | `src/__tests__/comfyui-event-translator.test.ts`  | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                    |
 | `src/__tests__/endpoint-contract.test.ts`         | Run route endpoint contracts          | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
+| `src/__tests__/run-draft-routes.test.ts`          | Run draft endpoint contracts          | Draft create/get/update, reset, overwrite, and response envelopes                     |
 | `src/__tests__/published-workflow-routes.test.ts` | Published workflow routes             | Latest/exact published selection, draft rejection, override validation                |
 
 ### Coverage Gaps
@@ -286,6 +307,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | --------------------------------- | ------------------------------------- | --------------------------------------------------------- |
 | `registerDefinitionRoutes`        | `routes/definition-routes.ts`         | `DagDesignController`, `IAssetStore`                      |
 | `registerRunRoutes`               | `routes/run-routes.ts`                | `OrchestratorRunService`, `IAssetStore`                   |
+| `registerRunDraftRoutes`          | `routes/run-draft-routes.ts`          | `IRunDraftStore`                                          |
 | `registerPublishedWorkflowRoutes` | `routes/published-workflow-routes.ts` | `IStoragePort`, `OrchestratorRunService`, `IAssetStore`   |
 | `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`                                             |
 | `registerAdminRoutes`             | `routes/admin-routes.ts`              | `DagDesignController`                                     |
@@ -309,14 +331,15 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 ## Configuration
 
-| Variable             | Default                           | Description                               |
-| -------------------- | --------------------------------- | ----------------------------------------- |
-| `ORCHESTRATOR_PORT`  | `3012`                            | HTTP server listen port                   |
-| `BACKEND_URL`        | `http://127.0.0.1:3011`           | ComfyUI-compatible backend URL            |
-| `CORS_ORIGINS`       | `http://localhost:3000`           | Comma-separated allowed CORS origins      |
-| `ASSET_STORAGE_ROOT` | `.local-assets` (relative to cwd) | Directory for local asset file storage    |
-| `COST_META_DIR`      | `data` (relative to cwd)          | Directory for cost meta JSON storage      |
-| `DAG_STORAGE_ROOT`   | `.dag-storage` (relative to cwd)  | Directory for DAG definition file storage |
+| Variable                 | Default                           | Description                                |
+| ------------------------ | --------------------------------- | ------------------------------------------ |
+| `ORCHESTRATOR_PORT`      | `3012`                            | HTTP server listen port                    |
+| `BACKEND_URL`            | `http://127.0.0.1:3011`           | ComfyUI-compatible backend URL             |
+| `CORS_ORIGINS`           | `http://localhost:3000`           | Comma-separated allowed CORS origins       |
+| `ASSET_STORAGE_ROOT`     | `.local-assets` (relative to cwd) | Directory for local asset file storage     |
+| `COST_META_DIR`          | `data` (relative to cwd)          | Directory for cost meta JSON storage       |
+| `DAG_STORAGE_ROOT`       | `.dag-storage` (relative to cwd)  | Directory for DAG definition file storage  |
+| `RUN_DRAFT_STORAGE_ROOT` | `<DAG_STORAGE_ROOT>/run-drafts`   | Directory for execution draft JSON storage |
 
 ## Dependencies
 
@@ -326,7 +349,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | `@robota-sdk/dag-api`            | Controller composition, `INodeCatalogService`                                                           |
 | `@robota-sdk/dag-orchestrator`   | `PromptOrchestratorService`, `OrchestratorRunService`, `HttpPromptApiClient`, `CelCostEstimatorAdapter` |
 | `@robota-sdk/dag-cost`           | Cost meta types, `CelCostEvaluator`, `ICostMetaStoragePort`                                             |
-| `@robota-sdk/dag-adapters-local` | `FileStoragePort`, `FileCostMetaStorage`, in-memory ports                                               |
+| `@robota-sdk/dag-adapters-local` | `FileStoragePort`, `FileRunDraftStore`, `FileCostMetaStorage`, in-memory ports                          |
 | `express`                        | HTTP framework                                                                                          |
 | `ws`                             | WebSocket server and client                                                                             |
 | `cors`                           | CORS middleware                                                                                         |
