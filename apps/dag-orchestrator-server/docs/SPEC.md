@@ -58,16 +58,15 @@ Express Application (http.Server)
 
 This application does not define SSOT domain types. All domain types are imported from upstream packages.
 
-| Type                       | Source                                             | Purpose                                         |
-| -------------------------- | -------------------------------------------------- | ----------------------------------------------- |
-| `IComfyUiWsMessage`        | Local (`services/comfyui-event-translator.ts`)     | ComfyUI WebSocket message shape for translation |
-| `TVersionQueryParseResult` | Local (`routes/route-utils.ts`)                    | Version query parameter parse result union      |
-| `IWorkflowOverrideMap`     | Local (`routes/published-workflow-route-utils.ts`) | Request-local node config override map          |
-| `IWorkflowRunRequestBody`  | Local (`routes/published-workflow-route-utils.ts`) | Parsed published workflow run request body      |
+| Type                       | Source                                         | Purpose                                         |
+| -------------------------- | ---------------------------------------------- | ----------------------------------------------- |
+| `IComfyUiWsMessage`        | Local (`services/comfyui-event-translator.ts`) | ComfyUI WebSocket message shape for translation |
+| `TVersionQueryParseResult` | Local (`routes/route-utils.ts`)                | Version query parameter parse result union      |
 
 Helper functions and HTTP status constants in `route-utils.ts` are locally defined but not exported as SSOT types.
 
 Run draft HTTP request and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
+Published workflow run request, override map, and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
 
 ## Endpoint Contract Ownership Inventory
 
@@ -81,7 +80,7 @@ health, or validated ComfyUI compatibility surfaces.
 | Definition CRUD/publish/validate and `GET /v1/dag/nodes`                         | `routes/definition-routes.ts`         | `dag-api` controller contracts + `dag-orchestration-client`       | Package-owned and eligible for operational clients.                                                  |
 | Run create/start/status/result and partial-run request                           | `routes/run-routes.ts`                | `dag-orchestrator` service + `dag-orchestration-client`           | Package-owned and eligible for operational clients.                                                  |
 | Run drafts under `/v1/dag/run-drafts*`                                           | `routes/run-draft-routes.ts`          | `dag-core` domain types + `dag-orchestration-client` HTTP aliases | Package-owned and eligible for operational client expansion.                                         |
-| Published workflow runs `/v1/dag/workflows/:dagId/runs`                          | `routes/published-workflow-routes.ts` | `dag-core` definitions + route-local override/request types       | Extract reusable workflow-run aliases before CLI/MCP expansion; see `ORCH-BL-009`.                   |
+| Published workflow runs `/v1/dag/workflows/:dagId/runs`                          | `routes/published-workflow-routes.ts` | `dag-core` definitions + `dag-orchestration-client` HTTP aliases  | Package-owned and eligible for operational client expansion.                                         |
 | Assets under `/v1/dag/assets*`                                                   | `routes/asset-routes.ts`              | `dag-core` asset store types + route-local upload envelope        | Extract upload/metadata/content contract aliases before CLI/MCP expansion; see `ORCH-BL-010`.        |
 | Cost metadata under `/v1/cost-meta*`                                             | `routes/cost-meta-routes.ts`          | `dag-cost` domain types + route-local HTTP envelopes              | Normalize/package HTTP envelopes before client expansion; see `ORCH-BL-011`.                         |
 | Admin bootstrap `/v1/dag/admin/bootstrap`                                        | `routes/admin-routes.ts`              | `dag-orchestrator-server`                                         | App-local development/bootstrap endpoint; no operational client expansion planned.                   |
@@ -145,9 +144,9 @@ Run drafts persist execution state separately from `IDagDefinition`. Reset and o
 
 #### Published Workflow Routes
 
-| Endpoint                        | Method | Purpose                          | Request Body             | Success Response                                                |
-| ------------------------------- | ------ | -------------------------------- | ------------------------ | --------------------------------------------------------------- |
-| `/v1/dag/workflows/:dagId/runs` | POST   | Start a published definition run | `{ input?, overrides? }` | `202 { ok, data: { dagRunId, preparationId, dagId, version } }` |
+| Endpoint                        | Method | Purpose                          | Request Body                                   | Success Response                                      |
+| ------------------------------- | ------ | -------------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| `/v1/dag/workflows/:dagId/runs` | POST   | Start a published definition run | `IDagOrchestrationPublishedWorkflowRunRequest` | `IDagOrchestrationPublishedWorkflowRunSuccessPayload` |
 
 **Published workflow execution contract:**
 
@@ -336,17 +335,17 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 ### Route Registration Functions
 
-| Function                          | Module                                | Dependencies                                              |
-| --------------------------------- | ------------------------------------- | --------------------------------------------------------- |
-| `registerDefinitionRoutes`        | `routes/definition-routes.ts`         | `DagDesignController`, `IAssetStore`                      |
-| `registerRunRoutes`               | `routes/run-routes.ts`                | `OrchestratorRunService`, `IAssetStore`                   |
-| `registerRunDraftRoutes`          | `routes/run-draft-routes.ts`          | `IRunDraftStore`, `dag-orchestration-client` HTTP aliases |
-| `registerPublishedWorkflowRoutes` | `routes/published-workflow-routes.ts` | `IStoragePort`, `OrchestratorRunService`, `IAssetStore`   |
-| `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`                                             |
-| `registerAdminRoutes`             | `routes/admin-routes.ts`              | `DagDesignController`                                     |
-| `registerRuntimeAssetRoutes`      | `routes/runtime-asset-routes.ts`      | `backendUrl`                                              |
-| `registerCostMetaRoutes`          | `routes/cost-meta-routes.ts`          | `ICostMetaStoragePort`, `CelCostEvaluator`                |
-| `registerWsRoutes`                | `routes/ws-routes.ts`                 | `http.Server`, `OrchestratorRunService`, `backendBaseUrl` |
+| Function                          | Module                                | Dependencies                                                                                     |
+| --------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `registerDefinitionRoutes`        | `routes/definition-routes.ts`         | `DagDesignController`, `IAssetStore`                                                             |
+| `registerRunRoutes`               | `routes/run-routes.ts`                | `OrchestratorRunService`, `IAssetStore`                                                          |
+| `registerRunDraftRoutes`          | `routes/run-draft-routes.ts`          | `IRunDraftStore`, `dag-orchestration-client` HTTP aliases                                        |
+| `registerPublishedWorkflowRoutes` | `routes/published-workflow-routes.ts` | `IStoragePort`, `OrchestratorRunService`, `IAssetStore`, `dag-orchestration-client` HTTP aliases |
+| `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`                                                                                    |
+| `registerAdminRoutes`             | `routes/admin-routes.ts`              | `DagDesignController`                                                                            |
+| `registerRuntimeAssetRoutes`      | `routes/runtime-asset-routes.ts`      | `backendUrl`                                                                                     |
+| `registerCostMetaRoutes`          | `routes/cost-meta-routes.ts`          | `ICostMetaStoragePort`, `CelCostEvaluator`                                                       |
+| `registerWsRoutes`                | `routes/ws-routes.ts`                 | `http.Server`, `OrchestratorRunService`, `backendBaseUrl`                                        |
 
 ### Utility Functions (route-utils.ts)
 

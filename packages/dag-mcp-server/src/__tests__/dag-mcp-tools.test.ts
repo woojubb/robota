@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
+import type {
+  IDagOrchestrationHttpClient,
+  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  IDagOrchestrationPublishedWorkflowRunRequest,
+  TDagOrchestrationCreateRunDraftRequest,
+  TDagOrchestrationReplaceRunDraftRequest,
+} from '@robota-sdk/dag-orchestration-client';
 import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
 import { callDagMcpTool, createDagMcpToolDefinitions } from '../dag-mcp-tools.js';
 
@@ -88,6 +94,52 @@ class FakeDagClient implements IDagOrchestrationHttpClient {
   public async getRunResult(dagRunId: string) {
     this.calls.push({ method: 'getRunResult', payload: { dagRunId } });
     return { ok: true, status: 200, payload: { ok: true, status: 200, data: { run: {} } } };
+  }
+
+  public async createRunDraft(input: TDagOrchestrationCreateRunDraftRequest) {
+    this.calls.push({ method: 'createRunDraft', payload: input });
+    return { ok: true, status: 201, payload: { ok: true, status: 201, data: { draft: input } } };
+  }
+
+  public async getRunDraft(draftId: string) {
+    this.calls.push({ method: 'getRunDraft', payload: { draftId } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { draft: {} } } };
+  }
+
+  public async replaceRunDraft(draftId: string, input: TDagOrchestrationReplaceRunDraftRequest) {
+    this.calls.push({ method: 'replaceRunDraft', payload: { draftId, input } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { draft: input } } };
+  }
+
+  public async resetRunDraftNodeResult(draftId: string, nodeId: string) {
+    this.calls.push({ method: 'resetRunDraftNodeResult', payload: { draftId, nodeId } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { draft: {} } } };
+  }
+
+  public async overwriteRunDraftNodeResult(
+    draftId: string,
+    nodeId: string,
+    input: IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  ) {
+    this.calls.push({ method: 'overwriteRunDraftNodeResult', payload: { draftId, nodeId, input } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { draft: {} } } };
+  }
+
+  public async startPublishedWorkflowRun(
+    dagId: string,
+    input?: IDagOrchestrationPublishedWorkflowRunRequest,
+    version?: number,
+  ) {
+    this.calls.push({ method: 'startPublishedWorkflowRun', payload: { dagId, input, version } });
+    return {
+      ok: true,
+      status: 202,
+      payload: {
+        ok: true,
+        status: 202,
+        data: { dagRunId: 'run-1', preparationId: 'prep-1', dagId, version: version ?? 1 },
+      },
+    };
   }
 }
 

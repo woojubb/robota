@@ -154,4 +154,42 @@ describe('DagOrchestrationHttpClient', () => {
       output: { text: 'manual result' },
     });
   });
+
+  it('starts a published workflow run with optional version and overrides', async () => {
+    const { client, requests } = createClient([
+      {
+        ok: true,
+        status: 202,
+        data: {
+          dagRunId: 'run-1',
+          preparationId: 'prep-1',
+          dagId: 'published dag',
+          version: 3,
+        },
+      },
+    ]);
+
+    const result = await client.startPublishedWorkflowRun(
+      'published dag',
+      {
+        input: { prompt: 'hello' },
+        overrides: {
+          'text-1': { template: 'override-template' },
+        },
+      },
+      3,
+    );
+
+    expect(result.status).toBe(202);
+    expect(requests[0]?.url).toBe(
+      `${TEST_SERVER_URL}/v1/dag/workflows/published%20dag/runs?version=3`,
+    );
+    expect(requests[0]?.init.method).toBe('POST');
+    expect(JSON.parse(String(requests[0]?.init.body))).toEqual({
+      input: { prompt: 'hello' },
+      overrides: {
+        'text-1': { template: 'override-template' },
+      },
+    });
+  });
 });

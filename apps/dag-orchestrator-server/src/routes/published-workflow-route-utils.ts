@@ -5,6 +5,10 @@ import type {
   TNodeConfigValue,
   TPortPayload,
 } from '@robota-sdk/dag-core';
+import type {
+  IDagOrchestrationPublishedWorkflowRunRequest,
+  IDagOrchestrationWorkflowOverrideMap,
+} from '@robota-sdk/dag-orchestration-client';
 import { HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from './route-utils.js';
 
 export type TWorkflowRequestValue =
@@ -17,15 +21,6 @@ export type TWorkflowRequestValue =
 
 export interface IWorkflowRequestObject {
   [key: string]: TWorkflowRequestValue | undefined;
-}
-
-export interface IWorkflowOverrideMap {
-  [nodeId: string]: TNodeConfigRecord;
-}
-
-export interface IWorkflowRunRequestBody {
-  input?: TPortPayload;
-  overrides?: IWorkflowOverrideMap;
 }
 
 export interface IWorkflowValidationError {
@@ -104,7 +99,7 @@ export function toWorkflowProblemDetails(
 
 export function readWorkflowRunRequestBody(
   rawBody: TWorkflowRequestValue | undefined,
-): IWorkflowRunRequestBody | IWorkflowValidationError {
+): IDagOrchestrationPublishedWorkflowRunRequest | IWorkflowValidationError {
   if (typeof rawBody === 'undefined') {
     return {};
   }
@@ -137,7 +132,7 @@ export function readWorkflowRunRequestBody(
     };
   }
 
-  const parsedOverrides: IWorkflowOverrideMap = {};
+  const parsedOverrides: Record<string, TNodeConfigRecord> = {};
   for (const [nodeId, override] of Object.entries(overrides)) {
     if (!isNodeConfigRecord(override)) {
       return {
@@ -204,7 +199,7 @@ export async function resolvePublishedDefinition(
 
 export function applyWorkflowOverrides(
   definition: IDagDefinition,
-  overrides: IWorkflowOverrideMap | undefined,
+  overrides: IDagOrchestrationWorkflowOverrideMap | undefined,
 ): TOverrideResult {
   if (typeof overrides === 'undefined' || Object.keys(overrides).length === 0) {
     return { ok: true, definition };

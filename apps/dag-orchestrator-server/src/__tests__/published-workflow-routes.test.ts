@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import { FileStoragePort } from '@robota-sdk/dag-adapters-local';
+import type { IDagOrchestrationPublishedWorkflowRunSuccessPayload } from '@robota-sdk/dag-orchestration-client';
 import type {
   IDagDefinition,
   IAssetContentResult,
@@ -179,11 +180,7 @@ describe('published workflow routes', () => {
     });
 
     expect(status).toBe(202);
-    const envelope = body as {
-      ok: boolean;
-      status: number;
-      data: { dagRunId: string; preparationId: string; dagId: string; version: number };
-    };
+    const envelope = body as IDagOrchestrationPublishedWorkflowRunSuccessPayload;
     expect(envelope.ok).toBe(true);
     expect(envelope.status).toBe(202);
     expect(envelope.data).toEqual({
