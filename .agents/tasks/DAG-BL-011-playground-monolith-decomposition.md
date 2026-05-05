@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-block-visualization-panel
+- **Branch**: refactor/agent-playground-tool-container-block
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -51,6 +51,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `block-visualization/block-tree.tsx` into a stable directory module.
 - [x] Add characterization tests for `block-visualization/block-visualization-panel`.
 - [x] Split `block-visualization/block-visualization-panel.tsx` into a stable directory module.
+- [x] Add characterization tests for `tool-container-block`.
+- [x] Split `tool-container-block.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -66,7 +68,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `project-browser.tsx` (422 lines)
 - `execution-tree-debug.tsx` (421 lines)
 - `error-panel.tsx` (403 lines)
-- `tool-container-block.tsx` (383 lines)
 
 ### contexts
 
@@ -193,6 +194,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   clearing.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the nineteenth slice: `tool-container-block.tsx` is now a same-name directory module
+  with tool creation, state actions, library search, item rendering, parameter inputs, preview,
+  status, class-name, schema access, and content sections split from the component facade.
+- Added characterization coverage for empty editable state, filtered library addition, parameter
+  editing, tool toggling, execution, removal, and validation error display.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -226,6 +234,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   render; collectors and tests may reuse the same blocks array reference while changing contents.
 - Keep panel facades below lint function-length limits by extracting headers and tab contents into
   narrow presentational modules after the initial behavior-preserving split.
+- Keep `CollapsibleTrigger asChild` tool headers as ref-forwarding components so Radix-injected
+  trigger props remain attached to the concrete header element.
 
 ## Test Plan
 
@@ -241,6 +251,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 7 production source files still exceed the guideline. The current
-branch delivers the eighteenth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 6 production source files still exceed the guideline. The current
+branch delivers the nineteenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
