@@ -27,7 +27,7 @@ agent-provider-*     ← provider implementations (unchanged)
 agent-sdk            ← InteractiveSession (single entry point)
   ├── embedded: SystemCommandExecutor (session.executeCommand())
   ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
-  ├── common API: command effects/interactions, lifecycle metadata, provider settings/profile helpers
+  ├── common API: command effects/interactions, lifecycle metadata, session replay validation, provider settings/profile helpers
   ├── common API: prompt file-reference parsing, resolution, diagnostics, and structured records
   ├── extension: ICommandModule command/source/session-requirement injection
   ├── optional: Agent tool + AgentDefinitionLoader when a module requests agent-runtime
@@ -128,14 +128,14 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── interactive-session.ts  ← InteractiveSession: event-driven wrapper over Session
 │   ├── session-persistence.ts  ← SDK-owned session store facade and resumable-session summaries
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
-├── src/command-api/            ← Command module contracts, host context, effects/interactions, provider/model common APIs
+├── src/command-api/            ← Command module contracts, host context, effects/interactions, session/provider/model common APIs
 │   ├── contracts.ts            ← ISystemCommand + lifecycle metadata
 │   ├── command-module.ts       ← ICommandModule composition contract
 │   ├── host-context.ts         ← ICommandHostContext narrow facade for command modules
 │   ├── host-adapters.ts        ← generic host adapter contracts
 │   ├── provider/               ← provider settings/profile/setup/probe common APIs
 │   ├── model/                  ← provider-aware model catalog common APIs and refresh orchestration
-│   ├── session/                ← session-history command common APIs
+│   ├── session/                ← session-history and replay-validation command common APIs
 │   └── background/             ← background task command common APIs
 ├── src/commands/
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
@@ -180,6 +180,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-sdk/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from config/context. Consumers use `InteractiveSession({ cwd, provider })` instead.
 - **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic session consumers. SDK exposes `createProjectSessionStore(cwd)` and resumable-session helpers so CLI composition can use project-local `.robota/sessions` without importing `agent-sessions` directly.
+- **Replay validation common API**: SDK command APIs expose `validateCommandSessionReplayLog()` and formatting helpers that load the current session's project-local `.robota/logs/{sessionId}.jsonl` file through `agent-sessions` replay validators. Command modules consume this API; `agent-cli` must not read replay logs or implement replay validation directly.
 
 ### Permission System
 

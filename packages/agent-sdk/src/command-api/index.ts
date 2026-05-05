@@ -11,6 +11,7 @@ export type { ICommandResult, TCommandResultDataValue } from './command-result.j
 export type {
   ICommandHostContext,
   ICommandListEntry,
+  ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
   TAutoCompactThresholdSource,
 } from './host-context.js';
@@ -190,11 +191,14 @@ export {
   COST_COMMAND_DESCRIPTION,
   createSessionExitRequestedEffect,
   parseSessionNameArgument,
+  formatCommandSessionReplayValidationReport,
   readCommandSessionInfo,
+  validateCommandSessionReplayLog,
   EXIT_COMMAND_DESCRIPTION,
   RENAME_COMMAND_DESCRIPTION,
   RENAME_COMMAND_USAGE,
   RESUME_COMMAND_DESCRIPTION,
+  VALIDATE_SESSION_COMMAND_DESCRIPTION,
 } from './session/session-command-api.js';
 export type { ICommandSessionInfo } from './session/session-command-api.js';
 export {

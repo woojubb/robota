@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type OpenAI from 'openai';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import { observeProviderNativeRawPayloadStream } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IOpenAIError } from './types/api-types';
 import type { IOpenAIProviderOptions } from './types';
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
@@ -50,10 +51,22 @@ export async function chatWithOpenAIResponsesApi(
 
   try {
     const requestParams = buildResponsesRequestParams(input);
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'responses',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const response = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsNonStreaming,
       input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
     );
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'responses',
+      payloadKind: 'response',
+      payload: response,
+    });
     return parseOpenAIResponsesResponse(response);
   } catch (error) {
     const openaiError = error as IOpenAIError;
@@ -93,12 +106,25 @@ async function chatWithOpenAIResponsesStreamingAssembly(
 
   try {
     const requestParams = buildResponsesStreamingRequestParams(input);
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'responses',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const stream = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
       input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
     );
     return assembleOpenAIResponsesStream({
-      stream: stream as AsyncIterable<TOpenAIResponsesStreamEvent>,
+      stream: observeProviderNativeRawPayloadStream(
+        stream as AsyncIterable<TOpenAIResponsesStreamEvent>,
+        {
+          provider: 'openai',
+          apiSurface: 'responses',
+          onProviderNativeRawPayload: input.chatOptions?.onProviderNativeRawPayload,
+        },
+      ),
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,
     });

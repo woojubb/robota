@@ -80,12 +80,14 @@ describe('createSessionCommandModule', () => {
       'rename',
       'resume',
       'cost',
+      'validate-session',
     ]);
     expect(module.systemCommands?.map((item) => item.name)).toEqual([
       'clear',
       'rename',
       'resume',
       'cost',
+      'validate-session',
     ]);
     expect(entry).toEqual(
       expect.objectContaining({
@@ -144,6 +146,31 @@ describe('createSessionCommandModule', () => {
     expect(command).toEqual(
       expect.objectContaining({
         name: 'cost',
+        lifecycle: 'inline',
+        userInvocable: true,
+        modelInvocable: false,
+      }),
+    );
+  });
+
+  it('provides validate-session metadata and user-only executable command from the same module owner', () => {
+    const module = createSessionCommandModule();
+    const command = module.systemCommands?.find((item) => item.name === 'validate-session');
+    const entry = module.commandSources?.[0]
+      ?.getCommands()
+      .find((item) => item.name === 'validate-session');
+
+    expect(entry).toEqual(
+      expect.objectContaining({
+        name: 'validate-session',
+        description: 'Validate current session replay log',
+        source: 'session',
+        modelInvocable: false,
+      }),
+    );
+    expect(command).toEqual(
+      expect.objectContaining({
+        name: 'validate-session',
         lifecycle: 'inline',
         userInvocable: true,
         modelInvocable: false,
@@ -271,6 +298,41 @@ describe('createSessionCommandModule', () => {
       success: true,
       message: 'Session: session_1\nMessages: 5',
       data: { sessionId: 'session_1', messageCount: 5 },
+    });
+  });
+
+  it('validates the current session replay log through the SDK common API', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const context = {
+      ...createCommandContext(),
+      validateCurrentSessionReplayLog: () => ({
+        logFile: '/workspace/.robota/logs/session_1.jsonl',
+        entryCount: 2,
+        validation: {
+          ok: false,
+          issues: [
+            {
+              code: 'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING' as const,
+              message: 'Provider request exec-1:1 has no provider-native payload.',
+              executionId: 'exec-1',
+              round: 1,
+            },
+          ],
+        },
+      }),
+    };
+
+    const result = await executor.execute('validate-session', context, '');
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('PROVIDER_NATIVE_RAW_PAYLOAD_MISSING');
+    expect(result?.data).toEqual({
+      logFile: '/workspace/.robota/logs/session_1.jsonl',
+      entryCount: 2,
+      issueCount: 1,
+      ok: false,
     });
   });
 });

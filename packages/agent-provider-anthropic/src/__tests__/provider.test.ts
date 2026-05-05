@@ -5,6 +5,7 @@ import type {
   IToolSchema,
   IExecutor,
   IAssistantMessage,
+  IProviderNativeRawPayloadEvent,
 } from '@robota-sdk/agent-core';
 
 // Mock the @anthropic-ai/sdk module
@@ -339,6 +340,46 @@ describe('AnthropicProvider', () => {
       expect(result.metadata).toBeDefined();
       expect(result.metadata?.inputTokens).toBe(10);
       expect(result.metadata?.outputTokens).toBe(20);
+    });
+
+    it('emits native Anthropic request and ordered stream event payloads', async () => {
+      const apiResponse = makeTextResponse('Hello there!');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+      const events: IProviderNativeRawPayloadEvent[] = [];
+
+      await provider.chat(
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'Hi',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'claude-3-opus-20240229',
+          onProviderNativeRawPayload: (event) => events.push(event),
+        },
+      );
+
+      expect(events[0]).toEqual(
+        expect.objectContaining({
+          provider: 'anthropic',
+          apiSurface: 'anthropic-messages',
+          payloadKind: 'request',
+          payload: expect.objectContaining({ model: 'claude-3-opus-20240229', stream: true }),
+        }),
+      );
+      expect(events.slice(1).map((event) => event.payloadKind)).toEqual([
+        'stream_event',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+      ]);
+      expect(events.slice(1).map((event) => event.sequence)).toEqual([0, 1, 2, 3, 4, 5]);
     });
 
     it('should use model maxOutput when maxTokens is not specified', async () => {

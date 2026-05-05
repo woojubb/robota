@@ -16,6 +16,7 @@
 - Does not own session management, conversation history, or tool execution logic.
 - Keeps OpenAI-specific transport behavior explicit and provider-scoped.
 - Keeps OpenAI-compatible transport primitives model-neutral; this package may consume them for Chat Completions compatibility, but OpenAI Responses semantics stay here.
+- Owns provider-native replay payload selection for both Responses and Chat Completions surfaces. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import OpenAI SDK types.
 - Relies on `AbstractAIProvider` from `@robota-sdk/agent-core` as the base class for provider implementation.
 - Logger and executor interfaces (`ILogger`, `IExecutor`) are imported from `@robota-sdk/agent-core`, not redefined.
 
@@ -204,6 +205,16 @@ Consumers can pass a pre-configured `OpenAI` client instance via `IOpenAIProvide
 - Official OpenAI profiles default to `apiSurface: "responses"`.
 - Profiles with `baseURL` default to `apiSurface: "chat-completions"` for OpenAI-compatible endpoint compatibility.
 - Consumers can force either behavior through `IOpenAIProviderOptions.apiSurface`.
+
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, `OpenAIProvider` emits provider-native payload events before normalization:
+
+- `payloadKind: "request"` for the exact Responses or Chat Completions request params sent to the OpenAI SDK.
+- `payloadKind: "response"` for non-streaming SDK response objects.
+- `payloadKind: "stream_event"` for each streaming SDK event/chunk, preserving ordered sequence.
+
+The package owns `apiSurface` labels (`responses` or `chat-completions`) and native payload selection. `agent-core`, `agent-sessions`, `agent-sdk`, and `agent-cli` must treat the payload as opaque data and rely on session logging for redaction/externalization.
 
 ### Native Web Capability Handling
 

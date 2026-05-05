@@ -3,6 +3,7 @@ export {
   executeCostCommand,
   executeRenameCommand,
   executeResumeCommand,
+  executeValidateSessionCommand,
   CLEAR_COMMAND_MESSAGE,
 } from './session-command.js';
 export {
@@ -12,4 +13,5 @@ export {
   createRenameCommandEntry,
   createResumeCommandEntry,
   createSessionCommandModule,
+  createValidateSessionCommandEntry,
 } from './session-command-module.js';

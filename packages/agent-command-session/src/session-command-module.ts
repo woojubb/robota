@@ -9,12 +9,14 @@ import {
   COST_COMMAND_DESCRIPTION,
   RENAME_COMMAND_DESCRIPTION,
   RESUME_COMMAND_DESCRIPTION,
+  VALIDATE_SESSION_COMMAND_DESCRIPTION,
 } from '@robota-sdk/agent-sdk';
 import {
   executeClearCommand,
   executeCostCommand,
   executeRenameCommand,
   executeResumeCommand,
+  executeValidateSessionCommand,
 } from './session-command.js';
 
 export function createClearCommandEntry(): ICommand {
@@ -48,6 +50,15 @@ export function createCostCommandEntry(): ICommand {
   return {
     name: 'cost',
     description: COST_COMMAND_DESCRIPTION,
+    source: 'session',
+    modelInvocable: false,
+  };
+}
+
+export function createValidateSessionCommandEntry(): ICommand {
+  return {
+    name: 'validate-session',
+    description: VALIDATE_SESSION_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
   };
@@ -101,6 +112,18 @@ function createCostSystemCommand(): ISystemCommand {
   };
 }
 
+function createValidateSessionSystemCommand(): ISystemCommand {
+  const entry = createValidateSessionCommandEntry();
+  return {
+    name: entry.name,
+    description: entry.description,
+    userInvocable: true,
+    modelInvocable: false,
+    lifecycle: 'inline',
+    execute: executeValidateSessionCommand,
+  };
+}
+
 export class SessionCommandSource implements ICommandSource {
   readonly name = 'session';
 
@@ -110,6 +133,7 @@ export class SessionCommandSource implements ICommandSource {
       createRenameCommandEntry(),
       createResumeCommandEntry(),
       createCostCommandEntry(),
+      createValidateSessionCommandEntry(),
     ];
   }
 }
@@ -123,6 +147,7 @@ export function createSessionCommandModule(): ICommandModule {
       createRenameSystemCommand(),
       createResumeSystemCommand(),
       createCostSystemCommand(),
+      createValidateSessionSystemCommand(),
     ],
   };
 }

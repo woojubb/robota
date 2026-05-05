@@ -14,7 +14,7 @@ const provider = new GoogleProvider({
 ```
 
 The provider profile type remains `gemini`; existing settings that use `type: "google"` continue through the provider-definition alias.
-All runtime behavior and options are inherited from `@robota-sdk/agent-provider-gemini`, including system instruction mapping, structured output, safety settings, and streaming text callbacks.
+All runtime behavior and options are inherited from `@robota-sdk/agent-provider-gemini`, including system instruction mapping, structured output, safety settings, streaming text callbacks, and provider-native chat replay payload capture.
 
 ## Migration Guidance
 

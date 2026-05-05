@@ -112,6 +112,10 @@ for await (const chunk of stream) {
 
 When `chat()` receives an `onTextDelta` callback, the provider uses the selected API surface's streaming path internally, forwards text deltas to the callback, assembles streamed tool-call chunks, and returns the final assistant message.
 
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits exact OpenAI SDK request, response, and stream event payloads with `apiSurface` set to either `responses` or `chat-completions`. `agent-core` routes these provider-owned callbacks into provider-neutral `provider_native_raw_payload` execution events for replay-grade session logs.
+
 ## 🛠️ Function Calling
 
 OpenAI Provider supports type-safe function calling with automatic parameter validation:

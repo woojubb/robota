@@ -28,6 +28,7 @@ export async function executeDirect(
   providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
+  providerName = 'gemini',
 ): Promise<TUniversalMessage> {
   const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
@@ -37,21 +38,22 @@ export async function executeDirect(
   );
 
   if (options?.onTextDelta && !responseModalities.includes('IMAGE')) {
-    return assembleStreamingChatResponse(client, providerOptions, messages, options);
+    return assembleStreamingChatResponse(client, providerOptions, messages, options, providerName);
   }
 
   const requestFormat = convertToGeminiRequestFormat(messages);
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
-
-  const result = await client.models.generateContent(
-    buildGenerateContentRequest(
-      model,
-      requestFormat.contents,
-      genConfig,
-      options,
-      requestFormat.systemInstruction,
-    ),
+  const request = buildGenerateContentRequest(
+    model,
+    requestFormat.contents,
+    genConfig,
+    options,
+    requestFormat.systemInstruction,
   );
+
+  emitGeminiNativeRawPayload(options, providerName, 'request', request);
+  const result = await client.models.generateContent(request);
+  emitGeminiNativeRawPayload(options, providerName, 'response', result);
 
   const convertedResponse = convertFromGeminiResponse(result);
   if (responseModalities.includes('IMAGE') && !hasImagePart(convertedResponse.parts)) {
@@ -70,6 +72,7 @@ export async function* executeDirectStream(
   providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
+  providerName = 'gemini',
 ): AsyncIterable<TUniversalMessage> {
   const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
@@ -83,18 +86,21 @@ export async function* executeDirectStream(
 
   const requestFormat = convertToGeminiRequestFormat(messages);
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
-
-  const stream = await client.models.generateContentStream(
-    buildGenerateContentRequest(
-      model,
-      requestFormat.contents,
-      genConfig,
-      options,
-      requestFormat.systemInstruction,
-    ),
+  const request = buildGenerateContentRequest(
+    model,
+    requestFormat.contents,
+    genConfig,
+    options,
+    requestFormat.systemInstruction,
   );
 
+  emitGeminiNativeRawPayload(options, providerName, 'request', request);
+  const stream = await client.models.generateContentStream(request);
+
+  let sequence = 0;
   for await (const chunk of stream) {
+    emitGeminiNativeRawPayload(options, providerName, 'stream_event', chunk, sequence);
+    sequence++;
     const text = extractStreamText(chunk);
     if (text) {
       options?.onTextDelta?.(text);
@@ -148,9 +154,16 @@ async function assembleStreamingChatResponse(
   providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options: IChatOptions,
+  providerName = 'gemini',
 ): Promise<TUniversalMessage> {
   const textParts: string[] = [];
-  for await (const chunk of executeDirectStream(client, providerOptions, messages, options)) {
+  for await (const chunk of executeDirectStream(
+    client,
+    providerOptions,
+    messages,
+    options,
+    providerName,
+  )) {
     if (typeof chunk.content === 'string') {
       textParts.push(chunk.content);
     }
@@ -164,6 +177,22 @@ async function assembleStreamingChatResponse(
     state: 'complete',
     timestamp: new Date(),
   };
+}
+
+function emitGeminiNativeRawPayload(
+  options: IChatOptions | undefined,
+  providerName: string,
+  payloadKind: 'request' | 'response' | 'stream_event',
+  payload: object,
+  sequence?: number,
+): void {
+  options?.onProviderNativeRawPayload?.({
+    provider: providerName,
+    apiSurface: 'gemini-generate-content',
+    payloadKind,
+    ...(sequence !== undefined && { sequence }),
+    payload,
+  });
 }
 
 function extractStreamText(

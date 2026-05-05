@@ -299,9 +299,9 @@ Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}
 
 ## Replay-Grade Session Events
 
-`Session.run()` now forwards core execution events through the session logger. Current events include provider request envelopes, normalized provider responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
+`Session.run()` now forwards core execution events through the session logger. Current events include provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
 
-These events are append-only provenance for debugging and future `/resume` replay. Full deterministic replay still requires raw provider response/chunk storage, payload reference handling, redaction rules, history mutation events, and a replay validator.
+These events are append-only provenance for debugging and future `/resume` replay. Concrete provider packages own exact SDK-native payload selection through `IChatOptions.onProviderNativeRawPayload`; `agent-core` routes the callback without provider branches, and `agent-sessions` validates that provider requests have native raw response or stream payload coverage.
 
 ## Always-Streaming Policy
 

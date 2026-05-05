@@ -4,7 +4,7 @@
 
 `@robota-sdk/agent-command-session` owns composable session-management commands.
 
-The package currently provides `/clear`, `/rename`, `/resume`, and `/cost` command metadata and execution. It is the intended owner for additional session commands that share the same command-facing session APIs.
+The package currently provides `/clear`, `/rename`, `/resume`, `/cost`, and `/validate-session` command metadata and execution. It is the intended owner for additional session commands that share the same command-facing session APIs.
 
 ## Public API
 
@@ -16,10 +16,12 @@ import {
   createRenameCommandEntry,
   createResumeCommandEntry,
   createSessionCommandModule,
+  createValidateSessionCommandEntry,
   executeClearCommand,
   executeCostCommand,
   executeRenameCommand,
   executeResumeCommand,
+  executeValidateSessionCommand,
 } from '@robota-sdk/agent-command-session';
 ```
 
@@ -29,6 +31,7 @@ import {
 - Owns `/rename` command metadata and execution.
 - Owns `/resume` command metadata and execution.
 - Owns `/cost` command metadata and execution.
+- Owns `/validate-session` command metadata and execution.
 - Consumes `@robota-sdk/agent-sdk` command contracts and session command common APIs.
 - Emits typed host effects when a command requires host-rendered state updates.
 - Leaves TUI history projection, process control, settings files, and session picker rendering to the host.
@@ -44,11 +47,12 @@ import {
 
 `createSessionCommandModule()` returns one `ICommandModule` with:
 
-- a command source containing `/clear`, `/rename`, `/resume`, and `/cost`;
+- a command source containing `/clear`, `/rename`, `/resume`, `/cost`, and `/validate-session`;
 - one executable `ISystemCommand` for `/clear`;
 - one executable `ISystemCommand` for `/rename`;
 - one executable `ISystemCommand` for `/resume`;
 - one executable `ISystemCommand` for `/cost`;
+- one executable `ISystemCommand` for `/validate-session`;
 - inline lifecycle behavior;
 - user-only invocation policy.
 
@@ -64,6 +68,8 @@ import {
 Session: <session-id>
 Messages: <count>
 ```
+
+`/validate-session` validates the current session replay log through the SDK session command common API. It reports missing provider-native raw payloads, missing provider-normalized raw responses, missing normalized responses, unmatched tool events, and invalid external payload references. It must not read files directly in this package and must not import `agent-cli`.
 
 ## Verification
 

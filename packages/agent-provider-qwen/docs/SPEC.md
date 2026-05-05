@@ -11,6 +11,7 @@ This package owns Qwen provider behavior for Robota when Qwen models are served 
 - Does not own Google Gemini/Gemma marker projection. That behavior belongs to provider packages for those model families.
 - Owns the Qwen Responses API slice for provider-side `web_search` and `web_extractor`. Broader native DashScope behavior and non-web Responses built-in tools remain future work.
 - Does not own CLI routing, session persistence, tool execution, or SDK orchestration.
+- Owns provider-native replay payload selection for Qwen OpenAI-compatible Chat Completions and Qwen Responses API calls. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import concrete SDK types.
 
 ## Research
 
@@ -81,6 +82,7 @@ src/
 - Consumers can provide an executor to delegate provider execution without direct API calls.
 - Consumers such as `agent-cli` can inject `createQwenProviderDefinition()` alongside other provider definitions. The CLI and SDK must not special-case Qwen by type string or model name.
 - Future native DashScope or non-web Responses API support must be added as explicit Qwen-owned transport capability, not as generic CLI/SDK branches.
+- When `IChatOptions.onProviderNativeRawPayload` is provided, `QwenProvider` emits provider-native `request`, non-streaming `response`, and ordered streaming `stream_event` payloads before universal normalization. Chat Completions events use the `chat-completions` API surface label; built-in web tool Responses events use the `responses` API surface label. Session logging owns redaction and payload externalization.
 
 ### Built-in Web Tools
 

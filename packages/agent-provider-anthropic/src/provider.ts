@@ -137,6 +137,7 @@ export class AnthropicProvider extends AbstractAIProvider {
       textDeltaCb,
       this.onServerToolUse,
       options?.signal,
+      options?.onProviderNativeRawPayload,
     );
   }
 
@@ -196,9 +197,24 @@ export class AnthropicProvider extends AbstractAIProvider {
       requestParams.tools = allTools;
     }
 
+    options?.onProviderNativeRawPayload?.({
+      provider: 'anthropic',
+      apiSurface: 'anthropic-messages',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const stream = await this.client.messages.create(requestParams);
 
+    let sequence = 0;
     for await (const chunk of stream) {
+      options?.onProviderNativeRawPayload?.({
+        provider: 'anthropic',
+        apiSurface: 'anthropic-messages',
+        payloadKind: 'stream_event',
+        sequence,
+        payload: chunk,
+      });
+      sequence++;
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
         yield {
           id: randomUUID(),
