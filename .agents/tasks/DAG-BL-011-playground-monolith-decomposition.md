@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-websocket-hook
+- **Branch**: refactor/agent-playground-chat-input-hook
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -33,6 +33,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `websocket-client.ts` into a stable directory module.
 - [x] Add characterization tests for `use-websocket-connection`.
 - [x] Split `use-websocket-connection.ts` into a stable directory module.
+- [x] Add characterization tests for `use-chat-input`.
+- [x] Split `use-chat-input.ts` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -40,7 +42,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ### hooks
 
-- `hooks/use-chat-input.ts` (460 lines)
 - `hooks/use-robota-execution.ts` (396 lines)
 
 ### components/playground
@@ -120,6 +121,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for connect/auth, disconnect statistics, send availability,
   missing URL errors, health reporting, disconnected ping rejection, and handler unregistration.
 - Updated package SPEC and the central architecture map for the WebSocket connection hook module.
+- Completed the tenth slice: `use-chat-input.ts` is now a same-name directory module with public
+  hook/type exports plus internal input-state calculation, explicit validation, focus wiring, and
+  constants modules.
+- Added characterization coverage for input state calculation, typing timeout, input controls,
+  explicit validation, send/stream behavior, error restoration, retry, and placeholder chat-history
+  behavior.
+- Updated package SPEC and the central architecture map for the chat input hook module.
 
 ## Decisions
 
@@ -134,6 +142,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Apply the same stable-import directory module pattern to execution subscriber internals.
 - Apply the same stable-import directory module pattern to WebSocket client internals.
 - Apply the same stable-import directory module pattern to WebSocket connection hook internals.
+- Apply the same stable-import directory module pattern to chat input hook internals.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -151,6 +160,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 16 production source files still exceed the guideline. The current
-branch delivers the ninth tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 15 production source files still exceed the guideline. The current
+branch delivers the tenth tested decomposition slice and extends the repeatable pattern for follow-up
 files.
