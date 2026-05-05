@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-project-browser` commit `976594c4b`
+Source-verified against `refactor/agent-playground-agent-configuration-block` commit `ea6977385`
 on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
@@ -125,7 +125,7 @@ flowchart TD
   ClientEntry["agent-playground/client\nbrowser-safe React entry"]
   RootEntry["agent-playground root entry\nservices + components"]
   Components["playground React components\neditor, gallery, panels, visualizers"]
-  ComponentModules["component modules\nindividual-plugin-block,\nchat-interface,\nproject-browser,\nexecution-tree-visualizer,\nexecution-tree-debug,\nusage-monitor,\nagent-container-block,\nblock-tree,\nblock-visualization-panel,\ntool-container-block,\nerror-panel"]
+  ComponentModules["component modules\nindividual-plugin-block,\nchat-interface,\nproject-browser,\nagent-configuration-block,\nexecution-tree-visualizer,\nexecution-tree-debug,\nusage-monitor,\nagent-container-block,\nblock-tree,\nblock-visualization-panel,\ntool-container-block,\nerror-panel"]
   ComponentData["component data modules\ncode-editor-templates,\ntemplate-gallery-data"]
   UiPrimitives["shared UI primitives\naccessibility + controls"]
   DemoData["demo execution data module\nscenario + timeline offsets"]
