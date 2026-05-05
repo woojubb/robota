@@ -360,6 +360,16 @@ describe('OrchestratorRunService', () => {
       const dagRunId = service.getDagRunId(createResult.value.preparationId);
       expect(dagRunId).toBe(MOCK_PROMPT_ID);
     });
+
+    it('returns promptId when the lookup id is already a dagRunId', async () => {
+      const createResult = await service.createRun(makeDefinition(), {});
+      if (!createResult.ok) throw new Error('createRun failed');
+      const startResult = await service.startRun(createResult.value.preparationId);
+      if (!startResult.ok) throw new Error('startRun failed');
+
+      const dagRunId = service.getDagRunId(startResult.value.dagRunId);
+      expect(dagRunId).toBe(MOCK_PROMPT_ID);
+    });
   });
 
   describe('lookup by both preparationId and dagRunId', () => {
