@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IToastProps } from '../../../hooks/use-toast';
 import { ProjectManager } from '../../../lib/playground/project-manager';
 import type { IPlaygroundProject } from '../../../lib/playground/project-manager';
@@ -80,7 +81,7 @@ export function importProjectFromData(options: {
   toast: TToast;
 }): void {
   try {
-    const projectData = JSON.parse(options.importData) as IPlaygroundProject;
+    const projectData = JSON.parse(options.importData) as TUniversalValue;
     const projectManager = ProjectManager.getInstance();
     const imported = projectManager.importProject(projectData);
 
