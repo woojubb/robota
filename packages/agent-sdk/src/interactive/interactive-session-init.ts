@@ -42,7 +42,8 @@ import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
-import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
+import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -81,6 +82,10 @@ export interface IInteractiveSessionStandardOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /** Fresh-session workspace manifest applied through the sandbox client. */
+  workspaceManifest?: IWorkspaceManifest;
+  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
+  sandboxWorkspaceRoot?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -152,6 +157,10 @@ export interface IInitOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /** Fresh-session workspace manifest applied through the sandbox client. */
+  workspaceManifest?: IWorkspaceManifest;
+  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
+  sandboxWorkspaceRoot?: string;
 }
 
 /**
@@ -193,6 +202,8 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
   }
 
   const paths = projectPaths(cwd);
+
+  await applyInteractiveWorkspaceManifest(options, cwd);
 
   // For non-fork resume, reuse the original session ID so saves update the same file
   const sessionId =
@@ -236,6 +247,20 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
+  });
+}
+
+async function applyInteractiveWorkspaceManifest(
+  options: IInitOptions,
+  cwd: string,
+): Promise<void> {
+  if (!options.workspaceManifest) return;
+  if (!options.sandboxClient) {
+    throw new Error('workspaceManifest requires sandboxClient.');
+  }
+  await applyWorkspaceManifest(options.sandboxClient, options.workspaceManifest, {
+    hostRoot: cwd,
+    ...(options.sandboxWorkspaceRoot ? { targetRoot: options.sandboxWorkspaceRoot } : {}),
   });
 }
 

@@ -34,6 +34,7 @@ agent-sdk            ← InteractiveSession (single entry point)
   ├── composed: agent-runtime BackgroundTaskManager, SubagentManager, runner ports
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
   ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
+  ├── optional: workspaceManifest application through agent-tools sandbox ports
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
 
@@ -112,7 +113,7 @@ agent-runtime (reusable runtime primitives — depends only on agent-core)
 
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
-├── src/sandbox/              ← ISandboxClient, E2B structural adapter, and in-memory contract adapter
+├── src/sandbox/              ← ISandboxClient, workspace manifest contracts, E2B structural adapter, and in-memory contract adapter
 ├── src/types/tool-result.ts  ← TToolResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
@@ -211,10 +212,12 @@ agent-cli (Ink TUI — CLI-specific)
 ### Sandbox Execution
 
 - **Port owner**: `agent-tools/sandbox/` owns `ISandboxClient`, `ISandboxRunOptions`, and `ISandboxRunResult`.
+- **Workspace manifest owner**: `agent-tools/sandbox/` owns `IWorkspaceManifest`, manifest path validation, and generic manifest application. SDK and CLI must not redeclare the manifest shape or implement manifest application algorithms.
 - **Adapter owner**: `agent-tools` owns structural sandbox adapters such as `E2BSandboxClient` and `InMemorySandboxClient`. It does not install provider SDKs; application composition roots may install `e2b` or another provider and wrap its sandbox object.
 - **SDK assembly**: `createSession()` and `InteractiveSession` accept `sandboxClient?: ISandboxClient`. When present, SDK-created Bash, Read, Write, and Edit tools are created through sandbox-aware factories and route command/filesystem operations through the injected client.
+- **Fresh workspace setup**: `InteractiveSession` accepts `workspaceManifest?: IWorkspaceManifest` with `sandboxClient`. The async interactive construction path applies the manifest once before creating the `Session`, using the current project `cwd` as the host root for relative `localFile` and `localDir` sources. The internal synchronous `createSession()` factory does not apply manifests; direct low-level consumers call `applyWorkspaceManifest()` from `agent-tools` before session creation.
 - **Reversible execution**: If `reversibleExecution.mode` is enabled and no explicit isolation is set, a supplied `sandboxClient` makes the SDK classify Bash and sandbox-routed file mutations as `provider-sandbox` isolated instead of host checkpoint-backed mutations.
-- **Boundary**: `agent-cli` and other hosts only decide whether to provide a sandbox client. They must not implement sandbox command/file algorithms or provider-specific restore behavior in UI code.
+- **Boundary**: `agent-cli` and other hosts only decide whether to provide a sandbox client and, if they parse manifest files, convert them into the `agent-tools` manifest contract. They must not implement sandbox command/file/manifest algorithms or provider-specific restore behavior in UI code.
 
 ### Edit Checkpointing
 
