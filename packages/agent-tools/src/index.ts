@@ -10,9 +10,26 @@ export type {
   ISandboxRunOptions,
   ISandboxRunResult,
   ISandboxToolOptions,
+  IWorkspaceManifest,
+  IWorkspaceManifestAppliedEntry,
+  IWorkspaceManifestApplyOptions,
+  IWorkspaceManifestApplyResult,
+  IWorkspaceManifestAzureBlobMountEntry,
+  IWorkspaceManifestDirectoryEntry,
+  IWorkspaceManifestFileEntry,
+  IWorkspaceManifestGcsMountEntry,
+  IWorkspaceManifestGitRepositoryEntry,
+  IWorkspaceManifestLocalDirectoryEntry,
+  IWorkspaceManifestLocalFileEntry,
+  IWorkspaceManifestPermissions,
+  IWorkspaceManifestR2MountEntry,
+  IWorkspaceManifestS3MountEntry,
   IInMemorySandboxClientOptions,
+  TWorkspaceManifestApplyStatus,
+  TWorkspaceManifestEntry,
   TInMemorySandboxRunHandler,
 } from './sandbox/index';
+export { applyWorkspaceManifest, validateWorkspaceManifestPath } from './sandbox/index';
 
 export { ToolRegistry } from './registry/tool-registry';
 export {

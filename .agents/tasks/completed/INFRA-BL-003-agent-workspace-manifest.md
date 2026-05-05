@@ -1,8 +1,8 @@
 ---
 title: Agent 워크스페이스 Manifest
-status: backlog
+status: completed
 created: 2026-04-19
-updated: 2026-04-19
+updated: 2026-05-05
 priority: low
 urgency: later
 depends_on: INFRA-BL-002
@@ -91,19 +91,25 @@ environment:
 ## SDK 통합 방식
 
 ```typescript
-// createSession()에 manifest 옵션 추가
-const session = new InteractiveSession({
-  manifest: {
-    entries: {
-      'task.md': { type: 'localFile', src: './task.md' },
-      repo: { type: 'gitRepo', url: 'https://github.com/user/project' },
-      output: { type: 'dir' },
-    },
-    permissions: {
-      read: ['task.md', 'repo'],
-      write: ['output'],
-    },
+import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
+
+const workspaceManifest: IWorkspaceManifest = {
+  entries: {
+    'task.md': { type: 'localFile', src: './task.md' },
+    repo: { type: 'gitRepo', url: 'https://github.com/user/project' },
+    output: { type: 'dir' },
   },
+  permissions: {
+    read: ['task.md', 'repo'],
+    write: ['output'],
+  },
+};
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sandboxClient,
+  workspaceManifest,
 });
 ```
 
@@ -115,10 +121,10 @@ robota -p "$(cat task.md)" --manifest workspace.manifest.yaml
 
 ## 구현 순서
 
-1. `IWorkspaceManifest` 인터페이스 정의 (agent-sdk)
-2. YAML 파싱 → `IWorkspaceManifest` 변환 (agent-cli)
-3. `ISandboxClient.applyManifest(manifest)` 메서드 추가 (INFRA-BL-002 인터페이스 확장)
-4. `E2BSandboxClient`에서 manifest entry별 파일/디렉토리/Git 클론 실행
+1. `IWorkspaceManifest` 인터페이스 정의 (`agent-tools`)
+2. `agent-tools` generic `applyWorkspaceManifest()` 구현
+3. `InteractiveSession` async 초기화 경로에서 `workspaceManifest` 적용
+4. YAML 파싱 → `IWorkspaceManifest` 변환 (agent-cli 후속 범위)
 5. 클라우드 스토리지 마운트는 각 provider SDK 연동
 
 ## 결정 사항
@@ -147,8 +153,8 @@ robota -p "$(cat task.md)" --manifest workspace.manifest.yaml
 
 ## Open Design Questions
 
-1. `manifest` 옵션을 `createSession()`에 직접 추가할지, `SandboxOptions` 하위에 넣을지
-2. `gitRepo` entry의 인증 — SSH key vs GitHub token 주입 방법
+1. `gitRepo` entry의 인증 — SSH key vs GitHub token 주입 방법
+2. provider-specific cloud mount를 어떤 adapter capability로 노출할지
 
 ## Test Plan
 
@@ -160,6 +166,28 @@ robota -p "$(cat task.md)" --manifest workspace.manifest.yaml
 
 1. INFRA-BL-002 완료 후 진행
 2. Branch: `feat/agent-workspace-manifest` (구현 시점에 생성)
+
+## Progress
+
+- [x] INFRA-BL-002 sandbox execution ports 완료 확인
+- [x] Branch: `feat/agent-workspace-manifest`
+- [x] Manifest 계약 owner와 적용 책임을 스펙에 반영
+- [x] Manifest 타입/검증/적용 테스트 추가
+- [x] `agent-tools` sandbox manifest 구현
+- [x] `agent-sdk` 세션 조립 경로 연결
+- [x] SPEC/README/content/changeset 업데이트
+- [x] 최종 검증, PR 생성, 머지 후 completed로 이동
+
+## Decisions
+
+- `IWorkspaceManifest`와 manifest validation/application 로직은 `agent-tools`가 소유한다. 실제 파일/명령/Git 실행-plane 포트가 `agent-tools/sandbox`에 있으므로 SDK나 CLI가 manifest 적용 알고리즘을 직접 구현하지 않는다.
+- `agent-sdk`는 `sandboxClient`와 `workspaceManifest`를 받아 세션 생성 시 한 번 적용하는 조립 계층으로 유지한다.
+- YAML 파싱은 이번 범위에서 CLI 전용 기능으로 분리한다. 현재 백로그는 TypeScript object contract와 sandbox 적용 포트를 먼저 완성한다.
+- Cloud storage mount 타입은 계약에는 포함하되, provider-specific mounting 구현은 adapter capability가 준비될 때까지 `unsupported` 결과로 명확히 반환한다.
+
+## Result
+
+`agent-tools`가 `IWorkspaceManifest`, path validation, generic sandbox manifest application을 소유하도록 구현했다. `agent-sdk`는 `InteractiveSession` 초기화 시 `sandboxClient`와 `workspaceManifest`가 함께 제공된 경우 세션 생성 전에 manifest를 한 번 적용한다. CLI/YAML parsing은 별도 후속 범위로 남기고, 이번 작업은 TypeScript object contract와 sandbox application port를 완료했다.
 
 ## References
 

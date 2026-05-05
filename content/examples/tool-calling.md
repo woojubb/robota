@@ -102,6 +102,7 @@ Use factory exports when Bash or file tools should run inside a provider sandbox
 ```typescript
 import {
   E2BSandboxClient,
+  applyWorkspaceManifest,
   createBashTool,
   createEditTool,
   createReadTool,
@@ -111,6 +112,13 @@ import { Sandbox } from 'e2b';
 
 const sandbox = await Sandbox.create();
 const sandboxClient = new E2BSandboxClient({ sandbox });
+
+await applyWorkspaceManifest(sandboxClient, {
+  entries: {
+    'task.md': { type: 'file', content: 'Run the requested checks.\n' },
+    output: { type: 'dir' },
+  },
+});
 
 const agent = new Robota({
   name: 'SandboxedDevAgent',
@@ -125,4 +133,4 @@ const agent = new Robota({
 });
 ```
 
-`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`.
+`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`. Workspace manifests use the same sandbox port and prepare files/directories before the tools run.

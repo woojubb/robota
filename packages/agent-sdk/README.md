@@ -45,7 +45,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
 - **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
-- **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane
+- **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
 - **Permissions** — 3-step evaluation (deny list, allow list, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
@@ -298,20 +298,29 @@ SDK sessions can receive a provider-neutral sandbox client. When provided, Bash,
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const sandbox = await Sandbox.create();
+const workspaceManifest: IWorkspaceManifest = {
+  entries: {
+    'task.md': { type: 'file', content: 'Review this repository.\n' },
+    repo: { type: 'gitRepo', url: 'https://github.com/example/project.git', ref: 'main' },
+    output: { type: 'dir' },
+  },
+};
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
   provider,
   sandboxClient: new E2BSandboxClient({ sandbox }),
+  workspaceManifest,
   reversibleExecution: { mode: 'local-first' },
 });
 ```
 
-`E2BSandboxClient` is a structural adapter owned by `agent-tools`, and it does not make `e2b` a dependency of `agent-sdk`. Install and create the concrete provider SDK in the application layer, then pass the adapter into `InteractiveSession`.
+`E2BSandboxClient` is a structural adapter owned by `agent-tools`, and it does not make `e2b` a dependency of `agent-sdk`. Install and create the concrete provider SDK in the application layer, then pass the adapter into `InteractiveSession`. `workspaceManifest` also uses the `agent-tools` contract; SDK applies it once before constructing the underlying `Session`.
 
 ## Subagent Sessions
 

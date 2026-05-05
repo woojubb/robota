@@ -225,7 +225,7 @@ const session = new InteractiveSession({
 | **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                                      |
 | **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                                   |
 | **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                                   |
-| **Sandbox execution**      | Optional sandbox clients route Bash and core file tools through an injected execution plane                                                                                           |
+| **Sandbox execution**      | Optional sandbox clients route Bash and core file tools through an injected execution plane; workspace manifests can prepare fresh sandbox files/directories before session creation  |
 
 ## Sandbox Execution
 
@@ -235,20 +235,29 @@ const session = new InteractiveSession({
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const sandbox = await Sandbox.create();
+const workspaceManifest: IWorkspaceManifest = {
+  entries: {
+    'task.md': { type: 'file', content: 'Analyze this project.\n' },
+    repo: { type: 'gitRepo', url: 'https://github.com/example/project.git', ref: 'main' },
+    output: { type: 'dir' },
+  },
+};
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
   provider,
   sandboxClient: new E2BSandboxClient({ sandbox }),
+  workspaceManifest,
   reversibleExecution: { mode: 'local-first' },
 });
 ```
 
-`E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-sdk` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK.
+`E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-sdk` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK. `workspaceManifest` is also owned by `agent-tools`; SDK only applies it during async interactive session initialization. Inline/local files, directories, and Git repositories are supported by the generic applicator. Cloud mount entries return `unsupported` until the chosen sandbox adapter implements native mounting.
 
 ## Subagent Sessions
 

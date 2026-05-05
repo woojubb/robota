@@ -240,6 +240,10 @@ export class InteractiveSession {
       editCheckpointRecorder: this.editCheckpointStore,
       ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
       ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
+      ...(options.workspaceManifest ? { workspaceManifest: options.workspaceManifest } : {}),
+      ...(options.sandboxWorkspaceRoot
+        ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot }
+        : {}),
       commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
       ...(this.commandExecutor.listModelInvocableCommands().length > 0
         ? {

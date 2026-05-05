@@ -123,7 +123,7 @@ agent-sdk              ← Assembly layer: InteractiveSession, config, context, 
   ↓
 agent-sessions         ← Session lifecycle: permissions, hooks, compaction
 agent-runtime          ← Background task and subagent lifecycle primitives
-agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports
+agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports/manifests
 agent-provider-*       ← AI provider implementations (anthropic, openai, gemini, google, gemma, qwen)
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugins
@@ -134,7 +134,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | Package                                                                                        | Description                                                            |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | [`@robota-sdk/agent-core`](./packages/agent-core/)                                             | Core agent runtime, abstractions, and plugin system                    |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                                           | Tool registry, FunctionTool, built-in tools, and sandbox ports         |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                                           | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests   |
 | [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                                     | Session with permissions, hooks, and compaction                        |
 | [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                                       | Background task and subagent lifecycle primitives                      |
 | [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                                               | Assembly layer with config/context loading and createQuery()           |
