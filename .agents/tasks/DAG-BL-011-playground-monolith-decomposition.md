@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-block-tree
+- **Branch**: refactor/agent-playground-block-visualization-panel
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -49,6 +49,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `agent-container-block.tsx` into a stable directory module.
 - [x] Add characterization tests for `block-visualization/block-tree`.
 - [x] Split `block-visualization/block-tree.tsx` into a stable directory module.
+- [x] Add characterization tests for `block-visualization/block-visualization-panel`.
+- [x] Split `block-visualization/block-visualization-panel.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -65,7 +67,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `execution-tree-debug.tsx` (421 lines)
 - `error-panel.tsx` (403 lines)
 - `tool-container-block.tsx` (383 lines)
-- `block-visualization/block-visualization-panel.tsx` (362 lines)
 
 ### contexts
 
@@ -184,6 +185,14 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   selection, collector event updates, and clear handling.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the eighteenth slice: `block-visualization/block-visualization-panel.tsx` is now a
+  same-name directory module with a public facade plus panel header, tabs, stats, type breakdown,
+  inspector, and height mapping split into focused internal components.
+- Added characterization coverage for tab summaries, collector-driven stats updates, block
+  selection callbacks, inspector rendering, duration formatting, render data display, and inspector
+  clearing.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -215,6 +224,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   SPEC only records package-local contract details.
 - Preserve collector snapshot behavior for block tree rendering by rebuilding tree nodes on each
   render; collectors and tests may reuse the same blocks array reference while changing contents.
+- Keep panel facades below lint function-length limits by extracting headers and tab contents into
+  narrow presentational modules after the initial behavior-preserving split.
 
 ## Test Plan
 
@@ -230,6 +241,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 8 production source files still exceed the guideline. The current
-branch delivers the seventeenth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 7 production source files still exceed the guideline. The current
+branch delivers the eighteenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
