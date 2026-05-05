@@ -1,0 +1,15 @@
+export const REFRESH_INTERVAL_MS = 30000;
+export const FETCH_DELAY_MS = 500;
+export const MOCK_MAX_DAILY_EXECUTIONS = 100;
+export const MOCK_MAX_TOKENS = 1000;
+export const MOCK_MAX_RANDOM_EXECUTIONS = 15;
+export const MOCK_MINUTE_LIMIT = 5;
+export const MOCK_HOUR_LIMIT = 50;
+export const MOCK_DAY_LIMIT = 100;
+export const MOCK_MINUTE_RESET_MS = 30000;
+export const MOCK_HOUR_RESET_MS = 1800000;
+export const MOCK_DAY_RESET_MS = 86400000;
+export const MOCK_MAX_RANDOM_TOKENS = 300;
+export const PERCENTAGE_MULTIPLIER = 100;
+export const USAGE_WARNING_THRESHOLD = 90;
+export const USAGE_CAUTION_THRESHOLD = 70;

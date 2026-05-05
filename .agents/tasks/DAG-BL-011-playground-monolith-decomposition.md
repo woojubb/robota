@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-execution-tree-visualizer
+- **Branch**: refactor/agent-playground-usage-monitor
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -43,6 +43,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `chat-interface.tsx` into a stable directory module.
 - [x] Add characterization tests for `execution-tree-visualizer`.
 - [x] Split `execution-tree-visualizer.tsx` into a stable directory module.
+- [x] Add characterization tests for `usage-monitor`.
+- [x] Split `usage-monitor.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -62,7 +64,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `block-visualization/block-visualization-panel.tsx` (362 lines)
 - `block-visualization/block-tree.tsx` (336 lines)
 - `agent-container-block.tsx` (327 lines)
-- `usage-monitor.tsx` (323 lines)
 
 ### contexts
 
@@ -159,6 +160,13 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   rendering, filtering, block selection, and expand-state updates.
 - Updated package SPEC and the central architecture map for the component module without adding
   new architecture document fragments.
+- Completed the fifteenth slice: `usage-monitor.tsx` is now a same-name directory module with a
+  public component facade plus state hook, mock snapshot builder, usage color helper, header,
+  metric, rate-limit, and feature display sections.
+- Added characterization coverage for hidden rendering, mock usage and rate-limit display, feature
+  availability, and close action behavior.
+- Updated package SPEC and the central architecture map for the component module without adding
+  new architecture document fragments.
 
 ## Decisions
 
@@ -182,6 +190,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   introducing new lint warnings.
 - Extract pure calculations before component presentation when a visualizer mixes hierarchy
   building, statistics, and recursive rendering.
+- Keep mock data providers internal to component modules when they exist only to preserve current
+  playground UI behavior.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -199,6 +209,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 11 production source files still exceed the guideline. The current
-branch delivers the fourteenth tested decomposition slice and extends the repeatable pattern for
+This task remains open because 10 production source files still exceed the guideline. The current
+branch delivers the fifteenth tested decomposition slice and extends the repeatable pattern for
 follow-up files.
