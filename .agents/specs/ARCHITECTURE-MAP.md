@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-robota-executor` commit `2089b79f` on 2026-05-05.
+Source-verified against `refactor/agent-playground-individual-plugin-block` commit `0568f4713` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -124,6 +124,7 @@ flowchart TD
   ClientEntry["agent-playground/client\nbrowser-safe React entry"]
   RootEntry["agent-playground root entry\nservices + components"]
   Components["playground React components\neditor, gallery, panels, visualizers"]
+  ComponentModules["component modules\nindividual-plugin-block"]
   ComponentData["component data modules\ncode-editor-templates,\ntemplate-gallery-data"]
   UiPrimitives["shared UI primitives\naccessibility + controls"]
   DemoData["demo execution data module\nscenario + timeline offsets"]
@@ -150,6 +151,7 @@ flowchart TD
   RootEntry --> BlockHooks
   RootEntry --> ExecutionSubscriber
   RootEntry --> WebSocketClient
+  Components --> ComponentModules
   Components --> ComponentData
   Components --> UiPrimitives
   Components --> DemoData
@@ -181,6 +183,7 @@ Playground ownership:
 | Browser-safe React package entry                   | `agent-playground/client`  | Must not expose Node-only services to browser consumers.                                     |
 | Reusable playground services and public root API   | `agent-playground` root    | Owns executor and service exports for runtime consumers.                                     |
 | React composition, panels, visualizers, UI state   | `agent-playground`         | Hooks and context remain package-internal unless explicitly exported.                        |
+| Playground component modules                       | `agent-playground`         | Keep repeated/complex component internals split behind stable directory `index.ts` modules.  |
 | Static template/example catalogs                   | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.                               |
 | Shared UI primitives                               | `agent-playground`         | Keep import paths stable through directory `index.ts` modules.                               |
 | Playground project storage and metadata            | `agent-playground`         | LocalStorage-backed service; keep import path stable through `index.ts`.                     |
