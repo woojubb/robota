@@ -94,7 +94,7 @@ describe('provider setup prompt flow', () => {
     expect(apiKeyResult).toEqual({
       status: 'complete',
       input: {
-        profile: 'openai',
+        profile: 'gpt-4o',
         type: 'openai',
         model: 'gpt-4o',
         apiKey: openaiDefaults.apiKey,
@@ -113,12 +113,36 @@ describe('provider setup prompt flow', () => {
     });
   });
 
+  it('suggests unique profile names from model ids without exposing credentials', () => {
+    let state = createProviderSetupFlow('anthropic', providerDefinitions, {
+      existingProfileNames: ['claude-sonnet-4-6'],
+    });
+    const apiKeyResult = submitProviderSetupValue(state, 'sk-ant-test');
+    expect(apiKeyResult.status).toBe('next');
+    if (apiKeyResult.status !== 'next') throw new Error('expected next');
+    state = apiKeyResult.state;
+
+    const modelResult = submitProviderSetupValue(state, '');
+
+    expect(modelResult).toEqual({
+      status: 'complete',
+      input: {
+        profile: 'claude-sonnet-4-6-2',
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+        setCurrent: true,
+      },
+    });
+  });
+
   it('runs prompt input with masked API key steps', async () => {
     const promptInput = vi.fn(async (label: string) => (label.includes('model') ? 'gpt-4o' : ''));
 
     const input = await runProviderSetupPromptFlow('openai', promptInput, providerDefinitions);
 
     expect(input.model).toBe('gpt-4o');
+    expect(input.profile).toBe('gpt-4o');
     expect(input.apiKey).toBe(openaiDefaults.apiKey);
     expect(promptInput).toHaveBeenNthCalledWith(
       1,

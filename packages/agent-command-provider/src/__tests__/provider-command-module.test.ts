@@ -157,9 +157,9 @@ describe('createProviderCommandModule', () => {
     const completed = await third?.interaction?.submit('');
 
     expect(readTarget()).toMatchObject({
-      currentProvider: 'openai',
+      currentProvider: 'supergemma4-26b-uncensored-v2',
       providers: {
-        openai: {
+        'supergemma4-26b-uncensored-v2': {
           type: 'openai',
           baseURL: 'http://localhost:1234/v1',
           model: 'supergemma4-26b-uncensored-v2',
@@ -174,6 +174,40 @@ describe('createProviderCommandModule', () => {
         message: 'Provider setup restart',
       },
     ]);
+  });
+
+  it('creates another profile when provider type and model already exist', async () => {
+    const { adapter, readTarget } = createSettingsAdapter(
+      {
+        currentProvider: 'supergemma4-26b-uncensored-v2',
+        providers: {
+          'supergemma4-26b-uncensored-v2': {
+            type: 'openai',
+            baseURL: 'http://localhost:1234/v1',
+            model: 'supergemma4-26b-uncensored-v2',
+            apiKey: 'lm-studio',
+          },
+        },
+      },
+      {},
+    );
+    const first = await createExecutor(adapter).execute('provider', session, 'add openai');
+    const second = await first?.interaction?.submit('');
+    const third = await second?.interaction?.submit('');
+
+    await third?.interaction?.submit('');
+
+    expect(readTarget()).toMatchObject({
+      currentProvider: 'supergemma4-26b-uncensored-v2-2',
+      providers: {
+        'supergemma4-26b-uncensored-v2-2': {
+          type: 'openai',
+          baseURL: 'http://localhost:1234/v1',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+        },
+      },
+    });
   });
 
   it('validates provider profile before probe without blocking manual configuration', async () => {

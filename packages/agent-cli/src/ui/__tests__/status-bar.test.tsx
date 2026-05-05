@@ -44,6 +44,16 @@ describe('StatusBar', () => {
     expect(frame).toContain('test-model');
   });
 
+  it('renders active provider profile identity when provided', () => {
+    const { lastFrame } = render(
+      <StatusBar {...baseProps} providerProfileName="claude-sonnet-4-6" providerType="anthropic" />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain('claude-sonnet-4-6');
+    expect(frame).toContain('anthropic');
+    expect(frame).toContain('test-model');
+  });
+
   it('renders message count', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} />);
     const frame = lastFrame()!;

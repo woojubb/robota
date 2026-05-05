@@ -1,7 +1,6 @@
 # Agent CLI Architecture Map
 
-Source-verified against `develop` commit `f9e388fd7` and the
-`docs/system-architecture-map-audit` working tree on 2026-05-05.
+Source-verified against `feat/provider-profile-switching` on 2026-05-05.
 
 This document is the LLM-scannable companion detail map for how `@robota-sdk/agent-cli` is
 assembled. The repository-wide master map lives at `.agents/specs/ARCHITECTURE-MAP.md`. Package
@@ -269,12 +268,14 @@ sequenceDiagram
   participant Setup as provider-setup.ts
   participant Factory as provider-factory.ts
   participant Defs as IProviderDefinition[]
+  participant SDKCommon as SDK provider common APIs
   participant Command as agent-command-provider
   participant CLI as agent-cli host adapters
   participant Session as InteractiveSession
 
   Args->>Setup: --configure / --configure-provider / startup setup
   Setup->>Defs: render setupSteps and defaults generically
+  Setup->>SDKCommon: suggest model-derived profile key with duplicate suffixes
   Setup->>Factory: update settings document through settings-io
   Args->>Factory: --provider and --model overrides
   Factory->>Factory: merge user, project, project-local, and compatibility settings
@@ -283,6 +284,7 @@ sequenceDiagram
   Factory-->>CLI: IAIProvider plus selected model id
   CLI->>Session: new InteractiveSession({ provider, commandModules })
   CLI->>Command: inject providerDefinitions and settings adapter
+  Command->>SDKCommon: create setup flow, validate profile, build settings patch
   Command->>CLI: typed session-restart-requested effect after /provider use or add
   CLI->>CLI: apply typed effect by shutting down so next process uses new settings
 ```
@@ -291,8 +293,14 @@ Settings ownership:
 
 - `agent-cli` owns concrete settings file paths and provider instance construction.
 - `agent-command-provider` owns `/provider` command semantics and settings patches.
-- `agent-sdk` owns common provider settings/setup/probe APIs used by command modules.
+- `agent-sdk` owns common provider settings/setup/probe APIs used by command modules, including
+  generated profile-key suggestions for interactive setup.
 - Provider packages own defaults, setup metadata, validation requirements, aliases, probes, options, and `createProvider()`.
+- Profile identity is the settings profile key. It must not be inferred from provider type/model
+  uniqueness because multiple profiles may share both fields.
+- `--provider <profile>` is a one-shot startup override unless paired with `--set-current`.
+- Status rendering may show profile key, provider type, and model, but it must not own switching or
+  setup semantics.
 
 Current model catalog state:
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Priority
 
@@ -115,34 +115,52 @@ Recommended design:
 
 ## Acceptance Criteria
 
-- [ ] Users can list all configured profiles, including multiple profiles with the same provider type.
-- [ ] Users can create multiple profiles with the same provider type and model.
-- [ ] Users can select a profile and have that selection persist across CLI restarts.
-- [ ] Interactive first startup prompts the user to create a profile when none exists.
-- [ ] CLI startup uses the selected profile by default.
-- [ ] Headless startup can select a profile for that process without mutating the persisted default
+- [x] Users can list all configured profiles, including multiple profiles with the same provider type.
+- [x] Users can create multiple profiles with the same provider type and model.
+- [x] Users can select a profile and have that selection persist across CLI restarts.
+- [x] Interactive first startup prompts the user to create a profile when none exists.
+- [x] CLI startup uses the selected profile by default.
+- [x] Headless startup can select a profile for that process without mutating the persisted default
       selected profile.
-- [ ] A separate headless command can change the persisted default profile without starting an agent
+- [x] A separate headless command can change the persisted default profile without starting an agent
       session.
-- [ ] One-shot headless profile selection and persisted default profile switching have distinct
+- [x] One-shot headless profile selection and persisted default profile switching have distinct
       command surfaces and tests.
-- [ ] A reusable interactive profile management TUI exists or is designed for first-run setup and
+- [x] A reusable interactive profile management TUI exists or is designed for first-run setup and
       explicit profile switching.
-- [ ] First-run profile setup supports enough profile management behavior that it can evolve into the
+- [x] First-run profile setup supports enough profile management behavior that it can evolve into the
       shared profile management TUI.
-- [ ] A profile can own its own model and provider settings, including API key references and base URL.
-- [ ] Profile persistence, selection, and invocation override semantics are owned by SDK APIs, not
+- [x] A profile can own its own model and provider settings, including API key references and base URL.
+- [x] Profile persistence, selection, and invocation override semantics are owned by SDK APIs, not
       agent-cli rendering code.
-- [ ] Profile identity is based on the profile key/name, not on provider type or model uniqueness.
-- [ ] Duplicate-profile naming policy is explicit: either require a user-provided name or generate a
+- [x] Profile identity is based on the profile key/name, not on provider type or model uniqueness.
+- [x] Duplicate-profile naming policy is explicit: either require a user-provided name or generate a
       temporary name with a supported rename path.
-- [ ] `/provider` and `/model` no longer create ambiguous state when provider type stays the same but
+- [x] `/provider` and `/model` no longer create ambiguous state when provider type stays the same but
       model/profile changes.
-- [ ] The active profile display includes profile name, provider type, and model.
-- [ ] Switching from `claude-sonnet-4-6` to `claude-opus-4-6` does not mutate the Sonnet profile.
-- [ ] Switching between profiles writes to the same effective settings scope used by next startup.
-- [ ] Agent invocation APIs can later accept an explicit profile key without depending on TUI-only
+- [x] The active profile display includes profile name, provider type, and model.
+- [x] Switching from `claude-sonnet-4-6` to `claude-opus-4-6` does not mutate the Sonnet profile.
+- [x] Switching between profiles writes to the same effective settings scope used by next startup.
+- [x] Agent invocation APIs can later accept an explicit profile key without depending on TUI-only
       state.
+
+## Result
+
+Implemented the provider-profile switching batch:
+
+- SDK provider common APIs now own generated profile-name suggestions. The setup flow suggests a
+  sanitized model-derived key and appends numeric suffixes for duplicate keys.
+- First-run interactive setup and `/provider add` use the same SDK setup flow and can create multiple
+  profiles for the same provider type/model without overwriting the existing profile.
+- Explicit headless setup keeps the caller-provided `--configure-provider <profile>` key.
+- `--provider <profile>` remains a one-shot invocation override, while the paired
+  `--provider <profile> --set-current` form persists the selected default and exits before starting
+  an agent session.
+- `/provider use <profile>` persists the selected profile through the effective settings adapter and
+  requests a restart so the next session reads the same profile.
+- The TUI status area displays active profile key, provider type, and model when those values are
+  available.
+- No config-shape migration was required. Profile key remains the stable profile identity.
 
 ## Verification Plan
 

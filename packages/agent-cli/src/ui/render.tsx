@@ -20,6 +20,8 @@ export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
   providerOverride?: string | undefined;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
   modelId?: string;
   language?: string;
   permissionMode?: TPermissionMode;

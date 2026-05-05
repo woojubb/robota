@@ -33,6 +33,8 @@ interface IProps {
   cwd: string;
   provider: IAIProvider;
   providerOverride?: string | undefined;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
   modelId?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
@@ -275,6 +277,8 @@ function AppInner(
         cwd={cwd}
         permissionMode={permissionMode}
         modelId={props.modelId}
+        providerProfileName={props.providerProfileName}
+        providerType={props.providerType}
         sessionId={sessionId}
         messageCount={history.length}
         isThinking={isThinking}
