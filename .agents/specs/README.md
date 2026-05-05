@@ -8,6 +8,7 @@ Package-specific specs are owned by each package at `packages/<name>/docs/SPEC.m
 | Spec                                                           | Scope                                                                                 |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | (See `packages/*/docs/SPEC.md` for package-level specs)        | Per-package contracts                                                                 |
+| [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md)                     | Repository-level cross-package architecture map and boundary audit                    |
 | [agent-invocation-router.md](agent-invocation-router.md)       | Agent command descriptors, deterministic invocation routing, and claim guards         |
 | [background-task-layer.md](background-task-layer.md)           | Generic background task lifecycle, composition, runners, and TUI/transport projection |
 | [command-inventory.md](command-inventory.md)                   | Built-in command ownership, lifecycle, model visibility, and host effect surfaces     |

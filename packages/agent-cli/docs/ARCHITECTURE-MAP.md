@@ -1,12 +1,12 @@
 # Agent CLI Architecture Map
 
-Source-verified against `develop` commit `6c05ddd04` and the
-`feat/cli-at-file-reference-import` working tree on 2026-05-05.
+Source-verified against `develop` commit `f9e388fd7` and the
+`docs/system-architecture-map-audit` working tree on 2026-05-05.
 
-This document is the LLM-scannable master map for how `@robota-sdk/agent-cli` is
-assembled. Package `SPEC.md` files remain the source of truth for ownership
-contracts; this map shows the actual composition path and records layer audit
-findings that should be fixed in follow-up work.
+This document is the LLM-scannable companion detail map for how `@robota-sdk/agent-cli` is
+assembled. The repository-wide master map lives at `.agents/specs/ARCHITECTURE-MAP.md`. Package
+`SPEC.md` files remain the source of truth for ownership contracts; this map shows the concrete CLI
+composition path and records CLI layer audit findings that should be fixed in follow-up work.
 
 ## Reading Order
 
@@ -19,6 +19,19 @@ findings that should be fixed in follow-up work.
    adapter, or command host contract.
 6. Use [Layering Audit](#layering-audit) before deciding whether a concern belongs in CLI, SDK,
    a command package, provider package, runtime, sessions, or core.
+7. Use [Repository System Architecture Map](../../../.agents/specs/ARCHITECTURE-MAP.md) as the
+   repo-wide master map before changing package boundaries outside the CLI detail path.
+
+## Repository Architecture Relationship
+
+This file is the companion detail map for the `@robota-sdk/agent-cli` startup path, TUI hooks,
+command-layer inventory, and CLI-specific audits. The repository-wide master map lives at
+`.agents/specs/ARCHITECTURE-MAP.md` and includes the broader agent, DAG, MCP, app, and deployment
+structure.
+
+If a future CLI feature integrates DAG orchestration or MCP behavior, update both maps in the same
+PR: this detail map for the concrete CLI composition path, and the master map for repo-wide package
+ownership and dependency direction.
 
 ## Target Architecture
 
@@ -629,6 +642,8 @@ Update this document in the same PR whenever a change affects any of these:
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive vs non-interactive execution mode flags or transport behavior;
 - package dependencies among CLI, SDK, command packages, provider packages, runtime, sessions, tools, or core.
+- any future CLI composition of DAG/MCP/deployment capabilities. In that case, also update the
+  repository-level architecture map.
 
 Before merging a CLI architecture change:
 
