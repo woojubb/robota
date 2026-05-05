@@ -46,6 +46,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
 - **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
 - **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
+- **Sandbox Hydration** — Snapshot-capable sandbox clients persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
 - **Permissions** — 3-step evaluation (deny list, allow list, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
@@ -104,7 +105,7 @@ const session = new InteractiveSession({
   context,
   projectInfo,
   sessionStore, // SDK-owned project-local persistence facade
-  resumeSessionId, // Session ID to restore (optional)
+  resumeSessionId, // Session ID to restore, including sandbox snapshot when available
   forkSession, // Session ID to fork from (optional)
   permissionMode: 'default',
   maxTurns: 10,
@@ -321,6 +322,8 @@ const session = new InteractiveSession({
 ```
 
 `E2BSandboxClient` is a structural adapter owned by `agent-tools`, and it does not make `e2b` a dependency of `agent-sdk`. Install and create the concrete provider SDK in the application layer, then pass the adapter into `InteractiveSession`. `workspaceManifest` also uses the `agent-tools` contract; SDK applies it once before constructing the underlying `Session`.
+
+When `sessionStore` and a snapshot-capable `sandboxClient` are both provided, `InteractiveSession.shutdown()` stores `sandboxSnapshotId` in the session record. A later non-fork `resumeSessionId` restore calls `sandboxClient.restore(snapshotId)` before saved messages are injected back into the `Session`. Forked sessions intentionally do not hydrate the previous sandbox reference because provider pause/resume references can be one-to-one.
 
 ## Subagent Sessions
 

@@ -26,6 +26,7 @@ describe('session persistence facade', () => {
       createdAt: '2026-05-05T00:00:00.000Z',
       updatedAt: '2026-05-05T00:01:00.000Z',
       messages: [createUserMessage('hello'), createAssistantMessage('first answer\nwith newline')],
+      sandboxSnapshotId: 'sandbox-snapshot-one',
     });
     store.save({
       id: 'session_two',
@@ -38,6 +39,7 @@ describe('session persistence facade', () => {
     expect(resolveLatestSessionId(store, cwd)).toBe('session_two');
     expect(resolveSessionIdByIdOrName(store, 'first')).toBe('session_one');
     expect(resolveSessionIdByIdOrName(store, 'session_two')).toBe('session_two');
+    expect(store.load('session_one')?.sandboxSnapshotId).toBe('sandbox-snapshot-one');
     expect(listResumableSessionSummaries(store, cwd)).toEqual([
       {
         id: 'session_two',

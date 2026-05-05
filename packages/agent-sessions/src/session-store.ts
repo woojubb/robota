@@ -44,6 +44,8 @@ export interface ISessionRecord {
   usedMemoryReferences?: unknown[];
   /** SDK-owned context reference inventory for resume/debugging. */
   contextReferences?: unknown[];
+  /** Provider sandbox snapshot identifier for workspace hydration on resume. */
+  sandboxSnapshotId?: string;
 }
 
 /** Minimal persistence port consumed by Session. */
