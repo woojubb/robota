@@ -1,5 +1,7 @@
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type {
+  IDagOrchestrationAssetContentDownloadInfo,
+  IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationCreateRunInput,
   IDagOrchestrationHttpClient,
   IDagOrchestrationHttpClientConfig,
@@ -96,6 +98,27 @@ export class DagOrchestrationHttpClient implements IDagOrchestrationHttpClient {
 
   public async getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse> {
     return this.request(`/v1/dag/runs/${encodeURIComponent(dagRunId)}/result`, 'GET');
+  }
+
+  public async uploadAsset(
+    input: IDagOrchestrationAssetUploadRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request('/v1/dag/assets', 'POST', input);
+  }
+
+  public async getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/dag/assets/${encodeURIComponent(assetId)}`, 'GET');
+  }
+
+  public getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo {
+    return {
+      assetId,
+      url: `${this.baseUrl}/v1/dag/assets/${encodeURIComponent(assetId)}/content`,
+      method: 'GET',
+      responseType: 'binary',
+      contentTypeHeader: 'Content-Type',
+      contentDispositionHeader: 'Content-Disposition',
+    };
   }
 
   public async createRunDraft(

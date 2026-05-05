@@ -119,6 +119,35 @@ async function postJson(
   };
 }
 
+async function getJson(
+  baseUrl: string,
+  path: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`${baseUrl}${path}`);
+  return {
+    status: response.status,
+    body: (await response.json()) as Record<string, unknown>,
+  };
+}
+
+async function getBinary(
+  baseUrl: string,
+  path: string,
+): Promise<{
+  status: number;
+  contentType: string | null;
+  disposition: string | null;
+  bytes: Uint8Array;
+}> {
+  const response = await fetch(`${baseUrl}${path}`);
+  return {
+    status: response.status,
+    contentType: response.headers.get('content-type'),
+    disposition: response.headers.get('content-disposition'),
+    bytes: new Uint8Array(await response.arrayBuffer()),
+  };
+}
+
 describe('asset routes', () => {
   it('uploads to runtime before storing and returning the orchestrator asset reference', async () => {
     const runtime = await startRuntime();
@@ -167,6 +196,98 @@ describe('asset routes', () => {
       const errors = body.errors as Array<{ code: string }>;
       expect(errors[0].code).toBe('DAG_RUNTIME_ASSET_UPLOAD_FAILED');
       expect(assetStore.savedInput).toBeUndefined();
+    } finally {
+      await orchestrator.close();
+      await runtime.close();
+    }
+  });
+
+  it('rejects invalid upload envelopes before runtime upload', async () => {
+    const runtime = await startRuntime();
+    const assetStore = new CapturingAssetStore();
+    const app = express();
+    app.use(express.json());
+    registerAssetRoutes(app, assetStore, runtime.baseUrl);
+    const orchestrator = await startApp(app);
+
+    try {
+      const { status, body } = await postJson(orchestrator.baseUrl, '/v1/dag/assets', {
+        fileName: 'photo.png',
+        mediaType: 'image/png',
+      });
+
+      expect(status).toBe(400);
+      expect(body.ok).toBe(false);
+      const errors = body.errors as Array<{ code: string; detail: string }>;
+      expect(errors[0]).toEqual({
+        code: 'DAG_VALIDATION_ASSET_BASE64_REQUIRED',
+        detail: 'base64Data is required',
+        retryable: false,
+      });
+      expect(assetStore.savedInput).toBeUndefined();
+    } finally {
+      await orchestrator.close();
+      await runtime.close();
+    }
+  });
+
+  it('returns asset metadata through the shared success envelope', async () => {
+    const runtime = await startRuntime();
+    const assetStore = new CapturingAssetStore();
+    const app = express();
+    app.use(express.json());
+    registerAssetRoutes(app, assetStore, runtime.baseUrl);
+    const orchestrator = await startApp(app);
+
+    try {
+      const { status, body } = await getJson(orchestrator.baseUrl, '/v1/dag/assets/local-asset-1');
+
+      expect(status).toBe(200);
+      expect(body.ok).toBe(true);
+      const data = body.data as {
+        asset: {
+          referenceType: string;
+          assetId: string;
+          mediaType: string;
+          uri: string;
+          name: string;
+          sizeBytes: number;
+          runtimeAssetId?: string;
+        };
+      };
+      expect(data.asset).toEqual({
+        referenceType: 'asset',
+        assetId: 'local-asset-1',
+        mediaType: 'image/png',
+        uri: `${orchestrator.baseUrl}/v1/dag/assets/local-asset-1/content`,
+        name: 'photo.png',
+        sizeBytes: 4,
+        runtimeAssetId: 'runtime-asset-1',
+      });
+    } finally {
+      await orchestrator.close();
+      await runtime.close();
+    }
+  });
+
+  it('streams asset content with transport-owned headers', async () => {
+    const runtime = await startRuntime();
+    const assetStore = new CapturingAssetStore();
+    const app = express();
+    app.use(express.json());
+    registerAssetRoutes(app, assetStore, runtime.baseUrl);
+    const orchestrator = await startApp(app);
+
+    try {
+      const response = await getBinary(
+        orchestrator.baseUrl,
+        '/v1/dag/assets/local-asset-1/content',
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.contentType).toContain('image/png');
+      expect(response.disposition).toBe('inline; filename="photo.png"');
+      expect(Array.from(response.bytes)).toEqual([1, 2, 3, 4]);
     } finally {
       await orchestrator.close();
       await runtime.close();

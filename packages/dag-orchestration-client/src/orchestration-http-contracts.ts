@@ -66,6 +66,41 @@ export interface IDagOrchestrationCreateRunInput {
   readonly partialRun?: IPartialRunRequest;
 }
 
+export interface IDagOrchestrationAssetUploadRequest {
+  readonly fileName: string;
+  readonly mediaType: string;
+  readonly base64Data: string;
+}
+
+export interface IDagOrchestrationAssetReference extends IDagOrchestrationJsonObject {
+  readonly referenceType: 'asset';
+  readonly assetId: string;
+  readonly mediaType: string;
+  readonly uri: string;
+  readonly name: string;
+  readonly sizeBytes: number;
+  readonly runtimeAssetId?: string;
+}
+
+export interface IDagOrchestrationAssetData extends IDagOrchestrationJsonObject {
+  readonly asset: IDagOrchestrationAssetReference;
+}
+
+export interface IDagOrchestrationAssetSuccessPayload extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationAssetData;
+}
+
+export interface IDagOrchestrationAssetContentDownloadInfo extends IDagOrchestrationJsonObject {
+  readonly assetId: string;
+  readonly url: string;
+  readonly method: 'GET';
+  readonly responseType: 'binary';
+  readonly contentTypeHeader: 'Content-Type';
+  readonly contentDispositionHeader: 'Content-Disposition';
+}
+
 export type TDagOrchestrationCreateRunDraftRequest = ISaveRunDraftInput;
 
 export type TDagOrchestrationReplaceRunDraftRequest = Omit<ISaveRunDraftInput, 'draftId'>;
@@ -122,6 +157,9 @@ export interface IDagOrchestrationHttpClient {
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
+  uploadAsset(input: IDagOrchestrationAssetUploadRequest): Promise<IDagOrchestrationHttpResponse>;
+  getAssetMetadata(assetId: string): Promise<IDagOrchestrationHttpResponse>;
+  getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo;
   createRunDraft(
     input: TDagOrchestrationCreateRunDraftRequest,
   ): Promise<IDagOrchestrationHttpResponse>;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  IDagOrchestrationAssetContentDownloadInfo,
+  IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationHttpClient,
   IDagOrchestrationOverwriteRunDraftNodeResultRequest,
   IDagOrchestrationPublishedWorkflowRunRequest,
@@ -94,6 +96,36 @@ class FakeDagClient implements IDagOrchestrationHttpClient {
   public async getRunResult(dagRunId: string) {
     this.calls.push({ method: 'getRunResult', payload: { dagRunId } });
     return { ok: true, status: 200, payload: { ok: true, status: 200, data: { run: {} } } };
+  }
+
+  public async uploadAsset(input: IDagOrchestrationAssetUploadRequest) {
+    this.calls.push({ method: 'uploadAsset', payload: input });
+    return {
+      ok: true,
+      status: 201,
+      payload: { ok: true, status: 201, data: { asset: { assetId: 'asset-1' } } },
+    };
+  }
+
+  public async getAssetMetadata(assetId: string) {
+    this.calls.push({ method: 'getAssetMetadata', payload: { assetId } });
+    return {
+      ok: true,
+      status: 200,
+      payload: { ok: true, status: 200, data: { asset: { assetId } } },
+    };
+  }
+
+  public getAssetContentDownloadInfo(assetId: string): IDagOrchestrationAssetContentDownloadInfo {
+    this.calls.push({ method: 'getAssetContentDownloadInfo', payload: { assetId } });
+    return {
+      assetId,
+      url: `http://test.invalid/v1/dag/assets/${assetId}/content`,
+      method: 'GET',
+      responseType: 'binary',
+      contentTypeHeader: 'Content-Type',
+      contentDispositionHeader: 'Content-Disposition',
+    };
   }
 
   public async createRunDraft(input: TDagOrchestrationCreateRunDraftRequest) {
