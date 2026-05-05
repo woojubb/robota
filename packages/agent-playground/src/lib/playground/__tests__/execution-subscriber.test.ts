@@ -13,14 +13,11 @@ import type {
   IBlockTreeNode,
   IRealTimeBlockMetadata,
 } from '../block-tracking/types';
-
 type TEventName = Parameters<IEventEmitterPlugin['on']>[0];
 type TTestEventData = Partial<IEventEmitterEventData> | Partial<IEventEmitterHierarchicalEventData>;
-
 class EventEmitterDouble implements IEventEmitterPlugin {
   private listeners = new Map<TEventName, Map<string, TEventEmitterListener>>();
   private nextId = 0;
-
   on(eventType: TEventName, listener: TEventEmitterListener): string {
     this.nextId += 1;
     const id = `${eventType}:${this.nextId}`;
@@ -84,9 +81,7 @@ function createCollectorDouble(): ICollectorDouble {
     collectBlock(message: IBlockMessage): void {
       collected.push(message);
     },
-    updateBlock(): void {
-      // ExecutionSubscriber uses updateRealTimeBlock.
-    },
+    updateBlock(): void {},
     updateRealTimeBlock(blockId: string, updates: Partial<IRealTimeBlockMetadata>): void {
       realtimeUpdates.push({ blockId, updates });
     },
@@ -112,9 +107,7 @@ function createCollectorDouble(): ICollectorDouble {
     createGroupBlock(): IBlockMessage {
       throw new Error('createGroupBlock is not used by ExecutionSubscriber');
     },
-    removeBlock(): void {
-      // Not used by ExecutionSubscriber.
-    },
+    removeBlock(): void {},
     getStats() {
       return {
         total: collected.length,
@@ -123,15 +116,19 @@ function createCollectorDouble(): ICollectorDouble {
         rootBlocks: collected.filter((block) => !block.blockMetadata.parentId).length,
       };
     },
-    addListener(): void {
-      // Not used by ExecutionSubscriber.
-    },
-    removeListener(): void {
-      // Not used by ExecutionSubscriber.
-    },
+    addListener(): void {},
+    removeListener(): void {},
   };
 
   return { collector, collected, realtimeUpdates };
+}
+
+function createSubscriberFixture() {
+  const emitter = new EventEmitterDouble();
+  const collectorDouble = createCollectorDouble();
+  const subscriber = new ExecutionSubscriber(collectorDouble.collector);
+  subscriber.initialize(emitter);
+  return { emitter, subscriber, ...collectorDouble };
 }
 
 describe('ExecutionSubscriber', () => {
@@ -144,11 +141,7 @@ describe('ExecutionSubscriber', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-02T03:04:05.000Z'));
     vi.spyOn(Math, 'random').mockReturnValue(0.123456789);
-
-    const emitter = new EventEmitterDouble();
-    const { collector, collected, realtimeUpdates } = createCollectorDouble();
-    const subscriber = new ExecutionSubscriber(collector);
-    subscriber.initialize(emitter);
+    const { emitter, collected, realtimeUpdates } = createSubscriberFixture();
 
     await emitter.emit(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, {
       executionId: 'tool-1',
@@ -208,11 +201,7 @@ describe('ExecutionSubscriber', () => {
   });
 
   it('captures tool progress updates with parsed execution steps', async () => {
-    const emitter = new EventEmitterDouble();
-    const { collector, collected, realtimeUpdates } = createCollectorDouble();
-    const subscriber = new ExecutionSubscriber(collector);
-    subscriber.initialize(emitter);
-
+    const { emitter, collected, realtimeUpdates } = createSubscriberFixture();
     await emitter.emit(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, {
       executionId: 'tool-progress',
       data: { toolName: 'download' },
@@ -253,11 +242,7 @@ describe('ExecutionSubscriber', () => {
   });
 
   it('creates hierarchy blocks for team and agent execution lifecycle events', async () => {
-    const emitter = new EventEmitterDouble();
-    const { collector, collected, realtimeUpdates } = createCollectorDouble();
-    const subscriber = new ExecutionSubscriber(collector);
-    subscriber.initialize(emitter);
-
+    const { emitter, collected, realtimeUpdates } = createSubscriberFixture();
     await emitter.emit(EVENT_EMITTER_EVENTS.EXECUTION_START, {
       executionId: 'team-1',
       executionLevel: 0,
@@ -303,19 +288,13 @@ describe('ExecutionSubscriber', () => {
   });
 
   it('clears active executions on dispose so later completions are ignored', async () => {
-    const emitter = new EventEmitterDouble();
-    const { collector, realtimeUpdates } = createCollectorDouble();
-    const subscriber = new ExecutionSubscriber(collector);
-    subscriber.initialize(emitter);
-
+    const { emitter, realtimeUpdates, subscriber } = createSubscriberFixture();
     await emitter.emit(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, {
       executionId: 'tool-1',
       data: { toolName: 'search' },
     });
     subscriber.dispose();
-    await emitter.emit(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, {
-      executionId: 'tool-1',
-    });
+    await emitter.emit(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, { executionId: 'tool-1' });
 
     expect(realtimeUpdates).toEqual([]);
   });
