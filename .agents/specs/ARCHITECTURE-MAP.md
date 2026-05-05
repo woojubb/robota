@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `refactor/agent-playground-project-browser` commit `4b453f4a2`
+Source-verified against `refactor/agent-playground-project-browser` commit `976594c4b`
 on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
