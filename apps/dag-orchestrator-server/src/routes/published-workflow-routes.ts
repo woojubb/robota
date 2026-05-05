@@ -1,6 +1,7 @@
 import type { Request, Response, Router } from 'express';
 import { toProblemDetails, type IProblemDetails } from '@robota-sdk/dag-api';
 import type { IDagDefinition, IAssetStore, IStoragePort, TPortPayload } from '@robota-sdk/dag-core';
+import type { IDagOrchestrationPublishedWorkflowRunSuccessPayload } from '@robota-sdk/dag-orchestration-client';
 import type { OrchestratorRunService } from '@robota-sdk/dag-orchestrator';
 import {
   HTTP_ACCEPTED,
@@ -34,24 +35,15 @@ interface IWorkflowRunRouteContext {
   body: TWorkflowRequestValue | undefined;
 }
 
-interface IWorkflowRouteSuccess {
-  ok: true;
-  status: number;
-  data: {
-    dagRunId: string;
-    preparationId: string;
-    dagId: string;
-    version: number;
-  };
-}
-
 interface IWorkflowRouteFailure {
   ok: false;
   status: number;
   errors: IProblemDetails[];
 }
 
-type TWorkflowRouteResult = IWorkflowRouteSuccess | IWorkflowRouteFailure;
+type TWorkflowRouteResult =
+  | IDagOrchestrationPublishedWorkflowRunSuccessPayload
+  | IWorkflowRouteFailure;
 type TPreparedWorkflowRunDefinition =
   | { ok: true; definition: IDagDefinition; input: TPortPayload }
   | IWorkflowRouteFailure;
