@@ -4,6 +4,7 @@ import type { ISessionLogEntry } from './session-log-replay.js';
 export interface ISessionReplayValidationIssue {
   code:
     | 'PROVIDER_RESPONSE_RAW_MISSING'
+    | 'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING'
     | 'PROVIDER_RESPONSE_NORMALIZED_MISSING'
     | 'TOOL_RESULT_MISSING'
     | 'PAYLOAD_REFERENCE_INVALID';
@@ -46,6 +47,7 @@ interface IProviderReplayRequest {
 
 interface IProviderReplayEventIndex {
   requests: Map<string, IProviderReplayRequest>;
+  nativeRawPayloads: Set<string>;
   rawResponses: Set<string>;
   normalizedResponses: Set<string>;
 }
@@ -64,6 +66,7 @@ interface IToolReplayEventIndex {
 function createProviderReplayEventIndex(): IProviderReplayEventIndex {
   return {
     requests: new Map<string, IProviderReplayRequest>(),
+    nativeRawPayloads: new Set<string>(),
     rawResponses: new Set<string>(),
     normalizedResponses: new Set<string>(),
   };
@@ -92,6 +95,12 @@ function collectProviderReplayEvent(
   }
   if (entry.event === 'provider_response_raw') {
     events.rawResponses.add(key.key);
+  }
+  if (
+    entry.event === 'provider_native_raw_payload' &&
+    (entry.payloadKind === 'response' || entry.payloadKind === 'stream_event')
+  ) {
+    events.nativeRawPayloads.add(key.key);
   }
   if (entry.event === 'provider_response_normalized') {
     events.normalizedResponses.add(key.key);
@@ -122,6 +131,15 @@ function appendProviderReplayIssues(
   issues: ISessionReplayValidationIssue[],
 ): void {
   for (const [key, request] of events.requests) {
+    if (!events.nativeRawPayloads.has(key)) {
+      issues.push({
+        code: 'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING',
+        message: `Provider request ${key} has no provider-native raw response or stream payload event.`,
+        eventIndex: request.index,
+        executionId: request.executionId,
+        round: request.round,
+      });
+    }
     if (!events.rawResponses.has(key)) {
       issues.push({
         code: 'PROVIDER_RESPONSE_RAW_MISSING',

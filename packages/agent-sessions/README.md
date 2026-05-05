@@ -114,6 +114,7 @@ Streaming text deltas are written to append-only JSONL session logs as `text_del
 `Session.run()` forwards core execution events into the session logger through `onExecutionEvent`. Current events include:
 
 - `provider_request`
+- `provider_native_raw_payload`
 - `provider_stream_raw_delta`
 - `provider_response_raw`
 - `provider_response_normalized`
@@ -124,7 +125,7 @@ Streaming text deltas are written to append-only JSONL session logs as `text_del
 - `tool_message_committed`
 - `history_mutation`
 
-`FileSessionLogger` redacts common secret fields before writing logs and stores large fields as content-addressed JSON payload references under `{sessionId}.payloads/`. `session-log-replay` exports replay readers and validators that reconstruct chat history from `history_mutation` and report missing provider/tool terminal events.
+`FileSessionLogger` redacts common secret fields before writing logs and stores large fields as content-addressed JSON payload references under `{sessionId}.payloads/`. `session-log-replay` exports replay readers and validators that reconstruct chat history from `history_mutation` and report missing provider/tool terminal events. Replay validation now also requires provider-native raw response or stream payload coverage for each `provider_request`.
 
 A migration script is available for upgrading session records from older formats. See the package source for details.
 

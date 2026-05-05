@@ -10,6 +10,7 @@ This package owns Gemma model-family provider behavior for Robota when Gemma mod
 - Does not own generic OpenAI-compatible transport conversion, response parsing, stream assembly, or endpoint probing. Those belong to `agent-provider-openai-compatible`.
 - Does not own OpenAI-branded account semantics or OpenAI defaults. Those belong to `agent-provider-openai`.
 - Does not own session persistence, tool execution, or CLI command routing.
+- Owns provider-native replay payload selection for Gemma OpenAI-compatible Chat Completions calls. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import OpenAI SDK types.
 
 ## Architecture Overview
 
@@ -66,6 +67,7 @@ src/
 - Future Gemma variants can extend projection behavior inside this package without changing generic OpenAI-compatible transport.
 - Native and XML-like execution artifact projection is enabled only when declared tools are present. It validates executable calls against the request's tool names, strips Gemma XML artifact wrappers from user-facing text, and does not add CLI/TUI, command, or domain-tool-specific branches.
 - `GemmaProvider.getCapabilities()` reports Robota function calling support through OpenAI-compatible tools and provider-native web search/fetch as unsupported. LM Studio/Gemma tool-call text projection is not a provider-native hosted web capability. Request-level `IChatOptions.nativeWebTools` must fail before transport execution.
+- When `IChatOptions.onProviderNativeRawPayload` is provided, `GemmaProvider` emits `request`, non-streaming `response`, and ordered streaming `stream_event` payloads from the OpenAI-compatible Chat Completions SDK path before Gemma projection or universal normalization. Session logging owns redaction and payload externalization.
 
 ## Error Taxonomy
 

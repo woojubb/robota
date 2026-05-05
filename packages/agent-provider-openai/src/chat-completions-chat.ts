@@ -1,5 +1,6 @@
 import type OpenAI from 'openai';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import { observeProviderNativeRawPayloadStream } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { IOpenAIError, IOpenAILogData } from './types/api-types';
 import type { IOpenAIProviderOptions } from './types';
@@ -34,7 +35,19 @@ export async function chatWithOpenAIChatCompletions(
     }
 
     await logPayload(input, requestParams, 'chat');
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'chat-completions',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const response = await client.chat.completions.create(requestParams);
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'chat-completions',
+      payloadKind: 'response',
+      payload: response,
+    });
     return input.responseParser.parseResponse(response);
   } catch (error) {
     const openaiError = error as IOpenAIError;
@@ -55,12 +68,22 @@ export async function* chatStreamWithOpenAIChatCompletions(
     };
 
     await logPayload(input, requestParams, 'stream');
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'chat-completions',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const stream = await client.chat.completions.create(
       requestParams,
       input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
     );
 
-    for await (const chunk of stream) {
+    for await (const chunk of observeProviderNativeRawPayloadStream(stream, {
+      provider: 'openai',
+      apiSurface: 'chat-completions',
+      onProviderNativeRawPayload: input.chatOptions?.onProviderNativeRawPayload,
+    })) {
       const universalMessage = input.responseParser.parseStreamingChunk(chunk);
       if (universalMessage) {
         yield universalMessage;
@@ -107,13 +130,23 @@ async function chatWithStreamingAssembly(
 ): Promise<TUniversalMessage> {
   try {
     await logPayload(input, requestParams, 'stream');
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'openai',
+      apiSurface: 'chat-completions',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const stream = await client.chat.completions.create(
       requestParams,
       input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
     );
 
     return assembleOpenAIStream({
-      stream,
+      stream: observeProviderNativeRawPayloadStream(stream, {
+        provider: 'openai',
+        apiSurface: 'chat-completions',
+        onProviderNativeRawPayload: input.chatOptions?.onProviderNativeRawPayload,
+      }),
       onTextDelta: input.chatOptions?.onTextDelta ?? input.onTextDelta,
       signal: input.chatOptions?.signal,
     });

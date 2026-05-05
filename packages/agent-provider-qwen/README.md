@@ -32,6 +32,10 @@ When `webFetch` is enabled, the provider sends both `web_search` and `web_extrac
 
 `getCapabilities()` reports whether Qwen provider-native `web_search` and `web_extractor` are supported and enabled. Generic session setup can request `configureNativeWebTools({ webSearch: true })`; Qwen-specific `builtInWebTools` remains the explicit profile configuration surface for hosted web tools.
 
+## Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits exact Qwen/DashScope request, response, and stream event payloads for both Chat Completions and the Qwen Responses API path. `agent-core` routes these provider-owned callbacks into provider-neutral `provider_native_raw_payload` execution events for replay-grade session logs.
+
 ## Provider Definition
 
 `createQwenProviderDefinition()` exposes setup metadata so CLI and SDK composition can configure Qwen profiles without adding Qwen-specific branches. The default CLI build can prompt for the DashScope API key, model, and base URL using this provider definition.

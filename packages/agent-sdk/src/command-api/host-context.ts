@@ -1,4 +1,5 @@
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import type { ISessionReplayValidationResult } from '@robota-sdk/agent-sessions';
 import type {
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
@@ -40,8 +41,15 @@ export interface ICommandSessionRuntime {
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
 }
 
+export interface ICommandSessionReplayValidationReport {
+  logFile: string;
+  entryCount: number;
+  validation: ISessionReplayValidationResult;
+}
+
 export interface ICommandHostContext {
   clearConversationHistory?(): void;
+  validateCurrentSessionReplayLog?(): ICommandSessionReplayValidationReport;
   getSession(): ICommandSessionRuntime;
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;

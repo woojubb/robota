@@ -190,6 +190,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
 - **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, provider-native web capability/enabled state, full enriched input, and current message history before the model call.
 - **`provider_request` event** -- Recorded before each provider call. Includes the provider-neutral request envelope: provider, model, messages, tool schemas/options, round, and execution identifiers.
+- **`provider_native_raw_payload` event** -- Recorded when a provider package reports an SDK-native request, response, or stream event through `IChatOptions.onProviderNativeRawPayload`. Includes provider, optional API surface, payload kind, sequence, payload, round, and execution identifiers. This event is provider-owned at capture time; Session only persists it through the existing logger.
 - **`provider_stream_raw_delta` event** -- Recorded for each provider text delta observed by the core streaming callback. Includes sequence, delta, round, and execution identifiers.
 - **`provider_response_raw` event** -- Recorded immediately after provider `chat()` returns and before core validates/extracts the assistant message. Includes the provider-returned response object and `responseKind`.
 - **`provider_response_normalized` event** -- Recorded immediately after the provider adapter returns a `TUniversalMessage`. Includes the normalized assistant message, tool call count, provider/model metadata, round, and execution identifiers.
@@ -206,7 +207,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 `FileSessionLogger` applies recursive secret redaction before persistence. Keys such as `apiKey`, `authorization`, `accessToken`, `refreshToken`, `secret`, `password`, and `xApiKey` are replaced with `[REDACTED]`. Log fields larger than the inline threshold are stored as content-addressed JSON payload files in `{sessionId}.payloads/{sha256}.json`, and the JSONL line stores an `IExternalPayloadReference`.
 
-`session-log-replay.ts` owns replay readers and validators. `replaySessionLogEntries()` reconstructs provider messages and chat history from `history_mutation` events. `validateSessionReplayLogEntries()` reports missing raw provider responses, missing normalized responses, unmatched tool requests/results, and invalid external payload references.
+`session-log-replay.ts` owns replay readers and validators. `replaySessionLogEntries()` reconstructs provider messages and chat history from `history_mutation` events. `validateSessionReplayLogEntries()` reports missing provider-native raw payloads, missing provider-normalized raw responses, missing normalized responses, unmatched tool requests/results, and invalid external payload references. Every `provider_request` must be paired with at least one `provider_native_raw_payload` event for the same `executionId`/`round` whose `payloadKind` is `response` or `stream_event`, plus the existing `provider_response_raw` and `provider_response_normalized` events.
 
 ## Hook Lifecycle
 

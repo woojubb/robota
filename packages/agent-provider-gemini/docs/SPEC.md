@@ -20,6 +20,7 @@
 - Does not own `TUniversalMessage`, `IChatOptions`, `IToolSchema`, `IAssistantMessage`, `IUserMessage`, `ISystemMessage`, `IToolMessage`, `TUniversalMessagePart`, or image generation interfaces; imports them from `@robota-sdk/agent-core`.
 - Does not own session management, team collaboration, or workflow concerns.
 - Keeps all Google-specific transport behavior explicit and provider-scoped.
+- Owns provider-native replay payload selection for Google GenAI `models.generateContent` and `models.generateContentStream`. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import Google GenAI SDK types.
 
 ## Architecture Overview
 
@@ -108,6 +109,16 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 - **Safety and thinking configuration**: `safetySettings` and `thinkingConfig` are passed through to Gemini request config. Per-request `IChatOptions.google.safetySettings` overrides provider-level safety defaults.
 - **AbstractAIProvider contract**: New lifecycle or capability methods added to `AbstractAIProvider` in `@robota-sdk/agent-core` can be overridden in `GeminiProvider`.
 - **Provider definition composition**: Consumers such as `agent-cli` can inject `createGeminiProviderDefinition()` alongside other provider definitions. Generic CLI/SDK code resolves `gemini` and alias `google` through `IProviderDefinition`, not hardcoded provider-name branches.
+
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, `GeminiProvider` emits provider-native payload events before normalization:
+
+- `payloadKind: "request"` for the exact `GenerateContentParameters` request sent to `models.generateContent` or `models.generateContentStream`.
+- `payloadKind: "response"` for non-streaming `GenerateContentResponse` values.
+- `payloadKind: "stream_event"` for each streaming `GenerateContentResponse` chunk.
+
+The concrete provider instance owns the `provider` label, so the deprecated `GoogleProvider` compatibility subclass emits `provider: "google"` while sharing Gemini transport behavior. Core/session/CLI layers must treat payloads as opaque and rely on session logging for redaction/externalization.
 
 ## Error Taxonomy
 

@@ -19,6 +19,7 @@
 - Does not implement image generation capabilities (unlike the Google provider).
 - Does not own session management, team collaboration, or workflow concerns.
 - Keeps all Anthropic-specific transport behavior explicit and provider-scoped; no leaking of Anthropic SDK types through the public API surface beyond `IAnthropicProviderOptions.client`.
+- Owns provider-native replay payload selection for Anthropic Messages streaming. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import Anthropic SDK stream event types.
 
 ## Architecture Overview
 
@@ -43,6 +44,15 @@ The provider MUST always use the streaming API (`messages.stream` / SSE) for all
 **Reason:** Anthropic SDK enforces a 10-minute timeout on non-streaming requests. Agentic workflows with tool loops can exceed this limit. Streaming connections have no such timeout.
 
 **Implementation:** The non-streaming code path (`client.messages.create` without streaming) is removed. All calls go through `chatWithStreaming`, passing a no-op callback when `onTextDelta` is not available.
+
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, `AnthropicProvider` emits provider-native payload events before normalization:
+
+- `payloadKind: "request"` for the exact `messages.create` streaming request params sent to the Anthropic SDK.
+- `payloadKind: "stream_event"` for each Anthropic SDK stream event observed by the assembler or direct `chatStream()` path.
+
+Because Anthropic chat always uses streaming, a separate non-streaming `response` payload is not required for replay validation; ordered `stream_event` payloads are the native provider response stream. The package owns the `anthropic-messages` API surface label and payload selection. Core/session/CLI layers must treat payloads as opaque and rely on session logging for redaction/externalization.
 
 ## Output Token Limits
 

@@ -43,3 +43,4 @@ DAG_SEEDANCE_DEFAULT_MODEL=seedance-1-5-pro-251215
 
 - This package focuses on media capability contracts and does not modify `IAIProvider`.
 - Provider returns reference-oriented outputs (`asset` / `uri`) and never raw binary buffers.
+- Chat replay payload hooks apply only to chat providers. This media-only package does not emit `provider_native_raw_payload` events unless it later implements the chat provider contract.

@@ -58,7 +58,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 - **Agent Batch Jobs** — `Agent({ jobs: [...] })` starts explicit parallel subagent requests deterministically
 - **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
 - **Project Memory** — Command-driven memory capture and retrieval surfaces
-- **Replay Events** — Session execution can forward provider/tool boundary events into append-only logs
+- **Replay Events** — Session execution can forward provider/tool boundary events and provider-native raw payload events into append-only logs
 - **Bundle Plugin System** — Install and manage reusable extensions packaged as bundle plugins
 
 ## Architecture
@@ -211,6 +211,10 @@ resolves the active provider from settings, reads provider-owned fallback metada
 `IProviderDefinition` records, and can invoke provider-owned catalog refresh hooks. The CLI/TUI must
 only render command results and must not own provider model lists.
 
+For `/validate-session`, the session command module calls SDK session command APIs to locate and
+validate the current JSONL session log. Hosts may override `validateCurrentSessionReplayLog()` in
+`ICommandHostContext` when they own a non-file-backed session log store.
+
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource
 
 These classes provide slash command discovery and aggregation for clients that expose a command palette or autocomplete UI.
@@ -311,6 +315,12 @@ Built-in agents: `general-purpose` (full tool access), `Explore` (read-only, Hai
 `createAgentTool()` wraps subagent creation into a tool the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child.
 
 Background subagent lifecycle events are persisted through `InteractiveSession` when an SDK session persistence facade is configured. Streaming chunks are written to append-only JSONL logs/transcripts rather than rewriting the main session JSON per token.
+
+## Replay-Grade Session Events
+
+`Session.run()` forwards core execution events through the session logger. Current events include provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
+
+Provider-native payload events are emitted by concrete provider packages through `IChatOptions.onProviderNativeRawPayload`, then redacted and externalized by the session logger before they are written to disk. The SDK exposes session command APIs so command modules such as `/validate-session` can validate replay coverage without adding file-log logic to CLI/TUI hosts.
 
 ## Hook Executors (SDK-Specific)
 

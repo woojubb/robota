@@ -64,6 +64,10 @@ provider.onServerToolUse = (name, input) => {
 
 Tool calls are handled automatically by the Robota execution loop. The provider converts between the universal message format and Anthropic's `input_schema`-based tool format.
 
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits Anthropic request parameters and raw stream events. `agent-core` routes these provider-owned callbacks into provider-neutral `provider_native_raw_payload` execution events for replay-grade session logs.
+
 ### Provider Definition
 
 `createAnthropicProviderDefinition()` exposes setup metadata for branch-free CLI and SDK provider composition. Consumers can configure Anthropic alongside OpenAI-compatible, Gemma, Qwen, and Gemini providers without adding Anthropic-specific UI branches.

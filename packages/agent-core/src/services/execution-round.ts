@@ -5,6 +5,7 @@
  */
 
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
+import type { TProviderNativeRawPayloadCallback } from '../interfaces/provider';
 import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
@@ -226,6 +227,7 @@ export async function executeRound(
   conversationStore.beginAssistant();
 
   let streamDeltaSequence = 0;
+  let providerNativeRawPayloadSequence = 0;
   const wrappedOnTextDelta = (delta: string): void => {
     fullContext.onExecutionEvent?.('provider_stream_raw_delta', {
       executionId,
@@ -237,6 +239,17 @@ export async function executeRound(
     streamDeltaSequence++;
     conversationStore.appendStreaming(delta);
     runTextDelta?.(delta);
+  };
+  const wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback = (event): void => {
+    const sequence = event.sequence ?? providerNativeRawPayloadSequence;
+    providerNativeRawPayloadSequence = Math.max(providerNativeRawPayloadSequence, sequence + 1);
+    fullContext.onExecutionEvent?.('provider_native_raw_payload', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      ...event,
+      sequence,
+    } as TExecutionEventData);
   };
 
   let response: TUniversalMessage;
@@ -253,6 +266,7 @@ export async function executeRound(
     response = await callProviderWithCache(conversationMessages, config, resolved, cacheService, {
       signal: fullContext.signal,
       onTextDelta: wrappedOnTextDelta,
+      onProviderNativeRawPayload: wrappedOnProviderNativeRawPayload,
     });
     fullContext.onExecutionEvent?.('provider_response_raw', {
       executionId,

@@ -14,3 +14,4 @@ Commands:
 - `/rename <name>` emits `session-renamed` with the trimmed session name.
 - `/resume` emits `session-picker-requested` so the host can show its saved-session picker.
 - `/cost` shows the current session id and message count.
+- `/validate-session` validates the current JSONL session log for replay-grade provider/tool coverage through SDK session command APIs.

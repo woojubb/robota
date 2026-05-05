@@ -11,6 +11,7 @@ import {
   assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
   convertToOpenAICompatibleTools,
+  observeProviderNativeRawPayloadStream,
 } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IOpenAICompatibleError } from '@robota-sdk/agent-provider-openai-compatible';
 import type { IGemmaProviderOptions } from './types';
@@ -96,7 +97,19 @@ export class GemmaProvider extends AbstractAIProvider {
         );
       }
 
+      options?.onProviderNativeRawPayload?.({
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+        payload: requestParams,
+      });
       const response = await this.client.chat.completions.create(requestParams);
+      options?.onProviderNativeRawPayload?.({
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        payloadKind: 'response',
+        payload: response,
+      });
       return parseGemmaChatCompletion(response, this.logger, options);
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
@@ -133,10 +146,22 @@ export class GemmaProvider extends AbstractAIProvider {
 
     try {
       const requestParams = this.buildStreamingRequestParams(messages, options);
+      options?.onProviderNativeRawPayload?.({
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+        payload: requestParams,
+      });
       const stream = await this.client.chat.completions.create(requestParams);
       const projectionState = createGemmaStreamProjectionState(this.logger, options?.tools);
 
-      for await (const chunk of this.streamWithAbort(stream, options?.signal)) {
+      const observedStream = observeProviderNativeRawPayloadStream(stream, {
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        onProviderNativeRawPayload: options?.onProviderNativeRawPayload,
+      });
+
+      for await (const chunk of this.streamWithAbort(observedStream, options?.signal)) {
         for (const message of projectGemmaStreamChunk(chunk, projectionState)) {
           yield message;
         }
@@ -249,13 +274,23 @@ export class GemmaProvider extends AbstractAIProvider {
     }
 
     try {
+      options.onProviderNativeRawPayload?.({
+        provider: 'gemma',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+        payload: requestParams,
+      });
       const stream = await this.client.chat.completions.create(
         requestParams,
         options.signal ? { signal: options.signal } : undefined,
       );
       const projector = new GemmaReasoningProjector();
       const result = await assembleOpenAICompatibleStream({
-        stream,
+        stream: observeProviderNativeRawPayloadStream(stream, {
+          provider: 'gemma',
+          apiSurface: 'chat-completions',
+          onProviderNativeRawPayload: options.onProviderNativeRawPayload,
+        }),
         onTextDelta: options.onTextDelta,
         signal: options.signal,
         textProjector: (text) => projector.project(text),

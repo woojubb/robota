@@ -60,7 +60,7 @@ agent-remote-client                    (HTTP client, no agent-sdk dependency)
 
 Background tasks are tracked alongside the session through runtime snapshots and append-only JSONL event/transcript streams. High-frequency streaming output is stored in logs/transcripts, while session JSON stores resumable task state and references.
 
-Session logs also receive provider/tool execution boundary events from `agent-core`: provider request envelopes, normalized provider responses, assistant commits, tool batch starts, tool execution requests, and tool execution results. These events are a replay-provenance layer, not yet the full deterministic `/resume` replay engine.
+Session logs also receive provider/tool execution boundary events from `agent-core`: provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant commits, tool batch starts, tool execution requests, and tool execution results. Provider-native payload selection remains owned by concrete provider packages; `agent-core` only routes the provider-neutral callback event.
 
 ```
 User input
