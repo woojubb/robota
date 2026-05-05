@@ -144,16 +144,16 @@ flowchart TD
 
 DAG stack ownership:
 
-| Concern                                                           | Current owner                                 | Target owner                                                       |
-| ----------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| DAG domain types, reducers, ports, error contracts                | `dag-core`                                    | Same.                                                              |
-| Prompt translation and run lifecycle services                     | `dag-orchestrator`                            | Same.                                                              |
-| API controller request/response mapping                           | `dag-api`                                     | Same.                                                              |
-| Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-orchestration-client`                    | Dedicated thin client package.                                     |
-| Full orchestrator REST endpoint contract inventory                | Split between `dag-api` and server route code | Central contract owner before new client tools; see `ORCH-BL-007`. |
-| HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                     | Same imperative shell.                                             |
-| Human operational CLI                                             | `dag-cli`                                     | Same thin client.                                                  |
-| Agent/MCP operational surface                                     | `dag-mcp-server`                              | Same thin client.                                                  |
+| Concern                                                           | Current owner                                | Target owner                                             |
+| ----------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| DAG domain types, reducers, ports, error contracts                | `dag-core`                                   | Same.                                                    |
+| Prompt translation and run lifecycle services                     | `dag-orchestrator`                           | Same.                                                    |
+| API controller request/response mapping                           | `dag-api`                                    | Same.                                                    |
+| Shared operational REST client for `dag-cli` and `dag-mcp-server` | `dag-orchestration-client`                   | Dedicated thin client package.                           |
+| Full orchestrator REST endpoint contract inventory                | Documented in `dag-orchestrator-server` SPEC | Extract blocked endpoint groups before new client tools. |
+| HTTP routing, WebSocket bridge, persistence adapter wiring        | `dag-orchestrator-server`                    | Same imperative shell.                                   |
+| Human operational CLI                                             | `dag-cli`                                    | Same thin client.                                        |
+| Agent/MCP operational surface                                     | `dag-mcp-server`                             | Same thin client.                                        |
 
 Operational clients must use `dag-orchestration-client` instead of importing `dag-api` for HTTP
 client behavior. `dag-api` remains responsible for controller contracts and composition; the client
@@ -254,7 +254,7 @@ Follow-up:
 
 ### SYS-AUDIT-003: Orchestrator REST contract coverage is split across owners
 
-Status: accepted debt.
+Status: resolved by `ORCH-BL-007` inventory, with extraction follow-ups.
 
 Current source:
 
@@ -267,16 +267,21 @@ Problem:
 
 Definition, node catalog, and run lifecycle endpoints are reusable through the shared client. Other
 server-owned endpoints such as run drafts, published workflows, assets, cost metadata, admin, and
-ComfyUI proxy routes still have local route-level contracts. Adding CLI/MCP operations for those
-without a central contract owner would duplicate request/response semantics.
+ComfyUI proxy routes have explicit ownership classifications in the server SPEC.
 
-Target:
+Resolution:
 
-Create a complete orchestrator REST contract inventory before expanding operational clients.
+`apps/dag-orchestrator-server/docs/SPEC.md` is the source-backed endpoint inventory. CLI/MCP
+expansion is allowed only for endpoint groups marked package-owned/active. Blocked groups are split
+into follow-up extraction tasks.
 
 Follow-up:
 
-- `.agents/tasks/ORCH-BL-007-orchestrator-rest-contract-coverage.md`
+- `.agents/tasks/ORCH-BL-008-run-draft-operational-client-contracts.md`
+- `.agents/tasks/ORCH-BL-009-published-workflow-operational-client-contracts.md`
+- `.agents/tasks/ORCH-BL-010-asset-operational-client-contracts.md`
+- `.agents/tasks/ORCH-BL-011-cost-meta-contract-normalization.md`
+- `.agents/tasks/ORCH-BL-012-run-progress-websocket-contract-tests.md`
 
 ### SYS-AUDIT-004: DAG operational tools are not part of `agent-cli`
 
