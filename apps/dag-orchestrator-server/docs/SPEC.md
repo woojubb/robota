@@ -54,6 +54,24 @@ Express Application (http.Server)
 
 **Design patterns:** Dependency injection via constructor/function parameters. Route modules receive pre-configured service instances. No service locator or global state.
 
+### Deployment Contract
+
+`dag-orchestrator-server` is a long-running Node process or container deployment unit. It must not
+be treated as a serverless function-only backend for `dag-studio` because it owns WebSocket upgrade
+handling, ComfyUI proxying, and persistence adapter wiring.
+
+Production hosts must provide:
+
+- A public HTTPS origin reachable from `dag-studio`.
+- WebSocket upgrade support for `/v1/dag/runs/:id/ws`.
+- `BACKEND_URL` pointing to a ComfyUI-compatible runtime (`dag-runtime-server`, ComfyUI, or a managed GPU runtime).
+- `CORS_ORIGINS` containing the deployed `dag-studio` origin.
+- Persistent storage roots or cloud-backed adapter replacements for assets, DAG definitions, run drafts, and cost metadata.
+
+Local filesystem storage is acceptable for local development and single-node prototypes. Multi-node
+production deployments must replace or back these roots with shared persistent storage before
+scaling horizontally.
+
 ## Type Ownership
 
 This application does not define SSOT domain types. All domain types are imported from upstream packages.
@@ -385,8 +403,8 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | Variable                 | Default                           | Description                                |
 | ------------------------ | --------------------------------- | ------------------------------------------ |
 | `ORCHESTRATOR_PORT`      | `3012`                            | HTTP server listen port                    |
-| `BACKEND_URL`            | `http://127.0.0.1:3011`           | ComfyUI-compatible backend URL             |
-| `CORS_ORIGINS`           | `http://localhost:3000`           | Comma-separated allowed CORS origins       |
+| `BACKEND_URL`            | `http://127.0.0.1:8188`           | ComfyUI-compatible backend URL             |
+| `CORS_ORIGINS`           | `*`                               | Comma-separated allowed CORS origins       |
 | `ASSET_STORAGE_ROOT`     | `.local-assets` (relative to cwd) | Directory for local asset file storage     |
 | `COST_META_DIR`          | `data` (relative to cwd)          | Directory for cost meta JSON storage       |
 | `DAG_STORAGE_ROOT`       | `.dag-storage` (relative to cwd)  | Directory for DAG definition file storage  |
