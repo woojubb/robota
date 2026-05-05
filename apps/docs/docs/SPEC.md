@@ -20,6 +20,12 @@ VitePress static site generator with Vue 3 runtime. Build pipeline:
 
 Auto-sidebar generation via `vite-plugin-vitepress-auto-sidebar`. No custom TypeScript source code; the app is purely a documentation build pipeline.
 
+## Deployment
+
+Production documentation is deployed by Cloudflare Pages when `main` is updated. The expected build command is `pnpm docs:build` and the output directory is `apps/docs/.vitepress/dist`.
+
+Manual deployment uses the root `pnpm docs:deploy` script, which builds the docs and uploads the generated output with Wrangler to the Cloudflare Pages project `robota`. Manual deployment requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`; set `CLOUDFLARE_PAGES_BRANCH` only when intentionally creating a branch preview deployment.
+
 ## Type Ownership
 
 This app defines no TypeScript types. It is a documentation-only application with no runtime type surface.
@@ -28,11 +34,12 @@ This app defines no TypeScript types. It is a documentation-only application wit
 
 This is a private app (`"private": true`) with no programmatic API. Its output is a static HTML site.
 
-| Artifact | Kind | Description |
-|----------|------|-------------|
-| Static site | build output | Rendered documentation pages |
-| `scripts/copy-docs.js` | build script | Documentation aggregation from workspace packages |
-| `scripts/copy-public.js` | build script | Public asset copying |
+| Artifact                                   | Kind          | Description                                       |
+| ------------------------------------------ | ------------- | ------------------------------------------------- |
+| Static site                                | build output  | Rendered documentation pages                      |
+| `scripts/copy-docs.js`                     | build script  | Documentation aggregation from workspace packages |
+| `scripts/copy-public.js`                   | build script  | Public asset copying                              |
+| `scripts/docs/deploy-cloudflare-pages.mjs` | deploy script | Manual Cloudflare Pages direct upload helper      |
 
 ## Extension Points
 

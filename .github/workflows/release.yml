@@ -52,7 +52,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  deploy-docs:
+  verify-docs:
     needs: release
     runs-on: ubuntu-latest
     steps:
@@ -77,9 +77,3 @@ jobs:
 
       - name: Build docs
         run: pnpm run docs:build
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./apps/docs/.vitepress/dist
