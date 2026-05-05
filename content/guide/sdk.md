@@ -212,20 +212,20 @@ const session = new InteractiveSession({
 
 `InteractiveSession` provides these capabilities:
 
-| Feature                    | Description                                                                                                                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                                         |
-| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                                                |
-| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                                          |
-| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                                                       |
-| **Session persistence**    | Conversations can be saved/loaded through SDK-owned session store facades. Records include `history` (`IHistoryEntry[]`) plus background task snapshots for restoration and debugging |
-| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history                         |
-| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                                   |
-| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                              |
-| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                                      |
-| **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                                   |
-| **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                                   |
-| **Sandbox execution**      | Optional sandbox clients route Bash and core file tools through an injected execution plane; workspace manifests can prepare fresh sandbox files/directories before session creation  |
+| Feature                    | Description                                                                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                                                |
+| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                                                       |
+| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                                                 |
+| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                                                              |
+| **Session persistence**    | Conversations can be saved/loaded through SDK-owned session store facades. Records include `history` (`IHistoryEntry[]`), background task snapshots, and sandbox snapshot ids when available |
+| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On non-fork resume, sandbox hydration runs before `session.injectMessage()` restores AI context                |
+| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                                          |
+| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                                     |
+| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                                             |
+| **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                                          |
+| **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                                          |
+| **Sandbox execution**      | Optional sandbox clients route Bash and core file tools through an injected execution plane; workspace manifests can prepare fresh sandbox files/directories before session creation         |
 
 ## Sandbox Execution
 
@@ -258,6 +258,8 @@ const session = new InteractiveSession({
 ```
 
 `E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-sdk` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK. `workspaceManifest` is also owned by `agent-tools`; SDK only applies it during async interactive session initialization. Inline/local files, directories, and Git repositories are supported by the generic applicator. Cloud mount entries return `unsupported` until the chosen sandbox adapter implements native mounting.
+
+If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`, `InteractiveSession.shutdown()` saves `sandboxSnapshotId` into the session record. A later non-fork `resumeSessionId` restore hydrates that sandbox reference before saved messages are replayed. Forked sessions start from a fresh execution environment unless the host explicitly supplies its own sandbox reference.
 
 ## Subagent Sessions
 

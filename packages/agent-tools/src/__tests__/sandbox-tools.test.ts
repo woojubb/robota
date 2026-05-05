@@ -128,4 +128,42 @@ describe('sandbox-aware built-in tools', () => {
     expect(paused).toBe(true);
     expect(restored).toBe(true);
   });
+
+  it('uses E2B createSnapshot and snapshot restore factories when available', async () => {
+    let createdFromSnapshotId = '';
+    const restoredSandbox = {
+      sandboxId: 'sandbox_from_snapshot',
+      commands: {
+        run: async () => ({ stdout: 'restored', stderr: '', exitCode: 0 }),
+      },
+      files: {
+        read: async () => 'restored file',
+        write: async () => undefined,
+      },
+    };
+    const e2bSandbox = {
+      sandboxId: 'sandbox_1',
+      commands: {
+        run: async () => ({ stdout: 'ok', stderr: '', exitCode: 0 }),
+      },
+      files: {
+        read: async () => 'file content',
+        write: async () => undefined,
+      },
+      createSnapshot: async () => ({ snapshotId: 'snap_1' }),
+    };
+    const sandboxClient = new E2BSandboxClient({
+      sandbox: e2bSandbox,
+      createSandboxFromSnapshot: async (snapshotId: string) => {
+        createdFromSnapshotId = snapshotId;
+        return restoredSandbox;
+      },
+    });
+
+    await expect(sandboxClient.snapshot()).resolves.toBe('snap_1');
+    await sandboxClient.restore('snap_1');
+
+    await expect(sandboxClient.readFile('/workspace/file.txt')).resolves.toBe('restored file');
+    expect(createdFromSnapshotId).toBe('snap_1');
+  });
 });

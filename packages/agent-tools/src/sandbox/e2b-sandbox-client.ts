@@ -22,26 +22,35 @@ interface IE2BFiles {
   write(path: string, content: string): Promise<void>;
 }
 
+interface IE2BSnapshot {
+  snapshotId?: string;
+  id?: string;
+}
+
 export interface IE2BSandboxAdapter {
   sandboxId?: string;
   commands: IE2BCommands;
   files: IE2BFiles;
   pause?(): Promise<boolean | string | void>;
   connect?(): Promise<IE2BSandboxAdapter>;
+  createSnapshot?(): Promise<IE2BSnapshot>;
 }
 
 export interface IE2BSandboxClientOptions {
   sandbox: IE2BSandboxAdapter;
   connectSandbox?: (sandboxId: string) => Promise<IE2BSandboxAdapter>;
+  createSandboxFromSnapshot?: (snapshotId: string) => Promise<IE2BSandboxAdapter>;
 }
 
 export class E2BSandboxClient implements ISandboxClient {
   private sandbox: IE2BSandboxAdapter;
   private readonly connectSandbox?: (sandboxId: string) => Promise<IE2BSandboxAdapter>;
+  private readonly createSandboxFromSnapshot?: (snapshotId: string) => Promise<IE2BSandboxAdapter>;
 
   constructor(options: IE2BSandboxClientOptions) {
     this.sandbox = options.sandbox;
     this.connectSandbox = options.connectSandbox;
+    this.createSandboxFromSnapshot = options.createSandboxFromSnapshot;
   }
 
   async run(command: string, options?: ISandboxRunOptions): Promise<ISandboxRunResult> {
@@ -68,6 +77,14 @@ export class E2BSandboxClient implements ISandboxClient {
   }
 
   async snapshot(): Promise<string> {
+    if (this.sandbox.createSnapshot) {
+      const snapshot = await this.sandbox.createSnapshot();
+      const snapshotId = snapshot.snapshotId ?? snapshot.id;
+      if (!snapshotId) {
+        throw new Error('E2B createSnapshot() did not return a snapshot id.');
+      }
+      return snapshotId;
+    }
     const sandboxId = this.sandbox.sandboxId;
     if (!sandboxId) {
       throw new Error('E2B sandboxId is required to create a resumable sandbox snapshot.');
@@ -80,6 +97,10 @@ export class E2BSandboxClient implements ISandboxClient {
   }
 
   async restore(snapshotId: string): Promise<void> {
+    if (this.createSandboxFromSnapshot) {
+      this.sandbox = await this.createSandboxFromSnapshot(snapshotId);
+      return;
+    }
     if (this.connectSandbox) {
       this.sandbox = await this.connectSandbox(snapshotId);
       return;
