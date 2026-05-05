@@ -2,7 +2,7 @@
 
 - **Status**: in-progress
 - **Created**: 2026-03-27
-- **Branch**: refactor/agent-playground-code-analyzer
+- **Branch**: refactor/agent-playground-accessibility-ui
 - **Scope**: packages/agent-playground
 - **Priority**: low
 
@@ -21,6 +21,8 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - [x] Split `demo-execution-data.ts` into a stable directory module.
 - [x] Add characterization tests for `code-analyzer`.
 - [x] Split `code-analyzer.ts` into a stable directory module.
+- [x] Add characterization tests for `components/ui/accessibility`.
+- [x] Split `components/ui/accessibility.tsx` into a stable directory module.
 - [x] Update package SPEC and central architecture map for the new module boundaries.
 - [ ] Continue with the remaining >300 line files in follow-up decomposition slices.
 
@@ -46,7 +48,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - `execution-tree-visualizer.tsx` (321 lines)
 - `individual-plugin-block.tsx` (318 lines)
 - `chat-interface.tsx` (307 lines)
-- `components/ui/accessibility.tsx` (303 lines)
 
 ### lib/playground
 
@@ -79,6 +80,11 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 - Added characterization coverage for analyzer diagnostics, environment warnings, and parsed agent
   metadata.
 - Updated package SPEC and the central architecture map for the code analyzer module.
+- Completed the fourth low-risk slice: `components/ui/accessibility.tsx` now delegates through a
+  same-name directory module with separate primitives and keyboard/focus hooks.
+- Added characterization coverage for skip links, screen-reader text, live regions, keyboard
+  navigation, and announcer timing.
+- Updated package SPEC and the central architecture map for the shared accessibility primitives.
 
 ## Decisions
 
@@ -87,6 +93,7 @@ changing runtime behavior. Decompose one responsibility at a time under characte
   files with same-name directory modules.
 - Apply the same stable-import directory module pattern to demo execution data.
 - Apply the same stable-import directory module pattern to code analyzer utilities.
+- Apply the same stable-import directory module pattern to accessibility UI primitives.
 - Keep architecture documentation centralized in `.agents/specs/ARCHITECTURE-MAP.md`; package
   SPEC only records package-local contract details.
 
@@ -104,6 +111,6 @@ changing runtime behavior. Decompose one responsibility at a time under characte
 
 ## Result
 
-This task remains open because 22 source files still exceed the guideline. The current branch
-delivers the third tested decomposition slice and extends the repeatable pattern for follow-up
+This task remains open because 21 source files still exceed the guideline. The current branch
+delivers the fourth tested decomposition slice and extends the repeatable pattern for follow-up
 files.
