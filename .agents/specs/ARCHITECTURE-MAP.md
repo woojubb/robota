@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` commit `4a1535ff9` on 2026-05-05.
+Source-verified against `develop` commit `8c26d74a` on 2026-05-05.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -15,11 +15,13 @@ separate ownership silos.
    command modules, providers, runtime, sessions, or transports.
 3. Read [DAG Orchestration Stack](#dag-orchestration-stack) before changing `dag-cli`,
    `dag-mcp-server`, `dag-api`, `dag-orchestrator-server`, or ComfyUI-facing runtime boundaries.
-4. Read [Documentation Deployment Stack](#documentation-deployment-stack) before changing docs
+4. Read [DAG Service Deployment Stack](#dag-service-deployment-stack) before changing DAG frontend,
+   orchestrator, runtime, storage, or hosting boundaries.
+5. Read [Documentation Deployment Stack](#documentation-deployment-stack) before changing docs
    build, release, or deploy behavior.
-5. Use [Target Architecture](#target-architecture) and [Architecture Audit](#architecture-audit)
+6. Use [Target Architecture](#target-architecture) and [Architecture Audit](#architecture-audit)
    before introducing a new package edge or moving a contract.
-6. Use [Document Distribution Policy](#document-distribution-policy) before adding another
+7. Use [Document Distribution Policy](#document-distribution-policy) before adding another
    architecture file.
 
 ## Document Distribution Policy
@@ -166,6 +168,57 @@ client behavior. `dag-api` remains responsible for controller contracts and comp
 package remains thin and depends on endpoint domain owners such as `dag-core` and `dag-cost` for
 payload domain types.
 
+## DAG Service Deployment Stack
+
+The DAG service deploys as three independent units. Keep this topology centralized here; app-local
+docs only record the environment variables and runtime constraints owned by each app.
+
+```mermaid
+flowchart TD
+  Browser["Browser"]
+  Studio["dag-studio\nNext.js frontend host"]
+  CLI["dag-cli / dag-mcp-server\noperational clients"]
+  Client["dag-orchestration-client"]
+  Orchestrator["dag-orchestrator-server\nlong-running Express + ws service"]
+  Runtime["ComfyUI-compatible runtime\ndag-runtime-server or GPU ComfyUI host"]
+  OrchestratorStorage["Persistent orchestrator storage\nDAG definitions, run drafts,\nassets, cost metadata"]
+  RuntimeStorage["Runtime/model storage\nprovider credentials + generated assets"]
+
+  Browser --> Studio
+  Studio -- "REST + WebSocket\nNEXT_PUBLIC_DAG_API_BASE_URL" --> Orchestrator
+  CLI --> Client
+  Client --> Orchestrator
+  Orchestrator -- "ComfyUI Prompt API + backend WS\nBACKEND_URL" --> Runtime
+  Orchestrator --> OrchestratorStorage
+  Runtime --> RuntimeStorage
+```
+
+Deployment ownership:
+
+| Deploy unit                 | Runtime shape                                             | Required contract                                                                                                       |
+| --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `dag-studio`                | Next.js frontend host                                     | Browser-visible `NEXT_PUBLIC_DAG_API_BASE_URL` points at `dag-orchestrator-server`; generic `API_CONFIG` remains local. |
+| `dag-orchestrator-server`   | Long-running Node process or container with WebSocket I/O | `ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, and persistent storage roots are configured by the host.            |
+| `dag-runtime-server`        | Local/dev ComfyUI-compatible Node runtime                 | Serves the Prompt API on `DAG_PORT` and owns node provider API keys for bundled node execution.                         |
+| External ComfyUI/GPU host   | Managed or self-hosted GPU runtime                        | Must expose the ComfyUI Prompt API and compatible WebSocket surface used by the orchestrator.                           |
+| Operational CLI/MCP clients | Local or agent-hosted processes                           | Use `dag-orchestration-client`; never import server route modules or route-local contracts.                             |
+
+Deployment decision:
+
+- Keep `dag-studio` deployable on a frontend platform such as Vercel or Cloudflare's Next.js
+  hosting path.
+- Keep `dag-orchestrator-server` off serverless function-only runtimes. It owns WebSocket upgrade
+  handling, ComfyUI proxying, and local/cloud persistence adapter wiring, so it belongs on a
+  long-running process/container host such as Railway, Fly.io, ECS, or an equivalent Node service
+  platform.
+- Do not collapse the orchestrator into Next.js API routes merely to share a deployment target with
+  `dag-studio`. That would move WebSocket, proxy, and persistence concerns into the frontend shell.
+- Keep `dag-runtime-server` or an external ComfyUI-compatible GPU backend separate from the
+  orchestrator. Production image/video workloads should choose a runtime host based on GPU,
+  cold-start, model-storage, and private-networking requirements.
+- When the frontend is served from HTTPS, run progress must use `wss://` to the orchestrator origin.
+  `dag-designer` derives this from `NEXT_PUBLIC_DAG_API_BASE_URL`.
+
 ## Documentation Deployment Stack
 
 ```mermaid
@@ -213,7 +266,10 @@ Recommended target ownership:
 5. Keep `dag-orchestrator-server` as the imperative shell. Domain rules stay in `dag-core`,
    orchestration use cases stay in `dag-orchestrator`, controller mapping stays in `dag-api`, and
    persistence/runtime technology stays behind adapters.
-6. Keep docs deployment free of source-branch artifacts. Cloudflare Pages owns production deploy
+6. Keep DAG deployment split into frontend, long-running orchestrator, and ComfyUI-compatible
+   runtime units. The frontend may move between frontend hosts, but WebSocket/proxy/persistence
+   ownership stays out of `dag-studio`.
+7. Keep docs deployment free of source-branch artifacts. Cloudflare Pages owns production deploy
    from `main`; manual direct upload is explicit and credential-gated.
 
 ## Architecture Audit
@@ -311,6 +367,23 @@ Status: resolved by `INFRA-BL-006`.
 
 The source tree now points docs production deployment to Cloudflare Pages. `docs:deploy` is a
 manual Wrangler direct upload helper, and release workflow docs handling is build verification only.
+
+### SYS-AUDIT-006: DAG deployment topology was not centrally documented
+
+Status: resolved by `DAG-BL-012`.
+
+Problem:
+
+The local DAG stack spans `dag-studio`, `dag-orchestrator-server`, and a ComfyUI-compatible runtime,
+but deployment ownership was described only in an active backlog note and stale app-local
+deployment notes. That made it unclear whether the orchestrator should be deployed with the
+frontend, rewritten as Next.js API routes, or hosted as its own process.
+
+Resolution:
+
+The master map now records the three-unit deployment topology and the app-local docs record only
+owned environment variables and runtime constraints. `dag-orchestrator-server` remains a
+long-running Express/WebSocket service, while `dag-studio` remains a thin frontend host.
 
 ## Governance and Update Policy
 
