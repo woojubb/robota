@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import type { IDagOrchestrationHttpClient } from '@robota-sdk/dag-api';
+import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
+import { callDagMcpTool, createDagMcpToolDefinitions } from '../dag-mcp-tools.js';
+
+interface ICapturedCall {
+  readonly method: string;
+  readonly payload?: object;
+}
+
+class FakeDagClient implements IDagOrchestrationHttpClient {
+  public readonly calls: ICapturedCall[] = [];
+
+  public async listDefinitions(input?: { readonly dagId?: string }) {
+    this.calls.push({ method: 'listDefinitions', payload: input });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { items: [] } } };
+  }
+
+  public async getDefinition(dagId: string, version?: number) {
+    this.calls.push({ method: 'getDefinition', payload: { dagId, version } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { definition: {} } } };
+  }
+
+  public async createDefinition(definition: IDagDefinition) {
+    this.calls.push({ method: 'createDefinition', payload: { definition } });
+    return { ok: true, status: 201, payload: { ok: true, status: 201, data: { definition } } };
+  }
+
+  public async updateDraft(input: {
+    readonly dagId: string;
+    readonly version: number;
+    readonly definition: IDagDefinition;
+  }) {
+    this.calls.push({ method: 'updateDraft', payload: input });
+    return {
+      ok: true,
+      status: 200,
+      payload: { ok: true, status: 200, data: { definition: input.definition } },
+    };
+  }
+
+  public async validateDefinition(dagId: string, version: number) {
+    this.calls.push({ method: 'validateDefinition', payload: { dagId, version } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { valid: true } } };
+  }
+
+  public async publishDefinition(dagId: string, version?: number) {
+    this.calls.push({ method: 'publishDefinition', payload: { dagId, version } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { definition: {} } } };
+  }
+
+  public async listNodes() {
+    this.calls.push({ method: 'listNodes' });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: {} } };
+  }
+
+  public async createRun(input: {
+    readonly definition: IDagDefinition;
+    readonly input?: TPortPayload;
+    readonly partialRun?: IPartialRunRequest;
+  }) {
+    this.calls.push({ method: 'createRun', payload: input });
+    return {
+      ok: true,
+      status: 201,
+      payload: { ok: true, status: 201, data: { preparationId: 'prep-1' } },
+    };
+  }
+
+  public async startRun(preparationId: string) {
+    this.calls.push({ method: 'startRun', payload: { preparationId } });
+    return {
+      ok: true,
+      status: 202,
+      payload: { ok: true, status: 202, data: { dagRunId: 'run-1' } },
+    };
+  }
+
+  public async getRunStatus(dagRunId: string) {
+    this.calls.push({ method: 'getRunStatus', payload: { dagRunId } });
+    return {
+      ok: true,
+      status: 200,
+      payload: { ok: true, status: 200, data: { status: 'queued' } },
+    };
+  }
+
+  public async getRunResult(dagRunId: string) {
+    this.calls.push({ method: 'getRunResult', payload: { dagRunId } });
+    return { ok: true, status: 200, payload: { ok: true, status: 200, data: { run: {} } } };
+  }
+}
+
+function createDefinition(): IDagDefinition {
+  return {
+    dagId: 'demo',
+    version: 1,
+    status: 'draft',
+    nodes: [],
+    edges: [],
+  };
+}
+
+describe('DAG MCP tools', () => {
+  it('registers tools for the current orchestrator HTTP surface', () => {
+    const toolNames = createDagMcpToolDefinitions().map((tool) => tool.name);
+
+    expect(toolNames).toEqual([
+      'dag_definitions_list',
+      'dag_definitions_get',
+      'dag_definitions_create',
+      'dag_definitions_update_draft',
+      'dag_definitions_validate',
+      'dag_definitions_publish',
+      'dag_nodes_list',
+      'dag_runs_create',
+      'dag_runs_start',
+      'dag_runs_status',
+      'dag_runs_result',
+    ]);
+  });
+
+  it('dispatches run creation with partial run payloads', async () => {
+    const client = new FakeDagClient();
+    const definition = createDefinition();
+
+    const result = await callDagMcpTool(
+      'dag_runs_create',
+      { definition, input: { prompt: 'hello' }, partialStartNodeId: 'node-a' },
+      client,
+    );
+
+    expect(result.isError).toBe(false);
+    expect(client.calls[0]).toEqual({
+      method: 'createRun',
+      payload: {
+        definition,
+        input: { prompt: 'hello' },
+        partialRun: { startNodeId: 'node-a' },
+      },
+    });
+  });
+
+  it('returns MCP errors without calling the server when required arguments are missing', async () => {
+    const client = new FakeDagClient();
+
+    const result = await callDagMcpTool('dag_definitions_get', {}, client);
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain('dagId is required');
+    expect(client.calls).toHaveLength(0);
+  });
+});
