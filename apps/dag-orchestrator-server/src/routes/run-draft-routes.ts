@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response, Router } from 'express';
+import type { IDagOrchestrationRunDraftSuccessPayload } from '@robota-sdk/dag-orchestration-client';
 import {
   createDefaultDagNodeState,
   overwriteDagNodeExecutionTrace,
@@ -22,8 +23,6 @@ import {
   parseSaveRunDraftBody,
   type IProblemDetails,
 } from './run-draft-route-utils.js';
-
-type TDraftEnvelope = { ok: true; status: number; data: { draft: IRunDraft } };
 
 export function registerRunDraftRoutes(router: Router, store: IRunDraftStore): void {
   router.post('/v1/dag/run-drafts', createRunDraftHandler(store));
@@ -234,7 +233,7 @@ function sendProblem(res: Response, status: number, problem: IProblemDetails): v
 }
 
 function sendDraft(res: Response, status: number, draft: IRunDraft): void {
-  const envelope: TDraftEnvelope = {
+  const envelope: IDagOrchestrationRunDraftSuccessPayload = {
     ok: true,
     status,
     data: { draft },

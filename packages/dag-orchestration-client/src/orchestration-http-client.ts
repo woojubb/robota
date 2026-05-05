@@ -1,4 +1,10 @@
-import type { IDagDefinition, IPartialRunRequest, TPortPayload } from '@robota-sdk/dag-core';
+import type {
+  IDagDefinition,
+  IPartialRunRequest,
+  IRunDraft,
+  ISaveRunDraftInput,
+  TPortPayload,
+} from '@robota-sdk/dag-core';
 
 export type TDagOrchestrationPayloadValue =
   | string
@@ -59,6 +65,25 @@ export interface IDagOrchestrationCreateRunInput {
   readonly partialRun?: IPartialRunRequest;
 }
 
+export type TDagOrchestrationCreateRunDraftRequest = ISaveRunDraftInput;
+
+export type TDagOrchestrationReplaceRunDraftRequest = Omit<ISaveRunDraftInput, 'draftId'>;
+
+export interface IDagOrchestrationOverwriteRunDraftNodeResultRequest {
+  readonly input?: TPortPayload;
+  readonly output: TPortPayload;
+}
+
+export interface IDagOrchestrationRunDraftData extends IDagOrchestrationJsonObject {
+  readonly draft: IRunDraft;
+}
+
+export interface IDagOrchestrationRunDraftSuccessPayload extends IDagOrchestrationHttpPayload {
+  readonly ok: true;
+  readonly status: number;
+  readonly data: IDagOrchestrationRunDraftData;
+}
+
 export interface IDagOrchestrationHttpClient {
   listDefinitions(
     input?: IDagOrchestrationListDefinitionsInput,
@@ -73,6 +98,20 @@ export interface IDagOrchestrationHttpClient {
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
+  createRunDraft(
+    input: TDagOrchestrationCreateRunDraftRequest,
+  ): Promise<IDagOrchestrationHttpResponse>;
+  getRunDraft(draftId: string): Promise<IDagOrchestrationHttpResponse>;
+  replaceRunDraft(
+    draftId: string,
+    input: TDagOrchestrationReplaceRunDraftRequest,
+  ): Promise<IDagOrchestrationHttpResponse>;
+  resetRunDraftNodeResult(draftId: string, nodeId: string): Promise<IDagOrchestrationHttpResponse>;
+  overwriteRunDraftNodeResult(
+    draftId: string,
+    nodeId: string,
+    input: IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  ): Promise<IDagOrchestrationHttpResponse>;
 }
 
 type THttpMethod = 'GET' | 'POST' | 'PUT';
@@ -157,6 +196,46 @@ export class DagOrchestrationHttpClient implements IDagOrchestrationHttpClient {
 
   public async getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse> {
     return this.request(`/v1/dag/runs/${encodeURIComponent(dagRunId)}/result`, 'GET');
+  }
+
+  public async createRunDraft(
+    input: TDagOrchestrationCreateRunDraftRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request('/v1/dag/run-drafts', 'POST', input);
+  }
+
+  public async getRunDraft(draftId: string): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/dag/run-drafts/${encodeURIComponent(draftId)}`, 'GET');
+  }
+
+  public async replaceRunDraft(
+    draftId: string,
+    input: TDagOrchestrationReplaceRunDraftRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/dag/run-drafts/${encodeURIComponent(draftId)}`, 'PUT', input);
+  }
+
+  public async resetRunDraftNodeResult(
+    draftId: string,
+    nodeId: string,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(
+      `/v1/dag/run-drafts/${encodeURIComponent(draftId)}/nodes/${encodeURIComponent(nodeId)}/reset`,
+      'PUT',
+      {},
+    );
+  }
+
+  public async overwriteRunDraftNodeResult(
+    draftId: string,
+    nodeId: string,
+    input: IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  ): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(
+      `/v1/dag/run-drafts/${encodeURIComponent(draftId)}/nodes/${encodeURIComponent(nodeId)}/result`,
+      'PUT',
+      input,
+    );
   }
 
   private async request(

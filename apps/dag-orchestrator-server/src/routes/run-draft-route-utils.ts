@@ -1,10 +1,14 @@
 import type {
   IDagDefinition,
-  IRunDraft,
+  IRunResult,
   TNodeStateMap,
   TPortPayload,
   TPortValue,
 } from '@robota-sdk/dag-core';
+import type {
+  IDagOrchestrationOverwriteRunDraftNodeResultRequest,
+  TDagOrchestrationCreateRunDraftRequest,
+} from '@robota-sdk/dag-orchestration-client';
 import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from './route-utils.js';
 
 export interface IProblemDetails {
@@ -21,11 +25,13 @@ type TRequestBodyValue =
   | TPortValue
   | IDagDefinition
   | TNodeStateMap
-  | IRunDraft['runResult']
-  | TRequestBodyRecord
+  | IRunResult
+  | TPortPayload
+  | IRequestBodyRecord
+  | TRequestBodyValue[]
   | undefined;
 
-interface TRequestBodyRecord {
+interface IRequestBodyRecord {
   [key: string]: TRequestBodyValue;
 }
 
@@ -33,9 +39,9 @@ export function parseSaveRunDraftBody(
   value: TRequestBodyValue,
   instance: string,
 ):
-  | { ok: true; value: Partial<IRunDraft> & { definition: IDagDefinition } }
+  | { ok: true; value: TDagOrchestrationCreateRunDraftRequest }
   | { ok: false; error: IProblemDetails } {
-  if (!isRecord(value) || !isRecord(value.definition)) {
+  if (!isRecord(value) || !isDagDefinition(value.definition)) {
     return { ok: false, error: createInvalidDraftProblem(instance) };
   }
   return {
@@ -45,14 +51,10 @@ export function parseSaveRunDraftBody(
         typeof value.draftId === 'string' && value.draftId.trim().length > 0
           ? value.draftId.trim()
           : undefined,
-      definition: value.definition as object as IDagDefinition,
+      definition: value.definition,
       input: parseOptionalPayload(value.input),
-      nodeStateMap: isRecord(value.nodeStateMap)
-        ? (value.nodeStateMap as object as TNodeStateMap)
-        : undefined,
-      runResult: isRecord(value.runResult)
-        ? (value.runResult as object as IRunDraft['runResult'])
-        : undefined,
+      nodeStateMap: isNodeStateMap(value.nodeStateMap) ? value.nodeStateMap : undefined,
+      runResult: isRunResult(value.runResult) ? value.runResult : undefined,
     },
   };
 }
@@ -61,7 +63,7 @@ export function parseOverwritePayload(
   value: TRequestBodyValue,
   instance: string,
 ):
-  | { ok: true; value: { input?: TPortPayload; output: TPortPayload } }
+  | { ok: true; value: IDagOrchestrationOverwriteRunDraftNodeResultRequest }
   | { ok: false; error: IProblemDetails } {
   if (!isRecord(value)) {
     return { ok: false, error: createInvalidDraftProblem(instance) };
@@ -114,12 +116,39 @@ function createInvalidDraftProblem(instance: string): IProblemDetails {
 }
 
 function parseOptionalPayload(value: TRequestBodyValue): TPortPayload | undefined {
-  if (!isRecord(value)) {
-    return undefined;
-  }
-  return value as object as TPortPayload;
+  return isPortPayload(value) ? value : undefined;
 }
 
-function isRecord(value: TRequestBodyValue): value is TRequestBodyRecord {
+function isRecord(value: TRequestBodyValue): value is IRequestBodyRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isDagDefinition(value: TRequestBodyValue): value is IDagDefinition {
+  return (
+    isRecord(value) &&
+    typeof value.dagId === 'string' &&
+    typeof value.version === 'number' &&
+    typeof value.status === 'string' &&
+    Array.isArray(value.nodes) &&
+    Array.isArray(value.edges)
+  );
+}
+
+function isPortPayload(value: TRequestBodyValue): value is TPortPayload {
+  return isRecord(value);
+}
+
+function isNodeStateMap(value: TRequestBodyValue): value is TNodeStateMap {
+  return isRecord(value);
+}
+
+function isRunResult(value: TRequestBodyValue): value is IRunResult {
+  return (
+    isRecord(value) &&
+    typeof value.dagRunId === 'string' &&
+    typeof value.status === 'string' &&
+    Array.isArray(value.traces) &&
+    Array.isArray(value.nodeErrors) &&
+    typeof value.totalCredits === 'number'
+  );
 }

@@ -6,14 +6,15 @@ Robota API gateway application that serves the dag-designer frontend. It orchest
 
 ## Boundaries
 
-| Responsibility                                                                        | Owner                  | Not This Package                          |
-| ------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------- |
-| Runtime execution (ComfyUI compat)                                                    | `dag-runtime-server`   | Does not execute DAG nodes                |
-| Domain types (`IDagDefinition`, `TRunProgressEvent`, `IAssetStore`, `IRunDraftStore`) | `dag-core`             | Does not define domain types              |
-| Orchestration logic (`OrchestratorRunService`, `PromptOrchestratorService`)           | `dag-orchestrator`     | Does not own orchestration business logic |
-| Controller composition (`DagDesignController`)                                        | `dag-api`              | Does not own controller contracts         |
-| Designer UI                                                                           | `dag-designer` / `web` | Does not own frontend                     |
-| Node definitions                                                                      | `dag-node-*` packages  | Does not define or bundle nodes           |
+| Responsibility                                                                        | Owner                      | Not This Package                          |
+| ------------------------------------------------------------------------------------- | -------------------------- | ----------------------------------------- |
+| Runtime execution (ComfyUI compat)                                                    | `dag-runtime-server`       | Does not execute DAG nodes                |
+| Domain types (`IDagDefinition`, `TRunProgressEvent`, `IAssetStore`, `IRunDraftStore`) | `dag-core`                 | Does not define domain types              |
+| Orchestration logic (`OrchestratorRunService`, `PromptOrchestratorService`)           | `dag-orchestrator`         | Does not own orchestration business logic |
+| Controller composition (`DagDesignController`)                                        | `dag-api`                  | Does not own controller contracts         |
+| Operational HTTP request/response aliases                                             | `dag-orchestration-client` | Does not define reusable client contracts |
+| Designer UI                                                                           | `dag-designer` / `web`     | Does not own frontend                     |
+| Node definitions                                                                      | `dag-node-*` packages      | Does not define or bundle nodes           |
 
 ## Architecture Overview
 
@@ -25,7 +26,7 @@ Express Application (http.Server)
 ├── Robota API Routes (/v1/dag/*)
 │   ├── definition-routes  → DagDesignController (dag-api)
 │   ├── run-routes         → OrchestratorRunService (dag-orchestrator)
-│   ├── run-draft-routes   → IRunDraftStore + dag-core reducers
+│   ├── run-draft-routes   → IRunDraftStore + dag-core reducers + dag-orchestration-client aliases
 │   ├── published-workflow-routes → IStoragePort + OrchestratorRunService
 │   ├── asset-routes       → IAssetStore (dag-core)
 │   ├── admin-routes       → DagDesignController (dag-api)
@@ -66,6 +67,8 @@ This application does not define SSOT domain types. All domain types are importe
 
 Helper functions and HTTP status constants in `route-utils.ts` are locally defined but not exported as SSOT types.
 
+Run draft HTTP request and success-envelope aliases are imported from `@robota-sdk/dag-orchestration-client`.
+
 ## Endpoint Contract Ownership Inventory
 
 Robota endpoints can be exposed by operational clients only when their request/response contracts
@@ -77,7 +80,7 @@ health, or validated ComfyUI compatibility surfaces.
 | `GET /health`                                                                    | `server.ts`                           | `dag-orchestrator-server`                                         | App-local operational health endpoint; not a CLI/MCP expansion target.                               |
 | Definition CRUD/publish/validate and `GET /v1/dag/nodes`                         | `routes/definition-routes.ts`         | `dag-api` controller contracts + `dag-orchestration-client`       | Package-owned and eligible for operational clients.                                                  |
 | Run create/start/status/result and partial-run request                           | `routes/run-routes.ts`                | `dag-orchestrator` service + `dag-orchestration-client`           | Package-owned and eligible for operational clients.                                                  |
-| Run drafts under `/v1/dag/run-drafts*`                                           | `routes/run-draft-routes.ts`          | `dag-core` domain types + route-local parsers                     | Extract HTTP request/response aliases before CLI/MCP expansion; see `ORCH-BL-008`.                   |
+| Run drafts under `/v1/dag/run-drafts*`                                           | `routes/run-draft-routes.ts`          | `dag-core` domain types + `dag-orchestration-client` HTTP aliases | Package-owned and eligible for operational client expansion.                                         |
 | Published workflow runs `/v1/dag/workflows/:dagId/runs`                          | `routes/published-workflow-routes.ts` | `dag-core` definitions + route-local override/request types       | Extract reusable workflow-run aliases before CLI/MCP expansion; see `ORCH-BL-009`.                   |
 | Assets under `/v1/dag/assets*`                                                   | `routes/asset-routes.ts`              | `dag-core` asset store types + route-local upload envelope        | Extract upload/metadata/content contract aliases before CLI/MCP expansion; see `ORCH-BL-010`.        |
 | Cost metadata under `/v1/cost-meta*`                                             | `routes/cost-meta-routes.ts`          | `dag-cost` domain types + route-local HTTP envelopes              | Normalize/package HTTP envelopes before client expansion; see `ORCH-BL-011`.                         |
@@ -130,13 +133,13 @@ All Robota endpoints use a standard response envelope:
 
 #### Run Draft Routes
 
-| Endpoint                                           | Method | Purpose                                      | Request Body                                                  | Success Response              |
-| -------------------------------------------------- | ------ | -------------------------------------------- | ------------------------------------------------------------- | ----------------------------- |
-| `/v1/dag/run-drafts`                               | POST   | Create or replace execution draft            | `{ draftId?, definition, input?, nodeStateMap?, runResult? }` | `201 { ok, data: { draft } }` |
-| `/v1/dag/run-drafts/:draftId`                      | GET    | Restore execution draft                      | None                                                          | `200 { ok, data: { draft } }` |
-| `/v1/dag/run-drafts/:draftId`                      | PUT    | Replace execution draft                      | `{ definition, input?, nodeStateMap?, runResult? }`           | `200 { ok, data: { draft } }` |
-| `/v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`  | PUT    | Reset one node result and downstream results | None                                                          | `200 { ok, data: { draft } }` |
-| `/v1/dag/run-drafts/:draftId/nodes/:nodeId/result` | PUT    | Manually overwrite one node result           | `{ input?, output }`                                          | `200 { ok, data: { draft } }` |
+| Endpoint                                           | Method | Purpose                                      | Request Body                                          | Success Response                          |
+| -------------------------------------------------- | ------ | -------------------------------------------- | ----------------------------------------------------- | ----------------------------------------- |
+| `/v1/dag/run-drafts`                               | POST   | Create or replace execution draft            | `TDagOrchestrationCreateRunDraftRequest`              | `IDagOrchestrationRunDraftSuccessPayload` |
+| `/v1/dag/run-drafts/:draftId`                      | GET    | Restore execution draft                      | None                                                  | `IDagOrchestrationRunDraftSuccessPayload` |
+| `/v1/dag/run-drafts/:draftId`                      | PUT    | Replace execution draft                      | `TDagOrchestrationReplaceRunDraftRequest`             | `IDagOrchestrationRunDraftSuccessPayload` |
+| `/v1/dag/run-drafts/:draftId/nodes/:nodeId/reset`  | PUT    | Reset one node result and downstream results | None                                                  | `IDagOrchestrationRunDraftSuccessPayload` |
+| `/v1/dag/run-drafts/:draftId/nodes/:nodeId/result` | PUT    | Manually overwrite one node result           | `IDagOrchestrationOverwriteRunDraftNodeResultRequest` | `IDagOrchestrationRunDraftSuccessPayload` |
 
 Run drafts persist execution state separately from `IDagDefinition`. Reset and overwrite operations use dag-core pure reducers and must never mutate stored definition JSON.
 
@@ -337,7 +340,7 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | --------------------------------- | ------------------------------------- | --------------------------------------------------------- |
 | `registerDefinitionRoutes`        | `routes/definition-routes.ts`         | `DagDesignController`, `IAssetStore`                      |
 | `registerRunRoutes`               | `routes/run-routes.ts`                | `OrchestratorRunService`, `IAssetStore`                   |
-| `registerRunDraftRoutes`          | `routes/run-draft-routes.ts`          | `IRunDraftStore`                                          |
+| `registerRunDraftRoutes`          | `routes/run-draft-routes.ts`          | `IRunDraftStore`, `dag-orchestration-client` HTTP aliases |
 | `registerPublishedWorkflowRoutes` | `routes/published-workflow-routes.ts` | `IStoragePort`, `OrchestratorRunService`, `IAssetStore`   |
 | `registerAssetRoutes`             | `routes/asset-routes.ts`              | `IAssetStore`                                             |
 | `registerAdminRoutes`             | `routes/admin-routes.ts`              | `DagDesignController`                                     |

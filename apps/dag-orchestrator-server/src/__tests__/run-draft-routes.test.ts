@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import express from 'express';
+import type { IDagOrchestrationRunDraftSuccessPayload } from '@robota-sdk/dag-orchestration-client';
 import type { IDagDefinition, IRunDraft } from '@robota-sdk/dag-core';
 import { InMemoryRunDraftStore } from '@robota-sdk/dag-adapters-local';
 import { registerRunDraftRoutes } from '../routes/run-draft-routes.js';
@@ -154,14 +155,14 @@ describe('run draft routes', () => {
     });
 
     expect(createResult.status).toBe(201);
-    const created = createResult.body as { ok: true; data: { draft: IRunDraft } };
+    const created = createResult.body as IDagOrchestrationRunDraftSuccessPayload;
     expect(created.data.draft.draftId).toBe('draft-1');
     expect(created.data.draft.definition.dagId).toBe('draft-dag');
     expect(created.data.draft.nodeStateMap.source.executionStatus).toBe('idle');
 
     const getResult = await request('GET', '/v1/dag/run-drafts/draft-1');
     expect(getResult.status).toBe(200);
-    const restored = getResult.body as { ok: true; data: { draft: IRunDraft } };
+    const restored = getResult.body as IDagOrchestrationRunDraftSuccessPayload;
     expect(restored.data.draft.input).toEqual({ prompt: 'hello' });
   });
 
@@ -171,7 +172,7 @@ describe('run draft routes', () => {
     const result = await request('PUT', '/v1/dag/run-drafts/draft-1/nodes/source/reset');
 
     expect(result.status).toBe(200);
-    const envelope = result.body as { ok: true; data: { draft: IRunDraft } };
+    const envelope = result.body as IDagOrchestrationRunDraftSuccessPayload;
     expect(envelope.data.draft.nodeStateMap.source.executionStatus).toBe('idle');
     expect(envelope.data.draft.nodeStateMap.output.executionStatus).toBe('idle');
     expect(envelope.data.draft.nodeStateMap.side.executionStatus).toBe('success');
@@ -187,7 +188,7 @@ describe('run draft routes', () => {
     });
 
     expect(result.status).toBe(200);
-    const envelope = result.body as { ok: true; data: { draft: IRunDraft } };
+    const envelope = result.body as IDagOrchestrationRunDraftSuccessPayload;
     expect(envelope.data.draft.nodeStateMap.source.executionStatus).toBe('success');
     expect(envelope.data.draft.nodeStateMap.source.trace?.output).toEqual({
       text: 'manual result',
