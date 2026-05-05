@@ -1,3 +1,8 @@
+---
+name: api-spec-management
+description: Manage API specifications for apps with external HTTP, WebSocket, gRPC, or other API endpoints, including endpoint additions, request or response shape changes, OpenAPI documentation, and schema synchronization.
+---
+
 # api-spec-management
 
 API specification management for applications with external endpoints.
