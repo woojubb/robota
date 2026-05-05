@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import http from 'node:http';
 import {
   FileStoragePort,
+  FileRunDraftStore,
   InMemoryLeasePort,
   InMemoryQueuePort,
   SystemClockPort,
@@ -24,6 +25,7 @@ import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
 
 import { registerDefinitionRoutes } from './routes/definition-routes.js';
 import { registerRunRoutes } from './routes/run-routes.js';
+import { registerRunDraftRoutes } from './routes/run-draft-routes.js';
 import { registerPublishedWorkflowRoutes } from './routes/published-workflow-routes.js';
 import { registerAssetRoutes } from './routes/asset-routes.js';
 import { registerWsRoutes } from './routes/ws-routes.js';
@@ -97,6 +99,10 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     ? path.resolve(process.env.DAG_STORAGE_ROOT)
     : path.resolve(process.cwd(), '.dag-storage');
   const storage = new FileStoragePort(dagStorageRoot);
+  const runDraftStorageRoot = process.env.RUN_DRAFT_STORAGE_ROOT
+    ? path.resolve(process.env.RUN_DRAFT_STORAGE_ROOT)
+    : path.join(dagStorageRoot, 'run-drafts');
+  const runDraftStore = new FileRunDraftStore(runDraftStorageRoot);
   const queue = new InMemoryQueuePort();
   const deadLetterQueue = new InMemoryQueuePort();
   const lease = new InMemoryLeasePort();
@@ -156,6 +162,7 @@ async function bootstrapOrchestratorServer(): Promise<void> {
   // Robota API routes
   registerDefinitionRoutes(app, controllers.design, assetStore);
   registerRunRoutes(app, runService, assetStore, backendUrl);
+  registerRunDraftRoutes(app, runDraftStore);
   registerPublishedWorkflowRoutes(app, storage, runService, assetStore, backendUrl);
   registerAssetRoutes(app, assetStore, backendUrl);
   registerWsRoutes(server, runService, backendUrl);

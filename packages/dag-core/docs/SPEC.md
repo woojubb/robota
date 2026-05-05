@@ -6,7 +6,7 @@
 
 ## Boundaries
 
-- **No infrastructure adapters.** Storage, queue, and lease implementations belong to consumer packages. `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`).
+- **No infrastructure adapters.** Storage, queue, lease, and run-draft implementations belong to consumer packages. `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`, `IRunDraftStore`).
 - **No orchestration runtime.** DAG scheduling, worker polling, and run coordination belong to runtime and orchestration packages.
 - **No node implementations.** Concrete node types belong to node implementation packages.
 - **No node authoring infrastructure.** Base classes (`AbstractNodeDefinition`), accessors (`NodeIoAccessor`), registries, lifecycle wrappers, and value objects (`MediaReference`) belong to a dedicated node authoring package. `dag-core` defines the interfaces they implement but does not own the implementations.
@@ -92,6 +92,10 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `IDagNodeExecutionTrace`    | `types/node-state.ts`            | Lightweight per-node execution trace projection used by orchestration views                                                                                 |
 | `IDagNodeState`             | `types/node-state.ts`            | Canonical per-node orchestration state combining side-effect status, execution status, and the latest execution trace                                       |
 | `TNodeStateMap`             | `types/node-state.ts`            | Node-id keyed map of `IDagNodeState` values                                                                                                                 |
+| `IPartialRunRequest`        | `types/run-draft.ts`             | Request contract for running from a specific node while the runtime reuses previously computed upstream state                                               |
+| `IRunDraft`                 | `types/run-draft.ts`             | Separate execution draft containing a DAG definition, input payload, node state map, and optional run result without embedding state in DAG JSON            |
+| `ISaveRunDraftInput`        | `types/run-draft.ts`             | Input contract for creating or replacing a run draft                                                                                                        |
+| `IRunDraftStore`            | `interfaces/run-draft-store.ts`  | Persistence port for run drafts                                                                                                                             |
 | `TPortValue`                | `interfaces/ports.ts`            | Union of all port value types (primitives, binary, arrays, objects)                                                                                         |
 | `TPortPayload`              | `interfaces/ports.ts`            | Key-value map of port values                                                                                                                                |
 | `IStoredAssetMetadata`      | `interfaces/asset-store-port.ts` | Asset metadata stored by infrastructure adapters, including optional `runtimeAssetId` when an orchestrator asset has been synchronized to a runtime backend |
@@ -124,8 +128,12 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `markDagNodeOperationStarted`                                                                                      | Function  | Marks a node side-effect operation, such as upload, as in progress                                                                                            |
 | `markDagNodeOperationDone`                                                                                         | Function  | Clears a node side-effect operation gate                                                                                                                      |
 | `resetDagNodeExecutionStateMap`                                                                                    | Function  | Resets execution status for a new run while preserving non-execution UI extensions at consumer boundaries                                                     |
+| `resetDagNodeExecutionStateFromNode`                                                                               | Function  | Resets execution state for one node and its downstream dependents after a manual reset                                                                        |
+| `overwriteDagNodeExecutionTrace`                                                                                   | Function  | Marks one node as successful with a manually supplied trace                                                                                                   |
 | `applyRunProgressEventToNodeStateMap`                                                                              | Function  | Projects run progress events into per-node execution state and traces                                                                                         |
 | `applyRunResultToNodeStateMap`                                                                                     | Function  | Projects final run traces into per-node state                                                                                                                 |
+| `resetRunResultFromNode`                                                                                           | Function  | Removes final run traces and node errors for one node and its downstream dependents                                                                           |
+| `overwriteRunResultNodeTrace`                                                                                      | Function  | Upserts a node trace into a final run result and clears node errors for that node                                                                             |
 | `isDagNodeStateMapRunnable`                                                                                        | Function  | Returns whether no node has a blocking side-effect operation or running execution                                                                             |
 | `buildValidationError`                                                                                             | Function  | Error builder for `validation` category                                                                                                                       |
 | `buildDispatchError`                                                                                               | Function  | Error builder for `dispatch` category                                                                                                                         |
@@ -152,6 +160,14 @@ Port definitions are owned by the runtime node catalog (`INodeManifest`/`TObject
 
 Callers that need strict port validation must enrich definitions with the current runtime catalog before validation. Callers must not persist that enriched form unless they intentionally own a compatibility migration.
 
+## Run Draft and Partial Execution Contracts
+
+Run execution state is separate from DAG definition JSON. `IRunDraft` stores `definition`, `input`, `nodeStateMap`, and optional `runResult` as an orchestration draft so clients can restore execution state without writing transient state into `IDagDefinition`.
+
+`IPartialRunRequest` identifies the user intent to rerun from `startNodeId`. Orchestration packages translate that intent to runtime-specific execution targets. For ComfyUI-compatible runtimes, `IPromptRequest.partial_execution_targets` carries the target node IDs in the POST `/prompt` request.
+
+`resetDagNodeExecutionStateFromNode()` and `resetRunResultFromNode()` reset the selected node and all downstream dependents because downstream traces are no longer valid after an upstream result changes. `overwriteDagNodeExecutionTrace()` and `overwriteRunResultNodeTrace()` upsert a manual node result while keeping the DAG definition unchanged.
+
 ## Extension Points
 
 ### AbstractNodeDefinition\<TSchema\>
@@ -167,6 +183,7 @@ Consumer packages implement these interfaces to provide infrastructure:
 - `ILeasePort` -- distributed lease management (acquire, renew, release).
 - `IClockPort` -- clock abstraction for deterministic time in tests.
 - `ITaskExecutorPort` -- task execution delegation.
+- `IRunDraftStore` -- persistence for execution drafts that contain node state and run results outside `IDagDefinition`.
 
 ### INodeTaskHandler
 
@@ -375,6 +392,7 @@ The following interfaces are defined by `dag-core` and intended to be implemente
 | `INodeManifestRegistry`    | Node authoring packages (manifest lookup)               |
 | `INodeTaskHandlerRegistry` | Node authoring packages (handler lookup)                |
 | `IStoragePort`             | Persistence adapters (file, database)                   |
+| `IRunDraftStore`           | Persistence adapters for execution drafts               |
 | `IQueuePort`               | Message queue adapters                                  |
 | `ILeasePort`               | Distributed lease adapters                              |
 | `IClockPort`               | Clock adapters (system, deterministic)                  |
@@ -388,6 +406,7 @@ The following interfaces are defined by `dag-core` and intended to be implemente
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `__tests__/definition-service.test.ts` | `DagDefinitionValidator` (duplicate nodeId, cycle detection), `DagDefinitionService` (publish invalid, update non-draft) |
 | `__tests__/time-semantics.test.ts`     | `TimeSemanticsService` (manual/api/scheduled triggers, UTC normalization, invalid date rejection)                        |
+| `__tests__/dag-node-state.test.ts`     | Node state reducers including run progress projection, reset from node, and manual trace overwrite                       |
 
 ### Coverage Gaps
 
