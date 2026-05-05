@@ -402,6 +402,12 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/transform
+      '@robota-sdk/dag-runtime':
+        specifier: workspace:*
+        version: link:../../packages/dag-runtime
+      '@robota-sdk/dag-worker':
+        specifier: workspace:*
+        version: link:../../packages/dag-worker
       cors:
         specifier: ^2.8.5
         version: 2.8.5
@@ -1970,18 +1976,6 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
-      '@robota-sdk/dag-projection':
-        specifier: workspace:*
-        version: link:../dag-projection
-      '@robota-sdk/dag-runtime':
-        specifier: workspace:*
-        version: link:../dag-runtime
-      '@robota-sdk/dag-scheduler':
-        specifier: workspace:*
-        version: link:../dag-scheduler
-      '@robota-sdk/dag-worker':
-        specifier: workspace:*
-        version: link:../dag-worker
     devDependencies:
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*

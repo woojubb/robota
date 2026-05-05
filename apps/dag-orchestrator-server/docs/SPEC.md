@@ -11,7 +11,7 @@ Robota API gateway application that serves the dag-designer frontend. It orchest
 | Runtime execution (ComfyUI compat)                                                    | `dag-runtime-server`       | Does not execute DAG nodes                |
 | Domain types (`IDagDefinition`, `TRunProgressEvent`, `IAssetStore`, `IRunDraftStore`) | `dag-core`                 | Does not define domain types              |
 | Orchestration logic (`OrchestratorRunService`, `PromptOrchestratorService`)           | `dag-orchestrator`         | Does not own orchestration business logic |
-| Controller composition (`DagDesignController`)                                        | `dag-api`                  | Does not own controller contracts         |
+| Design API controller (`DagDesignController`)                                         | `dag-api`                  | Does not own controller contracts         |
 | Operational HTTP request/response aliases                                             | `dag-orchestration-client` | Does not define reusable client contracts |
 | Designer UI                                                                           | `dag-designer` / `web`     | Does not own frontend                     |
 | Node definitions                                                                      | `dag-node-*` packages      | Does not define or bundle nodes           |
@@ -46,8 +46,8 @@ Express Application (http.Server)
 
 1. Load environment variables (`ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, `ASSET_STORAGE_ROOT`, `COST_META_DIR`, `DAG_STORAGE_ROOT`, `RUN_DRAFT_STORAGE_ROOT`).
 2. Create `HttpPromptApiClient` pointing to the backend URL.
-3. Compose infrastructure ports (`FileStoragePort` for persistence, `FileRunDraftStore`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
-4. Create `RuntimeNodeCatalogService` from the `HttpPromptApiClient` and inject it into `createDagControllerComposition`.
+3. Compose persistence ports (`FileStoragePort` for definitions, `FileRunDraftStore` for run drafts).
+4. Create `RuntimeNodeCatalogService` from the `HttpPromptApiClient` and inject it into `DagDesignController`.
 5. Initialize `LocalFsAssetStore`.
 6. Register all route modules.
 7. Start HTTP server and register SIGTERM/SIGINT handlers.
@@ -431,10 +431,10 @@ model files and workflow-specific node availability.
 | Package                          | Role                                                                                                    |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `@robota-sdk/dag-core`           | Domain types, node assembly, infrastructure ports                                                       |
-| `@robota-sdk/dag-api`            | Controller composition, `INodeCatalogService`                                                           |
+| `@robota-sdk/dag-api`            | `DagDesignController`, `INodeCatalogService`                                                            |
 | `@robota-sdk/dag-orchestrator`   | `PromptOrchestratorService`, `OrchestratorRunService`, `HttpPromptApiClient`, `CelCostEstimatorAdapter` |
 | `@robota-sdk/dag-cost`           | Cost meta types, `CelCostEvaluator`, `ICostMetaStoragePort`                                             |
-| `@robota-sdk/dag-adapters-local` | `FileStoragePort`, `FileRunDraftStore`, `FileCostMetaStorage`, in-memory ports                          |
+| `@robota-sdk/dag-adapters-local` | `FileStoragePort`, `FileRunDraftStore`, `FileCostMetaStorage`                                           |
 | `express`                        | HTTP framework                                                                                          |
 | `ws`                             | WebSocket server and client                                                                             |
 | `cors`                           | CORS middleware                                                                                         |

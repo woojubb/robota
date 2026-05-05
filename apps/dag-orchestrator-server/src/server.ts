@@ -4,14 +4,9 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import http from 'node:http';
-import {
-  FileStoragePort,
-  FileRunDraftStore,
-  InMemoryLeasePort,
-  InMemoryQueuePort,
-  SystemClockPort,
-} from '@robota-sdk/dag-adapters-local';
-import { createDagControllerComposition } from '@robota-sdk/dag-api';
+import { FileStoragePort, FileRunDraftStore } from '@robota-sdk/dag-adapters-local';
+import { DagDefinitionService } from '@robota-sdk/dag-core';
+import { DagDesignController } from '@robota-sdk/dag-api';
 import {
   HttpPromptApiClient,
   PromptOrchestratorService,
@@ -103,17 +98,9 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     ? path.resolve(process.env.RUN_DRAFT_STORAGE_ROOT)
     : path.join(dagStorageRoot, 'run-drafts');
   const runDraftStore = new FileRunDraftStore(runDraftStorageRoot);
-  const queue = new InMemoryQueuePort();
-  const deadLetterQueue = new InMemoryQueuePort();
-  const lease = new InMemoryLeasePort();
-  const clock = new SystemClockPort();
-
-  const controllers = createDagControllerComposition(
-    { storage, queue, deadLetterQueue, lease, clock },
-    {
-      diagnosticsPolicy: { reinjectEnabled: false },
-      nodeCatalogService,
-    },
+  const designController = new DagDesignController(
+    new DagDefinitionService(storage),
+    nodeCatalogService,
   );
 
   const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
@@ -160,13 +147,13 @@ async function bootstrapOrchestratorServer(): Promise<void> {
   const server = http.createServer(app);
 
   // Robota API routes
-  registerDefinitionRoutes(app, controllers.design, assetStore);
+  registerDefinitionRoutes(app, designController, assetStore);
   registerRunRoutes(app, runService, assetStore, backendUrl);
   registerRunDraftRoutes(app, runDraftStore);
   registerPublishedWorkflowRoutes(app, storage, runService, assetStore, backendUrl);
   registerAssetRoutes(app, assetStore, backendUrl);
   registerWsRoutes(server, runService, backendUrl);
-  registerAdminRoutes(app, controllers.design);
+  registerAdminRoutes(app, designController);
 
   // Cost meta CRUD + validate/preview
   registerCostMetaRoutes(app, costMetaStorage, celCostEvaluator);
