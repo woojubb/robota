@@ -222,7 +222,7 @@ describe('createSession — appendSystemPrompt option', () => {
     expect(systemMessage.endsWith(extraText)).toBe(true);
   });
 
-  it('does not include Agent tool or agent metadata unless agent runtime is enabled', async () => {
+  it('does not include agent metadata unless agent runtime is enabled', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     createSession({
@@ -234,11 +234,12 @@ describe('createSession — appendSystemPrompt option', () => {
 
     const opts = sessionCtorCalls[0]!;
     const systemMessage = opts.systemMessage as string;
-    expect(systemMessage).not.toContain('Agent — creates one isolated subagent job');
+    const tools = opts.tools as IToolWithEventService[];
+    expect(tools.some((tool) => tool.getName() === 'Agent')).toBe(false);
     expect(systemMessage).not.toContain('general-purpose');
   });
 
-  it('includes Agent tool and discovered agent metadata when agent runtime is enabled', async () => {
+  it('includes discovered agent metadata without registering a duplicate Agent tool', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-agents-'));
     const agentsDir = join(cwd, '.robota', 'agents');
@@ -267,16 +268,147 @@ describe('createSession — appendSystemPrompt option', () => {
 
       const opts = sessionCtorCalls[0]!;
       const systemMessage = opts.systemMessage as string;
-      expect(systemMessage).toContain('Agent — creates isolated subagent jobs');
-      expect(systemMessage).toContain(
-        'For explicit multi-agent or parallel-agent requests, use one Agent tool call with jobs',
-      );
-      expect(systemMessage).toContain('The tool returns terminal result data');
+      const tools = opts.tools as IToolWithEventService[];
+      expect(tools.some((tool) => tool.getName() === 'Agent')).toBe(false);
       expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+});
+
+describe('createSession — command descriptor tool guidance', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('does not register ExecuteCommand when no command descriptor is model-invocable', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      commandDescriptors: [
+        {
+          name: 'skills',
+          kind: 'builtin-command',
+          description: 'Skill discovery command.',
+          userInvocable: true,
+          modelInvocable: false,
+          safety: 'read-only',
+        },
+      ],
+      modelCommandExecutor: vi.fn(),
+      isModelCommandInvocable: () => false,
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const tools = opts.tools as IToolWithEventService[];
+    expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
+  });
+
+  it('does not expose skill metadata when the skills command is not model-invocable', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-hidden-'));
+    mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
+      ['---', 'name: audit', 'description: Audit code', '---', 'Audit $ARGUMENTS'].join('\n'),
+      'utf-8',
+    );
+
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', claudeMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+      });
+
+      const opts = sessionCtorCalls[0]!;
+      const systemMessage = opts.systemMessage as string;
+      expect(systemMessage).not.toContain('## Skills');
+      expect(systemMessage).not.toContain('audit: Audit code');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('exposes skill metadata when the skills command is model-invocable', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-visible-'));
+    mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
+      ['---', 'name: audit', 'description: Audit code', '---', 'Audit $ARGUMENTS'].join('\n'),
+      'utf-8',
+    );
+
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', claudeMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+        commandDescriptors: [
+          {
+            name: 'skills',
+            kind: 'builtin-command',
+            description: 'Skill discovery command.',
+            userInvocable: true,
+            modelInvocable: true,
+            safety: 'read-only',
+          },
+        ],
+        modelCommandExecutor: vi.fn(),
+        isModelCommandInvocable: () => true,
+      });
+
+      const opts = sessionCtorCalls[0]!;
+      const systemMessage = opts.systemMessage as string;
+      expect(systemMessage).toContain('## Skills');
+      expect(systemMessage).toContain('- audit: Audit code');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('forwards registered command descriptors into the ExecuteCommand tool description', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      commandDescriptors: [
+        {
+          name: 'compact',
+          kind: 'builtin-command',
+          description:
+            'Context compaction command. Call it when the user explicitly requests compaction.',
+          userInvocable: true,
+          modelInvocable: true,
+          safety: 'write',
+        },
+      ],
+      modelCommandExecutor: vi.fn(),
+      isModelCommandInvocable: (command) => command === 'compact',
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const tools = opts.tools as IToolWithEventService[];
+    const executeCommand = tools.find((tool) => tool.getName() === 'ExecuteCommand');
+
+    expect(executeCommand?.schema.description).toContain('Registered model-invocable commands:');
+    expect(executeCommand?.schema.description).toContain('compact:');
+    expect(executeCommand?.schema.description).toContain('explicitly requests compaction');
+    expect(executeCommand?.schema.description).not.toContain('/compact');
   });
 });
 

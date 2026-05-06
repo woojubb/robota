@@ -8,7 +8,8 @@ import type {
   TExecutionEventCallback,
   TExecutionEventData,
 } from '../interfaces/agent';
-import type { IToolCall } from '../interfaces/messages';
+import type { TToolMetadata } from '../interfaces/tool';
+import type { IToolCall, TUniversalMessageMetadata } from '../interfaces/messages';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
 import type { ConversationStore } from '../managers/conversation-history-manager';
@@ -16,12 +17,15 @@ import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
 import { isExecutionError, PREVIEW_LENGTH, type IExecutionRoundState } from './execution-types';
 import type { IRoundDependencies } from './execution-round';
+import { UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-service';
 
 /** Result of addToolResultsToHistory indicating whether context overflow occurred */
 export interface IToolResultsOutcome {
   contextOverflowed: boolean;
   addedCount: number;
   skippedCount: number;
+  unknownToolFailureCount: number;
+  unknownToolNames: string[];
 }
 
 const CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE =
@@ -115,6 +119,10 @@ export async function executeAndRecordToolCalls(
   });
 
   const toolSummary = await toolExecutionService.executeTools(toolContext);
+  const unknownToolNames = toolSummary.results
+    .filter(isUnknownToolExecutionResult)
+    .map((result) => result.toolName)
+    .filter((toolName): toolName is string => typeof toolName === 'string' && toolName.length > 0);
 
   toolSummary.results.forEach((result, index) => {
     onExecutionEvent?.('tool_execution_result', {
@@ -128,16 +136,19 @@ export async function executeAndRecordToolCalls(
       success: result.success,
       result: result.result,
       error: result.error,
+      metadata: result.metadata,
     } as TExecutionEventData);
   });
 
   roundState.toolsExecuted.push(
-    ...toolSummary.results.map((r) => {
-      if (!r.toolName || r.toolName.length === 0) {
-        throw new Error('[EXECUTION] Tool result missing toolName');
-      }
-      return r.toolName;
-    }),
+    ...toolSummary.results
+      .filter((result) => !isUnknownToolExecutionResult(result))
+      .map((r) => {
+        if (!r.toolName || r.toolName.length === 0) {
+          throw new Error('[EXECUTION] Tool result missing toolName');
+        }
+        return r.toolName;
+      }),
   );
 
   const contextLimit = getModelContextWindow(config?.defaultModel?.model ?? '');
@@ -184,7 +195,11 @@ export async function executeAndRecordToolCalls(
 
   eventEmitter.clearToolEventServices();
 
-  return toolResultsOutcome;
+  return {
+    ...toolResultsOutcome,
+    unknownToolFailureCount: unknownToolNames.length,
+    unknownToolNames,
+  };
 }
 
 /** Add tool execution results to conversation history in call order */
@@ -197,6 +212,7 @@ export function addToolResultsToHistory(
       success: boolean;
       result?: unknown;
       error?: string;
+      metadata?: TToolMetadata;
     }>;
     errors: Error[];
   },
@@ -241,7 +257,7 @@ export function addToolResultsToHistory(
     );
 
     let content: string;
-    let metadata: Record<string, string | number | boolean> = { round: currentRound };
+    let metadata: TUniversalMessageMetadata = { round: currentRound };
 
     if (result && result.success) {
       if (typeof result.result === 'undefined') {
@@ -258,6 +274,17 @@ export function addToolResultsToHistory(
       metadata['success'] = false;
       metadata['error'] = result.error;
       if (result.toolName) metadata['toolName'] = result.toolName;
+      if (result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE) {
+        metadata['errorCode'] = UNKNOWN_TOOL_ERROR_CODE;
+        if (typeof result.metadata.requestedTool === 'string') {
+          metadata['requestedTool'] = result.metadata.requestedTool;
+        }
+        if (Array.isArray(result.metadata.availableTools)) {
+          metadata['availableTools'] = result.metadata.availableTools.filter(
+            (toolName): toolName is string => typeof toolName === 'string',
+          );
+        }
+      }
     } else if (error) {
       const execError = error as { error?: Error; message: string; toolName?: string };
       const execMessage = (() => {
@@ -314,5 +341,18 @@ export function addToolResultsToHistory(
     });
   }
 
-  return { contextOverflowed, addedCount, skippedCount };
+  return {
+    contextOverflowed,
+    addedCount,
+    skippedCount,
+    unknownToolFailureCount: 0,
+    unknownToolNames: [],
+  };
+}
+
+function isUnknownToolExecutionResult(result: {
+  success: boolean;
+  metadata?: { errorCode?: string };
+}): boolean {
+  return !result.success && result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
 }

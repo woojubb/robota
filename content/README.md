@@ -102,7 +102,7 @@ robota -p "Explain this project"    # Print mode
 - **Type-Safe**: Strict TypeScript with zero `any` in production code
 - **Multi-Provider**: Anthropic Claude, OpenAI, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
 - **Tool Calling**: Zod-based schema validation for type-safe function calls
-- **Subagents**: Runtime-managed background jobs, transcripts, and batch Agent tool requests
+- **Subagents**: Runtime-managed background jobs, transcripts, and `/agent` command orchestration
 - **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
 - **Streaming**: Real-time text delta streaming from all providers
 - **CLI Ready**: Built-in coding assistant CLI with permission system and context management
@@ -114,11 +114,12 @@ agent-cli              ← Interactive terminal AI coding assistant
 agent-command-agent    ← /agent command module for background subagent control
 agent-command-help     ← /help command module for registered command discovery
 agent-command-provider ← /provider command module for provider profiles
+agent-command-skills   ← /skills command module for skill discovery and activation
 agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp    ← MCP transport (Model Context Protocol server)
 agent-transport-ws     ← WebSocket transport (framework-agnostic)
 agent-transport-headless ← Non-interactive transport for text/json/stream-json output
-  ↓ (all five consume)
+  ↓ (product/transport layers consume)
 agent-sdk              ← Assembly layer: InteractiveSession, config, context, createQuery()
   ↓
 agent-sessions         ← Session lifecycle: permissions, hooks, compaction
@@ -141,6 +142,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)                           | `/agent` command module for background subagent jobs                   |
 | [`@robota-sdk/agent-command-help`](./packages/agent-command-help/)                             | `/help` command module for registered command discovery                |
 | [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)                     | `/provider` command module for provider profiles                       |
+| [`@robota-sdk/agent-command-skills`](./packages/agent-command-skills/)                         | `/skills` command module for skill discovery and activation            |
 | [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/)                 | Anthropic Claude provider                                              |
 | [`@robota-sdk/agent-provider-openai`](./packages/agent-provider-openai/)                       | OpenAI provider                                                        |
 | [`@robota-sdk/agent-provider-gemini`](./packages/agent-provider-gemini/)                       | Canonical Google Gemini provider                                       |

@@ -537,7 +537,7 @@ describe('E2E: Skill invocation', () => {
 
     // No runInFork callback provided — should throw instead of silent fallback
     await expect(executeSkill(skill!, 'test-arg', {})).rejects.toThrow(
-      'Fork execution is not available. Agent tool deps may not be initialized.',
+      'Fork execution is not available. Agent runtime deps may not be initialized.',
     );
   });
 });

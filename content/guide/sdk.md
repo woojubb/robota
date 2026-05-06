@@ -62,20 +62,22 @@ Event types include: `tool-start` (individual tool execution began), `tool-end` 
 
 ### Command Discovery
 
-The SDK owns `CommandRegistry` and the command sources used by clients:
+The SDK owns `CommandRegistry` and common command sources used by clients:
 
-- **`BuiltinCommandSource`** — SDK-default infrastructure command metadata, including `/skills` for skill discovery and activation guidance
-- **Command modules** — product-composed built-ins such as `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/memory`, `/rewind`, `/provider`, `/resume`, `/background`, `/rename`, `/plugin`, `/reload-plugins`, `/language`, `/reset`, and `/exit`
+- **`BuiltinCommandSource`** — SDK-core compatibility source; currently empty because user-visible built-ins are command modules
+- **Command modules** — product-composed built-ins such as `skills`, `help`, `clear`, `compact`, `mode`, `model`, `cost`, `context`, `permissions`, `memory`, `rewind`, `provider`, `resume`, `background`, `rename`, `plugin`, `reload-plugins`, `language`, `reset`, and `exit`; UI shells render and parse them as slash syntax
 - **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
 - **`PluginCommandSource`** — commands contributed by loaded plugins
 
-Clients such as the CLI compose these sources into a registry for autocomplete. `InteractiveSession.listCommands()` returns executable system commands for transports and direct command execution, while explicit `/skill` prompts are executed with `session.executeUserSkillCommand()`.
+Clients such as the CLI compose command modules into a registry for autocomplete. `InteractiveSession.listCommands()` returns executable system commands for transports and direct command execution. Explicit `/skill-name` prompts are virtual aliases normalized by SDK to command `skills` with args `<skill-name> [args]` when the skills command module is composed.
+
+Skill metadata is exposed to the model only when `skills` is composed as a model-invocable command. Without that descriptor, the SDK does not add a `## Skills` section because there would be no standard activation route.
 
 ### System Commands
 
 `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers access commands through `session.executeCommand(name, args)` and `session.listCommands()` — the executor is not independently exported.
 
-Before each submitted prompt, the session checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the underlying `Session.run()`.
+Transport and UI layers parse explicit slash input and call `session.executeCommand()` before submitting normal prompts. Command routing stays generic: virtual `/skill-name` aliases normalize to command `skills` with args `<skill-name> [args]` only when the skills command module is composed.
 
 Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover available commands and `session.executeCommand()` to execute them.
 
@@ -277,9 +279,9 @@ const subSession = createSubagentSession({
 const result = await subSession.run();
 ```
 
-### Agent Tool Batch Jobs
+### Agent Command Batch Jobs
 
-The model-visible `Agent` tool supports both the existing single-job shape and a batch `jobs` shape for explicit parallel requests:
+The `agent` command module, rendered as `/agent` by CLI/headless shells, supports batch `jobs` input for explicit parallel requests through the standard command route:
 
 ```typescript
 {
@@ -290,11 +292,11 @@ The model-visible `Agent` tool supports both the existing single-job shape and a
 }
 ```
 
-When `jobs` is present, the Agent tool starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. This gives the runtime a deterministic path for requests such as "run two agents in parallel" even when the model emits only one tool call.
+When `jobs` is present, `/agent` starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. Model routing uses `ExecuteCommand(command: "agent", args: ...)` rather than a parallel `Agent` tool route.
 
 ### Tool Filtering
 
-Subagent tool access is resolved in order: denylist (`disallowedTools`) is applied first, then allowlist (`tools`) filters to permitted tools only. The `Agent` tool is always removed from subagent sessions to prevent recursive spawning.
+Subagent tool access is resolved in order: denylist (`disallowedTools`) is applied first, then allowlist (`tools`) filters to permitted tools only. Agent command tooling is not exposed recursively inside subagent sessions.
 
 ### Model Shortcuts
 

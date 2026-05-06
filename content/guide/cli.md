@@ -49,7 +49,7 @@ Startup checks are rate-limited by a user-level cache at `~/.robota/update-check
 
 ## Non-Interactive (Headless) Mode
 
-Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting. When the prompt starts with `/skill-name`, headless mode routes it through `InteractiveSession.executeUserSkillCommand()` so the SDK loads the full `SKILL.md` before the model turn.
+Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting. When the prompt starts with `/skill-name`, headless mode calls `InteractiveSession.executeCommand()`, and the SDK normalizes the virtual skill alias to command `skills` with args `<skill-name> [args]`.
 
 ### Output Formats
 
@@ -142,7 +142,7 @@ The CLI contains no session management logic beyond this hook. The old `useSessi
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-The available command list is built from SDK-owned command sources: `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and command modules such as `agent-command-help`, `agent-command-agent`, `agent-command-provider`, `agent-command-plugin`, and `agent-command-exit`. The CLI renders this list but does not own the command definitions.
+The available command list is built from composed command modules such as `agent-command-skills`, `agent-command-help`, `agent-command-agent`, `agent-command-provider`, `agent-command-plugin`, and `agent-command-exit`. The CLI renders this list but does not own the command definitions.
 
 | Command                   | Description                             |
 | ------------------------- | --------------------------------------- |
@@ -216,7 +216,7 @@ Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-c
 
 ### Skill Commands
 
-Skills are discovered by `SkillCommandSource` in `agent-sdk`. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
+Skills are activated through the `skills` built-in command module, rendered as `/skills` by the CLI. The CLI only parses the leading slash and calls `InteractiveSession.executeCommand()`: `/audit src/index.ts` is a virtual alias that the SDK normalizes to command `skills` with args `audit src/index.ts`. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
 
 1. `.agents/skills/` (project, Robota primary)
 2. `.claude/skills/` (project, Claude Code compatible)
@@ -261,14 +261,14 @@ Use the `` !`command` `` syntax to embed shell command output into the skill bod
 ### Invocation Methods
 
 - **User direct**: Type `/skill-name` in the input area, or pass `/skill-name ...` to print/headless mode
-- **User directive**: Prompts such as `Use the repo-writing skill ...` are treated as explicit user-directed skill activations and load the matching `SKILL.md` before the model turn
-- **Skill discovery**: Use `/skills` to list registered skills and show the activation contract. Models can also call the SDK-owned `/skills` command through `ExecuteCommand` before choosing a matching skill.
-- **Model auto-invoke**: The model calls `ExecuteSkill` during a conversation when a task matches the skill description. The tool accepts only registered model-invocable skill names for the session.
+- **Natural-language request**: Prompts such as `Use the repo-writing skill ...` remain normal model input; the model must activate the skill through `ExecuteCommand(command: "skills", args: ...)`
+- **Skill discovery**: Use `/skills` to list registered skills and show the activation contract. Model-side selection uses the system prompt `## Skills` metadata when `skills` is model-invocable.
+- **Model command invocation**: The model activates a matching skill through the standard `ExecuteCommand` tool with `command: "skills"` and `args: "<skill-name> [args]"`.
 - **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
 
-Skill descriptions are metadata only. Mentioning a skill name in ordinary assistant text does not
-activate that skill; activation is recorded only when `ExecuteSkill` or an explicit `/skill-name`
-invocation loads the full `SKILL.md`.
+Skill descriptions are metadata only. Mentioning or recommending a skill in ordinary assistant text
+does not activate that skill; activation is recorded only when `/skills` or an explicit virtual
+`/skill-name` invocation loads the full `SKILL.md` through SDK skill activation.
 
 When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
 
@@ -358,9 +358,9 @@ When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. 
 
 ### Subagent Execution
 
-The AI can spawn subagents via the **Agent** tool to handle complex subtasks (e.g., exploring the codebase, planning multi-step changes). Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
+The AI can spawn subagents through the `/agent` built-in command module using `ExecuteCommand(command: "agent", args: ...)`. Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
 
-For explicit multi-agent or parallel-agent requests, the model-visible Agent tool now supports a `jobs` array. A single batch tool call starts all valid jobs before waiting for terminal summaries and returns structured per-job results with a shared group identifier. The older single-job `prompt` shape remains supported.
+For explicit multi-agent or parallel-agent requests, `/agent` supports a batch jobs shape. A single command invocation starts all valid jobs before waiting for terminal summaries and returns structured per-job results with a shared group identifier.
 
 ## Session Logging
 

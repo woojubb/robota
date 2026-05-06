@@ -1,10 +1,4 @@
-/**
- * Build a skill prompt from slash command input.
- * Supports variable substitution and shell command preprocessing.
- */
-
 import { execSync } from 'node:child_process';
-import type { CommandRegistry } from '../commands/command-registry.js';
 
 /** Context variables available during skill prompt processing */
 export interface SkillPromptContext {
@@ -95,29 +89,4 @@ export async function preprocessShellCommands(content: string): Promise<string> 
   }
 
   return result;
-}
-
-/** Build a skill prompt from a slash command input and registry */
-export async function buildSkillPrompt(
-  input: string,
-  registry: CommandRegistry,
-  context?: SkillPromptContext,
-): Promise<string | null> {
-  const parts = input.slice(1).split(/\s+/);
-  const cmd = parts[0]?.toLowerCase() ?? '';
-  const skillCmd = registry
-    .getCommands()
-    .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
-  if (!skillCmd) return null;
-  const args = parts.slice(1).join(' ').trim();
-  const userInstruction = args || skillCmd.description;
-
-  // Inject SKILL.md content if available
-  if (skillCmd.skillContent) {
-    // Preprocess shell commands first, then substitute variables
-    let processed = await preprocessShellCommands(skillCmd.skillContent);
-    processed = substituteVariables(processed, args, context);
-    return `<skill name="${cmd}">\n${processed}\n</skill>\n\nExecute the "${cmd}" skill: ${userInstruction}`;
-  }
-  return `Use the "${cmd}" skill: ${userInstruction}`;
 }

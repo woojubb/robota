@@ -218,6 +218,7 @@ describe('CLI dev source resolution', () => {
     'packages/agent-command-reset',
     'packages/agent-command-rewind',
     'packages/agent-command-session',
+    'packages/agent-command-skills',
     'packages/agent-command-statusline',
     'packages/agent-core',
     'packages/agent-provider-anthropic',

@@ -457,18 +457,18 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 `onExecutionEvent` emits provider-neutral, append-only replay events. `agent-core` must not expose concrete provider SDK objects or branch on provider names. The required event families are:
 
-| Event                          | Emitted When                                      | Required Data                                                                                   |
-| ------------------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `provider_request`             | Immediately before a provider call                | executionId, conversationId, round, provider, model, messages, tools                            |
-| `provider_stream_raw_delta`    | A provider text delta reaches core streaming path | executionId, conversationId, round, sequence, delta                                             |
-| `provider_response_raw`        | Immediately after provider `chat()` returns       | executionId, conversationId, round, response, responseKind                                      |
-| `provider_response_normalized` | After provider response is accepted by core       | executionId, conversationId, round, response, toolCallsCount                                    |
-| `assistant_message_committed`  | Assistant message is committed to history         | executionId, conversationId, round, message                                                     |
-| `tool_batch_started`           | Before a tool batch executes                      | executionId, conversationId, round, batchId, mode, maxConcurrency, requestCount, tools          |
-| `tool_execution_request`       | For each parsed tool call                         | executionId, conversationId, round, batchId, index, toolName, toolCallId, parameters, ownerPath |
-| `tool_execution_result`        | For each terminal tool result                     | executionId, conversationId, round, batchId, index, toolName, toolCallId, success/result/error  |
-| `tool_message_committed`       | Tool result message is committed to history       | executionId, conversationId, round, batchId, index, message                                     |
-| `history_mutation`             | A chat message is appended to canonical history   | executionId, conversationId, mutation, index, message                                           |
+| Event                          | Emitted When                                      | Required Data                                                                                            |
+| ------------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `provider_request`             | Immediately before a provider call                | executionId, conversationId, round, provider, model, messages, tools                                     |
+| `provider_stream_raw_delta`    | A provider text delta reaches core streaming path | executionId, conversationId, round, sequence, delta                                                      |
+| `provider_response_raw`        | Immediately after provider `chat()` returns       | executionId, conversationId, round, response, responseKind                                               |
+| `provider_response_normalized` | After provider response is accepted by core       | executionId, conversationId, round, response, toolCallsCount                                             |
+| `assistant_message_committed`  | Assistant message is committed to history         | executionId, conversationId, round, message                                                              |
+| `tool_batch_started`           | Before a tool batch executes                      | executionId, conversationId, round, batchId, mode, maxConcurrency, requestCount, tools                   |
+| `tool_execution_request`       | For each parsed tool call                         | executionId, conversationId, round, batchId, index, toolName, toolCallId, parameters, ownerPath          |
+| `tool_execution_result`        | For each terminal tool result                     | executionId, conversationId, round, batchId, index, toolName, toolCallId, success/result/error, metadata |
+| `tool_message_committed`       | Tool result message is committed to history       | executionId, conversationId, round, batchId, index, message                                              |
+| `history_mutation`             | A chat message is appended to canonical history   | executionId, conversationId, mutation, index, message                                                    |
 
 `provider_response_raw.responseKind` is `provider-normalized-message` until provider packages add provider-owned SDK-payload capture hooks. This keeps replay validation deterministic without making core depend on concrete provider SDK response types.
 
@@ -577,6 +577,21 @@ Provider adapters own the `tool_call.id` value. Core treats it as the provider t
 - If an internal subsystem needs a globally unique execution/event identifier, it must use an internal ID or owner path and keep the provider `toolCallId` as transcript data.
 
 Regression coverage must include a multi-round execution where the provider returns `call_0` in more than one assistant response and execution preserves both provider IDs without throwing duplicate tool message errors.
+
+### Unavailable Tool Call Handling
+
+Provider adapters must preserve provider-native tool calls and pass them to core, even when the tool name is not registered locally. Core owns the execution decision.
+
+Rules:
+
+- `ToolExecutionService` checks the requested tool name before invoking `IToolManager.executeTool()`.
+- If the tool is not registered, core must not execute anything or alias the request to another tool.
+- The skipped result is recorded as `success: false` with `metadata.errorCode: "unknown_tool"`, `metadata.requestedTool`, and `metadata.availableTools`.
+- The corresponding tool message content must explicitly say that the tool call was not executed because the tool is not registered.
+- Skipped unknown tools must not be counted as executed tools in `IExecutionResult.toolsExecuted`.
+- `tool_execution_result` replay events must include the same metadata so session logs and transports can explain the skipped call.
+- If unavailable tool calls repeat for consecutive model/tool rounds, the loop guard stops normal tool rounds and performs one final provider call without tools. The forced instruction tells the model which tool names were unavailable and that those calls were not executed because they are not registered.
+- Provider packages must not implement ad hoc aliases such as `agent` -> `ExecuteCommand`; command and tool selection must be corrected by model-visible descriptors, schemas, and the normal tool-result feedback loop.
 
 ## Extension Points
 

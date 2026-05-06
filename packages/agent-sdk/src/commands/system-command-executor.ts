@@ -50,7 +50,7 @@ export class SystemCommandExecutor {
     return this.listCommands()
       .filter((command) => command.modelInvocable === true)
       .map((command) => ({
-        name: `/${command.name}`,
+        name: command.name,
         kind: 'builtin-command',
         description: command.description,
         userInvocable: command.userInvocable !== false,

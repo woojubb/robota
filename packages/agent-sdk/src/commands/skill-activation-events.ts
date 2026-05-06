@@ -1,7 +1,7 @@
 import type { ICommand } from '../command-api/types.js';
 
 export type TSkillActivationSource = 'skill' | 'plugin';
-export type TSkillActivationInvocation = 'user-slash' | 'user-directive' | 'model-tool';
+export type TSkillActivationInvocation = 'user-slash' | 'model-tool';
 export type TSkillActivationMode = 'inject' | 'fork';
 export type TSkillActivationStatus = 'started' | 'completed' | 'failed';
 

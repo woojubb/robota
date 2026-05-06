@@ -99,7 +99,7 @@ describe('Skill execution features', () => {
       const skill = makeSkill({ context: 'fork' });
 
       await expect(executeSkill(skill, 'args', callbacks)).rejects.toThrow(
-        'Fork execution is not available. Agent tool deps may not be initialized.',
+        'Fork execution is not available. Agent runtime deps may not be initialized.',
       );
     });
 
@@ -247,7 +247,7 @@ describe('Skill execution features', () => {
       });
 
       await expect(executeSkill(skill, 'tests', callbacks)).rejects.toThrow(
-        'Fork execution is not available. Agent tool deps may not be initialized.',
+        'Fork execution is not available. Agent runtime deps may not be initialized.',
       );
     });
 

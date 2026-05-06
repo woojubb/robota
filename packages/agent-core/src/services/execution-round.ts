@@ -41,6 +41,7 @@ export {
 export { executeAndRecordToolCalls, addToolResultsToHistory } from './execution-round-tools';
 
 export const CONTEXT_HARD_BLOCK_THRESHOLD = 0.95;
+const MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2;
 
 export interface IContextCapacityDecision {
   readonly shouldBlock: boolean;
@@ -411,6 +412,29 @@ export async function executeRound(
         round: currentRound,
       },
     );
+  }
+
+  if (toolOutcome.unknownToolFailureCount > 0) {
+    roundState.consecutiveUnknownToolFailureRounds += 1;
+  } else {
+    roundState.consecutiveUnknownToolFailureRounds = 0;
+  }
+
+  if (
+    roundState.consecutiveUnknownToolFailureRounds >= MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS
+  ) {
+    const unavailableTools = [...new Set(toolOutcome.unknownToolNames)].sort();
+    roundState.forcedSummaryInstruction = [
+      `The model repeatedly requested unavailable tool(s): ${unavailableTools.join(', ')}.`,
+      'Those tool calls were not executed because they are not registered tools.',
+      'Respond to the user now with that reason and use the available tool results already in the conversation history.',
+    ].join(' ');
+    logger.warn('[ROUND] Stopping repeated unavailable tool-call loop', {
+      unavailableTools,
+      consecutiveRounds: roundState.consecutiveUnknownToolFailureRounds,
+      round: currentRound,
+    });
+    return true;
   }
 
   logger.debug(

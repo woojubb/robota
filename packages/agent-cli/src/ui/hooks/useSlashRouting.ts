@@ -38,12 +38,11 @@ export function useSlashRouting(
       // Try system command first
       const result = await interactiveSession.executeCommand(cmd, args);
       if (result) {
+        if (result.effects?.some((effect) => effect.type === 'session-execution-started')) {
+          manager.setPendingPrompt(interactiveSession.getPendingPrompt());
+          return;
+        }
         applySystemCommandResult(result, interactiveSession, registry, manager, commandEffectQueue);
-        return;
-      }
-
-      // Try skill/plugin command
-      if (await routeSkillCommand(input, cmd, registry, interactiveSession, manager)) {
         return;
       }
 
@@ -101,26 +100,4 @@ function applyImmediateCommandEffects(
     pendingEffects.push(effect);
   }
   return pendingEffects;
-}
-
-async function routeSkillCommand(
-  input: string,
-  cmd: string,
-  registry: CommandRegistry,
-  interactiveSession: InteractiveSession,
-  manager: TuiStateManager,
-): Promise<boolean> {
-  const skillCmd = registry
-    .getCommands()
-    .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
-  if (!skillCmd) {
-    return false;
-  }
-
-  const args = input.slice(1 + cmd.length).trimStart();
-  const qualifiedName = registry.resolveQualifiedName(cmd);
-  const hookInput = qualifiedName ? `/${qualifiedName}${input.slice(1 + cmd.length)}` : input;
-  await interactiveSession.executeSkillCommand(skillCmd, args, input, hookInput);
-  manager.setPendingPrompt(interactiveSession.getPendingPrompt());
-  return true;
 }

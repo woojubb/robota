@@ -13,7 +13,9 @@ export type {
   ICommandListEntry,
   ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
+  ICommandSkillActivationRequest,
   ICommandSkillListEntry,
+  TCommandInvocationSource,
   TAutoCompactThresholdSource,
 } from './host-context.js';
 export type {

@@ -132,6 +132,45 @@ describe('assembleOpenAICompatibleStream', () => {
     ]);
   });
 
+  it('passes streamed native tool calls through so core can return a normal tool-result error', async () => {
+    const stream = asyncIterableFrom<OpenAI.Chat.ChatCompletionChunk>([
+      {
+        id: 'chunk-1',
+        object: 'chat.completion.chunk',
+        created: 1,
+        model: 'local-model',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call-1',
+                  type: 'function',
+                  function: { name: 'UndeclaredTool', arguments: '{}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+            logprobs: null,
+          },
+        ],
+      },
+    ]);
+
+    const result = await assembleOpenAICompatibleStream({ stream });
+
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'call-1',
+        type: 'function',
+        function: { name: 'UndeclaredTool', arguments: '{}' },
+      },
+    ]);
+  });
+
   it('applies an injected provider-owned text tool-call projector before text deltas', async () => {
     const onTextDelta = vi.fn();
     const projector = {

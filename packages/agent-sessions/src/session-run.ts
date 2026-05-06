@@ -16,6 +16,11 @@ import type {
 import type { Robota } from '@robota-sdk/agent-core';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
+import type { ISessionOptions } from './session-types.js';
+import {
+  createToolExecutionBridge,
+  forwardToolExecutionEvent,
+} from './session-tool-execution-bridge.js';
 
 /** Dependencies injected by Session.run() */
 export interface IRunContext {
@@ -36,6 +41,8 @@ export interface IRunContext {
   maxTurns?: number;
   onTextDelta?: TTextDeltaCallback;
   onContextUpdate?: (state: IContextWindowState) => void;
+  onToolExecution?: ISessionOptions['onToolExecution'];
+  knownToolNames?: readonly string[];
 }
 
 /**
@@ -117,6 +124,10 @@ export async function executeRun(
 
   let response: string;
   try {
+    const toolExecutionBridge = createToolExecutionBridge({
+      knownToolNames: ctx.knownToolNames ?? [],
+      ...(ctx.onToolExecution && { onToolExecution: ctx.onToolExecution }),
+    });
     const onTextDelta = ctx.onTextDelta
       ? (delta: string): void => {
           ctx.log('text_delta', { delta });
@@ -127,7 +138,10 @@ export async function executeRun(
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
-      onExecutionEvent: (event, data) => ctx.log(event, data as TSessionLogData),
+      onExecutionEvent: (event, data) => {
+        ctx.log(event, data as TSessionLogData);
+        forwardToolExecutionEvent(toolExecutionBridge, event, data);
+      },
       ...(onTextDelta && { onTextDelta }),
     });
 
