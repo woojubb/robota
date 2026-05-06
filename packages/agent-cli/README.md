@@ -264,7 +264,7 @@ When a session has a name, it appears in three places:
 
 - **Input border** — session name shown in the input area border
 - **Terminal title** — updated via ANSI escape sequences
-- **StatusBar** — displayed alongside mode, model, and context usage
+- **StatusBar** — displayed alongside activity, model, and context usage
 
 ## Slash Commands
 
@@ -416,7 +416,7 @@ bin.ts → cli.ts (arg parsing)
                     ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
                     ├── MessageList.tsx
                     ├── InputArea.tsx          (CjkTextInput, bracketed paste, slash detection)
-                    ├── StatusBar.tsx          (mode, model, context %, message count)
+                    ├── StatusBar.tsx          (activity, conditional mode, model, context %, message count)
                     ├── PermissionPrompt.tsx   (arrow-key Allow/Deny)
                     ├── SlashAutocomplete.tsx  (command popup with scroll)
                     ├── DiffBlock.tsx          (Edit tool diff display)

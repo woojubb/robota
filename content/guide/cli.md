@@ -296,6 +296,9 @@ When a session has a name, it is displayed in the input area border, the termina
 
 When a tool requires approval, the TUI shows a permission prompt with arrow-key selection.
 
+The status bar hides `default` permission mode because it is the baseline. Non-default permission
+modes remain visible as `Mode: plan`, `Mode: acceptEdits`, or `Mode: bypassPermissions`.
+
 ## Context Window
 
 The status bar shows context usage with color coding:

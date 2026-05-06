@@ -52,8 +52,11 @@ Bash: pnpm test
 The status bar shows real-time context usage:
 
 ```
-Mode: default | Model: claude-sonnet-4-6 | Context: 45% | msgs: 12
+Thinking | Model: claude-sonnet-4-6 | Context: 45% | msgs: 12
 ```
+
+`default` permission mode is hidden because it is the baseline. Non-default permission modes such as
+`plan`, `acceptEdits`, and `bypassPermissions` are shown as `Mode: <mode>`.
 
 Colors: green (0-69%), yellow (70-89%), red (90%+).
 
