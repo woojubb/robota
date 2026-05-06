@@ -143,6 +143,11 @@ describe('buildSystemPrompt', () => {
 
       expect(result).toContain('## Skills');
       expect(result).toContain('my-skill: Does useful things');
+      expect(result).toContain('Skills are metadata only until activated.');
+      expect(result).toContain('call ExecuteSkill with the skill name');
+      expect(result).toContain(
+        'Do not treat a plain-text skill reference or descriptor as activated skill content.',
+      );
       expect(result).not.toContain('hidden');
     });
 

@@ -227,6 +227,7 @@ export function createSession(options: ICreateSessionOptions): Session {
       createSkillExecutionTool({
         execute: options.modelSkillExecutor,
         isModelInvocable: options.isModelSkillInvocable,
+        skillNames: modelInvocableSkills.map((skill) => skill.name),
       }),
     );
   }

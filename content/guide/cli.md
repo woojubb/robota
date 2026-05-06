@@ -261,8 +261,12 @@ Use the `` !`command` `` syntax to embed shell command output into the skill bod
 ### Invocation Methods
 
 - **User direct**: Type `/skill-name` in the input area
-- **Model auto-invoke**: The model calls the Skill tool during a conversation (unless `disable-model-invocation: true`)
+- **Model auto-invoke**: The model calls `ExecuteSkill` during a conversation when a task matches the skill description. The tool accepts only registered model-invocable skill names for the session.
 - **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
+
+Skill descriptions are metadata only. Mentioning a skill name in ordinary assistant text does not
+activate that skill; activation is recorded only when `ExecuteSkill` or an explicit `/skill-name`
+invocation loads the full `SKILL.md`.
 
 When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
 

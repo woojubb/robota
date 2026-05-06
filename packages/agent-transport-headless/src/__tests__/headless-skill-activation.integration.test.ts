@@ -19,6 +19,7 @@ interface IObservedProvider {
   provider: TTestProvider;
   getChatCallCount(): number;
   getFirstCallToolNames(): string[];
+  getFirstCallExecuteSkillEnum(): string[] | undefined;
   getToolResultContent(): string;
 }
 
@@ -66,6 +67,7 @@ function assistantMessage(content: string | null, toolCalls?: TToolCalls): TChat
 function createSkillToolCallingProvider(): IObservedProvider {
   let chatCallCount = 0;
   let firstCallToolNames: string[] = [];
+  let firstCallExecuteSkillEnum: string[] | undefined;
   let toolResultContent = '';
 
   const provider: TTestProvider = {
@@ -76,6 +78,11 @@ function createSkillToolCallingProvider(): IObservedProvider {
 
       if (chatCallCount === 1) {
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
+        const executeSkillSchema = options?.tools?.find((tool) => tool.name === 'ExecuteSkill');
+        const skillEnum = executeSkillSchema?.parameters.properties['skill']?.enum;
+        firstCallExecuteSkillEnum = Array.isArray(skillEnum)
+          ? skillEnum.map((value) => String(value))
+          : undefined;
         return assistantMessage(null, [
           {
             id: 'call_execute_skill',
@@ -109,6 +116,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
     provider,
     getChatCallCount: () => chatCallCount,
     getFirstCallToolNames: () => firstCallToolNames,
+    getFirstCallExecuteSkillEnum: () => firstCallExecuteSkillEnum,
     getToolResultContent: () => toolResultContent,
   };
 }
@@ -180,6 +188,7 @@ describe('headless transport skill activation integration', () => {
       expect(output['session_id']).toBeTypeOf('string');
       expect(observed.getChatCallCount()).toBe(2);
       expect(observed.getFirstCallToolNames()).toContain('ExecuteSkill');
+      expect(observed.getFirstCallExecuteSkillEnum()).toEqual(['audit']);
       expect(observed.getToolResultContent()).toContain('"success":true');
       expect(observed.getToolResultContent()).toContain('<skill name=\\"audit\\">');
       expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([

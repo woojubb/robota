@@ -1216,15 +1216,17 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 ## System Prompt Skill and Agent Injection
 
 Skills discovered from skill directories are exposed to the system prompt by metadata only: name and
-description. Full `SKILL.md` content is loaded only when a skill is invoked through the SDK skill
-activation path. Skills with `disable-model-invocation: true` are omitted from model-visible
-metadata.
+description. The `## Skills` section includes the shared activation contract that metadata is not
+active skill content and that the model must call `ExecuteSkill` before following a skill workflow.
+Full `SKILL.md` content is loaded only when a skill is invoked through the SDK skill activation path.
+Skills with `disable-model-invocation: true` are omitted from model-visible metadata.
 
 When at least one model-invocable skill exists, `createSession()` registers an `ExecuteSkill` tool.
-The tool is the only deterministic model-side skill activation path. It accepts a skill name and
-arguments, validates `disable-model-invocation`, loads the full `SKILL.md`, emits
-`skill_activation`, and returns either the processed in-session skill prompt (`mode: inject`) or the
-fork result (`mode: fork`). A model mentioning a skill in ordinary prose is not a skill activation.
+The tool is the only deterministic model-side skill activation path. Its `skill` parameter schema is
+constrained to the registered model-invocable skill names for the session. It accepts arguments,
+validates `disable-model-invocation`, loads the full `SKILL.md`, emits `skill_activation`, and returns
+either the processed in-session skill prompt (`mode: inject`) or the fork result (`mode: fork`). A
+model mentioning a skill in ordinary prose is not a skill activation.
 
 Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, `Agent` tool registration, agent definitions, and model-visible agent metadata are omitted.
 

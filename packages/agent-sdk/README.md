@@ -245,6 +245,11 @@ registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 - `~/.robota/skills/*/SKILL.md`
 - `<cwd>/.agents/skills/*/SKILL.md`
 
+Model-invocable skills are exposed to the model as metadata only. `createSession()` registers the
+`ExecuteSkill` tool when invocable skills exist, constrains its `skill` argument to the registered
+skill names, and loads full `SKILL.md` content only after that tool is called. Mentioning a skill in
+ordinary prose does not activate the skill.
+
 ### createQuery()
 
 ```typescript
