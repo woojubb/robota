@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
 import type { IInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
 import { createHeadlessTransport } from '../headless-transport.js';
 
@@ -20,7 +21,7 @@ interface IObservedProvider {
   getChatCallCount(): number;
   getFirstCallToolNames(): string[];
   getFirstCallExecuteCommandEnum(): string[] | undefined;
-  getFirstCallExecuteSkillEnum(): string[] | undefined;
+  getFirstPromptContent(): string;
   getToolResultContent(): string;
 }
 
@@ -28,6 +29,14 @@ interface IObservedPromptProvider {
   provider: TTestProvider;
   getChatCallCount(): number;
   getPromptContent(): string;
+}
+
+interface IObservedUnknownToolProvider {
+  provider: TTestProvider;
+  getChatCallCount(): number;
+  getToolResultContent(): string;
+  getForcedInstruction(): string;
+  getForcedCallToolNames(): string[] | undefined;
 }
 
 function createTempSkill(cwd: string): void {
@@ -75,7 +84,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
   let chatCallCount = 0;
   let firstCallToolNames: string[] = [];
   let firstCallExecuteCommandEnum: string[] | undefined;
-  let firstCallExecuteSkillEnum: string[] | undefined;
+  let firstPromptContent = '';
   let toolResultContent = '';
 
   const provider: TTestProvider = {
@@ -85,31 +94,27 @@ function createSkillToolCallingProvider(): IObservedProvider {
       chatCallCount += 1;
 
       if (chatCallCount === 1) {
+        firstPromptContent = messages.map((message) => message.content).join('\n');
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
         const executeCommandSchema = options?.tools?.find((tool) => tool.name === 'ExecuteCommand');
         const commandEnum = executeCommandSchema?.parameters.properties['command']?.enum;
         firstCallExecuteCommandEnum = Array.isArray(commandEnum)
           ? commandEnum.map((value) => String(value))
           : undefined;
-        const executeSkillSchema = options?.tools?.find((tool) => tool.name === 'ExecuteSkill');
-        const skillEnum = executeSkillSchema?.parameters.properties['skill']?.enum;
-        firstCallExecuteSkillEnum = Array.isArray(skillEnum)
-          ? skillEnum.map((value) => String(value))
-          : undefined;
         return assistantMessage(null, [
           {
-            id: 'call_execute_skill',
+            id: 'call_execute_command',
             type: 'function',
             function: {
-              name: 'ExecuteSkill',
-              arguments: JSON.stringify({ skill: 'audit', args: 'src/index.ts' }),
+              name: 'ExecuteCommand',
+              arguments: JSON.stringify({ command: 'skills', args: 'audit src/index.ts' }),
             },
           },
         ]);
       }
 
       const toolMessage = messages.find(
-        (message) => message.role === 'tool' && message.name === 'ExecuteSkill',
+        (message) => message.role === 'tool' && message.name === 'ExecuteCommand',
       );
       toolResultContent = toolMessage?.content ?? '';
       return assistantMessage('Headless skill activated');
@@ -130,7 +135,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
     getChatCallCount: () => chatCallCount,
     getFirstCallToolNames: () => firstCallToolNames,
     getFirstCallExecuteCommandEnum: () => firstCallExecuteCommandEnum,
-    getFirstCallExecuteSkillEnum: () => firstCallExecuteSkillEnum,
+    getFirstPromptContent: () => firstPromptContent,
     getToolResultContent: () => toolResultContent,
   };
 }
@@ -162,6 +167,60 @@ function createPromptObservingProvider(response: string): IObservedPromptProvide
     provider,
     getChatCallCount: () => chatCallCount,
     getPromptContent: () => promptContent,
+  };
+}
+
+function createUnknownToolCallingProvider(): IObservedUnknownToolProvider {
+  let chatCallCount = 0;
+  let toolResultContent = '';
+  let forcedInstruction = '';
+  let forcedCallToolNames: string[] | undefined;
+
+  const provider: TTestProvider = {
+    name: 'headless-test-provider',
+    version: '1.0.0',
+    async chat(messages, options) {
+      chatCallCount += 1;
+
+      if (chatCallCount <= 2) {
+        return assistantMessage(null, [
+          {
+            id: `call_unknown_agent_${chatCallCount}`,
+            type: 'function',
+            function: {
+              name: 'agent',
+              arguments: JSON.stringify({ prompt: `spawn worker ${chatCallCount}` }),
+            },
+          },
+        ]);
+      }
+
+      const toolMessage = [...messages]
+        .reverse()
+        .find((message) => message.role === 'tool' && message.name === 'agent');
+      toolResultContent = toolMessage?.content ?? '';
+      const userMessage = [...messages].reverse().find((message) => message.role === 'user');
+      forcedInstruction = userMessage?.content ?? '';
+      forcedCallToolNames = options?.tools?.map((tool) => tool.name);
+      return assistantMessage('The agent tool was not executed because it is not registered.');
+    },
+    async generateResponse() {
+      return { content: 'unused' };
+    },
+    supportsTools() {
+      return true;
+    },
+    validateConfig() {
+      return true;
+    },
+  };
+
+  return {
+    provider,
+    getChatCallCount: () => chatCallCount,
+    getToolResultContent: () => toolResultContent,
+    getForcedInstruction: () => forcedInstruction,
+    getForcedCallToolNames: () => forcedCallToolNames,
   };
 }
 
@@ -200,7 +259,7 @@ describe('headless transport skill activation integration', () => {
     cwd = undefined;
   });
 
-  it('executes model-invocable skills through ExecuteSkill in a headless session', async () => {
+  it('executes model-invocable skills through the skills built-in command in a headless session', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-headless-skill-'));
     createTempSkill(cwd);
     const observed = createSkillToolCallingProvider();
@@ -210,6 +269,7 @@ describe('headless transport skill activation integration', () => {
       config: createConfig(),
       permissionMode: 'bypassPermissions',
       bare: true,
+      commandModules: [createSkillsCommandModule({ cwd })],
     });
     const stdout = captureStdout();
 
@@ -231,9 +291,13 @@ describe('headless transport skill activation integration', () => {
       });
       expect(output['session_id']).toBeTypeOf('string');
       expect(observed.getChatCallCount()).toBe(2);
-      expect(observed.getFirstCallToolNames()).toContain('ExecuteSkill');
+      expect(observed.getFirstCallToolNames()).toContain('ExecuteCommand');
+      expect(observed.getFirstCallToolNames()).not.toContain('ExecuteSkill');
       expect(observed.getFirstCallExecuteCommandEnum()).toContain('skills');
-      expect(observed.getFirstCallExecuteSkillEnum()).toEqual(['audit']);
+      expect(observed.getFirstPromptContent()).toContain('## Built-in Commands');
+      expect(observed.getFirstPromptContent()).toContain('skills [list | <skill-name> [args]]');
+      expect(observed.getFirstPromptContent()).toContain('## Skills');
+      expect(observed.getFirstPromptContent()).toContain('- audit: Audit one file');
       expect(observed.getToolResultContent()).toContain('"success":true');
       expect(observed.getToolResultContent()).toContain('<skill name=\\"audit\\">');
       expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
@@ -263,6 +327,7 @@ describe('headless transport skill activation integration', () => {
       config: createConfig(),
       permissionMode: 'bypassPermissions',
       bare: true,
+      commandModules: [createSkillsCommandModule({ cwd })],
     });
     const stdout = captureStdout();
 
@@ -300,6 +365,51 @@ describe('headless transport skill activation integration', () => {
       await session.shutdown({
         reason: 'prompt_input_exit',
         message: 'Headless slash skill activation test complete',
+      });
+    }
+  });
+
+  it('reports skipped unknown native tool calls through the headless execution path', async () => {
+    cwd = mkdtempSync(join(tmpdir(), 'robota-headless-unknown-tool-'));
+    const observed = createUnknownToolCallingProvider();
+    const session = new InteractiveSession({
+      cwd,
+      provider: observed.provider,
+      config: createConfig(),
+      permissionMode: 'bypassPermissions',
+      bare: true,
+    });
+    const stdout = captureStdout();
+
+    try {
+      const transport = createHeadlessTransport({
+        outputFormat: 'json',
+        prompt: 'Spawn agents in parallel',
+      });
+
+      session.attachTransport(transport);
+      await transport.start();
+
+      const output = parseJsonObject(stdout.writes.join('').trim());
+      expect(transport.getExitCode()).toBe(0);
+      expect(output).toMatchObject({
+        type: 'result',
+        result: 'The agent tool was not executed because it is not registered.',
+        subtype: 'success',
+      });
+      expect(observed.getChatCallCount()).toBe(3);
+      expect(observed.getToolResultContent()).toContain('not registered');
+      expect(observed.getToolResultContent()).toContain('not executed');
+      expect(observed.getForcedInstruction()).toContain(
+        'Those tool calls were not executed because they are not registered tools.',
+      );
+      expect(observed.getForcedInstruction()).toContain('agent');
+      expect(observed.getForcedCallToolNames()).toBeUndefined();
+    } finally {
+      stdout.restore();
+      await session.shutdown({
+        reason: 'prompt_input_exit',
+        message: 'Headless unknown tool test complete',
       });
     }
   });

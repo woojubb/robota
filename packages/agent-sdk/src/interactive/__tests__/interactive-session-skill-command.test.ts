@@ -7,7 +7,6 @@ import type { ITerminalOutput } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ILoadedContext } from '../../context/context-loader.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
-import type { ICommand } from '../../command-api/types.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
@@ -42,12 +41,17 @@ function makeParentSession() {
   };
 }
 
-function createTempSkill(cwd: string, name = 'audit'): void {
+function createTempSkill(
+  cwd: string,
+  name = 'audit',
+  frontmatter: readonly string[] = [],
+  body = 'Audit $ARGUMENTS',
+): void {
   const skillDir = join(cwd, '.agents', 'skills', name);
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(
     join(skillDir, 'SKILL.md'),
-    ['---', `name: ${name}`, 'description: Audit code', '---', 'Audit $ARGUMENTS'].join('\n'),
+    ['---', `name: ${name}`, 'description: Audit code', ...frontmatter, '---', body].join('\n'),
     'utf8',
   );
 }
@@ -89,17 +93,7 @@ function makeTerminal(): ITerminalOutput {
   } as unknown as ITerminalOutput;
 }
 
-function makeSkill(overrides?: Partial<ICommand>): ICommand {
-  return {
-    name: 'audit',
-    description: 'Audit code',
-    source: 'skill',
-    skillContent: 'Audit $ARGUMENTS',
-    ...overrides,
-  };
-}
-
-describe('InteractiveSession.executeSkillCommand', () => {
+describe('InteractiveSession skill activation common API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.forkRun.mockResolvedValue('fork result');
@@ -107,19 +101,23 @@ describe('InteractiveSession.executeSkillCommand', () => {
   });
 
   it('submits non-fork skills into the parent session', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-common-api-'));
+    createTempSkill(cwd);
     const parentSession = makeParentSession();
-    const session = new InteractiveSession({ session: parentSession as never });
-    const skill = makeSkill();
+    const session = new InteractiveSession({ session: parentSession as never, cwd });
     const skillActivation = vi.fn();
     session.on('skill_activation', skillActivation);
 
-    await session.executeSkillCommand(
-      skill,
-      'src/index.ts',
-      '/audit src/index.ts',
-      '/audit src/index.ts',
-    );
+    const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
+      invocationSource: 'user',
+      displayInput: '/audit src/index.ts',
+      rawInput: '/audit src/index.ts',
+    });
 
+    expect(result).toMatchObject({
+      success: true,
+      effects: [{ type: 'session-execution-started' }],
+    });
     expect(parentSession.run).toHaveBeenCalledWith(
       expect.stringContaining('Audit src/index.ts'),
       '/audit src/index.ts',
@@ -151,11 +149,16 @@ describe('InteractiveSession.executeSkillCommand', () => {
     const parentSession = makeParentSession();
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
-    const result = await session.executeModelSkillCommand('audit', 'src/index.ts');
+    const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
+      invocationSource: 'model',
+    });
 
-    expect(result).toEqual({
-      mode: 'inject',
-      prompt: expect.stringContaining('Audit src/index.ts'),
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        mode: 'inject',
+        prompt: expect.stringContaining('Audit src/index.ts'),
+      },
     });
     expect(parentSession.run).not.toHaveBeenCalled();
     expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
@@ -174,16 +177,15 @@ describe('InteractiveSession.executeSkillCommand', () => {
     const parentSession = makeParentSession();
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
-    const result = await session.executeUserSkillCommand(
-      'audit',
-      'src/index.ts',
-      '/audit src/index.ts',
-      '/audit src/index.ts',
-    );
+    const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
+      invocationSource: 'user',
+      displayInput: '/audit src/index.ts',
+      rawInput: '/audit src/index.ts',
+    });
 
-    expect(result).toEqual({
-      mode: 'inject',
-      prompt: expect.stringContaining('Audit src/index.ts'),
+    expect(result).toMatchObject({
+      success: true,
+      effects: [{ type: 'session-execution-started' }],
     });
     expect(parentSession.run).toHaveBeenCalledWith(
       expect.stringContaining('Audit src/index.ts'),
@@ -199,15 +201,17 @@ describe('InteractiveSession.executeSkillCommand', () => {
     const parentSession = makeParentSession();
     const session = new InteractiveSession({ session: parentSession as never });
 
-    const result = await session.executeUserSkillCommand('missing', '');
+    const result = await session.executeSkillCommandByName('missing', '', {
+      invocationSource: 'user',
+    });
 
     expect(result).toBeNull();
     expect(parentSession.run).not.toHaveBeenCalled();
     expect(session.getSkillActivationEvents()).toEqual([]);
   });
 
-  it('activates an explicitly named skill directive before the model turn', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'robota-user-directive-skill-'));
+  it('does not route natural-language skill directives outside the command tool path', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-natural-language-skill-'));
     createTempSkill(cwd);
     const parentSession = makeParentSession();
     const session = new InteractiveSession({ session: parentSession as never, cwd });
@@ -215,13 +219,10 @@ describe('InteractiveSession.executeSkillCommand', () => {
     await session.submit('Use the audit skill to inspect src/index.ts.');
 
     expect(parentSession.run).toHaveBeenCalledWith(
-      expect.stringContaining('Audit Use the audit skill to inspect src/index.ts.'),
       'Use the audit skill to inspect src/index.ts.',
+      undefined,
     );
-    expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
-      'user-directive',
-      'user-directive',
-    ]);
+    expect(session.getSkillActivationEvents()).toEqual([]);
   });
 
   it('does not record skill activation for prompt-only skill references', async () => {
@@ -256,7 +257,9 @@ describe('InteractiveSession.executeSkillCommand', () => {
       sessionStore,
     });
 
-    await session.executeModelSkillCommand('audit', 'src/index.ts');
+    await session.executeSkillCommandByName('audit', 'src/index.ts', {
+      invocationSource: 'model',
+    });
 
     expect(savedRecord?.skillActivationEvents?.map((event) => event.status)).toEqual([
       'started',
@@ -265,8 +268,10 @@ describe('InteractiveSession.executeSkillCommand', () => {
   });
 
   it('runs context: fork skills through an isolated subagent session', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-fork-skill-common-api-'));
+    createTempSkill(cwd, 'audit', ['context: fork', 'agent: Explore', 'allowed-tools: Read']);
     const parentSession = makeParentSession();
-    const session = new InteractiveSession({ session: parentSession as never });
+    const session = new InteractiveSession({ session: parentSession as never, cwd });
     const exploreAgent: IAgentDefinition = {
       name: 'Explore',
       description: 'Read-only explorer',
@@ -286,14 +291,16 @@ describe('InteractiveSession.executeSkillCommand', () => {
     const complete = vi.fn();
     session.on('complete', complete);
 
-    const result = await session.executeSkillCommand(
-      makeSkill({ context: 'fork', agent: 'Explore', allowedTools: ['Read'] }),
-      'src/index.ts',
-      '/audit src/index.ts',
-      '/audit src/index.ts',
-    );
+    const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
+      invocationSource: 'user',
+      displayInput: '/audit src/index.ts',
+      rawInput: '/audit src/index.ts',
+    });
 
-    expect(result).toEqual({ mode: 'fork', result: 'fork result' });
+    expect(result).toMatchObject({
+      success: true,
+      effects: [{ type: 'session-execution-started' }],
+    });
     expect(parentSession.run).not.toHaveBeenCalled();
     expect(mocks.createSubagentSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -305,7 +312,7 @@ describe('InteractiveSession.executeSkillCommand', () => {
         isForkWorker: true,
       }),
     );
-    expect(mocks.forkRun).toHaveBeenCalledWith('Audit src/index.ts');
+    expect(mocks.forkRun).toHaveBeenCalledWith(expect.stringContaining('Audit src/index.ts'));
     expect(complete).toHaveBeenCalledWith(expect.objectContaining({ response: 'fork result' }));
     expect(session.getMessages().map((message) => message.content)).toContain(
       '/audit src/index.ts',

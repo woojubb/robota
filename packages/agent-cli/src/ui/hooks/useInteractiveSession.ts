@@ -7,12 +7,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  InteractiveSession,
-  CommandRegistry,
-  createBuiltinCommandModule,
-  SkillCommandSource,
-} from '@robota-sdk/agent-sdk';
+import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -121,11 +116,9 @@ function initializeSession(
   });
 
   const registry = new CommandRegistry();
-  registry.addModule(createBuiltinCommandModule());
   for (const module of props.commandModules ?? []) {
     registry.addModule(module);
   }
-  registry.addSource(new SkillCommandSource(props.cwd));
 
   reloadPluginCommandSource(registry);
 

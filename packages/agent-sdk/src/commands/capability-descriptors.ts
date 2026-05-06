@@ -11,7 +11,7 @@ export function commandToCapabilityDescriptor(command: ICommand): ICapabilityDes
   const skillLike =
     command.source === 'skill' || (command.source === 'plugin' && Boolean(command.skillContent));
   return {
-    name: `/${command.name}`,
+    name: command.name,
     kind: inferKind(command),
     description: command.description,
     userInvocable: command.userInvocable !== false,

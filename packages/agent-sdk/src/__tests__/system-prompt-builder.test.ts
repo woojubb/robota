@@ -196,7 +196,7 @@ describe('buildSystemPrompt', () => {
         ...BASE_PARAMS,
         commandDescriptors: [
           {
-            name: '/agent',
+            name: 'agent',
             kind: 'builtin-command',
             description: 'Subagent job command',
             userInvocable: true,
@@ -217,7 +217,7 @@ describe('buildSystemPrompt', () => {
       expect(skillsIdx).toBeGreaterThan(commandsIdx);
       expect(agentsIdx).toBeGreaterThan(skillsIdx);
       expect(result).not.toContain('## Capabilities');
-      expect(result).toContain('- /agent parallel LABEL:"PROMPT": Subagent job command');
+      expect(result).toContain('- agent parallel LABEL:"PROMPT": Subagent job command');
       expect(result).toContain('- review: Review code');
       expect(result).toContain('- Plan: Planning agent');
     });
@@ -227,7 +227,7 @@ describe('buildSystemPrompt', () => {
         ...BASE_PARAMS,
         commandDescriptors: [
           {
-            name: '/memory',
+            name: 'memory',
             kind: 'builtin-command',
             description:
               'Project memory command. Use it to inspect project memory when stored context may help, save durable preferences, project conventions, feedback, or references worth reusing across sessions, review pending candidates, and report memory provenance. Do not store secrets, credentials, or transient facts.',
@@ -241,7 +241,7 @@ describe('buildSystemPrompt', () => {
       });
 
       expect(result).toContain('## Built-in Commands');
-      expect(result).toContain('/memory list | show [topic]');
+      expect(result).toContain('memory list | show [topic]');
       expect(result).toContain('inspect project memory when stored context may help');
       expect(result).toContain('Do not store secrets');
       expect(result).not.toContain('## Memory Behavior');

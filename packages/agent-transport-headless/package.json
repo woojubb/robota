@@ -45,6 +45,7 @@
     "@robota-sdk/agent-sdk": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/agent-command-skills": "workspace:*",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",

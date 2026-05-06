@@ -609,6 +609,9 @@ importers:
       '@robota-sdk/agent-command-session':
         specifier: workspace:*
         version: link:../agent-command-session
+      '@robota-sdk/agent-command-skills':
+        specifier: workspace:*
+        version: link:../agent-command-skills
       '@robota-sdk/agent-command-statusline':
         specifier: workspace:*
         version: link:../agent-command-statusline
@@ -984,6 +987,25 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-command-session:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-skills:
     dependencies:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
@@ -1840,6 +1862,9 @@ importers:
         specifier: workspace:*
         version: link:../agent-sdk
     devDependencies:
+      '@robota-sdk/agent-command-skills':
+        specifier: workspace:*
+        version: link:../agent-command-skills
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10

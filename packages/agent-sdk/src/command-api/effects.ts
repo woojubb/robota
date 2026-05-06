@@ -12,4 +12,5 @@ export type TCommandEffect =
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
   | { type: 'conversation-history-cleared' }
+  | { type: 'session-execution-started' }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };

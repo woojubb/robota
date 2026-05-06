@@ -56,6 +56,32 @@ function createChunk(
   };
 }
 
+function createToolCallChunk(toolName: string, args: string): OpenAI.Chat.ChatCompletionChunk {
+  return {
+    id: 'chunk-tool',
+    object: 'chat.completion.chunk',
+    created: 1,
+    model: 'supergemma4',
+    choices: [
+      {
+        index: 0,
+        delta: {
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call-1',
+              type: 'function',
+              function: { name: toolName, arguments: args },
+            },
+          ],
+        },
+        finish_reason: 'tool_calls',
+        logprobs: null,
+      },
+    ],
+  };
+}
+
 function createDeclaredToolSchema(): IToolSchema {
   return {
     name: 'DeclaredTool',
@@ -317,6 +343,54 @@ describe('GemmaProvider', () => {
     ]);
   });
 
+  it('passes undeclared native OpenAI-compatible tool calls to core for normal tool-result errors', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue({
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1,
+      model: 'supergemma4',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            refusal: null,
+            tool_calls: [
+              {
+                id: 'call-1',
+                type: 'function',
+                function: { name: 'agent', arguments: '{"prompt":"do work"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      tools: [createDeclaredToolSchema()],
+    });
+
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'call-1',
+        type: 'function',
+        function: { name: 'agent', arguments: '{"prompt":"do work"}' },
+      },
+    ]);
+  });
+
   it('projects split Gemma native tool-call text from streaming chat assembly', async () => {
     const provider = new GemmaProvider({ apiKey: 'lm-studio' });
     const client = (
@@ -351,6 +425,33 @@ describe('GemmaProvider', () => {
           name: 'DeclaredTool',
           arguments: '{"prompt":"analyze","background":true}',
         },
+      },
+    ]);
+  });
+
+  it('passes undeclared native OpenAI-compatible tool calls during streaming assembly', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createToolCallChunk('agent', '{"prompt":"do work"}')]),
+    );
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      tools: [createDeclaredToolSchema()],
+      onTextDelta: vi.fn(),
+    });
+
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'call-1',
+        type: 'function',
+        function: { name: 'agent', arguments: '{"prompt":"do work"}' },
       },
     ]);
   });

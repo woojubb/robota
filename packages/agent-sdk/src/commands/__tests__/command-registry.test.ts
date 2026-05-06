@@ -30,12 +30,12 @@ describe('CommandRegistry capability descriptors', () => {
     expect(registry.getCommands()).toEqual([]);
   });
 
-  it('does not project /agent from core built-ins when the agent source is not composed', () => {
+  it('does not project agent from core built-ins when the agent source is not composed', () => {
     const registry = new CommandRegistry();
     registry.addSource(new BuiltinCommandSource());
 
     const descriptors = registry.getCapabilityDescriptors();
-    const agent = descriptors.find((descriptor) => descriptor.name === '/agent');
+    const agent = descriptors.find((descriptor) => descriptor.name === 'agent');
 
     expect(agent).toBeUndefined();
   });
@@ -55,7 +55,7 @@ describe('CommandRegistry capability descriptors', () => {
     });
 
     const descriptors = registry.getCapabilityDescriptors();
-    const help = descriptors.find((descriptor) => descriptor.name === '/help');
+    const help = descriptors.find((descriptor) => descriptor.name === 'help');
 
     expect(help?.modelInvocable).toBe(false);
   });
@@ -86,7 +86,7 @@ describe('CommandRegistry capability descriptors', () => {
     expect(registry.getCommands().map((command) => command.name)).toEqual(['diagnose']);
     expect(registry.getCapabilityDescriptors()).toEqual([
       {
-        name: '/diagnose',
+        name: 'diagnose',
         kind: 'builtin-command',
         description: 'Run read-only diagnostics for the current workspace',
         userInvocable: true,

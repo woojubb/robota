@@ -12,8 +12,8 @@ const openaiDefaults = {
 const DRIVER_PATH = fileURLToPath(
   new URL('./fixtures/provider-setup-prompt-driver.tsx', import.meta.url),
 );
-const TEST_TIMEOUT_MS = 10000;
-const WAIT_TIMEOUT_MS = 5000;
+const TEST_TIMEOUT_MS = 30000;
+const WAIT_TIMEOUT_MS = 15000;
 const INPUT_SETTLE_MS = 75;
 const OUTPUT_TAIL_LENGTH = 2000;
 

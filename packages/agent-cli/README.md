@@ -159,7 +159,7 @@ The AI agent can invoke 8 local tools:
 - Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
 - Edit results render as context hunks with markdown-friendly diff blocks.
 - Background subagents are real runtime jobs with transcripts and resumable task snapshots.
-- Explicit multi-agent requests can use the Agent tool `jobs` batch path through the SDK runtime.
+- Explicit multi-agent requests use the `/agent` command module batch path through the SDK runtime.
 
 ## Permission System
 
@@ -409,7 +409,7 @@ bin.ts → cli.ts (arg parsing)
                     │   ├── InteractiveSession (SDK)
                     │   ├── CommandRegistry    (SDK, re-exported by CLI)
                     │   │   ├── BuiltinCommandSource  (SDK, empty by default)
-                    │   │   ├── SkillCommandSource    (SDK, discovers from 4 paths)
+                    │   │   ├── agent-command-skills  (/skills command + virtual skill aliases)
                     │   │   ├── PluginCommandSource   (SDK, plugin skills)
                     │   │   └── ICommandModule sources (/help, /compact, ...)
                     │   └── SystemCommandExecutor (SDK)

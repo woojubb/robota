@@ -24,12 +24,7 @@ import type {
   TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type {
-  ICommandHostAdapters,
-  ICommandModule,
-  ICommandResult,
-  ISkillExecutionResult,
-} from '../commands/index.js';
+import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -82,10 +77,6 @@ export interface IInteractiveSessionStandardOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
-  /** Model skill execution bridge. */
-  modelSkillExecutor?: (skillName: string, args: string) => Promise<ISkillExecutionResult | null>;
-  /** Predicate for skills allowed through the model skill execution bridge. */
-  isModelSkillInvocable?: (skillName: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
@@ -161,10 +152,6 @@ export interface IInitOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
-  /** Model skill execution bridge. */
-  modelSkillExecutor?: (skillName: string, args: string) => Promise<ISkillExecutionResult | null>;
-  /** Predicate for skills allowed through the model skill execution bridge. */
-  isModelSkillInvocable?: (skillName: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
@@ -265,8 +252,6 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
       : {}),
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
-    modelSkillExecutor: options.modelSkillExecutor,
-    isModelSkillInvocable: options.isModelSkillInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,

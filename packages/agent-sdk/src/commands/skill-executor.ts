@@ -86,7 +86,9 @@ export async function executeSkill(
   // Fork execution: isolated subagent session
   if (skill.context === 'fork') {
     if (!callbacks.runInFork) {
-      throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
+      throw new Error(
+        'Fork execution is not available. Agent runtime deps may not be initialized.',
+      );
     }
 
     const content = await buildProcessedContent(skill, args, context);

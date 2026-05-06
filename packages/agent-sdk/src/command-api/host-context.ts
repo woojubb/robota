@@ -14,6 +14,7 @@ import type {
 } from '../checkpoints/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
+import type { ICommandResult } from './command-result.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -35,6 +36,14 @@ export interface ICommandSkillListEntry {
   readonly argumentHint?: string;
   readonly context?: string;
   readonly agent?: string;
+}
+
+export type TCommandInvocationSource = 'user' | 'model';
+
+export interface ICommandSkillActivationRequest {
+  readonly invocationSource: TCommandInvocationSource;
+  readonly displayInput?: string;
+  readonly rawInput?: string;
 }
 
 export type TAutoCompactThresholdSource = 'default' | 'settings' | 'session';
@@ -76,8 +85,14 @@ export interface ICommandHostContext {
   removeContextReference?(path: string): IContextReferenceRemoveResult;
   clearContextReferences?(): IContextReferenceClearResult;
   getCwd(): string;
+  getCommandInvocationSource?(): TCommandInvocationSource;
   listCommands?(): ICommandListEntry[];
   listSkills?(): ICommandSkillListEntry[];
+  executeSkillCommandByName?(
+    name: string,
+    args: string,
+    request: ICommandSkillActivationRequest,
+  ): Promise<ICommandResult | null>;
   listEditCheckpoints(): IEditCheckpointSummary[];
   inspectEditCheckpoint?(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
