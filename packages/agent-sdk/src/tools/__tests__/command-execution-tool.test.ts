@@ -36,6 +36,17 @@ describe('command execution tool', () => {
     expect(String(result.data)).toContain('"agentId":"agent_1"');
   });
 
+  it('constrains command schema to registered model-invocable commands when provided', () => {
+    const tool = createCommandExecutionTool({
+      isModelInvocable: () => true,
+      execute: vi.fn(),
+      commandNames: ['skills', 'compact'],
+    });
+
+    const commandEnum = tool.schema.parameters.properties['command']?.enum;
+    expect(commandEnum).toEqual(['skills', 'compact']);
+  });
+
   it('rejects commands that are not model invocable', async () => {
     const execute = vi.fn();
     const tool = createCommandExecutionTool({

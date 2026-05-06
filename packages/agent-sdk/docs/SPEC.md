@@ -54,7 +54,7 @@ agent-cli            ← minimal TUI
 
 SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider and passes it to the SDK. Assembly (wiring tools, provider, system prompt) happens inside the SDK, but the provider itself comes from the consumer.
 
-SDK command code is split between generic infrastructure and command-facing common APIs. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, and reusable command-facing common APIs. User-visible internal commands must be implemented as command modules selected by composition roots; `agent-sdk` no longer owns user-visible built-in command behavior.
+SDK command code is split between generic infrastructure, command-facing common APIs, and SDK-owned discovery commands. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, reusable command-facing common APIs, and session capability discovery such as `/skills`. Product-specific user-visible internal commands must be implemented as command modules selected by composition roots.
 
 Model command common APIs are provider-aware but provider-neutral. They resolve the effective active provider profile from the provider settings document, read model catalog fallback metadata from injected `IProviderDefinition` records, can explicitly invoke provider-owned catalog refresh hooks, and produce command descriptors without hardcoding CLI/TUI provider branches. If a live refresh fails or a provider does not expose catalog metadata, `/model` remains manually invocable and the command result must surface stale/unavailable catalog state rather than showing another provider's models.
 
@@ -69,6 +69,7 @@ Any client (CLI, web, API server, worker)
     ↓
 InteractiveSession  (agent-sdk — pure TypeScript, no React)
     │  submit(input, displayInput?, rawInput?)
+    │  executeUserSkillCommand(name, args, displayInput?, rawInput?)
     │  executeSkillCommand(skill, args, displayInput?, rawInput?)
     │  executeCommand(name, args)
     │  abort() / cancelQueue()
@@ -146,7 +147,8 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── builtin-source.ts       ← BuiltinCommandSource: command palette metadata derived from executable built-ins
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
-│   └── system-command.ts       ← empty SDK-default command factory retained for composition tests
+│   ├── skill-system-command.ts ← /skills discovery command and activation contract output
+│   └── system-command.ts       ← SDK-default command factory
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
@@ -321,12 +323,13 @@ agent-cli (Ink TUI — CLI-specific)
 - **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers normally call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` and `createSystemCommands()` are exported so independent command modules can compose and test against the same command contract.
 - **Classes**:
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
-  - `createSystemCommands()` — empty SDK-default executable command factory retained for composition tests
+  - `createSystemCommands()` — SDK-default executable command factory for SDK-owned discovery commands
   - `createBuiltinCommandModule()` — SDK-default command module that exposes the same executable commands as palette/autocomplete metadata
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
-- **SDK-default built-in commands**: none. User-visible internal commands are provided by product-composed command modules.
+- **SDK-default built-in commands**: `/skills` is SDK-owned because skill discovery, metadata, and activation events are SDK concerns. It is user- and model-invocable, read-only, and returns registered skill metadata plus the activation contract: descriptions are selection metadata only, and matching skill workflows must be activated with `ExecuteSkill`.
+- **Product-specific built-in commands**: User-visible internal commands outside SDK-owned discovery are provided by product-composed command modules.
 - **Product-composed built-in command modules**: `/help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
 - **Product-composed built-in command modules**: `/model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `/mode` is provided by `@robota-sdk/agent-command-mode`, reuses SDK permission-mode common APIs for validation/subcommand metadata, and updates permission mode through the command host adapter facade.
@@ -342,7 +345,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Product-composed built-in command modules**: `/compact` is provided by `@robota-sdk/agent-command-compact`, declares blocking lifecycle metadata through the same `ISystemCommand` contract, and is exposed as a model-invocable `write` capability. Auto-compaction remains a deterministic session policy and emits structured compaction events instead of relying on the model to decide routine compaction.
 - **Product-composed built-in command modules**: `/exit` is provided by `@robota-sdk/agent-command-exit`. It reuses the SDK session-exit effect helper, stays user-invocable only, and leaves concrete shutdown/process exit to the host effect handler.
 - **Product-composed built-in command modules**: `/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command-plugin`. They reuse SDK plugin command common APIs, send host UI opening through `plugin-tui-requested`, refresh host plugin command sources through `plugin-registry-reload-requested`, and perform install/uninstall/enable/disable/marketplace/reload operations through a host-provided `ICommandPluginAdapter`.
-- **Model-invocable built-ins**: Product-composed command modules such as `/memory` and `/compact` expose descriptors so explicit user/model requests can execute through the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
+- **Model-invocable built-ins**: SDK-owned `/skills` and product-composed command modules such as `/memory` and `/compact` expose descriptors so explicit user/model requests can execute through the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`/rewind`**: User-invocable product-composed code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind inspect <checkpoint-id>` shows captured files plus restore/rollback ranges; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance. Product assemblies can inject host-owned built-ins such as plugin and product-composed command packages such as exit and statusline without adding CLI-specific code to SDK core.
 
@@ -351,7 +354,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/commands/` — SSOT owner; agent-cli re-exports from here
 - **Classes**:
   - `CommandRegistry` — aggregates multiple `ICommandSource` instances; filters by prefix; resolves plugin-qualified names
-  - `BuiltinCommandSource` — provides palette/autocomplete metadata derived from SDK-default executable slash commands; currently empty because user-visible built-ins are product-composed modules
+  - `BuiltinCommandSource` — provides palette/autocomplete metadata derived from SDK-default executable slash commands such as `/skills`
   - `SkillCommandSource` — discovers SKILL.md files from project and user directories; parses YAML frontmatter; lazy-caches results
   - `PluginCommandSource` — discovers commands exposed by installed bundle plugins (moved from agent-cli to agent-sdk)
 - **Migration note**: These classes were previously in `agent-cli/src/commands/`. They were moved to `agent-sdk` so any client can use slash command discovery without a TUI dependency. `PluginCommandSource` was also moved from `agent-cli` to `agent-sdk` as part of the scope redesign.
@@ -492,9 +495,12 @@ session.on('skill_activation', (event: ISkillActivationEvent) => { /* skill acti
 // rawInput: passed to Session.run() for hook matching
 await session.submit(input, displayInput?, rawInput?);
 
-// Execute a discovered user-invoked skill command. Non-fork skills submit into the current session.
-// `context: fork` skills run through an isolated subagent session. Each real invocation emits a
-// skill_activation event; prompt-only references to skill names do not.
+// Execute a named user-invoked skill command. Transports should use this path for `/skill`.
+await session.executeUserSkillCommand(name, args, displayInput?, rawInput?);
+
+// Execute a discovered user-invoked skill command object. Non-fork skills submit into the current
+// session. `context: fork` skills run through an isolated subagent session. Each real invocation
+// emits a skill_activation event; prompt-only references to skill names do not.
 await session.executeSkillCommand(skillCommand, args, displayInput?, rawInput?);
 
 // Execute a named system command (embedded SystemCommandExecutor)
@@ -815,7 +821,7 @@ Exported subagent runtime types:
   data: {
     skillName: string;
     source: 'skill' | 'plugin';
-    invocation: 'user-slash' | 'model-tool';
+    invocation: 'user-slash' | 'user-directive' | 'model-tool';
     mode: 'inject' | 'fork';
     status: 'started' | 'completed' | 'failed';
     message: string;
@@ -1216,15 +1222,29 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 ## System Prompt Skill and Agent Injection
 
 Skills discovered from skill directories are exposed to the system prompt by metadata only: name and
-description. Full `SKILL.md` content is loaded only when a skill is invoked through the SDK skill
-activation path. Skills with `disable-model-invocation: true` are omitted from model-visible
+description. The `## Skills` section must not include extra hardcoded behavior instructions; the
+SDK-owned `/skills` built-in command descriptor and command result own the skill discovery and
+activation guidance. Full `SKILL.md` content is loaded only when a skill is invoked through the SDK
+skill activation path. Skills with `disable-model-invocation: true` are omitted from model-visible
 metadata.
 
 When at least one model-invocable skill exists, `createSession()` registers an `ExecuteSkill` tool.
-The tool is the only deterministic model-side skill activation path. It accepts a skill name and
-arguments, validates `disable-model-invocation`, loads the full `SKILL.md`, emits
-`skill_activation`, and returns either the processed in-session skill prompt (`mode: inject`) or the
-fork result (`mode: fork`). A model mentioning a skill in ordinary prose is not a skill activation.
+The tool is the only deterministic model-side skill activation path. Its `skill` parameter schema is
+constrained to the registered model-invocable skill names for the session. It accepts arguments,
+validates `disable-model-invocation`, loads the full `SKILL.md`, emits `skill_activation`, and returns
+either the processed in-session skill prompt (`mode: inject`) or the fork result (`mode: fork`). A
+model mentioning a skill in ordinary prose is not a skill activation.
+
+For user prompts, `InteractiveSession.submit()` treats explicit registered skill directives such as
+`Use the repo-writing skill ...` or `repo-writing 스킬대로 ...` as deterministic user-directed
+activations. These prompts load the matching `SKILL.md` before the model turn and record
+`invocation: 'user-directive'`. Incidental prose that merely mentions a skill name without an
+activation directive remains a normal prompt.
+
+When at least one model-invocable command exists, `createSession()` registers an `ExecuteCommand`
+tool. Its `command` parameter schema is constrained to the registered model-invocable command names
+for the session. `/skills` is included by default so models can inspect registered skills before
+choosing a matching `ExecuteSkill` call.
 
 Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, `Agent` tool registration, agent definitions, and model-visible agent metadata are omitted.
 
@@ -1236,7 +1256,13 @@ The direct `Agent` tool always sets `mode: 'background'`, emits lifecycle update
 
 ### Skill Execution Semantics
 
-`InteractiveSession.executeSkillCommand(skill, args, displayInput?, rawInput?)` is the SDK-owned skill execution path.
+`InteractiveSession.executeUserSkillCommand(name, args, displayInput?, rawInput?)` is the
+transport-facing SDK skill execution path for explicit user slash invocations such as `/audit`.
+It resolves the named skill from SDK-owned skill sources, loads the full `SKILL.md`, emits
+`skill_activation`, and then delegates to the same execution semantics as discovered skill commands.
+
+`InteractiveSession.executeSkillCommand(skill, args, displayInput?, rawInput?)` is the lower-level
+SDK-owned skill execution path for already discovered skill command objects.
 
 `InteractiveSession.executeModelSkillCommand(name, args)` is the SDK-owned model-tool execution
 path used by `ExecuteSkill`. It must not submit a second user turn for inject-mode skills; instead,
@@ -1259,7 +1285,7 @@ interface ISkillActivationEvent {
   readonly type: 'skill-activation';
   readonly skillName: string;
   readonly source: 'skill' | 'plugin';
-  readonly invocation: 'user-slash' | 'model-tool';
+  readonly invocation: 'user-slash' | 'user-directive' | 'model-tool';
   readonly mode: 'inject' | 'fork';
   readonly status: 'started' | 'completed' | 'failed';
   readonly timestamp: string;

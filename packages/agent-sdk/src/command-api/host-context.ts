@@ -26,6 +26,17 @@ export interface ICommandListEntry {
   description: string;
 }
 
+export interface ICommandSkillListEntry {
+  readonly name: string;
+  readonly description: string;
+  readonly source: string;
+  readonly modelInvocable: boolean;
+  readonly userInvocable: boolean;
+  readonly argumentHint?: string;
+  readonly context?: string;
+  readonly agent?: string;
+}
+
 export type TAutoCompactThresholdSource = 'default' | 'settings' | 'session';
 
 export interface ICommandSessionRuntime {
@@ -66,6 +77,7 @@ export interface ICommandHostContext {
   clearContextReferences?(): IContextReferenceClearResult;
   getCwd(): string;
   listCommands?(): ICommandListEntry[];
+  listSkills?(): ICommandSkillListEntry[];
   listEditCheckpoints(): IEditCheckpointSummary[];
   inspectEditCheckpoint?(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
