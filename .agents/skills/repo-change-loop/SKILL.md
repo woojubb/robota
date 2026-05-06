@@ -7,9 +7,10 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Build Requirements"
-- `AGENTS.md` > "Execution Safety"
-- `AGENTS.md` > "Harness Direction"
+- `.agents/rules/verification.md` > "Build Requirements"
+- `.agents/rules/verification.md` > "Behavioral Verification Before Push"
+- `.agents/rules/verification.md` > "Headless CLI Verification Requirement"
+- `.agents/rules/verification.md` > "Harness Direction"
 
 ## Use This Skill When
 
@@ -36,9 +37,10 @@ description: Runs the standard Robota change loop by identifying impact, buildin
    - package build
    - targeted tests
    - targeted lint or typecheck when the change affects contracts or boundaries
-5. If the change affects execution behavior, examples, or scenarios, run the relevant verification flow.
-6. Stop immediately on strict-policy failures, contract failures, or non-zero verification exits.
-7. Summarize:
+5. If the change affects CLI execution, transports, `InteractiveSession`, commands, model-routed tools, permissions, streaming, provider setup, or session persistence, run or add a headless verification path with structured runtime evidence.
+6. If the change affects execution behavior, examples, or scenarios, run the relevant verification flow.
+7. Stop immediately on strict-policy failures, contract failures, or non-zero verification exits.
+8. Summarize:
    - what was verified
    - what failed
    - what was not verified
@@ -56,6 +58,7 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 - [ ] Changed scope is identified before running commands.
 - [ ] Affected package build is run for package source changes.
 - [ ] Targeted tests or smoke checks are run for changed behavior.
+- [ ] CLI/transport/session behavior includes a headless verification path when applicable.
 - [ ] Scenario or execution verification is run when relevant.
 - [ ] Final summary distinguishes verified vs unverified areas.
 
@@ -81,6 +84,7 @@ pnpm lint
 - Running the full workspace by habit when the affected scope is narrow and known.
 - Reporting success without saying what was actually verified.
 - Treating documentation reading as equivalent to verification.
+- Treating TUI-only checks as sufficient for behavior also reachable through headless CLI mode.
 
 ## Related Harness Commands
 

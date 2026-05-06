@@ -8,6 +8,7 @@
  * Config/context loading is internal. Consumer provides cwd + provider.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type {
@@ -37,8 +38,14 @@ import type {
 import {
   createBuiltinCommandModule,
   executeSkill,
+  SkillCommandSource,
   SystemCommandExecutor,
 } from '../commands/index.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import {
+  createSkillActivationEvent,
+  formatSkillActivationMessage,
+} from '../commands/skill-activation-events.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -124,6 +131,16 @@ export interface IInteractiveSessionShutdownOptions {
   message?: string;
 }
 
+function normalizeSkillName(name: string): string {
+  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
+}
+
+function getQualifiedSkillName(rawInput?: string): string | undefined {
+  if (!rawInput?.startsWith('/')) return undefined;
+  const firstToken = rawInput.slice(1).trim().split(/\s+/)[0];
+  return firstToken && firstToken.length > 0 ? firstToken : undefined;
+}
+
 export class InteractiveSession {
   private session: Session | null = null;
   private readonly commandExecutor: SystemCommandExecutor;
@@ -158,6 +175,8 @@ export class InteractiveSession {
   private backgroundJobOrchestrator: BackgroundJobOrchestrator | null = null;
   private readonly commandModules: readonly ICommandModule[];
   private readonly commandHostAdapters?: ICommandHostAdapters;
+  private readonly skillCommandSource: SkillCommandSource;
+  private skillActivationEvents: ISkillActivationEvent[] = [];
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
@@ -185,6 +204,7 @@ export class InteractiveSession {
       'commandHostAdapters' in options ? options.commandHostAdapters : undefined;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
+    this.skillCommandSource = new SkillCommandSource(this.cwd || process.cwd());
 
     const hasInjectedSession = this.configureInjectedSession(options);
     this.restoreSessionRecordIfNeeded(options);
@@ -216,6 +236,7 @@ export class InteractiveSession {
     this.backgroundTaskEvents = restored.backgroundTaskEvents;
     this.backgroundJobGroups = restored.backgroundJobGroups;
     this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
+    this.skillActivationEvents = restored.skillActivationEvents;
     this.memoryEvents = restored.memoryEvents;
     this.usedMemoryReferences = restored.usedMemoryReferences;
     this.contextReferences = restored.contextReferences;
@@ -269,6 +290,12 @@ export class InteractiveSession {
         ? {
             modelCommandExecutor: (command, args) => this.executeModelCommand(command, args),
             isModelCommandInvocable: (command) => this.commandExecutor.isModelInvocable(command),
+          }
+        : {}),
+      ...(this.hasModelInvocableSkills()
+        ? {
+            modelSkillExecutor: (skillName, args) => this.executeModelSkillCommand(skillName, args),
+            isModelSkillInvocable: (skillName) => this.isModelSkillInvocable(skillName),
           }
         : {}),
     });
@@ -342,6 +369,21 @@ export class InteractiveSession {
     return this.commandExecutor.executeModelInvocable(name, this, args);
   }
 
+  isModelSkillInvocable(name: string): boolean {
+    const skill = this.findSkillCommand(name);
+    return skill !== undefined && skill.disableModelInvocation !== true;
+  }
+
+  async executeModelSkillCommand(
+    name: string,
+    args: string,
+  ): Promise<ISkillExecutionResult | null> {
+    await this.ensureInitialized();
+    const skill = this.findSkillCommand(name);
+    if (!skill || skill.disableModelInvocation === true) return null;
+    return this.executeSkillWithActivation(skill, args, 'model-tool');
+  }
+
   async executeSkillCommand(
     skill: ICommand,
     args: string,
@@ -349,19 +391,17 @@ export class InteractiveSession {
     rawInput?: string,
   ): Promise<ISkillExecutionResult> {
     await this.ensureInitialized();
-
-    if (skill.context === 'fork') {
-      return this.executeForkSkillCommand(skill, args, displayInput);
+    if (skill.userInvocable === false) {
+      throw new Error(`Skill is not user-invocable: ${skill.name}`);
     }
 
-    const result = await executeSkill(
-      skill,
-      args,
-      {
-        runInFork: (content, options) => this.runSkillInFork(content, options),
-      },
-      { sessionId: this.getSessionOrThrow().getSessionId() },
-    );
+    const qualifiedName = getQualifiedSkillName(rawInput);
+
+    if (skill.context === 'fork') {
+      return this.executeForkSkillCommand(skill, args, displayInput, qualifiedName);
+    }
+
+    const result = await this.executeSkillWithActivation(skill, args, 'user-slash', qualifiedName);
 
     if (result.mode === 'inject') {
       if (result.prompt) {
@@ -386,6 +426,21 @@ export class InteractiveSession {
       name: cmd.name,
       description: cmd.description,
     }));
+  }
+
+  getSkillActivationEvents(): ISkillActivationEvent[] {
+    return [...this.skillActivationEvents];
+  }
+
+  private hasModelInvocableSkills(): boolean {
+    return this.skillCommandSource.getModelInvocableSkills().length > 0;
+  }
+
+  private findSkillCommand(name: string): ICommand | undefined {
+    const normalizedName = normalizeSkillName(name);
+    return this.skillCommandSource
+      .getCommands()
+      .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
   }
 
   abort(): void {
@@ -698,10 +753,75 @@ export class InteractiveSession {
     transport.attach(this);
   }
 
+  private async executeSkillWithActivation(
+    skill: ICommand,
+    args: string,
+    invocation: ISkillActivationEvent['invocation'],
+    qualifiedName?: string,
+  ): Promise<ISkillExecutionResult> {
+    this.recordSkillActivation(skill, invocation, 'started', qualifiedName);
+    try {
+      const result = await executeSkill(
+        skill,
+        args,
+        {
+          runInFork: (content, options) => this.runSkillInFork(content, options),
+        },
+        { sessionId: this.getSessionOrThrow().getSessionId() },
+      );
+      this.recordSkillActivation(skill, invocation, 'completed', qualifiedName, {
+        appendHistory: false,
+      });
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.recordSkillActivation(skill, invocation, 'failed', qualifiedName, {
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  private recordSkillActivation(
+    skill: ICommand,
+    invocation: ISkillActivationEvent['invocation'],
+    status: ISkillActivationEvent['status'],
+    qualifiedName?: string,
+    options: { appendHistory?: boolean; error?: string } = {},
+  ): void {
+    const event = createSkillActivationEvent({
+      skill,
+      invocation,
+      status,
+      ...(qualifiedName !== undefined ? { qualifiedName } : {}),
+      ...(options.error !== undefined ? { error: options.error } : {}),
+    });
+    this.recordSkillActivationEvent(event, options.appendHistory ?? status !== 'completed');
+  }
+
+  private recordSkillActivationEvent(event: ISkillActivationEvent, appendHistory: boolean): void {
+    this.skillActivationEvents.push(event);
+    if (appendHistory) {
+      this.history.push({
+        id: randomUUID(),
+        timestamp: new Date(event.timestamp),
+        category: 'event',
+        type: 'skill-activation',
+        data: {
+          ...event,
+          message: formatSkillActivationMessage(event),
+        },
+      });
+    }
+    this.emit('skill_activation', event);
+    this.persistCurrentSession();
+  }
+
   private async executeForkSkillCommand(
     skill: ICommand,
     args: string,
     displayInput?: string,
+    qualifiedName?: string,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -710,11 +830,11 @@ export class InteractiveSession {
     this.startForkSkillExecution(displayInput ?? `/${skill.name}`);
 
     try {
-      const result = await executeSkill(
+      const result = await this.executeSkillWithActivation(
         skill,
         args,
-        { runInFork: (content, options) => this.runSkillInFork(content, options) },
-        { sessionId: this.getSessionOrThrow().getSessionId() },
+        'user-slash',
+        qualifiedName,
       );
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
@@ -850,6 +970,9 @@ export class InteractiveSession {
       {
         events: this.memoryEvents,
         usedReferences: this.usedMemoryReferences,
+      },
+      {
+        events: this.skillActivationEvents,
       },
       {
         references: this.contextReferences,

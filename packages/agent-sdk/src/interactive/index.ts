@@ -9,6 +9,7 @@ export type {
   IInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
 } from './interactive-session.js';
+export type { ISkillActivationEvent } from '../commands/index.js';
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

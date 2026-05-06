@@ -15,6 +15,7 @@ import type {
 } from '../background-tasks/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import { projectPaths } from '../paths.js';
 
 export interface IInteractiveSessionRecord {
@@ -31,6 +32,7 @@ export interface IInteractiveSessionRecord {
   backgroundTaskEvents?: TBackgroundTaskEvent[];
   backgroundJobGroups?: IBackgroundJobGroupState[];
   backgroundJobGroupEvents?: TBackgroundJobGroupEvent[];
+  skillActivationEvents?: ISkillActivationEvent[];
   memoryEvents?: IMemoryEvent[];
   usedMemoryReferences?: IMemoryReference[];
   contextReferences?: IContextReferenceItem[];
@@ -151,6 +153,7 @@ class ProjectSessionStoreFacade implements IInteractiveSessionStore {
       backgroundTaskEvents,
       backgroundJobGroups: deriveBackgroundJobGroups(backgroundJobGroupEvents),
       backgroundJobGroupEvents,
+      skillActivationEvents: [],
       memoryEvents: replay.memoryEvents as IMemoryEvent[],
     };
   }
@@ -201,6 +204,9 @@ function fromSessionRecord(session: ISessionRecord): IInteractiveSessionRecord {
       : {}),
     ...(session.backgroundJobGroupEvents !== undefined
       ? { backgroundJobGroupEvents: session.backgroundJobGroupEvents as TBackgroundJobGroupEvent[] }
+      : {}),
+    ...(session.skillActivationEvents !== undefined
+      ? { skillActivationEvents: session.skillActivationEvents as ISkillActivationEvent[] }
       : {}),
     ...(session.memoryEvents !== undefined
       ? { memoryEvents: session.memoryEvents as IMemoryEvent[] }

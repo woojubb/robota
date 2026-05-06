@@ -735,7 +735,13 @@ Skill content supports inline shell command execution using the `` !`command` ``
 
 ### Skill Execution
 
-When a skill slash command is selected, the full SKILL.md content (after variable substitution and shell preprocessing) is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
+When a skill slash command is selected, the CLI resolves the command entry and calls
+`interactiveSession.executeSkillCommand(...)`. The SDK emits `skill_activation` and owns all skill
+execution semantics. The CLI must not synthesize skill activation state on its own.
+
+The full SKILL.md content (after variable substitution and shell preprocessing) is injected into
+the session prompt wrapped in `<skill>` tags for inject-mode skills. The model receives both the
+skill instructions and any user-provided arguments.
 
 `interactiveSession.submit(input, displayInput, rawInput)` is called with three arguments:
 
@@ -744,6 +750,11 @@ When a skill slash command is selected, the full SKILL.md content (after variabl
 - `rawInput` — the qualified name form used for hook matching (e.g., `/rulebased-harness:audit some-args`); if no qualified name is found, falls back to `displayInput`
 
 The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that hook matchers can identify which plugin's skill was invoked.
+
+Model-initiated skills use the SDK-owned `ExecuteSkill` tool. The startup prompt may show skill
+descriptors, but full skill content is loaded only through `ExecuteSkill` or
+`executeSkillCommand(...)`. A plain assistant claim that a skill was used is not treated as skill
+activation unless a `skill_activation` event exists.
 
 ## Type Ownership
 
@@ -1041,13 +1052,16 @@ The display order is **Tool → Robota**, fixed and identical for streaming, nor
 
 ```
 You: [user prompt]             ← MessageList (visible immediately on submit)
-System: Invoking skill: audit  ← MessageList (visible immediately, skills only)
+System: Invoking skill: audit  ← MessageList (SDK skill_activation event)
 Tool: ⟳ Read(file.ts)         ← StreamingIndicator (real-time, below MessageList)
       ⟳ Edit(file.ts)
 Robota: [streaming text...]    ← StreamingIndicator (real-time)
 ```
 
-`You:` and `System:` messages are visible from the start of streaming — not delayed until completion. Messages are synced from InteractiveSession on both `thinking=true` (execution start) and `thinking=false` (execution end). Only `Tool:` and `Robota:` are handled by StreamingIndicator during streaming.
+`You:` and SDK-owned `System:` events are visible from the start of streaming — not delayed until
+completion. Messages are synced from InteractiveSession on both `thinking=true` (execution start)
+and `thinking=false` (execution end). Only `Tool:` and `Robota:` are handled by StreamingIndicator
+during streaming.
 
 **After completion or abort (final state):**
 

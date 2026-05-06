@@ -262,3 +262,11 @@ export type {
   ISkillExecutionCallbacks,
   ISkillExecutionResult,
 } from './skill-executor.js';
+export type {
+  ISkillActivationEvent,
+  ISkillActivationHistoryData,
+  TSkillActivationInvocation,
+  TSkillActivationMode,
+  TSkillActivationSource,
+  TSkillActivationStatus,
+} from './skill-activation-events.js';
