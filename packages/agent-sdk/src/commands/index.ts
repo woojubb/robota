@@ -15,6 +15,7 @@ export type {
   ICommandSessionRuntime,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
+  ICommandSkillListEntry,
   ICommandSource,
   ISystemCommand,
   TAutoCompactThresholdSource,
@@ -34,6 +35,11 @@ export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
 export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
+export {
+  createSkillsSystemCommand,
+  executeSkillsCommand,
+  SKILLS_COMMAND_DESCRIPTION,
+} from './skill-system-command.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,

@@ -3,6 +3,7 @@ import type {
   InteractiveSession,
   IExecutionResult,
   ICommandResult,
+  ISkillExecutionResult,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-sdk';
@@ -12,6 +13,15 @@ export type TOutputFormat = 'text' | 'json' | 'stream-json';
 export interface IHeadlessRunnerOptions {
   session: InteractiveSession;
   outputFormat: TOutputFormat;
+}
+
+interface IUserSkillCommandSession {
+  executeUserSkillCommand(
+    name: string,
+    args: string,
+    displayInput?: string,
+    rawInput?: string,
+  ): Promise<ISkillExecutionResult | null>;
 }
 
 type TStreamJsonEvent =
@@ -28,10 +38,17 @@ type TStreamJsonEvent =
       background_job_group_event: TBackgroundJobGroupEvent;
     };
 
-interface ISlashCommandExecution {
-  readonly isSlashCommand: boolean;
-  readonly result: ICommandResult | null;
-}
+type TSlashCommandExecution =
+  | {
+      readonly kind: 'not-slash';
+    }
+  | {
+      readonly kind: 'command-result';
+      readonly result: ICommandResult;
+    }
+  | {
+      readonly kind: 'session-execution';
+    };
 
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
@@ -65,21 +82,35 @@ function parseSlashCommand(prompt: string): { name: string; args: string } | nul
   return { name, args: args.join(' ') };
 }
 
+function getUserSkillCommandSession(session: InteractiveSession): IUserSkillCommandSession | null {
+  const candidate = session as InteractiveSession & Partial<IUserSkillCommandSession>;
+  return typeof candidate.executeUserSkillCommand === 'function'
+    ? (candidate as IUserSkillCommandSession)
+    : null;
+}
+
 async function executeSlashCommandIfPresent(
   session: InteractiveSession,
   prompt: string,
-): Promise<ISlashCommandExecution> {
+): Promise<TSlashCommandExecution> {
   const command = parseSlashCommand(prompt);
-  if (!command) return { isSlashCommand: false, result: null };
+  if (!command) return { kind: 'not-slash' };
+
   const result = await session.executeCommand(command.name, command.args);
+  if (result) return { kind: 'command-result', result };
+
+  const skillSession = getUserSkillCommandSession(session);
+  const skillResult = skillSession
+    ? await skillSession.executeUserSkillCommand(command.name, command.args, prompt, prompt)
+    : null;
+  if (skillResult) return { kind: 'session-execution' };
+
   return {
-    isSlashCommand: true,
-    result:
-      result ??
-      ({
-        message: `Unknown command "/${command.name}".`,
-        success: false,
-      } satisfies ICommandResult),
+    kind: 'command-result',
+    result: {
+      message: `Unknown command "/${command.name}".`,
+      success: false,
+    },
   };
 }
 
@@ -132,7 +163,7 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
     session.on('error', onError);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.isSlashCommand && commandExecution.result) {
+      if (commandExecution.kind === 'command-result') {
         cleanup();
         writeJsonResult(
           getSessionId(session),
@@ -140,6 +171,9 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
           commandExecution.result.success ? 'success' : 'error',
         );
         resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      if (commandExecution.kind === 'session-execution') {
         return;
       }
       void session.submit(prompt);
@@ -152,7 +186,7 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
     const cleanup = subscribeStreamJsonEvents(session, resolve);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.isSlashCommand && commandExecution.result) {
+      if (commandExecution.kind === 'command-result') {
         cleanup();
         writeJsonResult(
           getSessionId(session),
@@ -160,6 +194,9 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
           commandExecution.result.success ? 'success' : 'error',
         );
         resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      if (commandExecution.kind === 'session-execution') {
         return;
       }
       void session.submit(prompt);
@@ -276,10 +313,13 @@ function runTextFormat(session: InteractiveSession, prompt: string): Promise<num
     session.on('error', onError);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.isSlashCommand && commandExecution.result) {
+      if (commandExecution.kind === 'command-result') {
         cleanup();
         process.stdout.write(commandExecution.result.message + '\n');
         resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      if (commandExecution.kind === 'session-execution') {
         return;
       }
       void session.submit(prompt);

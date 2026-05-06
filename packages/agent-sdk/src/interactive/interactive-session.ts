@@ -29,6 +29,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICommandResult,
+  ICommandSkillListEntry,
   ISystemCommand,
   ISkillExecutionResult,
   IForkExecutionOptions,
@@ -133,6 +134,20 @@ export interface IInteractiveSessionShutdownOptions {
 
 function normalizeSkillName(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasExplicitSkillDirective(input: string, skillName: string): boolean {
+  const escapedName = escapeRegExp(skillName);
+  const englishDirective = new RegExp(
+    `\\b(?:use|using|with)\\s+(?:the\\s+)?${escapedName}\\s+skill\\b`,
+    'i',
+  );
+  const koreanDirective = new RegExp(`${escapedName}\\s*스킬(?:을|를|로|으로|대로)?`, 'i');
+  return englishDirective.test(input) || koreanDirective.test(input);
 }
 
 function getQualifiedSkillName(rawInput?: string): string | undefined {
@@ -345,6 +360,17 @@ export class InteractiveSession {
       this.pendingRawInput = rawInput;
       return;
     }
+    const directiveSkill = this.findExplicitUserSkillDirective(input);
+    if (directiveSkill) {
+      await this.executeUserResolvedSkillCommand(
+        directiveSkill,
+        input,
+        displayInput ?? input,
+        rawInput ?? input,
+        'user-directive',
+      );
+      return;
+    }
     await this.executePrompt(input, displayInput, rawInput);
   }
 
@@ -384,11 +410,33 @@ export class InteractiveSession {
     return this.executeSkillWithActivation(skill, args, 'model-tool');
   }
 
+  async executeUserSkillCommand(
+    name: string,
+    args: string,
+    displayInput?: string,
+    rawInput?: string,
+  ): Promise<ISkillExecutionResult | null> {
+    await this.ensureInitialized();
+    const skill = this.findSkillCommand(name);
+    if (!skill) return null;
+    return this.executeUserResolvedSkillCommand(skill, args, displayInput, rawInput, 'user-slash');
+  }
+
   async executeSkillCommand(
     skill: ICommand,
     args: string,
     displayInput?: string,
     rawInput?: string,
+  ): Promise<ISkillExecutionResult> {
+    return this.executeUserResolvedSkillCommand(skill, args, displayInput, rawInput, 'user-slash');
+  }
+
+  private async executeUserResolvedSkillCommand(
+    skill: ICommand,
+    args: string,
+    displayInput: string | undefined,
+    rawInput: string | undefined,
+    invocation: ISkillActivationEvent['invocation'],
   ): Promise<ISkillExecutionResult> {
     await this.ensureInitialized();
     if (skill.userInvocable === false) {
@@ -398,10 +446,10 @@ export class InteractiveSession {
     const qualifiedName = getQualifiedSkillName(rawInput);
 
     if (skill.context === 'fork') {
-      return this.executeForkSkillCommand(skill, args, displayInput, qualifiedName);
+      return this.executeForkSkillCommand(skill, args, displayInput, qualifiedName, invocation);
     }
 
-    const result = await this.executeSkillWithActivation(skill, args, 'user-slash', qualifiedName);
+    const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
 
     if (result.mode === 'inject') {
       if (result.prompt) {
@@ -418,6 +466,19 @@ export class InteractiveSession {
     return this.commandExecutor.listCommands().map((cmd) => ({
       name: cmd.name,
       description: cmd.description,
+    }));
+  }
+
+  listSkills(): ICommandSkillListEntry[] {
+    return this.skillCommandSource.getCommands().map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      source: skill.source,
+      modelInvocable: skill.disableModelInvocation !== true,
+      userInvocable: skill.userInvocable !== false,
+      ...(skill.argumentHint !== undefined ? { argumentHint: skill.argumentHint } : {}),
+      ...(skill.context !== undefined ? { context: skill.context } : {}),
+      ...(skill.agent !== undefined ? { agent: skill.agent } : {}),
     }));
   }
 
@@ -441,6 +502,14 @@ export class InteractiveSession {
     return this.skillCommandSource
       .getCommands()
       .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
+  }
+
+  private findExplicitUserSkillDirective(input: string): ICommand | undefined {
+    const trimmed = input.trimStart();
+    if (trimmed.startsWith('/') || trimmed.startsWith('<skill ')) return undefined;
+    return this.skillCommandSource
+      .getUserInvocableSkills()
+      .find((skill) => hasExplicitSkillDirective(input, skill.name));
   }
 
   abort(): void {
@@ -822,6 +891,7 @@ export class InteractiveSession {
     args: string,
     displayInput?: string,
     qualifiedName?: string,
+    invocation: ISkillActivationEvent['invocation'] = 'user-slash',
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -830,12 +900,7 @@ export class InteractiveSession {
     this.startForkSkillExecution(displayInput ?? `/${skill.name}`);
 
     try {
-      const result = await this.executeSkillWithActivation(
-        skill,
-        args,
-        'user-slash',
-        qualifiedName,
-      );
+      const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
     } catch (err) {
@@ -1012,7 +1077,7 @@ export class InteractiveSession {
       const queuedDisplay = this.pendingDisplayInput;
       const queuedRaw = this.pendingRawInput;
       this.clearPendingQueue();
-      setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+      setTimeout(() => void this.submit(queued, queuedDisplay, queuedRaw), 0);
     }
   }
 
@@ -1104,7 +1169,7 @@ export class InteractiveSession {
         const queuedDisplay = this.pendingDisplayInput;
         const queuedRaw = this.pendingRawInput;
         this.clearPendingQueue();
-        setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+        setTimeout(() => void this.submit(queued, queuedDisplay, queuedRaw), 0);
       }
     }
   }
@@ -1188,7 +1253,7 @@ export class InteractiveSession {
         const queuedDisplay = this.pendingDisplayInput;
         const queuedRaw = this.pendingRawInput;
         this.clearPendingQueue();
-        setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+        setTimeout(() => void this.submit(queued, queuedDisplay, queuedRaw), 0);
       }
     }
   }

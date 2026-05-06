@@ -3,11 +3,6 @@ import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
 import type { ICommandResult } from '../commands/index.js';
 
-const CommandExecutionSchema = z.object({
-  command: z.string().describe('Command name to execute, with or without a leading slash'),
-  args: z.string().optional().describe('Arguments to pass to the command'),
-});
-
 interface ICommandExecutionArgs {
   command: string;
   args?: string;
@@ -16,10 +11,35 @@ interface ICommandExecutionArgs {
 export interface ICommandExecutionToolDeps {
   isModelInvocable: (command: string) => boolean;
   execute: (command: string, args: string) => Promise<ICommandResult | null>;
+  commandNames?: readonly string[];
 }
 
 function asZodSchema(schema: z.ZodType): IZodSchema {
   return schema as IZodSchema;
+}
+
+function toNonEmptyCommandNames(
+  commandNames?: readonly string[],
+): [string, ...string[]] | undefined {
+  if (!commandNames || commandNames.length === 0) return undefined;
+  const [first, ...rest] = commandNames;
+  if (first === undefined) return undefined;
+  return [first, ...rest];
+}
+
+function createCommandExecutionSchema(
+  commandNames?: readonly string[],
+): z.ZodType<ICommandExecutionArgs> {
+  const validCommandNames = toNonEmptyCommandNames(commandNames);
+  const commandSchema =
+    validCommandNames !== undefined
+      ? z.enum(validCommandNames).describe('Registered model-invocable command name to execute')
+      : z.string().describe('Command name to execute, with or without a leading slash');
+
+  return z.object({
+    command: commandSchema,
+    args: z.string().optional().describe('Arguments to pass to the command'),
+  });
 }
 
 function normalizeCommand(command: string): string {
@@ -45,12 +65,13 @@ function stringifyCommandResult(command: string, result: ICommandResult | null):
 export function createCommandExecutionTool(
   deps: ICommandExecutionToolDeps,
 ): ReturnType<typeof createZodFunctionTool> {
+  const commandExecutionSchema = createCommandExecutionSchema(deps.commandNames);
   return createZodFunctionTool(
     'ExecuteCommand',
     'Executes a registered model-invocable Robota command through the command registry. Accepted command names and argument grammar come from registered command descriptors.',
-    asZodSchema(CommandExecutionSchema),
+    asZodSchema(commandExecutionSchema),
     async (params) => {
-      const args: ICommandExecutionArgs = CommandExecutionSchema.parse(params);
+      const args: ICommandExecutionArgs = commandExecutionSchema.parse(params);
       const command = normalizeCommand(args.command);
       if (!deps.isModelInvocable(command)) {
         return JSON.stringify({

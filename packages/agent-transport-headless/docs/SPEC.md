@@ -25,7 +25,7 @@ Returns `{ run: (prompt: string) => Promise<number> }`.
 
 The `run` function submits the prompt to the session, writes output to `process.stdout`, and resolves with an exit code.
 
-If the prompt begins with `/`, the runner treats it as a slash command and calls `session.executeCommand(name, args)` instead of submitting the text to the model. Unknown slash commands return an explicit command error. Command availability depends on the command modules composed into the upstream `InteractiveSession`.
+If the prompt begins with `/`, the runner treats it as a slash command. It first calls `session.executeCommand(name, args)` for SDK-owned system commands. If no system command matches, it calls `session.executeUserSkillCommand(name, args, prompt, prompt)` so explicit `/skill` prompts load full `SKILL.md` content through the SDK before the model turn. Unknown slash commands return an explicit command error. Command and skill availability depends on the command modules and skill sources composed into the upstream `InteractiveSession`.
 
 ### IHeadlessRunnerOptions
 
@@ -126,7 +126,8 @@ Interrupted executions (e.g., abort signal) are treated as success (exit code 0)
 createHeadlessRunner(options)
   └── run(prompt)
         ├── subscribes to InteractiveSession events
-        ├── executes leading slash commands through session.executeCommand()
+        ├── executes leading slash system commands through session.executeCommand()
+        ├── executes leading slash skills through session.executeUserSkillCommand()
         ├── writes formatted output to process.stdout
         └── resolves with exit code (0 or 1)
 ```

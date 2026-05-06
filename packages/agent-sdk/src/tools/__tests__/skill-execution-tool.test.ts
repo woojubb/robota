@@ -13,6 +13,16 @@ describe('skill execution tool', () => {
     expect(tool.schema.description).toContain('plain text references do not activate skills');
   });
 
+  it('constrains model skill activation to registered skill names when provided', () => {
+    const tool = createSkillExecutionTool({
+      skillNames: ['audit', 'review'],
+      isModelInvocable: () => true,
+      execute: vi.fn(),
+    });
+
+    expect(tool.schema.parameters.properties['skill']?.enum).toEqual(['audit', 'review']);
+  });
+
   it('executes only model-invocable skills through the injected skill handler', async () => {
     const execute = vi.fn().mockResolvedValue({
       mode: 'inject',

@@ -49,7 +49,7 @@ Startup checks are rate-limited by a user-level cache at `~/.robota/update-check
 
 ## Non-Interactive (Headless) Mode
 
-Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting.
+Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting. When the prompt starts with `/skill-name`, headless mode routes it through `InteractiveSession.executeUserSkillCommand()` so the SDK loads the full `SKILL.md` before the model turn.
 
 ### Output Formats
 
@@ -260,9 +260,15 @@ Use the `` !`command` `` syntax to embed shell command output into the skill bod
 
 ### Invocation Methods
 
-- **User direct**: Type `/skill-name` in the input area
-- **Model auto-invoke**: The model calls the Skill tool during a conversation (unless `disable-model-invocation: true`)
+- **User direct**: Type `/skill-name` in the input area, or pass `/skill-name ...` to print/headless mode
+- **User directive**: Prompts such as `Use the repo-writing skill ...` are treated as explicit user-directed skill activations and load the matching `SKILL.md` before the model turn
+- **Skill discovery**: Use `/skills` to list registered skills and show the activation contract. Models can also call the SDK-owned `/skills` command through `ExecuteCommand` before choosing a matching skill.
+- **Model auto-invoke**: The model calls `ExecuteSkill` during a conversation when a task matches the skill description. The tool accepts only registered model-invocable skill names for the session.
 - **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
+
+Skill descriptions are metadata only. Mentioning a skill name in ordinary assistant text does not
+activate that skill; activation is recorded only when `ExecuteSkill` or an explicit `/skill-name`
+invocation loads the full `SKILL.md`.
 
 When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
 

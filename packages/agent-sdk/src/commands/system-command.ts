@@ -1,4 +1,5 @@
 import type { ISystemCommand } from '../command-api/index.js';
+import { createSkillsSystemCommand } from './skill-system-command.js';
 export { SystemCommandExecutor } from './system-command-executor.js';
 export type {
   ICommandInteraction,
@@ -12,5 +13,5 @@ export type { ISystemCommand, TSystemCommandLifecycle } from '../command-api/ind
 
 /** Built-in system commands. */
 export function createSystemCommands(): ISystemCommand[] {
-  return [];
+  return [createSkillsSystemCommand()];
 }
