@@ -44,6 +44,8 @@ import { createBackgroundProcessTool } from '../tools/background-process-tool.js
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import { createCommandExecutionTool } from '../tools/command-execution-tool.js';
 import type { ICommandResult } from '../commands/system-command.js';
+import { createSkillExecutionTool } from '../tools/skill-execution-tool.js';
+import type { ISkillExecutionResult } from '../commands/skill-executor.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
@@ -153,6 +155,10 @@ export interface ICreateSessionOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Model skill execution bridge. */
+  modelSkillExecutor?: (skillName: string, args: string) => Promise<ISkillExecutionResult | null>;
+  /** Predicate for skills allowed through the model skill execution bridge. */
+  isModelSkillInvocable?: (skillName: string) => boolean;
   /** Model-visible command descriptors. */
   commandDescriptors?: ICapabilityDescriptor[];
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
@@ -178,6 +184,9 @@ export function createSession(options: ICreateSessionOptions): Session {
   const provider = options.provider;
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
+  const skillCommandSource = new SkillCommandSource(cwd);
+  const modelInvocableSkills = skillCommandSource.getModelInvocableSkills();
+  const modelVisibleSkills = options.modelSkillExecutor ? modelInvocableSkills : [];
 
   const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient });
   const shouldWrapHostEditCheckpoints =
@@ -206,6 +215,18 @@ export function createSession(options: ICreateSessionOptions): Session {
       createCommandExecutionTool({
         execute: options.modelCommandExecutor,
         isModelInvocable: options.isModelCommandInvocable,
+      }),
+    );
+  }
+  if (
+    modelInvocableSkills.length > 0 &&
+    options.modelSkillExecutor &&
+    options.isModelSkillInvocable
+  ) {
+    tools.push(
+      createSkillExecutionTool({
+        execute: options.modelSkillExecutor,
+        isModelInvocable: options.isModelSkillInvocable,
       }),
     );
   }
@@ -309,6 +330,9 @@ export function createSession(options: ICreateSessionOptions): Session {
     ...(options.modelCommandExecutor
       ? ['ExecuteCommand — execute model-invocable Robota commands']
       : []),
+    ...(modelVisibleSkills.length > 0
+      ? ['ExecuteSkill — activate model-invocable Robota skills']
+      : []),
   ];
   const systemMessage = buildPrompt({
     agentsMd: options.context.agentsMd,
@@ -327,7 +351,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
     language: options.config.language,
-    skills: new SkillCommandSource(cwd).getModelInvocableSkills().map((skill) => ({
+    skills: modelVisibleSkills.map((skill) => ({
       name: skill.name,
       description: skill.description,
       disableModelInvocation: skill.disableModelInvocation,

@@ -485,14 +485,16 @@ session.on('complete', (result: IExecutionResult) => { /* prompt completed */ })
 session.on('error', (error: Error) => { /* execution error */ });
 session.on('context_update', (state: IContextWindowState) => { /* token usage updated */ });
 session.on('interrupted', (result: IExecutionResult) => { /* abort completed */ });
+session.on('skill_activation', (event: ISkillActivationEvent) => { /* skill activation state */ });
 
 // Submit prompt. Queues if already executing (max 1 queued).
 // displayInput: shown in UI (e.g., "/audit") instead of full built prompt
 // rawInput: passed to Session.run() for hook matching
 await session.submit(input, displayInput?, rawInput?);
 
-// Execute a discovered skill command. Non-fork skills submit into the current session.
-// `context: fork` skills run through an isolated subagent session.
+// Execute a discovered user-invoked skill command. Non-fork skills submit into the current session.
+// `context: fork` skills run through an isolated subagent session. Each real invocation emits a
+// skill_activation event; prompt-only references to skill names do not.
 await session.executeSkillCommand(skillCommand, args, displayInput?, rawInput?);
 
 // Execute a named system command (embedded SystemCommandExecutor)
@@ -622,6 +624,7 @@ interface IInteractiveSessionEvents {
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;
   interrupted: (result: IExecutionResult) => void;
+  skill_activation: (event: ISkillActivationEvent) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
 }
 ```
@@ -800,21 +803,30 @@ Exported subagent runtime types:
 }
 ```
 
-**Skill invocation entry** (appended by `InteractiveSession` when a skill slash command is executed):
+**Skill activation entry** (appended by `InteractiveSession` when a real skill activation starts):
 
 ```typescript
-// category: 'event', type: 'skill-invocation'
+// category: 'event', type: 'skill-activation'
 {
   id: string;
   timestamp: Date;
   category: 'event';
-  type: 'skill-invocation';
+  type: 'skill-activation';
   data: {
     skillName: string;
-    displayInput: string;
+    source: 'skill' | 'plugin';
+    invocation: 'user-slash' | 'model-tool';
+    mode: 'inject' | 'fork';
+    status: 'started' | 'completed' | 'failed';
+    message: string;
+    qualifiedName?: string;
+    error?: string;
   }
 }
 ```
+
+Legacy `skill-invocation` entries may still be rendered when resuming older sessions, but new SDK
+execution records use `skill-activation`.
 
 Consumers that need only AI messages call `getMessages()` (returns `TUniversalMessage[]` — backward-compatible). Consumers that need the full picture (e.g., rendering a rich message list) call `getFullHistory()` (returns `IHistoryEntry[]`).
 
@@ -1203,7 +1215,16 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 
 ## System Prompt Skill and Agent Injection
 
-Skills discovered from skill directories are exposed to the system prompt by metadata only: name and description. Full `SKILL.md` content is loaded only when a skill is invoked. Skills with `disable-model-invocation: true` are omitted from model-visible metadata.
+Skills discovered from skill directories are exposed to the system prompt by metadata only: name and
+description. Full `SKILL.md` content is loaded only when a skill is invoked through the SDK skill
+activation path. Skills with `disable-model-invocation: true` are omitted from model-visible
+metadata.
+
+When at least one model-invocable skill exists, `createSession()` registers an `ExecuteSkill` tool.
+The tool is the only deterministic model-side skill activation path. It accepts a skill name and
+arguments, validates `disable-model-invocation`, loads the full `SKILL.md`, emits
+`skill_activation`, and returns either the processed in-session skill prompt (`mode: inject`) or the
+fork result (`mode: fork`). A model mentioning a skill in ordinary prose is not a skill activation.
 
 Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, `Agent` tool registration, agent definitions, and model-visible agent metadata are omitted.
 
@@ -1217,6 +1238,10 @@ The direct `Agent` tool always sets `mode: 'background'`, emits lifecycle update
 
 `InteractiveSession.executeSkillCommand(skill, args, displayInput?, rawInput?)` is the SDK-owned skill execution path.
 
+`InteractiveSession.executeModelSkillCommand(name, args)` is the SDK-owned model-tool execution
+path used by `ExecuteSkill`. It must not submit a second user turn for inject-mode skills; instead,
+it returns processed skill instructions to the active model call as the tool result.
+
 | Skill metadata             | Behavior                                                                                              |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | no `context`               | Render skill content and submit it into the current session                                           |
@@ -1226,6 +1251,27 @@ The direct `Agent` tool always sets `mode: 'background'`, emits lifecycle update
 | `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
 
 Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
+
+Every activation records an `ISkillActivationEvent`:
+
+```typescript
+interface ISkillActivationEvent {
+  readonly type: 'skill-activation';
+  readonly skillName: string;
+  readonly source: 'skill' | 'plugin';
+  readonly invocation: 'user-slash' | 'model-tool';
+  readonly mode: 'inject' | 'fork';
+  readonly status: 'started' | 'completed' | 'failed';
+  readonly timestamp: string;
+  readonly qualifiedName?: string;
+  readonly error?: string;
+}
+```
+
+`InteractiveSession` stores skill activation events in `skillActivationEvents` when session
+persistence is enabled. The event list is restored with the session record and the started event is
+also represented in `IHistoryEntry[]` for UI rendering. Consumers must not report a skill as active
+unless this event exists.
 
 ## Hook Wiring into Session Lifecycle
 

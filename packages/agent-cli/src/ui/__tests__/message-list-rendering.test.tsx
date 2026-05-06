@@ -42,8 +42,17 @@ function makeSkillInvocationEntry(): IHistoryEntry {
     id: 'evt-1',
     timestamp: new Date(),
     category: 'event',
-    type: 'skill-invocation',
-    data: { skillName: 'audit', source: 'plugin', message: 'Invoking plugin: audit' },
+    type: 'skill-activation',
+    data: {
+      type: 'skill-activation',
+      skillName: 'audit',
+      source: 'plugin',
+      invocation: 'user-slash',
+      mode: 'inject',
+      status: 'started',
+      timestamp: '2026-05-06T00:00:00.000Z',
+      message: 'Invoking plugin skill: audit',
+    },
   };
 }
 
@@ -62,13 +71,13 @@ describe('MessageList rendering', () => {
 
   // ── Skill invocation rendering ────────────────────────────────
 
-  it('skill-invocation event renders with "System:" label and message', () => {
+  it('skill-activation event renders with "System:" label and message', () => {
     const history: IHistoryEntry[] = [makeSkillInvocationEntry()];
     const { lastFrame } = render(<MessageList history={history} />);
     const output = lastFrame() ?? '';
 
     expect(output).toContain('System:');
-    expect(output).toContain('Invoking plugin: audit');
+    expect(output).toContain('Invoking plugin skill: audit');
   });
 
   // ── Chat message rendering ────────────────────────────────────
@@ -337,7 +346,7 @@ describe('MessageList rendering', () => {
 
     // All four entries rendered
     expect(output).toContain('You:');
-    expect(output).toContain('Invoking plugin: audit');
+    expect(output).toContain('Invoking plugin skill: audit');
     expect(output).toContain('Tool:');
     expect(output).toContain('Robota:');
   });

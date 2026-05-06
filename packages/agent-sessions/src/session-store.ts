@@ -38,6 +38,8 @@ export interface ISessionRecord {
   backgroundJobGroups?: unknown[];
   /** Durable background job group events for resume/debugging. */
   backgroundJobGroupEvents?: unknown[];
+  /** Durable skill activation events for resume/debugging. */
+  skillActivationEvents?: unknown[];
   /** Durable automatic memory events for resume/debugging. */
   memoryEvents?: unknown[];
   /** Memory references used by the latest prompt turn. */

@@ -38,6 +38,14 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - A pre-push hook is a final safety net, not a substitute for intentional verification. Do not rely on push-time checks to discover whether the work is valid.
 - If feature-specific verification cannot be run locally, stop before pushing and report the blocker and residual risk to the user.
 
+### Headless CLI Verification Requirement
+
+- Any change that affects CLI execution, transport adapters, `InteractiveSession` behavior used by the CLI, slash/built-in commands, model-invocable commands, tool-call routing, provider setup, session persistence, streaming output, or permission mode behavior MUST include or run a headless verification path.
+- Headless verification means a non-interactive `-p`/headless transport scenario or an automated integration test using an injected provider fixture. It must not require a real provider API key.
+- For model-routed behavior, the test must prove structured execution occurred, such as tool-call schemas, tool result messages, command/skill activation events, persisted session records, or JSON/stream-json output. Text that merely resembles command output is not proof.
+- If the affected behavior is visible in both TUI and headless mode, verify both paths before reporting completion.
+- If no suitable headless fixture exists, add one in the owning package before pushing.
+
 ### Execution Safety
 
 - All execution paths must be deterministic and termination-safe.

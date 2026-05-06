@@ -8,6 +8,7 @@ import type {
 } from '../background-tasks/index.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
 
 /**
@@ -30,6 +31,9 @@ export function persistSession(
     events: readonly IMemoryEvent[];
     usedReferences: readonly IMemoryReference[];
   },
+  skillActivationState?: {
+    events: readonly ISkillActivationEvent[];
+  },
   contextReferenceState?: {
     references: readonly IContextReferenceItem[];
   },
@@ -51,6 +55,7 @@ export function persistSession(
         createdAt: existing?.createdAt,
         backgroundState,
         memoryState,
+        skillActivationState,
         contextReferenceState,
         ...(sandboxSnapshotId !== undefined ? { sandboxSnapshotId } : {}),
       }),
@@ -77,6 +82,9 @@ interface IBuildInteractiveSessionRecordInput {
     events: readonly IMemoryEvent[];
     usedReferences: readonly IMemoryReference[];
   };
+  skillActivationState?: {
+    events: readonly ISkillActivationEvent[];
+  };
   contextReferenceState?: {
     references: readonly IContextReferenceItem[];
   };
@@ -101,6 +109,7 @@ function buildInteractiveSessionRecord(
       : {}),
     ...buildBackgroundRecordFields(input.backgroundState),
     ...buildMemoryRecordFields(input.memoryState),
+    ...buildSkillActivationRecordFields(input.skillActivationState),
     ...buildContextReferenceRecordFields(input.contextReferenceState),
   };
 }
@@ -125,6 +134,13 @@ function buildMemoryRecordFields(
     memoryEvents: [...state.events],
     usedMemoryReferences: [...state.usedReferences],
   };
+}
+
+function buildSkillActivationRecordFields(
+  state: IBuildInteractiveSessionRecordInput['skillActivationState'],
+): Partial<IInteractiveSessionRecord> {
+  if (!state) return {};
+  return { skillActivationEvents: [...state.events] };
 }
 
 function buildContextReferenceRecordFields(
