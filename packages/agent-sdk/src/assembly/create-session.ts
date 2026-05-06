@@ -76,6 +76,22 @@ type TSessionOptionsWithAutoCompact = ISessionOptions & {
 };
 type TSessionConstructorWithAutoCompact = new (options: TSessionOptionsWithAutoCompact) => Session;
 
+function normalizeCapabilityCommandName(name: string): string {
+  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
+}
+
+function getModelInvocableCommandNames(
+  descriptors: readonly ICapabilityDescriptor[] | undefined,
+): string[] {
+  const names = new Set<string>();
+  for (const descriptor of descriptors ?? []) {
+    if (!descriptor.modelInvocable || descriptor.kind !== 'builtin-command') continue;
+    const name = normalizeCapabilityCommandName(descriptor.name);
+    if (name.length > 0) names.add(name);
+  }
+  return [...names];
+}
+
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
   /** Resolved CLI configuration (model, API key, permissions) */
@@ -215,6 +231,7 @@ export function createSession(options: ICreateSessionOptions): Session {
       createCommandExecutionTool({
         execute: options.modelCommandExecutor,
         isModelInvocable: options.isModelCommandInvocable,
+        commandNames: getModelInvocableCommandNames(options.commandDescriptors),
       }),
     );
   }

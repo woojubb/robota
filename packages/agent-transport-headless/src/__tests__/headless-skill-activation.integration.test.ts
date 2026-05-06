@@ -19,8 +19,15 @@ interface IObservedProvider {
   provider: TTestProvider;
   getChatCallCount(): number;
   getFirstCallToolNames(): string[];
+  getFirstCallExecuteCommandEnum(): string[] | undefined;
   getFirstCallExecuteSkillEnum(): string[] | undefined;
   getToolResultContent(): string;
+}
+
+interface IObservedPromptProvider {
+  provider: TTestProvider;
+  getChatCallCount(): number;
+  getPromptContent(): string;
 }
 
 function createTempSkill(cwd: string): void {
@@ -67,6 +74,7 @@ function assistantMessage(content: string | null, toolCalls?: TToolCalls): TChat
 function createSkillToolCallingProvider(): IObservedProvider {
   let chatCallCount = 0;
   let firstCallToolNames: string[] = [];
+  let firstCallExecuteCommandEnum: string[] | undefined;
   let firstCallExecuteSkillEnum: string[] | undefined;
   let toolResultContent = '';
 
@@ -78,6 +86,11 @@ function createSkillToolCallingProvider(): IObservedProvider {
 
       if (chatCallCount === 1) {
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
+        const executeCommandSchema = options?.tools?.find((tool) => tool.name === 'ExecuteCommand');
+        const commandEnum = executeCommandSchema?.parameters.properties['command']?.enum;
+        firstCallExecuteCommandEnum = Array.isArray(commandEnum)
+          ? commandEnum.map((value) => String(value))
+          : undefined;
         const executeSkillSchema = options?.tools?.find((tool) => tool.name === 'ExecuteSkill');
         const skillEnum = executeSkillSchema?.parameters.properties['skill']?.enum;
         firstCallExecuteSkillEnum = Array.isArray(skillEnum)
@@ -116,8 +129,39 @@ function createSkillToolCallingProvider(): IObservedProvider {
     provider,
     getChatCallCount: () => chatCallCount,
     getFirstCallToolNames: () => firstCallToolNames,
+    getFirstCallExecuteCommandEnum: () => firstCallExecuteCommandEnum,
     getFirstCallExecuteSkillEnum: () => firstCallExecuteSkillEnum,
     getToolResultContent: () => toolResultContent,
+  };
+}
+
+function createPromptObservingProvider(response: string): IObservedPromptProvider {
+  let chatCallCount = 0;
+  let promptContent = '';
+
+  const provider: TTestProvider = {
+    name: 'headless-test-provider',
+    version: '1.0.0',
+    async chat(messages) {
+      chatCallCount += 1;
+      promptContent = messages.map((message) => message.content).join('\n');
+      return assistantMessage(response);
+    },
+    async generateResponse() {
+      return { content: 'unused' };
+    },
+    supportsTools() {
+      return true;
+    },
+    validateConfig() {
+      return true;
+    },
+  };
+
+  return {
+    provider,
+    getChatCallCount: () => chatCallCount,
+    getPromptContent: () => promptContent,
   };
 }
 
@@ -172,7 +216,7 @@ describe('headless transport skill activation integration', () => {
     try {
       const transport = createHeadlessTransport({
         outputFormat: 'json',
-        prompt: 'Use the audit skill for src/index.ts',
+        prompt: 'Audit src/index.ts',
       });
 
       session.attachTransport(transport);
@@ -188,6 +232,7 @@ describe('headless transport skill activation integration', () => {
       expect(output['session_id']).toBeTypeOf('string');
       expect(observed.getChatCallCount()).toBe(2);
       expect(observed.getFirstCallToolNames()).toContain('ExecuteSkill');
+      expect(observed.getFirstCallExecuteCommandEnum()).toContain('skills');
       expect(observed.getFirstCallExecuteSkillEnum()).toEqual(['audit']);
       expect(observed.getToolResultContent()).toContain('"success":true');
       expect(observed.getToolResultContent()).toContain('<skill name=\\"audit\\">');
@@ -204,6 +249,57 @@ describe('headless transport skill activation integration', () => {
       await session.shutdown({
         reason: 'prompt_input_exit',
         message: 'Headless skill activation test complete',
+      });
+    }
+  });
+
+  it('executes explicit slash skills through SDK skill loading in a headless session', async () => {
+    cwd = mkdtempSync(join(tmpdir(), 'robota-headless-slash-skill-'));
+    createTempSkill(cwd);
+    const observed = createPromptObservingProvider('Headless slash skill activated');
+    const session = new InteractiveSession({
+      cwd,
+      provider: observed.provider,
+      config: createConfig(),
+      permissionMode: 'bypassPermissions',
+      bare: true,
+    });
+    const stdout = captureStdout();
+
+    try {
+      const transport = createHeadlessTransport({
+        outputFormat: 'json',
+        prompt: '/audit src/index.ts',
+      });
+
+      session.attachTransport(transport);
+      await transport.start();
+
+      const output = parseJsonObject(stdout.writes.join('').trim());
+      expect(transport.getExitCode()).toBe(0);
+      expect(output).toMatchObject({
+        type: 'result',
+        result: 'Headless slash skill activated',
+        subtype: 'success',
+      });
+      expect(observed.getChatCallCount()).toBe(1);
+      expect(observed.getPromptContent()).toContain(
+        'Audit this file with the real skill runtime: src/index.ts',
+      );
+      expect(observed.getPromptContent()).toContain('<skill name="audit">');
+      expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
+        'user-slash',
+        'user-slash',
+      ]);
+      expect(session.getSkillActivationEvents().map((event) => event.status)).toEqual([
+        'started',
+        'completed',
+      ]);
+    } finally {
+      stdout.restore();
+      await session.shutdown({
+        reason: 'prompt_input_exit',
+        message: 'Headless slash skill activation test complete',
       });
     }
   });

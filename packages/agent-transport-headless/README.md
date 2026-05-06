@@ -19,7 +19,10 @@ Plain text output, suitable for piping:
 ```bash
 robota -p "Explain this error"
 robota -p "List all TypeScript files" | head -20
+robota -p "/repo-writing backlog markdown format"
 ```
+
+Prompts that start with `/skill-name` are routed through `InteractiveSession.executeUserSkillCommand()`, so the SDK loads the full skill file before the model turn.
 
 ### JSON
 

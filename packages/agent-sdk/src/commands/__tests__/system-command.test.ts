@@ -75,10 +75,10 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
 }
 
 describe('SystemCommandExecutor', () => {
-  it('keeps SDK core built-in commands empty by default', () => {
+  it('keeps SDK core built-in commands limited to SDK-owned discovery commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands).toEqual([]);
+    expect(commands.map((c) => c.name)).toEqual(['skills']);
     expect(commands.map((c) => c.name)).not.toContain('background');
     expect(commands.map((c) => c.name)).not.toContain('memory');
     expect(commands.map((c) => c.name)).not.toContain('cost');
@@ -95,15 +95,46 @@ describe('SystemCommandExecutor', () => {
     expect(commands.map((c) => c.name)).not.toContain('rewind');
   });
 
-  it('exposes no model-invocable SDK core commands', () => {
+  it('exposes /skills as the SDK core model-invocable discovery command', () => {
     const executor = new SystemCommandExecutor();
     const modelCommands = executor.listModelInvocableCommands();
 
-    expect(modelCommands.map((command) => command.name)).toEqual([]);
+    expect(modelCommands.map((command) => command.name)).toEqual(['/skills']);
+    expect(executor.isModelInvocable('skills')).toBe(true);
     expect(executor.isModelInvocable('memory')).toBe(false);
     expect(executor.isModelInvocable('agent')).toBe(false);
     expect(executor.isModelInvocable('reset')).toBe(false);
     expect(executor.isModelInvocable('rewind')).toBe(false);
+  });
+
+  it('returns registered skill metadata and activation guidance from /skills', async () => {
+    const executor = new SystemCommandExecutor();
+    const result = await executor.execute(
+      'skills',
+      createMockSession({
+        listSkills: vi.fn().mockReturnValue([
+          {
+            name: 'repo-writing',
+            description: 'Repository writing rules',
+            source: 'skill',
+            modelInvocable: true,
+            userInvocable: true,
+          },
+        ]),
+      }),
+      '',
+    );
+
+    expect(result).toMatchObject({
+      success: true,
+      message: expect.stringContaining('Registered skills:'),
+    });
+    expect(result?.message).toContain('repo-writing: Repository writing rules');
+    expect(result?.message).toContain('Use ExecuteSkill with the exact skill name');
+    expect(result?.data?.['activationContract']).toMatchObject({
+      activateWith: 'ExecuteSkill',
+      activationRequiredBeforeWorkflow: true,
+    });
   });
 
   it('returns null for unknown command', async () => {
@@ -184,6 +215,11 @@ describe('SystemCommandExecutor', () => {
     expect(executor.hasCommand('agent')).toBe(false);
     expect(executor.hasCommand('diagnose')).toBe(true);
     expect(executor.listModelInvocableCommands()).toEqual([
+      expect.objectContaining({
+        name: '/skills',
+        kind: 'builtin-command',
+        modelInvocable: true,
+      }),
       {
         name: '/diagnose',
         kind: 'builtin-command',

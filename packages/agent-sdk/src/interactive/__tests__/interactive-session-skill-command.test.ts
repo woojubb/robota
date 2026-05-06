@@ -168,13 +168,69 @@ describe('InteractiveSession.executeSkillCommand', () => {
     ]);
   });
 
+  it('executes named user skills through the SDK path', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-'));
+    createTempSkill(cwd);
+    const parentSession = makeParentSession();
+    const session = new InteractiveSession({ session: parentSession as never, cwd });
+
+    const result = await session.executeUserSkillCommand(
+      'audit',
+      'src/index.ts',
+      '/audit src/index.ts',
+      '/audit src/index.ts',
+    );
+
+    expect(result).toEqual({
+      mode: 'inject',
+      prompt: expect.stringContaining('Audit src/index.ts'),
+    });
+    expect(parentSession.run).toHaveBeenCalledWith(
+      expect.stringContaining('Audit src/index.ts'),
+      '/audit src/index.ts',
+    );
+    expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
+      'user-slash',
+      'user-slash',
+    ]);
+  });
+
+  it('returns null for unknown named user skills', async () => {
+    const parentSession = makeParentSession();
+    const session = new InteractiveSession({ session: parentSession as never });
+
+    const result = await session.executeUserSkillCommand('missing', '');
+
+    expect(result).toBeNull();
+    expect(parentSession.run).not.toHaveBeenCalled();
+    expect(session.getSkillActivationEvents()).toEqual([]);
+  });
+
+  it('activates an explicitly named skill directive before the model turn', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-user-directive-skill-'));
+    createTempSkill(cwd);
+    const parentSession = makeParentSession();
+    const session = new InteractiveSession({ session: parentSession as never, cwd });
+
+    await session.submit('Use the audit skill to inspect src/index.ts.');
+
+    expect(parentSession.run).toHaveBeenCalledWith(
+      expect.stringContaining('Audit Use the audit skill to inspect src/index.ts.'),
+      'Use the audit skill to inspect src/index.ts.',
+    );
+    expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
+      'user-directive',
+      'user-directive',
+    ]);
+  });
+
   it('does not record skill activation for prompt-only skill references', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-prompt-only-skill-'));
     createTempSkill(cwd);
     const parentSession = makeParentSession();
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
-    await session.submit('Use the audit skill by following the workflow in prose.');
+    await session.submit('The audit skill exists in this repository.');
 
     expect(parentSession.run).toHaveBeenCalledOnce();
     expect(session.getSkillActivationEvents()).toEqual([]);

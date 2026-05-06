@@ -41,6 +41,9 @@ export {
   PluginCommandSource,
   SystemCommandExecutor,
   createSystemCommands,
+  createSkillsSystemCommand,
+  executeSkillsCommand,
+  SKILLS_COMMAND_DESCRIPTION,
   parseFrontmatter,
   executeSkill,
 } from './commands/index.js';
@@ -62,6 +65,7 @@ export type {
   ICommandSessionRuntime,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
+  ICommandSkillListEntry,
   ISystemCommand,
   ICommandResult,
   ICommandInteraction,

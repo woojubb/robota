@@ -149,6 +149,9 @@ await session.submit('Explain @AGENTS.md and @docs/SPEC.md');
 // Submit with display override (shown in UI) and raw input (for hook matching)
 await session.submit(fullPrompt, '/audit', '/rulebased-harness:audit');
 
+// Execute a named user-invoked skill command. Transports should use this for `/skill`.
+await session.executeUserSkillCommand('audit', 'src/index.ts', '/audit src/index.ts');
+
 // Abort current execution and clear queue
 session.abort();
 
@@ -206,7 +209,7 @@ executor.listCommands(); // ISystemCommand[]
 executor.hasCommand('mode'); // boolean
 ```
 
-Product built-ins are supplied as `agent-command-*` modules. For example, `/help` is owned by `@robota-sdk/agent-command-help`, while `/compact` is owned by `@robota-sdk/agent-command-compact`.
+SDK-owned discovery built-ins are supplied by `agent-sdk`; `/skills` lists registered skills and exposes the skill activation contract for models and users. Product built-ins are supplied as `agent-command-*` modules. For example, `/help` is owned by `@robota-sdk/agent-command-help`, while `/compact` is owned by `@robota-sdk/agent-command-compact`.
 
 Command modules may use SDK common APIs for shared provider-neutral behavior. For `/model`, the SDK
 resolves the active provider from settings, reads provider-owned fallback metadata from injected
@@ -248,7 +251,10 @@ registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 Model-invocable skills are exposed to the model as metadata only. `createSession()` registers the
 `ExecuteSkill` tool when invocable skills exist, constrains its `skill` argument to the registered
 skill names, and loads full `SKILL.md` content only after that tool is called. Mentioning a skill in
-ordinary prose does not activate the skill.
+ordinary prose does not activate the skill, but explicit user directives such as
+`Use the repo-writing skill ...` are routed through the same SDK skill loader before the model turn.
+The SDK-owned `/skills` command is exposed through `ExecuteCommand` with a registered-command enum
+and returns the current skill list plus activation guidance.
 
 ### createQuery()
 

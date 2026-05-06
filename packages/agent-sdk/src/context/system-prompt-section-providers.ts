@@ -10,11 +10,6 @@ const TRUST_LEVEL_LABELS: Record<TTrustLevel, string> = {
 };
 const PROJECT_MEMORY_PRIORITY = Number('25');
 const TASK_CONTEXT_PRIORITY = Number('27');
-const SKILL_ACTIVATION_CONTRACT = [
-  'Skills are metadata only until activated.',
-  'When a task matches a skill description, call ExecuteSkill with the skill name before following the workflow.',
-  'Do not treat a plain-text skill reference or descriptor as activated skill content.',
-].join('\n');
 
 function createSection(
   id: string,
@@ -130,11 +125,13 @@ function createCapabilityKindSection(
     .filter((descriptor) => descriptor.modelInvocable && descriptor.kind === kind)
     .map(formatCapability);
   if (formattedDescriptors.length === 0) return undefined;
-  const content =
-    kind === 'skill'
-      ? [SKILL_ACTIVATION_CONTRACT, '', ...formattedDescriptors].join('\n')
-      : formattedDescriptors.join('\n');
-  return createSection(`capability-${kind}`, title, priority, content, source);
+  return createSection(
+    `capability-${kind}`,
+    title,
+    priority,
+    formattedDescriptors.join('\n'),
+    source,
+  );
 }
 
 export function createCapabilitySections(
