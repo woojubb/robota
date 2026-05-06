@@ -103,6 +103,11 @@ Full command, skill, or agent bodies must not be dumped into the startup prompt 
 
 No source should be represented by ad hoc text inside a generic prompt builder. Each source must expose a descriptor or instruction section owned by the package that owns the behavior.
 
+Skill descriptors are capability metadata, not activation. Model-side skill use must go through an
+SDK-owned activation path such as `ExecuteSkill`, which validates the skill descriptor, loads the
+full skill body, and emits a persisted `skill_activation` event. The assistant must not claim that a
+skill is active solely because it read a descriptor or repeated the skill workflow in prose.
+
 ## Capability Module Composition
 
 Agent support MUST be represented as an optional capability module, not as unconditional SDK behavior.
@@ -151,6 +156,9 @@ Rules:
 - `disableModelInvocation` maps to `modelInvocable: false`.
 - `userInvocable: false` capabilities may still be shown to the model if `modelInvocable: true`.
 - Descriptions must state when to use the capability, not implementation internals.
+- A `kind: 'skill'` descriptor with `modelInvocable: true` must have a matching runtime activation
+  mechanism. Descriptor-only visibility without an executable activation path is invalid because it
+  enables prompt-only skill mimicry.
 
 ## `/agent` Agent Capability Command
 

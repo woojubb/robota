@@ -1,6 +1,6 @@
 # Agent CLI Architecture Map
 
-Source-verified against `feat/provider-profile-switching` on 2026-05-05.
+Source-verified against `fix/skill-activation-runtime-contract` on 2026-05-06.
 
 This document is the LLM-scannable companion detail map for how `@robota-sdk/agent-cli` is
 assembled. The repository-wide master map lives at `.agents/specs/ARCHITECTURE-MAP.md`. Package
@@ -71,6 +71,7 @@ Target ownership rules:
 | Slash prefix detection, command autocomplete, prompt UI      | `agent-cli`                                   | Render and route generic command requests.                            |
 | Command descriptors, command execution, lifecycle effects    | `agent-command-*`                             | Select default modules and render returned interactions/effects.      |
 | Command contracts, result/effect types, host adapter ports   | `agent-sdk`                                   | Consume SDK contracts without defining parallel command shapes.       |
+| Skill activation semantics and audit events                  | `agent-sdk`                                   | Render `skill_activation`; never infer activation from prompt text.   |
 | Provider settings/profile setup common APIs                  | `agent-sdk` + provider packages               | Provide concrete settings adapters and provider definitions.          |
 | Prompt `@file` parsing, file reads, diagnostics, records     | `agent-sdk`                                   | Pass ordinary prompt text through `InteractiveSession.submit()`.      |
 | Provider-specific defaults, probes, model fallback data      | `agent-provider-*` via `agent-core` contracts | Compose definitions, never branch on provider names in TUI hooks.     |
@@ -196,6 +197,7 @@ packages/agent-cli/src/bin.ts
             |  |- SkillCommandSource
             |  |- PluginCommandSource reload
             |  `- TuiStateManager event bridge
+            |     `- SDK skill_activation -> MessageList system event
             |- useSlashRouting()
             |  |- non-slash input -> interactiveSession.submit()
             |  |- slash input -> interactiveSession.executeCommand()
@@ -402,6 +404,8 @@ this section must be updated in the same PR.
 | `BuiltinCommandSource`           | `agent-sdk/src/commands/builtin-source.ts`                  | SDK command infrastructure | CLI, SDK tests                              | SDK command API                                                      | Expose SDK-default built-ins; currently empty.                                               |
 | `SystemCommandExecutor`          | `agent-sdk/src/commands/system-command-executor.ts`         | SDK command infrastructure | `InteractiveSession`                        | `ISystemCommand`                                                     | Execute matching system command with SDK host context.                                       |
 | `InteractiveSession`             | `agent-sdk/src/interactive/interactive-session.ts`          | SDK entrypoint             | CLI, command tests, SDK consumers           | sessions, runtime, tools, core, command API                          | Event-driven wrapper over `Session`, prompt queueing, command execution, persistence.        |
+| `ISkillActivationEvent`          | `agent-sdk/src/commands/skill-activation-events.ts`         | SDK command infrastructure | `InteractiveSession`, CLI render bridge     | command entries                                                      | Durable activation event proving a skill was actually invoked.                               |
+| `createSkillExecutionTool()`     | `agent-sdk/src/tools/skill-execution-tool.ts`               | SDK tool infrastructure    | `createSession()`                           | agent-tools, SDK skill executor                                      | Model-callable `ExecuteSkill` bridge for model-invocable skill activation.                   |
 | `resolvePromptFileReferences()`  | `agent-sdk/src/context/prompt-file-reference-*.ts`          | SDK context common API     | `InteractiveSession`, SDK consumers         | Node filesystem/path APIs                                            | Parse path-like `@file` tokens, read bounded workspace-local files, and return diagnostics.  |
 | `listCommandContextReferences()` | `agent-sdk/src/command-api/context/context-command-api.ts`  | SDK command common API     | `agent-command-context`, SDK consumers      | SDK context reference inventory                                      | Expose context reference inventory to command packages without CLI/TUI ownership.            |
 | `createProjectSessionStore()`    | `agent-sdk/src/interactive/session-persistence.ts`          | SDK facade                 | CLI, SDK consumers                          | agent-sessions, project paths                                        | Create project-local `.robota/sessions` persistence without exposing `SessionStore` to CLI.  |

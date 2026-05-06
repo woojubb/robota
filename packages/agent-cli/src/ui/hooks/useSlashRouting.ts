@@ -4,7 +4,6 @@
  */
 
 import { useCallback } from 'react';
-import { randomUUID } from 'node:crypto';
 import type {
   InteractiveSession,
   CommandRegistry,
@@ -117,18 +116,6 @@ async function routeSkillCommand(
   if (!skillCmd) {
     return false;
   }
-
-  manager.addEntry({
-    id: randomUUID(),
-    timestamp: new Date(),
-    category: 'event',
-    type: 'skill-invocation',
-    data: {
-      skillName: cmd,
-      source: skillCmd.source,
-      message: `Invoking ${skillCmd.source}: ${cmd}`,
-    },
-  });
 
   const args = input.slice(1 + cmd.length).trimStart();
   const qualifiedName = registry.resolveQualifiedName(cmd);

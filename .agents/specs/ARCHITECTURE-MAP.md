@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `feat/provider-profile-switching` on 2026-05-05.
+Source-verified against `fix/skill-activation-runtime-contract` on 2026-05-06.
 
 This is the repository-wide master architecture map. It should contain the complete repository
 structure at a level an LLM can scan before changing package boundaries, product shells, deployment
@@ -112,6 +112,7 @@ Agent stack ownership:
 | Terminal input/rendering and host adapters        | `agent-cli`                                       | Thin product shell only.                                                                        |
 | Command contracts/common APIs                     | `agent-sdk`                                       | Command packages consume these like third-party modules.                                        |
 | User-visible built-in command behavior            | `agent-command-*`                                 | CLI composes default modules; SDK must not import them.                                         |
+| Skill discovery, activation, and audit events     | `agent-sdk`                                       | `ExecuteSkill` and `skill_activation` distinguish real activation from prompt-only mimicry.     |
 | Provider profile settings/setup helpers           | `agent-sdk` command-api                           | Includes profile validation, setup flow, generated profile-name suggestions, and probe helpers. |
 | Provider defaults, setup metadata, model catalogs | `agent-provider-*` through `agent-core` contracts | CLI must not hardcode provider branches.                                                        |
 | Session lifecycle and compaction                  | `agent-sessions`                                  | CLI consumes through SDK facades, not direct imports.                                           |

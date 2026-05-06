@@ -24,7 +24,12 @@ import type {
   TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
+import type {
+  ICommandHostAdapters,
+  ICommandModule,
+  ICommandResult,
+  ISkillExecutionResult,
+} from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -40,6 +45,7 @@ import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
@@ -76,6 +82,10 @@ export interface IInteractiveSessionStandardOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Model skill execution bridge. */
+  modelSkillExecutor?: (skillName: string, args: string) => Promise<ISkillExecutionResult | null>;
+  /** Predicate for skills allowed through the model skill execution bridge. */
+  isModelSkillInvocable?: (skillName: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
@@ -151,6 +161,10 @@ export interface IInitOptions {
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
+  /** Model skill execution bridge. */
+  modelSkillExecutor?: (skillName: string, args: string) => Promise<ISkillExecutionResult | null>;
+  /** Predicate for skills allowed through the model skill execution bridge. */
+  isModelSkillInvocable?: (skillName: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
@@ -251,6 +265,8 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
       : {}),
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
+    modelSkillExecutor: options.modelSkillExecutor,
+    isModelSkillInvocable: options.isModelSkillInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
@@ -310,6 +326,7 @@ export function loadSessionRecord(
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
   backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
+  skillActivationEvents: ISkillActivationEvent[];
   memoryEvents: IMemoryEvent[];
   usedMemoryReferences: IMemoryReference[];
   contextReferences: IContextReferenceItem[];
@@ -325,6 +342,7 @@ export function loadSessionRecord(
       backgroundTaskEvents: [],
       backgroundJobGroups: [],
       backgroundJobGroupEvents: [],
+      skillActivationEvents: [],
       memoryEvents: [],
       usedMemoryReferences: [],
       contextReferences: [],
@@ -337,6 +355,7 @@ export function loadSessionRecord(
   const restoredBackgroundTaskEvents = record.backgroundTaskEvents ?? [];
   const backgroundJobGroups = record.backgroundJobGroups ?? [];
   const backgroundJobGroupEvents = record.backgroundJobGroupEvents ?? [];
+  const skillActivationEvents = record.skillActivationEvents ?? [];
   const memoryEvents = record.memoryEvents ?? [];
   const usedMemoryReferences = record.usedMemoryReferences ?? [];
   const contextReferences = record.contextReferences ?? [];
@@ -368,6 +387,7 @@ export function loadSessionRecord(
     backgroundTaskEvents,
     backgroundJobGroups,
     backgroundJobGroupEvents,
+    skillActivationEvents,
     memoryEvents,
     usedMemoryReferences,
     contextReferences,
