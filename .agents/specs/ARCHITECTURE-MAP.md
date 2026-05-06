@@ -107,16 +107,16 @@ flowchart TD
 
 Agent stack ownership:
 
-| Concern                                           | Owner                                             | Notes                                                                                           |
-| ------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Terminal input/rendering and host adapters        | `agent-cli`                                       | Thin product shell only.                                                                        |
-| Command contracts/common APIs                     | `agent-sdk`                                       | Command packages consume these like third-party modules.                                        |
-| User-visible built-in command behavior            | `agent-command-*`                                 | CLI composes default modules; SDK must not import them.                                         |
-| Skill discovery, activation, and audit events     | `agent-sdk`                                       | `ExecuteSkill` and `skill_activation` distinguish real activation from prompt-only mimicry.     |
-| Provider profile settings/setup helpers           | `agent-sdk` command-api                           | Includes profile validation, setup flow, generated profile-name suggestions, and probe helpers. |
-| Provider defaults, setup metadata, model catalogs | `agent-provider-*` through `agent-core` contracts | CLI must not hardcode provider branches.                                                        |
-| Session lifecycle and compaction                  | `agent-sessions`                                  | CLI consumes through SDK facades, not direct imports.                                           |
-| Background/subagent lifecycle ports               | `agent-runtime`                                   | CLI keeps concrete local process/worktree adapters.                                             |
+| Concern                                           | Owner                                             | Notes                                                                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Terminal input/rendering and host adapters        | `agent-cli`                                       | Thin product shell only.                                                                                                                            |
+| Command contracts/common APIs                     | `agent-sdk`                                       | Command packages consume these like third-party modules.                                                                                            |
+| User-visible built-in command behavior            | `agent-command-*`                                 | CLI composes default modules; SDK must not import them.                                                                                             |
+| Skill discovery, activation, and audit events     | `agent-sdk` common APIs + `agent-command-skills`  | `skills` command activation and `skill_activation` distinguish real activation from prompt-only mimicry; `/skills` is UI input/display syntax only. |
+| Provider profile settings/setup helpers           | `agent-sdk` command-api                           | Includes profile validation, setup flow, generated profile-name suggestions, and probe helpers.                                                     |
+| Provider defaults, setup metadata, model catalogs | `agent-provider-*` through `agent-core` contracts | CLI must not hardcode provider branches.                                                                                                            |
+| Session lifecycle and compaction                  | `agent-sessions`                                  | CLI consumes through SDK facades, not direct imports.                                                                                               |
+| Background/subagent lifecycle ports               | `agent-runtime`                                   | CLI keeps concrete local process/worktree adapters.                                                                                                 |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness.
 Generated interactive setup keys are model-derived SDK suggestions with numeric duplicate suffixes;

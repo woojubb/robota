@@ -18,6 +18,8 @@ The package follows a modular structure with Session delegating to focused sub-c
 
 ```
 session.ts                -- Session class: orchestrates run loop, delegates to sub-components
+session-run.ts            -- Per-turn Session.run execution helper and replay-event forwarding
+session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onToolExecution display callbacks
 permission-enforcer.ts    -- PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
 context-window-tracker.ts -- ContextWindowTracker: token usage tracking, auto-compact threshold
 compaction-orchestrator.ts -- CompactionOrchestrator: conversation summarization via LLM
@@ -29,6 +31,7 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 - **Facade** -- `Session` hides Robota agent creation, tool registration, permission wiring, and hook execution behind a single `run()` method.
 - **Decorator** -- Each tool is wrapped with a permission-checking proxy via `PermissionEnforcer.wrapTools()` before being registered with the Robota agent.
+- **Adapter** -- `session-tool-execution-bridge` adapts core replay events for unregistered tool calls into the same UI callback shape used by wrapped registered tools.
 - **Strategy (injected)** -- Permission approval can be handled by a `TPermissionHandler` callback, an injected `promptForApproval` function, or denied by default.
 - **Composition** -- Session delegates to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator rather than implementing everything inline.
 - **Null Object** -- When no `SessionStore` is provided, persistence is silently skipped.
@@ -198,7 +201,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 - **`provider_response_normalized` event** -- Recorded immediately after the provider adapter returns a `TUniversalMessage`. Includes the normalized assistant message, tool call count, provider/model metadata, round, and execution identifiers.
 - **`tool_batch_started` event** -- Recorded before a tool batch executes. Includes batch mode, max concurrency, request count, ordered tool names, round, and execution identifiers.
 - **`tool_execution_request` event** -- Recorded for each parsed tool request. Includes tool name, toolCallId/executionId, parsed parameters, batch index, owner path, round, and execution identifiers.
-- **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, batch index, round, and execution identifiers.
+- **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, result metadata, batch index, round, and execution identifiers.
 - **`tool_message_committed` event** -- Recorded when a tool result message is appended to canonical history.
 - **`history_mutation` event** -- Recorded for append-only canonical chat history changes used by replay readers.
 - **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
@@ -237,7 +240,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI. `Session` stores this callback and passes it to `Robota.run()` as a per-run option; it MUST NOT mutate provider-level `onTextDelta` state because parent/subagent sessions may share the same provider instance.
 
-8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName, toolArgs }` when a tool begins and `{ type: 'end', toolName, toolArgs, success, denied?, toolResultData? }` when it completes. `toolResultData` is the serialized, possibly truncated tool result payload used by higher layers for display metadata such as Edit start lines. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
+8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName, toolArgs }` when a tool begins and `{ type: 'end', toolName, toolArgs, success, denied?, toolResultData? }` when it completes. `toolResultData` is the serialized, possibly truncated tool result payload used by higher layers for display metadata such as Edit start lines. Registered tool execution is wired through `PermissionEnforcer.wrapToolWithPermission()`. Unregistered tool calls are not wrapped by `PermissionEnforcer`, so `Session` bridges core replay events into the same callback with `success: false`, `errorCode: "unknown_tool"`, and the reason the tool call was not executed. The bridge must not duplicate registered tool events.
 
 9. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
 
@@ -297,11 +300,12 @@ Auto-compaction triggers at the **start** of `run()` (before processing the user
 
 This package does not define a custom error hierarchy. All errors are thrown as standard `Error` instances. Error scenarios include:
 
-| Error Condition        | Thrown By            | Message Pattern                                             |
-| ---------------------- | -------------------- | ----------------------------------------------------------- |
-| Tool permission denied | `PermissionEnforcer` | Returns `IToolResult` with `"Permission denied"` (no throw) |
-| Hook blocked tool      | `PermissionEnforcer` | Returns `IToolResult` with `"Blocked by hook: {reason}"`    |
-| Tool execution error   | `PermissionEnforcer` | Returns `IToolResult` with error message (never throws)     |
+| Error Condition        | Thrown By            | Message Pattern                                                                                       |
+| ---------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| Tool permission denied | `PermissionEnforcer` | Returns `IToolResult` with `"Permission denied"` (no throw)                                           |
+| Hook blocked tool      | `PermissionEnforcer` | Returns `IToolResult` with `"Blocked by hook: {reason}"`                                              |
+| Tool execution error   | `PermissionEnforcer` | Returns `IToolResult` with error message (never throws)                                               |
+| Unknown tool call      | `ExecutionService`   | Returns a failed tool result with `errorCode: "unknown_tool"` and explains that execution was skipped |
 
 The permission wrapper deliberately catches all errors and returns them as `IToolResult` objects to avoid corrupting the conversation history with unmatched tool_use/tool_result pairs.
 

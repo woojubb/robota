@@ -9,9 +9,10 @@ describe('BuiltinCommandSource', () => {
     expect(source.name).toBe('builtin');
   });
 
-  it('returns expected built-in commands', () => {
+  it('returns no user-visible built-ins from SDK core', () => {
     const names = commands.map((c) => c.name);
-    expect(names).toEqual(['skills']);
+    expect(names).toEqual([]);
+    expect(names).not.toContain('skills');
     expect(names).not.toContain('memory');
     expect(names).not.toContain('cost');
     expect(names).not.toContain('clear');

@@ -25,7 +25,7 @@ Returns `{ run: (prompt: string) => Promise<number> }`.
 
 The `run` function submits the prompt to the session, writes output to `process.stdout`, and resolves with an exit code.
 
-If the prompt begins with `/`, the runner treats it as a slash command. It first calls `session.executeCommand(name, args)` for SDK-owned system commands. If no system command matches, it calls `session.executeUserSkillCommand(name, args, prompt, prompt)` so explicit `/skill` prompts load full `SKILL.md` content through the SDK before the model turn. Unknown slash commands return an explicit command error. Command and skill availability depends on the command modules and skill sources composed into the upstream `InteractiveSession`.
+If the prompt begins with `/`, the runner treats it as a slash command and calls `session.executeCommand(name, args)`. Explicit `/skill` prompts are virtual aliases handled by SDK command execution when the upstream session composes `@robota-sdk/agent-command-skills`; the runner must not call skill-specific SDK methods. Unknown slash commands return an explicit command error. Command and skill availability depends on the command modules composed into the upstream `InteractiveSession`.
 
 ### IHeadlessRunnerOptions
 
@@ -97,6 +97,14 @@ Headless transport does not expose interactive background controls. Non-interact
 
 For slash commands that start background tasks, `stream-json` subscribes to `background_task_event` before command execution so created/started events can be emitted before the final command result.
 
+## Execution Feedback Contract
+
+Headless transport must preserve `InteractiveSession` execution semantics without adding natural-language routing or tool-name correction.
+
+- If a provider emits an unregistered native tool call, `agent-core` records the skipped tool result and decides whether to force a final no-tools response.
+- Headless transport must surface the final session response in `text`, `json`, and `stream-json` formats. It must not rewrite the response or synthesize a command execution.
+- Regression coverage must include an actual `InteractiveSession` headless run where a model emits an unknown native tool call and the final response explains that the tool call was not executed because it was not registered.
+
 ## Claude Code Field Name Compatibility
 
 JSON and stream-json output formats use field names that match Claude Code's `--output-format json` and `--output-format stream-json` (e.g., `type: 'result'`, `session_id`, `subtype`, `content_block_delta`). This is a **reference-only alignment** for user convenience — it allows reuse of `jq` pipelines and parsing scripts. Robota does NOT depend on Claude Code and will NOT track Claude Code's field name changes. The output format is independently owned and versioned by this package.
@@ -126,8 +134,8 @@ Interrupted executions (e.g., abort signal) are treated as success (exit code 0)
 createHeadlessRunner(options)
   └── run(prompt)
         ├── subscribes to InteractiveSession events
-        ├── executes leading slash system commands through session.executeCommand()
-        ├── executes leading slash skills through session.executeUserSkillCommand()
+        ├── executes leading slash commands through session.executeCommand()
+        ├── leaves virtual skill normalization to SDK + agent-command-skills
         ├── writes formatted output to process.stdout
         └── resolves with exit code (0 or 1)
 ```

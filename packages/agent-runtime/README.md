@@ -9,10 +9,10 @@ Background task handles may expose `logPath` and `transcriptPath` for append-onl
 ## Current Responsibilities
 
 - Own background task state transitions, terminal status, watchdog behavior, and task snapshots.
-- Own subagent manager contracts used by SDK Agent tool execution and CLI background work display.
+- Own subagent manager contracts used by SDK `/agent` command execution and CLI background work display.
 - Keep process execution, provider calls, Git worktree I/O, and UI rendering outside the runtime boundary.
 - Surface `logPath` and `transcriptPath` so session records can store resumable references while logs remain append-only.
 
 ## Subagent Orchestration
 
-The SDK composes these runtime primitives to spawn subagent jobs for the model-visible Agent tool and `/agent` command flows. A parent session can track running, completed, failed, and timed-out work without coupling the runtime to React, Ink, provider SDKs, or filesystem-specific worktree code.
+The SDK composes these runtime primitives to spawn subagent jobs for `/agent` command flows. A parent session can track running, completed, failed, and timed-out work without coupling the runtime to React, Ink, provider SDKs, or filesystem-specific worktree code.

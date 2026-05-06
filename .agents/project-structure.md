@@ -10,7 +10,7 @@ packages/
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
-├── agent-command-*/             # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, statusline
+├── agent-command-*/             # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, skills, statusline
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs
 ├── agent-provider-*/            # Provider packages: anthropic, openai, openai-compatible, gemma, qwen, gemini, google, bytedance

@@ -40,7 +40,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
 - **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
-- **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
+- **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command-*` packages.
 - **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
@@ -71,7 +71,7 @@ agent-sdk (assembly layer)
   │     └── Session       ← generic session (agent-sessions)
   ├── SystemCommandExecutor ← SDK-level command execution
   ├── CommandRegistry / BuiltinCommandSource / SkillCommandSource
-  ├── Agent tool batch jobs and background orchestration
+  ├── Agent runtime dependencies and background orchestration
   ├── Edit checkpoints and command-driven memory
   ├── createQuery()       ← one-shot entry point factory
   ├── createSession()     ← internal assembly factory
@@ -149,8 +149,9 @@ await session.submit('Explain @AGENTS.md and @docs/SPEC.md');
 // Submit with display override (shown in UI) and raw input (for hook matching)
 await session.submit(fullPrompt, '/audit', '/rulebased-harness:audit');
 
-// Execute a named user-invoked skill command. Transports should use this for `/skill`.
-await session.executeUserSkillCommand('audit', 'src/index.ts', '/audit src/index.ts');
+// Execute slash commands through the command layer. With the skills command module composed,
+// `/audit src/index.ts` is normalized by SDK to command "skills" with args "audit src/index.ts".
+await session.executeCommand('audit', 'src/index.ts');
 
 // Abort current execution and clear queue
 session.abort();
@@ -209,7 +210,7 @@ executor.listCommands(); // ISystemCommand[]
 executor.hasCommand('mode'); // boolean
 ```
 
-SDK-owned discovery built-ins are supplied by `agent-sdk`; `/skills` lists registered skills and exposes the skill activation contract for models and users. Product built-ins are supplied as `agent-command-*` modules. For example, `/help` is owned by `@robota-sdk/agent-command-help`, while `/compact` is owned by `@robota-sdk/agent-command-compact`.
+SDK core does not own user-visible built-in commands. Product built-ins are supplied as `agent-command-*` modules. SDK command identity is slash-free (`skills`, `help`, `compact`); UI shells render and parse those commands as slash syntax such as `/skills`, `/help`, and `/compact`.
 
 Command modules may use SDK common APIs for shared provider-neutral behavior. For `/model`, the SDK
 resolves the active provider from settings, reads provider-owned fallback metadata from injected
@@ -225,11 +226,11 @@ validate the current JSONL session log. Hosts may override `validateCurrentSessi
 These classes provide slash command discovery and aggregation for clients that expose a command palette or autocomplete UI.
 
 ```typescript
-import { CommandRegistry, BuiltinCommandSource, SkillCommandSource } from '@robota-sdk/agent-sdk';
+import { CommandRegistry } from '@robota-sdk/agent-sdk';
+import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
 
 const registry = new CommandRegistry();
-registry.addSource(new BuiltinCommandSource());
-registry.addSource(new SkillCommandSource(process.cwd()));
+registry.addModule(createSkillsCommandModule({ cwd: process.cwd() }));
 
 // Get all commands (returns ICommand[])
 const commands = registry.getCommands();
@@ -241,20 +242,19 @@ const filtered = registry.getCommands('mod'); // matches "mode", "model"
 registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 ```
 
-`SkillCommandSource` discovers skills from (highest priority first):
+`SkillCommandSource` is the SDK common API used by the skills command module. It discovers skills from (highest priority first):
 
 - `<cwd>/.claude/skills/*/SKILL.md`
 - `<cwd>/.claude/commands/*.md` (Claude Code compatible)
 - `~/.robota/skills/*/SKILL.md`
 - `<cwd>/.agents/skills/*/SKILL.md`
 
-Model-invocable skills are exposed to the model as metadata only. `createSession()` registers the
-`ExecuteSkill` tool when invocable skills exist, constrains its `skill` argument to the registered
-skill names, and loads full `SKILL.md` content only after that tool is called. Mentioning a skill in
-ordinary prose does not activate the skill, but explicit user directives such as
-`Use the repo-writing skill ...` are routed through the same SDK skill loader before the model turn.
-The SDK-owned `/skills` command is exposed through `ExecuteCommand` with a registered-command enum
-and returns the current skill list plus activation guidance.
+Model-invocable skills are exposed to the model as metadata only when the session has a composed
+model-invocable `skills` command descriptor. `@robota-sdk/agent-command-skills` owns `skills` and
+activates skills through the SDK host API. Models use the standard command route: `ExecuteCommand`
+with `command: "skills"` and skill arguments in `args`. Mentioning a skill in ordinary prose,
+recommending a skill in assistant text, or matching a natural-language phrase in SDK/TUI code does
+not activate the skill.
 
 ### createQuery()
 

@@ -78,6 +78,7 @@ export class Session {
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onContextUpdateCallback?: (state: IContextWindowState) => void;
+  private readonly onToolExecutionCallback?: ISessionOptions['onToolExecution'];
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly onCompactEventCallback?: ISessionOptions['onCompactEvent'];
   private readonly sessionLogger?: ISessionLogger;
@@ -104,6 +105,7 @@ export class Session {
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.onTextDeltaCallback = options.onTextDelta;
     this.onContextUpdateCallback = options.onContextUpdate;
+    this.onToolExecutionCallback = options.onToolExecution;
     this.onCompactCallback = options.onCompact;
     this.onCompactEventCallback = options.onCompactEvent;
     this.maxTurns = options.maxTurns;
@@ -210,6 +212,8 @@ export class Session {
           ...(this.maxTurns !== undefined ? { maxTurns: this.maxTurns } : {}),
           onTextDelta: this.onTextDeltaCallback,
           onContextUpdate: this.onContextUpdateCallback,
+          onToolExecution: this.onToolExecutionCallback,
+          knownToolNames: this.toolSchemas.map((tool) => tool.name),
         },
         signal,
       );

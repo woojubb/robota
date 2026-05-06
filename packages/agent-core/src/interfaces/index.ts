@@ -2,7 +2,13 @@
 export * from './types';
 
 // Re-export specific types to avoid conflicts
-export type { IAgentConfig, IAgentTemplate, IRunOptions } from './agent';
+export type {
+  IAgentConfig,
+  IAgentTemplate,
+  IRunOptions,
+  TExecutionEventCallback,
+  TExecutionEventData,
+} from './agent';
 
 // Message contracts (single source of truth)
 export type {

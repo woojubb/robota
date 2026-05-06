@@ -1,68 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildSkillPrompt,
-  substituteVariables,
-  preprocessShellCommands,
-} from '../utils/skill-prompt.js';
-import { CommandRegistry } from '../commands/command-registry.js';
-import type { ICommandSource } from '../command-api/types.js';
-
-function registryWithSkill(
-  name: string,
-  description: string,
-  skillContent?: string,
-): CommandRegistry {
-  const registry = new CommandRegistry();
-  const source: ICommandSource = {
-    name: 'skill',
-    getCommands: () => [{ name, description, source: 'skill', skillContent }],
-  };
-  registry.addSource(source);
-  return registry;
-}
-
-describe('buildSkillPrompt', () => {
-  it('returns null for unknown command', async () => {
-    const registry = new CommandRegistry();
-    expect(await buildSkillPrompt('/unknown', registry)).toBeNull();
-  });
-
-  it('returns null for builtin command', async () => {
-    const registry = new CommandRegistry();
-    const source: ICommandSource = {
-      name: 'builtin',
-      getCommands: () => [{ name: 'help', description: 'Help', source: 'builtin' }],
-    };
-    registry.addSource(source);
-    expect(await buildSkillPrompt('/help', registry)).toBeNull();
-  });
-
-  it('builds prompt with SKILL.md content', async () => {
-    const registry = registryWithSkill('deploy', 'Deploy app', '# Deploy\nRun deploy steps');
-    const result = await buildSkillPrompt('/deploy', registry);
-    expect(result).toContain('<skill name="deploy">');
-    expect(result).toContain('# Deploy\nRun deploy steps');
-    expect(result).toContain('Execute the "deploy" skill: Deploy app');
-  });
-
-  it('uses user args instead of description when provided', async () => {
-    const registry = registryWithSkill('deploy', 'Deploy app', '# Deploy');
-    const result = await buildSkillPrompt('/deploy to production', registry);
-    expect(result).toContain('Execute the "deploy" skill: to production');
-  });
-
-  it('builds simple prompt without SKILL.md content', async () => {
-    const registry = registryWithSkill('review', 'Code review');
-    const result = await buildSkillPrompt('/review', registry);
-    expect(result).toBe('Use the "review" skill: Code review');
-  });
-
-  it('is case-insensitive for command name', async () => {
-    const registry = registryWithSkill('deploy', 'Deploy', '# content');
-    const result = await buildSkillPrompt('/DEPLOY', registry);
-    expect(result).toContain('<skill name="deploy">');
-  });
-});
+import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
 describe('substituteVariables', () => {
   it('should substitute $ARGUMENTS with all args', () => {
@@ -153,31 +90,5 @@ describe('preprocessShellCommands', () => {
     const result = await preprocessShellCommands('Val: !`nonexistent_command_xyz 2>/dev/null`');
     // On failure, substitute empty string
     expect(result).toBe('Val: ');
-  });
-});
-
-describe('buildSkillPrompt with preprocessing', () => {
-  it('substitutes $ARGUMENTS in skill content', async () => {
-    const registry = registryWithSkill('deploy', 'Deploy app', 'Deploy to $ARGUMENTS');
-    const result = await buildSkillPrompt('/deploy production', registry);
-    expect(result).toContain('Deploy to production');
-  });
-
-  it('substitutes context variables in skill content', async () => {
-    const registry = registryWithSkill('info', 'Info', 'Session: ${CLAUDE_SESSION_ID}');
-    const result = await buildSkillPrompt('/info', registry, { sessionId: 'sess-123' });
-    expect(result).toContain('Session: sess-123');
-  });
-
-  it('handles shell commands in skill content', async () => {
-    const registry = registryWithSkill('ver', 'Version', 'Version: !`echo 2.0.0`');
-    const result = await buildSkillPrompt('/ver', registry);
-    expect(result).toContain('Version: 2.0.0');
-  });
-
-  it('remains backward compatible without args or context', async () => {
-    const registry = registryWithSkill('review', 'Code review');
-    const result = await buildSkillPrompt('/review', registry);
-    expect(result).toBe('Use the "review" skill: Code review');
   });
 });

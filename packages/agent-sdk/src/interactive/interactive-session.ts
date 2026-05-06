@@ -35,13 +35,10 @@ import type {
   IForkExecutionOptions,
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
+  ICommandSkillActivationRequest,
+  TCommandInvocationSource,
 } from '../commands/index.js';
-import {
-  createBuiltinCommandModule,
-  executeSkill,
-  SkillCommandSource,
-  SystemCommandExecutor,
-} from '../commands/index.js';
+import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import {
   createSkillActivationEvent,
@@ -136,18 +133,13 @@ function normalizeSkillName(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function normalizeCommandName(name: string): string {
+  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
 }
 
-function hasExplicitSkillDirective(input: string, skillName: string): boolean {
-  const escapedName = escapeRegExp(skillName);
-  const englishDirective = new RegExp(
-    `\\b(?:use|using|with)\\s+(?:the\\s+)?${escapedName}\\s+skill\\b`,
-    'i',
-  );
-  const koreanDirective = new RegExp(`${escapedName}\\s*스킬(?:을|를|로|으로|대로)?`, 'i');
-  return englishDirective.test(input) || koreanDirective.test(input);
+function formatSkillCommandArgs(skillName: string, args: string): string {
+  const trimmedArgs = args.trim();
+  return trimmedArgs.length > 0 ? `${skillName} ${trimmedArgs}` : skillName;
 }
 
 function getQualifiedSkillName(rawInput?: string): string | undefined {
@@ -197,13 +189,10 @@ export class InteractiveSession {
   private shutdownPromise: Promise<void> | null = null;
   private readonly sandboxClient?: ISandboxClient;
   private sandboxSnapshotId?: string;
+  private commandInvocationSource: TCommandInvocationSource = 'user';
 
   constructor(options: IInteractiveSessionOptions) {
-    const sdkBuiltinModule = createBuiltinCommandModule();
-    this.commandModules = [
-      sdkBuiltinModule,
-      ...('commandModules' in options ? (options.commandModules ?? []) : []),
-    ];
+    this.commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];
     this.commandExecutor = new SystemCommandExecutor(
       this.commandModules.flatMap((module) => module.systemCommands ?? []),
     );
@@ -307,12 +296,6 @@ export class InteractiveSession {
             isModelCommandInvocable: (command) => this.commandExecutor.isModelInvocable(command),
           }
         : {}),
-      ...(this.hasModelInvocableSkills()
-        ? {
-            modelSkillExecutor: (skillName, args) => this.executeModelSkillCommand(skillName, args),
-            isModelSkillInvocable: (skillName) => this.isModelSkillInvocable(skillName),
-          }
-        : {}),
     });
 
     if (this.pendingRestoreMessages) {
@@ -360,75 +343,110 @@ export class InteractiveSession {
       this.pendingRawInput = rawInput;
       return;
     }
-    const directiveSkill = this.findExplicitUserSkillDirective(input);
-    if (directiveSkill) {
-      await this.executeUserResolvedSkillCommand(
-        directiveSkill,
-        input,
-        displayInput ?? input,
-        rawInput ?? input,
-        'user-directive',
-      );
-      return;
-    }
     await this.executePrompt(input, displayInput, rawInput);
   }
 
   async executeCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
-    const command = this.commandExecutor.getCommand(name);
-    if (!command) return null;
+    const normalizedName = normalizeCommandName(name);
+    const command = this.commandExecutor.getCommand(normalizedName);
+    const commandArgs = args.trim();
+    if (!command) {
+      const skill = this.findSkillCommand(normalizedName);
+      const skillsCommand = this.commandExecutor.getCommand('skills');
+      if (!skill || !skillsCommand) return null;
+      return this.executeCommandWithInvocationSource(
+        'user',
+        skillsCommand,
+        formatSkillCommandArgs(skill.name, commandArgs),
+      );
+    }
+    return this.executeCommandWithInvocationSource('user', command, commandArgs);
+  }
+
+  private async executeCommandWithInvocationSource(
+    source: TCommandInvocationSource,
+    command: ISystemCommand,
+    args: string,
+  ): Promise<ICommandResult> {
     if (this.executing) {
       return {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
       };
     }
-    if (command.lifecycle === 'blocking') {
-      return this.executeForegroundCommand(command, args);
+    const previousSource = this.commandInvocationSource;
+    this.commandInvocationSource = source;
+    try {
+      if (command.lifecycle === 'blocking') {
+        return this.executeForegroundCommand(command, args);
+      }
+      return await this.commandExecutor.executeCommand(command, this, args);
+    } finally {
+      this.commandInvocationSource = previousSource;
     }
-    return this.commandExecutor.executeCommand(command, this, args);
   }
 
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
-    return this.commandExecutor.executeModelInvocable(name, this, args);
+    const previousSource = this.commandInvocationSource;
+    this.commandInvocationSource = 'model';
+    try {
+      return await this.commandExecutor.executeModelInvocable(name, this, args);
+    } finally {
+      this.commandInvocationSource = previousSource;
+    }
   }
 
-  isModelSkillInvocable(name: string): boolean {
-    const skill = this.findSkillCommand(name);
-    return skill !== undefined && skill.disableModelInvocation !== true;
+  getCommandInvocationSource(): TCommandInvocationSource {
+    return this.commandInvocationSource;
   }
 
-  async executeModelSkillCommand(
+  async executeSkillCommandByName(
     name: string,
     args: string,
-  ): Promise<ISkillExecutionResult | null> {
-    await this.ensureInitialized();
-    const skill = this.findSkillCommand(name);
-    if (!skill || skill.disableModelInvocation === true) return null;
-    return this.executeSkillWithActivation(skill, args, 'model-tool');
-  }
-
-  async executeUserSkillCommand(
-    name: string,
-    args: string,
-    displayInput?: string,
-    rawInput?: string,
-  ): Promise<ISkillExecutionResult | null> {
+    request: ICommandSkillActivationRequest,
+  ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     const skill = this.findSkillCommand(name);
     if (!skill) return null;
-    return this.executeUserResolvedSkillCommand(skill, args, displayInput, rawInput, 'user-slash');
-  }
 
-  async executeSkillCommand(
-    skill: ICommand,
-    args: string,
-    displayInput?: string,
-    rawInput?: string,
-  ): Promise<ISkillExecutionResult> {
-    return this.executeUserResolvedSkillCommand(skill, args, displayInput, rawInput, 'user-slash');
+    if (request.invocationSource === 'model') {
+      if (skill.disableModelInvocation === true) {
+        return {
+          success: false,
+          message: `Skill is not model-invocable: ${skill.name}`,
+        };
+      }
+      const result = await this.executeSkillWithActivation(skill, args, 'model-tool');
+      return {
+        success: true,
+        message: `Skill activated: ${skill.name}`,
+        data: {
+          skill: skill.name,
+          mode: result.mode,
+          ...(result.prompt !== undefined ? { prompt: result.prompt } : {}),
+          ...(result.result !== undefined ? { result: result.result } : {}),
+        },
+      };
+    }
+
+    await this.executeUserResolvedSkillCommand(
+      skill,
+      args,
+      request.displayInput,
+      request.rawInput,
+      'user-slash',
+    );
+    return {
+      success: true,
+      message: '',
+      data: {
+        skill: skill.name,
+        sessionExecution: true,
+      },
+      effects: [{ type: 'session-execution-started' }],
+    };
   }
 
   private async executeUserResolvedSkillCommand(
@@ -493,23 +511,11 @@ export class InteractiveSession {
     return [...this.skillActivationEvents];
   }
 
-  private hasModelInvocableSkills(): boolean {
-    return this.skillCommandSource.getModelInvocableSkills().length > 0;
-  }
-
   private findSkillCommand(name: string): ICommand | undefined {
     const normalizedName = normalizeSkillName(name);
     return this.skillCommandSource
       .getCommands()
       .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
-  }
-
-  private findExplicitUserSkillDirective(input: string): ICommand | undefined {
-    const trimmed = input.trimStart();
-    if (trimmed.startsWith('/') || trimmed.startsWith('<skill ')) return undefined;
-    return this.skillCommandSource
-      .getUserInvocableSkills()
-      .find((skill) => hasExplicitSkillDirective(input, skill.name));
   }
 
   abort(): void {
@@ -1105,7 +1111,9 @@ export class InteractiveSession {
     const parentSession = this.getSessionOrThrow();
     const deps = retrieveAgentToolDeps(parentSession);
     if (!deps) {
-      throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
+      throw new Error(
+        'Fork execution is not available. Agent runtime deps may not be initialized.',
+      );
     }
     const agentType = options.agent ?? 'general-purpose';
     const agentDefinition = this.resolveForkAgentDefinition(agentType, options);

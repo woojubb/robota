@@ -3,7 +3,6 @@ import type {
   InteractiveSession,
   IExecutionResult,
   ICommandResult,
-  ISkillExecutionResult,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-sdk';
@@ -13,15 +12,6 @@ export type TOutputFormat = 'text' | 'json' | 'stream-json';
 export interface IHeadlessRunnerOptions {
   session: InteractiveSession;
   outputFormat: TOutputFormat;
-}
-
-interface IUserSkillCommandSession {
-  executeUserSkillCommand(
-    name: string,
-    args: string,
-    displayInput?: string,
-    rawInput?: string,
-  ): Promise<ISkillExecutionResult | null>;
 }
 
 type TStreamJsonEvent =
@@ -82,13 +72,6 @@ function parseSlashCommand(prompt: string): { name: string; args: string } | nul
   return { name, args: args.join(' ') };
 }
 
-function getUserSkillCommandSession(session: InteractiveSession): IUserSkillCommandSession | null {
-  const candidate = session as InteractiveSession & Partial<IUserSkillCommandSession>;
-  return typeof candidate.executeUserSkillCommand === 'function'
-    ? (candidate as IUserSkillCommandSession)
-    : null;
-}
-
 async function executeSlashCommandIfPresent(
   session: InteractiveSession,
   prompt: string,
@@ -97,13 +80,12 @@ async function executeSlashCommandIfPresent(
   if (!command) return { kind: 'not-slash' };
 
   const result = await session.executeCommand(command.name, command.args);
-  if (result) return { kind: 'command-result', result };
-
-  const skillSession = getUserSkillCommandSession(session);
-  const skillResult = skillSession
-    ? await skillSession.executeUserSkillCommand(command.name, command.args, prompt, prompt)
-    : null;
-  if (skillResult) return { kind: 'session-execution' };
+  if (result) {
+    if (result.effects?.some((effect) => effect.type === 'session-execution-started')) {
+      return { kind: 'session-execution' };
+    }
+    return { kind: 'command-result', result };
+  }
 
   return {
     kind: 'command-result',

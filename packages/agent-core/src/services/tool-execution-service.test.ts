@@ -161,6 +161,34 @@ describe('ToolExecutionService', () => {
       expect(result.toolName).toBe('failing-tool');
     });
 
+    it('should not execute unknown tools and should explain why execution was skipped', async () => {
+      const tools = createMockToolManager({
+        getTools: vi.fn().mockReturnValue([{ name: 'ExecuteCommand' }, { name: 'Read' }]),
+        hasTool: vi.fn().mockReturnValue(false),
+        executeTool: vi.fn(),
+      });
+      const service = new ToolExecutionService(tools, createMockLogger());
+
+      const result = await service.executeTool(
+        'agent',
+        { prompt: 'parallelize this work' },
+        createToolContext({ executionId: 'call_unknown' }),
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.toolName).toBe('agent');
+      expect(result.executionId).toBe('call_unknown');
+      expect(result.error).toContain('Tool "agent" is not registered');
+      expect(result.error).toContain('not executed');
+      expect(result.error).toContain('ExecuteCommand');
+      expect(result.metadata).toEqual({
+        errorCode: 'unknown_tool',
+        requestedTool: 'agent',
+        availableTools: ['ExecuteCommand', 'Read'],
+      });
+      expect(tools.executeTool).not.toHaveBeenCalled();
+    });
+
     it('should emit start and complete events when eventService is provided', async () => {
       const tools = createMockToolManager({
         executeTool: vi.fn().mockResolvedValue('result'),

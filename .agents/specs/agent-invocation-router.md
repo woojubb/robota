@@ -14,7 +14,7 @@ This specification defines how Robota turns slash commands, injected command met
 
 The goal is to prevent the assistant from merely describing agent execution when the user requested actual subagent execution. Robota must expose agent commands as owner-provided descriptors in startup context and as model-callable command tools so the model can choose the command and the runtime can execute it through the same command handler used by slash input.
 
-`built-in` does not mean the command must be hardcoded into every SDK session. In this spec, a built-in command is a command module that a composition root can inject as part of the default product assembly. If an SDK consumer does not inject the agent command module, that session must not expose `/agent`, model-visible `/agent` descriptors, or the `Agent` tool.
+`built-in` does not mean the command must be hardcoded into every SDK session. In this spec, a built-in command is a command module that a composition root can inject as part of the default product assembly. If an SDK consumer does not inject the agent command module, that session must not expose `agent` or model-visible `agent` descriptors. `/agent` is only UI/transport input and display syntax.
 
 This spec spans `agent-sdk`, `agent-command-agent`, `agent-cli`, `agent-runtime`, `agent-sessions`, and transport packages because the feature touches command module metadata, prompt/context assembly, model-callable command execution, runtime background task creation, TUI projection, and non-interactive/headless behavior.
 
@@ -66,7 +66,7 @@ Observed failure mode:
 
 1. The user asks for developer and designer subagents to analyze work in parallel.
 2. The assistant describes the plan and claims agents are running.
-3. No model-callable command or `Agent` tool call is emitted.
+3. No model-callable command call is emitted.
 4. No `background_task_created` event appears.
 5. No background task row appears in the TUI.
 
@@ -103,10 +103,12 @@ Full command, skill, or agent bodies must not be dumped into the startup prompt 
 
 No source should be represented by ad hoc text inside a generic prompt builder. Each source must expose a descriptor or instruction section owned by the package that owns the behavior.
 
-Skill descriptors are capability metadata, not activation. Model-side skill use must go through an
-SDK-owned activation path such as `ExecuteSkill`, which validates the skill descriptor, loads the
-full skill body, and emits a persisted `skill_activation` event. The assistant must not claim that a
-skill is active solely because it read a descriptor or repeated the skill workflow in prose.
+Skill descriptors are capability metadata, not activation. The `## Skills` metadata section is
+model-visible only when `skills` is composed as a model-invocable command. Model-side skill use
+must go through the `skills` built-in command module via the model-callable command route. The SDK
+validates the skill descriptor, loads the full skill body only after activation, and emits a
+persisted `skill_activation` event. The assistant must not claim that a skill is active solely
+because it read a descriptor or repeated the skill workflow in prose.
 
 ## Capability Module Composition
 
@@ -127,9 +129,9 @@ interface ICommandModule {
 Rules:
 
 - SDK core owns the command module interface and composition points.
-- `@robota-sdk/agent-command-agent` owns the `/agent` command handler, `/agent` command descriptor, agent command palette entry, and request for agent runtime/tool wiring.
+- `@robota-sdk/agent-command-agent` owns the `agent` command handler, `agent` command descriptor, agent command palette entry, and request for agent runtime/tool wiring. `/agent` is only UI/transport input and display syntax.
 - The Robota binary composition root may inject the agent module for the Robota CLI product.
-- Programmatic SDK consumers may omit the agent module and receive a session without `/agent`, model-visible `/agent` descriptors, or the `Agent` tool.
+- Programmatic SDK consumers may omit the agent module and receive a session without `agent`, model-visible `agent` descriptors, or the `Agent` tool.
 - Other future command modules must be injected through the same feature or command source mechanism.
 - Command palette metadata and model-visible descriptors must come from the injected module, not from separate hardcoded lists.
 
@@ -232,7 +234,7 @@ The first implementation MUST also support a simpler `label:"prompt"` parallel t
 
 Robota MUST NOT add a natural-language pre-router that decides whether prose should become an agent command before the model sees it.
 
-Instead, Robota exposes model-invocable command descriptors and a command execution tool generated from the command registry. The model receives concise descriptions of commands such as `/agent` in startup context. When the user asks for agent work in natural language, the model can choose the command execution tool and pass the selected command plus natural-language arguments.
+Instead, Robota exposes model-invocable command descriptors and a command execution tool generated from the command registry. The model receives concise descriptions of commands such as `agent` in startup context. When the user asks for agent work in natural language, the model can choose the command execution tool and pass the selected command plus natural-language arguments.
 
 The model-callable command execution tool is a generic bridge over registered commands, not a second implementation of command behavior.
 
@@ -255,6 +257,18 @@ Rules:
 - Tag-like assistant markup is not command execution. Owner-provided command descriptors should explicitly point model-routed execution at the `ExecuteCommand` tool without showing tag-shaped examples that local models may copy.
 - If the model does not call the command tool, Robota must not synthesize an agent job from natural language after the fact.
 - User-entered prompts that begin with `/agent` may bypass the model and execute the slash command handler directly.
+
+### Unregistered Native Tool Calls
+
+Some OpenAI-compatible local models may emit a native tool call with a plausible but undeclared name such as `agent` instead of the registered model-callable command bridge. Robota must handle this as a normal tool-result feedback path, not as a provider or UI special case.
+
+Rules:
+
+- Provider adapters pass native tool calls through without renaming them.
+- Core checks registration before execution. If the requested tool is unavailable, it does not execute anything and records a failed tool result with `errorCode: "unknown_tool"`, `requestedTool`, and `availableTools`.
+- The failed tool result and session/UI event must explicitly say that the tool call was not executed because the tool is not registered.
+- Robota must not alias unregistered names such as `agent` or `skills` to `ExecuteCommand`; the correction must come from model-visible descriptors, tool schemas, and the returned tool-result error.
+- If the model repeats unavailable tool calls across consecutive rounds, core stops the loop and forces a final no-tools response that explains why those calls were not executed.
 
 ## Model-Callable `Agent` Tool
 
@@ -318,14 +332,14 @@ Rules:
 - Provider capability text must come from the active provider adapter.
 - Tool text must come from tool descriptors.
 - Command and skill text must come from command/skill descriptors.
-- Agent text must come from agent definitions and the injected `/agent` command descriptor.
+- Agent text must come from agent definitions and the injected `agent` command descriptor.
 - Tests must be able to prove that a new capability can appear in the system prompt by registering a descriptor, without editing the composer.
 
 Required refactor:
 
 - Remove hardcoded role, permission, web search, tool, skill, and subagent prose from `system-prompt-builder`.
 - Introduce section providers for framework instructions, project instructions, runtime metadata, permission metadata, provider capabilities, command descriptors, skill descriptors, tool descriptors, and agent descriptors.
-- Render `/agent`, skills, tools, and agent definitions from their registries through `ICapabilityDescriptor` or `ISystemPromptSection` providers.
+- Render `agent`, skills, tools, and agent definitions from their registries through `ICapabilityDescriptor` or `ISystemPromptSection` providers.
 - Keep project instructions loaded from `AGENTS.md`/`CLAUDE.md` before capability metadata unless an explicit section priority says otherwise.
 - Make the composer deterministic and side-effect free so it can be unit-tested with synthetic section providers.
 
@@ -424,11 +438,11 @@ Rules:
 - Given framework, permission, provider, command, skill, tool, and agent section providers, when startup context is built, then each section's content appears from its owner provider.
 - Given a new capability descriptor is registered, when startup context is built, then the capability appears without editing the composer.
 - Given no agents are configured, when startup context is built, then no subagent-specific section is rendered.
-- Given the SDK session is created without the agent command module, when commands/tools/system prompt are assembled, then `/agent`, `Agent`, and agent descriptors are absent.
-- Given the Robota product composition injects the agent command module, when commands/tools/system prompt are assembled, then `/agent`, `Agent`, and agent descriptors are present.
-- Given an unrelated command module such as `/diagnose` is injected, when the command registry and system executor are assembled, then `/diagnose` is visible/executable without adding any command-specific code to `agent-sdk`.
+- Given the SDK session is created without the agent command module, when commands/tools/system prompt are assembled, then `agent`, `Agent`, and agent descriptors are absent.
+- Given the Robota product composition injects the agent command module, when commands/tools/system prompt are assembled, then `agent`, `Agent`, and agent descriptors are present.
+- Given an unrelated command module such as `diagnose` is injected, when the command registry and system executor are assembled, then `diagnose` is visible/executable without adding any command-specific code to `agent-sdk`.
 - Given the composer source is scanned, then it contains no hardcoded instructions for role behavior, web search, permissions, tools, skills, slash commands, or agents.
-- Given `/agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `/agent` and rejects non-model-invocable commands.
+- Given `agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `agent` and rejects non-model-invocable commands.
 - Given `/agent "analyze this"` is submitted, when the command executes, then it defaults to `general-purpose` and starts a background job without waiting for completion.
 - Given `/agent Plan "draft architecture"` is submitted, when the command executes, then `SubagentManager.spawn()` receives `mode: "background"` and the command returns an `agentId` without awaiting completion.
 - Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it remains a compatibility alias for the same background behavior.
@@ -469,11 +483,11 @@ pnpm harness:verify -- --scope packages/agent-cli --base-ref origin/develop
 
 - Operational guidance is not hardcoded in `system-prompt-builder`; it is supplied by owner section providers and descriptors.
 - Startup prompt context includes model-visible capability descriptors sourced from registries.
-- `/agent` exists as an injected CLI default command with user-visible and model-visible metadata.
+- `agent` exists as an injected CLI default command with user-visible and model-visible metadata; `/agent` is the CLI/headless input syntax.
 - SDK core can be assembled without the agent command module.
 - `/agent PROMPT` starts an actual background agent and returns an `agentId`.
 - `/agent parallel` starts multiple background agents before waiting for any result.
 - Natural-language requests for agent execution can succeed when the model selects the command execution tool from registered descriptors.
 - Robota-owned execution state cannot report background agents as running unless runtime evidence exists.
 - Existing `Agent` tool behavior remains compatible for model-initiated delegation.
-- Project-local `.robota/sessions` and `.robota/logs` contain enough raw data to debug prompt composition and restore session context, including command descriptors such as `/agent` and the `ExecuteCommand` tool schema when injected.
+- Project-local `.robota/sessions` and `.robota/logs` contain enough raw data to debug prompt composition and restore session context, including command descriptors such as `agent` and the `ExecuteCommand` tool schema when injected.

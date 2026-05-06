@@ -71,7 +71,7 @@ function createMockSession(overrides?: Record<string, unknown>): InteractiveSess
 }
 
 describe('agent command module', () => {
-  it('contributes /agent without changing SDK core commands', () => {
+  it('contributes agent without changing SDK core commands', () => {
     const coreExecutor = new SystemCommandExecutor(createSystemCommands());
     expect(coreExecutor.hasCommand('agent')).toBe(false);
     const coreModelCommands = coreExecutor
@@ -86,8 +86,8 @@ describe('agent command module', () => {
     const modelCommands = executor.listModelInvocableCommands().map((command) => command.name);
 
     expect(executor.hasCommand('agent')).toBe(true);
-    expect(modelCommands).toEqual([...coreModelCommands, '/agent']);
-    expect(coreModelCommands).not.toContain('/agent');
+    expect(modelCommands).toEqual([...coreModelCommands, 'agent']);
+    expect(coreModelCommands).not.toContain('agent');
   });
 
   it('requests agent runtime wiring through the command module contract', () => {
@@ -98,14 +98,14 @@ describe('agent command module', () => {
     expect(module.systemCommands).toHaveLength(1);
   });
 
-  it('projects /agent from its injected command source', () => {
+  it('projects agent from its injected command source', () => {
     const module = createAgentCommandModule();
     const registry = new CommandRegistry();
     registry.addModule(module);
 
     const agent = registry
       .getCapabilityDescriptors()
-      .find((descriptor) => descriptor.name === '/agent');
+      .find((descriptor) => descriptor.name === 'agent');
 
     expect(agent).toMatchObject({
       kind: 'builtin-command',

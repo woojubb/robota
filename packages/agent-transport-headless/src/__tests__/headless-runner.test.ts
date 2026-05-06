@@ -5,10 +5,6 @@ import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-sdk';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-sdk';
 import { createHeadlessRunner } from '../headless-runner.js';
 
-interface IUserSkillCommandTestSession {
-  executeUserSkillCommand: ReturnType<typeof vi.fn>;
-}
-
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {
   const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
   return {
@@ -45,7 +41,6 @@ function createMockSession(behavior: 'complete' | 'interrupted' | 'error', respo
       }
     }),
     executeCommand: vi.fn().mockResolvedValue(null),
-    executeUserSkillCommand: vi.fn().mockResolvedValue(null),
     getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
   } as unknown as InteractiveSession;
 }
@@ -132,7 +127,7 @@ describe('createHeadlessRunner (text format)', () => {
     expect(stdoutWriteSpy).toHaveBeenCalledWith('Started agent job: agent_1\n');
   });
 
-  it('executes /skill through the session skill API without submitting the raw slash prompt', async () => {
+  it('executes /skill through SDK command routing without submitting the raw slash prompt', async () => {
     const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
     const session = {
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
@@ -141,8 +136,7 @@ describe('createHeadlessRunner (text format)', () => {
       }),
       off: vi.fn(),
       submit: vi.fn(),
-      executeCommand: vi.fn().mockResolvedValue(null),
-      executeUserSkillCommand: vi.fn().mockImplementation(async () => {
+      executeCommand: vi.fn().mockImplementation(async () => {
         const result: IExecutionResult = {
           response: 'Skill response',
           history: [],
@@ -152,7 +146,12 @@ describe('createHeadlessRunner (text format)', () => {
         for (const handler of listeners.get('complete') ?? []) {
           handler(result);
         }
-        return { mode: 'inject', prompt: 'Rendered skill prompt' };
+        return {
+          success: true,
+          message: '',
+          effects: [{ type: 'session-execution-started' }],
+          data: { skill: 'audit', sessionExecution: true },
+        };
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
     } as unknown as InteractiveSession;
@@ -162,9 +161,6 @@ describe('createHeadlessRunner (text format)', () => {
 
     expect(exitCode).toBe(0);
     expect(session.executeCommand).toHaveBeenCalledWith('audit', 'src/index.ts');
-    expect(
-      (session as InteractiveSession & IUserSkillCommandTestSession).executeUserSkillCommand,
-    ).toHaveBeenCalledWith('audit', 'src/index.ts', '/audit src/index.ts', '/audit src/index.ts');
     expect(session.submit).not.toHaveBeenCalled();
     expect(stdoutWriteSpy).toHaveBeenCalledWith('Skill response\n');
   });

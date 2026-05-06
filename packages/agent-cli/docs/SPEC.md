@@ -20,7 +20,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
-- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `ICommand`, or `ICommandSource` — all imported from `@robota-sdk/agent-sdk`
+- Does NOT own `CommandRegistry`, `ICommand`, or `ICommandSource` — command registry contracts are imported from `@robota-sdk/agent-sdk`; skill command metadata is provided by `@robota-sdk/agent-command-skills`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions`; CLI keeps local duplicate UI adapter types and must not import `agent-sessions` in production source
@@ -216,9 +216,8 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
                     │   │   holds history: IHistoryEntry[]  ← primary state for message list
                     │   │   syncs from interactiveSession.getFullHistory() on each update
                     │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
-                    │   │   ├── BuiltinCommandSource  (from @robota-sdk/agent-sdk)
-                    │   │   ├── SkillCommandSource    (from @robota-sdk/agent-sdk)
-                    │   │   └── PluginCommandSource   (from @robota-sdk/agent-sdk)
+                    │   │   ├── command modules        (including @robota-sdk/agent-command-skills)
+                    │   │   └── PluginCommandSource    (from @robota-sdk/agent-sdk)
                     │   └── session.executeCommand()  (slash commands routed through injected command modules)
                     ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                     ├── InputArea.tsx          (bottom input area, slash detection)
@@ -637,7 +636,7 @@ The `StreamingIndicator` (showing active tools) is rendered when `isThinking || 
 
 ## Command Registry Architecture
 
-The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, and `SkillCommandSource` are all owned by `@robota-sdk/agent-sdk`. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds `PluginCommandSource` and any injected `ICommandModule` sources generically.
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry` is owned by `@robota-sdk/agent-sdk`; user-visible built-ins, including `/skills`, are provided by injected `ICommandModule` packages. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds plugin command sources and injected `ICommandModule` sources generically.
 
 Reusable CLI/TUI code must not special-case command module names such as `/agent`. It accepts `commandModules` and registers them with the SDK registry. The package binary may choose product defaults by passing modules into `startCli()`.
 
@@ -665,12 +664,12 @@ interface ICommand {
 
 ### Command Sources
 
-| Source   | Class                  | Owner                   | Description                                                                   |
-| -------- | ---------------------- | ----------------------- | ----------------------------------------------------------------------------- |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default infrastructure commands; currently empty                          |
-| Modules  | `ICommandModule`       | Module package          | Optional command modules injected by composition, including /help and /memory |
-| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)                            |
-| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                   |
+| Source   | Class                  | Owner                   | Description                                                                          |
+| -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default infrastructure commands; currently empty                                 |
+| Modules  | `ICommandModule`       | Module package          | Command modules injected by composition, including `/skills`, `/help`, and `/memory` |
+| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | SDK common API used by `agent-command-skills` for virtual skill palette entries      |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                          |
 
 ### Skill Discovery (Multi-Path)
 
@@ -735,26 +734,16 @@ Skill content supports inline shell command execution using the `` !`command` ``
 
 ### Skill Execution
 
-When a skill slash command is selected, the CLI resolves the command entry and calls
-`interactiveSession.executeSkillCommand(...)`. The SDK emits `skill_activation` and owns all skill
-execution semantics. The CLI must not synthesize skill activation state on its own.
+When a skill slash command is selected, the CLI calls `interactiveSession.executeCommand(name, args)`
+like any other slash command. The SDK normalizes virtual `/<skill-name>` aliases to the composed
+`/skills <skill-name> [args]` command. `@robota-sdk/agent-command-skills` calls the SDK skill
+activation host API, and the SDK emits `skill_activation` events and owns all skill execution
+semantics. The CLI must not synthesize skill activation state or call skill-specific SDK methods.
 
-The full SKILL.md content (after variable substitution and shell preprocessing) is injected into
-the session prompt wrapped in `<skill>` tags for inject-mode skills. The model receives both the
-skill instructions and any user-provided arguments.
-
-`interactiveSession.submit(input, displayInput, rawInput)` is called with three arguments:
-
-- `input` — the expanded skill content for the model
-- `displayInput` — the display form shown to the user (e.g., `/audit`)
-- `rawInput` — the qualified name form used for hook matching (e.g., `/rulebased-harness:audit some-args`); if no qualified name is found, falls back to `displayInput`
-
-The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that hook matchers can identify which plugin's skill was invoked.
-
-Model-initiated skills use the SDK-owned `ExecuteSkill` tool. The startup prompt may show skill
-descriptors, but full skill content is loaded only through `ExecuteSkill` or
-`executeSkillCommand(...)`. A plain assistant claim that a skill was used is not treated as skill
-activation unless a `skill_activation` event exists.
+Model-initiated skills also use the standard command route: `ExecuteCommand` with `command:
+"skills"`. The startup prompt may show skill descriptors, but full skill content is loaded only
+after `/skills` activates the skill. A plain assistant claim that a skill was used is not treated as
+skill activation unless a `skill_activation` event exists.
 
 ## Type Ownership
 
@@ -1212,7 +1201,7 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ## Subagent Execution
 
-Subagent execution (Agent tool, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-sdk` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
+Subagent execution (`/agent` command module, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-sdk` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
 
 The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
 
@@ -1260,9 +1249,9 @@ The CLI-owned Git adapter implements only local Git/filesystem I/O:
 - report whether the worktree has local edits and expose `git status --porcelain` output for preserved worktree handoff
 - allow dirty parent checkouts while surfacing the base revision and parent `git status --porcelain` in preserved handoff metadata
 
-When a user invokes a skill slash command with `context: fork`, the CLI must call `interactiveSession.executeSkillCommand(...)`. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection. This keeps fork execution deterministic and preserves the CLI as a thin TUI shell.
+When a user invokes a skill slash command with `context: fork`, the CLI still calls only `interactiveSession.executeCommand(...)`. The SDK and skills command module handle fork execution deterministically. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection.
 
-When a user asks in normal conversation to call or delegate to an agent, the request is handled by the model through the SDK-owned `Agent` tool. The CLI only displays the resulting tool execution events and final assistant response.
+When a user asks in normal conversation to call or delegate to an agent, the request is handled through the model-invocable `/agent` built-in command module. The CLI only displays the resulting command/background events and final assistant response.
 
 Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the runtime-owned event union exposed as the SDK `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
 
@@ -1277,7 +1266,7 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 | `/background cancel <task-id>`        | Cancel one queued/running task |
 | `/background close <task-id>`         | Dismiss one terminal task      |
 
-For implementation details of subagent/background execution (Agent tool, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
+For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
 
 Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
 

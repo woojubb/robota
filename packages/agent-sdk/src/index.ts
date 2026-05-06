@@ -41,9 +41,6 @@ export {
   PluginCommandSource,
   SystemCommandExecutor,
   createSystemCommands,
-  createSkillsSystemCommand,
-  executeSkillsCommand,
-  SKILLS_COMMAND_DESCRIPTION,
   parseFrontmatter,
   executeSkill,
 } from './commands/index.js';
@@ -258,11 +255,7 @@ export type {
 } from './commands/index.js';
 
 // ── Skill prompt utilities ───────────────────────────────────
-export {
-  buildSkillPrompt,
-  substituteVariables,
-  preprocessShellCommands,
-} from './utils/skill-prompt.js';
+export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
 export type { SkillPromptContext } from './utils/skill-prompt.js';
 
 // ── Project memory ─────────────────────────────────────────

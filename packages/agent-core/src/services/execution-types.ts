@@ -70,6 +70,10 @@ export interface IExecutionRoundState {
   lastTrackedAssistantMessage: IAssistantMessage | undefined;
   /** Cumulative input tokens from API responses (authoritative, not estimated) */
   cumulativeInputTokens: number;
+  /** Consecutive model rounds that produced at least one unavailable tool call. */
+  consecutiveUnknownToolFailureRounds: number;
+  /** Optional instruction used when forcing a final response after loop guard trips. */
+  forcedSummaryInstruction?: string;
 }
 
 /**
