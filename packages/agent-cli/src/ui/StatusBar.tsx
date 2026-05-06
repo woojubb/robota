@@ -102,6 +102,10 @@ function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): Reac
   );
 }
 
+function shouldShowPermissionMode(permissionMode: TPermissionMode): boolean {
+  return permissionMode !== 'default';
+}
+
 function ProviderText({
   modelName,
   providerProfileName,
@@ -124,6 +128,7 @@ function ProviderText({
 function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   const shouldShowGitBranch =
     props.showGitBranch && props.gitBranch !== undefined && props.gitBranch.length > 0;
+  const showPermissionMode = shouldShowPermissionMode(props.permissionMode);
   return (
     <Text>
       <StatusActivityText
@@ -132,8 +137,12 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
         activeBackgroundTaskCount={props.activeBackgroundTaskCount}
         hasPendingPrompt={props.hasPendingPrompt}
       />
-      {'  |  '}
-      <ModeText permissionMode={props.permissionMode} />
+      {showPermissionMode && (
+        <>
+          {'  |  '}
+          <ModeText permissionMode={props.permissionMode} />
+        </>
+      )}
       {props.sessionName && (
         <>
           {'  |  '}
@@ -162,20 +171,9 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   );
 }
 
-function StatusRight({
-  isThinking,
-  messageCount,
-}: {
-  isThinking: boolean;
-  messageCount: number;
-}): React.ReactElement {
+function StatusRight({ messageCount }: { messageCount: number }): React.ReactElement {
   return (
     <Text>
-      {isThinking && (
-        <>
-          <Text color="yellow">thinking...</Text>{' '}
-        </>
-      )}
       <Text dimColor>msgs: {messageCount}</Text>
     </Text>
   );
@@ -223,7 +221,7 @@ export default function StatusBar({
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
       />
-      <StatusRight isThinking={isThinking} messageCount={messageCount} />
+      <StatusRight messageCount={messageCount} />
     </Box>
   );
 }

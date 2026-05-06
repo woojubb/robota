@@ -21,8 +21,27 @@ describe('StatusBar', () => {
   it('renders without session name', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} />);
     const frame = lastFrame()!;
-    expect(frame).toContain('Mode:');
-    expect(frame).toContain('default');
+    expect(frame).toContain('test-model');
+    expect(frame).not.toContain('Mode: default');
+  });
+
+  it('hides default permission mode', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} permissionMode="default" />);
+    const frame = lastFrame()!;
+    expect(frame).not.toContain('Mode:');
+    expect(frame).not.toContain('default');
+  });
+
+  it('shows non-default permission modes', () => {
+    for (const permissionMode of ['plan', 'acceptEdits', 'bypassPermissions'] as const) {
+      const { lastFrame, unmount } = render(
+        <StatusBar {...baseProps} permissionMode={permissionMode} />,
+      );
+      const frame = lastFrame()!;
+      expect(frame).toContain('Mode:');
+      expect(frame).toContain(permissionMode);
+      unmount();
+    }
   });
 
   it('renders session name when provided', () => {
@@ -65,14 +84,15 @@ describe('StatusBar', () => {
     const frame = lastFrame()!;
     expect(frame).not.toContain('Activity:');
     expect(frame).toContain('Thinking');
-    expect(frame.indexOf('Thinking')).toBeLessThan(frame.indexOf('Mode:'));
+    expect(frame.indexOf('Thinking')).toBeLessThan(frame.indexOf('test-model'));
   });
 
-  it('restores the lower-right prompt-processing indicator while thinking', () => {
+  it('does not duplicate thinking state next to the message count', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} isThinking={true} />);
     const frame = lastFrame()!;
-    expect(frame).toContain('thinking...');
-    expect(frame.indexOf('thinking...')).toBeGreaterThan(frame.indexOf('Context:'));
+    expect(frame).toContain('Thinking');
+    expect(frame).not.toContain('thinking...');
+    expect(frame).toContain('msgs: 5');
   });
 
   it('hides the lower-right prompt-processing indicator while idle', () => {
@@ -95,8 +115,8 @@ describe('StatusBar', () => {
     expect(frame).not.toContain('Activity:');
     expect(frame).toContain('Tools x2');
     expect(frame).toContain('queued');
-    expect(frame).toContain('thinking...');
-    expect(frame.indexOf('Tools x2')).toBeLessThan(frame.indexOf('Mode:'));
+    expect(frame).not.toContain('thinking...');
+    expect(frame.indexOf('Tools x2')).toBeLessThan(frame.indexOf('test-model'));
     expect(frame).not.toContain('Thinking...');
   });
 
@@ -104,7 +124,7 @@ describe('StatusBar', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} activeBackgroundTaskCount={3} />);
     const frame = lastFrame()!;
     expect(frame).toContain('Background x3');
-    expect(frame.indexOf('Background x3')).toBeLessThan(frame.indexOf('Mode:'));
+    expect(frame.indexOf('Background x3')).toBeLessThan(frame.indexOf('test-model'));
   });
 
   it('keeps the activity segment compact for narrow terminals', () => {
@@ -119,7 +139,7 @@ describe('StatusBar', () => {
     );
     const frame = lastFrame()!;
     const firstLine = frame.split('\n')[1] ?? '';
-    const activityEnd = firstLine.indexOf('Mode:');
+    const activityEnd = firstLine.indexOf('test-model');
     const activitySegment = firstLine.slice(0, activityEnd);
     expect(activitySegment).toContain('Tools x12');
     expect(activitySegment.length).toBeLessThanOrEqual(40);
