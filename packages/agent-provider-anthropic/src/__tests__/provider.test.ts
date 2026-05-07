@@ -150,17 +150,7 @@ describe('AnthropicProvider', () => {
     it('should create a client from apiKey', () => {
       const provider = new AnthropicProvider({ apiKey: 'sk-ant-test' });
       expect(provider).toBeDefined();
-      expect(Anthropic).toHaveBeenCalledWith(
-        expect.objectContaining({ apiKey: 'sk-ant-test', authToken: null }),
-      );
-    });
-
-    it('should create a client from authToken', () => {
-      const provider = new AnthropicProvider({ authToken: 'sk-ant-oat01-test' });
-      expect(provider).toBeDefined();
-      expect(Anthropic).toHaveBeenCalledWith(
-        expect.objectContaining({ apiKey: null, authToken: 'sk-ant-oat01-test' }),
-      );
+      expect(Anthropic).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'sk-ant-test' }));
     });
 
     it('should pass timeout and baseURL when creating client from apiKey', () => {
@@ -172,7 +162,6 @@ describe('AnthropicProvider', () => {
       expect(Anthropic).toHaveBeenCalledWith(
         expect.objectContaining({
           apiKey: 'sk-ant-test',
-          authToken: null,
           timeout: 5000,
           baseURL: 'https://custom.api',
         }),
@@ -194,7 +183,7 @@ describe('AnthropicProvider', () => {
 
     it('should throw when no client, apiKey, or executor is provided', () => {
       expect(() => new AnthropicProvider({} as IAnthropicProviderOptions)).toThrow(
-        'Either Anthropic client, apiKey, authToken, or executor is required',
+        'Either Anthropic client, apiKey, or executor is required',
       );
     });
   });
@@ -215,14 +204,6 @@ describe('AnthropicProvider', () => {
         client: mockClient as unknown as Anthropic,
       });
       expect(provider.validateConfig()).toBe(false);
-    });
-
-    it('should return true when client and authToken are present', () => {
-      const provider = new AnthropicProvider({
-        client: mockClient as unknown as Anthropic,
-        authToken: 'sk-ant-oat01-test',
-      });
-      expect(provider.validateConfig()).toBe(true);
     });
   });
 
@@ -1070,7 +1051,7 @@ describe('AnthropicProvider', () => {
   describe('chatStream — no client', () => {
     it('should throw when neither client nor executor is provided', () => {
       expect(() => new AnthropicProvider({} as IAnthropicProviderOptions)).toThrow(
-        'Either Anthropic client, apiKey, authToken, or executor is required',
+        'Either Anthropic client, apiKey, or executor is required',
       );
     });
   });
@@ -1080,7 +1061,7 @@ describe('AnthropicProvider', () => {
   describe('chat — no client for direct execution', () => {
     it('should throw when executor is not set and client is unavailable', async () => {
       expect(() => new AnthropicProvider({} as IAnthropicProviderOptions)).toThrow(
-        'Either Anthropic client, apiKey, authToken, or executor is required',
+        'Either Anthropic client, apiKey, or executor is required',
       );
     });
   });

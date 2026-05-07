@@ -5,7 +5,6 @@ export interface IProviderConfig {
   name: string;
   model: string;
   apiKey?: string;
-  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -14,7 +13,6 @@ export interface IProviderConfig {
 export interface IProviderProfileDefaults {
   model?: string;
   apiKey?: string;
-  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -24,7 +22,6 @@ export interface IProviderProfileConfig {
   type?: string;
   model?: string;
   apiKey?: string;
-  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -36,7 +33,7 @@ export interface IProviderProbeResult {
   models?: string[];
 }
 
-export type TProviderCredentialField = 'apiKey' | 'authToken';
+export type TProviderCredentialField = 'apiKey';
 export type TProviderSetupField = 'baseURL' | 'model' | TProviderCredentialField;
 
 export interface IProviderCredentialRequirement {

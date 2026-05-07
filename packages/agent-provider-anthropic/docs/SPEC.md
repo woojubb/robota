@@ -94,7 +94,7 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 | `createAnthropicProviderDefinition`         | function                    | `src/provider-definition.ts`     | Returns an `IProviderDefinition` for branch-free provider composition.                                                                                                                                                        |
 | `DEFAULT_ANTHROPIC_PROVIDER_MODEL`          | constant                    | `src/provider-definition.ts`     | Package-owned default model for setup definitions.                                                                                                                                                                            |
 | ~~`AnthropicResponseParser`~~               | class (internal)            | `src/parsers/response-parser.ts` | Internal static utility — not exported from `src/index.ts`. Used by `AnthropicProvider` internally for response/streaming parsing.                                                                                            |
-| `IAnthropicProviderOptions`                 | interface                   | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `authToken`, `timeout`, `baseURL`, `client`, `executor`, plus index signature.                                                                  |
+| `IAnthropicProviderOptions`                 | interface                   | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature.                                                                               |
 | `TAnthropicProviderOptionValue`             | type alias                  | `src/types.ts`                   | Union type for valid provider option values.                                                                                                                                                                                  |
 | `createAnthropicProvider`                   | function (stub)             | `src/index.ts`                   | Stub — currently returns `void`. Not yet implemented; placeholder for future factory pattern.                                                                                                                                 |
 | ~~All types from `src/types/api-types.ts`~~ | interfaces/types (internal) | `src/types/api-types.ts`         | Anthropic API type definitions (messages, requests, tools, streaming, errors). **Not exported** — these types are internal-only and are not part of the public API surface. `src/types.ts` does not re-export `api-types.ts`. |
@@ -127,8 +127,8 @@ The provider supports Anthropic's server-side web search tool:
 - **`chat()` vs `chatStream()` asymmetry**: `chat()` applies `enableWebTools`, system message extraction, and `onServerToolUse` callbacks. `chatStream()` does NOT apply these features — it uses the native SDK streaming API directly without server tool support. This is a known limitation.
 - **Response parsing**: Two parsing paths coexist — `convertFromAnthropicResponse()` (inline in provider, used by `chat()`) and `AnthropicResponseParser` (separate class, used by `chatStream()`). They have minor behavioral differences (e.g., `null` vs `''` for tool-only content).
 - **Local API types**: `IAnthropicStreamChunk` and other types in `api-types.ts` were written before migration to the native Anthropic SDK. The provider's streaming code now uses native SDK event types directly; local API types are partially unused but retained for backward compatibility.
-- **Credential alternatives**: Direct Anthropic execution accepts either `apiKey` for `x-api-key` authentication or `authToken` for Anthropic OAuth/WIF bearer-token authentication. Provider definitions advertise this as `credentialRequirement: { anyOf: ["apiKey", "authToken"] }`; generic CLI/SDK layers must not hardcode an Anthropic-specific branch.
-- **`validateConfig()` edge case**: Returns `false` for executor-based providers (no client/apiKey/authToken) even though the provider is functional. This is a known gap.
+- **Credential model**: Normal Anthropic execution uses `apiKey` for the official `x-api-key` authentication path. The provider definition advertises `requiresApiKey: true`; generic CLI/SDK layers must not add Anthropic-specific credential branches. Advanced Anthropic SDK authentication must be represented by a pre-configured `client`, not by a generic provider profile field.
+- **`validateConfig()` edge case**: Returns `false` for executor-based providers (no client/apiKey) even though the provider is functional. This is a known gap.
 
 ## Abort Signal Support
 
@@ -148,18 +148,18 @@ The provider accepts an `AbortSignal` via `IChatOptions.signal` for cooperative 
 
 ## Error Taxonomy
 
-| Error Condition                                 | Thrown By                                       | Message Pattern                                                                                  |
-| ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Missing client, apiKey, authToken, and executor | `AnthropicProvider` constructor                 | `"Either Anthropic client, apiKey, authToken, or executor is required"`                          |
-| Client unavailable during direct execution      | `chat()`, `chatStream()`                        | `"Anthropic client not available. Either provide a client/apiKey/authToken or use an executor."` |
-| Missing model in chat options                   | `chat()`, `chatStream()`                        | `"Model is required in chat options. Please specify a model in defaultModel configuration."`     |
-| Empty response content                          | `convertFromAnthropicResponse()`                | `"No content in Anthropic response"`                                                             |
-| Unsupported content block type                  | `convertFromAnthropicResponse()`                | `"Unsupported content type: <type>"`                                                             |
-| Invalid message array (not array)               | `validateMessages()`                            | `"Messages must be an array"`                                                                    |
-| Empty message array                             | `validateMessages()`                            | `"Messages array cannot be empty"`                                                               |
-| Invalid message role                            | `validateMessages()`                            | `"Invalid message role: <role>"`                                                                 |
-| Response parsing failure                        | `AnthropicResponseParser.parseResponse()`       | Re-throws original error after logging                                                           |
-| Stream chunk parsing failure                    | `AnthropicResponseParser.parseStreamingChunk()` | Returns `null` after logging error                                                               |
+| Error Condition                            | Thrown By                                       | Message Pattern                                                                              |
+| ------------------------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Missing client, apiKey, and executor       | `AnthropicProvider` constructor                 | `"Either Anthropic client, apiKey, or executor is required"`                                 |
+| Client unavailable during direct execution | `chat()`, `chatStream()`                        | `"Anthropic client not available. Either provide a client/apiKey or use an executor."`       |
+| Missing model in chat options              | `chat()`, `chatStream()`                        | `"Model is required in chat options. Please specify a model in defaultModel configuration."` |
+| Empty response content                     | `convertFromAnthropicResponse()`                | `"No content in Anthropic response"`                                                         |
+| Unsupported content block type             | `convertFromAnthropicResponse()`                | `"Unsupported content type: <type>"`                                                         |
+| Invalid message array (not array)          | `validateMessages()`                            | `"Messages must be an array"`                                                                |
+| Empty message array                        | `validateMessages()`                            | `"Messages array cannot be empty"`                                                           |
+| Invalid message role                       | `validateMessages()`                            | `"Invalid message role: <role>"`                                                             |
+| Response parsing failure                   | `AnthropicResponseParser.parseResponse()`       | Re-throws original error after logging                                                       |
+| Stream chunk parsing failure               | `AnthropicResponseParser.parseStreamingChunk()` | Returns `null` after logging error                                                           |
 
 Anthropic API errors are defined in `IAnthropicError` with types: `invalid_request_error`, `authentication_error`, `permission_error`, `not_found_error`, `rate_limit_error`, `api_error`, `overloaded_error`.
 
@@ -186,7 +186,7 @@ None. This package has no local interface implementations.
 
 - **Current state**: No test files exist in the package (`pnpm test` runs with `--passWithNoTests`).
 - **Recommended coverage areas**:
-  - Unit tests for `AnthropicProvider` constructor validation (client vs apiKey vs authToken vs executor).
+  - Unit tests for `AnthropicProvider` constructor validation (client vs apiKey vs executor).
   - Unit tests for message format conversion (`convertToAnthropicFormat`, `convertFromAnthropicResponse`), including tool call content-null invariant.
   - Unit tests for tool schema conversion (`convertToolsToAnthropicFormat`).
   - Unit tests for `AnthropicResponseParser.parseResponse()` covering text blocks, tool_use blocks, usage metadata, and error cases.

@@ -31,10 +31,10 @@ describe('provider definition helpers', () => {
     expect(
       getProviderCredentialRequirement({
         ...providerDefinition,
-        credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
+        credentialRequirement: { anyOf: ['apiKey'] },
         requiresApiKey: true,
       }),
-    ).toEqual({ anyOf: ['apiKey', 'authToken'] });
+    ).toEqual({ anyOf: ['apiKey'] });
   });
 
   it('derives legacy API key requirements for existing provider definitions', () => {

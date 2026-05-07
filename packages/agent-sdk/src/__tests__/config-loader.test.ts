@@ -201,16 +201,6 @@ describe('loadConfig', () => {
     delete process.env.TEST_API_KEY_XYZ;
   });
 
-  it('resolves $ENV: prefix in authToken', async () => {
-    process.env.TEST_AUTH_TOKEN_XYZ = 'sk-ant-oat01-test-value';
-    writeJson(join(projectDir, 'settings.json'), {
-      provider: { authToken: '$ENV:TEST_AUTH_TOKEN_XYZ' },
-    });
-    const config = await loadConfig(cwd);
-    expect(config.provider.authToken).toBe('sk-ant-oat01-test-value');
-    delete process.env.TEST_AUTH_TOKEN_XYZ;
-  });
-
   it('resolves active provider profile from currentProvider and providers', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'openai',
@@ -286,8 +276,7 @@ describe('loadConfig', () => {
     delete process.env.TEST_OPENAI_COMPAT_KEY;
   });
 
-  it('resolves $ENV: prefix in active provider profile authToken', async () => {
-    process.env.TEST_ANTHROPIC_AUTH_TOKEN = 'sk-ant-oat01-profile-value';
+  it('ignores removed active provider profile authToken fields', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       currentProvider: 'anthropic',
       providers: {
@@ -301,8 +290,11 @@ describe('loadConfig', () => {
 
     const config = await loadConfig(cwd);
 
-    expect(config.provider.authToken).toBe('sk-ant-oat01-profile-value');
-    delete process.env.TEST_ANTHROPIC_AUTH_TOKEN;
+    expect(config.provider).toEqual({
+      name: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      apiKey: undefined,
+    });
   });
 
   it('deep-merges provider profiles across settings layers', async () => {

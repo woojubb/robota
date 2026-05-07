@@ -139,7 +139,6 @@ function resolveActiveProvider(
         name: profile.type,
         model: profile.model,
         apiKey: profile.apiKey,
-        authToken: profile.authToken,
         baseURL: profile.baseURL,
         timeout: profile.timeout,
         options: profile.options,
@@ -155,7 +154,6 @@ function resolveActiveProvider(
         name: provider.name,
         model: provider.model,
         apiKey: provider.apiKey,
-        authToken: provider.authToken,
         baseURL: provider.baseURL,
         timeout: provider.timeout,
         options: provider.options,
@@ -172,7 +170,6 @@ function normalizeProviderConfig(
     name: string;
     model?: string;
     apiKey?: string;
-    authToken?: string;
     baseURL?: string;
     timeout?: number;
     options?: Record<string, TUniversalValue>;
@@ -185,15 +182,11 @@ function normalizeProviderConfig(
     throw new Error(`Provider ${settings.name} requires model`);
   }
   const apiKeyReference = settings.apiKey ?? defaults.apiKey;
-  const authTokenReference = settings.authToken ?? defaults.authToken;
-  const authToken =
-    authTokenReference !== undefined ? resolveEnvReference(authTokenReference) : undefined;
   const options = settings.options ?? defaults.options;
   return {
     name: settings.name,
     model,
     apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
-    ...(authToken !== undefined && authToken.length > 0 && { authToken }),
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
     ...(options !== undefined && { options }),
@@ -206,16 +199,6 @@ function resolveProfileApiKey(profile: ISerializableProviderProfile): string | u
   }
   if (profile.apiKeyEnv !== undefined) {
     return process.env[profile.apiKeyEnv];
-  }
-  return undefined;
-}
-
-function resolveProfileAuthToken(profile: ISerializableProviderProfile): string | undefined {
-  if (profile.authToken !== undefined) {
-    return resolveEnvReference(profile.authToken);
-  }
-  if (profile.authTokenEnv !== undefined) {
-    return process.env[profile.authTokenEnv];
   }
   return undefined;
 }
@@ -267,7 +250,6 @@ export function createProviderFromProfile(
         name: profile.type,
         model: modelOverride ?? profile.model,
         apiKey: resolveProfileApiKey(profile),
-        authToken: resolveProfileAuthToken(profile),
         baseURL: profile.baseURL,
         timeout: profile.timeout,
         options: profile.options,

@@ -22,7 +22,6 @@ const ProviderSchema = z.object({
   name: z.string().optional(),
   model: z.string().optional(),
   apiKey: z.string().optional(),
-  authToken: z.string().optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
   options: z.record(UniversalValueSchema).optional(),
@@ -32,7 +31,6 @@ const ProviderProfileSchema = z.object({
   type: z.string().optional(),
   model: z.string().optional(),
   apiKey: z.string().optional(),
-  authToken: z.string().optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
   options: z.record(UniversalValueSchema).optional(),
@@ -164,7 +162,6 @@ export interface IResolvedConfig {
     name: string;
     model: string;
     apiKey: string | undefined;
-    authToken?: string;
     baseURL?: string;
     timeout?: number;
     options?: Record<string, TUniversalValue>;

@@ -11,11 +11,11 @@ vi.mock('../provider.js', () => {
 });
 
 describe('createAnthropicProviderDefinition', () => {
-  it('allows either API key or auth token credentials', () => {
+  it('requires an API key credential', () => {
     const definition = createAnthropicProviderDefinition();
 
-    expect(definition.credentialRequirement).toEqual({ anyOf: ['apiKey', 'authToken'] });
-    expect(definition.requiresApiKey).toBeUndefined();
+    expect(definition.credentialRequirement).toBeUndefined();
+    expect(definition.requiresApiKey).toBe(true);
   });
 
   it('creates a provider from an API key', () => {
@@ -33,21 +33,6 @@ describe('createAnthropicProviderDefinition', () => {
     });
   });
 
-  it('creates a provider from an auth token', () => {
-    const definition = createAnthropicProviderDefinition();
-
-    definition.createProvider({
-      name: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      authToken: 'sk-ant-oat01-test',
-    });
-
-    expect(AnthropicProvider).toHaveBeenCalledWith({
-      authToken: 'sk-ant-oat01-test',
-      defaultModel: 'claude-sonnet-4-6',
-    });
-  });
-
   it('rejects missing credentials', () => {
     const definition = createAnthropicProviderDefinition();
 
@@ -56,6 +41,6 @@ describe('createAnthropicProviderDefinition', () => {
         name: 'anthropic',
         model: 'claude-sonnet-4-6',
       }),
-    ).toThrow('Provider anthropic requires apiKey or authToken');
+    ).toThrow('Provider anthropic requires apiKey');
   });
 });
