@@ -11,4 +11,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-None.
+- [Harness Release Operations Governance](harness-release-operations-governance.md)
