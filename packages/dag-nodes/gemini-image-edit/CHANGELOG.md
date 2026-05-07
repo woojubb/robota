@@ -1,5 +1,19 @@
 # @robota-sdk/dag-node-gemini-image-edit
 
+## 3.0.0-beta.61
+
+### Patch Changes
+
+- Updated dependencies [b90ed47]
+- Updated dependencies [1c0d44c]
+- Updated dependencies [b61f9ce]
+- Updated dependencies [36eb7a9]
+- Updated dependencies [d97bdf2]
+  - @robota-sdk/dag-core@3.0.0-beta.61
+  - @robota-sdk/agent-core@3.0.0-beta.61
+  - @robota-sdk/agent-provider-google@3.0.0-beta.61
+  - @robota-sdk/dag-node@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes

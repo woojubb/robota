@@ -1,5 +1,13 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.61
+
+### Patch Changes
+
+- 1c0d44c: Align context usage estimation across session display, auto-compaction, and core hard-capacity guards so mid-window sessions do not block prematurely.
+- 36eb7a9: Add provider-owned native replay payload hooks, replay validation coverage, and a session log validation command.
+- d97bdf2: Add provider-owned model catalog metadata, route `/model` suggestions through the active provider, and make `cli:dev` resolve the CLI workspace dependency closure through source export conditions.
+
 ## 3.0.0-beta.60
 
 ### Minor Changes
