@@ -11,6 +11,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- **TASK-BL-001**: agent-cli logo color update — change the `IconLogo` color in
-  `packages/agent-playground/src/components/ui/logo.tsx`. Target color is not defined yet
-  (HEX/Tailwind token pending). (2026-06-04)
+None.

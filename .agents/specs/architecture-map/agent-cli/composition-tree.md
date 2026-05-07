@@ -20,7 +20,8 @@ packages/agent-cli/src/bin.ts
    |  |- agent-provider-openai
    |  |- agent-provider-gemini
    |  |- agent-provider-gemma
-   |  `- agent-provider-qwen
+   |  |- agent-provider-qwen
+   |  `- agent-provider-deepseek
    |- commandModules
    |  |- createHelpCommandModule()
    |  |- createAgentCommandModule()

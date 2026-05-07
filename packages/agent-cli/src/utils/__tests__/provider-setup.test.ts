@@ -82,6 +82,34 @@ const providerDefinitions: readonly IProviderDefinition[] = [
       throw new Error('not used');
     },
   },
+  {
+    type: 'deepseek',
+    displayName: 'DeepSeek',
+    description: 'DeepSeek OpenAI-compatible endpoint',
+    defaults: {
+      model: 'deepseek-v4-flash',
+      apiKey: '$ENV:DEEPSEEK_API_KEY',
+      baseURL: 'https://api.deepseek.com',
+    },
+    setupSteps: [
+      {
+        key: 'baseURL',
+        title: 'DeepSeek OpenAI-compatible base URL',
+        defaultValue: 'https://api.deepseek.com',
+      },
+      { key: 'model', title: 'DeepSeek model', defaultValue: 'deepseek-v4-flash' },
+      {
+        key: 'apiKey',
+        title: 'DeepSeek API key',
+        defaultValue: '$ENV:DEEPSEEK_API_KEY',
+        masked: true,
+      },
+    ],
+    requiresApiKey: true,
+    createProvider: () => {
+      throw new Error('not used');
+    },
+  },
 ];
 
 function baseArgs(): IParsedCliArgs {
@@ -137,6 +165,7 @@ describe('provider setup', () => {
     process.env.HOME = ORIGINAL_HOME;
     delete process.env.OPENAI_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
+    delete process.env.DEEPSEEK_API_KEY;
     Object.defineProperty(process.stdin, 'isTTY', {
       value: ORIGINAL_STDIN_TTY,
       configurable: true,
@@ -203,6 +232,37 @@ describe('provider setup', () => {
       model: 'qwen-plus',
       apiKey: '$ENV:DASHSCOPE_API_KEY',
       baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    });
+  });
+
+  it('writes a DeepSeek profile from provider-owned setup metadata', async () => {
+    const home = join(TMP_BASE, 'home-deepseek');
+    process.env.HOME = home;
+    process.env.DEEPSEEK_API_KEY = 'deepseek-key';
+    const answers = ['4', '', '', '', 'ko'];
+    const prompts: string[] = [];
+    const promptInput = async (label: string): Promise<string> => {
+      prompts.push(label);
+      return answers.shift() ?? '';
+    };
+
+    await runInteractiveProviderSetup(
+      join(TMP_BASE, 'project'),
+      baseArgs(),
+      promptInput,
+      providerDefinitions,
+    );
+
+    const settings = readUserSettings(home);
+    const providers = settings.providers as Record<string, Record<string, unknown>>;
+    expect(prompts[0]).toContain('DeepSeek (deepseek)');
+    expect(settings.currentProvider).toBe('deepseek-v4-flash');
+    expect(settings.language).toBe('ko');
+    expect(providers['deepseek-v4-flash']).toMatchObject({
+      type: 'deepseek',
+      model: 'deepseek-v4-flash',
+      apiKey: '$ENV:DEEPSEEK_API_KEY',
+      baseURL: 'https://api.deepseek.com',
     });
   });
 

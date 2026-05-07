@@ -113,12 +113,34 @@ const provider = new QwenProvider({
 
 Qwen can also enable provider-side hosted web search and extraction through `builtInWebTools`; those tools are separate from Robota local tools and do not bypass local permission checks.
 
+### DeepSeek
+
+```typescript
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
+
+const provider = new DeepSeekProvider({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  defaultModel: 'deepseek-v4-flash',
+});
+```
+
+DeepSeek uses the documented OpenAI-compatible API at `https://api.deepseek.com`. Provider-owned
+profile options can enable thinking controls such as `thinking: 'enabled'` and
+`reasoningEffort: 'high'`.
+
 ### Switching Providers
 
 ```typescript
 const agent = new Robota({
   name: 'FlexAgent',
-  aiProviders: [anthropicProvider, openaiProvider, geminiProvider, gemmaProvider, qwenProvider],
+  aiProviders: [
+    anthropicProvider,
+    openaiProvider,
+    geminiProvider,
+    gemmaProvider,
+    qwenProvider,
+    deepSeekProvider,
+  ],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 });
 
