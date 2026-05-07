@@ -19,7 +19,7 @@ agent-sdk                ← Assembly layer: InteractiveSession, SystemCommandEx
 agent-sessions    ← Session lifecycle: permissions, hooks, compaction, persistence, replay events
 agent-runtime     ← Background task and subagent lifecycle primitives
 agent-tools       ← Tool infrastructure + 8 built-in CLI tools
-agent-providers   ← AI provider implementations (Anthropic, OpenAI, Gemini, Google compatibility, Gemma, Qwen)
+agent-providers   ← AI provider implementations (Anthropic, OpenAI, DeepSeek, Gemini, Google compatibility, Gemma, Qwen)
   ↓
 agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugins
 ```
@@ -32,7 +32,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 | **agent-tools**              | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                                                    | General      |
 | **agent-sessions**           | Session class with permission enforcement, context tracking, compaction                                                                                                                    | General      |
 | **agent-runtime**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                               | General      |
-| **agent-providers**          | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, Gemini, Google compatibility, Gemma, Qwen, and future integrations                                                  | General      |
+| **agent-providers**          | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Google compatibility, Gemma, Qwen, and future integrations                                        | General      |
 | **agent-command-\***         | Built-in and optional slash command modules such as `/help`, `/compact`, and `/provider` that own command metadata, execution, lifecycle policy, and descriptors outside CLI/SDK core      | SDK-specific |
 | **agent-sdk**                | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery() | SDK-specific |
 | **agent-cli**                | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                                                   | Transport    |

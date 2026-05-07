@@ -29,6 +29,7 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 | Variable            | Description                                    | Required       |
 | ------------------- | ---------------------------------------------- | -------------- |
 | `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
+| `DEEPSEEK_API_KEY`  | DeepSeek API key for the `deepseek` provider   | DeepSeek only  |
 | `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
 
 Set your key before running:
@@ -130,7 +131,9 @@ When no usable settings file exists, the CLI prompts for:
 
 Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
 
-Provider setup is generated from provider definitions. The default CLI build includes Anthropic, OpenAI-compatible, Gemma, and Qwen providers; other embeddings can inject their own provider definitions.
+Provider setup is generated from provider definitions. The default CLI build includes Anthropic,
+OpenAI-compatible, DeepSeek, Gemma, and Qwen providers; other embeddings can inject their own
+provider definitions.
 Interactive setup creates a readable profile key from the selected model id, such as
 `claude-sonnet-4-6` or `gpt-4o`, and appends `-2`, `-3`, etc. when that key already exists. Generated
 profile keys never include API keys or credential hints.
@@ -156,7 +159,9 @@ The AI agent can invoke 8 local tools:
 
 ## Recent TUI Capabilities
 
-- Provider setup and profile management are generated from provider definitions, so the default CLI build can configure, switch, edit, test, duplicate, and delete Anthropic, OpenAI-compatible, Gemma, and Qwen profiles without provider-specific UI branches.
+- Provider setup and profile management are generated from provider definitions, so the default CLI
+  build can configure, switch, edit, test, duplicate, and delete Anthropic, OpenAI-compatible,
+  DeepSeek, Gemma, and Qwen profiles without provider-specific UI branches.
 - Interactive startup can check npm for newer CLI versions; print/headless mode skips startup update checks to keep scripted output deterministic.
 - Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
 - Edit results render as context hunks with markdown-friendly diff blocks.
@@ -355,9 +360,10 @@ Settings are merged in this order, from lowest to highest priority:
 the provider type; multiple profile keys may use the same provider type and model when they represent
 different credentials, endpoints, accounts, or operational defaults. Qwen Model Studio profiles use
 `type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as
-`$ENV:DASHSCOPE_API_KEY`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply
-Gemma-specific channel-marker projection while still talking to the OpenAI-compatible
-`/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use
+`$ENV:DASHSCOPE_API_KEY`. DeepSeek profiles use `type: "deepseek"` with
+`https://api.deepseek.com` and `$ENV:DEEPSEEK_API_KEY`. Gemma-family LM Studio models use
+`type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to
+the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use
 `type: "openai"` and do not apply provider-specific projection. Use `--provider <profile>` for a
 one-shot invocation override; add `--set-current` only when the selected profile should become the
 persisted default. The legacy single-provider shape remains supported:

@@ -27,6 +27,7 @@
       "@robota-sdk/agent-cli",
       "@robota-sdk/agent-tools",
       "@robota-sdk/agent-provider-anthropic",
+      "@robota-sdk/agent-provider-deepseek",
       "@robota-sdk/agent-provider-openai",
       "@robota-sdk/agent-provider-openai-compatible",
       "@robota-sdk/agent-provider-gemma",

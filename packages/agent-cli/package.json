@@ -69,6 +69,7 @@
     "@robota-sdk/agent-command-statusline": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
+    "@robota-sdk/agent-provider-deepseek": "workspace:*",
     "@robota-sdk/agent-provider-gemma": "workspace:*",
     "@robota-sdk/agent-provider-gemini": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",

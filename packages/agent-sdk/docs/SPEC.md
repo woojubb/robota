@@ -398,7 +398,7 @@ Provider profile shape:
 }
 ```
 
-Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
+Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. DeepSeek API profiles should be configured through `type: "deepseek"` so provider-specific defaults, model catalog metadata, and thinking controls remain provider-owned. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
 
 Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys. OpenAI-compatible local endpoints such as LM Studio should use local `WebSearch`/`WebFetch` function tools for web access unless their concrete provider package documents and enables provider-native hosted web capabilities.
 

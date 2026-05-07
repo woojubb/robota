@@ -6,6 +6,7 @@ Register multiple providers and switch between them dynamically.
 import { Robota } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
 import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
@@ -15,6 +16,10 @@ const agent = new Robota({
   aiProviders: [
     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
     new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+    new DeepSeekProvider({
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      defaultModel: 'deepseek-v4-flash',
+    }),
     new GeminiProvider({
       apiKey: process.env.GEMINI_API_KEY,
       defaultModel: 'gemini-3-flash-preview',
@@ -59,6 +64,11 @@ console.log('Gemma:', response);
 agent.setModel({ provider: 'qwen', model: 'qwen-plus' });
 response = await agent.run('Give one closing recommendation.');
 console.log('Qwen:', response);
+
+// Switch to DeepSeek
+agent.setModel({ provider: 'deepseek', model: 'deepseek-v4-flash' });
+response = await agent.run('Give one concise implementation risk.');
+console.log('DeepSeek:', response);
 ```
 
 Conversation history is preserved across provider switches. The new provider sees the full context.
