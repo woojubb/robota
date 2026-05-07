@@ -4,7 +4,11 @@ import type {
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-sdk';
-import { PERMISSIONS_COMMAND_DESCRIPTION } from '@robota-sdk/agent-sdk';
+import {
+  buildPermissionModeSubcommands,
+  PERMISSION_MODE_ARGUMENT_HINT,
+  PERMISSIONS_COMMAND_DESCRIPTION,
+} from '@robota-sdk/agent-sdk';
 import { executePermissionsCommand } from './permissions-command.js';
 
 export function createPermissionsCommandEntry(): ICommand {
@@ -12,6 +16,8 @@ export function createPermissionsCommandEntry(): ICommand {
     name: 'permissions',
     description: PERMISSIONS_COMMAND_DESCRIPTION,
     source: 'permissions',
+    argumentHint: PERMISSION_MODE_ARGUMENT_HINT,
+    subcommands: buildPermissionModeSubcommands('permissions'),
     modelInvocable: false,
   };
 }
@@ -23,6 +29,8 @@ function createPermissionsSystemCommand(): ISystemCommand {
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
+    argumentHint: entry.argumentHint,
+    subcommands: entry.subcommands,
     lifecycle: 'inline',
     execute: executePermissionsCommand,
   };

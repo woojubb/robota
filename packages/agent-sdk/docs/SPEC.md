@@ -305,7 +305,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Memory common APIs**: `agent-sdk/command-api/memory/` owns memory-command metadata constants, subcommand projection helpers, project/pending memory store facades, sensitive-content checks, used-memory reference reads, and memory-event recording helpers. `memory` command behavior lives in `@robota-sdk/agent-command-memory` and consumes these APIs as an external command module.
 - **Background common APIs**: `agent-sdk/command-api/background/` owns background-command metadata constants, subcommand projection helpers, task-list/log formatting helpers, and list/read/cancel/close facades over `ICommandHostContext`. `background` command behavior lives in `@robota-sdk/agent-command-background` and consumes these APIs as an external command module.
 - **Help common APIs**: `agent-sdk/command-api/help/` owns help-command metadata constants and generic command-list formatting. `help` command behavior lives in `@robota-sdk/agent-command-help` and consumes this API as an external command module.
-- **Permission common APIs**: `agent-sdk/command-api/permissions/` owns permission-mode constants, descriptor subcommands, validation, permission-state reads, permission-state formatting, and command-facing adapter resolution. `mode` command behavior lives in `@robota-sdk/agent-command-mode`; `permissions` command behavior lives in `@robota-sdk/agent-command-permissions`. Both consume these APIs as external command modules.
+- **Permission common APIs**: `agent-sdk/command-api/permissions/` owns permission-mode constants, descriptor subcommands, validation, permission-state reads, permission-state formatting, and command-facing adapter resolution. Canonical permission command behavior lives in `@robota-sdk/agent-command-permissions`, which owns `/permissions [mode]`. Legacy `/mode` behavior lives in `@robota-sdk/agent-command-mode` only for applications that explicitly compose that optional module. Both consume these APIs as external command modules.
 - **Statusline common APIs**: `agent-sdk/command-api/statusline/` owns statusline command metadata constants, subcommand projection helpers, default settings shape, typed settings patch contracts, and patch validation. `statusline` command behavior lives in `@robota-sdk/agent-command-statusline` and emits typed host-applied effects instead of importing CLI settings utilities.
 - **Plugin common APIs**: `agent-sdk/command-api/plugin/` owns plugin command metadata constants, subcommand projection helpers, `ICommandPluginAdapter`, reload result contracts, and plugin host effect factories. `plugin` and `reload-plugins` command behavior lives in `@robota-sdk/agent-command-plugin` and consumes these APIs as an external command module while hosts keep concrete plugin storage/UI wiring.
 - **Session common APIs**: `agent-sdk/command-api/session/` owns command-facing session-history helpers, session-name parsing, session-info reads, and effect factories for host-rendered history/name/picker/exit state. `clear`, `rename`, `resume`, and `cost` command behavior lives in `@robota-sdk/agent-command-session`; `exit` command behavior lives in `@robota-sdk/agent-command-exit`. Both consume these APIs as external command modules.
@@ -331,8 +331,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Product-composed built-in command modules**: `skills` is provided by `@robota-sdk/agent-command-skills`. It is user- and model-invocable, lists registered skill metadata, and activates a skill through `ICommandHostContext.executeSkillCommandByName()`. Model-side activation uses the standard `ExecuteCommand` route with `command: "skills"` and skill arguments in `args`.
 - **Product-composed built-in command modules**: `help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
 - **Product-composed built-in command modules**: `model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
-- **Product-composed built-in command modules**: `mode` is provided by `@robota-sdk/agent-command-mode`, reuses SDK permission-mode common APIs for validation/subcommand metadata, and updates permission mode through the command host adapter facade.
-- **Product-composed built-in command modules**: `permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for state reads/formatting, and stays user-invocable only.
+- **Product-composed built-in command modules**: `permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for validation/subcommand metadata, state reads/formatting, and permission-mode updates through the command host adapter facade, and stays user-invocable only.
+- **Optional legacy command modules**: `mode` is provided by `@robota-sdk/agent-command-mode` only when an application explicitly composes that module. Product CLIs should prefer the canonical `permissions` command for permission-mode changes.
 - **Product-composed built-in command modules**: `language` is provided by `@robota-sdk/agent-command-language`, reuses SDK language command common APIs for usage/subcommand metadata, and emits `language-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `statusline` is provided by `@robota-sdk/agent-command-statusline`, reuses SDK statusline common APIs for subcommand metadata and typed patch effects, and leaves status bar rendering/settings persistence to the host.
 - **Product-composed built-in command modules**: `clear`, `rename`, `resume`, and `cost` are provided by `@robota-sdk/agent-command-session`. `clear` reuses SDK session command common APIs to clear SDK session history and emits `conversation-history-cleared` so hosts clear rendered history through their own UI state. `rename` reuses SDK session command common APIs to normalize the requested name and emits `session-renamed` so hosts update title/status/persistence through their own adapters. `resume` emits `session-picker-requested` so hosts display saved-session picker UI through their own adapters. `cost` reads session id and message count through SDK session command common APIs.
@@ -846,23 +846,22 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 
 **Product-composed command modules:**
 
-| Command       | Description                                                                  |
-| ------------- | ---------------------------------------------------------------------------- |
-| `help`        | Command module for rendering registered commands                             |
-| `clear`       | Optional command module for clearing conversation and rendered host history  |
-| `compact`     | Compress context window (optional focus instructions)                        |
-| `mode [m]`    | Show or change permission mode                                               |
-| `language`    | Request response language update through `language-change-requested` effect  |
-| `cost`        | Optional session command module for session ID and message count             |
-| `context`     | Token usage: used / max / percentage                                         |
-| `permissions` | Current mode and session-approved tools                                      |
-| `statusline`  | Optional command module for statusline visibility and git branch patch flows |
-| `memory`      | List/show/add/review project memory and report used memory references        |
-| `rewind`      | List edit checkpoints, restore later edits, or rollback through a checkpoint |
-| `reset`       | Requests settings reset through `settings-reset-requested` effect            |
-| `resume`      | Optional command module for requesting session picker through effect         |
-| `rename`      | Optional command module for requesting session rename through effect         |
-| `provider`    | Optional command module for provider current/list/use/add/test flows         |
+| Command              | Description                                                                  |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `help`               | Command module for rendering registered commands                             |
+| `clear`              | Optional command module for clearing conversation and rendered host history  |
+| `compact`            | Compress context window (optional focus instructions)                        |
+| `language`           | Request response language update through `language-change-requested` effect  |
+| `cost`               | Optional session command module for session ID and message count             |
+| `context`            | Token usage: used / max / percentage                                         |
+| `permissions [mode]` | Current mode, session-approved tools, and permission mode changes            |
+| `statusline`         | Optional command module for statusline visibility and git branch patch flows |
+| `memory`             | List/show/add/review project memory and report used memory references        |
+| `rewind`             | List edit checkpoints, restore later edits, or rollback through a checkpoint |
+| `reset`              | Requests settings reset through `settings-reset-requested` effect            |
+| `resume`             | Optional command module for requesting session picker through effect         |
+| `rename`             | Optional command module for requesting session rename through effect         |
+| `provider`           | Optional command module for provider current/list/use/add/test flows         |
 
 **ISystemCommand:**
 

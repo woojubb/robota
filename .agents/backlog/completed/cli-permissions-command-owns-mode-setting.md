@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -78,14 +78,14 @@ Recommended `/mode` handling:
 
 ## Acceptance Criteria
 
-- [ ] `/permissions` with no args shows current permission state.
-- [ ] `/permissions <mode>` changes permission mode through SDK command common APIs.
-- [ ] `/permissions` autocomplete/subcommands list all supported permission modes.
-- [ ] `/mode` is removed from default visible command listings, or is explicitly implemented as a
+- [x] `/permissions` with no args shows current permission state.
+- [x] `/permissions <mode>` changes permission mode through SDK command common APIs.
+- [x] `/permissions` autocomplete/subcommands list all supported permission modes.
+- [x] `/mode` is removed from default visible command listings, or is explicitly implemented as a
       temporary hidden migration alias with tests.
-- [ ] Docs describe `/permissions [mode]` as the canonical permission mode command.
-- [ ] Docs no longer present `/mode` as the primary way to set permission mode.
-- [ ] Tests cover valid mode changes, invalid mode errors, no-arg state display, and `/mode`
+- [x] Docs describe `/permissions [mode]` as the canonical permission mode command.
+- [x] Docs no longer present `/mode` as the primary way to set permission mode.
+- [x] Tests cover valid mode changes, invalid mode errors, no-arg state display, and `/mode`
       retirement/alias behavior.
 
 ## Verification Plan
@@ -95,3 +95,11 @@ Recommended `/mode` handling:
 - `pnpm --filter @robota-sdk/agent-cli test -- slash command`
 - `pnpm --filter @robota-sdk/agent-command-permissions typecheck`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
+
+## Result
+
+Implemented `/permissions [mode]` as the canonical permission-mode command. `/permissions` now uses
+SDK permission common APIs for validation, subcommand metadata, state reads, formatting, and mode
+updates. The default Robota CLI composition no longer includes the legacy `/mode` module, while
+`@robota-sdk/agent-command-mode` remains available as an optional legacy command module for
+applications that explicitly compose it. Docs and headless command coverage were updated.

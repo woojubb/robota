@@ -585,9 +585,6 @@ importers:
       '@robota-sdk/agent-command-memory':
         specifier: workspace:*
         version: link:../agent-command-memory
-      '@robota-sdk/agent-command-mode':
-        specifier: workspace:*
-        version: link:../agent-command-mode
       '@robota-sdk/agent-command-model':
         specifier: workspace:*
         version: link:../agent-command-model

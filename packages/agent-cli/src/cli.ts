@@ -18,7 +18,6 @@ import { createExitCommandModule } from '@robota-sdk/agent-command-exit';
 import { createHelpCommandModule } from '@robota-sdk/agent-command-help';
 import { createLanguageCommandModule } from '@robota-sdk/agent-command-language';
 import { createMemoryCommandModule } from '@robota-sdk/agent-command-memory';
-import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import { createModelCommandModule } from '@robota-sdk/agent-command-model';
 import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
 import { createPluginCommandModule } from '@robota-sdk/agent-command-plugin';
@@ -158,6 +157,50 @@ export interface IStartCliOptions {
   providerDefinitions?: readonly IProviderDefinition[];
 }
 
+export interface ICreateDefaultCliCommandModulesOptions {
+  cwd: string;
+  providerDefinitions: readonly IProviderDefinition[];
+}
+
+export function createDefaultCliCommandModules({
+  cwd,
+  providerDefinitions,
+}: ICreateDefaultCliCommandModulesOptions): readonly ICommandModule[] {
+  return [
+    createSkillsCommandModule({ cwd }),
+    createHelpCommandModule(),
+    createAgentCommandModule(),
+    createModelCommandModule({
+      providerDefinitions,
+      settings: {
+        readMergedSettings: () => readMergedProviderSettings(cwd),
+      },
+    }),
+    createPermissionsCommandModule(),
+    createLanguageCommandModule(),
+    createBackgroundCommandModule(),
+    createMemoryCommandModule(),
+    createCompactCommandModule(),
+    createContextCommandModule(),
+    createExitCommandModule(),
+    createSessionCommandModule(),
+    createResetCommandModule(),
+    createRewindCommandModule(),
+    createStatusLineCommandModule(),
+    createPluginCommandModule(),
+    createProviderCommandModule({
+      providerDefinitions,
+      settings: {
+        readMergedSettings: () => readMergedProviderSettings(cwd),
+        readTargetSettings: () =>
+          readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+        writeTargetSettings: (settings) =>
+          writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+      },
+    }),
+  ];
+}
+
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
   const version = readVersion();
@@ -193,38 +236,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
-    createSkillsCommandModule({ cwd }),
-    createHelpCommandModule(),
-    createAgentCommandModule(),
-    createModelCommandModule({
-      providerDefinitions,
-      settings: {
-        readMergedSettings: () => readMergedProviderSettings(cwd),
-      },
-    }),
-    createModeCommandModule(),
-    createPermissionsCommandModule(),
-    createLanguageCommandModule(),
-    createBackgroundCommandModule(),
-    createMemoryCommandModule(),
-    createCompactCommandModule(),
-    createContextCommandModule(),
-    createExitCommandModule(),
-    createSessionCommandModule(),
-    createResetCommandModule(),
-    createRewindCommandModule(),
-    createStatusLineCommandModule(),
-    createPluginCommandModule(),
-    createProviderCommandModule({
-      providerDefinitions,
-      settings: {
-        readMergedSettings: () => readMergedProviderSettings(cwd),
-        readTargetSettings: () =>
-          readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
-        writeTargetSettings: (settings) =>
-          writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
-      },
-    }),
+    ...createDefaultCliCommandModules({ cwd, providerDefinitions }),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)

@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Own the user-visible `/mode` command as a composable command module. The package supplies command metadata and execution together, while consuming SDK command common APIs as an external module.
+Own the legacy `/mode` command as an optional composable command module. The package supplies command metadata and execution together, while consuming SDK command common APIs as an external module. The default Robota CLI composition does not include this module; `/permissions` is the canonical permission-mode command.
 
 ## Ownership
 
-- Owns `/mode` descriptor metadata, permission-mode subcommands, validation, and execution.
+- Owns optional `/mode` descriptor metadata, permission-mode subcommands, validation, and execution.
 - Does not own permission storage, TUI rendering, or direct session internals.
 - Uses `@robota-sdk/agent-sdk` command contracts and permission mode common APIs.
 
@@ -24,7 +24,8 @@ Own the user-visible `/mode` command as a composable command module. The package
 - `/mode` with no argument reports the current permission mode.
 - `/mode plan`, `/mode default`, `/mode acceptEdits`, and `/mode bypassPermissions` update the permission mode.
 - Invalid arguments fail with the SDK common valid-mode list.
-- The command is user-invocable and not model-invocable.
+- The command is user-invocable and not model-invocable when an application explicitly composes the module.
+- Product CLIs should prefer `/permissions [mode]` and avoid composing `/mode` as a visible default command.
 
 ## Dependency Rules
 
