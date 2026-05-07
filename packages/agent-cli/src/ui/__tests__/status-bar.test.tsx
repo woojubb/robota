@@ -8,7 +8,6 @@ describe('StatusBar', () => {
     permissionMode: 'default' as const,
     modelName: 'test-model',
     sessionId: 'sess-1',
-    messageCount: 5,
     isThinking: false,
     activeToolCount: 0,
     activeBackgroundTaskCount: 0,
@@ -73,10 +72,10 @@ describe('StatusBar', () => {
     expect(frame).toContain('test-model');
   });
 
-  it('renders message count', () => {
+  it('does not render message count in the status bar', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} />);
     const frame = lastFrame()!;
-    expect(frame).toContain('msgs: 5');
+    expect(frame).not.toContain('msgs:');
   });
 
   it('shows thinking indicator when isThinking is true', () => {
@@ -87,12 +86,12 @@ describe('StatusBar', () => {
     expect(frame.indexOf('Thinking')).toBeLessThan(frame.indexOf('test-model'));
   });
 
-  it('does not duplicate thinking state next to the message count', () => {
+  it('does not duplicate thinking state in secondary status text', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} isThinking={true} />);
     const frame = lastFrame()!;
     expect(frame).toContain('Thinking');
     expect(frame).not.toContain('thinking...');
-    expect(frame).toContain('msgs: 5');
+    expect(frame).not.toContain('msgs:');
   });
 
   it('hides the lower-right prompt-processing indicator while idle', () => {

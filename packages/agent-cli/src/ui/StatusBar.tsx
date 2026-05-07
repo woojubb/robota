@@ -14,7 +14,6 @@ interface IProps {
   providerProfileName?: string | undefined;
   providerType?: string | undefined;
   sessionId: string;
-  messageCount: number;
   isThinking: boolean;
   activeToolCount?: number;
   activeBackgroundTaskCount?: number;
@@ -171,21 +170,12 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   );
 }
 
-function StatusRight({ messageCount }: { messageCount: number }): React.ReactElement {
-  return (
-    <Text>
-      <Text dimColor>msgs: {messageCount}</Text>
-    </Text>
-  );
-}
-
 export default function StatusBar({
   permissionMode,
   modelName,
   providerProfileName,
   providerType,
   sessionId: _sessionId,
-  messageCount,
   isThinking,
   activeToolCount = 0,
   activeBackgroundTaskCount = 0,
@@ -221,7 +211,6 @@ export default function StatusBar({
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
       />
-      <StatusRight messageCount={messageCount} />
     </Box>
   );
 }
