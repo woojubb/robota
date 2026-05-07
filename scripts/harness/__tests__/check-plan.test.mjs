@@ -46,6 +46,12 @@ describe('parsePlanArgs', () => {
     ]);
   });
 
+  it('parses --skip-dependent-scopes', () => {
+    const result = parsePlanArgs(['--skip-dependent-scopes']);
+
+    expect(result.skipDependentScopes).toBe(true);
+  });
+
   it('throws when --changed-file has no value', () => {
     expect(() => parsePlanArgs(['--changed-file'])).toThrow('--changed-file requires a value');
   });
@@ -188,6 +194,25 @@ describe('createVerificationPlan', () => {
         files: [],
         checks: ['typecheck'],
         notes: ['dependent-of:packages/agent-core'],
+      },
+    ]);
+  });
+
+  it('can skip dependent scopes for fast local pre-push verification', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['packages/agent-core/src/index.ts'],
+      scopeTokens: [],
+      includeDependentScopes: false,
+    });
+
+    expect(plan.scopes).toEqual([
+      {
+        scope: 'packages/agent-core',
+        workspaceName: '@robota-sdk/agent-core',
+        files: ['packages/agent-core/src/index.ts'],
+        checks: ['build', 'test', 'lint', 'typecheck'],
+        notes: [],
       },
     ]);
   });

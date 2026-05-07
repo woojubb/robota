@@ -88,11 +88,12 @@ pnpm lint
 - Running the full workspace by habit when the affected scope is narrow and known.
 - Re-running package checks after branch deletion, squash-merge cleanup, or other no-content Git operations.
 - Running `pnpm typecheck`, `pnpm lint`, and `pnpm test` manually immediately before `pnpm harness:pre-push` when the harness will execute the same final scoped checks.
+- Treating dependent package typechecks as mandatory for every local push. Use `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` when the change risk warrants broad dependent validation.
 - Reporting success without saying what was actually verified.
 - Treating documentation reading as equivalent to verification.
 - Treating TUI-only checks as sufficient for behavior also reachable through headless CLI mode.
 
 ## Related Harness Commands
 
-- Current: `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
+- Current: `pnpm harness:pre-push`, `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push`, `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
 - Current review support: `pnpm harness:review -- --scope <packages/foo|apps/bar>`

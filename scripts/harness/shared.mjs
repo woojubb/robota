@@ -199,6 +199,7 @@ export function parseScopeArgs(argv) {
     includeScenarios: false,
     skipRecordCheck: false,
     skipRepositoryChecks: false,
+    skipDependentScopes: false,
     reportFile: null,
     reportFormat: null,
     baseRef: null,
@@ -241,6 +242,9 @@ export function parseScopeArgs(argv) {
         break;
       case '--skip-repository-checks':
         options.skipRepositoryChecks = true;
+        break;
+      case '--skip-dependent-scopes':
+        options.skipDependentScopes = true;
         break;
       case '--report-file': {
         const value = argv[index + 1];
