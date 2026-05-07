@@ -60,4 +60,23 @@ describe('InteractivePrompt', () => {
     await delay();
     expect(onSubmit).toHaveBeenCalledWith('abc');
   });
+
+  it('renders generic prompt descriptions without command-specific UI branches', () => {
+    const { lastFrame } = render(
+      <InteractivePrompt
+        prompt={{
+          kind: 'text',
+          title: 'OpenAI API key',
+          description:
+            'Setup help: API key: OpenAI API keys - https://platform.openai.com/api-keys',
+        }}
+        onSubmit={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(lastFrame()!).toContain('OpenAI API key');
+    expect(lastFrame()!).toContain('OpenAI API keys');
+    expect(lastFrame()!).toContain('https://platform.openai.com/api-keys');
+  });
 });

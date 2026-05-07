@@ -87,7 +87,8 @@ OpenAI-compatible Chat Completions profiles, including LM Studio-style `baseURL`
 
 ### Model Catalog Refresh
 
-`createOpenAIProviderDefinition()` exposes a provider-owned `refreshModelCatalog` hook. SDK command
+`createOpenAIProviderDefinition()` exposes provider-owned setup help links and a
+provider-owned `refreshModelCatalog` hook. SDK command
 common APIs may call this hook to query the OpenAI Models API with the effective provider profile and
 surface catalog freshness in `/model` output. CLI/TUI layers must render that result rather than
 owning OpenAI model metadata.

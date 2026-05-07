@@ -36,6 +36,15 @@ describe('createDeepSeekProviderDefinition', () => {
       apiKey: DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE,
       baseURL: DEFAULT_DEEPSEEK_PROVIDER_BASE_URL,
     });
+    expect(definition.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'DeepSeek API keys',
+        url: 'https://platform.deepseek.com/api_keys',
+        sourceUrl: 'https://api-docs.deepseek.com/',
+        lastVerifiedAt: '2026-05-08',
+      },
+    ]);
     expect(DEFAULT_DEEPSEEK_PROVIDER_API_KEY_ENV).toBe('DEEPSEEK_API_KEY');
     expect(definition.setupSteps).toEqual([
       {

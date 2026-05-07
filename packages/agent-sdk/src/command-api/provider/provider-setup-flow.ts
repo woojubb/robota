@@ -1,5 +1,6 @@
 import type {
   IProviderDefinition,
+  IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
   TProviderSetupField,
 } from '@robota-sdk/agent-core';
@@ -17,6 +18,7 @@ export interface IProviderSetupPromptStep extends IProviderSetupStepDefinition {
 export interface IProviderSetupFlowState {
   type: TProviderSetupType;
   steps: readonly IProviderSetupPromptStep[];
+  setupHelpLinks: readonly IProviderSetupHelpLink[];
   stepIndex: number;
   values: Partial<Record<TProviderSetupField, string>>;
   existingProfileNames: readonly string[];
@@ -51,12 +53,14 @@ export function createProviderSetupFlow(
   providerDefinitions: readonly IProviderDefinition[],
   options: IProviderSetupFlowOptions = {},
 ): IProviderSetupFlowState {
+  const definition = getProviderSetupDefinition(type, providerDefinitions);
   return {
     type,
     steps: applyProviderSetupInitialValues(
-      getProviderSetupSteps(type, providerDefinitions),
+      getProviderSetupSteps(definition),
       options.initialValues,
     ),
+    setupHelpLinks: definition.setupHelpLinks ?? [],
     stepIndex: 0,
     values: {},
     existingProfileNames: options.existingProfileNames ?? [],
@@ -146,7 +150,10 @@ export async function runProviderSetupPromptFlow(
   const stepCount = state.steps.length;
   while (state.stepIndex < stepCount) {
     const step = getProviderSetupStep(state);
-    const value = await promptInput(formatProviderSetupPromptLabel(step), step.masked === true);
+    const value = await promptInput(
+      formatProviderSetupPromptLabel(step, state.setupHelpLinks),
+      step.masked === true,
+    );
     const result = submitProviderSetupValue(state, value);
     if (result.status === 'complete') {
       return result.input;
@@ -159,9 +166,14 @@ export async function runProviderSetupPromptFlow(
   throw new Error('Provider setup flow ended without completion');
 }
 
-export function formatProviderSetupPromptLabel(step: IProviderSetupPromptStep): string {
+export function formatProviderSetupPromptLabel(
+  step: IProviderSetupPromptStep,
+  setupHelpLinks: readonly IProviderSetupHelpLink[] = [],
+): string {
   const suffix = step.defaultValue !== undefined ? ` (default: ${step.defaultValue})` : '';
-  return `  ${step.title}${suffix}: `;
+  const setupHelp = formatProviderSetupHelpLinks(setupHelpLinks);
+  const prefix = setupHelp.length > 0 ? `${setupHelp}\n` : '';
+  return `${prefix}  ${step.title}${suffix}: `;
 }
 
 export function formatProviderSetupChoiceLabel(definition: IProviderDefinition): string {
@@ -170,6 +182,20 @@ export function formatProviderSetupChoiceLabel(definition: IProviderDefinition):
       ? `${definition.displayName} (${definition.type})`
       : definition.type;
   return definition.description !== undefined ? `${label} - ${definition.description}` : label;
+}
+
+export function formatProviderSetupHelpLinks(
+  setupHelpLinks: readonly IProviderSetupHelpLink[] = [],
+): string {
+  if (setupHelpLinks.length === 0) {
+    return '';
+  }
+  return setupHelpLinks
+    .map(
+      (link) =>
+        `  Setup help: ${formatProviderSetupHelpLinkKind(link.kind)}: ${link.label} - ${link.url}`,
+    )
+    .join('\n');
 }
 
 function parseProviderSelectionIndex(value: string): number | undefined {
@@ -189,16 +215,20 @@ export function validateProviderSetupValue(
   return undefined;
 }
 
-function getProviderSetupSteps(
+function getProviderSetupDefinition(
   type: TProviderSetupType,
   providerDefinitions: readonly IProviderDefinition[],
-): IProviderSetupPromptStep[] {
+): IProviderDefinition {
   const definition = findProviderDefinition(providerDefinitions, type);
   if (definition === undefined) {
     throw new Error(
       `Unknown provider: ${type}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
     );
   }
+  return definition;
+}
+
+function getProviderSetupSteps(definition: IProviderDefinition): IProviderSetupPromptStep[] {
   if (definition.setupSteps !== undefined) {
     return [...definition.setupSteps];
   }
@@ -228,6 +258,16 @@ function getProviderSetupSteps(
     });
   }
   return steps;
+}
+
+function formatProviderSetupHelpLinkKind(kind: IProviderSetupHelpLink['kind']): string {
+  if (kind === 'api-key') {
+    return 'API key';
+  }
+  if (kind === 'console') {
+    return 'Console';
+  }
+  return 'Official';
 }
 
 function applyProviderSetupInitialValues(

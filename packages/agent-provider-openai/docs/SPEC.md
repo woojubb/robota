@@ -83,7 +83,7 @@ Sources:
 - **Template method**: `OpenAIProvider` extends `AbstractAIProvider`, overriding `chat`, `chatStream`, `validateMessages`, `supportsTools`, `validateConfig`, and `dispose`.
 - **Executor delegation**: When an `IExecutor` is provided, the provider delegates all chat operations to the executor instead of making direct OpenAI API calls, enabling remote execution.
 - **Dependency injection**: Logger and payload logger are injected via constructor options. Defaults to `SilentLogger` when no logger is provided.
-- **Provider definition**: `createOpenAIProviderDefinition()` exposes official OpenAI setup prompts and provider construction through the common `IProviderDefinition` contract so consumers do not branch on `type: "openai"`.
+- **Provider definition**: `createOpenAIProviderDefinition()` exposes official OpenAI setup prompts, API key setup help links, and provider construction through the common `IProviderDefinition` contract so consumers do not branch on `type: "openai"`.
 
 ## Type Ownership
 
@@ -140,23 +140,23 @@ consume this hook, but the CLI/TUI must not hardcode OpenAI model lists or call 
 
 ### Main entry point (`@robota-sdk/agent-provider-openai`)
 
-| Export                                      | Kind                  | Description                                                          |
-| ------------------------------------------- | --------------------- | -------------------------------------------------------------------- |
-| `OpenAIProvider`                            | Class                 | Primary provider class; extends `AbstractAIProvider`                 |
-| `OpenAIConversationAdapter`                 | Class                 | Static utility for message format conversion                         |
-| `createOpenAIProviderDefinition`            | Function              | Returns `IProviderDefinition` for branch-free composition            |
-| `refreshOpenAIModelCatalog`                 | Function              | Queries the OpenAI Models API and returns an `IProviderModelCatalog` |
-| `DEFAULT_OPENAI_PROVIDER_MODEL`             | Constant              | Optional setup default model; currently undefined                    |
-| `DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE` | Constant              | Default `$ENV:OPENAI_API_KEY` setup reference                        |
-| `IRefreshOpenAIModelCatalogOptions`         | Interface             | Optional testable fetch/time injection for catalog refresh           |
-| `IOpenAIProviderOptions`                    | Interface             | Provider constructor options                                         |
-| `TOpenAIApiSurface`                         | Type alias            | Provider API surface selector                                        |
-| `TOpenAIProviderOptionValue`                | Type alias            | Valid option value types                                             |
-| `IPayloadLogger`                            | Interface (type-only) | Payload logger contract                                              |
-| `IPayloadLoggerOptions`                     | Interface (type-only) | Payload logger configuration                                         |
-| All exports from `types.ts`                 | Mixed                 | Provider options and value types                                     |
-| All exports from `adapter.ts`               | Class                 | Conversation adapter                                                 |
-| All exports from `model-catalog-refresh.ts` | Mixed                 | OpenAI model catalog refresh adapter and helper contracts            |
+| Export                                      | Kind                  | Description                                                                                                     |
+| ------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `OpenAIProvider`                            | Class                 | Primary provider class; extends `AbstractAIProvider`                                                            |
+| `OpenAIConversationAdapter`                 | Class                 | Static utility for message format conversion                                                                    |
+| `createOpenAIProviderDefinition`            | Function              | Returns `IProviderDefinition` with OpenAI setup prompts, official setup help links, and branch-free composition |
+| `refreshOpenAIModelCatalog`                 | Function              | Queries the OpenAI Models API and returns an `IProviderModelCatalog`                                            |
+| `DEFAULT_OPENAI_PROVIDER_MODEL`             | Constant              | Optional setup default model; currently undefined                                                               |
+| `DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE` | Constant              | Default `$ENV:OPENAI_API_KEY` setup reference                                                                   |
+| `IRefreshOpenAIModelCatalogOptions`         | Interface             | Optional testable fetch/time injection for catalog refresh                                                      |
+| `IOpenAIProviderOptions`                    | Interface             | Provider constructor options                                                                                    |
+| `TOpenAIApiSurface`                         | Type alias            | Provider API surface selector                                                                                   |
+| `TOpenAIProviderOptionValue`                | Type alias            | Valid option value types                                                                                        |
+| `IPayloadLogger`                            | Interface (type-only) | Payload logger contract                                                                                         |
+| `IPayloadLoggerOptions`                     | Interface (type-only) | Payload logger configuration                                                                                    |
+| All exports from `types.ts`                 | Mixed                 | Provider options and value types                                                                                |
+| All exports from `adapter.ts`               | Class                 | Conversation adapter                                                                                            |
+| All exports from `model-catalog-refresh.ts` | Mixed                 | OpenAI model catalog refresh adapter and helper contracts                                                       |
 
 ### Subpath entry points
 

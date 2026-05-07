@@ -70,7 +70,7 @@ When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits A
 
 ### Provider Definition
 
-`createAnthropicProviderDefinition()` exposes setup metadata for branch-free CLI and SDK provider composition. Consumers can configure Anthropic alongside OpenAI-compatible, Gemma, Qwen, and Gemini providers without adding Anthropic-specific UI branches.
+`createAnthropicProviderDefinition()` exposes setup metadata and official API key setup links for branch-free CLI and SDK provider composition. Consumers can configure Anthropic alongside OpenAI-compatible, Gemma, Qwen, and Gemini providers without adding Anthropic-specific UI branches.
 
 ## Configuration
 

@@ -13,6 +13,7 @@ import {
   createProviderSetupFlow,
   deleteProviderProfile,
   formatProviderSetupChoiceLabel,
+  formatProviderSetupHelpLinks,
   getProviderSetupStep,
   mergeProviderPatch,
   sanitizeProviderProfileName,
@@ -283,11 +284,19 @@ function toProviderSetupStepPrompt(flow: IProviderSetupFlowState): TCommandInter
   return {
     kind: 'text',
     title: step.title,
+    ...toProviderSetupPromptDescription(flow),
     ...(placeholder !== undefined ? { placeholder } : {}),
     ...(step.defaultValue !== undefined ? { allowEmpty: true } : {}),
     ...(step.masked !== undefined ? { masked: step.masked } : {}),
     validate: (value) => validateProviderSetupValue(step, value),
   };
+}
+
+function toProviderSetupPromptDescription(
+  flow: IProviderSetupFlowState,
+): { description: string } | Record<string, never> {
+  const description = formatProviderSetupHelpLinks(flow.setupHelpLinks);
+  return description.length > 0 ? { description } : {};
 }
 
 function completeProviderSetup(
