@@ -49,6 +49,10 @@ Model command common APIs such as `resolveActiveProviderModelCatalogState()` and
 catalog hooks through injected `IProviderDefinition` records; command modules and CLI/TUI code must
 not hardcode provider model lists or call provider HTTP APIs directly.
 
+Provider setup common APIs project provider-owned `IProviderDefinition.setupHelpLinks` into generic
+prompt descriptions. Command modules and CLI/TUI code must not hardcode provider API key, console, or
+official documentation URLs.
+
 ## Mechanical Guard
 
 `pnpm harness:scan:sdk-public-surface` enforces the high-signal invariants:

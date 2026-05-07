@@ -43,6 +43,7 @@ describe('provider setup interaction PTY E2E', () => {
       const { harness, outputPath } = spawnProviderSetupDriver('openai');
 
       await harness.waitFor('OpenAI model');
+      await harness.waitFor('https://platform.openai.com/api-keys');
       await harness.submit(openaiDefaults.model);
       await harness.waitFor('OpenAI API key');
       await harness.submit();

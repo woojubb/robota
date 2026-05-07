@@ -16,6 +16,15 @@ describe('createOpenAIProviderDefinition', () => {
     expect(definition.defaults?.apiKey).toBe(DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE);
     expect(definition.defaults?.baseURL).toBeUndefined();
     expect(definition.displayName).toBe('OpenAI');
+    expect(definition.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+        sourceUrl: 'https://developers.openai.com/api/reference/overview#authentication',
+        lastVerifiedAt: '2026-05-08',
+      },
+    ]);
     expect(modelStep).toMatchObject({
       key: 'model',
       title: 'OpenAI model',

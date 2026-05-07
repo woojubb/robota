@@ -20,6 +20,7 @@ export default function InteractivePrompt({
       <TextPrompt
         key={`text:${prompt.title}`}
         title={prompt.title}
+        description={prompt.description}
         placeholder={prompt.placeholder}
         allowEmpty={prompt.allowEmpty}
         masked={prompt.masked}
@@ -33,6 +34,9 @@ export default function InteractivePrompt({
   return (
     <Box flexDirection="column">
       <Text bold>{prompt.title}</Text>
+      {prompt.description !== undefined && prompt.description.length > 0 && (
+        <Text dimColor>{prompt.description}</Text>
+      )}
       <ListPicker<IChoicePromptOption>
         items={[...prompt.options]}
         maxVisible={prompt.maxVisible}

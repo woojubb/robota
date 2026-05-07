@@ -20,6 +20,18 @@ const DEEPSEEK_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> =
   lastVerifiedAt: DEEPSEEK_MODEL_LAST_VERIFIED_AT,
   entries: DEEPSEEK_MODEL_CATALOG_ENTRIES,
 };
+const DEEPSEEK_API_KEY_URL = 'https://platform.deepseek.com/api_keys';
+const DEEPSEEK_SETUP_SOURCE_URL = 'https://api-docs.deepseek.com/';
+const DEEPSEEK_SETUP_LAST_VERIFIED_AT = '2026-05-08';
+const DEEPSEEK_SETUP_HELP_LINKS: NonNullable<IProviderDefinition['setupHelpLinks']> = [
+  {
+    kind: 'api-key',
+    label: 'DeepSeek API keys',
+    url: DEEPSEEK_API_KEY_URL,
+    sourceUrl: DEEPSEEK_SETUP_SOURCE_URL,
+    lastVerifiedAt: DEEPSEEK_SETUP_LAST_VERIFIED_AT,
+  },
+];
 
 export function createDeepSeekProviderDefinition(): IProviderDefinition {
   return {
@@ -32,6 +44,7 @@ export function createDeepSeekProviderDefinition(): IProviderDefinition {
       baseURL: DEFAULT_DEEPSEEK_PROVIDER_BASE_URL,
     },
     modelCatalog: DEEPSEEK_MODEL_CATALOG,
+    setupHelpLinks: DEEPSEEK_SETUP_HELP_LINKS,
     setupSteps: [
       {
         key: 'baseURL',

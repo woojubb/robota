@@ -70,6 +70,7 @@ export type {
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
+  IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
   TProviderCredentialField,
   TProviderModelCapability,
@@ -77,6 +78,7 @@ export type {
   TProviderModelCatalogRefresh,
   TProviderModelLifecycle,
   TProviderSetupField,
+  TProviderSetupHelpLinkKind,
 } from './provider-definition';
 export {
   findProviderDefinition,

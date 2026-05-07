@@ -39,7 +39,7 @@ src/
   types.ts                # provider options and option value types
 ```
 
-`QwenProvider` is a provider shell over OpenAI-compatible Chat Completions plus a Qwen-owned Responses API path. Normal chat uses `agent-provider-openai-compatible`. When `builtInWebTools.webSearch` or `builtInWebTools.webFetch` is enabled, the provider switches to Responses API, sends provider-side built-in tool declarations, parses provider-side tool events, and records provenance in assistant-message metadata. `createQwenProviderDefinition()` returns an `IProviderDefinition` so CLI and SDK composition can inject Qwen without provider-specific branches.
+`QwenProvider` is a provider shell over OpenAI-compatible Chat Completions plus a Qwen-owned Responses API path. Normal chat uses `agent-provider-openai-compatible`. When `builtInWebTools.webSearch` or `builtInWebTools.webFetch` is enabled, the provider switches to Responses API, sends provider-side built-in tool declarations, parses provider-side tool events, and records provenance in assistant-message metadata. `createQwenProviderDefinition()` returns an `IProviderDefinition` with official setup help links so CLI and SDK composition can inject Qwen without provider-specific branches.
 
 ## Type Ownership
 
@@ -59,21 +59,21 @@ src/
 
 ## Public API Surface
 
-| Export                                     | Kind       | Description                                                               |
-| ------------------------------------------ | ---------- | ------------------------------------------------------------------------- |
-| `QwenProvider`                             | class      | Primary provider class; extends `AbstractAIProvider`.                     |
-| `createQwenProviderDefinition`             | function   | Returns an `IProviderDefinition` for branch-free CLI/runtime composition. |
-| `QWEN_PROVIDER_BASE_URLS`                  | constant   | Documented Qwen OpenAI-compatible base URLs by region.                    |
-| `QWEN_PROVIDER_RESPONSES_BASE_URLS`        | constant   | Documented Qwen Responses API base URLs by region.                        |
-| `DEFAULT_QWEN_PROVIDER_MODEL`              | constant   | Default setup model owned by this package.                                |
-| `DEFAULT_QWEN_PROVIDER_API_KEY_ENV`        | constant   | Default API-key environment variable name.                                |
-| `DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE`  | constant   | Default `$ENV:` API-key reference for settings.                           |
-| `DEFAULT_QWEN_PROVIDER_BASE_URL`           | constant   | Default setup base URL owned by this package.                             |
-| `DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL` | constant   | Default Responses API base URL owned by this package.                     |
-| `IQwenBuiltInWebToolsOptions`              | interface  | Provider-side web search/fetch configuration.                             |
-| `IQwenProviderOptions`                     | interface  | Provider constructor options.                                             |
-| `TQwenProviderOptionValue`                 | type alias | Valid provider option values.                                             |
-| `TQwenProviderRegion`                      | type alias | Supported region keys for `QWEN_PROVIDER_BASE_URLS`.                      |
+| Export                                     | Kind       | Description                                                                                                                   |
+| ------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `QwenProvider`                             | class      | Primary provider class; extends `AbstractAIProvider`.                                                                         |
+| `createQwenProviderDefinition`             | function   | Returns an `IProviderDefinition` with Qwen setup prompts, official setup help links, and branch-free CLI/runtime composition. |
+| `QWEN_PROVIDER_BASE_URLS`                  | constant   | Documented Qwen OpenAI-compatible base URLs by region.                                                                        |
+| `QWEN_PROVIDER_RESPONSES_BASE_URLS`        | constant   | Documented Qwen Responses API base URLs by region.                                                                            |
+| `DEFAULT_QWEN_PROVIDER_MODEL`              | constant   | Default setup model owned by this package.                                                                                    |
+| `DEFAULT_QWEN_PROVIDER_API_KEY_ENV`        | constant   | Default API-key environment variable name.                                                                                    |
+| `DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE`  | constant   | Default `$ENV:` API-key reference for settings.                                                                               |
+| `DEFAULT_QWEN_PROVIDER_BASE_URL`           | constant   | Default setup base URL owned by this package.                                                                                 |
+| `DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL` | constant   | Default Responses API base URL owned by this package.                                                                         |
+| `IQwenBuiltInWebToolsOptions`              | interface  | Provider-side web search/fetch configuration.                                                                                 |
+| `IQwenProviderOptions`                     | interface  | Provider constructor options.                                                                                                 |
+| `TQwenProviderOptionValue`                 | type alias | Valid provider option values.                                                                                                 |
+| `TQwenProviderRegion`                      | type alias | Supported region keys for `QWEN_PROVIDER_BASE_URLS`.                                                                          |
 
 ## Extension Points
 

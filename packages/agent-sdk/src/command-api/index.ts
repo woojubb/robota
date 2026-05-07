@@ -81,6 +81,7 @@ export type {
 export {
   createProviderSetupFlow,
   formatProviderSetupChoiceLabel,
+  formatProviderSetupHelpLinks,
   formatProviderSetupPromptLabel,
   formatProviderSetupSelectionPrompt,
   getProviderSetupStep,

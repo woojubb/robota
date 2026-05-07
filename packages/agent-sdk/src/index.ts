@@ -118,6 +118,7 @@ export {
   deleteProviderProfile,
   formatEnvReference,
   formatProviderSetupChoiceLabel,
+  formatProviderSetupHelpLinks,
   formatProviderSetupPromptLabel,
   formatProviderSetupSelectionPrompt,
   getProviderSetupStep,

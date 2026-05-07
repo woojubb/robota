@@ -4,7 +4,7 @@ Gemma model-family provider for Robota using OpenAI-compatible local endpoints s
 
 This provider is separate from Gemini API support. Gemini API behavior belongs to `agent-provider-gemini`; `agent-provider-google` remains only as a compatibility wrapper.
 
-The provider owns Gemma/LM Studio serving-template projection. It filters Gemma reasoning-channel markers from user-visible text and converts documented native tool-call text emitted by the Gemma/LM Studio template into Robota universal `toolCalls` when the referenced tool was declared in the request.
+The provider owns Gemma/LM Studio serving-template projection and official local setup help links. It filters Gemma reasoning-channel markers from user-visible text and converts documented native tool-call text emitted by the Gemma/LM Studio template into Robota universal `toolCalls` when the referenced tool was declared in the request.
 
 ## Usage
 

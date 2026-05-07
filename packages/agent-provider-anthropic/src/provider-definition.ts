@@ -10,6 +10,18 @@ export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV = 'ANTHROPIC_API_KEY';
 export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV}`;
 const ANTHROPIC_MODEL_SOURCE_URL = 'https://platform.claude.com/docs/en/api/models/list';
 const ANTHROPIC_MODEL_LAST_VERIFIED_AT = '2026-05-04';
+const ANTHROPIC_API_KEY_URL = 'https://platform.claude.com/settings/keys';
+const ANTHROPIC_SETUP_SOURCE_URL = 'https://platform.claude.com/docs/en/api/overview';
+const ANTHROPIC_SETUP_LAST_VERIFIED_AT = '2026-05-08';
+const ANTHROPIC_SETUP_HELP_LINKS: NonNullable<IProviderDefinition['setupHelpLinks']> = [
+  {
+    kind: 'api-key',
+    label: 'Anthropic API keys',
+    url: ANTHROPIC_API_KEY_URL,
+    sourceUrl: ANTHROPIC_SETUP_SOURCE_URL,
+    lastVerifiedAt: ANTHROPIC_SETUP_LAST_VERIFIED_AT,
+  },
+];
 
 export function createAnthropicProviderDefinition(): IProviderDefinition {
   return {
@@ -26,6 +38,7 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
       lastVerifiedAt: ANTHROPIC_MODEL_LAST_VERIFIED_AT,
       entries: buildAnthropicModelCatalogEntries(),
     },
+    setupHelpLinks: ANTHROPIC_SETUP_HELP_LINKS,
     setupSteps: [
       {
         key: 'apiKey',
