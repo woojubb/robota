@@ -9,6 +9,11 @@ import {
   resolveBaseRef,
   resolveRequestedScopes,
 } from '../shared.mjs';
+import {
+  decidePrePushVerification,
+  isDeletedRefUpdate,
+  parsePrePushUpdates,
+} from '../pre-push-updates.mjs';
 
 // ---------------------------------------------------------------------------
 // parseScopeArgs
@@ -328,6 +333,17 @@ describe('SDK public surface scan', () => {
   });
 });
 
+describe('worktree policy scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:worktrees']).toBe(
+      'node scripts/harness/check-worktree-policy.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:worktrees');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // pre-push hook
 // ---------------------------------------------------------------------------
@@ -338,6 +354,93 @@ describe('pre-push hook', () => {
     expect(content).toContain('pnpm harness:pre-push');
     expect(content).not.toContain('origin/main');
     expect(content).not.toContain('harness:scan:dist');
+  });
+
+  it('parses Git pre-push update lines', () => {
+    const updates = parsePrePushUpdates(
+      `refs/heads/topic abc123 refs/heads/topic def456
+(delete) 0000000000000000000000000000000000000000 refs/heads/old abc123
+`,
+    );
+
+    expect(updates).toEqual([
+      {
+        localRef: 'refs/heads/topic',
+        localObjectId: 'abc123',
+        remoteRef: 'refs/heads/topic',
+        remoteObjectId: 'def456',
+      },
+      {
+        localRef: '(delete)',
+        localObjectId: '0000000000000000000000000000000000000000',
+        remoteRef: 'refs/heads/old',
+        remoteObjectId: 'abc123',
+      },
+    ]);
+  });
+
+  it('detects deleted ref updates from hook payloads', () => {
+    expect(
+      isDeletedRefUpdate({
+        localRef: '(delete)',
+        localObjectId: '0000000000000000000000000000000000000000',
+        remoteRef: 'refs/heads/topic',
+        remoteObjectId: 'abc123',
+      }),
+    ).toBe(true);
+  });
+
+  it('skips verification for delete-only pushes', () => {
+    const decision = decidePrePushVerification({
+      updates: [
+        {
+          localRef: '(delete)',
+          localObjectId: '0000000000000000000000000000000000000000',
+          remoteRef: 'refs/heads/topic',
+          remoteObjectId: 'abc123',
+        },
+      ],
+      baseRef: 'origin/develop',
+      treeMatchesBase: false,
+    });
+
+    expect(decision).toEqual({
+      shouldRun: false,
+      reason: 'delete-only push',
+    });
+  });
+
+  it('skips verification when the branch tree already matches the base', () => {
+    const decision = decidePrePushVerification({
+      updates: [],
+      baseRef: 'origin/develop',
+      treeMatchesBase: true,
+    });
+
+    expect(decision).toEqual({
+      shouldRun: false,
+      reason: 'no content delta from origin/develop',
+    });
+  });
+
+  it('runs verification when a pushed ref has a content delta', () => {
+    const decision = decidePrePushVerification({
+      updates: [
+        {
+          localRef: 'refs/heads/topic',
+          localObjectId: 'abc123',
+          remoteRef: 'refs/heads/topic',
+          remoteObjectId: 'def456',
+        },
+      ],
+      baseRef: 'origin/develop',
+      treeMatchesBase: false,
+    });
+
+    expect(decision).toEqual({
+      shouldRun: true,
+      reason: null,
+    });
   });
 });
 
