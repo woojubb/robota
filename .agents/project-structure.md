@@ -48,10 +48,11 @@ apps/
 
 | Document                                                                                         | Content                                   |
 | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| [specs/ARCHITECTURE-MAP.md](specs/ARCHITECTURE-MAP.md)                                           | Repository-level architecture map         |
+| [specs/ARCHITECTURE-MAP.md](specs/ARCHITECTURE-MAP.md)                                           | Repository-level architecture map router  |
+| [specs/architecture-map/README.md](specs/architecture-map/README.md)                             | Architecture-map document tree            |
 | [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table |
 | [dag-dependency-direction.md](dag-dependency-direction.md)                                       | DAG package dependency flow and rules     |
-| [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI composition map and layer audit       |
+| [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI architecture map router               |
 
 ## Command Package Rule
 
