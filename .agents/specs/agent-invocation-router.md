@@ -131,7 +131,7 @@ Rules:
 - SDK core owns the command module interface and composition points.
 - `@robota-sdk/agent-command-agent` owns the `agent` command handler, `agent` command descriptor, agent command palette entry, and request for agent runtime/tool wiring. `/agent` is only UI/transport input and display syntax.
 - The Robota binary composition root may inject the agent module for the Robota CLI product.
-- Programmatic SDK consumers may omit the agent module and receive a session without `agent`, model-visible `agent` descriptors, or the `Agent` tool.
+- Programmatic SDK consumers may omit the agent module and receive a session without `agent`, model-visible `agent` descriptors, or `robota_command_agent`.
 - Other future command modules must be injected through the same feature or command source mechanism.
 - Command palette metadata and model-visible descriptors must come from the injected module, not from separate hardcoded lists.
 
@@ -234,68 +234,56 @@ The first implementation MUST also support a simpler `label:"prompt"` parallel t
 
 Robota MUST NOT add a natural-language pre-router that decides whether prose should become an agent command before the model sees it.
 
-Instead, Robota exposes model-invocable command descriptors and a command execution tool generated from the command registry. The model receives concise descriptions of commands such as `agent` in startup context. When the user asks for agent work in natural language, the model can choose the command execution tool and pass the selected command plus natural-language arguments.
+Instead, Robota exposes model-invocable command descriptors and SDK-projected provider-safe command tools generated from the command registry. The model receives concise descriptions of commands such as `agent` in startup context. When the user asks for agent work in natural language, the model can choose the projected command tool and pass natural-language command arguments.
 
-The model-callable command execution tool is a generic bridge over registered commands, not a second implementation of command behavior.
+The model-callable command tool is a projection over a registered command, not a second implementation of command behavior.
 
-Recommended tool contract:
+Recommended projected `agent` tool contract:
 
 ```ts
-interface IExecuteCommandToolInput {
-  readonly command: string;
+interface IProjectedAgentCommandToolInput {
   readonly args: string;
 }
 ```
 
 Rules:
 
-- Only command registry entries with `modelInvocable: true` may be exposed through the model-callable command tool.
-- The command execution tool must validate that the requested command exists and is model-invocable before running it.
-- The command execution tool must call the same command handler used by user-entered slash commands.
-- The command execution tool must return structured command results, including `agentId` values for created background agents.
+- Only command registry entries with `modelInvocable: true` may be exposed through projected model-callable command tools such as `robota_command_agent`.
+- The command projection layer must validate that the command still exists and is model-invocable before running it.
+- The projected command tool must call the same command handler used by user-entered slash commands.
+- The projected command tool must return structured command results, including `agentId` values for created background agents.
 - Prompt text alone is not command execution. If the model writes `/agent ...` as assistant text instead of calling the command tool, no agent job has started.
-- Tag-like assistant markup is not command execution. Owner-provided command descriptors should explicitly point model-routed execution at the `ExecuteCommand` tool without showing tag-shaped examples that local models may copy.
+- Tag-like assistant markup is not command execution. Owner-provided command descriptors should rely on the projected command tool schema without showing tag-shaped examples that local models may copy.
 - If the model does not call the command tool, Robota must not synthesize an agent job from natural language after the fact.
 - User-entered prompts that begin with `/agent` may bypass the model and execute the slash command handler directly.
 
 ### Unregistered Native Tool Calls
 
-Some OpenAI-compatible local models may emit a native tool call with a plausible but undeclared name such as `agent` instead of the registered model-callable command bridge. Robota must handle this as a normal tool-result feedback path, not as a provider or UI special case.
+Some OpenAI-compatible local models may emit a native tool call with a plausible but undeclared name such as `agent` instead of the registered projected command tool such as `robota_command_agent`. Robota must handle this as a normal tool-result feedback path, not as a provider or UI special case.
 
 Rules:
 
 - Provider adapters pass native tool calls through without renaming them.
 - Core checks registration before execution. If the requested tool is unavailable, it does not execute anything and records a failed tool result with `errorCode: "unknown_tool"`, `requestedTool`, and `availableTools`.
 - The failed tool result and session/UI event must explicitly say that the tool call was not executed because the tool is not registered.
-- Robota must not alias unregistered names such as `agent` or `skills` to `ExecuteCommand`; the correction must come from model-visible descriptors, tool schemas, and the returned tool-result error.
+- Robota must not alias unregistered names such as `agent` or `skills` to projected command tools; the correction must come from model-visible descriptors, tool schemas, and the returned tool-result error.
 - If the model repeats unavailable tool calls across consecutive rounds, core stops the loop and forces a final no-tools response that explains why those calls were not executed.
 
-## Model-Callable `Agent` Tool
+## No Parallel Model-Callable `Agent` Tool
 
-The `Agent` tool remains necessary for model-initiated delegation. It must continue to support:
-
-- `prompt`
-- `subagent_type`
-- `model`
-- `isolation`
-
-But the `Agent` tool is no longer the only model path for user-requested agent execution. Explicit slash commands and model-callable command tool invocations may call runtime APIs directly.
-
-The model-visible `Agent` tool description should stay tool-local, but it must be explicit enough for smaller OpenAI-compatible local models to understand that subagent work starts only through a real tool call.
+Agent execution is owned by the `agent` built-in command module. The model-visible route is the
+SDK-projected `robota_command_agent` tool, and explicit user input is the `/agent` slash command
+syntax handled by SDK command execution.
 
 Rules:
 
-- One direct `Agent` tool call creates one background subagent job.
-- When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, the `Agent` tool description must tell the model to start the requested job immediately and not ask a follow-up question unless execution is impossible or unsafe.
-- If a user asks for multiple or parallel agents, the `Agent` tool description must tell the model to create one tool call per requested role in the current turn.
-- Direct `Agent` tool execution always waits for completed, failed, or timed-out terminal result data before returning to the parent conversation.
-- Direct `Agent` tool schema must not expose `background` or `detach`; detached fire-and-return orchestration belongs to `/agent ... --detach` command/runtime APIs.
-- Tag-like assistant markup is not a substitute for a tool call.
+- `createSession()` must not register a separate model-visible `Agent` tool for the same behavior.
+- `agent` command execution creates background jobs through SDK runtime APIs and returns structured runtime evidence such as `agentId`, `groupId`, and terminal group summaries.
+- `robota_command_agent` calls the same command handler used by user-entered `/agent` input.
+- Tag-like assistant markup is not a substitute for a projected command tool call.
 - Runtime evidence is required before any Robota-owned surface reports an agent as running.
 - Role naming metadata comes from available agent definitions. Developer, implementation, and engineering requests map to `general-purpose` when no more specific agent exists. Designer, planning, and architecture requests map to `Plan` when available.
 - Tool and command descriptors may include short examples only when the relevant SPEC or command/tool contract owns them. Examples must be generic and language-neutral; do not copy ad hoc phrasing from user conversations into model-facing guidance.
-
-The `Agent` tool MUST be registered only when an injected command module requests the `agent-runtime` session requirement.
 
 ## Prompt Builder Requirements
 
@@ -345,10 +333,10 @@ Required refactor:
 
 ## Runtime Execution Contract
 
-The `/agent` command handler and model-callable command tool MUST execute through the same runtime stack as the `Agent` tool:
+The `/agent` command handler and `robota_command_agent` MUST execute through the same runtime stack:
 
 ```text
-Slash Input or Model Command Tool
+Slash Input or Projected Model Command Tool
   -> InteractiveSession agent command API
     -> SubagentManager
       -> BackgroundTaskManager
@@ -361,7 +349,7 @@ Rules:
 - SDK command handlers may call `SubagentManager` or `BackgroundTaskManager` through `InteractiveSession` APIs.
 - CLI remains responsible for composing concrete runner factories.
 - Runtime packages remain responsible for lifecycle and registry state.
-- The command path must emit the same background task events as the tool path.
+- The user and model command paths must emit the same background task events.
 
 ## Runtime Evidence Reporting Contract
 
@@ -369,7 +357,7 @@ Robota MUST use runtime evidence as the only authoritative source for agent exec
 
 Robota-owned UI, transport, logs, and command results may report that agents are running only when one of these is true:
 
-- an `Agent` tool call returned an `agentId` with completed, failed, or timed-out terminal result data;
+- a projected `robota_command_agent` call returned an `agentId`, `groupId`, or completed/failed/timed-out terminal result data;
 - `/agent PROMPT`, `/agent run`, or `/agent parallel` returned one or more `agentId` values;
 - a `background_task_created` event was observed for each claimed job.
 
@@ -398,7 +386,7 @@ Headless and protocol transports must expose deterministic agent invocation with
 Required behavior:
 
 - headless prompt beginning with `/agent` executes the command handler;
-- natural-language headless prompts can execute agent jobs only when the model calls the model-callable command tool or `Agent` tool;
+- natural-language headless prompts can execute agent jobs only when the model calls `robota_command_agent`;
 - structured transport clients can request agent run/list/read/stop/close operations;
 - `stream-json` includes background task events for agent jobs;
 - failure responses include explicit errors when a requested agent was not started.
@@ -409,7 +397,7 @@ Agent invocation can amplify side effects because multiple workers can run concu
 
 Rules:
 
-- Current beta default policy is explicit isolation: `/agent` and model-invoked `Agent` jobs run in the requested isolation mode, and omit isolation when no mode is requested. A host may later default write-capable jobs to `worktree` only after it owns a documented write-capability classifier and can fail unsupported Git states with actionable errors.
+- Current beta default policy is explicit isolation: `/agent` and model-invoked `agent` command jobs run in the requested isolation mode, and omit isolation when no mode is requested. A host may later default write-capable jobs to `worktree` only after it owns a documented write-capability classifier and can fail unsupported Git states with actionable errors.
 - Hosts must not silently fallback from requested `worktree` isolation to non-isolated execution.
 - Background agents inherit the current permission mode and allowlist, but fresh approval requests from background threads must be source-attributed.
 - If a fresh approval cannot be surfaced in the active UI or transport, the background action must fail closed.
@@ -422,7 +410,7 @@ Rules:
 2. Replace `system-prompt-builder` with a data-driven prompt composer and move existing hardcoded role, permission, web search, tool, skill, and subagent prose into owner-provided section/descriptor providers.
 3. Add an optional `@robota-sdk/agent-command-agent` package that contributes `/agent` command metadata, `/agent` command execution, and agent runtime/tool enablement through the generic command module contract.
 4. Keep core SDK system commands free of agent-specific behavior unless the agent command module is injected.
-5. Add a model-callable command execution tool that projects `modelInvocable` command registry entries and calls the same command handlers.
+5. Add SDK-projected model-callable command tools that project `modelInvocable` command registry entries and call the same command handlers.
 6. Add `InteractiveSession` APIs that let command handlers spawn/list/read/send/stop/close agent jobs through the existing runtime manager.
 7. Add `/agent PROMPT`, `/agent run`, and `/agent parallel` parsers with deterministic background spawn behavior.
 8. Wire CLI/TUI slash input, headless slash input, and model command tool calls through the same command handler path.
@@ -438,24 +426,23 @@ Rules:
 - Given framework, permission, provider, command, skill, tool, and agent section providers, when startup context is built, then each section's content appears from its owner provider.
 - Given a new capability descriptor is registered, when startup context is built, then the capability appears without editing the composer.
 - Given no agents are configured, when startup context is built, then no subagent-specific section is rendered.
-- Given the SDK session is created without the agent command module, when commands/tools/system prompt are assembled, then `agent`, `Agent`, and agent descriptors are absent.
-- Given the Robota product composition injects the agent command module, when commands/tools/system prompt are assembled, then `agent`, `Agent`, and agent descriptors are present.
+- Given the SDK session is created without the agent command module, when commands/tools/system prompt are assembled, then `agent`, `robota_command_agent`, and agent descriptors are absent.
+- Given the Robota product composition injects the agent command module, when commands/tools/system prompt are assembled, then `agent`, `robota_command_agent`, and agent descriptors are present.
 - Given an unrelated command module such as `diagnose` is injected, when the command registry and system executor are assembled, then `diagnose` is visible/executable without adding any command-specific code to `agent-sdk`.
 - Given the composer source is scanned, then it contains no hardcoded instructions for role behavior, web search, permissions, tools, skills, slash commands, or agents.
-- Given `agent` is injected with `modelInvocable: true`, when model tools are built, then the command execution tool allows `agent` and rejects non-model-invocable commands.
+- Given `agent` is injected with `modelInvocable: true`, when model tools are built, then `robota_command_agent` is registered and rejects execution if `agent` is no longer model-invocable.
 - Given `/agent "analyze this"` is submitted, when the command executes, then it defaults to `general-purpose` and starts a background job without waiting for completion.
 - Given `/agent Plan "draft architecture"` is submitted, when the command executes, then `SubagentManager.spawn()` receives `mode: "background"` and the command returns an `agentId` without awaiting completion.
 - Given `/agent run "analyze this"` is submitted without an agent type, when the command executes, then it remains a compatibility alias for the same background behavior.
 - Given `/agent parallel developer=general-purpose:"x" designer=Plan:"y"`, when the command executes, then two background jobs are spawned before the group wait path starts and the command returns the consolidated group result.
 - Given `/agent parallel developer:"x" designer:"y"`, when the command executes, then two background jobs are spawned with labels `developer` and `designer`, default agent type `general-purpose`, and the command returns the consolidated group result.
 - Given an explicit unknown agent type is requested, when the command executes, then it returns a structured command failure listing available agents instead of throwing an unhandled rejection.
-- Given natural-language input asks for two named agents in parallel, when the model calls the command execution tool, then Robota executes `/agent parallel` through the command handler.
+- Given natural-language input asks for two named agents in parallel, when the model calls `robota_command_agent`, then Robota executes `/agent parallel` through the command handler.
 - Given natural-language input asks about agents but the model does not call a tool, when the turn completes, then Robota starts no background jobs.
 - Given no `agentId` or `background_task_created` event exists, when runtime execution state is projected, then it reports no started agent jobs.
 - Given a real `background_task_created` event for each created job, when runtime execution state is projected, then it reports those jobs as started.
-- Given a model emits the `Agent` tool with only `prompt` and optional `subagent_type`/`model`/`isolation`, when the tool executes, then it starts a background job and waits for terminal result data.
-- Given a model emits undeclared `background`, `detach`, or `parallel` arguments, when the tool executes, then those arguments are ignored and the tool still waits for terminal result data.
-- Given the `Agent` tool schema is exposed, when its description is inspected, then it describes the one-call/one-job contract and terminal result behavior without exposing tag-shaped execution examples.
+- Given a model emits an unregistered `Agent` tool call, when core handles the tool call, then it returns an unknown-tool result and starts no background job.
+- Given `robota_command_agent` is exposed, when its description is inspected, then it is derived from the `agent` command descriptor without exposing tag-shaped execution examples.
 - Given a CLI session is created, when it is persisted, then the record is written under project `.robota/sessions` and includes provider messages, UI history, the exact system prompt, and registered tool schemas.
 - Given diagnostic logs are inspected, when the session has run, then `session_init`, `pre_run`, and `assistant` events contain full prompt/input/history/response data instead of only lengths or truncated assistant text.
 
@@ -464,7 +451,7 @@ Rules:
 - In TUI flow, submit `/agent parallel ...` and verify visible background rows appear while the prompt remains usable.
 - In headless text mode, submit `/agent general-purpose "..."` and verify the command returns an agent ID immediately.
 - In `stream-json`, submit `/agent parallel` and verify background task events are emitted.
-- Submit a natural-language explicit parallel-agent request with a test model that calls the command execution tool and verify jobs start before runtime-owned status reports execution.
+- Submit a natural-language explicit parallel-agent request with a test model that calls `robota_command_agent` and verify jobs start before runtime-owned status reports execution.
 
 ### Verification Commands
 
@@ -487,7 +474,7 @@ pnpm harness:verify -- --scope packages/agent-cli --base-ref origin/develop
 - SDK core can be assembled without the agent command module.
 - `/agent PROMPT` starts an actual background agent and returns an `agentId`.
 - `/agent parallel` starts multiple background agents before waiting for any result.
-- Natural-language requests for agent execution can succeed when the model selects the command execution tool from registered descriptors.
+- Natural-language requests for agent execution can succeed when the model selects `robota_command_agent` from registered descriptors.
 - Robota-owned execution state cannot report background agents as running unless runtime evidence exists.
-- Existing `Agent` tool behavior remains compatible for model-initiated delegation.
-- Project-local `.robota/sessions` and `.robota/logs` contain enough raw data to debug prompt composition and restore session context, including command descriptors such as `agent` and the `ExecuteCommand` tool schema when injected.
+- No parallel model-visible `Agent` tool is registered for the same behavior.
+- Project-local `.robota/sessions` and `.robota/logs` contain enough raw data to debug prompt composition and restore session context, including command descriptors such as `agent` and projected command tool schemas such as `robota_command_agent` when injected.

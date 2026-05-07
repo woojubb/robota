@@ -236,15 +236,16 @@ Allowed state transitions:
 
 The manager MUST reject invalid state transitions.
 
-## Agent Tool Contract
+## Agent Command Contract
 
-The model-callable `Agent` tool MUST remain available.
+The model-callable route is the SDK-projected `robota_command_agent` command tool. A separate
+model-visible `Agent` tool must not be registered for the same behavior.
 
-Foreground mode:
+Command execution:
 
-- The tool spawns a managed job.
-- The tool waits for completion.
-- The tool returns JSON compatible with the current shape:
+- The command spawns managed jobs through `SubagentManager`.
+- Foreground and grouped command paths wait for terminal summaries when their command contract requires it.
+- The command returns JSON compatible with the current runtime result shapes.
 
 ```json
 {
@@ -437,7 +438,7 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 
 1. Add types and unit tests for `SubagentManager`, `SubagentRunner`, and job state transitions. (Completed in `agent-runtime`; keep regression coverage.)
 2. Implement manager with fake runner coverage in `agent-runtime` and in-process adapter coverage in `agent-sdk`.
-3. Route existing `Agent` tool through manager in foreground mode. (Completed in `agent-sdk`; keep regression coverage.)
+3. Route `agent` command execution through manager APIs. (Completed in `agent-sdk`; keep regression coverage.)
 4. Enforce `maxConcurrency` in core parallel tool execution. (Completed in `agent-core`; keep regression coverage.)
 5. Fix provider callback isolation. (Completed in `agent-core` and `agent-sessions`; keep regression coverage.)
 6. Add background mode and manager events to `InteractiveSession`.
@@ -448,7 +449,7 @@ Errors returned to the model MUST be concise and structured. Detailed process lo
 
 ## Acceptance Criteria
 
-- Existing foreground `Agent` tool behavior remains compatible for callers.
+- Existing `agent` command behavior remains compatible for callers.
 - Multiple subagents can run in parallel within configured limits.
 - Background subagents do not block the parent prompt.
 - Each subagent has an addressable job ID and visible lifecycle state.

@@ -361,6 +361,20 @@ export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './to
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';
 export type { ICommandExecutionToolDeps } from './tools/command-execution-tool.js';
+export {
+  createModelCommandToolProjection,
+  createProjectedCommandExecutionTools,
+  createProviderSafeModelCommandToolName,
+  formatProjectedModelCommandToolPromptDescription,
+  MODEL_COMMAND_TOOL_PREFIX,
+  normalizeModelCommandName,
+  PROVIDER_SAFE_TOOL_NAME_PATTERN,
+} from './tools/model-command-tool-projection.js';
+export type {
+  IModelCommandToolProjection,
+  IProjectedCommandExecutionToolsDeps,
+  IProjectedModelCommandTool,
+} from './tools/model-command-tool-projection.js';
 export { createBackgroundProcessTool } from './tools/background-process-tool.js';
 export type { IBackgroundProcessToolDeps } from './tools/background-process-tool.js';
 

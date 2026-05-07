@@ -20,7 +20,7 @@ interface IObservedProvider {
   provider: TTestProvider;
   getChatCallCount(): number;
   getFirstCallToolNames(): string[];
-  getFirstCallExecuteCommandEnum(): string[] | undefined;
+  getFirstCallSkillsToolArgsDescription(): string | undefined;
   getFirstPromptContent(): string;
   getToolResultContent(): string;
 }
@@ -39,18 +39,17 @@ interface IObservedUnknownToolProvider {
   getForcedCallToolNames(): string[] | undefined;
 }
 
-function createTempSkill(cwd: string): void {
-  const skillDir = join(cwd, '.agents', 'skills', 'audit');
+function createTempSkill(
+  cwd: string,
+  name: string,
+  description: string,
+  body = 'Run this skill with the real skill runtime: $ARGUMENTS',
+): void {
+  const skillDir = join(cwd, '.agents', 'skills', name);
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(
     join(skillDir, 'SKILL.md'),
-    [
-      '---',
-      'name: audit',
-      'description: Audit one file',
-      '---',
-      'Audit this file with the real skill runtime: $ARGUMENTS',
-    ].join('\n'),
+    ['---', `name: ${name}`, `description: ${description}`, '---', body].join('\n'),
     'utf8',
   );
 }
@@ -83,7 +82,7 @@ function assistantMessage(content: string | null, toolCalls?: TToolCalls): TChat
 function createSkillToolCallingProvider(): IObservedProvider {
   let chatCallCount = 0;
   let firstCallToolNames: string[] = [];
-  let firstCallExecuteCommandEnum: string[] | undefined;
+  let firstCallSkillsToolArgsDescription: string | undefined;
   let firstPromptContent = '';
   let toolResultContent = '';
 
@@ -96,25 +95,25 @@ function createSkillToolCallingProvider(): IObservedProvider {
       if (chatCallCount === 1) {
         firstPromptContent = messages.map((message) => message.content).join('\n');
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
-        const executeCommandSchema = options?.tools?.find((tool) => tool.name === 'ExecuteCommand');
-        const commandEnum = executeCommandSchema?.parameters.properties['command']?.enum;
-        firstCallExecuteCommandEnum = Array.isArray(commandEnum)
-          ? commandEnum.map((value) => String(value))
-          : undefined;
+        const skillsToolSchema = options?.tools?.find(
+          (tool) => tool.name === 'robota_command_skills',
+        );
+        firstCallSkillsToolArgsDescription =
+          skillsToolSchema?.parameters.properties['args']?.description;
         return assistantMessage(null, [
           {
-            id: 'call_execute_command',
+            id: 'call_robota_command_skills',
             type: 'function',
             function: {
-              name: 'ExecuteCommand',
-              arguments: JSON.stringify({ command: 'skills', args: 'audit src/index.ts' }),
+              name: 'robota_command_skills',
+              arguments: JSON.stringify({ args: 'repo-writing docs/architecture.md' }),
             },
           },
         ]);
       }
 
       const toolMessage = messages.find(
-        (message) => message.role === 'tool' && message.name === 'ExecuteCommand',
+        (message) => message.role === 'tool' && message.name === 'robota_command_skills',
       );
       toolResultContent = toolMessage?.content ?? '';
       return assistantMessage('Headless skill activated');
@@ -134,7 +133,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
     provider,
     getChatCallCount: () => chatCallCount,
     getFirstCallToolNames: () => firstCallToolNames,
-    getFirstCallExecuteCommandEnum: () => firstCallExecuteCommandEnum,
+    getFirstCallSkillsToolArgsDescription: () => firstCallSkillsToolArgsDescription,
     getFirstPromptContent: () => firstPromptContent,
     getToolResultContent: () => toolResultContent,
   };
@@ -261,7 +260,12 @@ describe('headless transport skill activation integration', () => {
 
   it('executes model-invocable skills through the skills built-in command in a headless session', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-headless-skill-'));
-    createTempSkill(cwd);
+    createTempSkill(
+      cwd,
+      'repo-writing',
+      'Repository writing rules',
+      'Apply repository writing rules with the real skill runtime: $ARGUMENTS',
+    );
     const observed = createSkillToolCallingProvider();
     const session = new InteractiveSession({
       cwd,
@@ -276,7 +280,7 @@ describe('headless transport skill activation integration', () => {
     try {
       const transport = createHeadlessTransport({
         outputFormat: 'json',
-        prompt: 'Audit src/index.ts',
+        prompt: 'Use repository writing rules for docs/architecture.md',
       });
 
       session.attachTransport(transport);
@@ -291,15 +295,20 @@ describe('headless transport skill activation integration', () => {
       });
       expect(output['session_id']).toBeTypeOf('string');
       expect(observed.getChatCallCount()).toBe(2);
-      expect(observed.getFirstCallToolNames()).toContain('ExecuteCommand');
+      expect(observed.getFirstCallToolNames()).toContain('robota_command_skills');
+      expect(observed.getFirstCallToolNames()).not.toContain('ExecuteCommand');
       expect(observed.getFirstCallToolNames()).not.toContain('ExecuteSkill');
-      expect(observed.getFirstCallExecuteCommandEnum()).toContain('skills');
+      expect(observed.getFirstCallSkillsToolArgsDescription()).toContain(
+        '[list | <skill-name> [args]]',
+      );
       expect(observed.getFirstPromptContent()).toContain('## Built-in Commands');
       expect(observed.getFirstPromptContent()).toContain('skills [list | <skill-name> [args]]');
       expect(observed.getFirstPromptContent()).toContain('## Skills');
-      expect(observed.getFirstPromptContent()).toContain('- audit: Audit one file');
+      expect(observed.getFirstPromptContent()).toContain(
+        '- repo-writing: Repository writing rules',
+      );
       expect(observed.getToolResultContent()).toContain('"success":true');
-      expect(observed.getToolResultContent()).toContain('<skill name=\\"audit\\">');
+      expect(observed.getToolResultContent()).toContain('<skill name=\\"repo-writing\\">');
       expect(session.getSkillActivationEvents().map((event) => event.invocation)).toEqual([
         'model-tool',
         'model-tool',
@@ -319,7 +328,12 @@ describe('headless transport skill activation integration', () => {
 
   it('executes explicit slash skills through SDK skill loading in a headless session', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-headless-slash-skill-'));
-    createTempSkill(cwd);
+    createTempSkill(
+      cwd,
+      'audit',
+      'Audit one file',
+      'Audit this file with the real skill runtime: $ARGUMENTS',
+    );
     const observed = createPromptObservingProvider('Headless slash skill activated');
     const session = new InteractiveSession({
       cwd,

@@ -5,7 +5,7 @@ import type {
 } from '@robota-sdk/agent-sdk';
 
 export const SKILLS_COMMAND_DESCRIPTION =
-  'Skill command. Before following a matching registered skill from the system prompt Skills section, invoke ExecuteCommand with command "skills" and args "<skill-name> [args]". Without arguments, list registered skills. With a skill name, activate that skill. Slash syntax is a UI input/display concern; the SDK command identity is "skills".';
+  'Skill command. Before following a matching registered skill from the system prompt Skills section, invoke the projected skills command tool with args "<skill-name> [args]". Without arguments, list registered skills. With a skill name, activate that skill. Slash syntax is a UI input/display concern; the SDK command identity is "skills".';
 
 interface IParsedSkillsArgs {
   readonly action: 'list' | 'activate';
