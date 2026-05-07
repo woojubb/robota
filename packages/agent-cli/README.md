@@ -180,12 +180,12 @@ Every tool call passes through a three-step permission gate:
 
 ### Changing Mode at Runtime
 
-Use the `/mode` slash command:
+Use the `/permissions` slash command:
 
 ```
-> /mode                    # Show current mode
-> /mode plan               # Switch to plan (read-only)
-> /mode bypassPermissions  # Skip all prompts
+> /permissions                    # Show current mode and session-approved tools
+> /permissions plan               # Switch to plan (read-only)
+> /permissions bypassPermissions  # Skip all prompts
 ```
 
 Or set it at startup:
@@ -272,20 +272,19 @@ When a session has a name, it appears in three places:
 | ------------------------- | ---------------------------------------------------------------------- |
 | `/help`                   | Show available commands                                                |
 | `/clear`                  | Clear conversation history                                             |
-| `/mode [mode]`            | Show or change permission mode                                         |
 | `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)                    |
 | `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts             |
 | `/compact [instructions]` | Compress context window                                                |
 | `/cost`                   | Show session info                                                      |
 | `/context`                | Context window details, reference inventory, and auto-compact controls |
 | `/agent`                  | Run and manage background subagent jobs                                |
-| `/permissions`            | Show permission rules                                                  |
+| `/permissions [mode]`     | Show permission rules or change permission mode                        |
 | `/plugin [subcommand]`    | Plugin management                                                      |
 | `/resume`                 | List recent sessions and resume one                                    |
 | `/rename <name>`          | Rename the current session                                             |
 | `/exit`                   | Exit CLI                                                               |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 

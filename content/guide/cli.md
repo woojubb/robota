@@ -148,12 +148,11 @@ The available command list is built from composed command modules such as `agent
 | ------------------------- | --------------------------------------- |
 | `/help`                   | Show available commands                 |
 | `/clear`                  | Clear conversation history              |
-| `/mode [mode]`            | Show or change permission mode          |
 | `/model [model]`          | Show or change AI model                 |
 | `/compact [instructions]` | Compress context window                 |
 | `/cost`                   | Show session info                       |
 | `/context`                | Context window details                  |
-| `/permissions`            | Show permission rules                   |
+| `/permissions [mode]`     | Show permission rules or change mode    |
 | `/memory`                 | Inspect and manage project memory       |
 | `/rewind`                 | List and restore edit checkpoints       |
 | `/provider`               | Manage provider profiles                |
@@ -169,7 +168,7 @@ The available command list is built from composed command modules such as `agent
 | `/statusline`             | Show, hide, or reset status line fields |
 | `/reset`                  | Delete settings and exit                |
 
-`/mode` and `/model` show nested submenus for selection.
+`/permissions` and `/model` show nested submenus for selection.
 
 ### Plugin Management
 
