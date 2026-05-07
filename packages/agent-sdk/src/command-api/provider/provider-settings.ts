@@ -1,9 +1,11 @@
 import type {
   IProviderDefinition,
+  IProviderCredentialRequirement,
   IProviderProfileConfig,
+  TProviderCredentialField,
   TUniversalValue,
 } from '@robota-sdk/agent-core';
-import { findProviderDefinition } from '@robota-sdk/agent-core';
+import { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
 import { formatEnvReference, hasUsableSecretReference } from './provider-env-ref.js';
 
 export interface IProviderProfileSettings extends IProviderProfileConfig {
@@ -15,6 +17,7 @@ export interface ILegacyProviderSettings {
   name?: string;
   model?: string;
   apiKey?: string;
+  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -32,6 +35,8 @@ export interface IProviderSetupInput {
   model?: string;
   apiKey?: string;
   apiKeyEnv?: string;
+  authToken?: string;
+  authTokenEnv?: string;
   baseURL?: string;
   timeout?: number;
   setCurrent?: boolean;
@@ -119,11 +124,14 @@ export function validateProviderProfile(
     throw new Error(`Provider profile "${profileName}" is missing model`);
   }
   const definition = findProviderDefinition(options.providerDefinitions ?? [], profile.type);
+  const credentialRequirement = getProviderCredentialRequirement(definition);
   if (
-    definition?.requiresApiKey === true &&
-    !hasUsableSecretReference(profile.apiKey ?? definition.defaults?.apiKey)
+    credentialRequirement !== undefined &&
+    !hasUsableRequiredProviderCredential(profile, definition?.defaults, credentialRequirement)
   ) {
-    throw new Error(`Provider profile "${profileName}" is missing apiKey`);
+    throw new Error(
+      `Provider profile "${profileName}" is missing ${formatCredentialRequirement(credentialRequirement)}`,
+    );
   }
 }
 
@@ -150,12 +158,17 @@ export function buildProviderProfile(
     input.apiKeyEnv !== undefined
       ? formatEnvReference(input.apiKeyEnv)
       : (input.apiKey ?? defaults.apiKey);
+  const authToken =
+    input.authTokenEnv !== undefined
+      ? formatEnvReference(input.authTokenEnv)
+      : (input.authToken ?? defaults.authToken);
   const baseURL = input.baseURL ?? defaults.baseURL;
 
   return {
     type: input.type,
     model: input.model ?? defaults.model,
-    ...(apiKey !== undefined && { apiKey }),
+    ...(isNonEmptyString(apiKey) && { apiKey }),
+    ...(isNonEmptyString(authToken) && { authToken }),
     ...(baseURL !== undefined && { baseURL }),
     ...(input.timeout !== undefined && { timeout: input.timeout }),
   };
@@ -178,6 +191,32 @@ export function mergeProviderPatch(
 function getProviderDefaults(
   type: string,
   providerDefinitions: readonly IProviderDefinition[],
-): { model?: string; apiKey?: string; baseURL?: string } {
+): { model?: string; apiKey?: string; authToken?: string; baseURL?: string } {
   return findProviderDefinition(providerDefinitions, type)?.defaults ?? {};
+}
+
+function hasUsableRequiredProviderCredential(
+  profile: IProviderProfileSettings,
+  defaults: IProviderDefinition['defaults'],
+  requirement: IProviderCredentialRequirement,
+): boolean {
+  return requirement.anyOf.some((field) =>
+    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, defaults)),
+  );
+}
+
+function resolveProviderCredentialValue(
+  field: TProviderCredentialField,
+  profile: IProviderProfileSettings,
+  defaults: IProviderDefinition['defaults'],
+): string | undefined {
+  return profile[field] ?? defaults?.[field];
+}
+
+function formatCredentialRequirement(requirement: IProviderCredentialRequirement): string {
+  return requirement.anyOf.join(' or ');
+}
+
+function isNonEmptyString(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0;
 }

@@ -43,24 +43,24 @@ Design rules:
 
 ## Type Ownership
 
-| Type                           | Location                                    | Purpose                                                                             |
-| ------------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `IBackgroundTaskManager`       | `src/background-tasks/types.ts`             | Generic background task registry API                                                |
-| `IBackgroundTaskRunner`        | `src/background-tasks/types.ts`             | Port for executing one task kind                                                    |
-| `IBackgroundTaskState`         | `src/background-tasks/types.ts`             | Immutable task state snapshot shape                                                 |
-| `IBackgroundTaskRequest`       | `src/background-tasks/types.ts`             | Agent/process task request union                                                    |
-| `IBackgroundTaskResult`        | `src/background-tasks/types.ts`             | Completed task output and metadata                                                  |
-| `TBackgroundTaskEvent`         | `src/background-tasks/types.ts`             | Lifecycle/progress event union                                                      |
-| `TBackgroundTaskTimeoutReason` | `src/background-tasks/types.ts`             | Watchdog terminal reason union                                                      |
-| `ILimitedOutputCapture`        | `src/background-tasks/log-pages.ts`         | UTF-8-safe bounded output capture used by process-like adapters                     |
-| `ISerializableProviderProfile` | `src/background-tasks/types.ts`             | Provider profile handoff for background workers, including provider-owned `options` |
-| `ISubagentManager`             | `src/subagents/types.ts`                    | Subagent job compatibility facade                                                   |
-| `ISubagentRunner`              | `src/subagents/types.ts`                    | Port for executing one subagent job                                                 |
-| `ISubagentSpawnRequest`        | `src/subagents/types.ts`                    | Subagent spawn request                                                              |
-| `ISubagentJobState`            | `src/subagents/types.ts`                    | Subagent job state projection                                                       |
-| `ISubagentJobResult`           | `src/subagents/types.ts`                    | Subagent completion output and metadata                                             |
-| `ISubagentWorktreeAdapter`     | `src/subagents/worktree-subagent-runner.ts` | Port for concrete worktree I/O                                                      |
-| `IPreparedSubagentWorktree`    | `src/subagents/worktree-subagent-runner.ts` | Prepared worktree handoff data                                                      |
+| Type                           | Location                                    | Purpose                                                                                                       |
+| ------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `IBackgroundTaskManager`       | `src/background-tasks/types.ts`             | Generic background task registry API                                                                          |
+| `IBackgroundTaskRunner`        | `src/background-tasks/types.ts`             | Port for executing one task kind                                                                              |
+| `IBackgroundTaskState`         | `src/background-tasks/types.ts`             | Immutable task state snapshot shape                                                                           |
+| `IBackgroundTaskRequest`       | `src/background-tasks/types.ts`             | Agent/process task request union                                                                              |
+| `IBackgroundTaskResult`        | `src/background-tasks/types.ts`             | Completed task output and metadata                                                                            |
+| `TBackgroundTaskEvent`         | `src/background-tasks/types.ts`             | Lifecycle/progress event union                                                                                |
+| `TBackgroundTaskTimeoutReason` | `src/background-tasks/types.ts`             | Watchdog terminal reason union                                                                                |
+| `ILimitedOutputCapture`        | `src/background-tasks/log-pages.ts`         | UTF-8-safe bounded output capture used by process-like adapters                                               |
+| `ISerializableProviderProfile` | `src/background-tasks/types.ts`             | Provider profile handoff for background workers, including credential references and provider-owned `options` |
+| `ISubagentManager`             | `src/subagents/types.ts`                    | Subagent job compatibility facade                                                                             |
+| `ISubagentRunner`              | `src/subagents/types.ts`                    | Port for executing one subagent job                                                                           |
+| `ISubagentSpawnRequest`        | `src/subagents/types.ts`                    | Subagent spawn request                                                                                        |
+| `ISubagentJobState`            | `src/subagents/types.ts`                    | Subagent job state projection                                                                                 |
+| `ISubagentJobResult`           | `src/subagents/types.ts`                    | Subagent completion output and metadata                                                                       |
+| `ISubagentWorktreeAdapter`     | `src/subagents/worktree-subagent-runner.ts` | Port for concrete worktree I/O                                                                                |
+| `IPreparedSubagentWorktree`    | `src/subagents/worktree-subagent-runner.ts` | Prepared worktree handoff data                                                                                |
 
 Hook event types and hook execution are owned by `agent-core`.
 

@@ -113,6 +113,42 @@ describe('provider setup prompt flow', () => {
     });
   });
 
+  it('builds setup input from auth token steps when provided by a provider definition', () => {
+    const authProviderDefinitions: readonly IProviderDefinition[] = [
+      {
+        type: 'anthropic',
+        defaults: { model: 'claude-sonnet-4-6' },
+        setupSteps: [
+          { key: 'authToken', title: 'Anthropic auth token', masked: true },
+          { key: 'model', title: 'Anthropic model', defaultValue: 'claude-sonnet-4-6' },
+        ],
+        credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
+        createProvider: () => {
+          throw new Error('not used');
+        },
+      },
+    ];
+    let state = createProviderSetupFlow('anthropic', authProviderDefinitions);
+
+    const authTokenResult = submitProviderSetupValue(state, 'sk-ant-oat01-test');
+    expect(authTokenResult.status).toBe('next');
+    if (authTokenResult.status !== 'next') throw new Error('expected next');
+    state = authTokenResult.state;
+
+    const modelResult = submitProviderSetupValue(state, '');
+
+    expect(modelResult).toEqual({
+      status: 'complete',
+      input: {
+        profile: 'claude-sonnet-4-6',
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        authToken: 'sk-ant-oat01-test',
+        setCurrent: true,
+      },
+    });
+  });
+
   it('suggests unique profile names from model ids without exposing credentials', () => {
     let state = createProviderSetupFlow('anthropic', providerDefinitions, {
       existingProfileNames: ['claude-sonnet-4-6'],

@@ -25,6 +25,7 @@ export type {
   TProviderNativeRawPayloadKind,
   IAIProvider,
   IProviderConfig,
+  IProviderCredentialRequirement,
   IProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
@@ -33,6 +34,7 @@ export type {
   IProviderProfileConfig,
   IProviderProfileDefaults,
   IProviderSetupStepDefinition,
+  TProviderCredentialField,
   TProviderModelCapability,
   TProviderModelCatalogStatus,
   TProviderModelCatalogRefresh,
@@ -61,7 +63,11 @@ export {
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
-export { findProviderDefinition, formatSupportedProviderTypes } from './interfaces';
+export {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+} from './interfaces';
 
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';

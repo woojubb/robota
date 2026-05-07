@@ -363,7 +363,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/config/`
 - **Rationale**: `.robota/settings.json` file-based configuration is for local development environments only (servers use environment variables/DB)
 - **Implementation**: settings file merge, `$ENV:VAR` substitution for provider API keys, Zod validation, provider profile resolution
-- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`. Profile identity is the profile key, not the provider type or model pair. Setup helpers suggest readable model-derived keys and append numeric suffixes when the key already exists.
+- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`. Profile identity is the profile key, not the provider type or model pair. Setup helpers suggest readable model-derived keys and append numeric suffixes when the key already exists. Provider credentials may be `apiKey` or provider-supported alternatives such as `authToken`; generic SDK settings code validates those through injected provider credential requirements.
 - **Legacy compatibility**: legacy `provider` settings remain supported and are used when no active provider profile is configured.
 
 Provider profile shape:
@@ -406,14 +406,15 @@ Generated provider profile keys are normalized to lowercase ASCII slugs. The set
 
 Resolved provider fields:
 
-| Field     | Description                                                                                         |
-| --------- | --------------------------------------------------------------------------------------------------- |
-| `name`    | Provider type used by session model config (`anthropic`, `openai`, `gemma`)                         |
-| `model`   | Active model id                                                                                     |
-| `apiKey`  | API key or local placeholder token                                                                  |
-| `baseURL` | Optional OpenAI-compatible endpoint override                                                        |
-| `timeout` | Optional provider idle timeout in milliseconds. Also passed to provider construction when supported |
-| `options` | Optional provider-owned options bag preserved for CLI/provider composition                          |
+| Field       | Description                                                                                         |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| `name`      | Provider type used by session model config (`anthropic`, `openai`, `gemma`)                         |
+| `model`     | Active model id                                                                                     |
+| `apiKey`    | API key or local placeholder token                                                                  |
+| `authToken` | Provider-supported bearer token credential such as Anthropic OAuth/WIF token                        |
+| `baseURL`   | Optional OpenAI-compatible endpoint override                                                        |
+| `timeout`   | Optional provider idle timeout in milliseconds. Also passed to provider construction when supported |
+| `options`   | Optional provider-owned options bag preserved for CLI/provider composition                          |
 
 ### Context Loading (SDK-Specific)
 
@@ -1162,13 +1163,14 @@ Provider resolution order:
 
 Provider profile schema:
 
-| Field     | Description                                                                     |
-| --------- | ------------------------------------------------------------------------------- |
-| `type`    | Provider implementation type such as `anthropic` or `openai`                    |
-| `model`   | Default model ID for the profile                                                |
-| `apiKey`  | Literal key or `$ENV:<name>` reference                                          |
-| `baseURL` | Optional OpenAI-compatible or provider-specific endpoint                        |
-| `timeout` | Optional provider idle timeout and provider construction timeout when supported |
+| Field       | Description                                                                     |
+| ----------- | ------------------------------------------------------------------------------- |
+| `type`      | Provider implementation type such as `anthropic` or `openai`                    |
+| `model`     | Default model ID for the profile                                                |
+| `apiKey`    | Literal key or `$ENV:<name>` reference                                          |
+| `authToken` | Literal bearer token or `$ENV:<name>` reference for providers that support it   |
+| `baseURL`   | Optional OpenAI-compatible or provider-specific endpoint                        |
+| `timeout`   | Optional provider idle timeout and provider construction timeout when supported |
 
 `currentProvider` must point to an existing profile key. Missing profiles and profiles without `type` are configuration errors. Profile keys are stable user-facing identifiers; two profiles may have the same `type` and `model` when they represent different credentials, accounts, endpoints, or operational defaults. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
 

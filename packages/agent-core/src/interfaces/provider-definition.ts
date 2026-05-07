@@ -5,6 +5,7 @@ export interface IProviderConfig {
   name: string;
   model: string;
   apiKey?: string;
+  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -13,6 +14,7 @@ export interface IProviderConfig {
 export interface IProviderProfileDefaults {
   model?: string;
   apiKey?: string;
+  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -22,6 +24,7 @@ export interface IProviderProfileConfig {
   type?: string;
   model?: string;
   apiKey?: string;
+  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -33,7 +36,12 @@ export interface IProviderProbeResult {
   models?: string[];
 }
 
-export type TProviderSetupField = 'baseURL' | 'model' | 'apiKey';
+export type TProviderCredentialField = 'apiKey' | 'authToken';
+export type TProviderSetupField = 'baseURL' | 'model' | TProviderCredentialField;
+
+export interface IProviderCredentialRequirement {
+  anyOf: readonly TProviderCredentialField[];
+}
 
 export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
 export type TProviderModelLifecycle = 'active' | 'preview' | 'deprecated' | 'unavailable';
@@ -89,6 +97,7 @@ export interface IProviderDefinition {
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
   setupSteps?: readonly IProviderSetupStepDefinition[];
+  credentialRequirement?: IProviderCredentialRequirement;
   requiresApiKey?: boolean;
   createProvider: (config: IProviderConfig) => IAIProvider;
   probeProfile?: (profile: IProviderProfileConfig) => Promise<IProviderProbeResult>;
@@ -113,4 +122,16 @@ export function formatSupportedProviderTypes(definitions: readonly IProviderDefi
       return `${definition.type} (${aliasLabel}: ${definition.aliases.join(', ')})`;
     })
     .join(', ');
+}
+
+export function getProviderCredentialRequirement(
+  definition: IProviderDefinition | undefined,
+): IProviderCredentialRequirement | undefined {
+  if (definition?.credentialRequirement !== undefined) {
+    return definition.credentialRequirement;
+  }
+  if (definition?.requiresApiKey === true) {
+    return { anyOf: ['apiKey'] };
+  }
+  return undefined;
 }

@@ -1,14 +1,20 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { findProviderDefinition, type IProviderDefinition } from './provider-definition.js';
+import {
+  findProviderDefinition,
+  getProviderCredentialRequirement,
+  type IProviderCredentialRequirement,
+  type IProviderDefinition,
+  type TProviderCredentialField,
+} from './provider-definition.js';
 import { hasUsableSecretReference } from './env-ref.js';
 
 /** Result of checking a settings file. */
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
 
 interface IProviderSettingsShape {
-  provider?: { name?: string; apiKey?: string };
+  provider?: { name?: string; apiKey?: string; authToken?: string };
   currentProvider?: string;
-  providers?: Record<string, { type?: string; apiKey?: string }>;
+  providers?: Record<string, { type?: string; apiKey?: string; authToken?: string }>;
 }
 
 /** Check a settings file's state for first-run setup. */
@@ -55,23 +61,40 @@ function hasUsableProviderConfig(
 
 function isUsableProviderProfile(
   type: string | undefined,
-  profile: { apiKey?: string } | undefined,
+  profile: { apiKey?: string; authToken?: string } | undefined,
   providerDefinitions: readonly IProviderDefinition[],
 ): boolean {
   if (!profile) {
     return false;
   }
-  if (hasUsableSecretReference(profile.apiKey)) {
-    return true;
-  }
   if (!type) {
-    return false;
+    return hasUsableSecretReference(profile.apiKey);
   }
   const definition = findProviderDefinition(providerDefinitions, type);
   if (definition === undefined) {
     return false;
   }
-  return (
-    definition.requiresApiKey !== true || hasUsableSecretReference(definition.defaults?.apiKey)
+  const credentialRequirement = getProviderCredentialRequirement(definition);
+  if (credentialRequirement === undefined) {
+    return true;
+  }
+  return hasUsableRequiredProviderCredential(profile, definition, credentialRequirement);
+}
+
+function hasUsableRequiredProviderCredential(
+  profile: { apiKey?: string; authToken?: string },
+  definition: IProviderDefinition,
+  requirement: IProviderCredentialRequirement,
+): boolean {
+  return requirement.anyOf.some((field) =>
+    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, definition)),
   );
+}
+
+function resolveProviderCredentialValue(
+  field: TProviderCredentialField,
+  profile: { apiKey?: string; authToken?: string },
+  definition: IProviderDefinition,
+): string | undefined {
+  return profile[field] ?? definition.defaults?.[field];
 }

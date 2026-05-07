@@ -223,6 +223,7 @@ interface IAnthropicProviderOptions {
 
   // API Configuration
   apiKey?: string; // API key (if not set in client)
+  authToken?: string; // OAuth/WIF bearer token alternative
   baseURL?: string; // Custom API base URL
   timeout?: number; // Request timeout (ms)
 
