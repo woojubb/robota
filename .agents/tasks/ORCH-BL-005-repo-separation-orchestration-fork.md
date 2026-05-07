@@ -4,7 +4,7 @@ status: blocked
 created: 2026-03-15
 priority: medium
 urgency: later
-blocked-by: physical repository target/name and import strategy decision
+blocked-by: physical GitHub repository creation approval
 ---
 
 ## 구상
@@ -36,14 +36,28 @@ blocked-by: physical repository target/name and import strategy decision
 - 검증은 `pnpm harness:scan`과 `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`로 통과했다.
 - 남은 blocker는 코드 경계가 아니라 실제 별도 repo 대상, 이름, import/fork 전략 결정이다.
 
+### 2026-05-07 recheck
+
+- `scripts/harness/check-orchestration-split-baseline.mjs`는 현재 runtime-level target blocker 0개로 통과한다.
+- 코드 경계만 기준으로 보면 split 대상 패키지의 production dependency closure는 현재 fork 가능한 상태다.
+- `woojubb` 계정에는 `robota` 원본 repo가 있지만, 이 task의 대상이 될 별도 orchestration repo 이름과 공개 범위는 아직 확정되어 있지 않다.
+- 결론: repo 내부 구현 작업은 더 진행할 수 있는 blocker가 없다. 남은 작업은 외부 GitHub repo 생성/권한/가시성 결정이며, 이를 agent가 임의로 실행하면 되돌리기 어려운 운영 변경이 된다.
+
 ## Recommendation
 
-지금 바로 별도 레포를 만들지 않는다. 먼저 현재 repo 안에서 분리 가능한 경계를 코드로 검증한다.
+현재 repo 안의 경계 검증은 완료된 상태로 유지한다. 별도 repo 생성은 다음 추천안을 기본값으로 삼되, 실제 생성은 owner 승인 후 진행한다.
 
-1. 새 repo 대상 이름과 import 전략을 결정한다.
-2. guard에 고정한 fork 대상 package manifest를 기준으로 초기 import 또는 git-filter 기반 split을 수행한다.
-3. 새 repo CI에서 `pnpm build`, `pnpm harness:scan:orchestration-split`, `dag-studio`, `dag-designer`, `dag-orchestrator-server`, `dag-cli`, `dag-mcp-server` 검증을 구성한다.
-4. 원본 repo에는 split 이후 유지할 sync 정책을 별도 ADR로 남긴다.
+1. 추천 repo 이름은 `robota-orchestration`이다. 초기에는 private으로 만들고, 배포/문서/패키지 공개 범위가 확정되면 public 전환을 별도 결정한다.
+2. 초기 import 전략은 one-time history-preserving split이다. `git filter-repo` 또는 equivalent mirror workflow로 아래 target package/app path만 가져간다.
+3. package name은 첫 split에서는 `@robota-sdk/*`를 유지한다. 새 registry/package scope 전환은 공개 API와 npm publish 정책이 걸린 별도 작업으로 분리한다.
+4. 새 repo CI에서 `pnpm build`, `pnpm harness:scan:orchestration-split`, `dag-studio`, `dag-designer`, `dag-orchestrator-server`, `dag-cli`, `dag-mcp-server` 검증을 구성한다.
+5. 원본 repo에는 split 이후 유지할 sync 정책을 별도 ADR로 남긴다.
+
+## Owner Decision Required
+
+- [ ] GitHub repo 이름과 visibility 승인: recommended `woojubb/robota-orchestration`, private first
+- [ ] history-preserving split 방식 승인: recommended one-time `git filter-repo` import
+- [ ] split 직후 package scope 유지 승인: recommended keep `@robota-sdk/*` until publish strategy changes
 
 ## 가져갈 것 (오케스트레이션 이상)
 
