@@ -54,6 +54,11 @@ describe('parseScopeArgs', () => {
     expect(result.skipRepositoryChecks).toBe(true);
   });
 
+  it('parses --skip-dependent-scopes flag', () => {
+    const result = parseScopeArgs(['--skip-dependent-scopes']);
+    expect(result.skipDependentScopes).toBe(true);
+  });
+
   it('parses --report-file path and --report-format json', () => {
     const result = parseScopeArgs(['--report-file', 'output.json', '--report-format', 'json']);
     expect(result.reportFile).toBe('output.json');
@@ -91,6 +96,7 @@ describe('parseScopeArgs', () => {
       includeScenarios: false,
       skipRecordCheck: false,
       skipRepositoryChecks: false,
+      skipDependentScopes: false,
       reportFile: null,
       reportFormat: null,
       baseRef: null,
@@ -354,6 +360,21 @@ describe('pre-push hook', () => {
     expect(content).toContain('pnpm harness:pre-push');
     expect(content).not.toContain('origin/main');
     expect(content).not.toContain('harness:scan:dist');
+  });
+
+  it('keeps dependent scope expansion opt-in for pre-push', () => {
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+
+    expect(content).toContain('HARNESS_PRE_PUSH_MODE');
+    expect(content).toContain('--skip-dependent-scopes');
+    expect(content).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
+  });
+
+  it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+
+    expect(content).toContain('hasWorkingTreeChanges');
+    expect(content).toContain('baseRef && !hasWorkingTreeChanges()');
   });
 
   it('parses Git pre-push update lines', () => {

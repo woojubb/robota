@@ -23,8 +23,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
 - The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
+- Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
 - Do not duplicate a stronger gate with a weaker one. If `pnpm harness:verify -- --base-ref <ref> --skip-record-check` or release-grade verification has already passed for the final diff, the pre-push hook may be treated as the final safety net rather than a separate manual command.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
+- Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
 - If the hook skips because no repository content is being published, do not run full checks by habit.
 - If any scoped check fails, fix it locally before pushing.
 - This rule exists because both CI-only failures and repeated no-op local verification waste minutes and slow down the feedback loop.
