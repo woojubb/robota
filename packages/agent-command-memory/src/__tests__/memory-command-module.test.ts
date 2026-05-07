@@ -112,12 +112,12 @@ describe('createMemoryCommandModule', () => {
     ]);
     const descriptor = executor
       .listModelInvocableCommands()
-      .find((command) => command.name === '/memory');
+      .find((command) => command.name === 'memory');
 
     expect(executor.isModelInvocable('memory')).toBe(true);
     expect(descriptor).toEqual(
       expect.objectContaining({
-        name: '/memory',
+        name: 'memory',
         kind: 'builtin-command',
         userInvocable: true,
         modelInvocable: true,
