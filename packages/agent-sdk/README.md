@@ -54,7 +54,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
 - **Prompt File References** — Path-like `@file` prompt references are resolved by the SDK under the session `cwd`, bounded by size/recursion limits, recorded as structured history events, and registered as observed context references
 - **Context Reference Inventory** — Manual `/context add` references are stored by `InteractiveSession`, included in future prompt model input, and exposed through SDK command common APIs
-- **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider API keys
+- **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider credentials
 - **Context Window Management** — Token tracking, configurable auto-compaction (default ~83.5%), manual `session.compact()`
 - **Background Jobs** — Runtime-managed subagent tasks with transcripts and task snapshots
 - **Agent Batch Jobs** — `Agent({ jobs: [...] })` starts explicit parallel subagent requests deterministically
@@ -455,7 +455,7 @@ Settings are merged from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects the active entry from `providers`. Qwen Model Studio profiles use `type: "qwen"` with the documented DashScope OpenAI-compatible `baseURL`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
+`currentProvider` selects the active entry from `providers`. Qwen Model Studio profiles use `type: "qwen"` with the documented DashScope OpenAI-compatible `baseURL`. Gemma-family local models should use a `type: "gemma"` profile so provider-specific stream projection is applied. The resolved SDK config normalizes the active profile into `provider.name`, `provider.model`, `provider.apiKey`, optional `provider.authToken`, optional `provider.baseURL`, and optional `provider.timeout`. The legacy `provider` object remains supported when `currentProvider` is not configured.
 
 ## Permission Modes
 

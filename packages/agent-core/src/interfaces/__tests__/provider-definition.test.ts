@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { IProviderDefinition } from '../provider-definition';
-import { findProviderDefinition, formatSupportedProviderTypes } from '../provider-definition';
+import {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+} from '../provider-definition';
 
 const providerDefinition: IProviderDefinition = {
   type: 'gemini',
@@ -21,6 +25,25 @@ describe('provider definition helpers', () => {
 
   it('formats provider types with aliases for user-facing diagnostics', () => {
     expect(formatSupportedProviderTypes([providerDefinition])).toBe('gemini (alias: google)');
+  });
+
+  it('returns explicit provider credential requirements before legacy API key metadata', () => {
+    expect(
+      getProviderCredentialRequirement({
+        ...providerDefinition,
+        credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
+        requiresApiKey: true,
+      }),
+    ).toEqual({ anyOf: ['apiKey', 'authToken'] });
+  });
+
+  it('derives legacy API key requirements for existing provider definitions', () => {
+    expect(
+      getProviderCredentialRequirement({
+        ...providerDefinition,
+        requiresApiKey: true,
+      }),
+    ).toEqual({ anyOf: ['apiKey'] });
   });
 
   it('allows provider-owned model catalog refresh hooks', async () => {

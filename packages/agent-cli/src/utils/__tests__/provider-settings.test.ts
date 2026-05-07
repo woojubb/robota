@@ -12,7 +12,7 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'anthropic',
     defaults: { model: 'claude-sonnet-4-6' },
-    requiresApiKey: true,
+    credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
     createProvider: () => {
       throw new Error('not used');
     },
@@ -106,11 +106,32 @@ describe('provider settings helpers', () => {
         { type: 'anthropic', model: 'claude-sonnet-4-6' },
         { providerDefinitions },
       ),
-    ).toThrow('missing apiKey');
+    ).toThrow('missing apiKey or authToken');
 
     expect(() =>
       validateProviderProfile('openai', { type: 'openai', apiKey: 'lm-studio' }),
     ).toThrow('missing model');
+  });
+
+  it('stores auth-token-env as an env reference without reading the environment value', () => {
+    process.env.ANTHROPIC_AUTH_TOKEN = 'sk-ant-oat01-real';
+
+    const patch = buildProviderSetupPatch(
+      {
+        profile: 'anthropic',
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        authTokenEnv: 'ANTHROPIC_AUTH_TOKEN',
+        setCurrent: true,
+      },
+      { providerDefinitions },
+    );
+
+    expect(patch.providers.anthropic?.authToken).toBe('$ENV:ANTHROPIC_AUTH_TOKEN');
+    expect(patch.providers.anthropic?.authToken).not.toBe('sk-ant-oat01-real');
+    expect(patch.currentProvider).toBe('anthropic');
+
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
   });
 
   it('builds provider profiles from injected provider defaults', () => {

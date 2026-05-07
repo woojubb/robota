@@ -62,6 +62,7 @@ export {
 
 export type {
   IProviderConfig,
+  IProviderCredentialRequirement,
   IProviderDefinition,
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
@@ -70,13 +71,18 @@ export type {
   IProviderProfileConfig,
   IProviderProfileDefaults,
   IProviderSetupStepDefinition,
+  TProviderCredentialField,
   TProviderModelCapability,
   TProviderModelCatalogStatus,
   TProviderModelCatalogRefresh,
   TProviderModelLifecycle,
   TProviderSetupField,
 } from './provider-definition';
-export { findProviderDefinition, formatSupportedProviderTypes } from './provider-definition';
+export {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+} from './provider-definition';
 
 export type {
   IMediaOutputRef,
