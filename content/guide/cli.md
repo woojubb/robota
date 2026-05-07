@@ -106,7 +106,7 @@ The TUI (built with React + Ink) provides:
 
 - **Message list** — Conversation history with markdown rendering
 - **Input area** — Text input with slash command autocomplete
-- **Status bar** — Permission mode, model, context usage %, message count, and activity state
+- **Status bar** — Permission mode, model, context usage %, and activity state
 - **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
 - **Streaming** — Real-time text output as the model responds
 - **Usage summaries** — Provider usage and cost metadata when available

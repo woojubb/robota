@@ -52,7 +52,7 @@ Bash: pnpm test
 The status bar shows real-time context usage:
 
 ```
-Thinking | Model: claude-sonnet-4-6 | Context: 45% | msgs: 12
+Thinking | Model: claude-sonnet-4-6 | Context: 45%
 ```
 
 `default` permission mode is hidden because it is the baseline. Non-default permission modes such as

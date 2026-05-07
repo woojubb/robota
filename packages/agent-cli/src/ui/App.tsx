@@ -280,7 +280,6 @@ function AppInner(
         providerProfileName={props.providerProfileName}
         providerType={props.providerType}
         sessionId={sessionId}
-        messageCount={history.length}
         isThinking={isThinking}
         activeToolCount={activeTools.length}
         activeBackgroundTaskCount={activeBackgroundTaskCount}

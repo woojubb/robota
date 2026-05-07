@@ -416,7 +416,7 @@ bin.ts → cli.ts (arg parsing)
                     ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
                     ├── MessageList.tsx
                     ├── InputArea.tsx          (CjkTextInput, bracketed paste, slash detection)
-                    ├── StatusBar.tsx          (activity, conditional mode, model, context %, message count)
+                    ├── StatusBar.tsx          (activity, conditional mode, model, context %)
                     ├── PermissionPrompt.tsx   (arrow-key Allow/Deny)
                     ├── SlashAutocomplete.tsx  (command popup with scroll)
                     ├── DiffBlock.tsx          (Edit tool diff display)

@@ -243,7 +243,7 @@ The StatusBar shows real-time session information:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ Thinking  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  msgs: 12 │
+│ Thinking  |  my-session  |  git: feat/x  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K) │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -253,7 +253,6 @@ The StatusBar shows real-time session information:
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6")  |
 | Git      | `resolveGitBranch(cwd)`                    | Current git branch when available and enabled          |
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")     |
-| msgs     | message count                              | Number of messages in conversation                     |
 | Session  | `session.getName()`                        | Session name (shown only when a name is set)           |
 | Activity | CLI-derived display state                  | Left-side primary activity text without a field prefix |
 
@@ -265,7 +264,7 @@ Activity priority is deterministic and renderer-owned:
 4. queued prompt (`Queued`)
 5. idle (`Idle`)
 
-When a prompt is queued behind foreground work, the activity row keeps the active work as primary and appends `queued` as secondary metadata. `default` permission mode is the baseline and is hidden; non-default permission modes (`plan`, `acceptEdits`, `bypassPermissions`) are rendered as `Mode: <mode>`. SDK session state remains the source of truth; `StatusBar` receives derived display counts and does not infer provider or execution semantics.
+When a prompt is queued behind foreground work, the activity row keeps the active work as primary and appends `queued` as secondary metadata. `default` permission mode is the baseline and is hidden; non-default permission modes (`plan`, `acceptEdits`, `bypassPermissions`) are rendered as `Mode: <mode>`. SDK session state remains the source of truth; `StatusBar` receives derived display values and does not infer provider or execution semantics.
 
 ### `/statusline` Slash Command
 
@@ -804,7 +803,7 @@ src/
     ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
     ├── SessionStatusBar.tsx         ← Statusline settings + git branch adapter
-    ├── StatusBar.tsx                ← Activity, conditional mode, model, git branch, context %, message count
+    ├── StatusBar.tsx                ← Activity, conditional mode, model, git branch, context %
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
     ├── StreamingIndicator.tsx       ← Real-time Tools:/Robota: display during run()
     ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
