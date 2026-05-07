@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -111,6 +111,75 @@ describe('default CLI command composition', () => {
         result: 'Permission mode set to: plan\nPermission mode: plan\nNo session-approved tools.',
         subtype: 'success',
       });
+    } finally {
+      process.stdout.write = originalWrite;
+      await session.shutdown({ reason: 'prompt_input_exit' });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('prints provider profile lists in headless mode without blocking on TUI interactions', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-headless-provider-'));
+    mkdirSync(join(cwd, '.robota'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.robota', 'settings.local.json'),
+      JSON.stringify({
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'gpt-4o', apiKey: 'sk-openai' },
+          anthropic: {
+            type: 'anthropic',
+            model: 'claude-sonnet-4-6',
+            apiKey: '$ENV:ANTHROPIC_API_KEY',
+          },
+        },
+      }),
+    );
+    const session = new InteractiveSession({
+      cwd,
+      provider: createFakeProvider(),
+      config: {
+        defaultTrustLevel: 'moderate',
+        language: 'en',
+        provider: {
+          name: 'fake',
+          model: 'fake-model',
+          apiKey: 'test-key',
+        },
+        permissions: { allow: [], deny: [] },
+        env: {},
+      },
+      bare: true,
+      permissionMode: 'default',
+      commandModules: createDefaultCliCommandModules({
+        cwd,
+        providerDefinitions: [],
+      }),
+    });
+    const writes: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: string) => {
+      writes.push(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      const transport = createHeadlessTransport({
+        outputFormat: 'json',
+        prompt: '/provider',
+      });
+
+      session.attachTransport(transport);
+      await transport.start();
+
+      expect(transport.getExitCode()).toBe(0);
+      const output = parseJsonObject(writes.join('').trim());
+      expect(output).toMatchObject({
+        type: 'result',
+        subtype: 'success',
+      });
+      expect(String(output['result'])).toContain('* openai: openai gpt-4o');
+      expect(String(output['result'])).toContain('- anthropic: anthropic claude-sonnet-4-6');
     } finally {
       process.stdout.write = originalWrite;
       await session.shutdown({ reason: 'prompt_input_exit' });

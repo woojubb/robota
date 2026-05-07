@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildProviderSetupPatch,
+  deleteProviderProfile,
   setCurrentProvider,
   upsertProviderProfile,
   validateProviderProfile,
@@ -129,5 +130,52 @@ describe('provider settings helpers', () => {
       apiKey: 'custom-key',
       baseURL: 'http://localhost:9999/v1',
     });
+  });
+
+  it('deletes inactive provider profiles without changing the current provider', () => {
+    const settings = {
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'gpt-4o', apiKey: 'sk-openai' },
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: '$ENV:ANTHROPIC_API_KEY',
+        },
+      },
+    };
+
+    const next = deleteProviderProfile(settings, 'anthropic');
+
+    expect(next.currentProvider).toBe('openai');
+    expect(next.providers).toEqual({
+      openai: { type: 'openai', model: 'gpt-4o', apiKey: 'sk-openai' },
+    });
+  });
+
+  it('requires a valid replacement when deleting the active provider profile', () => {
+    const settings = {
+      currentProvider: 'anthropic',
+      providers: {
+        openai: { type: 'openai', model: 'gpt-4o', apiKey: 'sk-openai' },
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          apiKey: '$ENV:ANTHROPIC_API_KEY',
+        },
+      },
+    };
+
+    const next = deleteProviderProfile(settings, 'anthropic', {
+      replacementCurrentProvider: 'openai',
+    });
+
+    expect(next.currentProvider).toBe('openai');
+    expect(next.providers).toEqual({
+      openai: { type: 'openai', model: 'gpt-4o', apiKey: 'sk-openai' },
+    });
+    expect(() =>
+      deleteProviderProfile(settings, 'anthropic', { replacementCurrentProvider: 'missing' }),
+    ).toThrow('Provider profile "missing" was not found');
   });
 });

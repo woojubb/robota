@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -99,23 +99,23 @@ Recommended UX:
 
 ## Acceptance Criteria
 
-- [ ] `/provider` opens an interactive provider profile picker in TUI mode.
-- [ ] `/provider list` supports selecting a listed profile in TUI mode while preserving plain text
+- [x] `/provider` opens an interactive provider profile picker in TUI mode.
+- [x] `/provider list` supports selecting a listed profile in TUI mode while preserving plain text
       output in headless/non-interactive mode.
-- [ ] Selecting a profile presents an action menu with switch, edit, test, duplicate, delete, and
+- [x] Selecting a profile presents an action menu with switch, edit, test, duplicate, delete, and
       cancel.
-- [ ] Switching through the picker uses the same confirmation and restart effect as
+- [x] Switching through the picker uses the same confirmation and restart effect as
       `/provider use <profile>`.
-- [ ] Editing a profile uses provider-definition setup metadata and SDK provider common APIs rather
+- [x] Editing a profile uses provider-definition setup metadata and SDK provider common APIs rather
       than CLI-specific provider branches.
-- [ ] Deleting a profile is confirmed, does not expose secrets, and handles active/last-profile
+- [x] Deleting a profile is confirmed, does not expose secrets, and handles active/last-profile
       edge cases explicitly.
-- [ ] Provider test results are shown from the existing probe path without mutating settings.
-- [ ] TUI tests cover picker navigation, action selection, switch confirmation, edit prompt flow,
+- [x] Provider test results are shown from the existing probe path without mutating settings.
+- [x] TUI tests cover picker navigation, action selection, switch confirmation, edit prompt flow,
       delete confirmation, and cancel paths.
-- [ ] Headless tests prove provider commands still return deterministic text and do not block on
+- [x] Headless tests prove provider commands still return deterministic text and do not block on
       TUI-only interactions.
-- [ ] SPEC/README/content docs describe the interactive provider-management flow.
+- [x] SPEC/README/content docs describe the interactive provider-management flow.
 
 ## Verification Plan
 
@@ -126,3 +126,15 @@ Recommended UX:
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - Headless CLI smoke test for `/provider list` and `/provider test [profile]`
 - TUI/headless verification evidence for selecting a profile and cancelling without mutation
+
+## Result
+
+Completed in `feat/provider-profile-management-tui`.
+
+- `/provider` and `/provider list` now return a generic profile-picker interaction while preserving
+  deterministic text output for headless transports.
+- The provider command package owns the profile action chain for switch, edit, test, duplicate,
+  delete, and cancel.
+- SDK provider common APIs now support fixed-profile edit defaults and provider profile deletion.
+- CLI remains a thin renderer of generic command interactions; no provider-specific TUI routing was
+  added.

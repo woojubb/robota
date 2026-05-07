@@ -9,6 +9,7 @@ export type {
 export {
   buildProviderProfile,
   buildProviderSetupPatch,
+  deleteProviderProfile,
   mergeProviderPatch,
   setCurrentProvider,
   upsertProviderProfile,

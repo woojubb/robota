@@ -20,10 +20,15 @@ export interface IProviderSetupFlowState {
   stepIndex: number;
   values: Partial<Record<TProviderSetupField, string>>;
   existingProfileNames: readonly string[];
+  profileName?: string;
+  setCurrent?: boolean;
 }
 
 export interface IProviderSetupFlowOptions {
   existingProfileNames?: readonly string[];
+  initialValues?: Partial<Record<TProviderSetupField, string>>;
+  profileName?: string;
+  setCurrent?: boolean;
 }
 
 export type TProviderSetupFlowSubmitResult =
@@ -48,10 +53,15 @@ export function createProviderSetupFlow(
 ): IProviderSetupFlowState {
   return {
     type,
-    steps: getProviderSetupSteps(type, providerDefinitions),
+    steps: applyProviderSetupInitialValues(
+      getProviderSetupSteps(type, providerDefinitions),
+      options.initialValues,
+    ),
     stepIndex: 0,
     values: {},
     existingProfileNames: options.existingProfileNames ?? [],
+    ...(options.profileName !== undefined ? { profileName: options.profileName } : {}),
+    ...(options.setCurrent !== undefined ? { setCurrent: options.setCurrent } : {}),
   };
 }
 
@@ -220,17 +230,39 @@ function getProviderSetupSteps(
   return steps;
 }
 
+function applyProviderSetupInitialValues(
+  steps: readonly IProviderSetupPromptStep[],
+  initialValues: Partial<Record<TProviderSetupField, string>> | undefined,
+): IProviderSetupPromptStep[] {
+  if (initialValues === undefined) {
+    return [...steps];
+  }
+  return steps.map((step) => {
+    const initialValue = initialValues[step.key];
+    if (initialValue === undefined) {
+      return step;
+    }
+    return {
+      ...step,
+      defaultValue: initialValue,
+      required: false,
+    };
+  });
+}
+
 function buildProviderSetupInput(state: IProviderSetupFlowState): IProviderSetupInput {
-  const profile = suggestProviderProfileName(
-    { type: state.type, model: state.values.model },
-    { existingProfileNames: state.existingProfileNames },
-  );
+  const profile =
+    state.profileName ??
+    suggestProviderProfileName(
+      { type: state.type, model: state.values.model },
+      { existingProfileNames: state.existingProfileNames },
+    );
   return {
     profile,
     type: state.type,
     model: state.values.model,
     apiKey: state.values.apiKey,
     ...(state.values.baseURL !== undefined && { baseURL: state.values.baseURL }),
-    setCurrent: true,
+    setCurrent: state.setCurrent ?? true,
   };
 }
