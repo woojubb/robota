@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -109,3 +109,18 @@ Recommended migration strategy:
 - `pnpm harness:scan`
 - Manual review of the router to confirm each major architecture area has one clear destination.
 - Manual review that no generated `content/api-reference/**` files were edited.
+
+## Result
+
+Completed in `docs/architecture-map-tree-split`.
+
+- Converted `.agents/specs/ARCHITECTURE-MAP.md` into a concise router and reading guide.
+- Added `.agents/specs/architecture-map/` with focused subdocuments for repository overview,
+  dependency direction, agent system, CLI composition, DAG system, apps/deployment,
+  cross-cutting contracts, and architecture lessons.
+- Split the large CLI detail map again under `.agents/specs/architecture-map/agent-cli/` so the CLI
+  router no longer owns a 600+ line mixed document.
+- Converted `packages/agent-cli/docs/ARCHITECTURE-MAP.md` into a package-local router pointing to
+  the grouped CLI composition map.
+- Updated project/spec indexes and process rules so future architecture changes update the relevant
+  subdocument instead of appending details to the router.
