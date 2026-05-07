@@ -342,6 +342,11 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 ### Current Coverage
 
+The app test runner uses a 30s per-test timeout because route integration tests exercise Express,
+HTTP fetch, WebSocket, and multipart boundaries under coverage. The timeout protects Node 18
+compatibility CI from false negatives caused by parallel coverage overhead while still failing real
+hangs within a bounded interval.
+
 | Test File                                            | Scope                                 | Tests                                                                                                                                          |
 | ---------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/__tests__/comfyui-event-translator.test.ts`     | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events                                                                             |
