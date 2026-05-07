@@ -125,8 +125,13 @@ describe('createSubagentSession', () => {
     expect(toolNames).toEqual(['Read', 'Grep']);
   });
 
-  it('should always exclude Agent tool', () => {
-    const tools = [makeTool('Read'), makeTool('Agent'), makeTool('Grep')];
+  it('should always exclude agent-spawning tools', () => {
+    const tools = [
+      makeTool('Read'),
+      makeTool('Agent'),
+      makeTool('robota_command_agent'),
+      makeTool('Grep'),
+    ];
     const agent = makeAgentDef();
 
     createSubagentSession({
@@ -143,6 +148,7 @@ describe('createSubagentSession', () => {
     const toolNames = passedTools.map((t) => t.getName());
     expect(toolNames).toEqual(['Read', 'Grep']);
     expect(toolNames).not.toContain('Agent');
+    expect(toolNames).not.toContain('robota_command_agent');
   });
 
   it('should resolve model shortcut "haiku"', () => {
@@ -417,9 +423,14 @@ describe('createSubagentSession', () => {
     expect(passedOptions['model']).toBe('gpt-4o-mini');
   });
 
-  it('should remove Agent tool even when it is in the allowlist', () => {
-    const tools = [makeTool('Read'), makeTool('Agent'), makeTool('Grep')];
-    const agent = makeAgentDef({ tools: ['Read', 'Agent', 'Grep'] });
+  it('should remove agent-spawning tools even when they are in the allowlist', () => {
+    const tools = [
+      makeTool('Read'),
+      makeTool('Agent'),
+      makeTool('robota_command_agent'),
+      makeTool('Grep'),
+    ];
+    const agent = makeAgentDef({ tools: ['Read', 'Agent', 'robota_command_agent', 'Grep'] });
 
     createSubagentSession({
       agentDefinition: agent,
@@ -435,6 +446,7 @@ describe('createSubagentSession', () => {
     const toolNames = passedTools.map((t) => t.getName());
     expect(toolNames).toEqual(['Read', 'Grep']);
     expect(toolNames).not.toContain('Agent');
+    expect(toolNames).not.toContain('robota_command_agent');
   });
 
   it('should handle empty parent tools', () => {

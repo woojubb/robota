@@ -18,7 +18,7 @@ export interface ICommand {
   argumentHint?: string;
   /** When true, models cannot invoke this skill autonomously */
   disableModelInvocation?: boolean;
-  /** When true, models may invoke this command through the command execution tool */
+  /** When true, models may invoke this command through the SDK-projected command tool */
   modelInvocable?: boolean;
   /** When false, users cannot invoke this skill directly */
   userInvocable?: boolean;

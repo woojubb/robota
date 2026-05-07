@@ -283,7 +283,7 @@ describe('createSession — command descriptor tool guidance', () => {
     sessionCtorCalls.length = 0;
   });
 
-  it('does not register ExecuteCommand when no command descriptor is model-invocable', async () => {
+  it('does not register projected command tools when no command descriptor is model-invocable', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     createSession({
@@ -308,6 +308,7 @@ describe('createSession — command descriptor tool guidance', () => {
     const opts = sessionCtorCalls[0]!;
     const tools = opts.tools as IToolWithEventService[];
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
+    expect(tools.some((tool) => tool.getName().startsWith('robota_command_'))).toBe(false);
   });
 
   it('does not expose skill metadata when the skills command is not model-invocable', async () => {
@@ -378,7 +379,7 @@ describe('createSession — command descriptor tool guidance', () => {
     }
   });
 
-  it('forwards registered command descriptors into the ExecuteCommand tool description', async () => {
+  it('projects registered command descriptors into provider-safe command tools', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     createSession({
@@ -403,12 +404,12 @@ describe('createSession — command descriptor tool guidance', () => {
 
     const opts = sessionCtorCalls[0]!;
     const tools = opts.tools as IToolWithEventService[];
-    const executeCommand = tools.find((tool) => tool.getName() === 'ExecuteCommand');
+    const compactTool = tools.find((tool) => tool.getName() === 'robota_command_compact');
 
-    expect(executeCommand?.schema.description).toContain('Registered model-invocable commands:');
-    expect(executeCommand?.schema.description).toContain('compact:');
-    expect(executeCommand?.schema.description).toContain('explicitly requests compaction');
-    expect(executeCommand?.schema.description).not.toContain('/compact');
+    expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
+    expect(compactTool?.schema.description).toContain('explicitly requests compaction');
+    expect(compactTool?.schema.description).toContain('Robota command id: compact.');
+    expect(compactTool?.schema.description).not.toContain('/compact');
   });
 });
 

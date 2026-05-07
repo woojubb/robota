@@ -38,7 +38,11 @@ import { storeAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
-import { createCommandExecutionTool } from '../tools/command-execution-tool.js';
+import {
+  createModelCommandToolProjection,
+  createProjectedCommandExecutionTools,
+  formatProjectedModelCommandToolPromptDescription,
+} from '../tools/model-command-tool-projection.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
@@ -197,6 +201,13 @@ export function createSession(options: ICreateSessionOptions): Session {
   const modelInvocableCommandDescriptors = getModelInvocableCommandDescriptors(
     options.commandDescriptors,
   );
+  const modelCommandToolsEnabled =
+    modelInvocableCommandDescriptors.length > 0 &&
+    options.modelCommandExecutor !== undefined &&
+    options.isModelCommandInvocable !== undefined;
+  const modelCommandToolProjection = modelCommandToolsEnabled
+    ? createModelCommandToolProjection(modelInvocableCommandDescriptors)
+    : undefined;
   const modelVisibleSkills = hasModelInvocableCommandDescriptor(
     modelInvocableCommandDescriptors,
     'skills',
@@ -227,12 +238,12 @@ export function createSession(options: ICreateSessionOptions): Session {
       })
     : assembledTools;
   if (
-    modelInvocableCommandDescriptors.length > 0 &&
-    options.modelCommandExecutor &&
-    options.isModelCommandInvocable
+    modelCommandToolsEnabled &&
+    options.modelCommandExecutor !== undefined &&
+    options.isModelCommandInvocable !== undefined
   ) {
     tools.push(
-      createCommandExecutionTool({
+      ...createProjectedCommandExecutionTools({
         execute: options.modelCommandExecutor,
         isModelInvocable: options.isModelCommandInvocable,
         commandDescriptors: modelInvocableCommandDescriptors,
@@ -333,8 +344,10 @@ export function createSession(options: ICreateSessionOptions): Session {
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const defaultToolDescriptions = [
     ...DEFAULT_TOOL_DESCRIPTIONS,
-    ...(modelInvocableCommandDescriptors.length > 0 && options.modelCommandExecutor
-      ? ['ExecuteCommand — execute model-invocable Robota commands']
+    ...(modelCommandToolProjection
+      ? modelCommandToolProjection.commandTools.map(
+          formatProjectedModelCommandToolPromptDescription,
+        )
       : []),
   ];
   const systemMessage = buildPrompt({

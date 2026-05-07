@@ -738,10 +738,10 @@ like any other slash command. The SDK normalizes virtual `/<skill-name>` aliases
 activation host API, and the SDK emits `skill_activation` events and owns all skill execution
 semantics. The CLI must not synthesize skill activation state or call skill-specific SDK methods.
 
-Model-initiated skills also use the standard command route: `ExecuteCommand` with `command:
-"skills"`. The startup prompt may show skill descriptors, but full skill content is loaded only
-after `/skills` activates the skill. A plain assistant claim that a skill was used is not treated as
-skill activation unless a `skill_activation` event exists.
+Model-initiated skills also use the standard SDK-projected command route: `robota_command_skills`
+with skill arguments in `args`. The startup prompt may show skill descriptors, but full skill
+content is loaded only after `/skills` activates the skill. A plain assistant claim that a skill was
+used is not treated as skill activation unless a `skill_activation` event exists.
 
 ## Type Ownership
 

@@ -292,7 +292,7 @@ The `agent` command module, rendered as `/agent` by CLI/headless shells, support
 }
 ```
 
-When `jobs` is present, `/agent` starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. Model routing uses `ExecuteCommand(command: "agent", args: ...)` rather than a parallel `Agent` tool route.
+When `jobs` is present, `/agent` starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. Model routing uses the projected `robota_command_agent` tool with `args: ...` rather than a parallel `Agent` tool route.
 
 ### Tool Filtering
 

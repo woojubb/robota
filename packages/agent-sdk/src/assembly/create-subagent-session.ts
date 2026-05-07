@@ -20,6 +20,7 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
 /** Model shortcut names mapped to full Anthropic model IDs. */
 const MODEL_SHORTCUTS: Record<string, string> = {
@@ -27,6 +28,8 @@ const MODEL_SHORTCUTS: Record<string, string> = {
   haiku: 'claude-haiku-4-5',
   opus: 'claude-opus-4-6',
 };
+const LEGACY_AGENT_TOOL_NAME = 'Agent';
+const PROJECTED_AGENT_COMMAND_TOOL_NAME = createProviderSafeModelCommandToolName('agent');
 
 /** Options for creating a subagent session. */
 export interface ISubagentOptions {
@@ -83,7 +86,7 @@ function resolveModelId(shortName: string, _parentModel: string): string {
  * Filtering order:
  * 1. Remove disallowed tools (denylist)
  * 2. Keep only allowed tools (allowlist), if specified
- * 3. Always remove the 'Agent' tool (subagents cannot spawn subagents)
+ * 3. Always remove agent-spawning tools (subagents cannot spawn subagents)
  */
 function filterTools(
   parentTools: IToolWithEventService[],
@@ -103,8 +106,11 @@ function filterTools(
     tools = tools.filter((t) => allowSet.has(t.getName()));
   }
 
-  // Step 3: Always remove Agent tool
-  tools = tools.filter((t) => t.getName() !== 'Agent');
+  // Step 3: Always remove agent-spawning tools
+  tools = tools.filter(
+    (t) =>
+      t.getName() !== LEGACY_AGENT_TOOL_NAME && t.getName() !== PROJECTED_AGENT_COMMAND_TOOL_NAME,
+  );
 
   return tools;
 }

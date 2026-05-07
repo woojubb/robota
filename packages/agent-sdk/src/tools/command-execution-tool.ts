@@ -3,6 +3,10 @@ import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
 import type { ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import {
+  normalizeModelCommandName,
+  stringifyModelCommandResult,
+} from './model-command-tool-projection.js';
 
 interface ICommandExecutionArgs {
   command: string;
@@ -46,18 +50,14 @@ function createCommandExecutionSchema(
   });
 }
 
-function normalizeCommand(command: string): string {
-  return command.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
-}
-
 function getCommandNames(deps: ICommandExecutionToolDeps): readonly string[] | undefined {
   if (deps.commandNames !== undefined) return deps.commandNames;
   if (deps.commandDescriptors === undefined) return undefined;
-  return deps.commandDescriptors.map((descriptor) => normalizeCommand(descriptor.name));
+  return deps.commandDescriptors.map((descriptor) => normalizeModelCommandName(descriptor.name));
 }
 
 function formatCommandDescriptor(descriptor: TModelCommandDescriptor): string {
-  const commandName = normalizeCommand(descriptor.name);
+  const commandName = normalizeModelCommandName(descriptor.name);
   const argumentHint = descriptor.argumentHint ? ` ${descriptor.argumentHint}` : '';
   return `- ${commandName}${argumentHint}: ${descriptor.description}`;
 }
@@ -75,22 +75,6 @@ function createToolDescription(commandDescriptors?: readonly TModelCommandDescri
   ].join('\n');
 }
 
-function stringifyCommandResult(command: string, result: ICommandResult | null): string {
-  if (!result) {
-    return JSON.stringify({
-      success: false,
-      command,
-      error: `Unknown command: ${command}`,
-    });
-  }
-  return JSON.stringify({
-    success: result.success,
-    command,
-    message: result.message,
-    data: result.data,
-  });
-}
-
 export function createCommandExecutionTool(
   deps: ICommandExecutionToolDeps,
 ): ReturnType<typeof createZodFunctionTool> {
@@ -101,7 +85,7 @@ export function createCommandExecutionTool(
     asZodSchema(commandExecutionSchema),
     async (params) => {
       const args: ICommandExecutionArgs = commandExecutionSchema.parse(params);
-      const command = normalizeCommand(args.command);
+      const command = normalizeModelCommandName(args.command);
       if (!deps.isModelInvocable(command)) {
         return JSON.stringify({
           success: false,
@@ -109,7 +93,7 @@ export function createCommandExecutionTool(
           error: `Command is not model-invocable: ${command}`,
         });
       }
-      return stringifyCommandResult(command, await deps.execute(command, args.args ?? ''));
+      return stringifyModelCommandResult(command, await deps.execute(command, args.args ?? ''));
     },
   );
 }

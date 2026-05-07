@@ -145,6 +145,7 @@ describe('Subagent integration', () => {
       makeTool('Glob'),
       makeTool('Bash'),
       makeTool('Agent'),
+      makeTool('robota_command_agent'),
     ];
 
     const exploreDef = getBuiltInAgent('Explore');
@@ -171,9 +172,10 @@ describe('Subagent integration', () => {
     expect(toolNames).not.toContain('Write');
     expect(toolNames).not.toContain('Edit');
     expect(toolNames).not.toContain('Agent');
+    expect(toolNames).not.toContain('robota_command_agent');
   });
 
-  it('general-purpose agent inherits all tools except Agent', () => {
+  it('general-purpose agent inherits all tools except agent-spawning tools', () => {
     const tools = [
       makeTool('Read'),
       makeTool('Write'),
@@ -182,6 +184,7 @@ describe('Subagent integration', () => {
       makeTool('Glob'),
       makeTool('Bash'),
       makeTool('Agent'),
+      makeTool('robota_command_agent'),
     ];
 
     const generalDef = getBuiltInAgent('general-purpose');
@@ -207,10 +210,11 @@ describe('Subagent integration', () => {
     expect(toolNames).toContain('Glob');
     expect(toolNames).toContain('Bash');
     expect(toolNames).not.toContain('Agent');
+    expect(toolNames).not.toContain('robota_command_agent');
   });
 
-  it('Agent tool is excluded from subagent tools for all agent types', () => {
-    const tools = [makeTool('Read'), makeTool('Agent')];
+  it('agent-spawning tools are excluded from subagent tools for all agent types', () => {
+    const tools = [makeTool('Read'), makeTool('Agent'), makeTool('robota_command_agent')];
 
     for (const agentDef of BUILT_IN_AGENTS) {
       vi.clearAllMocks();
@@ -227,6 +231,7 @@ describe('Subagent integration', () => {
       const passedTools = passedOptions['tools'] as IToolWithEventService[];
       const toolNames = passedTools.map((t) => t.getName());
       expect(toolNames).not.toContain('Agent');
+      expect(toolNames).not.toContain('robota_command_agent');
     }
   });
 
