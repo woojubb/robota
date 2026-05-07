@@ -1,5 +1,21 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.61
+
+### Minor Changes
+
+- e243fb0: Add provider-neutral sandbox execution ports, E2B-compatible sandbox adapter, and SDK sandbox injection for Bash and core file tools.
+- 18fcc5b: Add provider-neutral sandbox snapshot hydration for interactive sessions. Snapshot-capable sandbox clients now persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume, while the E2B structural adapter supports both `createSnapshot()`-style checkpoints and pause/resume sandbox references.
+- 3bde012: Add provider-neutral sandbox workspace manifests and wire `InteractiveSession` to apply them before session creation.
+
+### Patch Changes
+
+- d97bdf2: Add provider-owned model catalog metadata, route `/model` suggestions through the active provider, and make `cli:dev` resolve the CLI workspace dependency closure through source export conditions.
+- Updated dependencies [1c0d44c]
+- Updated dependencies [36eb7a9]
+- Updated dependencies [d97bdf2]
+  - @robota-sdk/agent-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes

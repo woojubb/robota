@@ -8,7 +8,6 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:scan:consistency`
 - `pnpm harness:scan:commands`
 - `pnpm harness:scan:sdk-public-surface`
-- `pnpm harness:scan:worktrees`
 - `pnpm harness:scan:specs`
 - `pnpm harness:scan:coverage-scripts`
 - `pnpm harness:plan -- --changed-file <path> [--changed-file <path>] [--base-ref <git-ref>]`
@@ -33,7 +32,6 @@ These scripts are the executable layer of the Robota harness.
 
 - runs consistency, spec ownership, and docs structure scans as one gate
 - verifies that testable workspace packages expose `test:coverage` without running coverage
-- verifies that worktree operating rules and pre-push skip mechanics stay documented and wired
 - is the default repository-wide pre-review harness command
 
 ### `scan-consistency.mjs`
@@ -60,12 +58,6 @@ These scripts are the executable layer of the Robota harness.
 - verifies that `agent-sdk` public barrels do not use broad export-star pass-throughs
 - verifies that the top-level SDK entrypoint does not hide `agent-core`, `agent-sessions`, or `agent-tools` ownership
 - verifies that `agent-runtime` re-exports stay in documented SDK runtime facade barrels
-
-### `check-worktree-policy.mjs`
-
-- verifies that worktree operating rules stay anchored in `git-branch.md`
-- verifies that `branch-guard` exposes the concrete worktree procedure
-- verifies that pre-push delete-only and tree-equivalent skip mechanics remain implemented
 
 ### `check-test-coverage-scripts.mjs`
 

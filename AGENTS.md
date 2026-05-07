@@ -30,7 +30,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/rules/process.md](.agents/rules/process.md)                     | Routing file → spec-workflow, tdd-and-planning, verification, publish, operational |
 | [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API spec, runtime/orchestrator boundary                                            |
 | [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                           |
-| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops, branch policy, worktree                                                   |
+| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops and branch policy                                                          |
 | [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | Observed failure patterns                                                          |
 | [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                               |
 | [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                     |
@@ -90,7 +90,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, feature docs |
 | API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own                                  |
 | Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                      |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree                                       |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy and conventional commits                                              |
 | Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                 |
 | Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                   |
 

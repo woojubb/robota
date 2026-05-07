@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-agent",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "description": "Composable /agent command module for Robota sessions",
   "type": "module",
   "main": "dist/node/index.js",

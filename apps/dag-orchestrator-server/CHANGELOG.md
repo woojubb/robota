@@ -1,5 +1,21 @@
 # @robota-sdk/dag-orchestrator-server
 
+## 3.0.1-beta.17
+
+### Patch Changes
+
+- Updated dependencies [c34d696]
+- Updated dependencies [0b3638f]
+- Updated dependencies [d7c5605]
+- Updated dependencies [b90ed47]
+- Updated dependencies [b61f9ce]
+  - @robota-sdk/dag-api@3.0.0-beta.61
+  - @robota-sdk/dag-orchestration-client@3.0.0-beta.61
+  - @robota-sdk/dag-core@3.0.0-beta.61
+  - @robota-sdk/dag-adapters-local@3.0.0-beta.61
+  - @robota-sdk/dag-orchestrator@3.0.0-beta.61
+  - @robota-sdk/dag-cost@3.0.0-beta.61
+
 ## 3.0.1-beta.16
 
 ### Patch Changes

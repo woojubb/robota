@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-exit",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "description": "Composable exit command module for Robota hosts",
   "type": "module",
   "main": "dist/node/index.js",

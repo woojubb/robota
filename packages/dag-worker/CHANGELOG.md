@@ -1,5 +1,17 @@
 # @robota-sdk/dag-worker
 
+## 3.0.0-beta.61
+
+### Minor Changes
+
+- b90ed47: Add optional queue dequeue wait timeouts and worker idle waits so local DAG workers can wake immediately when tasks are enqueued.
+
+### Patch Changes
+
+- Updated dependencies [b90ed47]
+- Updated dependencies [b61f9ce]
+  - @robota-sdk/dag-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes
