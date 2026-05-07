@@ -262,9 +262,9 @@ Use the `` !`command` `` syntax to embed shell command output into the skill bod
 ### Invocation Methods
 
 - **User direct**: Type `/skill-name` in the input area, or pass `/skill-name ...` to print/headless mode
-- **Natural-language request**: Prompts such as `Use the repo-writing skill ...` remain normal model input; the model must activate the skill through `ExecuteCommand(command: "skills", args: ...)`
+- **Natural-language request**: Prompts such as `Use the repo-writing skill ...` remain normal model input; the model must activate the skill through the projected `robota_command_skills` tool with `args: "<skill-name> [args]"`
 - **Skill discovery**: Use `/skills` to list registered skills and show the activation contract. Model-side selection uses the system prompt `## Skills` metadata when `skills` is model-invocable.
-- **Model command invocation**: The model activates a matching skill through the standard `ExecuteCommand` tool with `command: "skills"` and `args: "<skill-name> [args]"`.
+- **Model command invocation**: The model activates a matching skill through the standard projected command tool `robota_command_skills` with `args: "<skill-name> [args]"`.
 - **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
 
 Skill descriptions are metadata only. Mentioning or recommending a skill in ordinary assistant text
@@ -359,7 +359,7 @@ When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. 
 
 ### Subagent Execution
 
-The AI can spawn subagents through the `/agent` built-in command module using `ExecuteCommand(command: "agent", args: ...)`. Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
+The AI can spawn subagents through the `/agent` built-in command module using the projected `robota_command_agent` tool with `args: ...`. Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
 
 For explicit multi-agent or parallel-agent requests, `/agent` supports a batch jobs shape. A single command invocation starts all valid jobs before waiting for terminal summaries and returns structured per-job results with a shared group identifier.
 

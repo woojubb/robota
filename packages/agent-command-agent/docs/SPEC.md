@@ -69,7 +69,7 @@ Agent spawn commands are background-first. The user-facing syntax does not requi
 
 `parallel` accepts both `label=agent:"prompt"` and simpler `label:"prompt"` tokens. The simpler form defaults to `general-purpose`. `parallel` spawns all valid jobs before waiting for any result, creates a background job group with `wait_all`, and waits for the SDK-owned group completion result before returning the command result. Jobs still run as background jobs; the command waits on the group summary so model-routed parallel delegation produces a consolidated parent response even when the model omits an explicit wait flag. `--wait` is accepted as an explicit compatibility alias. `--detach` returns created job IDs immediately and leaves consolidation to a later `/agent wait GROUP_ID`.
 
-Model-routed agent execution uses the standard command bridge: `ExecuteCommand` with `command: "agent"` and command arguments in `args`. The command identity is `agent`; user-facing shells render and parse it as `/agent`. There must not be a parallel model-visible `Agent` tool route for the same behavior.
+Model-routed agent execution uses the SDK-projected command tool: `robota_command_agent` with command arguments in `args`. The command identity is `agent`; user-facing shells render and parse it as `/agent`. There must not be a parallel model-visible `Agent` tool route for the same behavior.
 
 For parallel delegation, `/agent parallel ...` is the same-turn orchestration path and returns structured requested/started job counts plus terminal result data. Detached background orchestration remains available through `/agent parallel --detach ...`, which returns `groupId` for later `/agent wait GROUP_ID`.
 

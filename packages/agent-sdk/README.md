@@ -255,8 +255,8 @@ registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 
 Model-invocable skills are exposed to the model as metadata only when the session has a composed
 model-invocable `skills` command descriptor. `@robota-sdk/agent-command-skills` owns `skills` and
-activates skills through the SDK host API. Models use the standard command route: `ExecuteCommand`
-with `command: "skills"` and skill arguments in `args`. Mentioning a skill in ordinary prose,
+activates skills through the SDK host API. Models use the SDK-projected `robota_command_skills`
+tool with skill arguments in `args`. Mentioning a skill in ordinary prose,
 recommending a skill in assistant text, or matching a natural-language phrase in SDK/TUI code does
 not activate the skill.
 

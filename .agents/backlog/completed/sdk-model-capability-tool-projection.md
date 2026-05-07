@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -18,7 +18,7 @@ Model-invocable Robota commands currently use the generic `ExecuteCommand` wrapp
 
 Skills and agents must not be treated as special model routes. `skills` and `agent` are built-in command modules. Individual skills are UI/transport virtual aliases only: `/<skill-name> <args>` normalizes inside SDK command execution to command `skills` with args `<skill-name> <args>`. TUI and headless transports must not directly route skills or agents.
 
-The current canonical model route is:
+The original model route was:
 
 - Built-in command modules expose `ISystemCommand.modelInvocable`.
 - `createSession()` registers the generic `ExecuteCommand` tool when at least one composed command descriptor is model-invocable.
@@ -26,13 +26,14 @@ The current canonical model route is:
 - Skill names and descriptions remain in the system prompt `Skills` section as metadata SSOT.
 - Full `SKILL.md` content is loaded only after SDK skill activation.
 
-The future improvement is to project each model-invocable command descriptor into a provider-safe function tool without breaking this layering.
+The completed implementation projects each model-invocable command descriptor into a provider-safe function tool without breaking this layering.
 
 ## Current Code Confirmation
 
 - `@robota-sdk/agent-command-skills` owns `skills` as a normal `ICommandModule`.
-- `packages/agent-sdk/src/assembly/create-session.ts` registers `ExecuteCommand` only when at least one composed command descriptor is model-invocable.
-- `packages/agent-sdk/src/tools/command-execution-tool.ts` routes command name + args through the command executor.
+- `packages/agent-sdk/src/assembly/create-session.ts` now registers projected `robota_command_*` tools only when at least one composed command descriptor is model-invocable.
+- `packages/agent-sdk/src/tools/model-command-tool-projection.ts` maps command descriptors to provider-safe tool names and reverse command identity mappings.
+- `packages/agent-sdk/src/tools/command-execution-tool.ts` remains exported as a legacy compatibility helper, but `createSession()` no longer exposes it by default.
 - `packages/agent-sdk/src/commands/skill-source.ts` owns skill file discovery as SDK common API.
 - `InteractiveSession.executeCommand()` normalizes virtual skill aliases to the composed `skills` command.
 - Provider packages translate `IChatOptions.tools` into provider-native function tools and must remain domain-neutral.
@@ -74,7 +75,7 @@ Each projected tool should:
 - keep a reverse registry from provider-safe tool name to command identity;
 - reject projection name collisions at assembly time.
 
-Because this project is still beta, direct projection may replace the generic `ExecuteCommand` wrapper once parity tests pass. Until then, `ExecuteCommand` remains the canonical model route for built-in commands, including `skills`.
+Because this project is still beta, direct projection replaced the generic `ExecuteCommand` wrapper after parity tests passed. `skills` now activates through `robota_command_skills({ args: "<skill-name> [args]" })`.
 
 ## Constraints
 
@@ -89,13 +90,13 @@ Because this project is still beta, direct projection may replace the generic `E
 
 ## Acceptance Criteria
 
-- [ ] SDK has a pure projection function from model command descriptors to provider-safe tool schemas and reverse mappings.
-- [ ] Model-invocable built-in commands can be exposed as individual provider-visible tools without command-module owners changing code.
-- [ ] `skills` remains a model-invocable built-in command module; skill metadata stays in the system prompt `Skills` section.
-- [ ] Virtual `/<skill-name>` aliases continue to normalize through `skills` inside SDK command execution.
-- [ ] Provider packages remain domain-neutral and only convert declared tool schemas.
-- [ ] Headless verification proves a description-matching `repo-writing` request produces structured command/skill activation evidence, not only assistant prose.
-- [ ] SPEC/README/content docs describe the model capability projection layer and the no-heuristics boundary.
+- [x] SDK has a pure projection function from model command descriptors to provider-safe tool schemas and reverse mappings.
+- [x] Model-invocable built-in commands can be exposed as individual provider-visible tools without command-module owners changing code.
+- [x] `skills` remains a model-invocable built-in command module; skill metadata stays in the system prompt `Skills` section.
+- [x] Virtual `/<skill-name>` aliases continue to normalize through `skills` inside SDK command execution.
+- [x] Provider packages remain domain-neutral and only convert declared tool schemas.
+- [x] Headless verification proves a description-matching skill request produces structured command/skill activation evidence, not only assistant prose.
+- [x] SPEC/README/content docs describe the model capability projection layer and the no-heuristics boundary.
 
 ## Verification Plan
 
@@ -106,3 +107,11 @@ Because this project is still beta, direct projection may replace the generic `E
 - `pnpm --filter @robota-sdk/agent-sdk lint`
 - Headless `-p --output-format json` scenario with an injected provider fixture that emits a projected command tool call
 - Real-provider smoke check may be run locally, but it must not be the only verification evidence
+
+## Result
+
+- Added SDK-owned provider-safe command projection with `robota_command_*` tool names, collision checks, long-name hashing, and command reverse maps.
+- Replaced `createSession()` model-command registration from generic `ExecuteCommand` to projected command tools.
+- Kept provider packages domain-neutral; providers still receive normal declared function tools only.
+- Updated `skills` and headless verification to prove a `repo-writing`-matching request can run through `robota_command_skills`, load real skill content, and record `skill_activation` events.
+- Prevented subagents from inheriting `robota_command_agent`, matching the existing no-recursive-agent tool rule.

@@ -26,10 +26,11 @@ The package exports an `ICommandModule` that consumes command contracts and skil
 
 ## Model Invocation
 
-`skills` is `modelInvocable: true`. The model-facing route is the standard `ExecuteCommand` tool:
+`skills` is `modelInvocable: true`. The model-facing route is the SDK-projected
+`robota_command_skills` tool:
 
 ```json
-{ "command": "skills", "args": "<skill-name> [args]" }
+{ "args": "<skill-name> [args]" }
 ```
 
 When this model-invocable command module is composed, skill names and descriptions are listed in the system prompt `Skills` section as selection metadata. Full `SKILL.md` content is loaded only by SDK skill execution after `skills` activates a matching skill.

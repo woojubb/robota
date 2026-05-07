@@ -325,10 +325,10 @@ agent-cli (Ink TUI — CLI-specific)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
-- **Command identity**: `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and `ExecuteCommand.command` use slash-free canonical command ids such as `skills`, `agent`, and `memory`. Slash syntax such as `/skills` or `/agent` belongs only to UI/transport input parsing and display.
+- **Command identity**: `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and projected model-command reverse mappings use slash-free canonical command ids such as `skills`, `agent`, and `memory`. Slash syntax such as `/skills` or `/agent` belongs only to UI/transport input parsing and display.
 - **SDK core built-ins**: SDK core has no user-visible built-in commands. `skills` is owned by `@robota-sdk/agent-command-skills`, which consumes SDK skill discovery and activation APIs like any other command module.
 - **Product-specific built-in commands**: User-visible internal commands outside SDK-owned discovery are provided by product-composed command modules.
-- **Product-composed built-in command modules**: `skills` is provided by `@robota-sdk/agent-command-skills`. It is user- and model-invocable, lists registered skill metadata, and activates a skill through `ICommandHostContext.executeSkillCommandByName()`. Model-side activation uses the standard `ExecuteCommand` route with `command: "skills"` and skill arguments in `args`.
+- **Product-composed built-in command modules**: `skills` is provided by `@robota-sdk/agent-command-skills`. It is user- and model-invocable, lists registered skill metadata, and activates a skill through `ICommandHostContext.executeSkillCommandByName()`. Model-side activation uses the projected `robota_command_skills` tool with skill arguments in `args`.
 - **Product-composed built-in command modules**: `help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
 - **Product-composed built-in command modules**: `model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for validation/subcommand metadata, state reads/formatting, and permission-mode updates through the command host adapter facade, and stays user-invocable only.
@@ -344,7 +344,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Product-composed built-in command modules**: `compact` is provided by `@robota-sdk/agent-command-compact`, declares blocking lifecycle metadata through the same `ISystemCommand` contract, and is exposed as a model-invocable `write` capability. Auto-compaction remains a deterministic session policy and emits structured compaction events instead of relying on the model to decide routine compaction.
 - **Product-composed built-in command modules**: `exit` is provided by `@robota-sdk/agent-command-exit`. It reuses the SDK session-exit effect helper, stays user-invocable only, and leaves concrete shutdown/process exit to the host effect handler.
 - **Product-composed built-in command modules**: `plugin` and `reload-plugins` are provided by `@robota-sdk/agent-command-plugin`. They reuse SDK plugin command common APIs, send host UI opening through `plugin-tui-requested`, refresh host plugin command sources through `plugin-registry-reload-requested`, and perform install/uninstall/enable/disable/marketplace/reload operations through a host-provided `ICommandPluginAdapter`.
-- **Model-invocable built-ins**: Product-composed command modules such as `skills`, `agent`, `memory`, and `compact` expose descriptors so explicit user/model requests can execute through the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
+- **Model-invocable built-ins**: Product-composed command modules such as `skills`, `agent`, `memory`, and `compact` expose descriptors so explicit user/model requests can execute through SDK-projected provider-safe command tools such as `robota_command_skills`. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
 - **`rewind`**: User-invocable product-composed code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind inspect <checkpoint-id>` shows captured files plus restore/rollback ranges; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
 - **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance. Product assemblies can inject host-owned built-ins such as plugin and product-composed command packages such as exit and statusline without adding CLI-specific code to SDK core.
 
@@ -440,7 +440,7 @@ Resolved provider fields:
 - **Storage**: `.robota/memory/MEMORY.md` is the project memory index; `.robota/memory/topics/*.md` stores topic details.
 - **Startup injection**: `loadContext()` reads the memory index into `ILoadedContext.memoryMd`; `buildSystemPrompt()` renders it under the neutral `Project Memory` section. Topic files are not injected at startup.
 - **Caps**: Startup memory is capped to the first 200 lines and at most 25KB.
-- **Command-driven access**: `memory` is the model-visible project memory interface when the product composes `@robota-sdk/agent-command-memory`. It is exposed through the `ExecuteCommand` tool using the injected command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
+- **Command-driven access**: `memory` is the model-visible project memory interface when the product composes `@robota-sdk/agent-command-memory`. It is exposed through the SDK-projected `robota_command_memory` tool using the injected command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
 - **Sensitive data policy**: Candidate policy must skip obvious secret, token, password, private-key, payment-card, and national-ID style content instead of silently saving it. Additional extractors may be composed later, but they must feed the same policy/store contracts.
 - **No hidden turn side effects**: `InteractiveSession` must not automatically prepend topic memory to user prompts and must not create pending memory candidates after a completed turn. Topic retrieval and memory writes happen through explicit `/memory` command execution, whether user-invoked or model-invoked.
 - **Reusable retrieval/capture internals**: `MemoryRetrievalService`, `MemoryCandidateExtractor`, `MemoryPolicyEvaluator`, and `PendingMemoryStore` remain reusable building blocks for explicit commands or future command modules. They are not wired as implicit session lifecycle side effects.
@@ -720,7 +720,7 @@ const job = await manager.spawn({
 const result = await manager.wait(job.id);
 ```
 
-Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `Agent` tool arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
+Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `agent` command arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
 
 `createBackgroundProcessTool(deps)` is exported for SDK composition. The tool is registered only when a runtime shell injects a `process` background runner through `createSession({ backgroundTaskRunners })`; default `Bash` foreground behavior remains unchanged.
 
@@ -895,7 +895,7 @@ interface ICommandModule {
 }
 ```
 
-`sessionRequirements` is how command modules request optional SDK wiring. The current requirement is `agent-runtime`, which enables `Agent` tool registration, agent definitions, and the shared background/subagent managers.
+`sessionRequirements` is how command modules request optional SDK wiring. The current requirement is `agent-runtime`, which enables agent definitions and the shared background/subagent managers for command-owned agent execution.
 
 **ICommandResult:**
 
@@ -1217,28 +1217,29 @@ loaded only when the composed `skills` command calls SDK skill activation throug
 `ICommandHostContext.executeSkillCommandByName()`. Skills with `disable-model-invocation: true` are
 omitted from model-visible metadata and rejected for model-sourced `skills` activation.
 
-When at least one model-invocable command exists, `createSession()` registers an `ExecuteCommand`
-tool. `skills` uses that same standard command route: `command: "skills"` and `args:
-"<skill-name> [args]"`. `createSession()` must not register `ExecuteSkill` or any parallel direct
-skill model tool. A model mentioning or recommending a skill in ordinary prose is not a skill
-activation.
+When at least one model-invocable command exists, `createSession()` projects each descriptor into a
+provider-safe tool named `robota_command_<command>`. The projection layer keeps a reverse map from
+provider-visible tool name to slash-free command id, validates collisions before session assembly,
+and routes execution through the same `ISystemCommand` handler used by user-entered slash commands.
+`skills` uses the projected `robota_command_skills` route with `args: "<skill-name> [args]"`.
+`createSession()` must not register `ExecuteSkill` or any parallel direct skill model tool. A model
+mentioning or recommending a skill in ordinary prose is not a skill activation.
 
 For user prompts, `InteractiveSession.submit()` does not parse natural language for skill names or
 activation phrases. Natural-language skill selection belongs to the model-facing `skills`
-descriptor and the standard `ExecuteCommand` tool route. Explicit slash input such as `/audit
-src/index.ts` is a virtual command alias normalized by `executeCommand()` into the composed
+descriptor and the projected `robota_command_skills` tool route. Explicit slash input such as
+`/audit src/index.ts` is a virtual command alias normalized by `executeCommand()` into the composed
 `skills` command with args `audit src/index.ts`.
 
-The `ExecuteCommand.command` parameter schema is constrained to the registered model-invocable
-command names for the session. Its provider-visible description includes registered command
-descriptors so command owners, not the system prompt composer, own autonomous-use guidance.
-`createSession()` must not register `ExecuteCommand` when no registered command descriptor is
-model-invocable.
+Projected command tool names must match provider naming constraints (`^[A-Za-z0-9_-]{1,64}$`) and
+use the `robota_command_` namespace. Their provider-visible descriptions come from registered
+command descriptors so command owners, not the system prompt composer, own autonomous-use guidance.
+`createSession()` must not register projected command tools when no registered command descriptor is
+model-invocable. The legacy `createCommandExecutionTool()` helper remains exported for compatibility,
+but `createSession()` does not expose both routes for the same command behavior.
 
-Direct provider-safe tool projection for model-invocable commands is planned separately. Until that
-exists, model skill activation stays on `skills` through `ExecuteCommand`. Selection must not be
-implemented with local keyword matching, alias tables, or natural-language pre-routing inside
-`InteractiveSession`.
+Selection must not be implemented with local keyword matching, alias tables, or natural-language
+pre-routing inside `InteractiveSession`.
 
 Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, agent runtime dependencies, agent definitions, and model-visible agent metadata are omitted.
 
@@ -1341,7 +1342,7 @@ When session persistence is enabled, `InteractiveSession` must persist backgroun
 - stdout/stderr inspection and cancellation are routed through the shared manager APIs
 - existing `Bash` tool behavior is not changed
 
-`createSession()` accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. The SDK default remains `createInProcessSubagentRunner(agentToolDeps)`. A runtime shell may supply a factory to run `Agent` tool jobs through a process-backed runner while reusing the same config/context/tool dependency bundle assembled by the SDK.
+`createSession()` accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. The SDK default remains `createInProcessSubagentRunner(agentToolDeps)`. A runtime shell may supply a factory to run `agent` command jobs through a process-backed runner while reusing the same config/context/tool dependency bundle assembled by the SDK.
 
 Runner progress semantics:
 
@@ -1438,7 +1439,7 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 1. Remove disallowed tools (denylist from agent definition)
 2. Keep only allowed tools (allowlist from agent definition, if specified)
-3. Always remove the `Agent` tool (subagents cannot spawn subagents)
+3. Always remove agent-spawning tools such as `Agent` and `robota_command_agent` (subagents cannot spawn subagents)
 
 **Model resolution:** Agent definition model override (with shortcut expansion: `sonnet`, `haiku`, `opus`) takes priority; falls back to parent config model.
 
@@ -1468,8 +1469,8 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 Model-requested agent invocation is owned by `@robota-sdk/agent-command-agent`. The command module
 contributes `agent` as a model-invocable built-in command and requests the SDK `agent-runtime`
-session requirement. The model route is the same standard command bridge used by other built-ins:
-`ExecuteCommand({ command: "agent", args: "..." })`.
+session requirement. The model route is the same projected command-tool path used by other
+built-ins: `robota_command_agent({ args: "..." })`.
 
 The SDK stores agent runtime dependencies for the command module and for `context: fork` skills.
 It does not register a separate model-visible `Agent` function tool. Parallel, batch, detached, and

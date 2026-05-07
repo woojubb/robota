@@ -591,7 +591,7 @@ Rules:
 - Skipped unknown tools must not be counted as executed tools in `IExecutionResult.toolsExecuted`.
 - `tool_execution_result` replay events must include the same metadata so session logs and transports can explain the skipped call.
 - If unavailable tool calls repeat for consecutive model/tool rounds, the loop guard stops normal tool rounds and performs one final provider call without tools. The forced instruction tells the model which tool names were unavailable and that those calls were not executed because they are not registered.
-- Provider packages must not implement ad hoc aliases such as `agent` -> `ExecuteCommand`; command and tool selection must be corrected by model-visible descriptors, schemas, and the normal tool-result feedback loop.
+- Provider packages must not implement ad hoc aliases such as `agent` -> `robota_command_agent`; command and tool selection must be corrected by model-visible descriptors, schemas, and the normal tool-result feedback loop.
 
 ## Extension Points
 

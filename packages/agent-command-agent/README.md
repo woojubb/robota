@@ -9,7 +9,7 @@ This package contributes command metadata and execution for agent job control. I
 - Parses `agent` command input into job-control operations after a shell strips the user-facing slash.
 - Provides command metadata for SDK/CLI command registries.
 - Delegates lifecycle work to runtime/SDK subagent managers instead of owning process execution directly.
-- Provides the model-visible `agent` command through the standard `ExecuteCommand` route. There is no parallel model-visible `Agent` tool route.
+- Provides the model-visible `agent` command through the SDK-projected `robota_command_agent` tool route. There is no parallel model-visible `Agent` tool route.
 
 ## Typical Composition
 
