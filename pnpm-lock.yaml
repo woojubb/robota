@@ -618,6 +618,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-deepseek':
+        specifier: workspace:*
+        version: link:../agent-provider-deepseek
       '@robota-sdk/agent-provider-gemini':
         specifier: workspace:*
         version: link:../agent-provider-gemini
@@ -1439,6 +1442,40 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-provider-bytedance:
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-provider-deepseek:
+    dependencies:
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(zod@3.25.76)
     devDependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
@@ -9305,12 +9342,12 @@ packages:
       '@typescript-eslint/type-utils': 6.21.0(eslint@9.31.0)(typescript@5.8.3)
       '@typescript-eslint/utils': 6.21.0(eslint@9.31.0)(typescript@5.8.3)
       '@typescript-eslint/visitor-keys': 6.21.0
-      debug: 4.4.1
+      debug: 4.4.3
       eslint: 9.31.0
       graphemer: 1.4.0
       ignore: 5.3.2
       natural-compare: 1.4.0
-      semver: 7.7.2
+      semver: 7.7.4
       ts-api-utils: 1.4.3(typescript@5.8.3)
       typescript: 5.8.3
     transitivePeerDependencies:

@@ -95,7 +95,7 @@ defaults:
 }
 ```
 
-Gemma-family local models served through LM Studio must use a `type: "gemma"` profile so the provider package can apply Gemma-specific channel-marker projection. `type: "openai"` remains model-family neutral and must not filter Gemma markers.
+Gemma-family local models served through LM Studio must use a `type: "gemma"` profile so the provider package can apply Gemma-specific channel-marker projection. DeepSeek API profiles must use `type: "deepseek"` so DeepSeek defaults, model catalog metadata, and thinking options remain provider-owned. `type: "openai"` remains model-family neutral and must not filter Gemma markers or carry DeepSeek-specific defaults.
 
 Provider resolution order:
 

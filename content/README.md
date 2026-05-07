@@ -100,7 +100,7 @@ robota -p "Explain this project"    # Print mode
 ## Why Robota SDK?
 
 - **Type-Safe**: Strict TypeScript with zero `any` in production code
-- **Multi-Provider**: Anthropic Claude, OpenAI, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
+- **Multi-Provider**: Anthropic Claude, OpenAI, DeepSeek, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
 - **Tool Calling**: Zod-based schema validation for type-safe function calls
 - **Subagents**: Runtime-managed background jobs, transcripts, and `/agent` command orchestration
 - **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
@@ -144,6 +144,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)                     | `/provider` command module for provider profiles                       |
 | [`@robota-sdk/agent-command-skills`](./packages/agent-command-skills/)                         | `/skills` command module for skill discovery and activation            |
 | [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/)                 | Anthropic Claude provider                                              |
+| [`@robota-sdk/agent-provider-deepseek`](./packages/agent-provider-deepseek/)                   | DeepSeek OpenAI-compatible provider                                    |
 | [`@robota-sdk/agent-provider-openai`](./packages/agent-provider-openai/)                       | OpenAI provider                                                        |
 | [`@robota-sdk/agent-provider-gemini`](./packages/agent-provider-gemini/)                       | Canonical Google Gemini provider                                       |
 | [`@robota-sdk/agent-provider-google`](./packages/agent-provider-google/)                       | Gemini compatibility wrapper for legacy Google imports/settings        |
@@ -172,6 +173,7 @@ npm install @robota-sdk/agent-core
 
 # Provider
 npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-provider-deepseek
 npm install @robota-sdk/agent-provider-openai openai
 npm install @robota-sdk/agent-provider-gemini @google/genai
 npm install @robota-sdk/agent-provider-google @google/genai

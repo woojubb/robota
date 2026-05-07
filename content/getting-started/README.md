@@ -3,7 +3,8 @@
 ## Prerequisites
 
 - **Node.js**: 18.0.0 or higher (recommended: 22.14.0)
-- **AI Provider API key**: Anthropic, OpenAI, Gemini, Qwen, or another configured provider
+- **AI Provider API key**: Anthropic, OpenAI, DeepSeek, Gemini, Qwen, or another configured
+  provider
 
 ## Installation
 
