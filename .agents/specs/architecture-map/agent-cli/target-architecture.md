@@ -1,0 +1,113 @@
+# Agent CLI Target Architecture and Dependencies
+
+Source-verified against `develop` on 2026-05-07.
+
+This document owns the target CLI ownership model and dependency graph. Use it before adding,
+removing, or moving package edges around `@robota-sdk/agent-cli`.
+
+## Target Architecture
+
+The CLI target is a thin product shell around SDK-hosted session orchestration and command
+contracts. `agent-cli` may compose product defaults and own terminal-specific adapters, but reusable
+runtime behavior, command behavior, provider semantics, and persistence contracts must be owned by
+the package whose public API describes that behavior.
+
+```text
+agent-cli
+  owns terminal input/rendering, CLI flags, provider definition composition,
+  product-default command module selection, and concrete local host adapters
+      |
+      v
+agent-sdk
+  owns InteractiveSession, command contracts/common APIs, provider-neutral facades,
+  host adapter ports, prompt file-reference preprocessing, session orchestration,
+  and SDK-specific safety layers
+      |
+      +--> agent-sessions   owns conversation run loop, persistence, compaction
+      +--> agent-runtime    owns reusable background/subagent lifecycle ports and state
+      +--> agent-tools      owns generic tools and tool schemas
+      +--> agent-core       owns provider, history, permission, hook, and model catalog contracts
+
+agent-command-*
+  owns user-visible command descriptors and execution; consumes SDK contracts as a third-party
+  command module would
+
+agent-provider-*
+  owns provider definitions, defaults, setup metadata, fallback model catalogs, probes, transport
+  translation, and provider-specific options
+```
+
+Target ownership rules:
+
+| Concern                                                      | Target owner                                  | CLI role                                                              |
+| ------------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------------------- |
+| Slash prefix detection, command autocomplete, prompt UI      | `agent-cli`                                   | Render and route generic command requests.                            |
+| Command descriptors, command execution, lifecycle effects    | `agent-command-*`                             | Select default modules and render returned interactions/effects.      |
+| Command contracts, result/effect types, host adapter ports   | `agent-sdk`                                   | Consume SDK contracts without defining parallel command shapes.       |
+| Skill activation semantics and audit events                  | `agent-sdk`                                   | Render `skill_activation`; never infer activation from prompt text.   |
+| Provider settings/profile setup common APIs                  | `agent-sdk` + provider packages               | Provide concrete settings adapters and provider definitions.          |
+| Prompt `@file` parsing, file reads, diagnostics, records     | `agent-sdk`                                   | Pass ordinary prompt text through `InteractiveSession.submit()`.      |
+| Provider-specific defaults, probes, model fallback data      | `agent-provider-*` via `agent-core` contracts | Compose definitions, never branch on provider names in TUI hooks.     |
+| Session persistence facade                                   | `agent-sdk`                                   | Request project-local store and display SDK-owned summaries.          |
+| Reusable background/subagent state machines and ports        | `agent-runtime`                               | Supply local process/worktree adapters when they are terminal-hosted. |
+| Terminal process spawning, Ink rendering, local settings I/O | `agent-cli`                                   | Keep concrete I/O at the outer shell.                                 |
+| Core provider/history/permission/model contracts             | `agent-core`                                  | Import public contracts only.                                         |
+
+Target migration order:
+
+1. Remove implicit command effect transport through mutable `InteractiveSession` fields.
+2. Retire CLI command compatibility shims so consumers import command infrastructure from the SDK
+   owner directly.
+3. Keep local runtime adapters classified: reusable lifecycle, log pagination, and worktree
+   contracts stay behind SDK/runtime-owned ports; CLI keeps only terminal-host I/O.
+4. Add provider model catalog live/generated refresh adapters on top of the existing provider-owned
+   fallback catalog contract.
+5. Audit the SDK public export surface so owned APIs and compatibility re-exports are explicit and
+   do not hide package ownership.
+
+## Package Dependency Graph
+
+```mermaid
+flowchart TD
+  CLI["@robota-sdk/agent-cli\nbin.ts, cli.ts, React/Ink UI"]
+  SDK["@robota-sdk/agent-sdk\nInteractiveSession, command contracts, common APIs"]
+  Commands["@robota-sdk/agent-command-*\nuser-visible command modules"]
+  Core["@robota-sdk/agent-core\nprovider, permission, history, message contracts"]
+  Sessions["@robota-sdk/agent-sessions\nSession, SessionStore, compaction"]
+  Tools["@robota-sdk/agent-tools\nbuilt-in tools"]
+  Runtime["@robota-sdk/agent-runtime\nbackground tasks, subagents"]
+  Providers["@robota-sdk/agent-provider-*\nprovider definitions and transports"]
+  Headless["@robota-sdk/agent-transport-headless\nnon-interactive transport"]
+
+  CLI --> SDK
+  CLI --> Commands
+  CLI --> Providers
+  CLI --> Core
+  CLI --> Headless
+
+  Commands --> SDK
+  Commands --> Core
+
+  SDK --> Sessions
+  SDK --> Tools
+  SDK --> Runtime
+  SDK --> Core
+
+  Providers --> Core
+  Sessions --> Core
+  Tools --> Core
+  Runtime --> Core
+  Headless --> SDK
+```
+
+| Edge                                     | Status                | Rule                                                                                                                                        |
+| ---------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI -> SDK                               | Allowed               | CLI consumes `InteractiveSession`, command registries, command contracts, SDK path helpers, and SDK-owned session persistence facade types. |
+| CLI -> command packages                  | Allowed               | Product composition root selects default command modules.                                                                                   |
+| CLI -> provider packages                 | Allowed               | CLI owns provider definition composition and provider instance creation.                                                                    |
+| CLI -> agent-core public types           | Allowed               | CLI may use public provider, permission, history, and message types.                                                                        |
+| CLI -> headless transport                | Allowed               | Print mode attaches a transport to `InteractiveSession`.                                                                                    |
+| CLI -> agent-sessions                    | Forbidden by CLI SPEC | No production source or package dependency should exist; harness command layering scan enforces this edge.                                  |
+| SDK -> command packages                  | Forbidden             | SDK owns contracts/common APIs and must not import command implementations. No source edge found.                                           |
+| command packages -> CLI/TUI              | Forbidden             | Commands consume SDK contracts and host adapters only. No source edge found.                                                                |
+| provider packages -> Robota commands/TUI | Forbidden             | Providers translate provider wire formats only. No source edge found in this audit.                                                         |
