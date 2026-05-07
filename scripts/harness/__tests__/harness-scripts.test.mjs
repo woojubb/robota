@@ -113,6 +113,12 @@ describe('CI build workflow', () => {
 
     expect(content).toContain('run: pnpm build');
     expect(content).toContain('Detect build requirement');
+    expect(content).toContain(
+      "const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck'])",
+    );
+    expect(content).toContain(
+      'scope.checks.some((check) => checksRequiringPackageDist.has(check))',
+    );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
     expect(content).toContain(
       'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',

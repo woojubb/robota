@@ -63,13 +63,16 @@ jobs:
           import { appendFileSync, readFileSync } from 'node:fs';
 
           const plan = JSON.parse(readFileSync('.agents/evals/local-metrics/ci-plan.json', 'utf8'));
-          const required = plan.scopes.some((scope) => scope.checks.includes('build'));
+          const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck']);
+          const required = plan.scopes.some((scope) =>
+            scope.checks.some((check) => checksRequiringPackageDist.has(check)),
+          );
           appendFileSync(process.env.GITHUB_OUTPUT, `required=${required ? 'true' : 'false'}\n`);
 
           if (required) {
-            console.log('Package or app build checks require the root monorepo build.');
+            console.log('Package or app verification requires the root monorepo build output.');
           } else {
-            console.log('No package or app build checks required.');
+            console.log('No package or app verification requires build output.');
           }
           EOF
 
@@ -90,9 +93,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Skip monorepo build when no package build is required
+      - name: Skip monorepo build when no build output is required
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required != 'true'
-        run: echo "No package or app build checks required."
+        run: echo "No package or app verification requires build output."
 
   quality:
     name: quality
