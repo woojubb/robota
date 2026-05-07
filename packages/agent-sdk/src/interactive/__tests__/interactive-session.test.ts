@@ -42,8 +42,10 @@ function createControllableRun(): {
   run: () => Promise<string>;
   started: Promise<void>;
   resolve: (value: string) => void;
+  reject: (reason?: unknown) => void;
 } {
   let resolveRun: ((value: string) => void) | undefined;
+  let rejectRun: ((reason?: unknown) => void) | undefined;
   let markStarted: () => void = () => {};
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
@@ -51,14 +53,19 @@ function createControllableRun(): {
 
   return {
     run: () =>
-      new Promise<string>((resolve) => {
+      new Promise<string>((resolve, reject) => {
         resolveRun = resolve;
+        rejectRun = reject;
         markStarted();
       }),
     started,
     resolve: (value: string) => {
       if (!resolveRun) throw new Error('run has not started');
       resolveRun(value);
+    },
+    reject: (reason?: unknown) => {
+      if (!rejectRun) throw new Error('run has not started');
+      rejectRun(reason);
     },
   };
 }
@@ -315,14 +322,9 @@ describe('InteractiveSession', () => {
 
   it('abort calls session.abort and clears queue', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
-    let rejectRun: (err: Error) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((_, reject) => {
-          rejectRun = reject;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -334,7 +336,7 @@ describe('InteractiveSession', () => {
     });
 
     const execution = session.submit('prompt');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     session.abort();
@@ -342,7 +344,7 @@ describe('InteractiveSession', () => {
     expect(mockSession.abort).toHaveBeenCalled();
     expect(session.getPendingPrompt()).toBeNull();
 
-    rejectRun!(abortError);
+    controllableRun.reject(abortError);
     await execution;
     await new Promise((r) => setTimeout(r, 10));
 

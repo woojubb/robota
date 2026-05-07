@@ -54,8 +54,10 @@ function createControllableRun(): {
   run: () => Promise<string>;
   started: Promise<void>;
   resolve: (value: string) => void;
+  reject: (reason?: unknown) => void;
 } {
   let resolveRun: ((value: string) => void) | undefined;
+  let rejectRun: ((reason?: unknown) => void) | undefined;
   let markStarted: () => void = () => {};
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
@@ -63,14 +65,19 @@ function createControllableRun(): {
 
   return {
     run: () =>
-      new Promise<string>((resolve) => {
+      new Promise<string>((resolve, reject) => {
         resolveRun = resolve;
+        rejectRun = reject;
         markStarted();
       }),
     started,
     resolve: (value: string) => {
       if (!resolveRun) throw new Error('run has not started');
       resolveRun(value);
+    },
+    reject: (reason?: unknown) => {
+      if (!rejectRun) throw new Error('run has not started');
+      rejectRun(reason);
     },
   };
 }
@@ -182,18 +189,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('abort clears queue and emits interrupted event', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
-    let rejectRun: (err: Error) => void;
     const abortHistory = [
       { role: 'user', content: 'test' },
       { role: 'assistant', content: 'partial answer', state: 'interrupted' },
     ];
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((_, reject) => {
-          rejectRun = reject;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
     // History is empty at start, populated when abort happens
     mockSession.getHistory.mockReturnValue([]);
     // After abort, history contains the interrupted messages
@@ -213,7 +215,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const exec = session.submit('test');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     session.abort();
@@ -221,7 +223,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(mockSession.abort).toHaveBeenCalled();
     expect(session.getPendingPrompt()).toBeNull();
 
-    rejectRun!(abortError);
+    controllableRun.reject(abortError);
     await exec;
     await new Promise((r) => setTimeout(r, 10));
 
@@ -524,14 +526,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('abort preserves partial assistant text in messages', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
-    let rejectRun: (err: Error) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((_, reject) => {
-          rejectRun = reject;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
     mockSession.getHistory.mockReturnValue([]);
     mockSession.abort.mockImplementation(() => {
       mockSession.getHistory.mockReturnValue([
@@ -545,9 +542,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const exec = session.submit('write a story');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
     session.abort();
-    rejectRun!(abortError);
+    controllableRun.reject(abortError);
     await exec;
     await new Promise((r) => setTimeout(r, 10));
 
