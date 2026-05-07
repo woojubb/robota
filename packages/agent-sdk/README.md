@@ -207,7 +207,7 @@ executor.register({
 
 // List all commands
 executor.listCommands(); // ISystemCommand[]
-executor.hasCommand('mode'); // boolean
+executor.hasCommand('permissions'); // boolean
 ```
 
 SDK core does not own user-visible built-in commands. Product built-ins are supplied as `agent-command-*` modules. SDK command identity is slash-free (`skills`, `help`, `compact`); UI shells render and parse those commands as slash syntax such as `/skills`, `/help`, and `/compact`.
@@ -216,6 +216,10 @@ Command modules may use SDK common APIs for shared provider-neutral behavior. Fo
 resolves the active provider from settings, reads provider-owned fallback metadata from injected
 `IProviderDefinition` records, and can invoke provider-owned catalog refresh hooks. The CLI/TUI must
 only render command results and must not own provider model lists.
+
+For `/permissions`, the SDK owns permission-mode constants, subcommand descriptors, validation,
+state formatting, and command-host adapter access. The command module owns user-visible behavior and
+keeps permission-mode changes under `/permissions [mode]`.
 
 For `/validate-session`, the session command module calls SDK session command APIs to locate and
 validate the current JSONL session log. Hosts may override `validateCurrentSessionReplayLog()` in

@@ -5,7 +5,7 @@ import type { ICommandPermissionModeAdapter } from '../host-adapters.js';
 
 export const PERMISSION_MODE_COMMAND_DESCRIPTION = 'Show/change permission mode';
 export const PERMISSION_MODE_ARGUMENT_HINT = 'plan | default | acceptEdits | bypassPermissions';
-export const PERMISSIONS_COMMAND_DESCRIPTION = 'Show permission rules';
+export const PERMISSIONS_COMMAND_DESCRIPTION = 'Show/change permission mode and permission rules';
 
 export interface IPermissionsCommandState {
   readonly mode: TPermissionMode;

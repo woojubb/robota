@@ -458,14 +458,13 @@ Tool: [5 tools]
 | ------------------------- | -------------------------------------------------------------------------- |
 | `/help`                   | Show available commands                                                    |
 | `/clear`                  | Clear conversation history through the session module                      |
-| `/mode [mode]`            | Show/change permission mode                                                |
 | `/model [model]`          | Select AI model through the injected model command module                  |
 | `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts                 |
 | `/compact [instructions]` | Compress context window                                                    |
 | `/cost`                   | Show session info through the session command module                       |
 | `/context`                | Context window info, reference inventory, and `/context auto ...` controls |
 | `/agent`                  | Run and manage background subagent jobs                                    |
-| `/permissions`            | Permission rules                                                           |
+| `/permissions [mode]`     | Permission rules and permission mode changes                               |
 | `/memory`                 | Route project memory commands to the memory command module                 |
 | `/rewind`                 | Route edit checkpoint list/restore commands to SDK                         |
 | `/background`             | Route background task controls to the background command module            |
@@ -488,10 +487,10 @@ Typing `/` as the first character in the input triggers an autocomplete popup. T
 
 **Subcommand Navigation:**
 
-Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu when selected:
+Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu when selected:
 
 ```
-> /mode
+> /permissions
 +-------------------------------------+
 |   plan                              |
 |   default                           |
@@ -508,9 +507,7 @@ Commands are grouped by source with separators: built-in commands appear first, 
 
 The `/model` command is provided by the `@robota-sdk/agent-command-model` module that the Robota binary composes into `InteractiveSession`. The command lists available models for the effective active provider when provider-owned catalog metadata is available. Model definitions come through the SDK model command common API and injected provider definitions; the CLI/TUI must not show Claude-only subcommands while another provider is active.
 
-The `/mode` command is provided by the `@robota-sdk/agent-command-mode` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not mutate permission mode directly; it routes `/mode` into the generic command execution path, and the command module uses SDK permission-mode common APIs.
-
-The `/permissions` command is provided by the `@robota-sdk/agent-command-permissions` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect permission state directly; it routes `/permissions` into the generic command execution path, and the command module uses SDK permission common APIs.
+The `/permissions` command is provided by the `@robota-sdk/agent-command-permissions` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI does not compose `/mode`; permission-mode changes belong under `/permissions`.
 
 The `/language` command is provided by the `@robota-sdk/agent-command-language` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
 
@@ -1359,9 +1356,8 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-help`        | Default `/help` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                     |
-| `@robota-sdk/agent-command-mode`        | Default `/mode` command module composed by the Robota binary                                                                         |
 | `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
-| `@robota-sdk/agent-command-permissions` | Default `/permissions` command module composed by the Robota binary                                                                  |
+| `@robota-sdk/agent-command-permissions` | Default `/permissions [mode]` command module composed by the Robota binary                                                           |
 | `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
 | `@robota-sdk/agent-command-rewind`      | Default `/rewind` command module composed by the Robota binary                                                                       |
 | `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`           |
