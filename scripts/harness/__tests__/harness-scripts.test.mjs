@@ -214,6 +214,27 @@ describe('publish workflow', () => {
 });
 
 // ---------------------------------------------------------------------------
+// release governance
+// ---------------------------------------------------------------------------
+describe('release governance scan', () => {
+  it('is registered in the root harness scan and checks release operation rules', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+    const script = readFileSync('scripts/harness/check-release-governance.mjs', 'utf8');
+    const releaseRules = readFileSync('.agents/rules/release-operations.md', 'utf8');
+
+    expect(rootPackage.scripts['harness:scan:release-governance']).toBe(
+      'node scripts/harness/check-release-governance.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:release-governance');
+    expect(script).toContain('Release Control Plane');
+    expect(script).toContain('checksRequiringPackageDist');
+    expect(releaseRules).toContain('current SHA');
+    expect(releaseRules).toContain('failure class');
+    expect(releaseRules).toContain('root monorepo build once');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // CLI dev source resolution
 // ---------------------------------------------------------------------------
 describe('CLI dev source resolution', () => {

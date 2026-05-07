@@ -52,6 +52,7 @@ const REQUIRED_ROOT_HARNESS_SCRIPTS = [
   'harness:scan:sdk-public-surface',
   'harness:scan:worktrees',
   'harness:scan:specs',
+  'harness:scan:release-governance',
   'harness:verify',
   'harness:record',
   'harness:review',

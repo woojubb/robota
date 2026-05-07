@@ -43,6 +43,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Publish Safety Gate
 
+- Before entering the publish flow, follow [release-operations.md](release-operations.md): the Release Control Plane must identify the current SHA, target version, active gate, next action, and stop condition.
 - Build and test must pass BEFORE running `pnpm publish:beta`. The script does NOT run build/test internally — the agent must verify these before asking for OTP.
 - npm authentication must be verified BEFORE dry-run and BEFORE asking for OTP. Run `npm whoami --registry https://registry.npmjs.org/` or rely on `pnpm publish:beta` to run the same preflight. If this fails, tell the user to log in and do not ask for OTP. The agent may run `npm login --registry https://registry.npmjs.org/` to start the browser-based login flow, then rerun the authentication preflight after the user completes login.
 - OTP must be requested ONLY after dry-run succeeds. OTP expires in 30 seconds. If publish consumes the first OTP window, the script may prompt for a fresh OTP before `beta` dist-tag sync.
