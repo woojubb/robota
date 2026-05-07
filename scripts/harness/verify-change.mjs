@@ -48,9 +48,6 @@ function runRepositoryCheck(check, dryRun) {
     case 'harness-consistency':
       runCommand('pnpm', ['harness:scan:consistency'], WORKSPACE_ROOT, dryRun);
       break;
-    case 'worktree-policy':
-      runCommand('pnpm', ['harness:scan:worktrees'], WORKSPACE_ROOT, dryRun);
-      break;
     case 'publish-safety':
       runCommand('pnpm', ['harness:scan:publish'], WORKSPACE_ROOT, dryRun);
       break;

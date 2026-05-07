@@ -11,7 +11,7 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | Process         | [process.md](process.md)                 | Routing file — see sub-rules below         |
 | API Boundary    | [api-boundary.md](api-boundary.md)       | Runtime/Orchestrator API rules             |
 | Naming & Style  | [naming-style.md](naming-style.md)       | Language policy, agent identity, styling   |
-| Git & Branch    | [git-branch.md](git-branch.md)           | Git operations, branch policy, worktree    |
+| Git & Branch    | [git-branch.md](git-branch.md)           | Git operations and branch policy           |
 | Common Mistakes | [common-mistakes.md](common-mistakes.md) | Observed failure patterns                  |
 
 ## Process Sub-Rules (linked from process.md)

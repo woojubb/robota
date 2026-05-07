@@ -366,17 +366,6 @@ describe('SDK public surface scan', () => {
   });
 });
 
-describe('worktree policy scan', () => {
-  it('is wired into the root harness scan', () => {
-    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
-
-    expect(rootPackage.scripts['harness:scan:worktrees']).toBe(
-      'node scripts/harness/check-worktree-policy.mjs',
-    );
-    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:worktrees');
-  });
-});
-
 // ---------------------------------------------------------------------------
 // pre-push hook
 // ---------------------------------------------------------------------------
