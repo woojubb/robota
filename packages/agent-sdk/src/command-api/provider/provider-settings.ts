@@ -73,6 +73,40 @@ export function setCurrentProvider(
   };
 }
 
+export function deleteProviderProfile(
+  settings: TProviderSettingsDocument,
+  profileName: string,
+  options: { replacementCurrentProvider?: string } = {},
+): TProviderSettingsDocument {
+  if (!settings.providers?.[profileName]) {
+    throw new Error(`Provider profile "${profileName}" was not found`);
+  }
+  const providers = { ...settings.providers };
+  delete providers[profileName];
+  if (
+    options.replacementCurrentProvider !== undefined &&
+    providers[options.replacementCurrentProvider] === undefined
+  ) {
+    throw new Error(`Provider profile "${options.replacementCurrentProvider}" was not found`);
+  }
+  const next: TProviderSettingsDocument = {
+    ...settings,
+    providers,
+  };
+  if (settings.currentProvider !== profileName) {
+    return next;
+  }
+  if (options.replacementCurrentProvider !== undefined) {
+    return {
+      ...next,
+      currentProvider: options.replacementCurrentProvider,
+    };
+  }
+  const withoutCurrentProvider = { ...next };
+  delete withoutCurrentProvider.currentProvider;
+  return withoutCurrentProvider;
+}
+
 export function validateProviderProfile(
   profileName: string,
   profile: IProviderProfileSettings,

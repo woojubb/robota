@@ -135,6 +135,8 @@ Interactive setup creates a readable profile key from the selected model id, suc
 `claude-sonnet-4-6` or `gpt-4o`, and appends `-2`, `-3`, etc. when that key already exists. Generated
 profile keys never include API keys or credential hints.
 
+Inside the TUI, `/provider` and `/provider list` show configured profiles as an interactive picker. Selecting a profile opens command-owned actions for switch, edit, test, duplicate, delete, and cancel. Headless mode prints the same profile list text without opening prompts.
+
 Non-interactive/headless mode never prompts. Configure a provider ahead of time with `robota --configure` in an interactive terminal, or use `robota --configure-provider <profile> --type <type> ... --set-current`.
 
 ## Built-in Tools
@@ -154,7 +156,7 @@ The AI agent can invoke 8 local tools:
 
 ## Recent TUI Capabilities
 
-- Provider setup is generated from provider definitions, so the default CLI build can configure Anthropic, OpenAI-compatible, Gemma, and Qwen profiles without provider-specific UI branches.
+- Provider setup and profile management are generated from provider definitions, so the default CLI build can configure, switch, edit, test, duplicate, and delete Anthropic, OpenAI-compatible, Gemma, and Qwen profiles without provider-specific UI branches.
 - Interactive startup can check npm for newer CLI versions; print/headless mode skips startup update checks to keep scripted output deterministic.
 - Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
 - Edit results render as context hunks with markdown-friendly diff blocks.

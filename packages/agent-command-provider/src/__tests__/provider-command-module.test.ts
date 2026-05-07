@@ -47,6 +47,10 @@ const providerDefinitions: readonly IProviderDefinition[] = [
       model: 'claude-sonnet-4-6',
       apiKey: '$ENV:ANTHROPIC_API_KEY',
     },
+    setupSteps: [
+      { key: 'apiKey', title: 'anthropic API key', masked: true },
+      { key: 'model', title: 'anthropic model', defaultValue: 'claude-sonnet-4-6' },
+    ],
     requiresApiKey: true,
     createProvider: () => {
       throw new Error('not used');
@@ -110,6 +114,29 @@ describe('createProviderCommandModule', () => {
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('* openai');
     expect(result?.message).toContain('anthropic');
+    expect(result?.interaction?.prompt).toMatchObject({
+      kind: 'choice',
+      title: 'Select provider profile',
+    });
+  });
+
+  it('opens a provider profile picker from /provider without CLI-owned routing', async () => {
+    const { adapter } = createSettingsAdapter({
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+        anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+      },
+    });
+
+    const result = await createExecutor(adapter).execute('provider', session, '');
+    const selected = await result?.interaction?.submit('anthropic');
+
+    expect(result?.message).toContain('* openai');
+    expect(selected?.interaction?.prompt).toMatchObject({
+      kind: 'choice',
+      title: 'Provider profile: anthropic',
+    });
   });
 
   it('confirms provider switch through a generic command interaction', async () => {
@@ -139,6 +166,211 @@ describe('createProviderCommandModule', () => {
         message: 'Provider change restart',
       },
     ]);
+  });
+
+  it('switches from the provider profile action menu through the same restart interaction', async () => {
+    const { adapter, readTarget } = createSettingsAdapter(
+      {
+        currentProvider: 'anthropic',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      },
+      {},
+    );
+
+    const listed = await createExecutor(adapter).execute('provider', session, 'list');
+    const selected = await listed?.interaction?.submit('openai');
+    const switchRequested = await selected?.interaction?.submit('switch');
+    const submitted = await switchRequested?.interaction?.submit('yes');
+
+    expect(switchRequested?.message).toBe('Provider change requested: openai');
+    expect(readTarget().currentProvider).toBe('openai');
+    expect(submitted?.effects).toEqual([
+      {
+        type: 'session-restart-requested',
+        reason: 'other',
+        message: 'Provider change restart',
+      },
+    ]);
+  });
+
+  it('edits a provider profile through provider-owned setup metadata without exposing secrets', async () => {
+    const { adapter, readTarget } = createSettingsAdapter(
+      {
+        currentProvider: 'anthropic',
+        providers: {
+          anthropic: {
+            type: 'anthropic',
+            model: 'claude-sonnet-4-6',
+            apiKey: 'sk-ant-secret',
+          },
+        },
+      },
+      {},
+    );
+
+    const listed = await createExecutor(adapter).execute('provider', session, 'list');
+    const selected = await listed?.interaction?.submit('anthropic');
+    const editRequested = await selected?.interaction?.submit('edit');
+
+    expect(editRequested?.interaction?.prompt).toMatchObject({
+      kind: 'text',
+      title: 'anthropic API key',
+      placeholder: '(unchanged)',
+      masked: true,
+    });
+
+    const modelPrompt = await editRequested?.interaction?.submit('');
+    const completed = await modelPrompt?.interaction?.submit('claude-opus-4-5');
+
+    expect(readTarget()).toMatchObject({
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-opus-4-5',
+          apiKey: 'sk-ant-secret',
+        },
+      },
+    });
+    expect(completed?.message).toBe('Provider anthropic updated. Restarting...');
+    expect(completed?.effects).toEqual([
+      {
+        type: 'session-restart-requested',
+        reason: 'other',
+        message: 'Provider edit restart',
+      },
+    ]);
+  });
+
+  it('duplicates a provider profile from the action menu without switching sessions', async () => {
+    const { adapter, readTarget } = createSettingsAdapter({
+      currentProvider: 'openai',
+      providers: {
+        openai: {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+        },
+      },
+    });
+
+    const listed = await createExecutor(adapter).execute('provider', session, 'list');
+    const selected = await listed?.interaction?.submit('openai');
+    const duplicateRequested = await selected?.interaction?.submit('duplicate');
+    const completed = await duplicateRequested?.interaction?.submit('');
+
+    expect(duplicateRequested?.interaction?.prompt).toMatchObject({
+      kind: 'text',
+      title: 'Duplicate openai as',
+      placeholder: 'openai-copy',
+    });
+    expect(readTarget()).toMatchObject({
+      providers: {
+        'openai-copy': {
+          type: 'openai',
+          model: 'supergemma4-26b-uncensored-v2',
+          apiKey: 'lm-studio',
+        },
+      },
+    });
+    expect(completed?.effects).toBeUndefined();
+  });
+
+  it('deletes inactive provider profiles after confirmation', async () => {
+    const { adapter, readTarget } = createSettingsAdapter(
+      {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      },
+      {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      },
+    );
+
+    const listed = await createExecutor(adapter).execute('provider', session, 'list');
+    const selected = await listed?.interaction?.submit('anthropic');
+    const deleteRequested = await selected?.interaction?.submit('delete');
+    const completed = await deleteRequested?.interaction?.submit('yes');
+
+    expect(completed?.message).toBe('Provider profile deleted: anthropic.');
+    expect(readTarget()).toEqual({
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+      },
+    });
+  });
+
+  it('requires a replacement before deleting the active provider profile', async () => {
+    const { adapter, readTarget } = createSettingsAdapter(
+      {
+        currentProvider: 'anthropic',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      },
+      {
+        currentProvider: 'anthropic',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      },
+    );
+
+    const listed = await createExecutor(adapter).execute('provider', session, 'list');
+    const selected = await listed?.interaction?.submit('anthropic');
+    const deleteRequested = await selected?.interaction?.submit('delete');
+    const replacementPrompt = await deleteRequested?.interaction?.submit('yes');
+    const completed = await replacementPrompt?.interaction?.submit('openai');
+
+    expect(replacementPrompt?.interaction?.prompt).toMatchObject({
+      kind: 'choice',
+      title: 'Replacement provider for anthropic',
+    });
+    expect(readTarget()).toEqual({
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+      },
+    });
+    expect(completed?.effects).toEqual([
+      {
+        type: 'session-restart-requested',
+        reason: 'other',
+        message: 'Provider delete restart',
+      },
+    ]);
+  });
+
+  it('blocks deletion of inherited provider profiles instead of pretending to remove them', async () => {
+    const { adapter } = createSettingsAdapter(
+      {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      },
+      {},
+    );
+
+    const listed = await createExecutor(adapter).execute('provider', session, 'list');
+    const selected = await listed?.interaction?.submit('anthropic');
+    const deleteRequested = await selected?.interaction?.submit('delete');
+
+    expect(deleteRequested?.success).toBe(false);
+    expect(deleteRequested?.message).toContain('not stored in the active write target');
   });
 
   it('owns provider setup flow and writes settings after generic prompt submissions', async () => {
