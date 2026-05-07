@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 import { resolveGitBaseRef, WORKSPACE_ROOT } from './shared.mjs';
+import { decidePrePushVerification, parsePrePushUpdates } from './pre-push-updates.mjs';
 
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
@@ -17,8 +19,42 @@ function run(command, args) {
   }
 }
 
+function runGitQuiet(args) {
+  return (
+    spawnSync('git', args, {
+      cwd: WORKSPACE_ROOT,
+      stdio: 'ignore',
+      encoding: 'utf8',
+    }).status === 0
+  );
+}
+
+function readPrePushInput() {
+  if (process.stdin.isTTY) {
+    return '';
+  }
+
+  try {
+    return readFileSync(0, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
 const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
 const baseArgs = baseRef ? ['--base-ref', baseRef] : [];
+const updates = parsePrePushUpdates(readPrePushInput());
+const treeMatchesBase = baseRef ? runGitQuiet(['diff', '--quiet', baseRef, 'HEAD', '--']) : false;
+const prePushDecision = decidePrePushVerification({
+  updates,
+  baseRef,
+  treeMatchesBase,
+});
+
+if (!prePushDecision.shouldRun) {
+  process.stdout.write(`▶ scoped pre-push verification skipped: ${prePushDecision.reason}\n`);
+  process.exit(0);
+}
 
 process.stdout.write('▶ scoped pre-push verification\n');
 if (baseRef) {

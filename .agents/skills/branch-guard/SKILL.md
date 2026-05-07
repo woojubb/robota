@@ -82,8 +82,35 @@ description: Guard against committing directly to protected branches (main, mast
 5. **When switching branch context for a separate task:**
    - Commit and push all current work before switching.
    - After the separate task is done, return to the original branch.
-   - For tasks that must not touch the working tree (e.g., deploying from a different ref), use `git worktree add /tmp/<name> <ref>` or a separate `git clone`.
+   - For tasks that must not touch the working tree (e.g., deploying from a different ref), use a task-scoped worktree or a separate `git clone`.
    - Always clean up worktrees (`git worktree remove`) and temporary clones after use.
+
+   Worktree operating procedure:
+
+   ```bash
+   git status -sb
+   git worktree list --porcelain
+   git fetch origin develop --prune
+   git worktree add -b <branch> /tmp/robota-<topic> origin/develop
+   ```
+
+   - Use `/tmp/robota-<topic>` for agent-managed task worktrees.
+   - Use one feature branch per task worktree; do not reuse a merged branch for new work.
+   - Do not checkout `main`, `master`, or `develop` inside task worktrees.
+   - Before merging or cleaning up, verify the PR and remote state:
+
+     ```bash
+     gh pr view <number> --json state,mergedAt,mergeCommit
+     git fetch origin develop --prune
+     ```
+
+   - If `gh pr merge` succeeds remotely but fails while updating a local protected branch that is checked out in another worktree, verify the PR state and do not retry the merge blindly.
+   - After the PR is merged and no uncommitted task changes remain:
+
+     ```bash
+     git worktree remove /tmp/robota-<topic>
+     git worktree prune
+     ```
 
 6. **When deploying docs or blog:**
    - Cloudflare Pages deploys automatically when `main` is updated.
