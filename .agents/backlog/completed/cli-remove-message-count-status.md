@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -56,12 +56,12 @@ section, simplify the layout rather than keeping an empty spacer solely for symm
 
 ## Acceptance Criteria
 
-- [ ] The status bar no longer renders `msgs: N`.
-- [ ] `messageCount` is removed from status bar props and upstream TUI plumbing if no longer used by
+- [x] The status bar no longer renders `msgs: N`.
+- [x] `messageCount` is removed from status bar props and upstream TUI plumbing if no longer used by
       the status surface.
-- [ ] Status-bar tests assert that message count is not rendered.
-- [ ] CLI SPEC and user-facing docs no longer list `msgs` as a status bar field.
-- [ ] Activity, conditional permission mode, provider/model/profile, git branch, and context usage
+- [x] Status-bar tests assert that message count is not rendered.
+- [x] CLI SPEC and user-facing docs no longer list `msgs` as a status bar field.
+- [x] Activity, conditional permission mode, provider/model/profile, git branch, and context usage
       still render correctly.
 
 ## Verification Plan
@@ -69,3 +69,12 @@ section, simplify the layout rather than keeping an empty spacer solely for symm
 - `pnpm --filter @robota-sdk/agent-cli test -- status-bar`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - `pnpm --filter @robota-sdk/agent-cli lint`
+
+## Result
+
+Completed in `fix/cli-remove-message-count-status`.
+
+- Removed the visible `msgs: N` status-bar segment.
+- Removed `messageCount` from status bar props and upstream status-bar plumbing.
+- Kept message counts in saved-session picker surfaces.
+- Updated CLI SPEC, README, and interactive-mode docs to describe the slimmer status bar.

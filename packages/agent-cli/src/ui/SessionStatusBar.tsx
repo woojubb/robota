@@ -12,7 +12,6 @@ interface IProps {
   providerProfileName?: string | undefined;
   providerType?: string | undefined;
   sessionId: string;
-  messageCount: number;
   isThinking: boolean;
   activeToolCount: number;
   activeBackgroundTaskCount: number;
@@ -29,7 +28,6 @@ export default function SessionStatusBar({
   providerProfileName,
   providerType,
   sessionId,
-  messageCount,
   isThinking,
   activeToolCount,
   activeBackgroundTaskCount,
@@ -48,7 +46,6 @@ export default function SessionStatusBar({
       providerProfileName={providerProfileName}
       providerType={providerType}
       sessionId={sessionId}
-      messageCount={messageCount}
       isThinking={isThinking}
       activeToolCount={activeToolCount}
       activeBackgroundTaskCount={activeBackgroundTaskCount}
