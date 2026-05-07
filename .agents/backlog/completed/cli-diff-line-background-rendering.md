@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -68,16 +68,24 @@ Recommended color policy:
 
 ## Acceptance Criteria
 
-- [ ] Added diff lines use both foreground and background color when color is enabled.
-- [ ] Removed diff lines use both foreground and background color when color is enabled.
-- [ ] Added/removed backgrounds cover each rendered row including indentation and right-side padding.
-- [ ] Color-disabled rendering remains plain readable diff text with no ANSI color sequences.
-- [ ] Assistant markdown diffs and Edit tool diff summaries use the same diff background policy.
-- [ ] Tests cover row padding/background behavior and no-color fallback.
-- [ ] CLI SPEC documents foreground-plus-background diff rendering and row-fill behavior.
+- [x] Added diff lines use both foreground and background color when color is enabled.
+- [x] Removed diff lines use both foreground and background color when color is enabled.
+- [x] Added/removed backgrounds cover each rendered row including indentation and right-side padding.
+- [x] Color-disabled rendering remains plain readable diff text with no ANSI color sequences.
+- [x] Assistant markdown diffs and Edit tool diff summaries use the same diff background policy.
+- [x] Tests cover row padding/background behavior and no-color fallback.
+- [x] CLI SPEC documents foreground-plus-background diff rendering and row-fill behavior.
 
 ## Verification Plan
 
 - `pnpm --filter @robota-sdk/agent-cli test -- render-markdown message-list-rendering streaming-indicator`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - `pnpm --filter @robota-sdk/agent-cli lint`
+
+## Result
+
+Implemented shared Markdown `diff` rendering with red/green foreground colors plus dark
+addition/removal backgrounds. Added and removed rows are padded before ANSI styling so the
+background covers the rendered row, and color-disabled output remains plain readable text. The CLI
+SPEC and CLI guide now document the shared foreground/background row-fill policy used by assistant
+Markdown diffs and Edit tool summaries.

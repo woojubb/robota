@@ -354,7 +354,7 @@ Long tool arguments are middle-truncated, keeping the last 30 characters visible
 
 ### Edit Diff Display
 
-When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. The display format consists of a file path header followed by red (`-`) lines for removals and greenBright (`+`) lines for additions. A maximum of 10 lines are displayed; larger diffs are truncated with an `... and N more lines` indicator. No-op edits (where old and new strings are identical) are suppressed entirely.
+When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. The display format consists of a file path header followed by removal (`-`) rows with red foreground plus dark red background and addition (`+`) rows with green foreground plus dark green background. Diff row backgrounds fill the rendered row, including padding, so additions and removals remain scannable in dense edits. A maximum of 10 lines are displayed; larger diffs are truncated with an `... and N more lines` indicator. No-op edits (where old and new strings are identical) are suppressed entirely.
 
 ### Subagent Execution
 

@@ -991,7 +991,8 @@ Assistant responses are rendered as Markdown through `render-markdown.ts`. A fen
 **Rules:**
 
 - `render-markdown.ts` owns assistant Markdown diff rendering.
-- `diff` fenced blocks receive line-level terminal colors: removed lines red, added lines green, hunk headers cyan, diff metadata dim.
+- `diff` fenced blocks receive line-level terminal colors: removed lines use red foreground plus dark red background, added lines use green foreground plus dark green background, hunk headers use cyan foreground, and diff metadata is dim.
+- Added and removed `diff` rows are padded before ANSI styling so the background covers the full rendered row. The renderer uses an explicit code block width when supplied and otherwise falls back to the widest diff row.
 - Color is controlled by renderer options and terminal color environment. With color disabled, the same diff text remains readable without ANSI escape codes.
 - General fenced code blocks continue through `marked-terminal`; only `diff` fenced blocks take the Robota line-level path.
 - Tool execution summaries use the same Markdown diff body rendering path while keeping file path, truncation, permissions, and streaming status as structured UI metadata outside the fenced block.
@@ -1002,7 +1003,7 @@ When an Edit tool summary includes diff lines, the CLI shows a compact diff belo
 
 **Source:** `old_string` and `new_string` from the Edit tool arguments.
 
-**Ownership:** `tool-diff-summary.ts` converts structured `IDiffLine[]` data into a Markdown fenced `diff` body. `ToolDiffBlock.tsx` renders structured metadata around that body and delegates the diff body itself to `renderMarkdown()`. There must not be a second bespoke diff-coloring policy for tool summaries.
+**Ownership:** `tool-diff-summary.ts` converts structured `IDiffLine[]` data into a Markdown fenced `diff` body. `ToolDiffBlock.tsx` renders structured metadata around that body and delegates the diff body itself to `renderMarkdown()`. There must not be a second bespoke diff-coloring policy for tool summaries; edit diffs use the same foreground, background, and row-fill policy as assistant Markdown diffs.
 
 **Display format:**
 
