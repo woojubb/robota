@@ -258,13 +258,11 @@ function buildProviderSetupInput(state: IProviderSetupFlowState): IProviderSetup
       { existingProfileNames: state.existingProfileNames },
     );
   const apiKey = state.values.apiKey;
-  const authToken = state.values.authToken;
   return {
     profile,
     type: state.type,
     model: state.values.model,
     ...(apiKey !== undefined && apiKey.length > 0 && { apiKey }),
-    ...(authToken !== undefined && authToken.length > 0 && { authToken }),
     ...(state.values.baseURL !== undefined && { baseURL: state.values.baseURL }),
     setCurrent: state.setCurrent ?? true,
   };

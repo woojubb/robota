@@ -12,9 +12,9 @@ import { hasUsableSecretReference } from './env-ref.js';
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
 
 interface IProviderSettingsShape {
-  provider?: { name?: string; apiKey?: string; authToken?: string };
+  provider?: { name?: string; apiKey?: string };
   currentProvider?: string;
-  providers?: Record<string, { type?: string; apiKey?: string; authToken?: string }>;
+  providers?: Record<string, { type?: string; apiKey?: string }>;
 }
 
 /** Check a settings file's state for first-run setup. */
@@ -61,7 +61,7 @@ function hasUsableProviderConfig(
 
 function isUsableProviderProfile(
   type: string | undefined,
-  profile: { apiKey?: string; authToken?: string } | undefined,
+  profile: { apiKey?: string } | undefined,
   providerDefinitions: readonly IProviderDefinition[],
 ): boolean {
   if (!profile) {
@@ -82,7 +82,7 @@ function isUsableProviderProfile(
 }
 
 function hasUsableRequiredProviderCredential(
-  profile: { apiKey?: string; authToken?: string },
+  profile: { apiKey?: string },
   definition: IProviderDefinition,
   requirement: IProviderCredentialRequirement,
 ): boolean {
@@ -93,7 +93,7 @@ function hasUsableRequiredProviderCredential(
 
 function resolveProviderCredentialValue(
   field: TProviderCredentialField,
-  profile: { apiKey?: string; authToken?: string },
+  profile: { apiKey?: string },
   definition: IProviderDefinition,
 ): string | undefined {
   return profile[field] ?? definition.defaults?.[field];

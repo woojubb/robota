@@ -29,15 +29,9 @@ export interface IAnthropicProviderOptions {
   [key: string]: TAnthropicProviderOptionValue;
 
   /**
-   * Anthropic API key (required when client, authToken, and executor are not provided)
+   * Anthropic API key (required when client and executor are not provided)
    */
   apiKey?: string;
-
-  /**
-   * Anthropic OAuth bearer token, including short-lived WIF access tokens
-   * (required when client, apiKey, and executor are not provided)
-   */
-  authToken?: string;
 
   /**
    * API request timeout (milliseconds)
@@ -51,6 +45,8 @@ export interface IAnthropicProviderOptions {
 
   /**
    * Anthropic client instance (optional: will be created from apiKey if not provided)
+   * Use this path for advanced Anthropic SDK authentication that is outside
+   * Robota's normal API-key setup flow.
    */
   client?: Anthropic;
 

@@ -75,7 +75,7 @@ function resolveEnvRef(value: string): string {
  */
 function resolveEnvRefs(settings: TSettings): TSettings {
   const provider =
-    settings.provider?.apiKey !== undefined || settings.provider?.authToken !== undefined
+    settings.provider?.apiKey !== undefined
       ? resolveProviderCredentialEnvRefs(settings.provider)
       : settings.provider;
 
@@ -99,13 +99,12 @@ function resolveEnvRefs(settings: TSettings): TSettings {
   };
 }
 
-function resolveProviderCredentialEnvRefs<
-  TProvider extends { apiKey?: string; authToken?: string },
->(provider: TProvider): TProvider {
+function resolveProviderCredentialEnvRefs<TProvider extends { apiKey?: string }>(
+  provider: TProvider,
+): TProvider {
   return {
     ...provider,
     ...(provider.apiKey !== undefined && { apiKey: resolveEnvRef(provider.apiKey) }),
-    ...(provider.authToken !== undefined && { authToken: resolveEnvRef(provider.authToken) }),
   };
 }
 
@@ -182,12 +181,10 @@ function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provi
   if (profile.type === undefined) {
     throw new Error(`Provider profile "${currentProvider}" is missing type`);
   }
-  const authToken = profile.authToken;
   return {
     name: profile.type,
     model: profile.model ?? DEFAULTS.provider.model,
     apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
-    ...(authToken !== undefined && { authToken }),
     ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
     ...(profile.timeout !== undefined && { timeout: profile.timeout }),
     ...(profile.options !== undefined && { options: profile.options }),
@@ -195,12 +192,10 @@ function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provi
 }
 
 function resolveLegacyProvider(merged: TSettings): IResolvedConfig['provider'] {
-  const authToken = merged.provider?.authToken;
   return {
     name: merged.provider?.name ?? DEFAULTS.provider.name,
     model: merged.provider?.model ?? DEFAULTS.provider.model,
     apiKey: merged.provider?.apiKey ?? DEFAULTS.provider.apiKey,
-    ...(authToken !== undefined && { authToken }),
     ...(merged.provider?.baseURL !== undefined && { baseURL: merged.provider.baseURL }),
     ...(merged.provider?.timeout !== undefined && { timeout: merged.provider.timeout }),
     ...(merged.provider?.options !== undefined && { options: merged.provider.options }),
