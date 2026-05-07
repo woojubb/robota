@@ -15,6 +15,7 @@ export function parsePlanArgs(argv) {
     baseRef: null,
     reportFile: null,
     reportFormat: null,
+    skipDependentScopes: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -53,6 +54,9 @@ export function parsePlanArgs(argv) {
         index += 1;
         break;
       }
+      case '--skip-dependent-scopes':
+        options.skipDependentScopes = true;
+        break;
       default:
         throw new Error(`Unknown argument: ${token}`);
     }
@@ -187,6 +191,7 @@ export function createVerificationPlan({
   changedFiles,
   scopeTokens = [],
   manifestChangesByScope = new Map(),
+  includeDependentScopes = true,
 }) {
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
   const initialSelectedScopes =
@@ -209,7 +214,7 @@ export function createVerificationPlan({
       notes: listNotes(classification),
     });
 
-    if (needsDependentChecks(classification)) {
+    if (includeDependentScopes && needsDependentChecks(classification)) {
       for (const dependentScope of findDependentScopes(scopes, scope)) {
         if (scopePlans.has(dependentScope.relativeDir)) {
           continue;

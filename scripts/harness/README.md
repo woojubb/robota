@@ -13,7 +13,8 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:scan:coverage-scripts`
 - `pnpm harness:plan -- --changed-file <path> [--changed-file <path>] [--base-ref <git-ref>]`
 - `pnpm harness:pre-push`
-- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]`
+- `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push`
+- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>] [--skip-dependent-scopes]`
 - `pnpm harness:verify:release`
 - `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json] [--base-ref <git-ref>]`
@@ -92,8 +93,11 @@ These scripts are the executable layer of the Robota harness.
 - reads Git pre-push ref updates from stdin
 - skips verification for delete-only pushes because no repository content is being published
 - skips verification when the pushed tree already matches the resolved base, such as cleanup after a squash-merged PR
+- does not use the tree-equivalent skip when the local working tree is dirty
 - prints the scoped verification plan
-- runs `harness:verify` for affected scopes and executable repository checks
+- defaults to fast mode, which verifies directly changed scopes and executable repository checks
+- uses `--skip-dependent-scopes` in fast mode so local push latency does not explode on shared package entrypoint changes
+- supports `HARNESS_PRE_PUSH_MODE=full` when dependent scope typechecks should run locally before publishing
 - leaves release-grade verification as an explicit `pnpm harness:verify:release` command
 
 ### `verify-change.mjs`
@@ -101,6 +105,8 @@ These scripts are the executable layer of the Robota harness.
 - resolves workspace scopes from changed files or `--scope`
 - falls back to `git diff <base-ref>...HEAD` when the working tree is clean
 - runs build, test, lint, and typecheck for the relevant scope
+- includes dependent scopes by default for public entrypoint, dependency manifest, and public-surface manifest changes
+- supports `--skip-dependent-scopes` for fast local gates that intentionally avoid broad dependent checks
 - runs owner-registered scenario verification when scenario-like changes, source/config changes in scenario-owning scopes, or `--include-scenarios` are present
 - fails if authoritative scenario records are missing, invalid, duplicated, or do not match the owner command set
 - compares scenario verification output against the owner `*.record.json` artifact and fails on drift

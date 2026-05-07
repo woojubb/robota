@@ -93,6 +93,7 @@ async function main() {
     changedFiles,
     scopeTokens: options.scopeTokens,
     manifestChangesByScope,
+    includeDependentScopes: !options.skipDependentScopes,
   });
 
   if (plan.repositoryChecks.length > 0 && !options.skipRepositoryChecks) {
