@@ -14,8 +14,11 @@ import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js'
 import {
   findProviderDefinition,
   formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
   type IProviderConfig,
+  type IProviderCredentialRequirement,
   type IProviderDefinition,
+  type TProviderCredentialField,
 } from './provider-definition.js';
 import { resolveEnvReference } from './env-ref.js';
 
@@ -136,6 +139,7 @@ function resolveActiveProvider(
         name: profile.type,
         model: profile.model,
         apiKey: profile.apiKey,
+        authToken: profile.authToken,
         baseURL: profile.baseURL,
         timeout: profile.timeout,
         options: profile.options,
@@ -151,6 +155,7 @@ function resolveActiveProvider(
         name: provider.name,
         model: provider.model,
         apiKey: provider.apiKey,
+        authToken: provider.authToken,
         baseURL: provider.baseURL,
         timeout: provider.timeout,
         options: provider.options,
@@ -167,6 +172,7 @@ function normalizeProviderConfig(
     name: string;
     model?: string;
     apiKey?: string;
+    authToken?: string;
     baseURL?: string;
     timeout?: number;
     options?: Record<string, TUniversalValue>;
@@ -179,11 +185,15 @@ function normalizeProviderConfig(
     throw new Error(`Provider ${settings.name} requires model`);
   }
   const apiKeyReference = settings.apiKey ?? defaults.apiKey;
+  const authTokenReference = settings.authToken ?? defaults.authToken;
+  const authToken =
+    authTokenReference !== undefined ? resolveEnvReference(authTokenReference) : undefined;
   const options = settings.options ?? defaults.options;
   return {
     name: settings.name,
     model,
     apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
+    ...(authToken !== undefined && authToken.length > 0 && { authToken }),
     baseURL: settings.baseURL ?? defaults.baseURL,
     timeout: settings.timeout,
     ...(options !== undefined && { options }),
@@ -200,6 +210,16 @@ function resolveProfileApiKey(profile: ISerializableProviderProfile): string | u
   return undefined;
 }
 
+function resolveProfileAuthToken(profile: ISerializableProviderProfile): string | undefined {
+  if (profile.authToken !== undefined) {
+    return resolveEnvReference(profile.authToken);
+  }
+  if (profile.authTokenEnv !== undefined) {
+    return process.env[profile.authTokenEnv];
+  }
+  return undefined;
+}
+
 function createProviderFromConfig(
   settings: IProviderConfig,
   providerDefinitions: readonly IProviderDefinition[],
@@ -210,8 +230,14 @@ function createProviderFromConfig(
       `Unknown provider: ${settings.name}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
     );
   }
-  if (definition.requiresApiKey === true && !settings.apiKey) {
-    throw new Error(`Provider ${settings.name} requires apiKey`);
+  const credentialRequirement = getProviderCredentialRequirement(definition);
+  if (
+    credentialRequirement !== undefined &&
+    !hasRequiredProviderCredential(settings, credentialRequirement)
+  ) {
+    throw new Error(
+      `Provider ${settings.name} requires ${formatCredentialRequirement(credentialRequirement)}`,
+    );
   }
   return definition.createProvider(settings);
 }
@@ -241,6 +267,7 @@ export function createProviderFromProfile(
         name: profile.type,
         model: modelOverride ?? profile.model,
         apiKey: resolveProfileApiKey(profile),
+        authToken: resolveProfileAuthToken(profile),
         baseURL: profile.baseURL,
         timeout: profile.timeout,
         options: profile.options,
@@ -249,6 +276,25 @@ export function createProviderFromProfile(
     ),
     providerDefinitions,
   );
+}
+
+function hasRequiredProviderCredential(
+  settings: IProviderConfig,
+  requirement: IProviderCredentialRequirement,
+): boolean {
+  return requirement.anyOf.some((field) => hasProviderCredentialValue(settings, field));
+}
+
+function hasProviderCredentialValue(
+  settings: IProviderConfig,
+  field: TProviderCredentialField,
+): boolean {
+  const value = settings[field];
+  return value !== undefined && value.length > 0;
+}
+
+function formatCredentialRequirement(requirement: IProviderCredentialRequirement): string {
+  return requirement.anyOf.join(' or ');
 }
 
 function getProviderDefinitions(

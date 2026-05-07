@@ -24,17 +24,26 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
       entries: buildAnthropicModelCatalogEntries(),
     },
     setupSteps: [
-      { key: 'apiKey', title: 'Anthropic API key', required: true, masked: true },
+      {
+        key: 'apiKey',
+        title: 'Anthropic API key (leave blank when using auth token)',
+        masked: true,
+      },
+      {
+        key: 'authToken',
+        title: 'Anthropic auth token (optional WIF bearer token)',
+        masked: true,
+      },
       {
         key: 'model',
         title: 'Anthropic model',
         defaultValue: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       },
     ],
-    requiresApiKey: true,
+    credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
     createProvider: (config) =>
       new AnthropicProvider({
-        apiKey: requireApiKey(config.apiKey),
+        ...requireAnthropicCredential(config.apiKey, config.authToken),
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
         ...(config.timeout !== undefined && { timeout: config.timeout }),
         defaultModel: config.model,
@@ -61,9 +70,15 @@ function buildAnthropicModelCatalogEntries(): IProviderModelCatalogEntry[] {
   return entries;
 }
 
-function requireApiKey(apiKey: string | undefined): string {
-  if (!apiKey) {
-    throw new Error('Provider anthropic requires apiKey');
+function requireAnthropicCredential(
+  apiKey: string | undefined,
+  authToken: string | undefined,
+): { apiKey?: string; authToken?: string } {
+  if (!apiKey && !authToken) {
+    throw new Error('Provider anthropic requires apiKey or authToken');
   }
-  return apiKey;
+  return {
+    ...(apiKey !== undefined && { apiKey }),
+    ...(authToken !== undefined && { authToken }),
+  };
 }

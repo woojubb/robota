@@ -22,7 +22,7 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'anthropic',
     defaults: { model: 'claude-sonnet-4-6' },
-    requiresApiKey: true,
+    credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
     createProvider: () => {
       throw new Error('not used');
     },
@@ -47,6 +47,7 @@ function writeJson(path: string, data: unknown): void {
 describe('checkSettingsFile', () => {
   afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_AUTH_TOKEN;
     delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
@@ -117,6 +118,24 @@ describe('checkSettingsFile', () => {
     });
 
     expect(checkSettingsFile(path, providerDefinitions)).toBe('incomplete');
+  });
+
+  it('accepts an Anthropic profile with an auth token environment reference', () => {
+    process.env.ANTHROPIC_AUTH_TOKEN = 'sk-ant-oat01-test';
+    mkdirSync(TMP_BASE, { recursive: true });
+    const path = join(TMP_BASE, 'settings.json');
+    writeJson(path, {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          authToken: '$ENV:ANTHROPIC_AUTH_TOKEN',
+        },
+      },
+    });
+
+    expect(checkSettingsFile(path, providerDefinitions)).toBe('valid');
   });
 
   it('does not let legacy provider config mask an unusable active provider profile', () => {

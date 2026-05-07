@@ -20,6 +20,11 @@ const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// Or use an Anthropic OAuth/WIF bearer token:
+const wifProvider = new AnthropicProvider({
+  authToken: process.env.ANTHROPIC_AUTH_TOKEN,
+});
+
 const agent = new Robota({
   name: 'Assistant',
   aiProviders: [provider],
@@ -77,6 +82,7 @@ When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits A
 ```typescript
 const provider = new AnthropicProvider({
   apiKey: 'sk-ant-...', // API key
+  // authToken: 'sk-ant-oat01-...', // WIF/OAuth bearer token alternative
   timeout: 60000, // Request timeout (ms)
   baseURL: 'https://...', // Custom base URL
   client: anthropicClient, // Pre-configured SDK client
@@ -88,12 +94,12 @@ const provider = new AnthropicProvider({
 
 ### Exports
 
-| Export                          | Kind      | Description                                                               |
-| ------------------------------- | --------- | ------------------------------------------------------------------------- |
-| `AnthropicProvider`             | class     | Anthropic provider implementing `AbstractAIProvider`                      |
-| `IAnthropicProviderOptions`     | interface | Constructor options: `apiKey`, `timeout`, `baseURL`, `client`, `executor` |
-| `TAnthropicProviderOptionValue` | type      | Union type for valid provider option values                               |
-| `createAnthropicProvider`       | function  | Stub — placeholder for future factory pattern (currently returns void)    |
+| Export                          | Kind      | Description                                                                            |
+| ------------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| `AnthropicProvider`             | class     | Anthropic provider implementing `AbstractAIProvider`                                   |
+| `IAnthropicProviderOptions`     | interface | Constructor options: `apiKey`, `authToken`, `timeout`, `baseURL`, `client`, `executor` |
+| `TAnthropicProviderOptionValue` | type      | Union type for valid provider option values                                            |
+| `createAnthropicProvider`       | function  | Stub — placeholder for future factory pattern (currently returns void)                 |
 
 `api-types.ts` is an internal module and is not part of the public API.
 

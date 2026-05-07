@@ -59,6 +59,8 @@ export interface ISerializableProviderProfile {
   model: string;
   apiKey?: string;
   apiKeyEnv?: string;
+  authToken?: string;
+  authTokenEnv?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;

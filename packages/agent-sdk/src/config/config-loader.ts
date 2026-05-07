@@ -75,21 +75,15 @@ function resolveEnvRef(value: string): string {
  */
 function resolveEnvRefs(settings: TSettings): TSettings {
   const provider =
-    settings.provider?.apiKey !== undefined
-      ? {
-          ...settings.provider,
-          apiKey: resolveEnvRef(settings.provider.apiKey),
-        }
+    settings.provider?.apiKey !== undefined || settings.provider?.authToken !== undefined
+      ? resolveProviderCredentialEnvRefs(settings.provider)
       : settings.provider;
 
   if (settings.providers !== undefined) {
     const providers = Object.fromEntries(
       Object.entries(settings.providers).map(([name, profile]) => [
         name,
-        {
-          ...profile,
-          ...(profile.apiKey !== undefined && { apiKey: resolveEnvRef(profile.apiKey) }),
-        },
+        resolveProviderCredentialEnvRefs(profile),
       ]),
     );
     return {
@@ -102,6 +96,16 @@ function resolveEnvRefs(settings: TSettings): TSettings {
   return {
     ...settings,
     provider,
+  };
+}
+
+function resolveProviderCredentialEnvRefs<
+  TProvider extends { apiKey?: string; authToken?: string },
+>(provider: TProvider): TProvider {
+  return {
+    ...provider,
+    ...(provider.apiKey !== undefined && { apiKey: resolveEnvRef(provider.apiKey) }),
+    ...(provider.authToken !== undefined && { authToken: resolveEnvRef(provider.authToken) }),
   };
 }
 
@@ -160,27 +164,43 @@ function mergeProviders(
 
 function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
   if (merged.currentProvider !== undefined) {
-    const profile = merged.providers?.[merged.currentProvider];
-    if (profile === undefined) {
-      throw new Error(`currentProvider "${merged.currentProvider}" was not found in providers`);
-    }
-    if (profile.type === undefined) {
-      throw new Error(`Provider profile "${merged.currentProvider}" is missing type`);
-    }
-    return {
-      name: profile.type,
-      model: profile.model ?? DEFAULTS.provider.model,
-      apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
-      ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
-      ...(profile.timeout !== undefined && { timeout: profile.timeout }),
-      ...(profile.options !== undefined && { options: profile.options }),
-    };
+    return resolveActiveProviderProfile(merged);
   }
 
+  return resolveLegacyProvider(merged);
+}
+
+function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provider'] {
+  const currentProvider = merged.currentProvider;
+  if (currentProvider === undefined) {
+    throw new Error('currentProvider is required');
+  }
+  const profile = merged.providers?.[currentProvider];
+  if (profile === undefined) {
+    throw new Error(`currentProvider "${currentProvider}" was not found in providers`);
+  }
+  if (profile.type === undefined) {
+    throw new Error(`Provider profile "${currentProvider}" is missing type`);
+  }
+  const authToken = profile.authToken;
+  return {
+    name: profile.type,
+    model: profile.model ?? DEFAULTS.provider.model,
+    apiKey: profile.apiKey ?? DEFAULTS.provider.apiKey,
+    ...(authToken !== undefined && { authToken }),
+    ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
+    ...(profile.timeout !== undefined && { timeout: profile.timeout }),
+    ...(profile.options !== undefined && { options: profile.options }),
+  };
+}
+
+function resolveLegacyProvider(merged: TSettings): IResolvedConfig['provider'] {
+  const authToken = merged.provider?.authToken;
   return {
     name: merged.provider?.name ?? DEFAULTS.provider.name,
     model: merged.provider?.model ?? DEFAULTS.provider.model,
     apiKey: merged.provider?.apiKey ?? DEFAULTS.provider.apiKey,
+    ...(authToken !== undefined && { authToken }),
     ...(merged.provider?.baseURL !== undefined && { baseURL: merged.provider.baseURL }),
     ...(merged.provider?.timeout !== undefined && { timeout: merged.provider.timeout }),
     ...(merged.provider?.options !== undefined && { options: merged.provider.options }),

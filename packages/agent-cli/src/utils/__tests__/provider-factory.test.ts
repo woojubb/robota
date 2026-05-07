@@ -25,15 +25,17 @@ vi.mock('@robota-sdk/agent-provider-anthropic', () => {
     createAnthropicProviderDefinition: () => ({
       type: 'anthropic',
       defaults: { model: 'claude-sonnet-4-6' },
-      requiresApiKey: true,
+      credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
       createProvider: (config: {
         model: string;
         apiKey?: string;
+        authToken?: string;
         baseURL?: string;
         timeout?: number;
       }) =>
         new MockAnthropicProvider({
-          apiKey: config.apiKey,
+          ...(config.apiKey !== undefined && { apiKey: config.apiKey }),
+          ...(config.authToken !== undefined && { authToken: config.authToken }),
           ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
           ...(config.timeout !== undefined && { timeout: config.timeout }),
           defaultModel: config.model,
@@ -193,6 +195,7 @@ describe('provider-factory', () => {
   afterEach(() => {
     process.env.HOME = ORIGINAL_HOME;
     delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
+    delete process.env.ROBOTA_TEST_ANTHROPIC_AUTH_TOKEN;
     delete process.env.DASHSCOPE_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
   });
@@ -357,6 +360,27 @@ describe('provider-factory', () => {
 
     expect(AnthropicProvider).toHaveBeenCalledWith({
       apiKey: 'sk-ant-from-env',
+      defaultModel: 'claude-sonnet-4-6',
+    });
+  });
+
+  it('creates AnthropicProvider with an auth token credential', () => {
+    process.env.ROBOTA_TEST_ANTHROPIC_AUTH_TOKEN = 'sk-ant-oat01-from-env';
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'anthropic',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          authToken: '$ENV:ROBOTA_TEST_ANTHROPIC_AUTH_TOKEN',
+        },
+      },
+    });
+
+    createProviderFromSettings(cwd);
+
+    expect(AnthropicProvider).toHaveBeenCalledWith({
+      authToken: 'sk-ant-oat01-from-env',
       defaultModel: 'claude-sonnet-4-6',
     });
   });
