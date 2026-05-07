@@ -174,7 +174,6 @@ function createProviderProfile(
     type: provider.name,
     model: job.request.model ?? provider.model,
     apiKey: provider.apiKey,
-    authToken: provider.authToken,
     baseURL: provider.baseURL,
     timeout: provider.timeout,
     options: provider.options,

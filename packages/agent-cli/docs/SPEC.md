@@ -103,7 +103,7 @@ Provider resolution order:
 2. Legacy `provider`
 3. Defaults supplied by the resolved provider definition
 
-Provider profiles may include `options` and provider-supported credential fields such as `apiKey` or `authToken`. The CLI passes provider-owned fields through to `definition.createProvider(config)` without interpreting provider-specific semantics. Provider packages own the shape, validation, defaults, credential requirements, and behavior for their options.
+Provider profiles may include `options` and provider-supported credential fields such as `apiKey`. The CLI passes provider-owned fields through to `definition.createProvider(config)` without interpreting provider-specific semantics. Provider packages own the shape, validation, defaults, credential requirements, and behavior for their options.
 
 OpenAI-compatible local endpoints such as LM Studio are not assumed to provide provider-native web search/fetch. If a provider package rejects `options.builtInWebTools` or `options.nativeWebTools`, the CLI surfaces that provider-owned error directly. The CLI must not silently reroute provider-native web requests to local `WebSearch`/`WebFetch`; those remain ordinary Robota tools already advertised through tool schemas.
 
@@ -115,7 +115,7 @@ Provider definition contract:
 | `aliases`                                  | Provider package                 | Optional compatibility names resolved by generic lookup            |
 | `displayName`                              | Provider package                 | Optional human-readable provider label for setup lists             |
 | `description`                              | Provider package                 | Optional provider description for setup lists and errors           |
-| `defaults`                                 | Provider package                 | Fill omitted model/apiKey/authToken/baseURL/timeout values         |
+| `defaults`                                 | Provider package                 | Fill omitted model/apiKey/baseURL/timeout values                   |
 | `defaults.options`                         | Provider package                 | Optional provider-owned option defaults passed through generically |
 | `setupSteps`                               | Provider package                 | Drive interactive setup prompts without type branches              |
 | `credentialRequirement` / `requiresApiKey` | Provider package                 | Validate required credential alternatives consistently             |

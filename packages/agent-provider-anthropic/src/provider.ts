@@ -60,18 +60,17 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     // Only create client if not using executor
     if (!this.executor) {
-      // Create client from apiKey/authToken if not provided
+      // Create client from apiKey if not provided.
       if (options.client) {
         this.client = options.client;
-      } else if (options.apiKey || options.authToken) {
+      } else if (options.apiKey) {
         this.client = new Anthropic({
-          apiKey: options.apiKey ?? null,
-          authToken: options.authToken ?? null,
+          apiKey: options.apiKey,
           ...(options.timeout && { timeout: options.timeout }),
           ...(options.baseURL && { baseURL: options.baseURL }),
         });
       } else {
-        throw new Error('Either Anthropic client, apiKey, authToken, or executor is required');
+        throw new Error('Either Anthropic client, apiKey, or executor is required');
       }
     }
   }
@@ -98,7 +97,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Direct execution with Anthropic client
     if (!this.client) {
       throw new Error(
-        'Anthropic client not available. Either provide a client/apiKey/authToken or use an executor.',
+        'Anthropic client not available. Either provide a client/apiKey or use an executor.',
       );
     }
 
@@ -165,7 +164,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Direct execution with Anthropic client
     if (!this.client) {
       throw new Error(
-        'Anthropic client not available. Either provide a client/apiKey/authToken or use an executor.',
+        'Anthropic client not available. Either provide a client/apiKey or use an executor.',
       );
     }
 
@@ -263,7 +262,7 @@ export class AnthropicProvider extends AbstractAIProvider {
   }
 
   override validateConfig(): boolean {
-    return !!this.client && !!this.options && (!!this.options.apiKey || !!this.options.authToken);
+    return !!this.client && !!this.options && !!this.options.apiKey;
   }
 
   override async dispose(): Promise<void> {

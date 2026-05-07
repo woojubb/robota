@@ -6,6 +6,8 @@ import {
 import { AnthropicProvider } from './provider';
 
 export const DEFAULT_ANTHROPIC_PROVIDER_MODEL = 'claude-sonnet-4-6';
+export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV = 'ANTHROPIC_API_KEY';
+export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV}`;
 const ANTHROPIC_MODEL_SOURCE_URL = 'https://platform.claude.com/docs/en/api/models/list';
 const ANTHROPIC_MODEL_LAST_VERIFIED_AT = '2026-05-04';
 
@@ -16,6 +18,7 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
     description: 'Claude models through Anthropic API',
     defaults: {
       model: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
+      apiKey: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
     },
     modelCatalog: {
       status: 'fallback',
@@ -26,12 +29,8 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
     setupSteps: [
       {
         key: 'apiKey',
-        title: 'Anthropic API key (leave blank when using auth token)',
-        masked: true,
-      },
-      {
-        key: 'authToken',
-        title: 'Anthropic auth token (optional WIF bearer token)',
+        title: 'Anthropic API key',
+        defaultValue: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
         masked: true,
       },
       {
@@ -40,10 +39,10 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
         defaultValue: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       },
     ],
-    credentialRequirement: { anyOf: ['apiKey', 'authToken'] },
+    requiresApiKey: true,
     createProvider: (config) =>
       new AnthropicProvider({
-        ...requireAnthropicCredential(config.apiKey, config.authToken),
+        apiKey: requireAnthropicApiKey(config.apiKey),
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
         ...(config.timeout !== undefined && { timeout: config.timeout }),
         defaultModel: config.model,
@@ -70,15 +69,9 @@ function buildAnthropicModelCatalogEntries(): IProviderModelCatalogEntry[] {
   return entries;
 }
 
-function requireAnthropicCredential(
-  apiKey: string | undefined,
-  authToken: string | undefined,
-): { apiKey?: string; authToken?: string } {
-  if (!apiKey && !authToken) {
-    throw new Error('Provider anthropic requires apiKey or authToken');
+function requireAnthropicApiKey(apiKey: string | undefined): string {
+  if (!apiKey) {
+    throw new Error('Provider anthropic requires apiKey');
   }
-  return {
-    ...(apiKey !== undefined && { apiKey }),
-    ...(authToken !== undefined && { authToken }),
-  };
+  return apiKey;
 }

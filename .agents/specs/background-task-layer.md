@@ -238,7 +238,7 @@ interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
 }
 ```
 
-`ISerializableProviderProfile` is a data-only snapshot. It may include provider type, model, base URL, timeout, API key reference, auth token reference, and provider-owned options. It MUST NOT include live SDK client instances.
+`ISerializableProviderProfile` is a data-only snapshot. It may include provider type, model, base URL, timeout, API key reference, and provider-owned options. It MUST NOT include live SDK client instances.
 
 ```ts
 type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
@@ -249,8 +249,6 @@ interface ISerializableProviderProfile {
   model: string;
   apiKey?: string;
   apiKeyEnv?: string;
-  authToken?: string;
-  authTokenEnv?: string;
   baseURL?: string;
   timeout?: number;
 }

@@ -12,7 +12,6 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
-  // authToken: process.env.ANTHROPIC_AUTH_TOKEN, // Anthropic WIF/OAuth alternative
 });
 
 const session = new InteractiveSession({
@@ -160,11 +159,6 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
       "type": "anthropic",
       "model": "claude-sonnet-4-6",
       "apiKey": "$ENV:ANTHROPIC_API_KEY"
-    },
-    "anthropic-wif": {
-      "type": "anthropic",
-      "model": "claude-sonnet-4-6",
-      "authToken": "$ENV:ANTHROPIC_AUTH_TOKEN"
     }
   },
   "defaultTrustLevel": "moderate",

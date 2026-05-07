@@ -17,7 +17,6 @@ export interface ILegacyProviderSettings {
   name?: string;
   model?: string;
   apiKey?: string;
-  authToken?: string;
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
@@ -35,8 +34,6 @@ export interface IProviderSetupInput {
   model?: string;
   apiKey?: string;
   apiKeyEnv?: string;
-  authToken?: string;
-  authTokenEnv?: string;
   baseURL?: string;
   timeout?: number;
   setCurrent?: boolean;
@@ -158,17 +155,12 @@ export function buildProviderProfile(
     input.apiKeyEnv !== undefined
       ? formatEnvReference(input.apiKeyEnv)
       : (input.apiKey ?? defaults.apiKey);
-  const authToken =
-    input.authTokenEnv !== undefined
-      ? formatEnvReference(input.authTokenEnv)
-      : (input.authToken ?? defaults.authToken);
   const baseURL = input.baseURL ?? defaults.baseURL;
 
   return {
     type: input.type,
     model: input.model ?? defaults.model,
     ...(isNonEmptyString(apiKey) && { apiKey }),
-    ...(isNonEmptyString(authToken) && { authToken }),
     ...(baseURL !== undefined && { baseURL }),
     ...(input.timeout !== undefined && { timeout: input.timeout }),
   };
@@ -191,7 +183,7 @@ export function mergeProviderPatch(
 function getProviderDefaults(
   type: string,
   providerDefinitions: readonly IProviderDefinition[],
-): { model?: string; apiKey?: string; authToken?: string; baseURL?: string } {
+): { model?: string; apiKey?: string; baseURL?: string } {
   return findProviderDefinition(providerDefinitions, type)?.defaults ?? {};
 }
 
