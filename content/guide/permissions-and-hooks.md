@@ -19,6 +19,8 @@ Defined in `agent-core`, consumed by `agent-sessions`. Provides deterministic 3-
 | `acceptEdits`       | auto | auto             | approve (prompt) |
 | `bypassPermissions` | auto | auto             | auto             |
 
+Permissions and hooks run before tool execution regardless of whether a tool executes locally or through an injected sandbox client. A sandbox changes the execution plane for Bash and file operations; it does not bypass the permission matrix or hook pipeline.
+
 ### Pattern Syntax
 
 ```
@@ -138,7 +140,7 @@ These environment variables use the `CLAUDE_` prefix for compatibility with Clau
 
 The session execution loop includes context budget checks to prevent exceeding the model's context window:
 
-- **Pre-send check**: Before each provider call, context usage is checked against 83.5% of the context window. If exceeded, auto-compaction is triggered.
+- **Pre-send hard guard**: Before each provider call, core checks effective context usage against 95% of the context window and returns diagnostic values if it must block. Routine auto-compaction runs earlier in `agent-sessions` at the configured threshold, defaulting to ~83.5%.
 - **Tool result budget**: Individual tool results are checked against an 80% context budget. Results exceeding this limit are replaced with an error message indicating the output was too large.
 - **Forced summary on turn exhaustion**: When `maxRounds` is exhausted, the session injects a synthetic user message and makes a final provider call without tools to produce a summary response.
 

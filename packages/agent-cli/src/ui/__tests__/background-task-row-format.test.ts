@@ -119,4 +119,23 @@ describe('formatBackgroundTaskRow', () => {
     expect(row.preview).toBeUndefined();
     expect(row.accessibleText).toBe('└ □ Explore agent');
   });
+
+  it('surfaces preserved worktree handoff rows with next action preview', () => {
+    const row = formatBackgroundTaskRow(
+      makeTask({
+        id: 'agent_7',
+        status: 'completed',
+        resultPreview: 'Changed files',
+        worktreePath: '/workspace/.robota/worktrees/agent_7',
+        branchName: 'robota/agent_7',
+        worktreeStatus: ' M changed.ts',
+        worktreeNextAction: 'Review /workspace/.robota/worktrees/agent_7.',
+      }),
+      { now: NOW, isLast: true },
+    );
+
+    expect(row.segments).toEqual(['worktree']);
+    expect(row.preview).toBe('Review /workspace/.robota/worktrees/agent_7.');
+    expect(row.accessibleText).toContain('worktree');
+  });
 });

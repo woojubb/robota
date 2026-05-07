@@ -56,6 +56,10 @@ export interface ISubagentJobState {
   isolation?: TBackgroundTaskIsolation;
   worktreePath?: string;
   branchName?: string;
+  worktreeStatus?: string;
+  worktreeNextAction?: string;
+  worktreeBaseRevision?: string;
+  parentWorktreeStatus?: string;
   promptPreview: string;
   currentTool?: string;
   logPath?: string;

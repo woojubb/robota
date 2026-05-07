@@ -7,25 +7,17 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import {
-  InteractiveSession,
-  CommandRegistry,
-  BuiltinCommandSource,
-  SkillCommandSource,
-  PluginCommandSource,
-  BundlePluginLoader,
-} from '@robota-sdk/agent-sdk';
+import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
 import type {
-  IAIProvider,
   IBackgroundTaskRunner,
+  ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TPermissionResultValue,
 } from '@robota-sdk/agent-sdk';
 import type {
-  IProviderDefinition,
+  IAIProvider,
   TPermissionMode,
   TToolArgs,
   IHistoryEntry,
@@ -35,27 +27,28 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
-
-import type { SessionStore } from '@robota-sdk/agent-sessions';
+import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
+import { reloadPluginCommandSource } from '../../plugins/plugin-command-source-loader.js';
 
 export interface IInteractiveSessionProps {
   cwd: string;
   provider: IAIProvider;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
-  providerDefinitions?: readonly IProviderDefinition[];
+  commandHostAdapters?: ICommandHostAdapters;
 }
 
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
+  commandEffectQueue: ICommandEffectQueue;
   history: IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
@@ -76,7 +69,30 @@ export interface IInteractiveSessionState {
 interface IInitState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
+  commandEffectQueue: ICommandEffectQueue;
   manager: TuiStateManager;
+}
+
+interface IHistoryReadableSession {
+  getFullHistory(): IHistoryEntry[];
+}
+
+interface IHistorySyncManager {
+  syncHistory(entries: IHistoryEntry[]): void;
+}
+
+export function applyCompactEventToManager(
+  interactiveSession: IHistoryReadableSession,
+  manager: IHistorySyncManager,
+): void {
+  manager.syncHistory(interactiveSession.getFullHistory());
+}
+
+export function applySkillActivationEventToManager(
+  interactiveSession: IHistoryReadableSession,
+  manager: IHistorySyncManager,
+): void {
+  manager.syncHistory(interactiveSession.getFullHistory());
 }
 
 function initializeSession(
@@ -96,29 +112,20 @@ function initializeSession(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
+    commandHostAdapters: props.commandHostAdapters,
   });
 
   const registry = new CommandRegistry();
-  registry.addSource(new BuiltinCommandSource());
   for (const module of props.commandModules ?? []) {
     registry.addModule(module);
   }
-  registry.addSource(new SkillCommandSource(props.cwd));
 
-  const pluginsDir = join(homedir(), '.robota', 'plugins');
-  const loader = new BundlePluginLoader(pluginsDir);
-  try {
-    const plugins = loader.loadPluginsSync();
-    if (plugins.length > 0) {
-      registry.addSource(new PluginCommandSource(plugins));
-    }
-  } catch {
-    // No plugins dir or load failed
-  }
+  reloadPluginCommandSource(registry);
 
   const manager = new TuiStateManager();
+  const commandEffectQueue = new CommandEffectQueue();
 
-  return { interactiveSession, registry, manager };
+  return { interactiveSession, registry, manager, commandEffectQueue };
 }
 
 export function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState {
@@ -171,7 +178,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   if (stateRef.current === null) {
     stateRef.current = initializeSession(props, permissionHandler);
   }
-  const { interactiveSession, registry, manager } = stateRef.current;
+  const { interactiveSession, registry, manager, commandEffectQueue } = stateRef.current;
 
   // Connect TuiStateManager to React re-renders
   manager.onChange = () => forceRender((n) => n + 1);
@@ -186,6 +193,10 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
 
   // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {
+    const onCompact = (): void => applyCompactEventToManager(interactiveSession, manager);
+    const onSkillActivation = (): void =>
+      applySkillActivationEventToManager(interactiveSession, manager);
+
     interactiveSession.on('text_delta', manager.onTextDelta);
     interactiveSession.on('tool_start', manager.onToolStart);
     interactiveSession.on('tool_end', manager.onToolEnd);
@@ -194,6 +205,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('interrupted', manager.onInterrupted);
     interactiveSession.on('error', manager.onError);
     interactiveSession.on('context_update', manager.onContextUpdate);
+    interactiveSession.on('compact', onCompact);
+    interactiveSession.on('skill_activation', onSkillActivation);
     interactiveSession.on('background_task_event', manager.onBackgroundTaskEvent);
 
     // Sync context state and restored history after async initialization
@@ -226,6 +239,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       interactiveSession.off('interrupted', manager.onInterrupted);
       interactiveSession.off('error', manager.onError);
       interactiveSession.off('context_update', manager.onContextUpdate);
+      interactiveSession.off('compact', onCompact);
+      interactiveSession.off('skill_activation', onSkillActivation);
       interactiveSession.off('background_task_event', manager.onBackgroundTaskEvent);
     };
   }, [interactiveSession, manager]);
@@ -241,13 +256,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, [manager.isThinking, interactiveSession, manager]);
 
   // Slash command routing (delegated to useSlashRouting)
-  const handleSubmit = useSlashRouting(
-    props.cwd,
-    interactiveSession,
-    registry,
-    manager,
-    props.providerDefinitions ?? [],
-  );
+  const handleSubmit = useSlashRouting(interactiveSession, registry, manager, commandEffectQueue);
 
   const handleAbort = useCallback(() => {
     manager.setAborting(true);
@@ -272,6 +281,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   return {
     interactiveSession,
     registry,
+    commandEffectQueue,
     history: manager.history,
     addEntry: (entry: IHistoryEntry) => manager.addEntry(entry),
     streamingText: manager.streamingText,

@@ -3,6 +3,7 @@ import type { TUniversalMessage, IAssistantMessage, IToolSchema } from '@robota-
 import {
   mapMessagePartsToGeminiParts,
   convertToGeminiFormat,
+  convertToGeminiRequestFormat,
   convertFromGeminiResponse,
   convertToolsToGeminiFormat,
   generateCallId,
@@ -177,23 +178,32 @@ describe('convertToGeminiFormat', () => {
     expect(result[0]?.parts?.[0]).toHaveProperty('functionCall');
   });
 
-  it('converts tool messages with role "user"', () => {
+  it('converts tool messages to Gemini functionResponse parts', () => {
     const messages: TUniversalMessage[] = [
       {
         id: 'msg-1',
         state: 'complete' as const,
         role: 'tool',
-        content: 'tool result',
+        content: '{"temperature":20}',
         toolCallId: 'call_1',
+        name: 'get_weather',
         timestamp: new Date(),
       },
     ];
     const result = convertToGeminiFormat(messages);
     expect(result[0]?.role).toBe('user');
-    expect(result[0]?.parts).toEqual([{ text: 'tool result' }]);
+    expect(result[0]?.parts).toEqual([
+      {
+        functionResponse: {
+          id: 'call_1',
+          name: 'get_weather',
+          response: { temperature: 20 },
+        },
+      },
+    ]);
   });
 
-  it('converts system messages with content as text part', () => {
+  it('excludes system messages from contents-only conversion', () => {
     const messages: TUniversalMessage[] = [
       {
         id: 'msg-1',
@@ -204,28 +214,32 @@ describe('convertToGeminiFormat', () => {
       },
     ];
     const result = convertToGeminiFormat(messages);
-    expect(result[0]?.role).toBe('user');
-    // mapMessagePartsToGeminiParts falls back to content when no parts
-    expect(result[0]?.parts).toEqual([{ text: 'You are helpful' }]);
+    expect(result).toEqual([]);
   });
 
-  it('converts system messages with empty content to "System:" prefixed text', () => {
+  it('maps system messages to request-level systemInstruction', () => {
     const messages: TUniversalMessage[] = [
       {
         id: 'msg-1',
         state: 'complete' as const,
         role: 'system',
-        content: '',
+        content: 'You are helpful',
+        timestamp: new Date(),
+      },
+      {
+        id: 'msg-2',
+        state: 'complete' as const,
+        role: 'user',
+        content: 'hello',
         timestamp: new Date(),
       },
     ];
-    const result = convertToGeminiFormat(messages);
-    expect(result[0]?.role).toBe('user');
-    // When mapMessagePartsToGeminiParts returns empty, the System: prefix is added
-    expect(result[0]?.parts).toEqual([{ text: 'System: ' }]);
+    const result = convertToGeminiRequestFormat(messages);
+    expect(result.systemInstruction).toBe('You are helpful');
+    expect(result.contents).toEqual([{ role: 'user', parts: [{ text: 'hello' }] }]);
   });
 
-  it('converts system messages with parts directly', () => {
+  it('combines system message text parts into systemInstruction', () => {
     const messages: TUniversalMessage[] = [
       {
         id: 'msg-1',
@@ -236,9 +250,9 @@ describe('convertToGeminiFormat', () => {
         timestamp: new Date(),
       },
     ];
-    const result = convertToGeminiFormat(messages);
-    expect(result[0]?.role).toBe('user');
-    expect(result[0]?.parts).toEqual([{ text: 'System instruction' }]);
+    const result = convertToGeminiRequestFormat(messages);
+    expect(result.systemInstruction).toBe('System instruction');
+    expect(result.contents).toEqual([]);
   });
 
   it('handles multiple messages in sequence', () => {
@@ -266,10 +280,25 @@ describe('convertToGeminiFormat', () => {
       },
     ];
     const result = convertToGeminiFormat(messages);
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(2);
     expect(result[0]?.role).toBe('user');
-    expect(result[1]?.role).toBe('user');
-    expect(result[2]?.role).toBe('model');
+    expect(result[1]?.role).toBe('model');
+  });
+
+  it('throws when tool message is missing a function name', () => {
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'tool',
+        content: 'tool result',
+        toolCallId: 'call_1',
+        timestamp: new Date(),
+      },
+    ];
+    expect(() => convertToGeminiFormat(messages)).toThrow(
+      'Google provider tool message requires a function name.',
+    );
   });
 });
 

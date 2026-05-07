@@ -40,6 +40,16 @@ function createUserMessage(content: string): TUniversalMessage {
   };
 }
 
+function createSystemMessage(content: string): TUniversalMessage {
+  return {
+    id: 'sys-1',
+    state: 'complete' as const,
+    role: 'system',
+    content,
+    timestamp: new Date(),
+  };
+}
+
 describe('GeminiProvider @google/genai transport', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -88,6 +98,83 @@ describe('GeminiProvider @google/genai transport', () => {
             ],
           },
         ],
+      },
+    });
+  });
+
+  it('uses provider defaultModel when chat options omit model', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: 'done' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+
+    const provider = new GeminiProvider({
+      apiKey: 'test-key',
+      defaultModel: 'gemini-3-flash-preview',
+    });
+    await provider.chat([createUserMessage('hello')]);
+
+    expect(generateContentMock).toHaveBeenCalledWith({
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
+      config: {
+        responseModalities: ['TEXT'],
+      },
+    });
+  });
+
+  it('sends system messages through config.systemInstruction', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: 'done' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    await provider.chat([createSystemMessage('You are concise.'), createUserMessage('hello')], {
+      model: 'gemini-3-flash-preview',
+    });
+
+    expect(generateContentMock).toHaveBeenCalledWith({
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
+      config: {
+        responseModalities: ['TEXT'],
+        systemInstruction: 'You are concise.',
+      },
+    });
+  });
+
+  it('passes structured output, thinking, and safety config to Gemini', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: '{"answer":"done"}' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+
+    const provider = new GeminiProvider({
+      apiKey: 'test-key',
+      responseJsonSchema: {
+        type: 'object',
+        properties: { answer: { type: 'string' } },
+        required: ['answer'],
+      },
+      thinkingConfig: { thinkingLevel: 'LOW' },
+      safetySettings: [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }],
+    });
+    await provider.chat([createUserMessage('hello')], { model: 'gemini-3-flash-preview' });
+
+    expect(generateContentMock).toHaveBeenCalledWith({
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
+      config: {
+        responseModalities: ['TEXT'],
+        responseMimeType: 'application/json',
+        responseJsonSchema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+        },
+        thinkingConfig: { thinkingLevel: 'LOW' },
+        safetySettings: [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' }],
       },
     });
   });

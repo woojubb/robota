@@ -8,7 +8,7 @@ import type { IAssistantMessage, IToolMessage, TUniversalMessage } from '../inte
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
 import type { TToolParameters } from '../interfaces/tool';
-import type { ToolExecutionService } from './tool-execution-service';
+import { UNKNOWN_TOOL_ERROR_CODE, type ToolExecutionService } from './tool-execution-service';
 
 // Mock dependencies
 vi.mock('../utils/logger', () => {
@@ -660,6 +660,26 @@ describe('ExecutionService', () => {
       } as TUniversalMessage;
     }
 
+    function makeUnavailableToolCallResponse(round: number): TUniversalMessage {
+      return {
+        id: `msg-unknown-round-${round}`,
+        role: 'assistant',
+        content: '',
+        state: 'complete' as const,
+        toolCalls: [
+          {
+            id: `unknown-tool-${round}`,
+            type: 'function',
+            function: {
+              name: 'agent',
+              arguments: JSON.stringify({ prompt: `parallel work ${round}` }),
+            },
+          },
+        ],
+        timestamp: new Date(),
+      };
+    }
+
     function setupToolMocks(): { mockToolExecService: Record<string, ReturnType<typeof vi.fn>> } {
       // Track the last tool call ID seen so executeTools returns a matching executionId
       let lastToolCallId = 'tool-1';
@@ -979,6 +999,95 @@ describe('ExecutionService', () => {
       await executionService.execute('Run all tools', [], config, {
         conversationId: 'test-agent',
       });
+    });
+
+    it('should force a final response that explains repeated unavailable tool calls', async () => {
+      let lastToolCallId = 'unknown-tool-1';
+      const mockToolExecService: Pick<
+        ToolExecutionService,
+        'createExecutionRequestsWithContext' | 'executeTools'
+      > = {
+        createExecutionRequestsWithContext: vi.fn((toolCalls, context) => {
+          const toolCall = toolCalls[0];
+          if (!toolCall) return [];
+          lastToolCallId = toolCall.id;
+          const parameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
+          return [
+            {
+              toolName: toolCall.function.name,
+              parameters,
+              executionId: toolCall.id,
+              ownerType: 'tool',
+              ownerId: toolCall.id,
+              ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
+              metadata: context.metadataFactory?.(toolCall),
+            },
+          ];
+        }),
+        executeTools: vi.fn(() =>
+          Promise.resolve({
+            results: [
+              {
+                success: false,
+                toolName: 'agent',
+                error:
+                  'Tool "agent" is not registered, so the tool call was not executed. Available tools: ExecuteCommand.',
+                executionId: lastToolCallId,
+                metadata: {
+                  errorCode: UNKNOWN_TOOL_ERROR_CODE,
+                  requestedTool: 'agent',
+                  availableTools: ['ExecuteCommand'],
+                },
+              },
+            ],
+            errors: [],
+          }),
+        ),
+      };
+      (
+        executionService as unknown as {
+          toolExecutionService: Pick<
+            ToolExecutionService,
+            'createExecutionRequestsWithContext' | 'executeTools'
+          >;
+        }
+      ).toolExecutionService = mockToolExecService;
+
+      const chatSpy = vi
+        .fn()
+        .mockResolvedValueOnce(makeUnavailableToolCallResponse(1))
+        .mockResolvedValueOnce(makeUnavailableToolCallResponse(2))
+        .mockImplementationOnce(
+          (messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> => {
+            const forcedInstruction = messages.find(
+              (message) =>
+                message.role === 'user' &&
+                typeof message.content === 'string' &&
+                message.content.includes('Those tool calls were not executed'),
+            );
+            expect(options?.tools).toBeUndefined();
+            expect(forcedInstruction?.content).toContain('agent');
+            expect(forcedInstruction?.content).toContain('not registered tools');
+            return Promise.resolve({
+              id: 'msg-unknown-summary',
+              role: 'assistant',
+              content: 'I could not execute the requested agent tool because it is not registered.',
+              state: 'complete' as const,
+              timestamp: new Date(),
+            });
+          },
+        );
+      mockProvider.chat = chatSpy;
+
+      const result = await executionService.execute('Use agents in parallel', [], makeConfig(), {
+        conversationId: 'unknown-tool-loop-test',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.response).toContain('not registered');
+      expect(result.toolsExecuted).not.toContain('agent');
+      expect(chatSpy).toHaveBeenCalledTimes(3);
+      expect(mockToolExecService.executeTools).toHaveBeenCalledTimes(2);
     });
 
     it('should use fallback message when forced call returns empty response', async () => {

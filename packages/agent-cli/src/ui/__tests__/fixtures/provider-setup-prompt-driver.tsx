@@ -2,39 +2,42 @@ import React from 'react';
 import { writeFileSync } from 'node:fs';
 import { render, useApp } from 'ink';
 import InteractivePrompt from '../../InteractivePrompt.js';
-import type { TProviderSetupType } from '../../../utils/provider-setup-flow.js';
-import type { IProviderDefinition } from '../../../utils/provider-definition.js';
 import {
-  startProviderSetupInteraction,
-  submitProviderSetupInteractionValue,
-  type TProviderSetupInteractionState,
-} from '../../../utils/provider-setup-interaction.js';
+  createProviderSetupFlow,
+  formatProviderSetupHelpLinks,
+  getProviderSetupStep,
+  submitProviderSetupValue,
+  validateProviderSetupValue,
+  type IProviderSetupFlowState,
+  type TProviderSetupType,
+} from '@robota-sdk/agent-sdk';
+import type { IProviderDefinition } from '../../../utils/provider-definition.js';
 import type { TInteractivePrompt } from '../../../utils/interactive-prompt.js';
 
 const openaiDefaults = {
-  model: 'supergemma4-26b-uncensored-v2',
-  apiKey: 'lm-studio',
-  baseURL: 'http://localhost:1234/v1',
+  apiKey: '$ENV:OPENAI_API_KEY',
 };
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',
     defaults: openaiDefaults,
+    setupHelpLinks: [
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+      },
+    ],
     setupSteps: [
       {
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
-      },
-      {
         key: 'model',
-        title: 'OpenAI-compatible model',
-        defaultValue: openaiDefaults.model,
+        title: 'OpenAI model',
+        required: true,
       },
       {
         key: 'apiKey',
-        title: 'OpenAI-compatible API key',
+        title: 'OpenAI API key',
         defaultValue: openaiDefaults.apiKey,
         masked: true,
       },
@@ -67,26 +70,26 @@ if (!outputPath || (rawType !== 'openai' && rawType !== 'anthropic')) {
 
 function Driver({ type }: { type: TProviderSetupType }): React.ReactElement {
   const { exit } = useApp();
-  const initial = startProviderSetupInteraction(providerDefinitions, type);
-  if (initial.status !== 'prompt') {
-    throw new Error('provider setup interaction did not start with a prompt');
-  }
-  const [state, setState] = React.useState<TProviderSetupInteractionState>(initial.state);
-  const [prompt, setPrompt] = React.useState<TInteractivePrompt>(initial.prompt);
+  const initial = createProviderSetupFlow(type, providerDefinitions);
+  const [state, setState] = React.useState<IProviderSetupFlowState>(initial);
+  const [prompt, setPrompt] = React.useState<TInteractivePrompt>(() => toPrompt(initial));
 
   return (
     <InteractivePrompt
       prompt={prompt}
       onSubmit={(value) => {
-        const result = submitProviderSetupInteractionValue(state, value);
+        const result = submitProviderSetupValue(state, value);
         if (result.status === 'complete') {
           writeFileSync(outputPath, JSON.stringify(result.input), 'utf8');
           exit();
           setTimeout(() => process.exit(0), 0);
           return;
         }
+        if (result.status === 'error') {
+          throw new Error(result.message);
+        }
         setState(result.state);
-        setPrompt(result.prompt);
+        setPrompt(toPrompt(result.state));
       }}
       onCancel={() => {
         exit();
@@ -94,6 +97,26 @@ function Driver({ type }: { type: TProviderSetupType }): React.ReactElement {
       }}
     />
   );
+}
+
+function toPrompt(flow: IProviderSetupFlowState): TInteractivePrompt {
+  const step = getProviderSetupStep(flow);
+  return {
+    kind: 'text',
+    title: step.title,
+    ...toPromptDescription(flow),
+    ...(step.defaultValue !== undefined ? { placeholder: step.defaultValue } : {}),
+    ...(step.defaultValue !== undefined ? { allowEmpty: true } : {}),
+    ...(step.masked !== undefined ? { masked: step.masked } : {}),
+    validate: (value) => validateProviderSetupValue(step, value),
+  };
+}
+
+function toPromptDescription(
+  flow: IProviderSetupFlowState,
+): { description: string } | Record<string, never> {
+  const description = formatProviderSetupHelpLinks(flow.setupHelpLinks);
+  return description.length > 0 ? { description } : {};
 }
 
 render(<Driver type={rawType} />);

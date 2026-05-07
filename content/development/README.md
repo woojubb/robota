@@ -48,6 +48,7 @@ packages/
 ├── agent-provider-openai/      ← OpenAI provider
 ├── agent-provider-gemini/      ← Canonical Gemini provider
 ├── agent-provider-google/      ← Gemini compatibility wrapper
+├── agent-provider-deepseek/    ← DeepSeek API provider
 ├── agent-provider-gemma/       ← Gemma local model provider
 ├── agent-provider-qwen/        ← Qwen/DashScope provider
 ├── agent-plugin-*/             ← 9 extracted plugins

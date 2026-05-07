@@ -45,6 +45,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 ### Deployment
 
 - **Cloudflare Pages** (blog, docs) deploys automatically when `main` is updated.
+- Manual docs deployment uses `pnpm docs:deploy`, which uploads `apps/docs/.vitepress/dist` to Cloudflare Pages with Wrangler.
 - Changes on release branches are NOT deployed until merged to `main`.
 - When deployment is needed, create a PR from the release branch to `main` and ask the user to merge it.
 
@@ -53,3 +54,33 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - When performing a large, independent task that requires a different branch context, commit and push current work first, then switch branches. Return to the original branch when done.
 - For tasks that must not affect the current working tree, use `git worktree` or a separate clone in a temporary location.
 - Always clean up worktrees and temporary clones after the task is complete.
+
+### Worktree Operating Contract
+
+- Agent-managed feature work MUST use task-scoped worktrees when the primary checkout is dirty, on a protected branch, or already checked out at a different branch context.
+- Worktree paths MUST be disposable and descriptive: `/tmp/robota-<topic>`.
+- Create feature worktrees from the remote integration branch with:
+  ```bash
+  git fetch origin develop --prune
+  git worktree add -b <branch> /tmp/robota-<topic> origin/develop
+  ```
+- Do not switch protected branches inside task worktrees.
+- Do not create or reuse a task worktree on `main`, `master`, or `develop`. Protected branches stay in the primary checkout or in human-managed local checkouts only.
+- Before opening or merging a PR from a worktree, verify:
+  ```bash
+  git status -sb
+  git worktree list --porcelain
+  git fetch origin develop --prune
+  ```
+- If `gh pr merge` reports a local worktree checkout error, verify the remote PR state before retrying. Use:
+  ```bash
+  gh pr view <number> --json state,mergedAt,mergeCommit
+  ```
+  If the PR is merged remotely, treat the error as local synchronization only.
+- After a PR is merged into `develop`, confirm `origin/develop` contains the merge, then remove the task worktree:
+  ```bash
+  git fetch origin develop --prune
+  git worktree remove /tmp/robota-<topic>
+  git worktree prune
+  ```
+- Remote branch deletion after a merge is a no-content Git operation. The pre-push hook must skip delete-only branch cleanup instead of re-running package verification.

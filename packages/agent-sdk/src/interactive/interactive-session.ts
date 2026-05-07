@@ -8,8 +8,9 @@
  * Config/context loading is internal. Consumer provides cwd + provider.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { Session } from '@robota-sdk/agent-sessions';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
+import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type {
   TUniversalMessage,
   IContextWindowState,
@@ -25,16 +26,28 @@ import {
 } from '@robota-sdk/agent-core';
 import type {
   ICommand,
+  ICommandHostAdapters,
   ICommandModule,
+  ICommandResult,
+  ICommandSkillListEntry,
+  ISystemCommand,
   ISkillExecutionResult,
   IForkExecutionOptions,
+  TAutoCompactThreshold,
+  TAutoCompactThresholdSource,
+  ICommandSkillActivationRequest,
+  TCommandInvocationSource,
 } from '../commands/index.js';
-import { executeSkill } from '../commands/index.js';
+import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import {
+  createSkillActivationEvent,
+  formatSkillActivationMessage,
+} from '../commands/skill-activation-events.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
-import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
 import type {
   IToolState,
   TInteractiveEventName,
@@ -66,8 +79,9 @@ import {
   buildResult,
   buildInterruptedResult,
   createUsageSummaryEntry,
-  persistSession,
+  preparePromptInput,
 } from './interactive-session-execution.js';
+import { persistSession } from './interactive-session-persistence.js';
 import {
   STREAMING_FLUSH_INTERVAL_MS,
   pushToolSummaryToHistory,
@@ -84,17 +98,54 @@ import type {
   IInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-init.js';
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type {
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from '../context/context-reference-inventory.js';
+import {
+  clearContextReferences,
+  removeContextReference,
+} from '../context/context-reference-inventory.js';
+import {
+  addInteractiveContextReference,
+  recordInteractiveContextReferences,
+} from './interactive-session-context-references.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
+  IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export type { IInteractiveSessionOptions } from './interactive-session-init.js';
 
 export interface IInteractiveSessionShutdownOptions {
   reason?: TSessionEndReason;
   message?: string;
+}
+
+function normalizeSkillName(name: string): string {
+  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
+}
+
+function normalizeCommandName(name: string): string {
+  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
+}
+
+function formatSkillCommandArgs(skillName: string, args: string): string {
+  const trimmedArgs = args.trim();
+  return trimmedArgs.length > 0 ? `${skillName} ${trimmedArgs}` : skillName;
+}
+
+function getQualifiedSkillName(rawInput?: string): string | undefined {
+  if (!rawInput?.startsWith('/')) return undefined;
+  const firstToken = rawInput.slice(1).trim().split(/\s+/)[0];
+  return firstToken && firstToken.length > 0 ? firstToken : undefined;
 }
 
 export class InteractiveSession {
@@ -112,16 +163,17 @@ export class InteractiveSession {
   private pendingDisplayInput: string | undefined;
   private pendingRawInput: string | undefined;
   private history: IHistoryEntry[] = [];
-  private sessionStore?: SessionStore;
+  private sessionStore?: IInteractiveSessionStore;
   private sessionName?: string;
   private cwd?: string;
-  private pendingRestoreMessages: unknown[] | null = null;
+  private pendingRestoreMessages: TUniversalMessage[] | null = null;
   private backgroundTasks: IBackgroundTaskState[] = [];
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
   private backgroundJobGroups: IBackgroundJobGroupState[] = [];
   private backgroundJobGroupEvents: TBackgroundJobGroupEvent[] = [];
   private memoryEvents: IMemoryEvent[] = [];
   private usedMemoryReferences: IMemoryReference[] = [];
+  private contextReferences: IContextReferenceItem[] = [];
   private editCheckpointStore: EditCheckpointStore | null = null;
   private resumeSessionId?: string;
   private forkSession: boolean;
@@ -129,15 +181,21 @@ export class InteractiveSession {
   private backgroundJobUnsubscribe: (() => void) | null = null;
   private backgroundJobOrchestrator: BackgroundJobOrchestrator | null = null;
   private readonly commandModules: readonly ICommandModule[];
+  private readonly commandHostAdapters?: ICommandHostAdapters;
+  private readonly skillCommandSource: SkillCommandSource;
+  private skillActivationEvents: ISkillActivationEvent[] = [];
+  private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
+  private readonly sandboxClient?: ISandboxClient;
+  private sandboxSnapshotId?: string;
+  private commandInvocationSource: TCommandInvocationSource = 'user';
 
   constructor(options: IInteractiveSessionOptions) {
-    this.commandModules = 'commandModules' in options ? (options.commandModules ?? []) : [];
-    this.commandExecutor = new SystemCommandExecutor([
-      ...createSystemCommands(),
-      ...this.commandModules.flatMap((module) => module.systemCommands ?? []),
-    ]);
+    this.commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];
+    this.commandExecutor = new SystemCommandExecutor(
+      this.commandModules.flatMap((module) => module.systemCommands ?? []),
+    );
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
@@ -146,39 +204,63 @@ export class InteractiveSession {
     }
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
+    this.commandHostAdapters =
+      'commandHostAdapters' in options ? options.commandHostAdapters : undefined;
+    this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
+    this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
+    this.skillCommandSource = new SkillCommandSource(this.cwd || process.cwd());
 
-    if ('session' in options && options.session) {
-      this.session = options.session;
-      this.initialized = true;
-    } else {
-      const stdOpts = options as IInteractiveSessionStandardOptions;
-      this.initPromise = this.initializeAsync(stdOpts);
-    }
-
-    if (options.resumeSessionId && this.sessionStore) {
-      const restored = loadSessionRecord(
-        this.sessionStore,
-        options.resumeSessionId,
-        this.forkSession,
-        this.session,
-      );
-      if (restored.history.length > 0) this.history = restored.history;
-      if (restored.sessionName) this.sessionName = restored.sessionName;
-      this.backgroundTasks = restored.backgroundTasks;
-      this.backgroundTaskEvents = restored.backgroundTaskEvents;
-      this.backgroundJobGroups = restored.backgroundJobGroups;
-      this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
-      this.memoryEvents = restored.memoryEvents;
-      this.usedMemoryReferences = restored.usedMemoryReferences;
-      this.pendingRestoreMessages = restored.pendingRestoreMessages;
-    }
+    const hasInjectedSession = this.configureInjectedSession(options);
+    this.restoreSessionRecordIfNeeded(options);
+    this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
 
     if (this.initialized) this.subscribeBackgroundTaskEvents();
     if (this.initialized) this.persistCurrentSession();
   }
 
+  private configureInjectedSession(options: IInteractiveSessionOptions): boolean {
+    if (!('session' in options && options.session)) return false;
+    this.session = options.session;
+    this.autoCompactThresholdSource = 'session';
+    this.initialized = true;
+    return true;
+  }
+
+  private restoreSessionRecordIfNeeded(options: IInteractiveSessionOptions): void {
+    if (!options.resumeSessionId || !this.sessionStore) return;
+    const restored = loadSessionRecord(
+      this.sessionStore,
+      options.resumeSessionId,
+      this.forkSession,
+      this.session,
+    );
+    if (restored.history.length > 0) this.history = restored.history;
+    if (restored.sessionName) this.sessionName = restored.sessionName;
+    this.backgroundTasks = restored.backgroundTasks;
+    this.backgroundTaskEvents = restored.backgroundTaskEvents;
+    this.backgroundJobGroups = restored.backgroundJobGroups;
+    this.backgroundJobGroupEvents = restored.backgroundJobGroupEvents;
+    this.skillActivationEvents = restored.skillActivationEvents;
+    this.memoryEvents = restored.memoryEvents;
+    this.usedMemoryReferences = restored.usedMemoryReferences;
+    this.contextReferences = restored.contextReferences;
+    this.pendingRestoreMessages = restored.pendingRestoreMessages;
+    this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+  }
+
+  private startAsyncInitializationIfNeeded(
+    options: IInteractiveSessionOptions,
+    hasInjectedSession: boolean,
+  ): void {
+    if (hasInjectedSession) return;
+    const stdOpts = options as IInteractiveSessionStandardOptions;
+    this.initPromise = this.initializeAsync(stdOpts);
+  }
+
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
-    const config = await loadConfig(options.cwd);
+    const config = options.config ?? (await loadConfig(options.cwd));
+    this.autoCompactThresholdSource =
+      config.autoCompactThreshold === undefined ? 'default' : 'settings';
     this.editCheckpointStore = new EditCheckpointStore({ cwd: options.cwd });
     this.session = await createInteractiveSession({
       cwd: options.cwd,
@@ -191,6 +273,7 @@ export class InteractiveSession {
       forkSession: this.forkSession,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
+      onCompactEvent: (event) => this.handleCompactEvent(event),
       onToolExecution: (event) => this.handleToolExecution(event),
       bare: options.bare,
       allowedTools: options.allowedTools,
@@ -199,6 +282,13 @@ export class InteractiveSession {
       subagentRunnerFactory: options.subagentRunnerFactory,
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       editCheckpointRecorder: this.editCheckpointStore,
+      ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
+      ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
+      ...(options.workspaceManifest ? { workspaceManifest: options.workspaceManifest } : {}),
+      ...(options.sandboxWorkspaceRoot
+        ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot }
+        : {}),
+      ...(this.sandboxSnapshotId ? { sandboxSnapshotId: this.sandboxSnapshotId } : {}),
       commandDescriptors: this.commandExecutor.listModelInvocableCommands(),
       ...(this.commandExecutor.listModelInvocableCommands().length > 0
         ? {
@@ -256,42 +346,128 @@ export class InteractiveSession {
     await this.executePrompt(input, displayInput, rawInput);
   }
 
-  async executeCommand(
-    name: string,
-    args: string,
-  ): Promise<{ message: string; success: boolean; data?: Record<string, unknown> } | null> {
+  async executeCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
-    return this.commandExecutor.execute(name, this, args);
+    const normalizedName = normalizeCommandName(name);
+    const command = this.commandExecutor.getCommand(normalizedName);
+    const commandArgs = args.trim();
+    if (!command) {
+      const skill = this.findSkillCommand(normalizedName);
+      const skillsCommand = this.commandExecutor.getCommand('skills');
+      if (!skill || !skillsCommand) return null;
+      return this.executeCommandWithInvocationSource(
+        'user',
+        skillsCommand,
+        formatSkillCommandArgs(skill.name, commandArgs),
+      );
+    }
+    return this.executeCommandWithInvocationSource('user', command, commandArgs);
   }
 
-  async executeModelCommand(
-    name: string,
+  private async executeCommandWithInvocationSource(
+    source: TCommandInvocationSource,
+    command: ISystemCommand,
     args: string,
-  ): Promise<{ message: string; success: boolean; data?: Record<string, unknown> } | null> {
-    await this.ensureInitialized();
-    return this.commandExecutor.executeModelInvocable(name, this, args);
+  ): Promise<ICommandResult> {
+    if (this.executing) {
+      return {
+        success: false,
+        message: 'Another prompt or command is already running. Wait for it to finish.',
+      };
+    }
+    const previousSource = this.commandInvocationSource;
+    this.commandInvocationSource = source;
+    try {
+      if (command.lifecycle === 'blocking') {
+        return this.executeForegroundCommand(command, args);
+      }
+      return await this.commandExecutor.executeCommand(command, this, args);
+    } finally {
+      this.commandInvocationSource = previousSource;
+    }
   }
 
-  async executeSkillCommand(
-    skill: ICommand,
-    args: string,
-    displayInput?: string,
-    rawInput?: string,
-  ): Promise<ISkillExecutionResult> {
+  async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
+    const previousSource = this.commandInvocationSource;
+    this.commandInvocationSource = 'model';
+    try {
+      return await this.commandExecutor.executeModelInvocable(name, this, args);
+    } finally {
+      this.commandInvocationSource = previousSource;
+    }
+  }
 
-    if (skill.context === 'fork') {
-      return this.executeForkSkillCommand(skill, args, displayInput);
+  getCommandInvocationSource(): TCommandInvocationSource {
+    return this.commandInvocationSource;
+  }
+
+  async executeSkillCommandByName(
+    name: string,
+    args: string,
+    request: ICommandSkillActivationRequest,
+  ): Promise<ICommandResult | null> {
+    await this.ensureInitialized();
+    const skill = this.findSkillCommand(name);
+    if (!skill) return null;
+
+    if (request.invocationSource === 'model') {
+      if (skill.disableModelInvocation === true) {
+        return {
+          success: false,
+          message: `Skill is not model-invocable: ${skill.name}`,
+        };
+      }
+      const result = await this.executeSkillWithActivation(skill, args, 'model-tool');
+      return {
+        success: true,
+        message: `Skill activated: ${skill.name}`,
+        data: {
+          skill: skill.name,
+          mode: result.mode,
+          ...(result.prompt !== undefined ? { prompt: result.prompt } : {}),
+          ...(result.result !== undefined ? { result: result.result } : {}),
+        },
+      };
     }
 
-    const result = await executeSkill(
+    await this.executeUserResolvedSkillCommand(
       skill,
       args,
-      {
-        runInFork: (content, options) => this.runSkillInFork(content, options),
-      },
-      { sessionId: this.getSessionOrThrow().getSessionId() },
+      request.displayInput,
+      request.rawInput,
+      'user-slash',
     );
+    return {
+      success: true,
+      message: '',
+      data: {
+        skill: skill.name,
+        sessionExecution: true,
+      },
+      effects: [{ type: 'session-execution-started' }],
+    };
+  }
+
+  private async executeUserResolvedSkillCommand(
+    skill: ICommand,
+    args: string,
+    displayInput: string | undefined,
+    rawInput: string | undefined,
+    invocation: ISkillActivationEvent['invocation'],
+  ): Promise<ISkillExecutionResult> {
+    await this.ensureInitialized();
+    if (skill.userInvocable === false) {
+      throw new Error(`Skill is not user-invocable: ${skill.name}`);
+    }
+
+    const qualifiedName = getQualifiedSkillName(rawInput);
+
+    if (skill.context === 'fork') {
+      return this.executeForkSkillCommand(skill, args, displayInput, qualifiedName, invocation);
+    }
+
+    const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
 
     if (result.mode === 'inject') {
       if (result.prompt) {
@@ -311,11 +487,35 @@ export class InteractiveSession {
     }));
   }
 
+  listSkills(): ICommandSkillListEntry[] {
+    return this.skillCommandSource.getCommands().map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      source: skill.source,
+      modelInvocable: skill.disableModelInvocation !== true,
+      userInvocable: skill.userInvocable !== false,
+      ...(skill.argumentHint !== undefined ? { argumentHint: skill.argumentHint } : {}),
+      ...(skill.context !== undefined ? { context: skill.context } : {}),
+      ...(skill.agent !== undefined ? { agent: skill.agent } : {}),
+    }));
+  }
+
   listModelInvocableCommands(): Array<{ name: string; description: string }> {
     return this.commandExecutor.listModelInvocableCommands().map((cmd) => ({
       name: cmd.name,
       description: cmd.description,
     }));
+  }
+
+  getSkillActivationEvents(): ISkillActivationEvent[] {
+    return [...this.skillActivationEvents];
+  }
+
+  private findSkillCommand(name: string): ICommand | undefined {
+    const normalizedName = normalizeSkillName(name);
+    return this.skillCommandSource
+      .getCommands()
+      .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
   }
 
   abort(): void {
@@ -338,6 +538,7 @@ export class InteractiveSession {
       this.backgroundJobUnsubscribe = null;
       this.backgroundJobOrchestrator?.dispose();
       this.backgroundJobOrchestrator = null;
+      await this.captureSandboxSnapshot();
       this.persistCurrentSession();
       await session?.shutdown({ reason: options.reason ?? 'other' });
     })();
@@ -377,6 +578,33 @@ export class InteractiveSession {
   getContextState(): IContextWindowState {
     return this.getSessionOrThrow().getContextState();
   }
+  getAutoCompactThreshold(): number | false {
+    return this.getSessionOrThrow().getAutoCompactThreshold();
+  }
+  getAutoCompactThresholdSource(): TAutoCompactThresholdSource {
+    return this.autoCompactThresholdSource;
+  }
+  setAutoCompactThreshold(
+    threshold: TAutoCompactThreshold,
+    source: TAutoCompactThresholdSource = 'session',
+  ): void {
+    this.getSessionOrThrow().setAutoCompactThreshold(threshold);
+    this.autoCompactThresholdSource = source;
+    this.emit('context_update', this.getContextState());
+    this.persistCurrentSession();
+  }
+  getCommandHostAdapters(): ICommandHostAdapters {
+    return this.commandHostAdapters ?? {};
+  }
+  clearConversationHistory(): void {
+    this.getSessionOrThrow().clearHistory();
+    this.history = [];
+    this.persistCurrentSession();
+    this.emit('context_update', this.getContextState());
+  }
+  async compactContext(instructions?: string): Promise<void> {
+    await this.getSessionOrThrow().compact(instructions);
+  }
   getName(): string | undefined {
     return this.sessionName;
   }
@@ -390,6 +618,11 @@ export class InteractiveSession {
   listEditCheckpoints(): IEditCheckpointSummary[] {
     const sessionId = this.getSessionOrThrow().getSessionId();
     return this.getEditCheckpointStore().list(sessionId);
+  }
+
+  inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    return this.getEditCheckpointStore().inspect(sessionId, checkpointId);
   }
 
   async restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
@@ -408,6 +641,22 @@ export class InteractiveSession {
     return result;
   }
 
+  async rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+    await this.ensureInitialized();
+    if (this.executing) {
+      throw new Error('Cannot rollback edit checkpoint while a prompt is running.');
+    }
+    const result = await this.getEditCheckpointStore().rollbackThroughCheckpoint(
+      this.getSessionOrThrow().getSessionId(),
+      checkpointId,
+    );
+    this.history.push(
+      messageToHistoryEntry(createSystemMessage(`Rolled back edit checkpoint: ${checkpointId}`)),
+    );
+    this.persistCurrentSession();
+    return result;
+  }
+
   getUsedMemoryReferences(): IMemoryReference[] {
     return [...this.usedMemoryReferences];
   }
@@ -415,6 +664,35 @@ export class InteractiveSession {
   recordMemoryEvent(event: IMemoryEvent): void {
     this.memoryEvents.push(event);
     this.persistCurrentSession();
+  }
+
+  listContextReferences(): IContextReferenceItem[] {
+    return [...this.contextReferences];
+  }
+
+  async addContextReference(path: string): Promise<IContextReferenceAddResult> {
+    const { references, result } = await addInteractiveContextReference(
+      this.contextReferences,
+      path,
+      this.getCwd(),
+    );
+    this.contextReferences = references;
+    this.persistCurrentSession();
+    return result;
+  }
+
+  removeContextReference(path: string): IContextReferenceRemoveResult {
+    const result = removeContextReference(this.contextReferences, path);
+    this.contextReferences = result.references;
+    this.persistCurrentSession();
+    return result.result;
+  }
+
+  clearContextReferences(): IContextReferenceClearResult {
+    const result = clearContextReferences(this.contextReferences);
+    this.contextReferences = [];
+    this.persistCurrentSession();
+    return result;
   }
 
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[] {
@@ -550,10 +828,76 @@ export class InteractiveSession {
     transport.attach(this);
   }
 
+  private async executeSkillWithActivation(
+    skill: ICommand,
+    args: string,
+    invocation: ISkillActivationEvent['invocation'],
+    qualifiedName?: string,
+  ): Promise<ISkillExecutionResult> {
+    this.recordSkillActivation(skill, invocation, 'started', qualifiedName);
+    try {
+      const result = await executeSkill(
+        skill,
+        args,
+        {
+          runInFork: (content, options) => this.runSkillInFork(content, options),
+        },
+        { sessionId: this.getSessionOrThrow().getSessionId() },
+      );
+      this.recordSkillActivation(skill, invocation, 'completed', qualifiedName, {
+        appendHistory: false,
+      });
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.recordSkillActivation(skill, invocation, 'failed', qualifiedName, {
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  private recordSkillActivation(
+    skill: ICommand,
+    invocation: ISkillActivationEvent['invocation'],
+    status: ISkillActivationEvent['status'],
+    qualifiedName?: string,
+    options: { appendHistory?: boolean; error?: string } = {},
+  ): void {
+    const event = createSkillActivationEvent({
+      skill,
+      invocation,
+      status,
+      ...(qualifiedName !== undefined ? { qualifiedName } : {}),
+      ...(options.error !== undefined ? { error: options.error } : {}),
+    });
+    this.recordSkillActivationEvent(event, options.appendHistory ?? status !== 'completed');
+  }
+
+  private recordSkillActivationEvent(event: ISkillActivationEvent, appendHistory: boolean): void {
+    this.skillActivationEvents.push(event);
+    if (appendHistory) {
+      this.history.push({
+        id: randomUUID(),
+        timestamp: new Date(event.timestamp),
+        category: 'event',
+        type: 'skill-activation',
+        data: {
+          ...event,
+          message: formatSkillActivationMessage(event),
+        },
+      });
+    }
+    this.emit('skill_activation', event);
+    this.persistCurrentSession();
+  }
+
   private async executeForkSkillCommand(
     skill: ICommand,
     args: string,
     displayInput?: string,
+    qualifiedName?: string,
+    invocation: ISkillActivationEvent['invocation'] = 'user-slash',
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -562,12 +906,7 @@ export class InteractiveSession {
     this.startForkSkillExecution(displayInput ?? `/${skill.name}`);
 
     try {
-      const result = await executeSkill(
-        skill,
-        args,
-        { runInFork: (content, options) => this.runSkillInFork(content, options) },
-        { sessionId: this.getSessionOrThrow().getSessionId() },
-      );
+      const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
     } catch (err) {
@@ -703,7 +1042,29 @@ export class InteractiveSession {
         events: this.memoryEvents,
         usedReferences: this.usedMemoryReferences,
       },
+      {
+        events: this.skillActivationEvents,
+      },
+      {
+        references: this.contextReferences,
+      },
+      {
+        snapshotId: this.sandboxSnapshotId,
+      },
     );
+  }
+
+  private async captureSandboxSnapshot(): Promise<void> {
+    if (!this.sandboxClient?.snapshot) return;
+    try {
+      this.sandboxSnapshotId = await this.sandboxClient.snapshot();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.history.push(
+        messageToHistoryEntry(createSystemMessage(`Sandbox snapshot error: ${err.message}`)),
+      );
+      this.emit('error', err);
+    }
   }
 
   private startForkSkillExecution(displayInput: string): void {
@@ -722,7 +1083,7 @@ export class InteractiveSession {
       const queuedDisplay = this.pendingDisplayInput;
       const queuedRaw = this.pendingRawInput;
       this.clearPendingQueue();
-      setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+      setTimeout(() => void this.submit(queued, queuedDisplay, queuedRaw), 0);
     }
   }
 
@@ -750,7 +1111,9 @@ export class InteractiveSession {
     const parentSession = this.getSessionOrThrow();
     const deps = retrieveAgentToolDeps(parentSession);
     if (!deps) {
-      throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
+      throw new Error(
+        'Fork execution is not available. Agent runtime deps may not be initialized.',
+      );
     }
     const agentType = options.agent ?? 'general-purpose';
     const agentDefinition = this.resolveForkAgentDefinition(agentType, options);
@@ -787,6 +1150,38 @@ export class InteractiveSession {
     this.emit('context_update', this.getContextState());
   }
 
+  private async executeForegroundCommand(
+    command: ISystemCommand,
+    args: string,
+  ): Promise<ICommandResult> {
+    this.executing = true;
+    this.clearStreaming();
+    this.emit('thinking', true);
+
+    try {
+      const result = await this.commandExecutor.executeCommand(command, this, args);
+      this.emit('context_update', this.getContextState());
+      return result;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        message: `Error: ${errMsg}`,
+      };
+    } finally {
+      this.executing = false;
+      this.emit('thinking', false);
+      this.persistCurrentSession();
+      if (!this.shuttingDown && this.pendingPrompt) {
+        const queued = this.pendingPrompt;
+        const queuedDisplay = this.pendingDisplayInput;
+        const queuedRaw = this.pendingRawInput;
+        this.clearPendingQueue();
+        setTimeout(() => void this.submit(queued, queuedDisplay, queuedRaw), 0);
+      }
+    }
+  }
+
   private async executePrompt(
     input: string,
     displayInput?: string,
@@ -801,8 +1196,23 @@ export class InteractiveSession {
     this.usedMemoryReferences = [];
 
     try {
+      const preparedPrompt = await preparePromptInput(
+        input,
+        this.getCwd(),
+        rawInput,
+        this.contextReferences,
+      );
+      if (preparedPrompt.promptFileReferenceEntry) {
+        this.history.push(preparedPrompt.promptFileReferenceEntry);
+      }
+      this.recordContextReferenceUsage(preparedPrompt.activeContextReferenceRecords);
+      this.recordPromptContextReferences(preparedPrompt.promptFileReferenceRecords);
+
       await this.beginEditCheckpointTurn(displayInput ?? input);
-      const response = await this.getSessionOrThrow().run(input, rawInput);
+      const response = await this.getSessionOrThrow().run(
+        preparedPrompt.modelInput,
+        preparedPrompt.hookInput,
+      );
       this.flushStreaming();
       pushToolSummaryToHistory({ activeTools: this.activeTools, history: this.history });
       this.clearStreaming();
@@ -812,6 +1222,7 @@ export class InteractiveSession {
         this.history,
         historyBefore,
         this.getContextState(),
+        preparedPrompt.promptFileReferenceRecords,
       );
       this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
       if (result.usage) this.history.push(createUsageSummaryEntry(result.usage));
@@ -850,9 +1261,25 @@ export class InteractiveSession {
         const queuedDisplay = this.pendingDisplayInput;
         const queuedRaw = this.pendingRawInput;
         this.clearPendingQueue();
-        setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
+        setTimeout(() => void this.submit(queued, queuedDisplay, queuedRaw), 0);
       }
     }
+  }
+
+  private recordContextReferenceUsage(records: readonly IPromptFileReferenceRecord[]): void {
+    this.contextReferences = recordInteractiveContextReferences(this.contextReferences, records, {
+      loadType: 'manual',
+      status: 'active',
+    });
+    this.persistCurrentSession();
+  }
+
+  private recordPromptContextReferences(records: readonly IPromptFileReferenceRecord[]): void {
+    this.contextReferences = recordInteractiveContextReferences(this.contextReferences, records, {
+      loadType: 'prompt-reference',
+      status: 'observed',
+    });
+    this.persistCurrentSession();
   }
 
   private getEditCheckpointStore(): EditCheckpointStore {
@@ -891,6 +1318,20 @@ export class InteractiveSession {
         this.flushTimer = null;
       }, STREAMING_FLUSH_INTERVAL_MS);
     }
+  }
+
+  private handleCompactEvent(event: ICompactEvent): void {
+    if (event.trigger === 'auto') {
+      this.history.push(
+        messageToHistoryEntry(
+          createSystemMessage(
+            `Auto compacted context: ${Math.round(event.before.usedPercentage)}% -> ${Math.round(event.after.usedPercentage)}%`,
+          ),
+        ),
+      );
+    }
+    this.emit('compact', event);
+    this.emit('context_update', event.after);
   }
 
   private handleToolExecution(event: {

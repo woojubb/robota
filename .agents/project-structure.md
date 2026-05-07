@@ -2,39 +2,23 @@
 
 ```text
 packages/
+├── auth/                        # Auth contracts, verifier ports, scope policy
+├── credits/                     # Credit account, reservation, and settlement contracts
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
 ├── agent-runtime/               # Reusable background task and subagent lifecycle/state/ports
 ├── agent-sessions/              # Session lifecycle and persistence
-├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers
+├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
-├── agent-sdk/                   # SDK assembly layer: InteractiveSession, config/context, commands
-├── agent-command-agent/         # Optional command module that contributes /agent
+├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
+├── agent-command-*/             # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, skills, statusline
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-event-service/         # Compatibility re-export package for event service APIs
-├── agent-provider-anthropic/    # Anthropic provider
-├── agent-provider-openai/       # OpenAI provider shell
-├── agent-provider-openai-compatible/ # Reusable OpenAI-compatible transport primitives
-├── agent-provider-gemma/        # Gemma provider shell using OpenAI-compatible endpoints
-├── agent-provider-qwen/         # Qwen provider shell using Model Studio OpenAI-compatible endpoints
-├── agent-provider-gemini/       # Gemini API provider using Google GenAI SDK
-├── agent-provider-google/       # Compatibility wrapper for agent-provider-gemini
-├── agent-provider-bytedance/    # ByteDance provider
+├── agent-provider-*/            # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
 ├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
-├── agent-transport-headless/    # Headless transport
-├── agent-transport-http/        # HTTP transport
-├── agent-transport-mcp/         # MCP transport
-├── agent-transport-ws/          # WebSocket transport
-├── agent-plugin-conversation-history/ # Plugin: conversation history tracking
-├── agent-plugin-logging/        # Plugin: structured logging
-├── agent-plugin-usage/          # Plugin: token/cost usage tracking
-├── agent-plugin-performance/    # Plugin: execution performance metrics
-├── agent-plugin-execution-analytics/ # Plugin: execution analytics and reporting
-├── agent-plugin-error-handling/ # Plugin: error handling and recovery
-├── agent-plugin-limits/         # Plugin: rate limiting and resource control
-├── agent-plugin-event-emitter/  # Plugin: event emission bridge
-├── agent-plugin-webhook/        # Plugin: webhook delivery
+├── agent-transport-*/           # Transports: headless, http, mcp, ws
+├── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 ├── dag-core/                    # DAG domain contracts and state rules (SSOT)
 ├── dag-cost/                    # Cost domain (CEL evaluator, cost meta types, storage port)
 ├── dag-adapters-local/          # Local adapters (in-memory ports + file-based storage)
@@ -44,6 +28,9 @@ packages/
 ├── dag-scheduler/               # DAG scheduler layer
 ├── dag-projection/              # DAG projection/read-model layer
 ├── dag-api/                     # DAG API/composition layer
+├── dag-orchestration-client/    # DAG orchestration HTTP client contracts
+├── dag-cli/                     # JSON-first CLI client for DAG orchestration APIs
+├── dag-mcp-server/              # MCP server for DAG orchestration APIs
 ├── dag-designer/                # DAG web designer layer
 ├── dag-orchestrator/            # DAG orchestration layer
 └── dag-nodes/                   # DAG node implementations
@@ -59,7 +46,14 @@ apps/
 
 ## Related Documents
 
-| Document                                                   | Content                                   |
-| ---------------------------------------------------------- | ----------------------------------------- |
-| [publish-registry.md](publish-registry.md)                 | npm publish rules, package registry table |
-| [dag-dependency-direction.md](dag-dependency-direction.md) | DAG package dependency flow and rules     |
+| Document                                                                                         | Content                                   |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| [specs/ARCHITECTURE-MAP.md](specs/ARCHITECTURE-MAP.md)                                           | Repository-level architecture map router  |
+| [specs/architecture-map/README.md](specs/architecture-map/README.md)                             | Architecture-map document tree            |
+| [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table |
+| [dag-dependency-direction.md](dag-dependency-direction.md)                                       | DAG package dependency flow and rules     |
+| [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI architecture map router               |
+
+## Command Package Rule
+
+User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-sdk` command contracts. `agent-sdk` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.

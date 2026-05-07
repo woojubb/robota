@@ -48,6 +48,9 @@ const PHRASE_CHECKS = [
 const REQUIRED_ROOT_HARNESS_SCRIPTS = [
   'harness:scan',
   'harness:scan:consistency',
+  'harness:scan:commands',
+  'harness:scan:sdk-public-surface',
+  'harness:scan:worktrees',
   'harness:scan:specs',
   'harness:verify',
   'harness:record',

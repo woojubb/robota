@@ -21,33 +21,38 @@ import type { TSessionFactory } from '../hooks/agent-executor.js';
 import { Session } from '@robota-sdk/agent-sessions';
 import type {
   ITerminalOutput,
+  ICompactEvent,
+  ISessionOptions,
   TPermissionHandler,
   ISessionLogger,
 } from '@robota-sdk/agent-sessions';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
-import {
-  createAgentTool,
-  createAgentToolPromptDescription,
-  storeAgentToolDeps,
-} from '../tools/agent-tool.js';
+import { storeAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
-import { createCommandExecutionTool } from '../tools/command-execution-tool.js';
+import {
+  createModelCommandToolProjection,
+  createProjectedCommandExecutionTools,
+  formatProjectedModelCommandToolPromptDescription,
+} from '../tools/model-command-tool-projection.js';
 import type { ICommandResult } from '../commands/system-command.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
+import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import { BackgroundTaskManager, SubagentManager } from '@robota-sdk/agent-runtime';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
@@ -62,6 +67,31 @@ import { storeSessionBackgroundTaskManager } from '../background-tasks/session-b
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
 const DEFAULT_PROVIDER_IDLE_TIMEOUT_MS = 120_000;
+
+type TAutoCompactThreshold = number | false;
+type TSessionOptionsWithAutoCompact = ISessionOptions & {
+  autoCompactThreshold?: TAutoCompactThreshold;
+};
+type TSessionConstructorWithAutoCompact = new (options: TSessionOptionsWithAutoCompact) => Session;
+
+function getModelInvocableCommandDescriptors(
+  descriptors: readonly ICapabilityDescriptor[] | undefined,
+): ICapabilityDescriptor[] {
+  return (descriptors ?? []).filter(
+    (descriptor) => descriptor.modelInvocable && descriptor.kind === 'builtin-command',
+  );
+}
+
+function normalizeCommandDescriptorName(name: string): string {
+  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
+}
+
+function hasModelInvocableCommandDescriptor(
+  descriptors: readonly ICapabilityDescriptor[],
+  name: string,
+): boolean {
+  return descriptors.some((descriptor) => normalizeCommandDescriptorName(descriptor.name) === name);
+}
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -80,7 +110,7 @@ export interface ICreateSessionOptions {
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   /** Inject a pre-constructed AI provider (used by tests to avoid real API calls) */
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
@@ -114,8 +144,12 @@ export interface ICreateSessionOptions {
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
+  /** Callback with structured compaction metadata */
+  onCompactEvent?: (event: ICompactEvent) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
+  /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
+  autoCompactThreshold?: TAutoCompactThreshold;
   /** Custom system prompt builder function */
   systemPromptBuilder?: (params: ISystemPromptParams) => string;
   /** Custom tool descriptions for the system prompt */
@@ -142,6 +176,10 @@ export interface ICreateSessionOptions {
   commandDescriptors?: ICapabilityDescriptor[];
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
   editCheckpointRecorder?: IEditCheckpointRecorder;
+  /** Opt-in local-first reversible execution policy for write/shell tools. */
+  reversibleExecution?: IReversibleExecutionOptions;
+  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  sandboxClient?: ISandboxClient;
 }
 
 /**
@@ -159,20 +197,59 @@ export function createSession(options: ICreateSessionOptions): Session {
   const provider = options.provider;
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
+  const skillCommandSource = new SkillCommandSource(cwd);
+  const modelInvocableCommandDescriptors = getModelInvocableCommandDescriptors(
+    options.commandDescriptors,
+  );
+  const modelCommandToolsEnabled =
+    modelInvocableCommandDescriptors.length > 0 &&
+    options.modelCommandExecutor !== undefined &&
+    options.isModelCommandInvocable !== undefined;
+  const modelCommandToolProjection = modelCommandToolsEnabled
+    ? createModelCommandToolProjection(modelInvocableCommandDescriptors)
+    : undefined;
+  const modelVisibleSkills = hasModelInvocableCommandDescriptor(
+    modelInvocableCommandDescriptors,
+    'skills',
+  )
+    ? skillCommandSource.getModelInvocableSkills()
+    : [];
 
-  const defaultTools = options.editCheckpointRecorder
-    ? wrapEditCheckpointTools(createDefaultTools(), options.editCheckpointRecorder)
-    : createDefaultTools();
-  const tools = [...defaultTools, ...(options.additionalTools ?? [])];
-  if (options.modelCommandExecutor && options.isModelCommandInvocable) {
+  const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient });
+  const shouldWrapHostEditCheckpoints =
+    options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
+  const defaultTools =
+    shouldWrapHostEditCheckpoints && options.editCheckpointRecorder
+      ? wrapEditCheckpointTools(baseDefaultTools, options.editCheckpointRecorder)
+      : baseDefaultTools;
+  const assembledTools = [...defaultTools, ...(options.additionalTools ?? [])];
+  const reversibleExecution = options.reversibleExecution
+    ? {
+        ...options.reversibleExecution,
+        isolation:
+          options.reversibleExecution.isolation ??
+          (options.sandboxClient ? ('provider-sandbox' as const) : undefined),
+      }
+    : undefined;
+  const tools = reversibleExecution
+    ? wrapReversibleExecutionTools(assembledTools, {
+        ...reversibleExecution,
+        checkpointAvailable: shouldWrapHostEditCheckpoints,
+      })
+    : assembledTools;
+  if (
+    modelCommandToolsEnabled &&
+    options.modelCommandExecutor !== undefined &&
+    options.isModelCommandInvocable !== undefined
+  ) {
     tools.push(
-      createCommandExecutionTool({
+      ...createProjectedCommandExecutionTools({
         execute: options.modelCommandExecutor,
         isModelInvocable: options.isModelCommandInvocable,
+        commandDescriptors: modelInvocableCommandDescriptors,
       }),
     );
   }
-
   // Build hook type executors early so they can be forwarded to subagents.
   const hookTypeExecutors: IHookTypeExecutor[] = [];
   if (options.providerFactory) {
@@ -261,16 +338,16 @@ export function createSession(options: ICreateSessionOptions): Session {
     };
     tools.push(createBackgroundProcessTool(backgroundProcessToolDeps));
   }
-  if (agentToolDeps) {
-    tools.push(createAgentTool(agentToolDeps));
-  }
+  // Agent runtime deps are stored below so the agent command and forked skills can spawn
+  // background agent jobs. Model routing uses the command layer, not a separate Agent tool.
 
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const defaultToolDescriptions = [
     ...DEFAULT_TOOL_DESCRIPTIONS,
-    ...(agentToolDeps ? [createAgentToolPromptDescription(agentDefinitions)] : []),
-    ...(options.modelCommandExecutor
-      ? ['ExecuteCommand — execute model-invocable Robota commands']
+    ...(modelCommandToolProjection
+      ? modelCommandToolProjection.commandTools.map(
+          formatProjectedModelCommandToolPromptDescription,
+        )
       : []),
   ];
   const systemMessage = buildPrompt({
@@ -290,7 +367,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
     language: options.config.language,
-    skills: new SkillCommandSource(cwd).getModelInvocableSkills().map((skill) => ({
+    skills: modelVisibleSkills.map((skill) => ({
       name: skill.name,
       description: skill.description,
       disableModelInvocation: skill.disableModelInvocation,
@@ -324,7 +401,8 @@ export function createSession(options: ICreateSessionOptions): Session {
     deny: options.config.permissions.deny ?? [],
   };
 
-  const session = new Session({
+  const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
+  const session = new SessionWithAutoCompact({
     tools,
     provider,
     systemMessage: finalSystemMessage,
@@ -344,7 +422,9 @@ export function createSession(options: ICreateSessionOptions): Session {
     onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
+    onCompactEvent: options.onCompactEvent,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
+    autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
   });

@@ -11,8 +11,9 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { SessionStore } from './session-store.js';
+import type { ISessionStore } from './session-store.js';
 import type { ISessionLogger } from './session-logger.js';
+import type { TAutoCompactThreshold } from './context-window-tracker.js';
 import type {
   TPermissionHandler,
   TPermissionResult,
@@ -21,6 +22,14 @@ import type {
 } from './permission-types.js';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
+
+export type TCompactTrigger = 'manual' | 'auto';
+
+export interface ICompactEvent {
+  trigger: TCompactTrigger;
+  before: IContextWindowState;
+  after: IContextWindowState;
+}
 
 /** Options for graceful session shutdown. */
 export interface ISessionShutdownOptions {
@@ -51,7 +60,7 @@ export interface ISessionOptions {
   /** Maximum number of agentic turns per run() call. Undefined = unlimited. */
   maxTurns?: number;
   /** Optional session store for persistence */
-  sessionStore?: SessionStore;
+  sessionStore?: ISessionStore;
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
@@ -77,10 +86,14 @@ export interface ISessionOptions {
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
+  /** Callback with structured compaction metadata */
+  onCompactEvent?: (event: ICompactEvent) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
   /** Override context max tokens (otherwise derived from model name) */
   contextMaxTokens?: number;
+  /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
+  autoCompactThreshold?: TAutoCompactThreshold;
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */

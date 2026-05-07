@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-headless",
-  "version": "3.0.0-beta.59",
+  "version": "3.0.0-beta.60",
   "description": "Headless transport adapter for non-interactive InteractiveSession execution",
   "type": "module",
   "main": "dist/node/index.js",
@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
@@ -44,6 +45,7 @@
     "@robota-sdk/agent-sdk": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/agent-command-skills": "workspace:*",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",

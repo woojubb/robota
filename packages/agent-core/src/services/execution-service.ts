@@ -1,4 +1,8 @@
-import { IAgentConfig, IAssistantMessage, IExecutionContextInjection } from '../interfaces/agent';
+import type {
+  IAgentConfig,
+  IAssistantMessage,
+  IExecutionContextInjection,
+} from '../interfaces/agent';
 import { ToolExecutionService } from './tool-execution-service';
 import type { IAIProviderManager, IToolManager } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
@@ -18,7 +22,7 @@ import {
 } from './execution-types';
 import { ExecutionEventEmitter } from './execution-event-emitter';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
-import { TMetadata } from '../interfaces/types';
+import type { TMetadata } from '../interfaces/types';
 import { executeStream as executeStreamFn } from './execution-stream';
 import {
   resolveProviderAndTools,
@@ -180,7 +184,18 @@ export class ExecutionService {
     );
 
     try {
+      const messageCountBeforeUser = conversationStore.getMessages().length;
       conversationStore.addUserMessage(input, { executionId });
+      const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
+      if (userMessage) {
+        fullContext.onExecutionEvent?.('history_mutation', {
+          executionId,
+          conversationId,
+          mutation: 'append_message',
+          index: messageCountBeforeUser,
+          message: userMessage,
+        });
+      }
       this.eventEmitter.emitUserMessageEvent(input, conversationId, executionId);
 
       await callPluginHook(
@@ -201,6 +216,7 @@ export class ExecutionService {
         runningAssistantCount: 0,
         lastTrackedAssistantMessage: undefined,
         cumulativeInputTokens: 0,
+        consecutiveUnknownToolFailureRounds: 0,
       };
 
       for (const msg of conversationStore.getMessages()) {

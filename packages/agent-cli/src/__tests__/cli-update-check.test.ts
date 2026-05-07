@@ -15,6 +15,7 @@ import { startCli } from '../cli.js';
 const TMP_BASE = join(tmpdir(), `robota-cli-update-check-test-${process.pid}`);
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
+let lastChatMessages: TUniversalMessage[] = [];
 
 const fakeProviderDefinition: IProviderDefinition = {
   type: 'fake',
@@ -38,13 +39,14 @@ function createFakeProvider(): IAIProvider {
     name: 'fake',
     version: 'test',
     async chat(
-      _messages: TUniversalMessage[],
+      messages: TUniversalMessage[],
       _options?: IChatOptions,
     ): Promise<TUniversalMessage> {
+      lastChatMessages = [...messages];
       return {
         id: 'assistant-1',
         role: 'assistant',
-        content: 'unused',
+        content: 'done',
         timestamp: new Date(),
         state: 'complete',
       };
@@ -85,11 +87,55 @@ function writeProjectSettings(projectDir: string): void {
 
 describe('CLI update check command', () => {
   afterEach(() => {
+    lastChatMessages = [];
     process.argv = ORIGINAL_ARGV;
     process.env.HOME = ORIGINAL_HOME;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     rmSync(TMP_BASE, { recursive: true, force: true });
+  });
+
+  it('supports non-interactive task-file runs without session persistence', async () => {
+    const home = join(TMP_BASE, 'task-home');
+    const project = join(TMP_BASE, 'task-project');
+    mkdirSync(project, { recursive: true });
+    writeProjectSettings(project);
+    writeFileSync(join(project, 'task.md'), 'Loop objective: inspect the repository.\n', 'utf8');
+    process.env.HOME = home;
+    vi.spyOn(process, 'cwd').mockReturnValue(project);
+    process.argv = [
+      'node',
+      'robota',
+      '-p',
+      '--bare',
+      '--no-session-persistence',
+      '--allowed-tools',
+      'Bash,Read',
+      '--task-file',
+      'task.md',
+      'Summarize the task file.',
+    ];
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
+      throw new Error(`process.exit:${String(code ?? 0)}`);
+    });
+
+    await expect(startCli({ providerDefinitions: [fakeProviderDefinition] })).rejects.toThrow(
+      'process.exit:0',
+    );
+
+    expect(stdout.mock.calls.join('')).toContain('done');
+    expect(stderr.mock.calls.join('')).toBe('');
+    expect(
+      lastChatMessages.some(
+        (message) => typeof message.content === 'string' && message.content.includes('Loop objective'),
+      ),
+    ).toBe(true);
+    expect(lastChatMessages.some((message) => message.content === 'Summarize the task file.')).toBe(
+      true,
+    );
+    expect(existsSync(join(project, '.robota', 'sessions'))).toBe(false);
   });
 
   it('checks npm metadata and prints the npm global install command without writing settings', async () => {
@@ -148,6 +194,7 @@ describe('CLI update check command', () => {
       expect(fetchImpl).not.toHaveBeenCalled();
       const stdoutText = stdout.mock.calls.join('');
       expect(stdoutText).toContain('Available commands:');
+      expect(stdoutText).toContain('agent');
       expect(stdoutText).not.toContain('Robota update available');
       expect(stderr.mock.calls.join('')).toBe('');
       expect(existsSync(join(home, '.robota', 'update-check.json'))).toBe(false);

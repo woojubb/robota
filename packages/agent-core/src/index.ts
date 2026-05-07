@@ -13,15 +13,35 @@ export type {
   IToolSchema,
   IProviderOptions,
   IChatOptions,
+  IProviderCapabilities,
+  IProviderFunctionCallingCapability,
+  IProviderNativeWebToolCapabilities,
+  IProviderNativeWebToolCapability,
+  IProviderNativeWebToolRequest,
+  IProviderNativeRawPayloadEvent,
   TTextDeltaCallback,
+  TProviderNativeRawPayload,
+  TProviderNativeRawPayloadCallback,
+  TProviderNativeRawPayloadKind,
   IAIProvider,
   IProviderConfig,
+  IProviderCredentialRequirement,
   IProviderDefinition,
+  IProviderModelCatalog,
+  IProviderModelCatalogEntry,
+  IProviderModelCatalogRefreshOptions,
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
+  IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
+  TProviderCredentialField,
+  TProviderModelCapability,
+  TProviderModelCatalogStatus,
+  TProviderModelCatalogRefresh,
+  TProviderModelLifecycle,
   TProviderSetupField,
+  TProviderSetupHelpLinkKind,
   IMediaOutputRef,
   IProviderMediaError,
   TProviderMediaResult,
@@ -38,9 +58,18 @@ export type {
   IVideoJobSnapshot,
   IVideoGenerationProvider,
 } from './interfaces';
+export {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+  getProviderCapabilities,
+} from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
-export { findProviderDefinition, formatSupportedProviderTypes } from './interfaces';
+export {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+} from './interfaces';
 
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';
@@ -207,15 +236,25 @@ export {
 
 // Context window tracking
 export type { IContextTokenUsage, IContextWindowState } from './context/index.js';
+export type {
+  IContextTokenEstimate,
+  IContextTokenEstimateOptions,
+  IMessageTokenUsage,
+} from './context/index.js';
 export type { IModelDefinition } from './context/index.js';
 export {
+  CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
   CLAUDE_MODELS,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_OUTPUT,
+  estimateContextTokensFromMessages,
+  estimateSerializedContextTokens,
   getModelContextWindow,
   getModelMaxOutput,
   getModelName,
   formatTokenCount,
+  readTokenUsageFromMessage,
+  readTokenUsageFromMetadata,
 } from './context/index.js';
 
 // Hooks

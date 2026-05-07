@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createProviderSetupFlow,
+  formatProviderSetupHelpLinks,
   formatProviderSetupSelectionPrompt,
   formatProviderSetupPromptLabel,
   getProviderSetupStep,
@@ -11,31 +12,31 @@ import {
 import type { IProviderDefinition } from '../provider-definition.js';
 
 const openaiDefaults = {
-  model: 'supergemma4-26b-uncensored-v2',
-  apiKey: 'lm-studio',
-  baseURL: 'http://localhost:1234/v1',
+  apiKey: '$ENV:OPENAI_API_KEY',
 };
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',
-    displayName: 'OpenAI Compatible',
-    description: 'Use OpenAI or an OpenAI-compatible endpoint',
+    displayName: 'OpenAI',
+    description: 'Use OpenAI Responses API',
     defaults: openaiDefaults,
+    setupHelpLinks: [
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+      },
+    ],
     setupSteps: [
       {
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
-      },
-      {
         key: 'model',
-        title: 'OpenAI-compatible model',
-        defaultValue: openaiDefaults.model,
+        title: 'OpenAI model',
+        required: true,
       },
       {
         key: 'apiKey',
-        title: 'OpenAI-compatible API key',
+        title: 'OpenAI API key',
         defaultValue: openaiDefaults.apiKey,
         masked: true,
       },
@@ -66,7 +67,7 @@ describe('provider setup prompt flow', () => {
     expect(formatProviderSetupSelectionPrompt(providerDefinitions)).toBe(
       [
         '  Select provider:',
-        '    1. OpenAI Compatible (openai) - Use OpenAI or an OpenAI-compatible endpoint',
+        '    1. OpenAI (openai) - Use OpenAI Responses API',
         '    2. Anthropic (anthropic) - Use Claude models through Anthropic',
         '  Provider [1-2] (default: 1): ',
       ].join('\n'),
@@ -82,19 +83,24 @@ describe('provider setup prompt flow', () => {
     );
   });
 
-  it('builds OpenAI-compatible setup input from defaulted prompt submissions', () => {
+  it('builds OpenAI setup input from model and default API key submissions', () => {
     let state = createProviderSetupFlow('openai', providerDefinitions);
+    expect(state.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+      },
+    ]);
     expect(getProviderSetupStep(state)).toMatchObject({
-      key: 'baseURL',
-      defaultValue: openaiDefaults.baseURL,
+      key: 'model',
+      required: true,
     });
 
-    const baseURLResult = submitProviderSetupValue(state, '');
-    expect(baseURLResult.status).toBe('next');
-    if (baseURLResult.status !== 'next') throw new Error('expected next');
-    state = baseURLResult.state;
+    const emptyModelResult = submitProviderSetupValue(state, '');
+    expect(emptyModelResult.status).toBe('error');
 
-    const modelResult = submitProviderSetupValue(state, '');
+    const modelResult = submitProviderSetupValue(state, 'gpt-4o');
     expect(modelResult.status).toBe('next');
     if (modelResult.status !== 'next') throw new Error('expected next');
     state = modelResult.state;
@@ -103,10 +109,9 @@ describe('provider setup prompt flow', () => {
     expect(apiKeyResult).toEqual({
       status: 'complete',
       input: {
-        profile: 'openai',
+        profile: 'gpt-4o',
         type: 'openai',
-        baseURL: openaiDefaults.baseURL,
-        model: openaiDefaults.model,
+        model: 'gpt-4o',
         apiKey: openaiDefaults.apiKey,
         setCurrent: true,
       },
@@ -123,30 +128,102 @@ describe('provider setup prompt flow', () => {
     });
   });
 
+  it('suggests unique profile names from model ids without exposing credentials', () => {
+    let state = createProviderSetupFlow('anthropic', providerDefinitions, {
+      existingProfileNames: ['claude-sonnet-4-6'],
+    });
+    const apiKeyResult = submitProviderSetupValue(state, 'sk-ant-test');
+    expect(apiKeyResult.status).toBe('next');
+    if (apiKeyResult.status !== 'next') throw new Error('expected next');
+    state = apiKeyResult.state;
+
+    const modelResult = submitProviderSetupValue(state, '');
+
+    expect(modelResult).toEqual({
+      status: 'complete',
+      input: {
+        profile: 'claude-sonnet-4-6-2',
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+        setCurrent: true,
+      },
+    });
+  });
+
+  it('builds edit input for a fixed profile from current profile values', () => {
+    let state = createProviderSetupFlow('anthropic', providerDefinitions, {
+      profileName: 'work-claude',
+      setCurrent: false,
+      initialValues: {
+        apiKey: '$ENV:ANTHROPIC_API_KEY',
+        model: 'claude-sonnet-4-6',
+      },
+    });
+
+    expect(getProviderSetupStep(state)).toMatchObject({
+      key: 'apiKey',
+      defaultValue: '$ENV:ANTHROPIC_API_KEY',
+      required: false,
+    });
+
+    const apiKeyResult = submitProviderSetupValue(state, '');
+    expect(apiKeyResult.status).toBe('next');
+    if (apiKeyResult.status !== 'next') throw new Error('expected next');
+    state = apiKeyResult.state;
+
+    const modelResult = submitProviderSetupValue(state, 'claude-opus-4-5');
+
+    expect(modelResult).toEqual({
+      status: 'complete',
+      input: {
+        profile: 'work-claude',
+        type: 'anthropic',
+        model: 'claude-opus-4-5',
+        apiKey: '$ENV:ANTHROPIC_API_KEY',
+        setCurrent: false,
+      },
+    });
+  });
+
   it('runs prompt input with masked API key steps', async () => {
-    const promptInput = vi.fn(async () => '');
+    const promptInput = vi.fn(async (label: string) => (label.includes('model') ? 'gpt-4o' : ''));
 
     const input = await runProviderSetupPromptFlow('openai', promptInput, providerDefinitions);
 
+    expect(input.model).toBe('gpt-4o');
+    expect(input.profile).toBe('gpt-4o');
     expect(input.apiKey).toBe(openaiDefaults.apiKey);
     expect(promptInput).toHaveBeenNthCalledWith(
       1,
-      formatProviderSetupPromptLabel({
-        key: 'baseURL',
-        title: 'OpenAI-compatible base URL',
-        defaultValue: openaiDefaults.baseURL,
-      }),
+      formatProviderSetupPromptLabel(
+        {
+          key: 'model',
+          title: 'OpenAI model',
+          required: true,
+        },
+        providerDefinitions[0]?.setupHelpLinks,
+      ),
       false,
     );
     expect(promptInput).toHaveBeenNthCalledWith(
-      3,
-      formatProviderSetupPromptLabel({
-        key: 'apiKey',
-        title: 'OpenAI-compatible API key',
-        defaultValue: openaiDefaults.apiKey,
-        masked: true,
-      }),
+      2,
+      formatProviderSetupPromptLabel(
+        {
+          key: 'apiKey',
+          title: 'OpenAI API key',
+          defaultValue: openaiDefaults.apiKey,
+          masked: true,
+        },
+        providerDefinitions[0]?.setupHelpLinks,
+      ),
       true,
+    );
+  });
+
+  it('formats provider setup help links for generic setup descriptions', () => {
+    expect(formatProviderSetupHelpLinks(providerDefinitions[0]?.setupHelpLinks)).toBe(
+      '  Setup help: API key: OpenAI API keys - https://platform.openai.com/api-keys',
     );
   });
 });

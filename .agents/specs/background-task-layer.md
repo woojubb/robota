@@ -238,7 +238,7 @@ interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
 }
 ```
 
-`ISerializableProviderProfile` is a data-only snapshot. It may include provider type, model, base URL, timeout, and API key reference. It MUST NOT include live SDK client instances.
+`ISerializableProviderProfile` is a data-only snapshot. It may include provider type, model, base URL, timeout, API key reference, and provider-owned options. It MUST NOT include live SDK client instances.
 
 ```ts
 type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
@@ -393,9 +393,9 @@ Interactive session event names MAY mirror the `type` values directly or expose 
 
 Agent background tasks replace the current subagent-specific runtime as the generic manager matures.
 
-Foreground agent flow:
+Foreground agent command flow:
 
-1. `Agent` tool validates the agent type.
+1. The `agent` command validates the agent type.
 2. It calls `BackgroundTaskManager.spawn({ kind: 'agent', mode: 'foreground', ... })`.
 3. It waits on `manager.wait(taskId)`.
 4. It returns the existing JSON shape:
@@ -404,9 +404,9 @@ Foreground agent flow:
 { "success": true, "output": "result text", "agentId": "task_1" }
 ```
 
-Background agent flow:
+Background agent command flow:
 
-1. `Agent` tool receives a background mode request from schema, config, or explicit command.
+1. The `agent` command receives a background mode request from command arguments or host configuration.
 2. It calls `BackgroundTaskManager.spawn({ kind: 'agent', mode: 'background', ... })`.
 3. It returns immediately:
 
@@ -631,8 +631,8 @@ Errors returned to the model must be concise and structured. Detailed logs belon
 
 ### Integration Tests
 
-- Foreground `Agent` tool still returns `{ success, output, agentId }`.
-- Background `Agent` tool returns metadata immediately and later emits completion.
+- Foreground `agent` command execution still returns `{ success, output, agentId }`.
+- Background `agent` command execution returns metadata immediately and later emits completion.
 - A managed background process returns metadata immediately and writes stdout/stderr logs.
 - Parent prompt remains usable while a background task runs.
 - Cancelling a background process terminates only that process.
@@ -660,7 +660,7 @@ Errors returned to the model must be concise and structured. Detailed logs belon
 3. Add `InteractiveSession` background task APIs and a single `background_task_event` event in `agent-sdk`.
 4. Add `TuiStateManager` background task projection and unit tests.
 5. Migrate `SubagentManager` to `agent-runtime` and delegate to `BackgroundTaskManager` for `kind: 'agent'` while preserving SDK public compatibility.
-6. Add background mode to the `Agent` tool with foreground compatibility tests.
+6. Add background mode to the `agent` command with foreground compatibility tests.
 7. Add managed process runner and SDK-composed background process tool/wrapper. (Completed for CLI shell processes via `BackgroundProcess` + `ManagedShellProcessRunner`; keep regression coverage.)
 8. Add TUI background task panel and pure input flow controls. (Panel and `/background` slash controls completed; dedicated key-flow modules remain future work.)
 9. Add CLI child process agent runner and worker IPC protocol.

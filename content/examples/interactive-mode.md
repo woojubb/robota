@@ -33,7 +33,7 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 /background   List and control background tasks
 /agent        Run or manage background subagent jobs
 /statusline   Show, hide, or reset status line fields
-/reload-plugins  Reload all plugins
+/reload-plugins  Reload all plugin resources
 ```
 
 ### Permission Prompts
@@ -52,8 +52,11 @@ Bash: pnpm test
 The status bar shows real-time context usage:
 
 ```
-Mode: default | Model: claude-sonnet-4-6 | Context: 45% | msgs: 12
+Thinking | Model: claude-sonnet-4-6 | Context: 45%
 ```
+
+`default` permission mode is hidden because it is the baseline. Non-default permission modes such as
+`plan`, `acceptEdits`, and `bypassPermissions` are shown as `Mode: <mode>`.
 
 Colors: green (0-69%), yellow (70-89%), red (90%+).
 

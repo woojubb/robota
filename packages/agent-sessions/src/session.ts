@@ -17,7 +17,7 @@ import type {
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
-import type { SessionStore } from './session-store.js';
+import type { ISessionStore } from './session-store.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import { PermissionEnforcer } from './permission-enforcer.js';
 import type {
@@ -28,7 +28,12 @@ import type {
 } from './permission-types.js';
 import { ContextWindowTracker } from './context-window-tracker.js';
 import { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type { ISessionOptions, ISessionShutdownOptions } from './session-types.js';
+import type {
+  ICompactEvent,
+  ISessionOptions,
+  ISessionShutdownOptions,
+  TCompactTrigger,
+} from './session-types.js';
 import { executeRun } from './session-run.js';
 import { compact, persistSession } from './session-history-ops.js';
 import {
@@ -38,13 +43,16 @@ import {
 } from './session-lifecycle.js';
 
 export type {
+  ICompactEvent,
   TPermissionHandler,
   TPermissionResult,
   ITerminalOutput,
   ISpinner,
   ISessionOptions,
   ISessionShutdownOptions,
+  TCompactTrigger,
 };
+export type { TAutoCompactThreshold } from './context-window-tracker.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -60,7 +68,7 @@ export class Session {
   private readonly sessionId: string;
   private permissionMode: TPermissionMode;
   private readonly terminal: ITerminalOutput;
-  private readonly sessionStore?: SessionStore;
+  private readonly sessionStore?: ISessionStore;
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
   private readonly systemMessage: string;
@@ -70,7 +78,9 @@ export class Session {
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onContextUpdateCallback?: (state: IContextWindowState) => void;
+  private readonly onToolExecutionCallback?: ISessionOptions['onToolExecution'];
   private readonly onCompactCallback?: (summary: string) => void;
+  private readonly onCompactEventCallback?: ISessionOptions['onCompactEvent'];
   private readonly sessionLogger?: ISessionLogger;
   private readonly maxTurns?: number;
   private readonly permissionEnforcer: PermissionEnforcer;
@@ -95,7 +105,9 @@ export class Session {
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.onTextDeltaCallback = options.onTextDelta;
     this.onContextUpdateCallback = options.onContextUpdate;
+    this.onToolExecutionCallback = options.onToolExecution;
     this.onCompactCallback = options.onCompact;
+    this.onCompactEventCallback = options.onCompactEvent;
     this.maxTurns = options.maxTurns;
     this.model = options.model ?? 'claude-sonnet-4-5';
     this.sessionId =
@@ -132,7 +144,11 @@ export class Session {
       hookTypeExecutors: options.hookTypeExecutors,
     });
 
-    this.contextTracker = new ContextWindowTracker(this.model, options.contextMaxTokens);
+    this.contextTracker = new ContextWindowTracker(
+      this.model,
+      options.contextMaxTokens,
+      options.autoCompactThreshold,
+    );
     this.compactionOrchestrator = new CompactionOrchestrator({
       sessionId: this.sessionId,
       cwd: this.cwd,
@@ -187,7 +203,7 @@ export class Session {
           hookTypeExecutors: this.hookTypeExecutors,
           sessionStartStdout: this.sessionStartStdout,
           log: (event, data) => this.log(event, data),
-          compact: () => this.compact(),
+          compact: () => this.compact(undefined, 'auto'),
           persistSession: () => this.persistSessionInternal(),
           getSessionStore: () => !!this.sessionStore,
           clearSessionStartStdout: () => {
@@ -196,6 +212,8 @@ export class Session {
           ...(this.maxTurns !== undefined ? { maxTurns: this.maxTurns } : {}),
           onTextDelta: this.onTextDeltaCallback,
           onContextUpdate: this.onContextUpdateCallback,
+          onToolExecution: this.onToolExecutionCallback,
+          knownToolNames: this.toolSchemas.map((tool) => tool.name),
         },
         signal,
       );
@@ -305,11 +323,21 @@ export class Session {
     return this.contextTracker.getContextState();
   }
 
+  /** Get this session's automatic context compaction threshold policy. */
+  getAutoCompactThreshold() {
+    return this.contextTracker.getAutoCompactThreshold();
+  }
+
+  /** Change this session's automatic context compaction threshold policy. */
+  setAutoCompactThreshold(threshold: number | false): void {
+    this.contextTracker.setAutoCompactThreshold(threshold);
+  }
+
   /**
    * Run compaction — summarize the conversation to free context space.
    * @param instructions - Optional focus instructions for the summary
    */
-  async compact(instructions?: string): Promise<void> {
+  async compact(instructions?: string, trigger: TCompactTrigger = 'manual'): Promise<void> {
     await compact(instructions, {
       sessionId: this.sessionId,
       cwd: this.cwd,
@@ -321,6 +349,8 @@ export class Session {
       hooks: this.hooks,
       hookTypeExecutors: this.hookTypeExecutors,
       onCompactCallback: this.onCompactCallback,
+      onCompactEventCallback: this.onCompactEventCallback,
+      trigger,
       log: (event, data) => this.log(event, data),
     });
   }

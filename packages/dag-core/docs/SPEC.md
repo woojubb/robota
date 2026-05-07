@@ -6,7 +6,7 @@
 
 ## Boundaries
 
-- **No infrastructure adapters.** Storage, queue, and lease implementations belong to consumer packages. `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`).
+- **No infrastructure adapters.** Storage, queue, lease, and run-draft implementations belong to consumer packages. `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`, `IRunDraftStore`).
 - **No orchestration runtime.** DAG scheduling, worker polling, and run coordination belong to runtime and orchestration packages.
 - **No node implementations.** Concrete node types belong to node implementation packages.
 - **No node authoring infrastructure.** Base classes (`AbstractNodeDefinition`), accessors (`NodeIoAccessor`), registries, lifecycle wrappers, and value objects (`MediaReference`) belong to a dedicated node authoring package. `dag-core` defines the interfaces they implement but does not own the implementations.
@@ -28,6 +28,7 @@ dag-core/
     state-machines/  -- DagRun and TaskRun finite state machines
     lifecycle/       -- Node lifecycle runner, cost policy evaluator, task executor port
     services/        -- Domain services (validation, definition mgmt, cost policy)
+    state/           -- Pure DAG node state reducers for orchestration views
     registry/        -- (emptied — extracted to node authoring package)
     schemas/         -- (emptied — extracted to node authoring package)
     value-objects/   -- (emptied — extracted to node authoring package)
@@ -49,83 +50,123 @@ dag-core/
 
 All types below are the canonical SSOT definitions. Other `dag-*` packages must import them from `@robota-sdk/dag-core`.
 
-| Type | Location | Purpose |
-|------|----------|---------|
-| `TDagDefinitionStatus` | `types/domain.ts` | Definition lifecycle status: `draft`, `published`, `deprecated` |
-| `TPortValueType` | `types/domain.ts` | Port data types: `string`, `number`, `boolean`, `object`, `array`, `binary` |
-| `TBinaryKind` | `types/domain.ts` | Binary payload kind: `image`, `video`, `audio`, `file` |
-| `TNodeConfigValue` | `types/domain.ts` | Recursive config value type (primitives, objects, arrays) |
-| `TNodeConfigRecord` | `types/domain.ts` | Node configuration record (alias for `INodeConfigObject`) |
-| `TAssetReference` | `types/domain.ts` | Discriminated union for asset-by-id or asset-by-uri references |
-| `TDagRunStatus` | `types/domain.ts` | DAG run states: `created`, `queued`, `running`, `success`, `failed`, `cancelled` |
-| `TTaskRunStatus` | `types/domain.ts` | Task run states: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, `skipped`, `cancelled` |
-| `TDagTriggerType` | `types/domain.ts` | Trigger types: `manual`, `scheduled`, `api` |
-| `IPortDefinition` | `types/domain.ts` | Port schema (key, type, required, binary constraints, list constraints) |
-| `INodeManifest` | `types/domain.ts` | Node registration manifest (type, display name, category, ports, config schema) |
-| `ICostPolicy` | `types/domain.ts` | Run-level cost budget configuration (`runCreditLimit`, `costPolicyVersion`) |
-| `IDagNode` | `types/domain.ts` | Node instance within a DAG definition |
-| `IEdgeBinding` | `types/domain.ts` | Single output-to-input port binding on an edge |
-| `IDagEdgeDefinition` | `types/domain.ts` | Edge connecting two nodes with bindings |
-| `IDagDefinition` | `types/domain.ts` | Complete DAG definition (nodes, edges, cost policy, schemas) |
-| `IDagRun` | `types/domain.ts` | DAG execution run record |
-| `ITaskRun` | `types/domain.ts` | Individual task execution record within a DAG run |
-| `IExecutionPathSegment` | `types/domain.ts` | Segment of the hierarchical execution path |
-| `TErrorCategory` | `types/error.ts` | Error categories: `validation`, `state_transition`, `lease`, `dispatch`, `task_execution` |
-| `IDagError` | `types/error.ts` | Canonical error structure (code, category, message, retryable, context) |
-| `TResult<T, E>` | `types/result.ts` | Discriminated union result type for all domain operations |
-| `INodeLifecycle` | `types/node-lifecycle.ts` | Full node lifecycle interface (initialize, validateInput, estimateCost, execute, validateOutput, dispose) |
-| `INodeLifecycleFactory` | `types/node-lifecycle.ts` | Factory interface for creating `INodeLifecycle` instances by node type |
-| `INodeManifestRegistry` | `types/node-lifecycle.ts` | Registry interface for looking up node manifests |
-| `INodeTaskHandler` | `types/node-lifecycle.ts` | Partial lifecycle handler (only `execute` is required) |
-| `INodeTaskHandlerRegistry` | `types/node-lifecycle.ts` | Registry interface for looking up task handlers |
-| `IDagNodeDefinition` | `types/node-lifecycle.ts` | Composite definition combining manifest fields with a task handler |
-| `INodeDefinitionAssembly` | `types/node-lifecycle.ts` | Assembly result of manifests and handlers from node definitions |
-| `INodeExecutionContext` | `types/node-lifecycle.ts` | Execution context passed to lifecycle methods |
-| `INodeExecutionResult` | `types/node-lifecycle.ts` | Execution result with output payload and cost data |
-| `ICostEstimate` | `types/node-lifecycle.ts` | Cost estimate returned from `estimateCost` (`estimatedCredits`, `details?`) |
-| `IRunCostPolicyEvaluator` | `types/node-lifecycle.ts` | Interface for budget enforcement |
-| `TRunProgressEvent` | `types/run-progress.ts` | Discriminated union of all run progress event types |
-| `IRunProgressEventReporter` | `types/run-progress.ts` | Interface for publishing progress events |
-| `TPortValue` | `interfaces/ports.ts` | Union of all port value types (primitives, binary, arrays, objects) |
-| `TPortPayload` | `interfaces/ports.ts` | Key-value map of port values |
-| `IQueuePort` | `interfaces/ports.ts` | Queue infrastructure port (enqueue, dequeue, ack, nack) |
-| `ILeasePort` | `interfaces/ports.ts` | Lease infrastructure port (acquire, renew, release, get) |
-| `IStoragePort` | `interfaces/ports.ts` | Storage infrastructure port (definitions, runs, tasks) |
-| `ITaskExecutorPort` | `interfaces/ports.ts` | Task execution infrastructure port |
-| `IClockPort` | `interfaces/ports.ts` | Clock infrastructure port (nowIso, nowEpochMs) |
-| `IQueueMessage` | `interfaces/ports.ts` | Queue message structure |
-| `ITaskExecutionInput` | `interfaces/ports.ts` | Input payload for task execution |
-| `TTaskExecutionResult` | `interfaces/ports.ts` | Discriminated union result from task execution |
+| Type                        | Location                         | Purpose                                                                                                                                                     |
+| --------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TDagDefinitionStatus`      | `types/domain.ts`                | Definition lifecycle status: `draft`, `published`, `deprecated`                                                                                             |
+| `TPortValueType`            | `types/domain.ts`                | Port data types: `string`, `number`, `boolean`, `object`, `array`, `binary`                                                                                 |
+| `TBinaryKind`               | `types/domain.ts`                | Binary payload kind: `image`, `video`, `audio`, `file`                                                                                                      |
+| `TNodeConfigValue`          | `types/domain.ts`                | Recursive config value type (primitives, objects, arrays)                                                                                                   |
+| `TNodeConfigRecord`         | `types/domain.ts`                | Node configuration record (alias for `INodeConfigObject`)                                                                                                   |
+| `TAssetReference`           | `types/domain.ts`                | Discriminated union for asset-by-id or asset-by-uri references                                                                                              |
+| `TDagRunStatus`             | `types/domain.ts`                | DAG run states: `created`, `queued`, `running`, `success`, `failed`, `cancelled`                                                                            |
+| `TTaskRunStatus`            | `types/domain.ts`                | Task run states: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, `skipped`, `cancelled`                                             |
+| `TNodeExecutionStatus`      | `types/node-state.ts`            | Designer/orchestration node execution projection states: `idle`, `running`, `success`, `failed`                                                             |
+| `TNodeOperationStatus`      | `types/node-state.ts`            | Node side-effect operation states that gate execution, currently `idle` or `uploading`                                                                      |
+| `TDagTriggerType`           | `types/domain.ts`                | Trigger types: `manual`, `scheduled`, `api`                                                                                                                 |
+| `IPortDefinition`           | `types/domain.ts`                | Port schema (key, type, required, binary constraints, list constraints)                                                                                     |
+| `INodeManifest`             | `types/domain.ts`                | Node registration manifest (type, display name, category, ports, config schema)                                                                             |
+| `ICostPolicy`               | `types/domain.ts`                | Run-level cost budget configuration (`runCreditLimit`, `costPolicyVersion`)                                                                                 |
+| `IDagNode`                  | `types/domain.ts`                | Node instance within a DAG definition. `inputs`/`outputs` are optional runtime-catalog data and must not be required for persisted DAG JSON.                |
+| `IEdgeBinding`              | `types/domain.ts`                | Single output-to-input port binding on an edge                                                                                                              |
+| `IDagEdgeDefinition`        | `types/domain.ts`                | Edge connecting two nodes with bindings                                                                                                                     |
+| `IDagDefinition`            | `types/domain.ts`                | Complete DAG definition (nodes, edges, cost policy, schemas)                                                                                                |
+| `IDagRun`                   | `types/domain.ts`                | DAG execution run record                                                                                                                                    |
+| `ITaskRun`                  | `types/domain.ts`                | Individual task execution record within a DAG run                                                                                                           |
+| `IExecutionPathSegment`     | `types/domain.ts`                | Segment of the hierarchical execution path                                                                                                                  |
+| `TErrorCategory`            | `types/error.ts`                 | Error categories: `validation`, `state_transition`, `lease`, `dispatch`, `task_execution`                                                                   |
+| `IDagError`                 | `types/error.ts`                 | Canonical error structure (code, category, message, retryable, context)                                                                                     |
+| `TResult<T, E>`             | `types/result.ts`                | Discriminated union result type for all domain operations                                                                                                   |
+| `INodeLifecycle`            | `types/node-lifecycle.ts`        | Full node lifecycle interface (initialize, validateInput, estimateCost, execute, validateOutput, dispose)                                                   |
+| `INodeLifecycleFactory`     | `types/node-lifecycle.ts`        | Factory interface for creating `INodeLifecycle` instances by node type                                                                                      |
+| `INodeManifestRegistry`     | `types/node-lifecycle.ts`        | Registry interface for looking up node manifests                                                                                                            |
+| `INodeTaskHandler`          | `types/node-lifecycle.ts`        | Partial lifecycle handler (only `execute` is required)                                                                                                      |
+| `INodeTaskHandlerRegistry`  | `types/node-lifecycle.ts`        | Registry interface for looking up task handlers                                                                                                             |
+| `IDagNodeDefinition`        | `types/node-lifecycle.ts`        | Composite definition combining manifest fields with a task handler                                                                                          |
+| `INodeDefinitionAssembly`   | `types/node-lifecycle.ts`        | Assembly result of manifests and handlers from node definitions                                                                                             |
+| `INodeExecutionContext`     | `types/node-lifecycle.ts`        | Execution context passed to lifecycle methods                                                                                                               |
+| `INodeExecutionResult`      | `types/node-lifecycle.ts`        | Execution result with output payload and cost data                                                                                                          |
+| `ICostEstimate`             | `types/node-lifecycle.ts`        | Cost estimate returned from `estimateCost` (`estimatedCredits`, `details?`)                                                                                 |
+| `IRunCostPolicyEvaluator`   | `types/node-lifecycle.ts`        | Interface for budget enforcement                                                                                                                            |
+| `TRunProgressEvent`         | `types/run-progress.ts`          | Discriminated union of all run progress event types                                                                                                         |
+| `IRunProgressEventReporter` | `types/run-progress.ts`          | Interface for publishing progress events                                                                                                                    |
+| `IDagNodeExecutionTrace`    | `types/node-state.ts`            | Lightweight per-node execution trace projection used by orchestration views                                                                                 |
+| `IDagNodeState`             | `types/node-state.ts`            | Canonical per-node orchestration state combining side-effect status, execution status, and the latest execution trace                                       |
+| `TNodeStateMap`             | `types/node-state.ts`            | Node-id keyed map of `IDagNodeState` values                                                                                                                 |
+| `IPartialRunRequest`        | `types/run-draft.ts`             | Request contract for running from a specific node while the runtime reuses previously computed upstream state                                               |
+| `IRunDraft`                 | `types/run-draft.ts`             | Separate execution draft containing a DAG definition, input payload, node state map, and optional run result without embedding state in DAG JSON            |
+| `ISaveRunDraftInput`        | `types/run-draft.ts`             | Input contract for creating or replacing a run draft                                                                                                        |
+| `IRunDraftStore`            | `interfaces/run-draft-store.ts`  | Persistence port for run drafts                                                                                                                             |
+| `TPortValue`                | `interfaces/ports.ts`            | Union of all port value types (primitives, binary, arrays, objects)                                                                                         |
+| `TPortPayload`              | `interfaces/ports.ts`            | Key-value map of port values                                                                                                                                |
+| `IStoredAssetMetadata`      | `interfaces/asset-store-port.ts` | Asset metadata stored by infrastructure adapters, including optional `runtimeAssetId` when an orchestrator asset has been synchronized to a runtime backend |
+| `ICreateAssetInput`         | `interfaces/asset-store-port.ts` | Asset creation input with binary content and optional `runtimeAssetId` metadata                                                                             |
+| `IAssetStore`               | `interfaces/asset-store-port.ts` | Asset storage infrastructure port for saving, reading metadata, and streaming content                                                                       |
+| `IQueuePort`                | `interfaces/ports.ts`            | Queue infrastructure port (enqueue, dequeue with optional wait timeout, ack, nack)                                                                          |
+| `ILeasePort`                | `interfaces/ports.ts`            | Lease infrastructure port (acquire, renew, release, get)                                                                                                    |
+| `IStoragePort`              | `interfaces/ports.ts`            | Storage infrastructure port (definitions, runs, tasks)                                                                                                      |
+| `ITaskExecutorPort`         | `interfaces/ports.ts`            | Task execution infrastructure port                                                                                                                          |
+| `IClockPort`                | `interfaces/ports.ts`            | Clock infrastructure port (nowIso, nowEpochMs)                                                                                                              |
+| `IQueueMessage`             | `interfaces/ports.ts`            | Queue message structure                                                                                                                                     |
+| `ITaskExecutionInput`       | `interfaces/ports.ts`            | Input payload for task execution                                                                                                                            |
+| `TTaskExecutionResult`      | `interfaces/ports.ts`            | Discriminated union result from task execution                                                                                                              |
 
 ## Public API Surface
 
-| Export | Kind | Description |
-|--------|------|-------------|
-| `DagRunStateMachine` | Class | Static state machine for DAG run status transitions |
-| `TaskRunStateMachine` | Class | Static state machine for task run status transitions |
-| `DagDefinitionValidator` | Class | Validates `IDagDefinition` structure (graph acyclicity, port compatibility, binding integrity) |
-| `DagDefinitionService` | Class | Domain service for DAG definition CRUD and publish lifecycle |
-| `TimeSemanticsService` | Class | Resolves trigger type and logical date with UTC normalization |
-| `NodeLifecycleRunner` | Class | Orchestrates the full node lifecycle sequence (init, validate, estimate, execute, validate output, dispose) |
-| `RunCostPolicyEvaluator` | Class | Evaluates whether estimated cost fits within the run budget |
-| `MissingNodeLifecycleFactory` | Class | Sentinel factory that always returns an error (used as default) |
-| `LifecycleTaskExecutorPort` | Class | `ITaskExecutorPort` adapter that delegates to `NodeLifecycleRunner` |
-| `buildValidationError` | Function | Error builder for `validation` category |
-| `buildDispatchError` | Function | Error builder for `dispatch` category |
-| `buildLeaseError` | Function | Error builder for `lease` category |
-| `buildTaskExecutionError` | Function | Error builder for `task_execution` category |
-| `buildDagError` | Function | Generic error builder for any category |
-| `buildListPortHandleKey` | Function | Builds a list-port handle key string (e.g., `images[0]`) |
-| `parseListPortHandleKey` | Function | Parses a list-port handle key back to port key and index |
-| `DAG_DEFINITION_STATUS` | Constant | Definition status enum object |
-| `DAG_RUN_STATUS` | Constant | DAG run status enum object |
-| `TASK_RUN_STATUS` | Constant | Task run status enum object |
-| `RUN_EVENTS`, `TASK_EVENTS`, `WORKER_EVENTS`, `SCHEDULER_EVENTS` | Constants | Domain event name constants |
-| `EXECUTION_PROGRESS_EVENTS`, `TASK_PROGRESS_EVENTS` | Constants | Progress event name constants |
-| `RUN_EVENT_PREFIX`, `TASK_EVENT_PREFIX`, `WORKER_EVENT_PREFIX`, `SCHEDULER_EVENT_PREFIX`, `EXECUTION_EVENT_PREFIX` | Constants | Event prefix strings |
-| `DAG_CORE_PACKAGE_NAME` | Constant | Package name string `@robota-sdk/dag-core` |
+| Export                                                                                                             | Kind      | Description                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DagRunStateMachine`                                                                                               | Class     | Static state machine for DAG run status transitions                                                                                                           |
+| `TaskRunStateMachine`                                                                                              | Class     | Static state machine for task run status transitions                                                                                                          |
+| `DagDefinitionValidator`                                                                                           | Class     | Validates `IDagDefinition` structure (graph acyclicity and binding integrity; port existence/type compatibility only when port catalogs are present on nodes) |
+| `DagDefinitionService`                                                                                             | Class     | Domain service for DAG definition CRUD and publish lifecycle                                                                                                  |
+| `TimeSemanticsService`                                                                                             | Class     | Resolves trigger type and logical date with UTC normalization                                                                                                 |
+| `NodeLifecycleRunner`                                                                                              | Class     | Orchestrates the full node lifecycle sequence (init, validate, estimate, execute, validate output, dispose)                                                   |
+| `RunCostPolicyEvaluator`                                                                                           | Class     | Evaluates whether estimated cost fits within the run budget                                                                                                   |
+| `MissingNodeLifecycleFactory`                                                                                      | Class     | Sentinel factory that always returns an error (used as default)                                                                                               |
+| `LifecycleTaskExecutorPort`                                                                                        | Class     | `ITaskExecutorPort` adapter that delegates to `NodeLifecycleRunner`                                                                                           |
+| `createDefaultDagNodeState`                                                                                        | Function  | Creates the default per-node orchestration state                                                                                                              |
+| `reconcileDagNodeStateMap`                                                                                         | Function  | Keeps a node state map aligned to a DAG definition's current node set                                                                                         |
+| `markDagNodeOperationStarted`                                                                                      | Function  | Marks a node side-effect operation, such as upload, as in progress                                                                                            |
+| `markDagNodeOperationDone`                                                                                         | Function  | Clears a node side-effect operation gate                                                                                                                      |
+| `resetDagNodeExecutionStateMap`                                                                                    | Function  | Resets execution status for a new run while preserving non-execution UI extensions at consumer boundaries                                                     |
+| `resetDagNodeExecutionStateFromNode`                                                                               | Function  | Resets execution state for one node and its downstream dependents after a manual reset                                                                        |
+| `overwriteDagNodeExecutionTrace`                                                                                   | Function  | Marks one node as successful with a manually supplied trace                                                                                                   |
+| `applyRunProgressEventToNodeStateMap`                                                                              | Function  | Projects run progress events into per-node execution state and traces                                                                                         |
+| `applyRunResultToNodeStateMap`                                                                                     | Function  | Projects final run traces into per-node state                                                                                                                 |
+| `resetRunResultFromNode`                                                                                           | Function  | Removes final run traces and node errors for one node and its downstream dependents                                                                           |
+| `overwriteRunResultNodeTrace`                                                                                      | Function  | Upserts a node trace into a final run result and clears node errors for that node                                                                             |
+| `isDagNodeStateMapRunnable`                                                                                        | Function  | Returns whether no node has a blocking side-effect operation or running execution                                                                             |
+| `buildValidationError`                                                                                             | Function  | Error builder for `validation` category                                                                                                                       |
+| `buildDispatchError`                                                                                               | Function  | Error builder for `dispatch` category                                                                                                                         |
+| `buildLeaseError`                                                                                                  | Function  | Error builder for `lease` category                                                                                                                            |
+| `buildTaskExecutionError`                                                                                          | Function  | Error builder for `task_execution` category                                                                                                                   |
+| `buildDagError`                                                                                                    | Function  | Generic error builder for any category                                                                                                                        |
+| `buildListPortHandleKey`                                                                                           | Function  | Builds a list-port handle key string (e.g., `images[0]`)                                                                                                      |
+| `parseListPortHandleKey`                                                                                           | Function  | Parses a list-port handle key back to port key and index                                                                                                      |
+| `DAG_DEFINITION_STATUS`                                                                                            | Constant  | Definition status enum object                                                                                                                                 |
+| `DAG_RUN_STATUS`                                                                                                   | Constant  | DAG run status enum object                                                                                                                                    |
+| `TASK_RUN_STATUS`                                                                                                  | Constant  | Task run status enum object                                                                                                                                   |
+| `RUN_EVENTS`, `TASK_EVENTS`, `WORKER_EVENTS`, `SCHEDULER_EVENTS`                                                   | Constants | Domain event name constants                                                                                                                                   |
+| `EXECUTION_PROGRESS_EVENTS`, `TASK_PROGRESS_EVENTS`                                                                | Constants | Progress event name constants                                                                                                                                 |
+| `RUN_EVENT_PREFIX`, `TASK_EVENT_PREFIX`, `WORKER_EVENT_PREFIX`, `SCHEDULER_EVENT_PREFIX`, `EXECUTION_EVENT_PREFIX` | Constants | Event prefix strings                                                                                                                                          |
+| `DAG_CORE_PACKAGE_NAME`                                                                                            | Constant  | Package name string `@robota-sdk/dag-core`                                                                                                                    |
 
 > **Note:** 인메모리 포트 구현체들은 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `FakeClockPort`, `SystemClockPort`, `MockTaskExecutorPort` 등은 해당 패키지에서 import.
+
+## DAG Definition Port Catalog Policy
+
+Persisted DAG JSON stores graph instances, not runtime node schemas. `IDagNode.inputs` and `IDagNode.outputs` are optional compatibility/catalog fields; new persisted definitions should omit them and retain only node identity, node type, config, position, dependency, and execution policy fields.
+
+Port definitions are owned by the runtime node catalog (`INodeManifest`/`TObjectInfo`) and may change independently of saved DAG definitions. `DagDefinitionValidator` therefore validates node IDs, edge endpoints, binding presence, duplicate binding identities, cycles, and cost policy without requiring node-local ports. When a source node has an `outputs` catalog, binding `outputKey` values must exist in that catalog. When a target node has an `inputs` catalog, binding `inputKey` values must resolve against that catalog, including list-port handles. Type compatibility is checked only when both matching ports are available.
+
+Callers that need strict port validation must enrich definitions with the current runtime catalog before validation. Callers must not persist that enriched form unless they intentionally own a compatibility migration.
+
+## Run Draft and Partial Execution Contracts
+
+Run execution state is separate from DAG definition JSON. `IRunDraft` stores `definition`, `input`, `nodeStateMap`, and optional `runResult` as an orchestration draft so clients can restore execution state without writing transient state into `IDagDefinition`.
+
+`IPartialRunRequest` identifies the user intent to rerun from `startNodeId`. Orchestration packages translate that intent to runtime-specific execution targets. For ComfyUI-compatible runtimes, `IPromptRequest.partial_execution_targets` carries the target node IDs in the POST `/prompt` request.
+
+`resetDagNodeExecutionStateFromNode()` and `resetRunResultFromNode()` reset the selected node and all downstream dependents because downstream traces are no longer valid after an upstream result changes. `overwriteDagNodeExecutionTrace()` and `overwriteRunResultNodeTrace()` upsert a manual node result while keeping the DAG definition unchanged.
 
 ## Extension Points
 
@@ -138,10 +179,11 @@ The primary extension point for node implementors. `dag-core` defines the `IDagN
 Consumer packages implement these interfaces to provide infrastructure:
 
 - `IStoragePort` -- persistence for definitions, runs, and tasks.
-- `IQueuePort` -- message queue for task dispatch (enqueue, dequeue, ack, nack).
+- `IQueuePort` -- message queue for task dispatch (enqueue, dequeue, ack, nack). `dequeue(workerId, visibilityTimeoutMs, waitTimeoutMs?)` may wait up to the optional timeout before returning `undefined`; adapters that cannot support long-polling may ignore the optional timeout and return immediately.
 - `ILeasePort` -- distributed lease management (acquire, renew, release).
 - `IClockPort` -- clock abstraction for deterministic time in tests.
 - `ITaskExecutorPort` -- task execution delegation.
+- `IRunDraftStore` -- persistence for execution drafts that contain node state and run results outside `IDagDefinition`.
 
 ### INodeTaskHandler
 
@@ -155,93 +197,93 @@ All errors conform to `IDagError`:
 
 ```typescript
 interface IDagError {
-    code: string;
-    category: TErrorCategory;
-    message: string;
-    retryable: boolean;
-    context?: Record<string, string | number | boolean>;
+  code: string;
+  category: TErrorCategory;
+  message: string;
+  retryable: boolean;
+  context?: Record<string, string | number | boolean>;
 }
 ```
 
 ### Error Categories
 
-| Category | Description | Default Retryable |
-|----------|-------------|-------------------|
-| `validation` | Schema, structure, or constraint violations | `false` |
-| `state_transition` | Invalid state machine transitions | `false` |
-| `lease` | Lease acquisition or renewal failures | `false` |
-| `dispatch` | Task dispatch/queue failures | `true` |
-| `task_execution` | Errors during node execution | varies |
+| Category           | Description                                 | Default Retryable |
+| ------------------ | ------------------------------------------- | ----------------- |
+| `validation`       | Schema, structure, or constraint violations | `false`           |
+| `state_transition` | Invalid state machine transitions           | `false`           |
+| `lease`            | Lease acquisition or renewal failures       | `false`           |
+| `dispatch`         | Task dispatch/queue failures                | `true`            |
+| `task_execution`   | Errors during node execution                | varies            |
 
 ### Error Codes
 
 **Validation errors** (category: `validation`, retryable: `false`):
 
-| Code | Source | Description |
-|------|--------|-------------|
-| `DAG_VALIDATION_EMPTY_DAG_ID` | `DagDefinitionValidator` | dagId is empty |
-| `DAG_VALIDATION_INVALID_VERSION` | `DagDefinitionValidator` | version is not a positive integer |
-| `DAG_VALIDATION_EMPTY_NODES` | `DagDefinitionValidator` | DAG has no nodes |
-| `DAG_VALIDATION_EMPTY_NODE_ID` | `DagDefinitionValidator` | nodeId is empty |
-| `DAG_VALIDATION_DUPLICATE_NODE_ID` | `DagDefinitionValidator` | duplicate nodeId |
-| `DAG_VALIDATION_NODE_TYPE_REMOVED` | `DagDefinitionValidator` | deprecated node type used |
-| `DAG_VALIDATION_EMPTY_INPUT_KEY` | `DagDefinitionValidator` | input port key is empty |
-| `DAG_VALIDATION_EMPTY_OUTPUT_KEY` | `DagDefinitionValidator` | output port key is empty |
-| `DAG_VALIDATION_DUPLICATE_INPUT_KEY` | `DagDefinitionValidator` | duplicate input port key within a node |
-| `DAG_VALIDATION_DUPLICATE_OUTPUT_KEY` | `DagDefinitionValidator` | duplicate output port key within a node |
-| `DAG_VALIDATION_INVALID_INPUT_ORDER` | `DagDefinitionValidator` | input port order is not a non-negative integer |
-| `DAG_VALIDATION_INVALID_OUTPUT_ORDER` | `DagDefinitionValidator` | output port order is not a non-negative integer |
-| `DAG_VALIDATION_INVALID_INPUT_MIN_ITEMS` | `DagDefinitionValidator` | input port minItems is invalid |
-| `DAG_VALIDATION_INVALID_INPUT_MAX_ITEMS` | `DagDefinitionValidator` | input port maxItems is invalid |
-| `DAG_VALIDATION_INVALID_INPUT_ITEM_RANGE` | `DagDefinitionValidator` | minItems exceeds maxItems |
-| `DAG_VALIDATION_EDGE_FROM_NOT_FOUND` | `DagDefinitionValidator` | edge references nonexistent source node |
-| `DAG_VALIDATION_EDGE_TO_NOT_FOUND` | `DagDefinitionValidator` | edge references nonexistent target node |
-| `DAG_VALIDATION_BINDING_REQUIRED` | `DagDefinitionValidator` | edge has no bindings |
-| `DAG_VALIDATION_BINDING_OUTPUT_NOT_FOUND` | `DagDefinitionValidator` | binding references nonexistent output port |
-| `DAG_VALIDATION_BINDING_INPUT_NOT_FOUND` | `DagDefinitionValidator` | binding references nonexistent input port |
-| `DAG_VALIDATION_BINDING_INPUT_KEY_DUPLICATE` | `DagDefinitionValidator` | multiple outputs map to same input in one edge |
-| `DAG_VALIDATION_BINDING_INPUT_KEY_CONFLICT` | `DagDefinitionValidator` | multiple upstream edges map to same input |
-| `DAG_VALIDATION_BINDING_TYPE_MISMATCH` | `DagDefinitionValidator` | output and input port types are incompatible |
-| `DAG_VALIDATION_CYCLE_DETECTED` | `DagDefinitionValidator` | DAG contains a cycle |
-| `DAG_VALIDATION_INVALID_COST_LIMIT` | `DagDefinitionValidator` | cost limit is not positive |
-| `DAG_VALIDATION_INVALID_COST_POLICY_VERSION` | `DagDefinitionValidator` | cost policy version is not positive |
-| `DAG_VALIDATION_TEST_ENTRY_NODE_COUNT_INVALID` | `DagDefinitionValidator` | test DAG has wrong entry node count |
-| `DAG_VALIDATION_TEST_ENTRY_NODE_TYPE_INVALID` | `DagDefinitionValidator` | test DAG entry node is wrong type |
-| `DAG_VALIDATION_DUPLICATE_VERSION` | `DagDefinitionService` | definition with same dagId and version already exists |
-| `DAG_VALIDATION_DEFINITION_NOT_FOUND` | `DagDefinitionService` | definition does not exist |
-| `DAG_VALIDATION_UPDATE_ONLY_DRAFT` | `DagDefinitionService` | only draft definitions can be updated |
-| `DAG_VALIDATION_PUBLISH_ONLY_DRAFT` | `DagDefinitionService` | only draft definitions can be published |
-| `DAG_VALIDATION_MISSING_LOGICAL_DATE` | `TimeSemanticsService` | scheduled trigger requires logicalDate |
-| `DAG_VALIDATION_INVALID_LOGICAL_DATE` | `TimeSemanticsService` | logicalDate is not valid ISO-8601 |
-| `DAG_VALIDATION_NODE_CONFIG_SCHEMA_INVALID` | node definition base class | node config fails Zod schema parse |
-| `DAG_VALIDATION_NODE_INPUT_MISSING` | node I/O accessor | required input key is missing |
-| `DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH` | node I/O accessor, lifecycle wrapper | input value type does not match port type |
-| `DAG_VALIDATION_NODE_INPUT_MIN_ITEMS_NOT_SATISFIED` | node I/O accessor, lifecycle wrapper | list input has fewer items than minItems |
-| `DAG_VALIDATION_NODE_INPUT_MAX_ITEMS_EXCEEDED` | node I/O accessor, lifecycle wrapper | list input has more items than maxItems |
-| `DAG_VALIDATION_NODE_REQUIRED_INPUT_MISSING` | lifecycle wrapper | required input port value is missing |
-| `DAG_VALIDATION_NODE_REQUIRED_OUTPUT_MISSING` | lifecycle wrapper | required output port value is missing |
-| `DAG_VALIDATION_NODE_OUTPUT_TYPE_MISMATCH` | lifecycle wrapper | output value type does not match port type |
-| `DAG_VALIDATION_NODE_OUTPUT_MIN_ITEMS_NOT_SATISFIED` | lifecycle wrapper | list output has fewer items than minItems |
-| `DAG_VALIDATION_NODE_OUTPUT_MAX_ITEMS_EXCEEDED` | lifecycle wrapper | list output has more items than maxItems |
-| `DAG_VALIDATION_NODE_LIFECYCLE_NOT_REGISTERED` | lifecycle factory, `MissingNodeLifecycleFactory` | no lifecycle registered for node type |
-| `DAG_VALIDATION_NODE_DEFINITION_MISSING` | `LifecycleTaskExecutorPort` | task execution input lacks nodeDefinition |
-| `DAG_VALIDATION_NODE_MANIFEST_NOT_FOUND` | `LifecycleTaskExecutorPort` | no manifest registered for node type |
-| `DAG_VALIDATION_NEGATIVE_ESTIMATED_COST` | `RunCostPolicyEvaluator` | estimated cost is negative |
-| `DAG_VALIDATION_COST_LIMIT_EXCEEDED` | `RunCostPolicyEvaluator` | estimated run cost exceeds budget |
-| `DAG_VALIDATION_MEDIA_REFERENCE_INVALID` | media reference value object | media reference structure is invalid |
-| `DAG_VALIDATION_MEDIA_REFERENCE_XOR_REQUIRED` | media reference value object | exactly one of assetId or uri must be provided |
-| `DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH` | media reference value object | referenceType does not match provided fields |
+| Code                                                 | Source                                           | Description                                                                        |
+| ---------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `DAG_VALIDATION_EMPTY_DAG_ID`                        | `DagDefinitionValidator`                         | dagId is empty                                                                     |
+| `DAG_VALIDATION_INVALID_VERSION`                     | `DagDefinitionValidator`                         | version is not a positive integer                                                  |
+| `DAG_VALIDATION_EMPTY_NODES`                         | `DagDefinitionValidator`                         | DAG has no nodes                                                                   |
+| `DAG_VALIDATION_EMPTY_NODE_ID`                       | `DagDefinitionValidator`                         | nodeId is empty                                                                    |
+| `DAG_VALIDATION_DUPLICATE_NODE_ID`                   | `DagDefinitionValidator`                         | duplicate nodeId                                                                   |
+| `DAG_VALIDATION_NODE_TYPE_REMOVED`                   | `DagDefinitionValidator`                         | deprecated node type used                                                          |
+| `DAG_VALIDATION_EMPTY_INPUT_KEY`                     | `DagDefinitionValidator`                         | input port key is empty                                                            |
+| `DAG_VALIDATION_EMPTY_OUTPUT_KEY`                    | `DagDefinitionValidator`                         | output port key is empty                                                           |
+| `DAG_VALIDATION_DUPLICATE_INPUT_KEY`                 | `DagDefinitionValidator`                         | duplicate input port key within a node                                             |
+| `DAG_VALIDATION_DUPLICATE_OUTPUT_KEY`                | `DagDefinitionValidator`                         | duplicate output port key within a node                                            |
+| `DAG_VALIDATION_INVALID_INPUT_ORDER`                 | `DagDefinitionValidator`                         | input port order is not a non-negative integer                                     |
+| `DAG_VALIDATION_INVALID_OUTPUT_ORDER`                | `DagDefinitionValidator`                         | output port order is not a non-negative integer                                    |
+| `DAG_VALIDATION_INVALID_INPUT_MIN_ITEMS`             | `DagDefinitionValidator`                         | input port minItems is invalid                                                     |
+| `DAG_VALIDATION_INVALID_INPUT_MAX_ITEMS`             | `DagDefinitionValidator`                         | input port maxItems is invalid                                                     |
+| `DAG_VALIDATION_INVALID_INPUT_ITEM_RANGE`            | `DagDefinitionValidator`                         | minItems exceeds maxItems                                                          |
+| `DAG_VALIDATION_EDGE_FROM_NOT_FOUND`                 | `DagDefinitionValidator`                         | edge references nonexistent source node                                            |
+| `DAG_VALIDATION_EDGE_TO_NOT_FOUND`                   | `DagDefinitionValidator`                         | edge references nonexistent target node                                            |
+| `DAG_VALIDATION_BINDING_REQUIRED`                    | `DagDefinitionValidator`                         | edge has no bindings                                                               |
+| `DAG_VALIDATION_BINDING_OUTPUT_NOT_FOUND`            | `DagDefinitionValidator`                         | binding references nonexistent output port when a source output catalog is present |
+| `DAG_VALIDATION_BINDING_INPUT_NOT_FOUND`             | `DagDefinitionValidator`                         | binding references nonexistent input port when a target input catalog is present   |
+| `DAG_VALIDATION_BINDING_INPUT_KEY_DUPLICATE`         | `DagDefinitionValidator`                         | multiple outputs map to same input in one edge                                     |
+| `DAG_VALIDATION_BINDING_INPUT_KEY_CONFLICT`          | `DagDefinitionValidator`                         | multiple upstream edges map to same input                                          |
+| `DAG_VALIDATION_BINDING_TYPE_MISMATCH`               | `DagDefinitionValidator`                         | output and input port types are incompatible when both ports are present           |
+| `DAG_VALIDATION_CYCLE_DETECTED`                      | `DagDefinitionValidator`                         | DAG contains a cycle                                                               |
+| `DAG_VALIDATION_INVALID_COST_LIMIT`                  | `DagDefinitionValidator`                         | cost limit is not positive                                                         |
+| `DAG_VALIDATION_INVALID_COST_POLICY_VERSION`         | `DagDefinitionValidator`                         | cost policy version is not positive                                                |
+| `DAG_VALIDATION_TEST_ENTRY_NODE_COUNT_INVALID`       | `DagDefinitionValidator`                         | test DAG has wrong entry node count                                                |
+| `DAG_VALIDATION_TEST_ENTRY_NODE_TYPE_INVALID`        | `DagDefinitionValidator`                         | test DAG entry node is wrong type                                                  |
+| `DAG_VALIDATION_DUPLICATE_VERSION`                   | `DagDefinitionService`                           | definition with same dagId and version already exists                              |
+| `DAG_VALIDATION_DEFINITION_NOT_FOUND`                | `DagDefinitionService`                           | definition does not exist                                                          |
+| `DAG_VALIDATION_UPDATE_ONLY_DRAFT`                   | `DagDefinitionService`                           | only draft definitions can be updated                                              |
+| `DAG_VALIDATION_PUBLISH_ONLY_DRAFT`                  | `DagDefinitionService`                           | only draft definitions can be published                                            |
+| `DAG_VALIDATION_MISSING_LOGICAL_DATE`                | `TimeSemanticsService`                           | scheduled trigger requires logicalDate                                             |
+| `DAG_VALIDATION_INVALID_LOGICAL_DATE`                | `TimeSemanticsService`                           | logicalDate is not valid ISO-8601                                                  |
+| `DAG_VALIDATION_NODE_CONFIG_SCHEMA_INVALID`          | node definition base class                       | node config fails Zod schema parse                                                 |
+| `DAG_VALIDATION_NODE_INPUT_MISSING`                  | node I/O accessor                                | required input key is missing                                                      |
+| `DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH`            | node I/O accessor, lifecycle wrapper             | input value type does not match port type                                          |
+| `DAG_VALIDATION_NODE_INPUT_MIN_ITEMS_NOT_SATISFIED`  | node I/O accessor, lifecycle wrapper             | list input has fewer items than minItems                                           |
+| `DAG_VALIDATION_NODE_INPUT_MAX_ITEMS_EXCEEDED`       | node I/O accessor, lifecycle wrapper             | list input has more items than maxItems                                            |
+| `DAG_VALIDATION_NODE_REQUIRED_INPUT_MISSING`         | lifecycle wrapper                                | required input port value is missing                                               |
+| `DAG_VALIDATION_NODE_REQUIRED_OUTPUT_MISSING`        | lifecycle wrapper                                | required output port value is missing                                              |
+| `DAG_VALIDATION_NODE_OUTPUT_TYPE_MISMATCH`           | lifecycle wrapper                                | output value type does not match port type                                         |
+| `DAG_VALIDATION_NODE_OUTPUT_MIN_ITEMS_NOT_SATISFIED` | lifecycle wrapper                                | list output has fewer items than minItems                                          |
+| `DAG_VALIDATION_NODE_OUTPUT_MAX_ITEMS_EXCEEDED`      | lifecycle wrapper                                | list output has more items than maxItems                                           |
+| `DAG_VALIDATION_NODE_LIFECYCLE_NOT_REGISTERED`       | lifecycle factory, `MissingNodeLifecycleFactory` | no lifecycle registered for node type                                              |
+| `DAG_VALIDATION_NODE_DEFINITION_MISSING`             | `LifecycleTaskExecutorPort`                      | task execution input lacks nodeDefinition                                          |
+| `DAG_VALIDATION_NODE_MANIFEST_NOT_FOUND`             | `LifecycleTaskExecutorPort`                      | no manifest registered for node type                                               |
+| `DAG_VALIDATION_NEGATIVE_ESTIMATED_COST`             | `RunCostPolicyEvaluator`                         | estimated cost is negative                                                         |
+| `DAG_VALIDATION_COST_LIMIT_EXCEEDED`                 | `RunCostPolicyEvaluator`                         | estimated run cost exceeds budget                                                  |
+| `DAG_VALIDATION_MEDIA_REFERENCE_INVALID`             | media reference value object                     | media reference structure is invalid                                               |
+| `DAG_VALIDATION_MEDIA_REFERENCE_XOR_REQUIRED`        | media reference value object                     | exactly one of assetId or uri must be provided                                     |
+| `DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH`       | media reference value object                     | referenceType does not match provided fields                                       |
 
 **State transition errors** (category: `state_transition`, retryable: `false`):
 
-| Code | Source | Description |
-|------|--------|-------------|
+| Code                           | Source                                      | Description                         |
+| ------------------------------ | ------------------------------------------- | ----------------------------------- |
 | `DAG_STATE_TRANSITION_INVALID` | `DagRunStateMachine`, `TaskRunStateMachine` | attempted transition is not allowed |
 
 **Task execution errors** (category: `task_execution`, retryable: varies):
 
-| Code | Source | Description |
-|------|--------|-------------|
+| Code                                | Source                | Description                                         |
+| ----------------------------------- | --------------------- | --------------------------------------------------- |
 | `DAG_TASK_EXECUTION_DISPOSE_FAILED` | `NodeLifecycleRunner` | node dispose step failed after successful execution |
 
 ## State Lifecycle
@@ -291,25 +333,35 @@ failed --RETRY--> queued
 
 Each transition emits a domain event with the `task.*` prefix (e.g., `task.queued`, `task.running`).
 
+### Dag Node Orchestration State
+
+`IDagNodeState` is a read-model projection for orchestration surfaces that need to show or gate node-local state before, during, and after a run. It is not persisted in DAG definitions.
+
+- `operationStatus` tracks node side-effect operations that must finish before execution, currently file uploads.
+- `executionStatus` tracks run progress for the node independently from side-effect operations.
+- `trace` stores the latest lightweight input/output projection from progress events or final run traces.
+- `isDagNodeStateMapRunnable()` is the canonical gate for Run actions: all node operations must be idle and no node may be executing.
+- The reducer functions are pure and must not depend on React, HTTP, storage, timers, or backend adapters.
+
 ## Event Architecture
 
 `dag-core` defines event name constants but does not own an event bus or emitter. Event prefixes owned by this package:
 
-| Prefix | Constant | Domain |
-|--------|----------|--------|
-| `run` | `RUN_EVENT_PREFIX` | DAG run state changes |
-| `task` | `TASK_EVENT_PREFIX` | Task run state changes |
-| `worker` | `WORKER_EVENT_PREFIX` | Worker lifecycle events |
+| Prefix      | Constant                 | Domain                      |
+| ----------- | ------------------------ | --------------------------- |
+| `run`       | `RUN_EVENT_PREFIX`       | DAG run state changes       |
+| `task`      | `TASK_EVENT_PREFIX`      | Task run state changes      |
+| `worker`    | `WORKER_EVENT_PREFIX`    | Worker lifecycle events     |
 | `scheduler` | `SCHEDULER_EVENT_PREFIX` | Scheduler evaluation events |
-| `execution` | `EXECUTION_EVENT_PREFIX` | Execution progress events |
+| `execution` | `EXECUTION_EVENT_PREFIX` | Execution progress events   |
 
 Progress event types are defined as `TRunProgressEvent` (discriminated union) with reporter interface `IRunProgressEventReporter`.
 
 ## Dependencies
 
-| Dependency | Purpose |
-|------------|---------|
-| `zod` | Runtime schema validation for node configs and media references |
+| Dependency           | Purpose                                                           |
+| -------------------- | ----------------------------------------------------------------- |
+| `zod`                | Runtime schema validation for node configs and media references   |
 | `zod-to-json-schema` | Converts Zod schemas to JSON Schema 7 for manifest `configSchema` |
 
 No peer dependencies.
@@ -320,11 +372,11 @@ No peer dependencies.
 
 Implementations owned by this package:
 
-| Interface | Implementor | Kind | Location |
-|-----------|------------|------|----------|
-| `INodeLifecycleFactory` | `MissingNodeLifecycleFactory` | sentinel | `src/lifecycle/node-lifecycle-runner.ts` |
-| `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator` | production | `src/lifecycle/node-lifecycle-runner.ts` |
-| `ITaskExecutorPort` | `LifecycleTaskExecutorPort` | production | `src/lifecycle/lifecycle-task-executor-port.ts` |
+| Interface                 | Implementor                   | Kind       | Location                                        |
+| ------------------------- | ----------------------------- | ---------- | ----------------------------------------------- |
+| `INodeLifecycleFactory`   | `MissingNodeLifecycleFactory` | sentinel   | `src/lifecycle/node-lifecycle-runner.ts`        |
+| `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator`      | production | `src/lifecycle/node-lifecycle-runner.ts`        |
+| `ITaskExecutorPort`       | `LifecycleTaskExecutorPort`   | production | `src/lifecycle/lifecycle-task-executor-port.ts` |
 
 > **Note:** 인메모리 포트 어댑터(`InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `FakeClockPort`, `SystemClockPort`, `MockTaskExecutorPort`)는 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. 해당 패키지의 SPEC.md 참조.
 
@@ -332,27 +384,29 @@ Implementations owned by this package:
 
 The following interfaces are defined by `dag-core` and intended to be implemented by consumer packages. Each consumer package documents its own implementations in its SPEC.md.
 
-| Interface | Expected Implementor Role |
-|-----------|--------------------------|
-| `IDagNodeDefinition` | Node authoring packages (abstract base class) |
-| `INodeLifecycle` | Node authoring packages (lifecycle wrapper) |
-| `INodeLifecycleFactory` | Node authoring packages (factory from handler registry) |
-| `INodeManifestRegistry` | Node authoring packages (manifest lookup) |
-| `INodeTaskHandlerRegistry` | Node authoring packages (handler lookup) |
-| `IStoragePort` | Persistence adapters (file, database) |
-| `IQueuePort` | Message queue adapters |
-| `ILeasePort` | Distributed lease adapters |
-| `IClockPort` | Clock adapters (system, deterministic) |
-| `ITaskExecutorPort` | Task execution adapters |
+| Interface                  | Expected Implementor Role                               |
+| -------------------------- | ------------------------------------------------------- |
+| `IDagNodeDefinition`       | Node authoring packages (abstract base class)           |
+| `INodeLifecycle`           | Node authoring packages (lifecycle wrapper)             |
+| `INodeLifecycleFactory`    | Node authoring packages (factory from handler registry) |
+| `INodeManifestRegistry`    | Node authoring packages (manifest lookup)               |
+| `INodeTaskHandlerRegistry` | Node authoring packages (handler lookup)                |
+| `IStoragePort`             | Persistence adapters (file, database)                   |
+| `IRunDraftStore`           | Persistence adapters for execution drafts               |
+| `IQueuePort`               | Message queue adapters                                  |
+| `ILeasePort`               | Distributed lease adapters                              |
+| `IClockPort`               | Clock adapters (system, deterministic)                  |
+| `ITaskExecutorPort`        | Task execution adapters                                 |
 
 ## Test Strategy
 
 ### Current Test Files
 
-| File | Coverage |
-|------|----------|
+| File                                   | Coverage                                                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `__tests__/definition-service.test.ts` | `DagDefinitionValidator` (duplicate nodeId, cycle detection), `DagDefinitionService` (publish invalid, update non-draft) |
-| `__tests__/time-semantics.test.ts` | `TimeSemanticsService` (manual/api/scheduled triggers, UTC normalization, invalid date rejection) |
+| `__tests__/time-semantics.test.ts`     | `TimeSemanticsService` (manual/api/scheduled triggers, UTC normalization, invalid date rejection)                        |
+| `__tests__/dag-node-state.test.ts`     | Node state reducers including run progress projection, reset from node, and manual trace overwrite                       |
 
 ### Coverage Gaps
 

@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
+import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 import { atomicWriteUtf8File } from './atomic-file-write.js';
 
@@ -28,12 +29,14 @@ const EditSchema = z.object({
 
 type TEditArgs = z.infer<typeof EditSchema>;
 
-async function editFileTool(args: TEditArgs): Promise<string> {
+async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { filePath, oldString, newString, replaceAll = false } = args;
 
   let content: string;
   try {
-    content = await readFile(filePath, 'utf8');
+    content = options.sandboxClient
+      ? await options.sandboxClient.readFile(filePath)
+      : await readFile(filePath, 'utf8');
   } catch (err) {
     const result: TToolResult = {
       success: false,
@@ -76,7 +79,11 @@ async function editFileTool(args: TEditArgs): Promise<string> {
       content.slice(content.indexOf(oldString) + oldString.length);
 
   try {
-    await atomicWriteUtf8File(filePath, updated);
+    if (options.sandboxClient) {
+      await options.sandboxClient.writeFile(filePath, updated);
+    } else {
+      await atomicWriteUtf8File(filePath, updated);
+    }
   } catch (err) {
     const result: TToolResult = {
       success: false,
@@ -99,13 +106,20 @@ async function editFileTool(args: TEditArgs): Promise<string> {
 }
 
 /**
+ * Create an EditTool instance — register with Robota agent tools registry.
+ */
+export function createEditTool(options: ISandboxToolOptions = {}) {
+  return createZodFunctionTool(
+    'Edit',
+    'Performs exact string replacements in files.\n\nYou must use the Read tool at least once before editing. When editing text from Read output, preserve the exact indentation.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.\n\nALWAYS prefer editing existing files over creating new ones.',
+    EditSchema as unknown as IZodSchema,
+    async (params) => {
+      return editFileTool(params as TEditArgs, options);
+    },
+  );
+}
+
+/**
  * EditTool instance — register with Robota agent tools registry.
  */
-export const editTool = createZodFunctionTool(
-  'Edit',
-  'Performs exact string replacements in files.\n\nYou must use the Read tool at least once before editing. When editing text from Read output, preserve the exact indentation.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.\n\nALWAYS prefer editing existing files over creating new ones.',
-  EditSchema as unknown as IZodSchema,
-  async (params) => {
-    return editFileTool(params as TEditArgs);
-  },
-);
+export const editTool = createEditTool();

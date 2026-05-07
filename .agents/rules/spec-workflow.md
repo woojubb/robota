@@ -57,8 +57,10 @@ Skipping step 1–3 (coding before spec) is a process violation. This applies ev
 ### Structural Architecture Documentation
 
 - Any change that creates, removes, renames, or reassigns responsibilities across workspace packages MUST update the architecture documents that describe the structure in the same PR.
-- Required structural docs include `.agents/project-structure.md` for package inventory/dependency direction and `.agents/specs/*.md` for cross-cutting architecture that spans packages.
+- Required structural docs include `.agents/project-structure.md` for package inventory/dependency direction, `.agents/specs/ARCHITECTURE-MAP.md` as the architecture-map router, and the relevant `.agents/specs/architecture-map/*.md` subdocument for cross-cutting architecture that spans packages.
 - Package `docs/SPEC.md` files remain required for owner-level contracts; architecture docs do not replace package specs.
+- If a package has a package-local architecture map such as `docs/ARCHITECTURE-MAP.md`, changes to package composition, import edges, execution modes, or class/interface ownership MUST update that map in the same PR.
+- Do not append subsystem details to the architecture-map router when a focused subdocument owns that area.
 - A structural architecture change without updated structure/spec architecture documents is incomplete.
 
 ### Cross-Package SPEC Reference Policy

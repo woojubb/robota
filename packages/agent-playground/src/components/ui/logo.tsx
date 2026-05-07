@@ -18,7 +18,10 @@ const Logo = React.forwardRef<HTMLDivElement, ILogoProps>(
 
     const IconLogo = () => (
       <div
-        className={cn('flex items-center justify-center rounded-lg bg-primary', sizeClasses[size])}
+        className={cn(
+          'flex items-center justify-center rounded-lg bg-violet-400',
+          sizeClasses[size],
+        )}
       >
         <svg
           viewBox="0 0 24 24"

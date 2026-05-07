@@ -8,7 +8,7 @@ import {
   substituteVariables,
   type SkillPromptContext,
 } from '../utils/skill-prompt.js';
-import type { ICommand } from './types.js';
+import type { ICommand } from '../command-api/types.js';
 
 /** Options passed to the fork execution callback */
 export interface IForkExecutionOptions {
@@ -86,7 +86,9 @@ export async function executeSkill(
   // Fork execution: isolated subagent session
   if (skill.context === 'fork') {
     if (!callbacks.runInFork) {
-      throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
+      throw new Error(
+        'Fork execution is not available. Agent runtime deps may not be initialized.',
+      );
     }
 
     const content = await buildProcessedContent(skill, args, context);

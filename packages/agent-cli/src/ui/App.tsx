@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
+  ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSessionStore,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
-import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { listResumableSessionSummaries } from '@robota-sdk/agent-sdk';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
@@ -24,35 +27,46 @@ import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import UpdateNotice from './UpdateNotice.js';
 import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
+import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
 
 interface IProps {
   cwd: string;
   provider: IAIProvider;
+  providerOverride?: string | undefined;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
   modelId?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
+  showSessionPickerOnStart?: boolean;
   forkSession?: boolean;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
-  providerDefinitions?: readonly IProviderDefinition[];
+  commandHostAdapters?: ICommandHostAdapters;
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
 }
 
 export default function App(props: IProps): React.ReactElement {
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
+  const [showInitialSessionPicker, setShowInitialSessionPicker] = useState(
+    props.showSessionPickerOnStart ?? false,
+  );
 
   return (
     <AppInner
       key={activeSessionId ?? '__new__'}
       {...props}
+      showSessionPickerOnStart={showInitialSessionPicker}
       resumeSessionId={activeSessionId}
-      onSessionSwitch={(sessionId) => setActiveSessionId(sessionId)}
+      onSessionSwitch={(sessionId) => {
+        setShowInitialSessionPicker(false);
+        setActiveSessionId(sessionId);
+      }}
     />
   );
 }
@@ -61,11 +75,11 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
-  const providerDefinitions = props.providerDefinitions ?? [];
 
   const {
     interactiveSession,
     registry,
+    commandEffectQueue,
     history,
     addEntry,
     streamingText,
@@ -93,10 +107,11 @@ function AppInner(
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
-    providerDefinitions,
+    commandHostAdapters: props.commandHostAdapters,
   });
 
-  const pluginCallbacks = usePluginCallbacks(cwd);
+  const fallbackPluginCallbacks = usePluginCallbacks(cwd);
+  const pluginCallbacks = props.commandHostAdapters?.plugin ?? fallbackPluginCallbacks;
   const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();
@@ -108,24 +123,24 @@ function AppInner(
   const {
     handleSubmit,
     pendingModelId,
-    pendingProviderProfile,
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
-    handleProviderConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
   } = useSideEffects({
     cwd,
+    providerOverride: props.providerOverride,
     interactiveSession,
+    commandEffectQueue,
     addEntry,
     baseHandleSubmit,
     setSessionName,
     setStatusLineSettings,
-    providerDefinitions,
+    showSessionPickerOnStart: props.showSessionPickerOnStart,
   });
 
   // Sync session name from InteractiveSession when resuming
@@ -215,7 +230,11 @@ function AppInner(
         )}
         {(isThinking || activeTools.length > 0) && (
           <Box flexDirection="column" marginBottom={1}>
-            <StreamingIndicator text={streamingText} activeTools={activeTools} />
+            <StreamingIndicator
+              text={streamingText}
+              activeTools={activeTools}
+              isThinking={isThinking}
+            />
           </Box>
         )}
         <BackgroundTaskPanel tasks={backgroundTasks} />
@@ -223,14 +242,8 @@ function AppInner(
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
       {pendingModelId && (
         <ConfirmPrompt
-          message={`Change model to ${getModelName(pendingModelId)}? This will restart the session.`}
+          message={formatModelChangeConfirmationMessage(pendingModelId)}
           onSelect={handleModelConfirm}
-        />
-      )}
-      {pendingProviderProfile && (
-        <ConfirmPrompt
-          message={`Change provider to ${pendingProviderProfile}? This will restart the session.`}
-          onSelect={handleProviderConfirm}
         />
       )}
       {pendingInteractionPrompt && (
@@ -249,8 +262,7 @@ function AppInner(
       )}
       {showSessionPicker && (
         <SessionPicker
-          sessionStore={props.sessionStore}
-          cwd={props.cwd}
+          sessions={listResumableSessionSummaries(props.sessionStore, props.cwd)}
           onSelect={(id) => {
             setShowSessionPicker(false);
             props.onSessionSwitch(id);
@@ -265,8 +277,9 @@ function AppInner(
         cwd={cwd}
         permissionMode={permissionMode}
         modelId={props.modelId}
+        providerProfileName={props.providerProfileName}
+        providerType={props.providerType}
         sessionId={sessionId}
-        messageCount={history.length}
         isThinking={isThinking}
         activeToolCount={activeTools.length}
         activeBackgroundTaskCount={activeBackgroundTaskCount}

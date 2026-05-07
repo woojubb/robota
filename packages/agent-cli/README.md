@@ -29,6 +29,7 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 | Variable            | Description                                    | Required       |
 | ------------------- | ---------------------------------------------- | -------------- |
 | `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
+| `DEEPSEEK_API_KEY`  | DeepSeek API key for the `deepseek` provider   | DeepSeek only  |
 | `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
 
 Set your key before running:
@@ -130,31 +131,42 @@ When no usable settings file exists, the CLI prompts for:
 
 Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
 
-Provider setup is generated from provider definitions. The default CLI build includes Anthropic, OpenAI-compatible, Gemma, and Qwen providers; other embeddings can inject their own provider definitions.
+Provider setup is generated from provider definitions. The default CLI build includes Anthropic,
+OpenAI-compatible, DeepSeek, Gemma, and Qwen providers; other embeddings can inject their own
+provider definitions.
+Interactive setup creates a readable profile key from the selected model id, such as
+`claude-sonnet-4-6` or `gpt-4o`, and appends `-2`, `-3`, etc. when that key already exists. Generated
+profile keys never include API keys or credential hints.
+
+Inside the TUI, `/provider` and `/provider list` show configured profiles as an interactive picker. Selecting a profile opens command-owned actions for switch, edit, test, duplicate, delete, and cancel. Headless mode prints the same profile list text without opening prompts.
 
 Non-interactive/headless mode never prompts. Configure a provider ahead of time with `robota --configure` in an interactive terminal, or use `robota --configure-provider <profile> --type <type> ... --set-current`.
 
 ## Built-in Tools
 
-The AI agent can invoke 6 tools:
+The AI agent can invoke 8 local tools:
 
-| Tool    | Description                          | Primary Argument |
-| ------- | ------------------------------------ | ---------------- |
-| `Bash`  | Execute shell commands               | `command`        |
-| `Read`  | Read file contents with line numbers | `filePath`       |
-| `Write` | Write content to a file              | `filePath`       |
-| `Edit`  | Replace a string in a file           | `filePath`       |
-| `Glob`  | Find files matching a pattern        | `pattern`        |
-| `Grep`  | Search file contents with regex      | `pattern`        |
+| Tool        | Description                          | Primary Argument |
+| ----------- | ------------------------------------ | ---------------- |
+| `Bash`      | Execute shell commands               | `command`        |
+| `Read`      | Read file contents with line numbers | `filePath`       |
+| `Write`     | Write content to a file              | `filePath`       |
+| `Edit`      | Replace a string in a file           | `filePath`       |
+| `Glob`      | Find files matching a pattern        | `pattern`        |
+| `Grep`      | Search file contents with regex      | `pattern`        |
+| `WebFetch`  | Fetch URL content as text            | `url`            |
+| `WebSearch` | Search the internet                  | `query`          |
 
 ## Recent TUI Capabilities
 
-- Provider setup is generated from provider definitions, so the default CLI build can configure Anthropic, OpenAI-compatible, Gemma, and Qwen profiles without provider-specific UI branches.
+- Provider setup and profile management are generated from provider definitions, so the default CLI
+  build can configure, switch, edit, test, duplicate, and delete Anthropic, OpenAI-compatible,
+  DeepSeek, Gemma, and Qwen profiles without provider-specific UI branches.
 - Interactive startup can check npm for newer CLI versions; print/headless mode skips startup update checks to keep scripted output deterministic.
 - Long-running sessions show provider usage summaries, status activity, background job tree rows, and collapsed command-output transcripts.
 - Edit results render as context hunks with markdown-friendly diff blocks.
 - Background subagents are real runtime jobs with transcripts and resumable task snapshots.
-- Explicit multi-agent requests can use the Agent tool `jobs` batch path through the SDK runtime.
+- Explicit multi-agent requests use the `/agent` command module batch path through the SDK runtime.
 
 ## Permission System
 
@@ -175,12 +187,12 @@ Every tool call passes through a three-step permission gate:
 
 ### Changing Mode at Runtime
 
-Use the `/mode` slash command:
+Use the `/permissions` slash command:
 
 ```
-> /mode                    # Show current mode
-> /mode plan               # Switch to plan (read-only)
-> /mode bypassPermissions  # Skip all prompts
+> /permissions                    # Show current mode and session-approved tools
+> /permissions plan               # Switch to plan (read-only)
+> /permissions bypassPermissions  # Skip all prompts
 ```
 
 Or set it at startup:
@@ -259,40 +271,43 @@ When a session has a name, it appears in three places:
 
 - **Input border** — session name shown in the input area border
 - **Terminal title** — updated via ANSI escape sequences
-- **StatusBar** — displayed alongside mode, model, and context usage
+- **StatusBar** — displayed alongside activity, model, and context usage
 
 ## Slash Commands
 
-| Command                   | Description                                                |
-| ------------------------- | ---------------------------------------------------------- |
-| `/help`                   | Show available commands                                    |
-| `/clear`                  | Clear conversation history                                 |
-| `/mode [mode]`            | Show or change permission mode                             |
-| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)        |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
-| `/compact [instructions]` | Compress context window                                    |
-| `/cost`                   | Show session info                                          |
-| `/context`                | Context window details                                     |
-| `/permissions`            | Show permission rules                                      |
-| `/plugin [subcommand]`    | Plugin management TUI                                      |
-| `/resume`                 | List recent sessions and resume one                        |
-| `/rename <name>`          | Rename the current session                                 |
-| `/exit`                   | Exit CLI                                                   |
+| Command                   | Description                                                            |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `/help`                   | Show available commands                                                |
+| `/clear`                  | Clear conversation history                                             |
+| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)                    |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts             |
+| `/compact [instructions]` | Compress context window                                                |
+| `/cost`                   | Show session info                                                      |
+| `/context`                | Context window details, reference inventory, and auto-compact controls |
+| `/agent`                  | Run and manage background subagent jobs                                |
+| `/permissions [mode]`     | Show permission rules or change permission mode                        |
+| `/plugin [subcommand]`    | Plugin management                                                      |
+| `/resume`                 | List recent sessions and resume one                                    |
+| `/rename <name>`          | Rename the current session                                             |
+| `/exit`                   | Exit CLI                                                               |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 
-The `/plugin` command opens an interactive TUI for managing bundle plugins:
+The `/plugin` command opens an interactive TUI or runs plugin operations through the injected plugin command module:
 
-| Subcommand                 | Description                                      |
-| -------------------------- | ------------------------------------------------ |
-| `/plugin install <name>`   | Install a plugin from marketplace or local path  |
-| `/plugin uninstall <name>` | Remove an installed plugin                       |
-| `/plugin enable <name>`    | Enable a disabled plugin                         |
-| `/plugin disable <name>`   | Disable a plugin without uninstalling            |
-| `/plugin list`             | List installed plugins with status               |
-| `/plugin marketplace`      | Browse available plugins from configured sources |
+| Subcommand                               | Description                           |
+| ---------------------------------------- | ------------------------------------- |
+| `/plugin` or `/plugin manage`            | Open the plugin manager TUI           |
+| `/plugin install <name>@<marketplace>`   | Install a plugin from a marketplace   |
+| `/plugin uninstall <name>@<marketplace>` | Remove an installed plugin            |
+| `/plugin enable <name>@<marketplace>`    | Enable a disabled plugin              |
+| `/plugin disable <name>@<marketplace>`   | Disable a plugin without uninstalling |
+| `/plugin marketplace add <source>`       | Add a marketplace source              |
+| `/plugin marketplace remove <name>`      | Remove a marketplace source           |
+| `/plugin marketplace update <name>`      | Update a marketplace source           |
+| `/plugin marketplace list`               | List configured marketplace sources   |
 
 ## Configuration
 
@@ -309,26 +324,26 @@ Settings are merged in this order, from lowest to highest priority:
 {
   "defaultMode": "default",
   "language": "en",
-  "currentProvider": "qwen",
+  "currentProvider": "qwen-plus",
   "providers": {
-    "qwen": {
+    "qwen-plus": {
       "type": "qwen",
       "model": "qwen-plus",
       "apiKey": "$ENV:DASHSCOPE_API_KEY",
       "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     },
-    "gemma": {
+    "supergemma4-26b-uncensored-v2": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
     },
-    "openai": {
+    "gpt-4o": {
       "type": "openai",
-      "model": "<openai-compatible-model>",
+      "model": "gpt-4o",
       "apiKey": "$ENV:OPENAI_API_KEY"
     },
-    "anthropic": {
+    "claude-sonnet-4-6": {
       "type": "anthropic",
       "model": "claude-sonnet-4-6",
       "apiKey": "$ENV:ANTHROPIC_API_KEY"
@@ -341,7 +356,17 @@ Settings are merged in this order, from lowest to highest priority:
 }
 ```
 
-`currentProvider` selects a profile from `providers`. Qwen Model Studio profiles use `type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as `$ENV:DASHSCOPE_API_KEY`. Gemma-family LM Studio models use `type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use `type: "openai"` and do not apply provider-specific projection. The legacy single-provider shape remains supported:
+`currentProvider` selects a profile key from `providers`. The key is the stable profile identity, not
+the provider type; multiple profile keys may use the same provider type and model when they represent
+different credentials, endpoints, accounts, or operational defaults. Qwen Model Studio profiles use
+`type: "qwen"` with a DashScope-compatible `baseURL`; the API key is usually stored as
+`$ENV:DASHSCOPE_API_KEY`. DeepSeek profiles use `type: "deepseek"` with
+`https://api.deepseek.com` and `$ENV:DEEPSEEK_API_KEY`. Gemma-family LM Studio models use
+`type: "gemma"` so Robota can apply Gemma-specific channel-marker projection while still talking to
+the OpenAI-compatible `/v1/chat/completions` API through `baseURL`. Generic OpenAI-compatible profiles use
+`type: "openai"` and do not apply provider-specific projection. Use `--provider <profile>` for a
+one-shot invocation override; add `--set-current` only when the selected profile should become the
+persisted default. The legacy single-provider shape remains supported:
 
 ```json
 {
@@ -362,6 +387,11 @@ The CLI automatically discovers and loads:
 - **Project metadata** — from `package.json`, `tsconfig.json`
 
 All context is assembled into the system prompt.
+
+Ordinary prompts may also reference workspace-local files with path-like `@file` tokens, for
+example `@AGENTS.md` or `@docs/SPEC.md`. The CLI passes those prompts through unchanged; the SDK
+resolves bounded file content under the active `cwd`, sends the enriched prompt to the model, and
+records a structured file-reference event in the session history.
 
 ## Memory Management
 
@@ -385,14 +415,15 @@ bin.ts → cli.ts (arg parsing)
                     ├── useInteractiveSession  (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession (SDK)
                     │   ├── CommandRegistry    (SDK, re-exported by CLI)
-                    │   │   ├── BuiltinCommandSource  (SDK)
-                    │   │   ├── SkillCommandSource    (SDK, discovers from 4 paths)
-                    │   │   └── PluginCommandSource   (CLI-local)
+                    │   │   ├── BuiltinCommandSource  (SDK, empty by default)
+                    │   │   ├── agent-command-skills  (/skills command + virtual skill aliases)
+                    │   │   ├── PluginCommandSource   (SDK, plugin skills)
+                    │   │   └── ICommandModule sources (/help, /compact, ...)
                     │   └── SystemCommandExecutor (SDK)
                     ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
                     ├── MessageList.tsx
                     ├── InputArea.tsx          (CjkTextInput, bracketed paste, slash detection)
-                    ├── StatusBar.tsx          (mode, model, context %, message count)
+                    ├── StatusBar.tsx          (activity, conditional mode, model, context %)
                     ├── PermissionPrompt.tsx   (arrow-key Allow/Deny)
                     ├── SlashAutocomplete.tsx  (command popup with scroll)
                     ├── DiffBlock.tsx          (Edit tool diff display)

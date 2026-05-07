@@ -1,5 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { findProviderDefinition, type IProviderDefinition } from './provider-definition.js';
+import {
+  findProviderDefinition,
+  getProviderCredentialRequirement,
+  type IProviderCredentialRequirement,
+  type IProviderDefinition,
+  type TProviderCredentialField,
+} from './provider-definition.js';
 import { hasUsableSecretReference } from './env-ref.js';
 
 /** Result of checking a settings file. */
@@ -28,21 +34,29 @@ export function checkSettingsFile(
   }
 }
 
+/** Check a parsed settings document for a usable active provider. */
+export function checkSettingsDocument(
+  settings: IProviderSettingsShape,
+  providerDefinitions: readonly IProviderDefinition[] = [],
+): TSettingsCheck {
+  return hasUsableProviderConfig(settings, providerDefinitions) ? 'valid' : 'incomplete';
+}
+
 function hasUsableProviderConfig(
   settings: IProviderSettingsShape,
   providerDefinitions: readonly IProviderDefinition[],
 ): boolean {
+  if (typeof settings.currentProvider === 'string') {
+    const profile = settings.providers?.[settings.currentProvider];
+    return isUsableProviderProfile(profile?.type, profile, providerDefinitions);
+  }
   if (
     settings.provider &&
     isUsableProviderProfile(settings.provider.name, settings.provider, providerDefinitions)
   ) {
     return true;
   }
-  if (typeof settings.currentProvider !== 'string') {
-    return false;
-  }
-  const profile = settings.providers?.[settings.currentProvider];
-  return isUsableProviderProfile(profile?.type, profile, providerDefinitions);
+  return false;
 }
 
 function isUsableProviderProfile(
@@ -53,17 +67,34 @@ function isUsableProviderProfile(
   if (!profile) {
     return false;
   }
-  if (hasUsableSecretReference(profile.apiKey)) {
-    return true;
-  }
   if (!type) {
-    return false;
+    return hasUsableSecretReference(profile.apiKey);
   }
   const definition = findProviderDefinition(providerDefinitions, type);
   if (definition === undefined) {
     return false;
   }
-  return (
-    definition.requiresApiKey !== true || hasUsableSecretReference(definition.defaults?.apiKey)
+  const credentialRequirement = getProviderCredentialRequirement(definition);
+  if (credentialRequirement === undefined) {
+    return true;
+  }
+  return hasUsableRequiredProviderCredential(profile, definition, credentialRequirement);
+}
+
+function hasUsableRequiredProviderCredential(
+  profile: { apiKey?: string },
+  definition: IProviderDefinition,
+  requirement: IProviderCredentialRequirement,
+): boolean {
+  return requirement.anyOf.some((field) =>
+    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, definition)),
   );
+}
+
+function resolveProviderCredentialValue(
+  field: TProviderCredentialField,
+  profile: { apiKey?: string },
+  definition: IProviderDefinition,
+): string | undefined {
+  return profile[field] ?? definition.defaults?.[field];
 }

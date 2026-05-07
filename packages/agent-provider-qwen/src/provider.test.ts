@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type OpenAI from 'openai';
-import type { IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IProviderNativeRawPayloadEvent,
+  IToolSchema,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import {
   DEFAULT_QWEN_PROVIDER_BASE_URL,
   DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL,
@@ -144,6 +148,46 @@ describe('QwenProvider', () => {
     });
   });
 
+  it('reports provider-native web capabilities from built-in web tool options', () => {
+    const disabled = new QwenProvider({ apiKey: 'dashscope-key' });
+    const enabled = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webFetch: true },
+    });
+
+    expect(disabled.getCapabilities().nativeWebTools).toEqual({
+      webSearch: {
+        supported: true,
+        enabled: false,
+        source: 'qwen-responses',
+        reason: 'Enable builtInWebTools.webSearch or builtInWebTools.webFetch.',
+      },
+      webFetch: {
+        supported: true,
+        enabled: false,
+        source: 'qwen-responses',
+        reason: 'Enable builtInWebTools.webFetch.',
+      },
+    });
+    expect(enabled.getCapabilities().nativeWebTools).toEqual({
+      webSearch: { supported: true, enabled: true, source: 'qwen-responses' },
+      webFetch: { supported: true, enabled: true, source: 'qwen-responses' },
+    });
+  });
+
+  it('rejects request-level native web tools when Qwen built-in web tools are disabled', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+
+    await expect(
+      provider.chat([createUserMessage('Search the web')], {
+        model: 'qwen-plus',
+        nativeWebTools: { webSearch: true },
+      }),
+    ).rejects.toThrow(
+      'Provider qwen supports native web search but it is not enabled. Enable builtInWebTools.webSearch or builtInWebTools.webFetch.',
+    );
+  });
+
   it('sends OpenAI-compatible messages and tools, then parses native tool calls', async () => {
     const provider = new QwenProvider({
       apiKey: 'dashscope-key',
@@ -226,6 +270,45 @@ describe('QwenProvider', () => {
     ]);
   });
 
+  it('emits native Chat Completions request and response payloads', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue({
+      id: 'qwen-chat-native',
+      object: 'chat.completion',
+      created: 1,
+      model: 'qwen-plus',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'native', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    } satisfies OpenAI.Chat.ChatCompletion);
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat([createUserMessage('Hello')], {
+      model: 'qwen-plus',
+      onProviderNativeRawPayload: (event) => events.push(event),
+    });
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        payloadKind: 'request',
+      }),
+      expect.objectContaining({
+        provider: 'qwen',
+        apiSurface: 'chat-completions',
+        payloadKind: 'response',
+        payload: expect.objectContaining({ id: 'qwen-chat-native' }),
+      }),
+    ]);
+  });
+
   it('uses streaming assembly when text deltas are requested', async () => {
     const provider = new QwenProvider({ apiKey: 'dashscope-key' });
     const client = getClient(provider);
@@ -253,6 +336,30 @@ describe('QwenProvider', () => {
     expect(result.content).toBe('Hello from Qwen');
     expect(result.metadata?.['model']).toBe('qwen-plus');
     expect(result.metadata?.['finishReason']).toBe('stop');
+  });
+
+  it('emits ordered native Chat Completions stream chunks', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createChunk('Hello'), createChunk('Qwen', 'stop')]),
+    );
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat([createUserMessage('Hello')], {
+      model: 'qwen-plus',
+      onTextDelta: vi.fn(),
+      onProviderNativeRawPayload: (event) => events.push(event),
+    });
+
+    expect(events.map((event) => event.payloadKind)).toEqual([
+      'request',
+      'stream_event',
+      'stream_event',
+    ]);
+    expect(
+      events.filter((event) => event.payloadKind === 'stream_event').map((event) => event.sequence),
+    ).toEqual([0, 1]);
   });
 
   it('uses Qwen Responses API with web_search when built-in web search is enabled', async () => {
@@ -299,6 +406,41 @@ describe('QwenProvider', () => {
     expect(result.metadata?.['providerBuiltInToolsEnabled']).toEqual(['web_search']);
     expect(result.metadata?.['providerBuiltInToolsUsed']).toEqual(['web_search']);
     expect(result.metadata?.['qwenWebSearchCalls']).toBe(1);
+  });
+
+  it('emits native Qwen Responses request and response payloads', async () => {
+    const provider = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webSearch: true },
+    });
+    const client = getResponsesClient(provider);
+    client.responses.create.mockResolvedValue({
+      id: 'qwen-resp-native',
+      model: 'qwen3.6-plus',
+      output_text: 'Search-backed answer',
+      status: 'completed',
+      output: [],
+    });
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat([createUserMessage('Latest')], {
+      model: 'qwen3.6-plus',
+      onProviderNativeRawPayload: (event) => events.push(event),
+    });
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        provider: 'qwen',
+        apiSurface: 'responses',
+        payloadKind: 'request',
+      }),
+      expect.objectContaining({
+        provider: 'qwen',
+        apiSurface: 'responses',
+        payloadKind: 'response',
+        payload: expect.objectContaining({ id: 'qwen-resp-native' }),
+      }),
+    ]);
   });
 
   it('adds web_search and web_extractor when built-in web fetch is enabled', async () => {

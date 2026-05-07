@@ -121,12 +121,17 @@ function createCapabilityKindSection(
   source: ISystemPromptSection['source'],
   descriptors: readonly ICapabilityDescriptor[],
 ): ISystemPromptSection | undefined {
-  const content = descriptors
+  const formattedDescriptors = descriptors
     .filter((descriptor) => descriptor.modelInvocable && descriptor.kind === kind)
-    .map(formatCapability)
-    .join('\n');
-  if (content.trim().length === 0) return undefined;
-  return createSection(`capability-${kind}`, title, priority, content, source);
+    .map(formatCapability);
+  if (formattedDescriptors.length === 0) return undefined;
+  return createSection(
+    `capability-${kind}`,
+    title,
+    priority,
+    formattedDescriptors.join('\n'),
+    source,
+  );
 }
 
 export function createCapabilitySections(

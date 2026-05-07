@@ -38,10 +38,24 @@ export interface ISessionRecord {
   backgroundJobGroups?: unknown[];
   /** Durable background job group events for resume/debugging. */
   backgroundJobGroupEvents?: unknown[];
+  /** Durable skill activation events for resume/debugging. */
+  skillActivationEvents?: unknown[];
   /** Durable automatic memory events for resume/debugging. */
   memoryEvents?: unknown[];
   /** Memory references used by the latest prompt turn. */
   usedMemoryReferences?: unknown[];
+  /** SDK-owned context reference inventory for resume/debugging. */
+  contextReferences?: unknown[];
+  /** Provider sandbox snapshot identifier for workspace hydration on resume. */
+  sandboxSnapshotId?: string;
+}
+
+/** Minimal persistence port consumed by Session. */
+export interface ISessionStore {
+  save(session: ISessionRecord): void;
+  load(id: string): ISessionRecord | undefined;
+  list(): ISessionRecord[];
+  delete(id: string): void;
 }
 
 /**
@@ -57,7 +71,7 @@ function getHomeDir(): string {
  *
  * Construct with a custom `baseDir` to redirect storage (useful in tests).
  */
-export class SessionStore {
+export class SessionStore implements ISessionStore {
   private readonly baseDir: string;
 
   constructor(baseDir?: string) {

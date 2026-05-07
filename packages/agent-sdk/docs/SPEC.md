@@ -27,26 +27,37 @@ agent-provider-*     ← provider implementations (unchanged)
 agent-sdk            ← InteractiveSession (single entry point)
   ├── embedded: SystemCommandExecutor (session.executeCommand())
   ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
+  ├── common API: command effects/interactions, lifecycle metadata, session replay validation, provider settings/profile helpers
+  ├── common API: prompt file-reference parsing, resolution, diagnostics, and structured records
+  ├── common API: skill discovery, skill metadata, and skill activation host context
   ├── extension: ICommandModule command/source/session-requirement injection
-  ├── optional: Agent tool + AgentDefinitionLoader when a module requests agent-runtime
+  ├── optional: agent runtime deps + AgentDefinitionLoader when a module requests agent-runtime
   ├── composed: agent-runtime BackgroundTaskManager, SubagentManager, runner ports
   ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
+  ├── optional: sandboxClient injection for sandbox-aware built-in tool execution
+  ├── optional: workspaceManifest application through agent-tools sandbox ports
+  ├── optional: sandbox snapshot hydration through agent-tools sandbox ports
   ├── exposed: createQuery({ provider }) → (prompt) => result
   └── NO provider dependency (provider-neutral)
 
-agent-command-*      ← optional command modules
+agent-command-*      ← built-in/optional command modules
   ├── consumes SDK command interfaces
+  ├── consumes SDK common APIs like third-party modules
   └── NO dependency from agent-sdk back to command modules
 
 agent-cli            ← minimal TUI
   ├── creates provider (reads config, picks provider package)
-  ├── selects product-default command modules such as @robota-sdk/agent-command-agent
+  ├── selects product-default command modules such as @robota-sdk/agent-command-skills and @robota-sdk/agent-command-agent
   ├── creates InteractiveSession({ cwd, provider, commandModules })
   ├── subscribes to events → renders to terminal
   └── owns: slash prefix parsing, Ink components, paste handling, CJK input
 ```
 
 SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider and passes it to the SDK. Assembly (wiring tools, provider, system prompt) happens inside the SDK, but the provider itself comes from the consumer.
+
+SDK command code is split between generic infrastructure and command-facing common APIs. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, reusable command-facing common APIs, and skill discovery/activation services consumed by command modules. User-visible internal commands, including `/skills`, must be implemented as command modules selected by composition roots.
+
+Model command common APIs are provider-aware but provider-neutral. They resolve the effective active provider profile from the provider settings document, read model catalog fallback metadata from injected `IProviderDefinition` records, can explicitly invoke provider-owned catalog refresh hooks, and produce command descriptors without hardcoding CLI/TUI provider branches. If a live refresh fails or a provider does not expose catalog metadata, `/model` remains manually invocable and the command result must surface stale/unavailable catalog state rather than showing another provider's models.
 
 ### Client–SDK–Session Relationship
 
@@ -59,8 +70,8 @@ Any client (CLI, web, API server, worker)
     ↓
 InteractiveSession  (agent-sdk — pure TypeScript, no React)
     │  submit(input, displayInput?, rawInput?)
-    │  executeSkillCommand(skill, args, displayInput?, rawInput?)
     │  executeCommand(name, args)
+    │  executeSkillCommandByName(name, args, request)  // host API used by /skills
     │  abort() / cancelQueue()
     │  getMessages() / getContextState() / getActiveTools()
     │  (config/context loaded internally from cwd)
@@ -83,10 +94,10 @@ The SDK layer has **no React dependency** and **no provider dependency**. The CL
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | **agent-core**        | Robota engine, execution loop, provider abstraction, permissions, hooks                                                                  | General             |
 | **agent-runtime**     | Background task and subagent lifecycle primitives, runner ports, worktree runner decorator                                               | General             |
-| **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                                                          | General             |
+| **agent-tools**       | Tool creation infrastructure, sandbox execution ports, and 8 built-in tools                                                              | General             |
 | **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                                                        | General             |
-| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), embedded commands, createQuery(), config, context                               | SDK-specific        |
-| **agent-command-\***  | Optional command modules that consume SDK command interfaces and can be selected by composition roots                                    | Command-specific    |
+| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), command contracts/common APIs, createQuery(), config, context                   | SDK-specific        |
+| **agent-command-\***  | Built-in/optional command modules that consume SDK command interfaces/common APIs and can be selected by composition roots               | Command-specific    |
 | **agent-cli**         | Ink TUI and product composition. Creates provider, selects command modules, passes both to InteractiveSession. No agent-sessions import. | CLI-specific        |
 | **agent-provider-\*** | AI provider implementations. CLI depends on these directly; SDK does not.                                                                | Provider-specific   |
 
@@ -104,6 +115,7 @@ agent-runtime (reusable runtime primitives — depends only on agent-core)
 
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
+├── src/sandbox/              ← ISandboxClient, workspace manifest contracts, snapshot ports, E2B structural adapter, and in-memory contract adapter
 ├── src/types/tool-result.ts  ← TToolResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
@@ -119,17 +131,28 @@ agent-sessions (generic — depends only on agent-core)
 agent-sdk (assembly layer — SDK-specific features only)
 ├── src/interactive/
 │   ├── interactive-session.ts  ← InteractiveSession: event-driven wrapper over Session
+│   ├── session-persistence.ts  ← SDK-owned session store facade and resumable-session summaries
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
+├── src/command-api/            ← Command module contracts, host context, effects/interactions, session/provider/model common APIs
+│   ├── contracts.ts            ← ISystemCommand + lifecycle metadata
+│   ├── command-module.ts       ← ICommandModule composition contract
+│   ├── host-context.ts         ← ICommandHostContext narrow facade for command modules
+│   ├── host-adapters.ts        ← generic host adapter contracts
+│   ├── provider/               ← provider settings/profile/setup/probe common APIs
+│   ├── model/                  ← provider-aware model catalog common APIs and refresh orchestration
+│   ├── session/                ← session-history and replay-validation command common APIs
+│   └── background/             ← background task command common APIs
 ├── src/commands/
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
-│   ├── builtin-source.ts       ← BuiltinCommandSource: built-in commands
+│   ├── builtin-source.ts       ← BuiltinCommandSource: SDK core compatibility source; currently empty
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
-│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands()
-│   └── types.ts                ← ICommand, ICommandSource
+│   └── system-command.ts       ← SDK core command factory; currently empty because user-visible built-ins are command modules
 ├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md/memory discovery, project detection, system prompt
+│   ├── context-reference-inventory.ts ← session context reference metadata, active/observed status, and bounded inventory policy
+│   ├── prompt-file-reference-*.ts ← `@file` prompt reference parser/resolver, path policy, formatting, and diagnostics
 │   └── task-context.ts         ← active `.agents/tasks/*.md` discovery, selection, formatting, and status updates
 ├── src/memory/                 ← project memory store, reusable capture policy, retrieval services
 ├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
@@ -139,13 +162,11 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/background-tasks/       ← explicit compatibility exports from agent-runtime
 ├── src/permissions/            ← permission-prompt.ts (terminal approval prompt)
 ├── src/paths.ts                ← projectPaths / userPaths helpers
-├── src/types.ts                ← re-exports shared types from agent-sessions
+├── src/types.ts                ← internal terminal type aliases; not a top-level public barrel
 ├── src/query.ts                ← createQuery() factory (provider-neutral; provider injected by consumer)
-└── src/index.ts                ← assembly exports + re-exports from agent-sessions/tools/core
+└── src/index.ts                ← SDK-owned APIs plus explicit SDK facade exports
 
 agent-cli (Ink TUI — CLI-specific)
-├── src/commands/               ← Re-exports CommandRegistry from agent-sdk;
-│                                  skill-executor, slash-executor (CLI-specific execution wrappers)
 ├── src/ui/                     ← App, MessageList, InputArea, StatusBar, PermissionPrompt,
 │                                  SlashAutocomplete, CjkTextInput, WaveText, InkTerminal, render
 ├── src/permissions/            ← permission-prompt.ts (terminal arrow-key selection)
@@ -161,7 +182,8 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sessions` (generic, depends only on agent-core)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
 - **Assembly**: `agent-sdk/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from config/context. Consumers use `InteractiveSession({ cwd, provider })` instead.
-- **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic consumers. CLI composition injects a project-local `.robota/sessions` directory so project runs keep resumable session JSON beside project logs.
+- **Persistence**: `SessionStore` defaults to `~/.robota/sessions/{id}.json` for generic session consumers. SDK exposes `createProjectSessionStore(cwd)` and resumable-session helpers so CLI composition can use project-local `.robota/sessions` without importing `agent-sessions` directly.
+- **Replay validation common API**: SDK command APIs expose `validateCommandSessionReplayLog()` and formatting helpers that load the current session's project-local `.robota/logs/{sessionId}.jsonl` file through `agent-sessions` replay validators. Command modules consume this API; `agent-cli` must not read replay logs or implement replay validation directly.
 
 ### Permission System
 
@@ -183,9 +205,20 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific). Registered only when the composed command modules request agent runtime support. The tool description is the owner-provided model contract for direct subagent delegation: explicit user requests to create, run, spawn, delegate to, or use agents/subagents should start `Agent` tool calls immediately unless impossible or unsafe; one `Agent` tool call creates one background subagent job and waits for terminal completed/failed/timed-out result data before returning to the parent conversation.
+- **Agent runtime deps**: `agent-sdk/tools/agent-tool.ts` stores reusable subagent runtime dependencies for `/agent` and `context: fork` skill execution when a composed command module requests `agent-runtime`. `createSession()` does not register a separate model-visible `Agent` tool; model and user routing use the built-in command layer such as `/agent`.
 - **Edit checkpoint wrapper**: `agent-sdk/checkpoints/edit-checkpoint-tools.ts` wraps `Write` and `Edit` at SDK session assembly time. The underlying tool package stays generic; the SDK wrapper snapshots the target file before the first mutation in each prompt turn.
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
+
+### Sandbox Execution
+
+- **Port owner**: `agent-tools/sandbox/` owns `ISandboxClient`, `ISandboxRunOptions`, and `ISandboxRunResult`.
+- **Workspace manifest owner**: `agent-tools/sandbox/` owns `IWorkspaceManifest`, manifest path validation, and generic manifest application. SDK and CLI must not redeclare the manifest shape or implement manifest application algorithms.
+- **Adapter owner**: `agent-tools` owns structural sandbox adapters such as `E2BSandboxClient` and `InMemorySandboxClient`. It does not install provider SDKs; application composition roots may install `e2b` or another provider and wrap its sandbox object.
+- **SDK assembly**: `createSession()` and `InteractiveSession` accept `sandboxClient?: ISandboxClient`. When present, SDK-created Bash, Read, Write, and Edit tools are created through sandbox-aware factories and route command/filesystem operations through the injected client.
+- **Fresh workspace setup**: `InteractiveSession` accepts `workspaceManifest?: IWorkspaceManifest` with `sandboxClient`. The async interactive construction path applies the manifest once before creating the `Session`, using the current project `cwd` as the host root for relative `localFile` and `localDir` sources. The internal synchronous `createSession()` factory does not apply manifests; direct low-level consumers call `applyWorkspaceManifest()` from `agent-tools` before session creation.
+- **Snapshot hydration**: If `sessionStore` and a sandbox client with `snapshot()` are provided, `InteractiveSession.shutdown()` captures a provider-owned `sandboxSnapshotId` and stores it in the session record. On non-fork `resumeSessionId`, SDK initialization loads the saved id and calls `sandboxClient.restore(snapshotId)` before constructing the underlying `Session` and before deferred saved-message injection. When a snapshot is restored, fresh `workspaceManifest` application is skipped to avoid overwriting hydrated state.
+- **Reversible execution**: If `reversibleExecution.mode` is enabled and no explicit isolation is set, a supplied `sandboxClient` makes the SDK classify Bash and sandbox-routed file mutations as `provider-sandbox` isolated instead of host checkpoint-backed mutations.
+- **Boundary**: `agent-cli` and other hosts only decide whether to provide a sandbox client and, if they parse manifest files, convert them into the `agent-tools` manifest contract. They must not implement sandbox command/file/manifest algorithms or provider-specific restore behavior in UI code.
 
 ### Edit Checkpointing
 
@@ -193,9 +226,20 @@ agent-cli (Ink TUI — CLI-specific)
 - **Storage**: Project-local `.robota/checkpoints/{session-id}/{turn-id}/manifest.json` plus copied pre-image files under `files/`.
 - **Turn model**: Every cwd-backed `InteractiveSession.submit()` prompt starts a turn-level checkpoint. The checkpoint is finalized after the run finishes, even when no file was edited, so prompt turns can be listed consistently. Injected sessions without `cwd` do not implicitly create project checkpoints; they must provide `cwd` or use explicit checkpoint APIs.
 - **Capture model**: `Write` and `Edit` tools are wrapped during `createSession()` assembly when an `IEditCheckpointRecorder` is present. A file is captured once per turn before the first tool mutation. Repeated edits to the same file in the same turn reuse the first pre-image.
+- **Inspection model**: `inspect(sessionId, checkpointId)` returns captured files, workspace-relative display paths, snapshot availability, and the restore/rollback checkpoint ranges before a caller mutates the workspace.
 - **Restore model**: `restoreToCheckpoint(sessionId, checkpointId)` rolls back later checkpoints in reverse sequence order, restores copied pre-images, deletes files that did not exist at capture time, and removes later checkpoint directories. This provides code-only rewind to the selected prompt turn.
 - **Boundary**: `agent-tools` does not know about sessions, prompts, `.robota`, or checkpoints. CLI/TUI does not implement checkpoint algorithms; it only exposes SDK command output and future picker UI.
 - **Current scope**: `Write` and `Edit` mutations are tracked. Shell-side filesystem changes from `Bash` are not tracked by this layer.
+
+### Reversible Execution Mode
+
+- **Package**: `agent-sdk/reversible-execution/` (SDK-specific safety classification and opt-in tool wrapper)
+- **Mode**: `createSession({ reversibleExecution: { mode: 'local-first' } })` enables local-first reversible execution enforcement. The mode is opt-in while provider sandbox snapshots are still future work.
+- **File mutations**: `Write` and `Edit` are reversible only when an edit checkpoint recorder is present. Without a checkpoint, local-first mode blocks the tool before mutation.
+- **Shell/process side effects**: `Bash` and `BackgroundProcess` are not checkpoint-restorable in the parent workspace. Local-first mode requires `worktree` or `provider-sandbox` isolation before allowing those side effects.
+- **Agent jobs**: `Agent` jobs are reversible through the worktree layer only when the request or all batch jobs specify `isolation: 'worktree'`, or when the outer execution context is already isolated.
+- **Read-only tools**: `Read`, `Glob`, `Grep`, `WebFetch`, and `WebSearch` are classified as read-only and do not require rollback.
+- **Boundary**: The policy is SDK-owned and provider-neutral. It does not execute Git commands, manage provider sandboxes, or render UI. Runtime shells and provider adapters supply actual worktree/sandbox isolation.
 
 ### Self-Hosting Verification
 
@@ -209,10 +253,10 @@ agent-cli (Ink TUI — CLI-specific)
 
 ### Web Search
 
-- **Implementation**: Anthropic server tool (`web_search_20250305`), not a `FunctionTool`
-- **Behavior**: Enabled automatically when the provider is Anthropic. Provider capability text must come from the provider adapter or tool descriptor; the system prompt composer must not inject hardcoded web-search behavior instructions.
-- **Activation**: `enableWebTools` is set as a property on the AnthropicProvider instance by `Session.configureProvider()`. No tool registration is required because the tool is server-managed.
-- **Callback**: `onServerToolUse` fires during streaming when the server tool executes, allowing the UI to display search status.
+- **Local tools**: `WebSearch` and `WebFetch` are ordinary Robota function tools from `@robota-sdk/agent-tools`. They are available to CLI sessions as explicit local tools and are separate from provider-native hosted web features.
+- **Provider-native tools**: Anthropic server web search and Qwen Responses web search/fetch are exposed through provider-owned capability reports. Provider capability text must come from the provider adapter or tool descriptor; the system prompt composer must not inject hardcoded web-search behavior instructions.
+- **Activation**: Session layers use the provider-neutral `configureNativeWebTools()` hook when a provider chooses to expose automatic hosted web behavior. SDK must not branch on concrete provider names or mutate provider-specific fields directly.
+- **Callback**: `onServerToolUse` fires during streaming when a provider-owned server tool executes, allowing the UI to display search status.
 
 ### Streaming
 
@@ -229,40 +273,88 @@ agent-cli (Ink TUI — CLI-specific)
 - **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. For completed Edit tools, `IToolState` also carries `diffFile` and `diffLines` derived from the Edit tool arguments plus the tool result `startLine`. For completed command tools, `IToolState` carries `toolResultData` so transports can render bounded command output previews while raw tool messages remain persisted. The `tool-summary` entry (aggregated) is still pushed at execution completion and preserves the same per-tool metadata for persisted UI rendering.
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
-- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Core commands are always present; additional command modules may contribute more commands.
-- **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
+- **Prompt file references**: Before a non-command prompt reaches `Session.run()`, `InteractiveSession` delegates to the SDK-owned prompt file-reference resolver. Path-like tokens such as `@AGENTS.md`, `@./Makefile`, and `@docs/spec.md` are resolved relative to the session `cwd`, constrained to the workspace root, bounded by explicit file/total byte limits, and expanded into model-only prompt context blocks. The user-visible history keeps the original prompt and records a `prompt-file-reference` event with structured records (`sourcePath`, `relativePath`, `originalReference`, `reason`, `depth`, `byteLength`) without storing file contents in the event. Missing, outside-root, directory, circular, max-depth, and size-limit failures are blocking diagnostics and the prompt is not sent to the provider.
+- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Product composition roots inject command modules such as `/compact`; SDK-default user-visible commands are intentionally empty.
+- **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `inspectEditCheckpoint(id)` returns captured files and restore/rollback plans. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
-- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`. `messages` remains the replay source for context restoration; `systemPrompt` and `toolSchemas` are duplicated top-level diagnostic fields.
-- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). Memory event history and the last used memory references are restored for `/memory used` and debugging. This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
+- **Session persistence**: When an SDK-owned `sessionStore` facade is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references, and provider sandbox snapshot ids when available) after each `submit()` completion and on shutdown. The SDK facade delegates to the concrete `SessionStore` implementation from `agent-sessions` internally and exposes resumable-session summaries for hosts such as the CLI. Session JSON is the fast snapshot, while append-only JSONL replay logs are the recovery source when the JSON snapshot is missing.
+- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. The project session store first reads `.robota/sessions/{id}.json`; if it is missing, it replays `.robota/logs/{id}.jsonl` through `agent-sessions` replay readers and reconstructs messages/history from `history_mutation` events. For non-fork resumes with `sandboxSnapshotId`, the SDK restores the sandbox before constructing the underlying Session and before injecting messages. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). Memory event history and the last used memory references are restored for `/memory used` and debugging. This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
 
+### Command API Layer (SDK-Specific)
+
+- **Package**: `agent-sdk/command-api/`
+- **Purpose**: Stable SDK-owned API layer consumed by built-in and third-party command modules. It is pure TypeScript, render-agnostic, provider-neutral, and has no CLI/TUI dependency.
+- **Contracts**:
+  - `ISystemCommand` — command metadata, lifecycle, model/user visibility, and execute function.
+  - `ICommandModule` — composition unit contributing command sources, executable commands, descriptors, and session requirements.
+  - `ICommandHostContext` — narrow command-facing facade over session/context/runtime capabilities. Command modules must not require `InteractiveSession`, React state, CLI settings files, or TUI hooks directly.
+  - `ICommandResult` — command output, structured diagnostics, typed host effects, and generic interactions.
+  - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
+  - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs. Prompt descriptors may include a provider-neutral `description` string for host-rendered help text.
+- **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
+- **Context/compact common APIs**: `agent-sdk/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `context` and `compact` command behavior lives in `@robota-sdk/agent-command-context` and `@robota-sdk/agent-command-compact`; both consume these APIs as external command modules.
+- **Model common APIs**: `agent-sdk/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
+- **Language common APIs**: `agent-sdk/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
+- **Memory common APIs**: `agent-sdk/command-api/memory/` owns memory-command metadata constants, subcommand projection helpers, project/pending memory store facades, sensitive-content checks, used-memory reference reads, and memory-event recording helpers. `memory` command behavior lives in `@robota-sdk/agent-command-memory` and consumes these APIs as an external command module.
+- **Background common APIs**: `agent-sdk/command-api/background/` owns background-command metadata constants, subcommand projection helpers, task-list/log formatting helpers, and list/read/cancel/close facades over `ICommandHostContext`. `background` command behavior lives in `@robota-sdk/agent-command-background` and consumes these APIs as an external command module.
+- **Help common APIs**: `agent-sdk/command-api/help/` owns help-command metadata constants and generic command-list formatting. `help` command behavior lives in `@robota-sdk/agent-command-help` and consumes this API as an external command module.
+- **Permission common APIs**: `agent-sdk/command-api/permissions/` owns permission-mode constants, descriptor subcommands, validation, permission-state reads, permission-state formatting, and command-facing adapter resolution. Canonical permission command behavior lives in `@robota-sdk/agent-command-permissions`, which owns `/permissions [mode]`. Legacy `/mode` behavior lives in `@robota-sdk/agent-command-mode` only for applications that explicitly compose that optional module. Both consume these APIs as external command modules.
+- **Statusline common APIs**: `agent-sdk/command-api/statusline/` owns statusline command metadata constants, subcommand projection helpers, default settings shape, typed settings patch contracts, and patch validation. `statusline` command behavior lives in `@robota-sdk/agent-command-statusline` and emits typed host-applied effects instead of importing CLI settings utilities.
+- **Plugin common APIs**: `agent-sdk/command-api/plugin/` owns plugin command metadata constants, subcommand projection helpers, `ICommandPluginAdapter`, reload result contracts, and plugin host effect factories. `plugin` and `reload-plugins` command behavior lives in `@robota-sdk/agent-command-plugin` and consumes these APIs as an external command module while hosts keep concrete plugin storage/UI wiring.
+- **Session common APIs**: `agent-sdk/command-api/session/` owns command-facing session-history helpers, session-name parsing, session-info reads, and effect factories for host-rendered history/name/picker/exit state. `clear`, `rename`, `resume`, and `cost` command behavior lives in `@robota-sdk/agent-command-session`; `exit` command behavior lives in `@robota-sdk/agent-command-exit`. Both consume these APIs as external command modules.
+- **Settings/process effects**: `agent-sdk/command-api/effects.ts` owns the typed `settings-reset-requested` effect. `reset` command behavior lives in `@robota-sdk/agent-command-reset` and emits that effect without importing host settings file I/O.
+- **Checkpoint common APIs**: `agent-sdk/command-api/checkpoint/` owns command-facing checkpoint metadata constants, subcommand projection helpers, and inspect/list/restore/rollback facades over `ICommandHostContext`. `rewind` command behavior lives in `@robota-sdk/agent-command-rewind` and consumes these APIs as an external command module.
+- **Boundary**: `command-api` may define contracts and reusable command-facing helpers. It must not own product UI, concrete settings file I/O, process restart/exit, provider construction, or command-specific flows that can live in `agent-command-*` packages.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`
-- **Purpose**: SDK-level command execution logic — pure TypeScript, no React, no TUI dependency
+- **Purpose**: SDK command infrastructure and command-facing common APIs — pure TypeScript, no React, no TUI dependency
 - **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers normally call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` and `createSystemCommands()` are exported so independent command modules can compose and test against the same command contract.
 - **Classes**:
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
-  - `createSystemCommands()` — factory for all built-in commands (internal)
-- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Core built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `memory`, `rewind`, `resume`, `rename`, `reset`
-- **Model-invocable built-ins**: `/memory` is exposed through command descriptors so explicit user/model requests can inspect, persist, review, and audit project memory via the generic command execution bridge. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
-- **`/rewind`**: User-invocable code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
-- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance.
+  - `createSystemCommands()` — SDK core executable command factory; currently returns an empty list because user-visible built-ins live in `agent-command-*`
+  - `createBuiltinCommandModule()` — SDK core compatibility module; currently empty
+- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
+- **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
+- **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
+- **Command identity**: `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and projected model-command reverse mappings use slash-free canonical command ids such as `skills`, `agent`, and `memory`. Slash syntax such as `/skills` or `/agent` belongs only to UI/transport input parsing and display.
+- **SDK core built-ins**: SDK core has no user-visible built-in commands. `skills` is owned by `@robota-sdk/agent-command-skills`, which consumes SDK skill discovery and activation APIs like any other command module.
+- **Product-specific built-in commands**: User-visible internal commands outside SDK-owned discovery are provided by product-composed command modules.
+- **Product-composed built-in command modules**: `skills` is provided by `@robota-sdk/agent-command-skills`. It is user- and model-invocable, lists registered skill metadata, and activates a skill through `ICommandHostContext.executeSkillCommandByName()`. Model-side activation uses the projected `robota_command_skills` tool with skill arguments in `args`.
+- **Product-composed built-in command modules**: `help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
+- **Product-composed built-in command modules**: `model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
+- **Product-composed built-in command modules**: `permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for validation/subcommand metadata, state reads/formatting, and permission-mode updates through the command host adapter facade, and stays user-invocable only.
+- **Optional legacy command modules**: `mode` is provided by `@robota-sdk/agent-command-mode` only when an application explicitly composes that module. Product CLIs should prefer the canonical `permissions` command for permission-mode changes.
+- **Product-composed built-in command modules**: `language` is provided by `@robota-sdk/agent-command-language`, reuses SDK language command common APIs for usage/subcommand metadata, and emits `language-change-requested` effects for host application.
+- **Product-composed built-in command modules**: `statusline` is provided by `@robota-sdk/agent-command-statusline`, reuses SDK statusline common APIs for subcommand metadata and typed patch effects, and leaves status bar rendering/settings persistence to the host.
+- **Product-composed built-in command modules**: `clear`, `rename`, `resume`, and `cost` are provided by `@robota-sdk/agent-command-session`. `clear` reuses SDK session command common APIs to clear SDK session history and emits `conversation-history-cleared` so hosts clear rendered history through their own UI state. `rename` reuses SDK session command common APIs to normalize the requested name and emits `session-renamed` so hosts update title/status/persistence through their own adapters. `resume` emits `session-picker-requested` so hosts display saved-session picker UI through their own adapters. `cost` reads session id and message count through SDK session command common APIs.
+- **Product-composed built-in command modules**: `reset` is provided by `@robota-sdk/agent-command-reset`. It emits `settings-reset-requested` so hosts apply concrete settings deletion and shutdown at their own adapter/UI boundary.
+- **Product-composed built-in command modules**: `rewind` is provided by `@robota-sdk/agent-command-rewind`. It reuses SDK checkpoint command common APIs to list prompt-turn checkpoints, inspect captured files and restore plans, restore code to a selected checkpoint, or roll back through a selected checkpoint.
+- **Product-composed built-in command modules**: `memory` is provided by `@robota-sdk/agent-command-memory`. It reuses SDK memory command common APIs to inspect project memory, save durable entries, review pending candidates, record memory audit events, and report memory provenance.
+- **Product-composed built-in command modules**: `background` is provided by `@robota-sdk/agent-command-background`. It reuses SDK background command common APIs to list tasks, read logs, cancel queued/running work, and close terminal task records without SDK core embedding command registration.
+- **Product-composed built-in command modules**: `context` is provided by `@robota-sdk/agent-command-context` and reports context window usage plus auto-compact policy through the SDK command host facade. `context auto ...` uses the same common API layer to update the active session immediately and persist through host-provided settings adapters.
+- **Product-composed built-in command modules**: `compact` is provided by `@robota-sdk/agent-command-compact`, declares blocking lifecycle metadata through the same `ISystemCommand` contract, and is exposed as a model-invocable `write` capability. Auto-compaction remains a deterministic session policy and emits structured compaction events instead of relying on the model to decide routine compaction.
+- **Product-composed built-in command modules**: `exit` is provided by `@robota-sdk/agent-command-exit`. It reuses the SDK session-exit effect helper, stays user-invocable only, and leaves concrete shutdown/process exit to the host effect handler.
+- **Product-composed built-in command modules**: `plugin` and `reload-plugins` are provided by `@robota-sdk/agent-command-plugin`. They reuse SDK plugin command common APIs, send host UI opening through `plugin-tui-requested`, refresh host plugin command sources through `plugin-registry-reload-requested`, and perform install/uninstall/enable/disable/marketplace/reload operations through a host-provided `ICommandPluginAdapter`.
+- **Model-invocable built-ins**: Product-composed command modules such as `skills`, `agent`, `memory`, and `compact` expose descriptors so explicit user/model requests can execute through SDK-projected provider-safe command tools such as `robota_command_skills`. The descriptor owns usage metadata and autonomous-use guidance; the system prompt composer must not add separate behavior instructions.
+- **`rewind`**: User-invocable product-composed code checkpoint command. `rewind list` lists prompt-turn checkpoints; `rewind inspect <checkpoint-id>` shows captured files plus restore/rollback ranges; `rewind restore <checkpoint-id>` and `rewind code <checkpoint-id>` restore files to the selected checkpoint. It is not model-invocable by default.
+- **Command modules**: Optional `ICommandModule` instances may contribute `ICommandSource` palette metadata, `ISystemCommand` handlers, model-visible descriptors, and session requirements. The SDK does not know command names contributed by modules in advance. Product assemblies can inject host-owned built-ins such as plugin and product-composed command packages such as exit and statusline without adding CLI-specific code to SDK core.
 
 ### Slash Command Registry (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/` — SSOT owner; agent-cli re-exports from here
 - **Classes**:
   - `CommandRegistry` — aggregates multiple `ICommandSource` instances; filters by prefix; resolves plugin-qualified names
-  - `BuiltinCommandSource` — provides built-in slash commands with subcommand trees (mode, model, language)
-  - `SkillCommandSource` — discovers SKILL.md files from project and user directories; parses YAML frontmatter; lazy-caches results
+  - `BuiltinCommandSource` — SDK core compatibility command source; currently empty
+  - `SkillCommandSource` — SDK common API that discovers SKILL.md files from project and user directories; command modules may use it for virtual skill palette metadata
   - `PluginCommandSource` — discovers commands exposed by installed bundle plugins (moved from agent-cli to agent-sdk)
 - **Migration note**: These classes were previously in `agent-cli/src/commands/`. They were moved to `agent-sdk` so any client can use slash command discovery without a TUI dependency. `PluginCommandSource` was also moved from `agent-cli` to `agent-sdk` as part of the scope redesign.
 
@@ -271,27 +363,27 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/config/`
 - **Rationale**: `.robota/settings.json` file-based configuration is for local development environments only (servers use environment variables/DB)
 - **Implementation**: settings file merge, `$ENV:VAR` substitution for provider API keys, Zod validation, provider profile resolution
-- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`.
+- **Provider profiles**: settings may define `currentProvider` and `providers`. The active profile is resolved from `providers[currentProvider]`, then normalized into `IResolvedConfig.provider`. Profile identity is the profile key, not the provider type or model pair. Setup helpers suggest readable model-derived keys and append numeric suffixes when the key already exists. Generic provider credentials use `apiKey`; provider-specific advanced authentication belongs in provider-owned `options` or injected clients, not in generic profile fields.
 - **Legacy compatibility**: legacy `provider` settings remain supported and are used when no active provider profile is configured.
 
 Provider profile shape:
 
 ```json
 {
-  "currentProvider": "gemma",
+  "currentProvider": "supergemma4-26b-uncensored-v2",
   "providers": {
-    "gemma": {
+    "supergemma4-26b-uncensored-v2": {
       "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
     },
-    "openai": {
+    "gpt-4o": {
       "type": "openai",
-      "model": "<openai-compatible-model>",
+      "model": "gpt-4o",
       "apiKey": "$ENV:OPENAI_API_KEY"
     },
-    "qwen": {
+    "qwen3-6-plus": {
       "type": "qwen",
       "model": "qwen3.6-plus",
       "apiKey": "$ENV:DASHSCOPE_API_KEY",
@@ -306,9 +398,16 @@ Provider profile shape:
 }
 ```
 
-Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
+Gemma-family local models should be configured through `type: "gemma"` so provider-specific stream projection is applied. DeepSeek API profiles should be configured through `type: "deepseek"` so provider-specific defaults, model catalog metadata, and thinking controls remain provider-owned. `type: "openai"` remains a model-family neutral OpenAI-compatible transport profile.
 
-Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys.
+Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys. OpenAI-compatible local endpoints such as LM Studio should use local `WebSearch`/`WebFetch` function tools for web access unless their concrete provider package documents and enables provider-native hosted web capabilities.
+
+Generated provider profile keys are normalized to lowercase ASCII slugs. The setup flow prefers the selected model id, falls back to provider type, and appends `-2`, `-3`, etc. for duplicates. Secrets, organizations, accounts, and API key fragments must not be included in generated keys.
+
+Provider setup help links come from injected `IProviderDefinition.setupHelpLinks` records. The SDK
+formats those provider-owned links for generic prompts, but it does not choose provider URLs or
+branch on provider names. Link priority is API key issuance URL, then official console URL, then
+official provider documentation or homepage URL.
 
 Resolved provider fields:
 
@@ -328,7 +427,7 @@ Resolved provider fields:
 - **Implementation**: Directory traversal from cwd to root, project type/language detection, `.robota/memory/MEMORY.md` startup memory loading, active task context loading, system prompt assembly
 - **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
-- **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project) and `~/.robota/skills/*/SKILL.md` (user). Used by agent-cli's `SkillCommandSource` for slash command autocomplete
+- **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project), `.claude/skills/*/SKILL.md`, `.claude/commands/*.md`, and `~/.robota/skills/*/SKILL.md`. Used by conditional SDK skill metadata injection when `/skills` is model-invocable, and by `@robota-sdk/agent-command-skills` for virtual skill command palette metadata.
 
 ### Active Task Context (SDK-Specific)
 
@@ -346,21 +445,21 @@ Resolved provider fields:
 - **Storage**: `.robota/memory/MEMORY.md` is the project memory index; `.robota/memory/topics/*.md` stores topic details.
 - **Startup injection**: `loadContext()` reads the memory index into `ILoadedContext.memoryMd`; `buildSystemPrompt()` renders it under the neutral `Project Memory` section. Topic files are not injected at startup.
 - **Caps**: Startup memory is capped to the first 200 lines and at most 25KB.
-- **Command-driven access**: `/memory` is the model-visible project memory interface. It is exposed through the `ExecuteCommand` tool using the built-in command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
+- **Command-driven access**: `memory` is the model-visible project memory interface when the product composes `@robota-sdk/agent-command-memory`. It is exposed through the SDK-projected `robota_command_memory` tool using the injected command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
 - **Sensitive data policy**: Candidate policy must skip obvious secret, token, password, private-key, payment-card, and national-ID style content instead of silently saving it. Additional extractors may be composed later, but they must feed the same policy/store contracts.
 - **No hidden turn side effects**: `InteractiveSession` must not automatically prepend topic memory to user prompts and must not create pending memory candidates after a completed turn. Topic retrieval and memory writes happen through explicit `/memory` command execution, whether user-invoked or model-invoked.
 - **Reusable retrieval/capture internals**: `MemoryRetrievalService`, `MemoryCandidateExtractor`, `MemoryPolicyEvaluator`, and `PendingMemoryStore` remain reusable building blocks for explicit commands or future command modules. They are not wired as implicit session lifecycle side effects.
 - **Deduplication**: `ProjectMemoryStore.append()` returns `deduplicated` and must avoid repeating the same normalized topic entry.
 - **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used`.
 - **Audit trail**: `/memory approve`, `/memory reject`, and future explicit memory workflows append memory events to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
-- **Ownership**: SDK owns the store and command behavior. CLI only renders slash command results and autocomplete metadata.
+- **Ownership**: SDK owns memory stores, memory policy primitives, and command-facing memory APIs. `@robota-sdk/agent-command-memory` owns command behavior. CLI only composes the module and renders command results/autocomplete metadata.
 - **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
 
 ### Context Window Management
 
 - **Token tracking**: `agent-sessions` Session tracks cumulative input tokens from provider response metadata
 - **Usage state**: `session.getContextState()` returns `IContextWindowState` (usedTokens, maxTokens, usedPercentage)
-- **Auto-compaction**: Triggers at ~83.5% of model context window (configurable per model)
+- **Auto-compaction**: Triggers at the configured context-window threshold, defaults to ~83.5%, and can be disabled per session
 - **Manual compaction**: `session.compact(instructions?)` generates LLM summary, replaces history
 - **Model sizes**: Lookup table per model (200K for Sonnet/Haiku, 1M for Opus)
 - **Compact Instructions**: Extracted from CLAUDE.md "Compact Instructions" section, passed to summary prompt
@@ -393,17 +492,15 @@ session.on('complete', (result: IExecutionResult) => { /* prompt completed */ })
 session.on('error', (error: Error) => { /* execution error */ });
 session.on('context_update', (state: IContextWindowState) => { /* token usage updated */ });
 session.on('interrupted', (result: IExecutionResult) => { /* abort completed */ });
+session.on('skill_activation', (event: ISkillActivationEvent) => { /* skill activation state */ });
 
 // Submit prompt. Queues if already executing (max 1 queued).
 // displayInput: shown in UI (e.g., "/audit") instead of full built prompt
 // rawInput: passed to Session.run() for hook matching
 await session.submit(input, displayInput?, rawInput?);
 
-// Execute a discovered skill command. Non-fork skills submit into the current session.
-// `context: fork` skills run through an isolated subagent session.
-await session.executeSkillCommand(skillCommand, args, displayInput?, rawInput?);
-
-// Execute a named system command (embedded SystemCommandExecutor)
+// Execute a named system command. Virtual `/skill-name` entries are normalized by the SDK
+// command registry into the composed `skills` command with `<skill-name> [args]`.
 const result = await session.executeCommand('context', '');
 // result.message — human-readable string
 // result.success — boolean
@@ -530,6 +627,7 @@ interface IInteractiveSessionEvents {
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;
   interrupted: (result: IExecutionResult) => void;
+  skill_activation: (event: ISkillActivationEvent) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
 }
 ```
@@ -566,8 +664,12 @@ Background task runtime exports:
 | -------------------------------- | --------- | ----------------------------------------------------------------------- |
 | `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler                |
 | `BackgroundTaskError`            | class     | Typed background task error with category and recoverability            |
+| `createLimitedOutputCapture`     | function  | Runtime-owned UTF-8-safe bounded output capture helper                  |
+| `appendPrefixedLogLines`         | function  | Runtime-owned source-prefixed log line projection helper                |
+| `createBackgroundTaskLogPage`    | function  | Runtime-owned cursor-based log pagination helper                        |
 | `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
 | `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters                       |
+| `ILimitedOutputCapture`          | interface | Runtime-owned bounded output capture contract                           |
 | `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers                 |
 | `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task                         |
 | `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests           |
@@ -623,7 +725,7 @@ const job = await manager.spawn({
 const result = await manager.wait(job.id);
 ```
 
-Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `Agent` tool arguments, `ISubagentSpawnRequest`, and background task metadata. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath` and `branchName` are projected onto `IBackgroundTaskState.worktreePath` and `branchName`.
+Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `agent` command arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-runtime` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
 
 `createBackgroundProcessTool(deps)` is exported for SDK composition. The tool is registered only when a runtime shell injects a `process` background runner through `createSession({ backgroundTaskRunners })`; default `Bash` foreground behavior remains unchanged.
 
@@ -704,21 +806,30 @@ Exported subagent runtime types:
 }
 ```
 
-**Skill invocation entry** (appended by `InteractiveSession` when a skill slash command is executed):
+**Skill activation entry** (appended by `InteractiveSession` when a real skill activation starts):
 
 ```typescript
-// category: 'event', type: 'skill-invocation'
+// category: 'event', type: 'skill-activation'
 {
   id: string;
   timestamp: Date;
   category: 'event';
-  type: 'skill-invocation';
+  type: 'skill-activation';
   data: {
     skillName: string;
-    displayInput: string;
+    source: 'skill' | 'plugin';
+    invocation: 'user-slash' | 'model-tool';
+    mode: 'inject' | 'fork';
+    status: 'started' | 'completed' | 'failed';
+    message: string;
+    qualifiedName?: string;
+    error?: string;
   }
 }
 ```
+
+Legacy `skill-invocation` entries may still be rendered when resuming older sessions, but new SDK
+execution records use `skill-activation`.
 
 Consumers that need only AI messages call `getMessages()` (returns `TUniversalMessage[]` — backward-compatible). Consumers that need the full picture (e.g., rendering a rich message list) call `getFullHistory()` (returns `IHistoryEntry[]`).
 
@@ -738,23 +849,24 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 // result.data   — command-specific structured data
 ```
 
-**Built-in commands:**
+**Product-composed command modules:**
 
-| Command       | Description                                                                           |
-| ------------- | ------------------------------------------------------------------------------------- |
-| `help`        | Show available commands                                                               |
-| `clear`       | Clear conversation history                                                            |
-| `compact`     | Compress context window (optional focus instructions)                                 |
-| `mode [m]`    | Show or change permission mode                                                        |
-| `model <id>`  | Change AI model (returns `data.modelId` — caller applies)                             |
-| `language`    | Set response language (returns `data.language`)                                       |
-| `cost`        | Session ID and message count                                                          |
-| `context`     | Token usage: used / max / percentage                                                  |
-| `permissions` | Current mode and session-approved tools                                               |
-| `memory`      | List/show/add/review project memory and report used memory references                 |
-| `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
-| `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
-| `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |
+| Command              | Description                                                                  |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `help`               | Command module for rendering registered commands                             |
+| `clear`              | Optional command module for clearing conversation and rendered host history  |
+| `compact`            | Compress context window (optional focus instructions)                        |
+| `language`           | Request response language update through `language-change-requested` effect  |
+| `cost`               | Optional session command module for session ID and message count             |
+| `context`            | Token usage: used / max / percentage                                         |
+| `permissions [mode]` | Current mode, session-approved tools, and permission mode changes            |
+| `statusline`         | Optional command module for statusline visibility and git branch patch flows |
+| `memory`             | List/show/add/review project memory and report used memory references        |
+| `rewind`             | List edit checkpoints, restore later edits, or rollback through a checkpoint |
+| `reset`              | Requests settings reset through `settings-reset-requested` effect            |
+| `resume`             | Optional command module for requesting session picker through effect         |
+| `rename`             | Optional command module for requesting session rename through effect         |
+| `provider`           | Optional command module for provider current/list/use/add/test flows         |
 
 **ISystemCommand:**
 
@@ -766,9 +878,15 @@ interface ISystemCommand {
   userInvocable?: boolean;
   argumentHint?: string;
   safety?: TCapabilitySafety;
-  execute(session: InteractiveSession, args: string): Promise<ICommandResult> | ICommandResult;
+  subcommands?: readonly ICommand[];
+  lifecycle?: 'inline' | 'blocking' | 'background';
+  execute(context: ICommandHostContext, args: string): Promise<ICommandResult> | ICommandResult;
 }
 ```
+
+`ICommandHostContext` is the command-facing facade supplied by the SDK executor. Command implementations must depend on the specific context methods or typed host adapters they need rather than accepting `InteractiveSession`, CLI state, or UI hooks.
+
+`ICommandHostAdapters` is the host-provided adapter bag exposed through `ICommandHostContext.getCommandHostAdapters()`. It currently includes settings persistence, process lifecycle, permission-mode access, and plugin-management adapters. Command modules may request only the adapter they need; they must not import a concrete CLI/TUI implementation.
 
 **ICommandModule:**
 
@@ -782,7 +900,7 @@ interface ICommandModule {
 }
 ```
 
-`sessionRequirements` is how command modules request optional SDK wiring. The current requirement is `agent-runtime`, which enables `Agent` tool registration, agent definitions, and the shared background/subagent managers.
+`sessionRequirements` is how command modules request optional SDK wiring. The current requirement is `agent-runtime`, which enables agent definitions and the shared background/subagent managers for command-owned agent execution.
 
 **ICommandResult:**
 
@@ -790,32 +908,51 @@ interface ICommandModule {
 interface ICommandResult {
   message: string;
   success: boolean;
-  data?: Record<string, unknown>;
+  data?: Record<string, TCommandResultDataValue>;
+  effects?: readonly TCommandEffect[];
+  interaction?: ICommandInteraction;
+}
+
+type TCommandEffect =
+  | { type: 'model-change-requested'; modelId: string }
+  | { type: 'language-change-requested'; language: string }
+  | { type: 'settings-reset-requested' }
+  | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
+  | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
+  | { type: 'plugin-tui-requested' }
+  | { type: 'plugin-registry-reload-requested' }
+  | { type: 'session-picker-requested' }
+  | { type: 'session-renamed'; name: string }
+  | { type: 'conversation-history-cleared' }
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };
+
+interface ICommandInteraction {
+  prompt: ICommandInteractionPrompt;
+  submit(value: string): Promise<ICommandResult> | ICommandResult;
+  cancel?(): Promise<ICommandResult> | ICommandResult;
 }
 ```
 
+`ICommandInteractionPrompt` is the generic prompt descriptor used by UI hosts. It supports choice and text prompts with optional description text, masked text, and validation metadata. Hosts render the prompt and pass submitted values back to the interaction; they do not inspect command-specific state.
+
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 
-Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-sdk`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-sdk` so all clients benefit from plugin command discovery. Command modules can be added through `registry.addModule(module)` without the registry knowing their command names.
+Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-sdk`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-sdk` so all clients benefit from plugin command discovery. Command modules can be added through `registry.addModule(module)` without the registry knowing their command names. Hosts can call `registry.replaceSource(name, source)` to refresh dynamic sources such as plugin-provided commands after a successful reload effect.
 
 ```typescript
-import {
-  CommandRegistry,
-  BuiltinCommandSource,
-  SkillCommandSource,
-  PluginCommandSource,
-} from '@robota-sdk/agent-sdk';
+import { CommandRegistry, SkillCommandSource, PluginCommandSource } from '@robota-sdk/agent-sdk';
 
 const registry = new CommandRegistry();
-registry.addSource(new BuiltinCommandSource());
 registry.addModule(commandModule);
 registry.addSource(new SkillCommandSource(process.cwd()));
 
-registry.getCommands(); // ICommand[] — all commands
+registry.getCommands(); // ICommand[] — all composed commands and virtual entries
 registry.getCommands('mod'); // filtered by prefix (for autocomplete)
 registry.resolveQualifiedName('audit'); // "my-plugin:audit" or null
 registry.getSubcommands('mode'); // ICommand[] — subcommands
 ```
+
+`BuiltinCommandSource` remains exported as an empty SDK-core compatibility source. Product command entries come from composed `ICommandModule` values such as `@robota-sdk/agent-command-skills`.
 
 `SkillCommandSource` scans (highest priority first):
 
@@ -837,12 +974,15 @@ const query = createQuery({ provider });
 
 const response = await query('Show me the file list');
 
-const response = await query('Analyze the code', {
+const queryWithOptions = createQuery({
+  provider,
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   maxTurns: 10,
   onTextDelta: (delta) => process.stdout.write(delta),
 });
+
+const detailedResponse = await queryWithOptions('Analyze the code');
 ```
 
 `createSession()` is an **internal** assembly factory — it is not exported from `@robota-sdk/agent-sdk`. Config and context loading, tool assembly, and provider wiring happen inside `InteractiveSession` and `createQuery()`.
@@ -857,9 +997,32 @@ const session = new Session({ tools, provider, systemMessage, terminal });
 const response = await session.run('Hello');
 ```
 
-### History Types — Re-exported from agent-core
+### Public Surface Ownership
 
-`@robota-sdk/agent-sdk` re-exports the following history types and helpers from `@robota-sdk/agent-core`:
+The top-level `@robota-sdk/agent-sdk` entrypoint exposes SDK-owned APIs and explicit SDK facades.
+It must not pass through general-purpose `agent-core`, `agent-sessions`, or `agent-tools` exports
+only for convenience. See [PUBLIC-SURFACE.md](PUBLIC-SURFACE.md) for the export classification.
+
+Allowed public classes:
+
+- SDK-owned APIs: `InteractiveSession`, `createQuery`, command contracts/common APIs, project
+  memory, checkpoints, reversible execution, plugin management, and task context helpers.
+- SDK facades: project session store helpers, subagent assembly helpers, agent/background process
+  tools, and command host/common APIs that narrow lower-level behavior through SDK contracts.
+- Explicit runtime facades: background-task and subagent lifecycle contracts re-exported through
+  `src/background-tasks/index.ts` and `src/subagents/index.ts`.
+
+Owner-direct APIs:
+
+- `agent-core` owns history helpers, provider interfaces, permissions, hooks, context window types,
+  and generic message utilities.
+- `agent-tools` owns direct built-in tool exports and tool result types.
+- `agent-sessions` owns generic session APIs and terminal output primitives.
+
+`pnpm harness:scan:sdk-public-surface` prevents broad `export *` barrels, top-level lower-owner
+pass-through exports, and runtime re-exports outside the documented SDK facade barrels.
+
+### History Types — Owner Package
 
 ```typescript
 import {
@@ -868,7 +1031,7 @@ import {
   chatEntryToMessage,
   messageToHistoryEntry,
   getMessagesForAPI,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-core';
 ```
 
 | Export                  | Kind      | Description                                                                           |
@@ -881,16 +1044,20 @@ import {
 
 ### Built-in Tools — Direct Usage
 
-`@robota-sdk/agent-sdk` re-exports 6 of the 8 built-in tools from `@robota-sdk/agent-tools`:
+`@robota-sdk/agent-sdk` assembles built-in tools internally for SDK sessions. Direct tool usage
+imports from `@robota-sdk/agent-tools`:
 
 ```typescript
-import { bashTool, readTool, writeTool, editTool, globTool, grepTool } from '@robota-sdk/agent-sdk';
-```
-
-`webFetchTool` and `webSearchTool` are NOT re-exported from `@robota-sdk/agent-sdk`. They must be imported directly from `@robota-sdk/agent-tools`:
-
-```typescript
-import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
+import {
+  bashTool,
+  editTool,
+  globTool,
+  grepTool,
+  readTool,
+  webFetchTool,
+  webSearchTool,
+  writeTool,
+} from '@robota-sdk/agent-tools';
 ```
 
 ### Permissions — Direct Usage
@@ -953,7 +1120,7 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 | Session                | **General** → agent-sessions | Session management is needed in any environment                                                                      |
 | Config loading         | **SDK-specific** → agent-sdk | `.robota/settings.json` is for local environments only                                                               |
 | Context loading        | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                                                                     |
-| Agent tool             | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                                                                      |
+| Agent runtime deps     | **SDK-specific** → agent-sdk | Sub-session creation dependencies are assembled by SDK and consumed through command/runtime APIs                     |
 | InteractiveSession     | **SDK-specific** → agent-sdk | Client-facing event wrapper; no CLI/React dependency; reusable by all clients                                        |
 | SystemCommandExecutor  | **SDK-specific** → agent-sdk | Embedded in InteractiveSession; accessed via session.executeCommand(); exported for command module composition tests |
 | CommandRegistry et al. | **SDK-specific** → agent-sdk | Slash command discovery is useful for any client; moved from CLI to SDK                                              |
@@ -1008,7 +1175,7 @@ Provider profile schema:
 | `baseURL` | Optional OpenAI-compatible or provider-specific endpoint                        |
 | `timeout` | Optional provider idle timeout and provider construction timeout when supported |
 
-`currentProvider` must point to an existing profile. Missing profiles and profiles without `type` are configuration errors. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
+`currentProvider` must point to an existing profile key. Missing profiles and profiles without `type` are configuration errors. Profile keys are stable user-facing identifiers; two profiles may have the same `type` and `model` when they represent different credentials, accounts, endpoints, or operational defaults. Legacy `provider` remains accepted for backward compatibility, but it must not override an explicit active provider profile.
 
 The SDK remains provider-neutral: it resolves provider metadata for session assembly, but consumers such as `agent-cli` still construct concrete provider instances. During session assembly, `config.provider.timeout` is forwarded to `Session.providerTimeout`; when omitted, SDK assembly uses a 120-second provider idle timeout so headless/TUI sessions cannot wait forever for a stalled provider call.
 
@@ -1046,19 +1213,56 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 
 ## System Prompt Skill and Agent Injection
 
-Skills discovered from skill directories are exposed to the system prompt by metadata only: name and description. Full `SKILL.md` content is loaded only when a skill is invoked. Skills with `disable-model-invocation: true` are omitted from model-visible metadata.
+Skills discovered from skill directories are exposed to the system prompt by metadata only when the
+session has a composed model-invocable `skills` command descriptor. The metadata includes name and
+description only. The `## Skills` section owns model-visible skill selection metadata and must not
+include extra hardcoded behavior instructions. `skills` is owned by
+`@robota-sdk/agent-command-skills` as a normal built-in command module. Full `SKILL.md` content is
+loaded only when the composed `skills` command calls SDK skill activation through
+`ICommandHostContext.executeSkillCommandByName()`. Skills with `disable-model-invocation: true` are
+omitted from model-visible metadata and rejected for model-sourced `skills` activation.
 
-Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, `Agent` tool registration, agent definitions, and model-visible agent metadata are omitted.
+When at least one model-invocable command exists, `createSession()` projects each descriptor into a
+provider-safe tool named `robota_command_<command>`. The projection layer keeps a reverse map from
+provider-visible tool name to slash-free command id, validates collisions before session assembly,
+and routes execution through the same `ISystemCommand` handler used by user-entered slash commands.
+`skills` uses the projected `robota_command_skills` route with `args: "<skill-name> [args]"`.
+`createSession()` must not register `ExecuteSkill` or any parallel direct skill model tool. A model
+mentioning or recommending a skill in ordinary prose is not a skill activation.
 
-When enabled, the `Agent` tool is part of the available tool set and is described in tool descriptors.
+For user prompts, `InteractiveSession.submit()` does not parse natural language for skill names or
+activation phrases. Natural-language skill selection belongs to the model-facing `skills`
+descriptor and the projected `robota_command_skills` tool route. Explicit slash input such as
+`/audit src/index.ts` is a virtual command alias normalized by `executeCommand()` into the composed
+`skills` command with args `audit src/index.ts`.
 
-The `Agent` tool routes execution through a per-session `SubagentManager`, which delegates to the shared `BackgroundTaskManager` for `kind: 'agent'` tasks. It resolves unknown agent types before spawning so existing error results remain compatible.
+Projected command tool names must match provider naming constraints (`^[A-Za-z0-9_-]{1,64}$`) and
+use the `robota_command_` namespace. Their provider-visible descriptions come from registered
+command descriptors so command owners, not the system prompt composer, own autonomous-use guidance.
+`createSession()` must not register projected command tools when no registered command descriptor is
+model-invocable. The legacy `createCommandExecutionTool()` helper remains exported for compatibility,
+but `createSession()` does not expose both routes for the same command behavior.
 
-The direct `Agent` tool always sets `mode: 'background'`, emits lifecycle updates through `background_task_event`, waits for terminal task completion, and returns `{ success, output, agentId }` or a failed terminal result. Detached fire-and-return agent orchestration belongs to command/runtime APIs such as `/agent parallel --detach`, not to direct model-emitted `Agent` tool parameters.
+Selection must not be implemented with local keyword matching, alias tables, or natural-language
+pre-routing inside `InteractiveSession`.
+
+Agent definitions are exposed to the system prompt by metadata only when an injected command module requests `agent-runtime`. Without that session requirement, agent runtime dependencies, agent definitions, and model-visible agent metadata are omitted.
+
+Agent execution is routed through command/runtime APIs such as `agent` and through `context: fork` skill execution. `createSession()` stores reusable agent runtime dependencies for those paths but does not register a separate model-visible `Agent` tool.
 
 ### Skill Execution Semantics
 
-`InteractiveSession.executeSkillCommand(skill, args, displayInput?, rawInput?)` is the SDK-owned skill execution path.
+`InteractiveSession.executeCommand(name, args)` is the only transport-facing slash execution path.
+When `name` is a virtual skill name and a `skills` command module is composed, the SDK normalizes the
+request to command `skills` with args `<skill-name> [args]`. TUI and headless transports must not call skill-specific
+execution methods.
+
+`InteractiveSession.executeSkillCommandByName(name, args, request)` is the SDK host API consumed by
+the `skills` command module. It resolves the named skill from SDK-owned skill sources, validates the
+invocation source, loads the full `SKILL.md`, emits `skill_activation`, and returns structured command
+results/effects. Model-sourced calls return processed skill instructions as command result data;
+user-sourced calls submit the rendered prompt or fork execution into the active session and emit
+`session-execution-started`.
 
 | Skill metadata             | Behavior                                                                                              |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -1069,6 +1273,27 @@ The direct `Agent` tool always sets `mode: 'background'`, emits lifecycle update
 | `user-invocable: false`    | Hide from user slash menus; model metadata remains available unless model invocation is disabled      |
 
 Fork skill execution must not rely on prompting the parent model to call the `Agent` tool. It must call `createSubagentSession()` directly through the per-session agent tool dependencies so the behavior is deterministic and unit-testable.
+
+Every activation records an `ISkillActivationEvent`:
+
+```typescript
+interface ISkillActivationEvent {
+  readonly type: 'skill-activation';
+  readonly skillName: string;
+  readonly source: 'skill' | 'plugin';
+  readonly invocation: 'user-slash' | 'model-tool';
+  readonly mode: 'inject' | 'fork';
+  readonly status: 'started' | 'completed' | 'failed';
+  readonly timestamp: string;
+  readonly qualifiedName?: string;
+  readonly error?: string;
+}
+```
+
+`InteractiveSession` stores skill activation events in `skillActivationEvents` when session
+persistence is enabled. The event list is restored with the session record and the started event is
+also represented in `IHistoryEntry[]` for UI rendering. Consumers must not report a skill as active
+unless this event exists.
 
 ## Hook Wiring into Session Lifecycle
 
@@ -1083,7 +1308,7 @@ During `createSession()`, hooks from the merged settings configuration are wired
 
 ## Background Task Execution
 
-`BackgroundTaskManager` is owned by `agent-runtime` and re-exported by `agent-sdk` for compatibility. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
+`BackgroundTaskManager` is owned by `agent-runtime` and re-exported by `agent-sdk` through the explicit runtime facade. It is the generic lifecycle layer for foreground/background agent and process jobs. It is provider-neutral and depends only on injected runner ports.
 
 Responsibilities:
 
@@ -1095,6 +1320,10 @@ Responsibilities:
 - keep runner implementation details out of TUI, transports, and tool code
 
 The manager does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. SDK code composes the manager with SDK-owned tools and `InteractiveSession`; it does not own the lifecycle state machine.
+
+SDK runtime facade barrels also re-export runtime-owned helper primitives for bounded output
+capture and cursor-based log pagination so runtime shells can implement process adapters through
+the documented SDK facade instead of importing `agent-runtime` directly.
 
 `InteractiveSession` exposes background task controls:
 
@@ -1118,7 +1347,7 @@ When session persistence is enabled, `InteractiveSession` must persist backgroun
 - stdout/stderr inspection and cancellation are routed through the shared manager APIs
 - existing `Bash` tool behavior is not changed
 
-`createSession()` accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. The SDK default remains `createInProcessSubagentRunner(agentToolDeps)`. A runtime shell may supply a factory to run `Agent` tool jobs through a process-backed runner while reusing the same config/context/tool dependency bundle assembled by the SDK.
+`createSession()` accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. The SDK default remains `createInProcessSubagentRunner(agentToolDeps)`. A runtime shell may supply a factory to run `agent` command jobs through a process-backed runner while reusing the same config/context/tool dependency bundle assembled by the SDK.
 
 Runner progress semantics:
 
@@ -1128,7 +1357,7 @@ Runner progress semantics:
 - progress events do not complete, fail, cancel, or close tasks; lifecycle remains manager-owned
 - progress and lifecycle events are diagnostic data, not just UI state; SDK composition must route them to session logging/persistence when those facilities are configured
 
-The built-in `/background` system command maps to these APIs:
+The product-composed `/background` command module maps to these APIs:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
@@ -1141,7 +1370,7 @@ The built-in `/background` system command maps to these APIs:
 
 ### SubagentManager
 
-`SubagentManager` is owned by `agent-runtime` and re-exported by `agent-sdk` for compatibility. It is the managed subagent compatibility facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
+`SubagentManager` is owned by `agent-runtime` and re-exported by `agent-sdk` through the explicit runtime facade. It is the managed subagent facade. It depends on an injected `ISubagentRunner` port or an injected `IBackgroundTaskManager` and maps subagent jobs to `BackgroundTaskManager` agent tasks.
 
 Responsibilities:
 
@@ -1149,7 +1378,7 @@ Responsibilities:
 - enforce bounded concurrency
 - track lifecycle state: `queued`, `running`, `waiting_permission`, `completed`, `failed`, `cancelled`
 - expose `spawn`, `wait`, `list`, `get`, `cancel`, `close`, and `send` operations
-- keep runner implementation details out of TUI and Agent tool code
+- keep runner implementation details out of TUI and command-module code
 
 `SubagentManager` does not create providers, sessions, child processes, worktrees, or TUI state directly. Those concerns belong to runner adapters and outer composition layers. It exposes `getBackgroundTaskManager()` so SDK `InteractiveSession` can forward generic background task events and controls without depending on subagent-specific types.
 
@@ -1201,8 +1430,9 @@ When `job.request.isolation === 'worktree'`, the decorator must:
 - call `ISubagentWorktreeAdapter.prepare({ jobId, cwd })`
 - invoke the inner runner with `cwd`, `worktreePath`, and `branchName` set to the prepared worktree
 - emit `WorktreeCreate` hook notification after preparation
-- remove clean worktrees on success, delegated failure, or synchronous delegated start failure
-- preserve dirty worktrees and return `worktreePath` plus `branchName` in `ISubagentJobResult.metadata`
+- remove clean worktrees exactly once on success, delegated failure, synchronous delegated start failure, or successful cancellation
+- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, and `worktreeNextAction` in `ISubagentJobResult.metadata`
+- include adapter-provided `baseRevision` and dirty parent checkout status in handoff metadata when available
 - preserve existing result metadata while adding worktree metadata
 - emit `WorktreeRemove` hook notification when a clean worktree is removed
 
@@ -1214,7 +1444,7 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 1. Remove disallowed tools (denylist from agent definition)
 2. Keep only allowed tools (allowlist from agent definition, if specified)
-3. Always remove the `Agent` tool (subagents cannot spawn subagents)
+3. Always remove agent-spawning tools such as `Agent` and `robota_command_agent` (subagents cannot spawn subagents)
 
 **Model resolution:** Agent definition model override (with shortcut expansion: `sonnet`, `haiku`, `opus`) takes priority; falls back to parent config model.
 
@@ -1242,23 +1472,19 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 
 ### Model-Requested Agent Invocation
 
-The parent session exposes an `Agent` function tool with parameters:
+Model-requested agent invocation is owned by `@robota-sdk/agent-command-agent`. The command module
+contributes `agent` as a model-invocable built-in command and requests the SDK `agent-runtime`
+session requirement. The model route is the same projected command-tool path used by other
+built-ins: `robota_command_agent({ args: "..." })`.
 
-| Parameter       | Type                   | Required | Description                                             |
-| --------------- | ---------------------- | -------- | ------------------------------------------------------- |
-| `prompt`        | `string`               | Yes      | Task prompt for the isolated agent session              |
-| `subagent_type` | `string`               | No       | Agent name. Defaults to `general-purpose` when omitted  |
-| `model`         | `string`               | No       | Optional model override for this invocation             |
-| `isolation`     | `'none' \| 'worktree'` | No       | Run in the parent cwd or a runtime-managed Git worktree |
-| `jobs`          | `AgentJob[]`           | No       | Batch of subagent jobs to start in one tool call        |
+The SDK stores agent runtime dependencies for the command module and for `context: fork` skills.
+It does not register a separate model-visible `Agent` function tool. Parallel, batch, detached, and
+worktree agent behavior belongs to `agent` command arguments and the shared runtime job APIs.
 
-When `jobs` is present and non-empty, the Agent tool runs in batch mode. Each `AgentJob` contains `prompt` plus optional `subagent_type`, `model`, and `isolation`. Batch mode starts all valid jobs before waiting for terminal results, returns one structured result per requested job, and includes a shared `groupId`/`agentIds` provenance envelope. The single-job fields remain supported for backwards compatibility.
+Structured command/background-task results are the only evidence that agent work started or
+completed. Assistant prose is not execution evidence.
 
-Unknown extra tool-call arguments are tolerated by the Agent tool runtime for provider compatibility, but they are not part of the public Agent parameter contract.
-
-The parent model may call this tool when the user asks for an agent to be called or asks for delegation. For explicit multi-agent or parallel-agent requests, the canonical model-invocable path is one batch `Agent` tool call with `jobs`. The tool result is private to the model; the parent model must summarize the returned output for the user and must not claim that parallel execution happened unless the batch result shows the jobs were started.
-
-When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O.
+When `isolation: 'worktree'` is requested, a runtime shell that supports worktree isolation must compose `WorktreeSubagentRunner` with a concrete `ISubagentWorktreeAdapter`. The runtime runner handles lifecycle, cleanup, handoff metadata, and `WorktreeCreate` / `WorktreeRemove` hook notifications; the shell adapter handles Git/filesystem I/O. Unsupported non-Git or shell states must fail with actionable messages unless the user explicitly requested non-isolated execution.
 
 ### AgentDefinitionLoader (Internal)
 

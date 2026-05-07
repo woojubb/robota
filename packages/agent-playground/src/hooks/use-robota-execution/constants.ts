@@ -1,0 +1,3 @@
+export const PERCENTAGE_MULTIPLIER = 100;
+export const IDLE_RESET_DELAY_MS = 1000;
+export const EXECUTION_TIMEOUT_MS = 30000;

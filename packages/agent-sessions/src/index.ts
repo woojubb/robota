@@ -5,6 +5,9 @@ export { Session } from './session.js';
 export type {
   ISessionOptions,
   ISessionShutdownOptions,
+  ICompactEvent,
+  TCompactTrigger,
+  TAutoCompactThreshold,
   TPermissionHandler,
   TPermissionResult,
   ITerminalOutput,
@@ -13,7 +16,7 @@ export type {
 
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
-export { ContextWindowTracker } from './context-window-tracker.js';
+export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export { CompactionOrchestrator } from './compaction-orchestrator.js';
 
 // Context window state (re-exported from agent-core for convenience)
@@ -21,8 +24,25 @@ export type { IContextWindowState } from '@robota-sdk/agent-core';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
-export type { ISessionLogger, TSessionLogData } from './session-logger.js';
+export type {
+  IExternalPayloadReference,
+  IFileSessionLoggerOptions,
+  ISessionLogger,
+  TSessionLogData,
+  TSessionLogValue,
+} from './session-logger.js';
+export {
+  loadSessionLogEntries,
+  replaySessionLogEntries,
+  validateSessionReplayLogEntries,
+} from './session-log-replay.js';
+export type {
+  ISessionLogEntry,
+  ISessionReplayRecord,
+  ISessionReplayValidationIssue,
+  ISessionReplayValidationResult,
+} from './session-log-replay.js';
 
 // Session persistence
 export { SessionStore } from './session-store.js';
-export type { ISessionRecord } from './session-store.js';
+export type { ISessionRecord, ISessionStore } from './session-store.js';

@@ -1,101 +1,146 @@
-import type { Router, Request, Response } from 'express';
-import type { ICostMetaStoragePort, ICostMeta } from '@robota-sdk/dag-cost';
-import { CelCostEvaluator } from '@robota-sdk/dag-cost';
-import { HTTP_OK, HTTP_CREATED, HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from './route-utils.js';
+import type { Request, Response, Router } from 'express';
+import { CelCostEvaluator, type ICostMetaStoragePort } from '@robota-sdk/dag-cost';
+import type {
+  IDagOrchestrationCostMetaDeleteSuccessPayload,
+  IDagOrchestrationCostMetaListSuccessPayload,
+  IDagOrchestrationCostMetaPreviewSuccessPayload,
+  IDagOrchestrationCostMetaSuccessPayload,
+  IDagOrchestrationCostMetaValidationSuccessPayload,
+} from '@robota-sdk/dag-orchestration-client';
+import { HTTP_CREATED, HTTP_OK } from './route-utils.js';
+import {
+  parseCostMeta,
+  parseFormulaRequest,
+  parsePreviewRequest,
+  toCostMetaBadRequest,
+  toCostMetaNotFound,
+  validateCostMetaFormulas,
+  type ICostMetaRouteFailure,
+  type TCostMetaRouteValue,
+} from './cost-meta-route-utils.js';
+
+type TCostMetaRouteResult =
+  | IDagOrchestrationCostMetaDeleteSuccessPayload
+  | IDagOrchestrationCostMetaListSuccessPayload
+  | IDagOrchestrationCostMetaPreviewSuccessPayload
+  | IDagOrchestrationCostMetaSuccessPayload
+  | IDagOrchestrationCostMetaValidationSuccessPayload
+  | ICostMetaRouteFailure;
 
 export function registerCostMetaRoutes(
-    router: Router,
-    storage: ICostMetaStoragePort,
-    evaluator: CelCostEvaluator,
+  router: Router,
+  storage: ICostMetaStoragePort,
+  evaluator: CelCostEvaluator,
 ): void {
-    // GET /v1/cost-meta — list all cost meta entries
-    router.get('/v1/cost-meta', async (_req: Request, res: Response) => {
-        const items = await storage.getAll();
-        res.status(HTTP_OK).json({ ok: true, data: items });
-    });
-
-    // POST /v1/cost-meta/validate — validate formula only (before :nodeType routes)
-    router.post('/v1/cost-meta/validate', (req: Request, res: Response) => {
-        const { formula } = req.body as { formula: string };
-        const result = evaluator.validate(formula);
-        if (result.ok) {
-            res.status(HTTP_OK).json({ ok: true });
-        } else {
-            res.status(HTTP_OK).json({ ok: false, errors: [result.error.message] });
-        }
-    });
-
-    // POST /v1/cost-meta/preview — evaluate formula with test context (before :nodeType routes)
-    router.post('/v1/cost-meta/preview', (req: Request, res: Response) => {
-        const { formula, variables, testContext } = req.body as {
-            formula: string;
-            variables?: Record<string, unknown>;
-            testContext?: Record<string, unknown>;
-        };
-        const context: Record<string, unknown> = {
-            ...variables,
-            ...testContext,
-        };
-        const result = evaluator.evaluate(formula, context);
-        if (result.ok) {
-            res.status(HTTP_OK).json({ ok: true, result: result.value });
-        } else {
-            res.status(HTTP_OK).json({ ok: false, error: result.error.message });
-        }
-    });
-
-    // POST /v1/cost-meta — create new cost meta
-    router.post('/v1/cost-meta', async (req: Request, res: Response) => {
-        const body = req.body as ICostMeta;
-        const validationError = validateFormulas(evaluator, body);
-        if (validationError) {
-            res.status(HTTP_BAD_REQUEST).json({ ok: false, error: validationError });
-            return;
-        }
-        await storage.save(body);
-        res.status(HTTP_CREATED).json({ ok: true, data: body });
-    });
-
-    // GET /v1/cost-meta/:nodeType — get single entry
-    router.get('/v1/cost-meta/:nodeType', async (req: Request<{ nodeType: string }>, res: Response) => {
-        const meta = await storage.get(req.params.nodeType);
-        if (!meta) {
-            res.status(HTTP_NOT_FOUND).json({ ok: false, error: `Cost meta not found for nodeType: ${req.params.nodeType}` });
-            return;
-        }
-        res.status(HTTP_OK).json({ ok: true, data: meta });
-    });
-
-    // PUT /v1/cost-meta/:nodeType — update existing cost meta
-    router.put('/v1/cost-meta/:nodeType', async (req: Request<{ nodeType: string }>, res: Response) => {
-        const body = req.body as ICostMeta;
-        body.nodeType = req.params.nodeType;
-        const validationError = validateFormulas(evaluator, body);
-        if (validationError) {
-            res.status(HTTP_BAD_REQUEST).json({ ok: false, error: validationError });
-            return;
-        }
-        await storage.save(body);
-        res.status(HTTP_OK).json({ ok: true, data: body });
-    });
-
-    // DELETE /v1/cost-meta/:nodeType — delete cost meta
-    router.delete('/v1/cost-meta/:nodeType', async (req: Request<{ nodeType: string }>, res: Response) => {
-        await storage.delete(req.params.nodeType);
-        res.status(HTTP_OK).json({ ok: true });
-    });
+  router.get('/v1/cost-meta', createListCostMetaHandler(storage));
+  router.post('/v1/cost-meta/validate', createValidateCostMetaFormulaHandler(evaluator));
+  router.post('/v1/cost-meta/preview', createPreviewCostMetaFormulaHandler(evaluator));
+  router.post('/v1/cost-meta', createCreateCostMetaHandler(storage, evaluator));
+  router.get('/v1/cost-meta/:nodeType', createGetCostMetaHandler(storage));
+  router.put('/v1/cost-meta/:nodeType', createUpdateCostMetaHandler(storage, evaluator));
+  router.delete('/v1/cost-meta/:nodeType', createDeleteCostMetaHandler(storage));
 }
 
-function validateFormulas(evaluator: CelCostEvaluator, meta: ICostMeta): string | undefined {
-    const estimateResult = evaluator.validate(meta.estimateFormula);
-    if (!estimateResult.ok) {
-        return `Invalid estimateFormula: ${estimateResult.error.message}`;
+function createListCostMetaHandler(storage: ICostMetaStoragePort) {
+  return async (_req: Request, res: Response): Promise<void> => {
+    const items = await storage.getAll();
+    sendResult(res, { ok: true, status: HTTP_OK, data: { items } });
+  };
+}
+
+function createValidateCostMetaFormulaHandler(evaluator: CelCostEvaluator) {
+  return (req: Request, res: Response): void => {
+    const parsed = parseFormulaRequest(req.body as TCostMetaRouteValue, '/v1/cost-meta/validate');
+    if (!parsed.ok) {
+      sendResult(res, parsed);
+      return;
     }
-    if (typeof meta.calculateFormula === 'string' && meta.calculateFormula.length > 0) {
-        const calculateResult = evaluator.validate(meta.calculateFormula);
-        if (!calculateResult.ok) {
-            return `Invalid calculateFormula: ${calculateResult.error.message}`;
-        }
+    const validation = evaluator.validate(parsed.formula);
+    sendResult(res, {
+      ok: true,
+      status: HTTP_OK,
+      data: {
+        valid: validation.ok,
+        errors: validation.ok ? [] : [validation.error.message],
+      },
+    });
+  };
+}
+
+function createPreviewCostMetaFormulaHandler(evaluator: CelCostEvaluator) {
+  return (req: Request, res: Response): void => {
+    const instance = '/v1/cost-meta/preview';
+    const parsed = parsePreviewRequest(req.body as TCostMetaRouteValue, instance);
+    if (!parsed.ok) {
+      sendResult(res, parsed);
+      return;
     }
-    return undefined;
+    const result = evaluator.evaluate(parsed.formula, {
+      ...parsed.variables,
+      ...parsed.testContext,
+    });
+    if (!result.ok) {
+      sendResult(res, toCostMetaBadRequest(result.error.code, result.error.message, instance));
+      return;
+    }
+    sendResult(res, { ok: true, status: HTTP_OK, data: { result: result.value } });
+  };
+}
+
+function createCreateCostMetaHandler(storage: ICostMetaStoragePort, evaluator: CelCostEvaluator) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const instance = '/v1/cost-meta';
+    const parsed = parseCostMeta(req.body as TCostMetaRouteValue, undefined, instance);
+    if (!parsed.ok) {
+      sendResult(res, parsed);
+      return;
+    }
+    const formulaFailure = validateCostMetaFormulas(evaluator, parsed.meta, instance);
+    if (formulaFailure) {
+      sendResult(res, formulaFailure);
+      return;
+    }
+    await storage.save(parsed.meta);
+    sendResult(res, { ok: true, status: HTTP_CREATED, data: { meta: parsed.meta } });
+  };
+}
+
+function createGetCostMetaHandler(storage: ICostMetaStoragePort) {
+  return async (req: Request<{ nodeType: string }>, res: Response): Promise<void> => {
+    const meta = await storage.get(req.params.nodeType);
+    if (!meta) {
+      sendResult(res, toCostMetaNotFound(req.params.nodeType));
+      return;
+    }
+    sendResult(res, { ok: true, status: HTTP_OK, data: { meta } });
+  };
+}
+
+function createUpdateCostMetaHandler(storage: ICostMetaStoragePort, evaluator: CelCostEvaluator) {
+  return async (req: Request<{ nodeType: string }>, res: Response): Promise<void> => {
+    const instance = `/v1/cost-meta/${req.params.nodeType}`;
+    const parsed = parseCostMeta(req.body as TCostMetaRouteValue, req.params.nodeType, instance);
+    if (!parsed.ok) {
+      sendResult(res, parsed);
+      return;
+    }
+    const formulaFailure = validateCostMetaFormulas(evaluator, parsed.meta, instance);
+    if (formulaFailure) {
+      sendResult(res, formulaFailure);
+      return;
+    }
+    await storage.save(parsed.meta);
+    sendResult(res, { ok: true, status: HTTP_OK, data: { meta: parsed.meta } });
+  };
+}
+
+function createDeleteCostMetaHandler(storage: ICostMetaStoragePort) {
+  return async (req: Request<{ nodeType: string }>, res: Response): Promise<void> => {
+    await storage.delete(req.params.nodeType);
+    sendResult(res, { ok: true, status: HTTP_OK, data: { nodeType: req.params.nodeType } });
+  };
+}
+
+function sendResult(res: Response, result: TCostMetaRouteResult): void {
+  res.status(result.status).json(result);
 }

@@ -5,7 +5,7 @@
  * Boots the CLI and handles any uncaught top-level errors gracefully.
  */
 import { startCli } from './cli.js';
-import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 // Last-resort crash prevention for IME-related errors only.
 // Korean IME in raw mode can cause errors that escape React/Ink.
@@ -26,7 +26,7 @@ process.on('uncaughtException', (err) => {
   throw err;
 });
 
-startCli({ commandModules: [createAgentCommandModule()] }).catch((err: unknown) => {
+startCli().catch((err: Error | TUniversalValue) => {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(message + '\n');
   process.exit(1);

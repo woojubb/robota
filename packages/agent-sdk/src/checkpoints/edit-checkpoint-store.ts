@@ -4,17 +4,18 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { projectPaths } from '../paths.js';
 import type {
   IEditCheckpointFileRecord,
+  IEditCheckpointInspection,
   IEditCheckpointManifest,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
 } from './edit-checkpoint-types.js';
+import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
 
 const MANIFEST_FILE = 'manifest.json';
 const SNAPSHOT_DIR = 'files';
 const ID_PAD = 4;
 const SNAPSHOT_PAD = 6;
-
 interface IActiveEditCheckpointTurn {
   manifest: IEditCheckpointManifest;
   dir: string;
@@ -25,7 +26,6 @@ interface IEditCheckpointStoreOptions {
   cwd: string;
   now?: () => Date;
 }
-
 export class EditCheckpointStore {
   private readonly cwd: string;
   private readonly rootDir: string;
@@ -93,6 +93,23 @@ export class EditCheckpointStore {
     return this.loadManifests(sessionId).map(toSummary);
   }
 
+  inspect(sessionId: string, checkpointId: string): IEditCheckpointInspection {
+    const manifests = this.loadManifests(sessionId);
+    const target = manifests.find((manifest) => manifest.id === checkpointId);
+    if (!target) {
+      throw new Error(`Unknown edit checkpoint: ${checkpointId}`);
+    }
+
+    return buildEditCheckpointInspection({
+      cwd: this.cwd,
+      sessionId,
+      target,
+      manifests,
+      checkpointDir: (inputSessionId, inputCheckpointId) =>
+        this.checkpointDir(inputSessionId, inputCheckpointId),
+    });
+  }
+
   async restoreToCheckpoint(
     sessionId: string,
     checkpointId: string,
@@ -124,6 +141,40 @@ export class EditCheckpointStore {
       restoredCheckpointCount: later.length,
       restoredFileCount,
       removedCheckpointCount: later.length,
+    };
+  }
+
+  async rollbackThroughCheckpoint(
+    sessionId: string,
+    checkpointId: string,
+  ): Promise<IEditCheckpointRestoreResult> {
+    const manifests = this.loadManifests(sessionId);
+    const target = manifests.find((manifest) => manifest.id === checkpointId);
+    if (!target) {
+      throw new Error(`Unknown edit checkpoint: ${checkpointId}`);
+    }
+
+    const rollbackRange = manifests
+      .filter((manifest) => manifest.sequence >= target.sequence)
+      .sort((a, b) => b.sequence - a.sequence);
+
+    let restoredFileCount = 0;
+    for (const manifest of rollbackRange) {
+      for (const file of manifest.files) {
+        await this.restoreFile(sessionId, manifest.id, file);
+        restoredFileCount += 1;
+      }
+    }
+
+    for (const manifest of rollbackRange) {
+      await rm(this.checkpointDir(sessionId, manifest.id), { recursive: true, force: true });
+    }
+
+    return {
+      target: toSummary(target),
+      restoredCheckpointCount: rollbackRange.length,
+      restoredFileCount,
+      removedCheckpointCount: rollbackRange.length,
     };
   }
 

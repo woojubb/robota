@@ -3,6 +3,25 @@ import OpenAI from 'openai';
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { IExecutor, ILogger, TProviderOptionValueBase } from '@robota-sdk/agent-core';
 
+export type TOpenAIApiSurface = 'responses' | 'chat-completions';
+
+export interface IOpenAIJsonSchemaDefinition {
+  name: string;
+  description?: string;
+  schema?: Record<string, TOpenAIProviderOptionValue>;
+  strict?: boolean;
+}
+
+export interface IOpenAIResponsesReasoningOptions {
+  effort?: 'low' | 'medium' | 'high';
+  summary?: 'auto' | 'concise' | 'detailed';
+}
+
+export interface IOpenAINativeWebToolsOptions {
+  webSearch?: boolean;
+  webFetch?: boolean;
+}
+
 /**
  * Valid provider option value types
  */
@@ -12,6 +31,9 @@ export type TOpenAIProviderOptionValue =
   | boolean
   | undefined
   | null
+  | IOpenAIJsonSchemaDefinition
+  | IOpenAINativeWebToolsOptions
+  | IOpenAIResponsesReasoningOptions
   | OpenAI
   | IPayloadLogger
   | ILogger
@@ -50,6 +72,19 @@ export interface IOpenAIProviderOptions {
   baseURL?: string;
 
   /**
+   * Default model used when chat options do not provide a model.
+   */
+  defaultModel?: string;
+
+  /**
+   * API surface to use for direct OpenAI calls.
+   *
+   * Defaults to Responses for official OpenAI calls. Profiles with baseURL use
+   * Chat Completions by default for OpenAI-compatible endpoint compatibility.
+   */
+  apiSurface?: TOpenAIApiSurface;
+
+  /**
    * Response format (default: 'text')
    * - 'text': Plain text response
    * - 'json_object': JSON object mode (requires system message)
@@ -60,12 +95,37 @@ export interface IOpenAIProviderOptions {
   /**
    * JSON schema for structured outputs (required when responseFormat is 'json_schema')
    */
-  jsonSchema?: {
-    name: string;
-    description?: string;
-    schema?: Record<string, TOpenAIProviderOptionValue>;
-    strict?: boolean;
-  };
+  jsonSchema?: IOpenAIJsonSchemaDefinition;
+
+  /**
+   * Responses API reasoning controls. Hidden reasoning is never exposed in message
+   * content; only explicit summaries/encrypted items requested here are represented.
+   */
+  reasoning?: IOpenAIResponsesReasoningOptions;
+
+  /**
+   * Whether OpenAI should store Responses API results. Defaults to OpenAI API behavior.
+   */
+  store?: boolean;
+
+  /**
+   * Include encrypted reasoning items for stateless reasoning continuation.
+   */
+  includeEncryptedReasoning?: boolean;
+
+  /**
+   * Opt into strict custom function parameter validation where supported.
+   */
+  strictTools?: boolean;
+
+  /**
+   * Provider-native hosted web tool request from provider profile options.
+   *
+   * OpenAI-compatible Chat Completions endpoints do not support this Robota
+   * native web contract. The provider rejects unsupported configurations before
+   * any model request is sent.
+   */
+  nativeWebTools?: IOpenAINativeWebToolsOptions;
 
   /**
    * OpenAI client instance (optional: will be created from apiKey if not provided)

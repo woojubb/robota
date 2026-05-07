@@ -58,7 +58,10 @@ echo "📦 Version: $VERSION"
 echo ""
 
 # ── Detect publishable packages ───────────────────────────────
-mapfile -t PUBLISHABLE_PACKAGES < <(
+PUBLISHABLE_PACKAGES=()
+while IFS= read -r PACKAGE_NAME; do
+  PUBLISHABLE_PACKAGES+=("$PACKAGE_NAME")
+done < <(
   pnpm -r --depth -1 --json list | node -e '
 let input = "";
 process.stdin.on("data", (chunk) => {
@@ -80,6 +83,91 @@ if [ "${#PUBLISHABLE_PACKAGES[@]}" -eq 0 ]; then
   exit 1
 fi
 
+PUBLISHED_PACKAGES=()
+MISSING_PACKAGES=()
+
+version_is_published() {
+  local package_name="$1"
+  local published_version
+
+  if ! published_version=$(npm view "$package_name@$VERSION" version --registry https://registry.npmjs.org/ 2>/dev/null); then
+    return 1
+  fi
+
+  [ "$published_version" = "$VERSION" ]
+}
+
+refresh_publish_state() {
+  local package_name
+
+  PUBLISHED_PACKAGES=()
+  MISSING_PACKAGES=()
+  for package_name in "${PUBLISHABLE_PACKAGES[@]}"; do
+    if version_is_published "$package_name"; then
+      PUBLISHED_PACKAGES+=("$package_name")
+    else
+      MISSING_PACKAGES+=("$package_name")
+    fi
+  done
+}
+
+print_publish_state() {
+  echo "📋 Publish state: ${#PUBLISHED_PACKAGES[@]} already published, ${#MISSING_PACKAGES[@]} pending"
+  if [ "${#PUBLISHED_PACKAGES[@]}" -gt 0 ]; then
+    echo "   Already published packages will be skipped on retry."
+  fi
+}
+
+wait_for_registry_publish_state() {
+  local attempt
+
+  for attempt in 1 2 3 4 5 6; do
+    if [ "${#MISSING_PACKAGES[@]}" -eq 0 ]; then
+      return 0
+    fi
+
+    echo "⏳ Waiting for npm registry to expose ${#MISSING_PACKAGES[@]} package(s) (attempt $attempt/6)..."
+    sleep 5
+    refresh_publish_state
+  done
+}
+
+run_publish_command() {
+  local mode="$1"
+  local output
+  local status
+  local package_name
+  local -a command
+
+  command=(pnpm)
+  if [ "${#MISSING_PACKAGES[@]}" -eq "${#PUBLISHABLE_PACKAGES[@]}" ]; then
+    command+=(publish -r --no-git-checks)
+  else
+    for package_name in "${MISSING_PACKAGES[@]}"; do
+      command+=(--filter "$package_name")
+    done
+    command+=(publish --no-git-checks)
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    command+=(--dry-run)
+  else
+    command+=(--otp "$OTP")
+  fi
+
+  set +e
+  output=$("${command[@]}" 2>&1)
+  status=$?
+  set -e
+
+  printf '%s\n' "$output" | grep -E "^\+ @robota-sdk|npm error|previously published|You cannot publish over" || true
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "$output" >&2
+  fi
+
+  return "$status"
+}
+
 # ── Auth preflight ────────────────────────────────────────────
 echo "🔐 Checking npm authentication..."
 if ! NPM_USER=$(npm whoami --registry https://registry.npmjs.org/ 2>/dev/null); then
@@ -90,25 +178,64 @@ fi
 echo "✓ npm user: $NPM_USER"
 echo ""
 
-# ── Dry-run ───────────────────────────────────────────────────
-echo "🔍 Dry-run publish..."
-pnpm publish -r --no-git-checks --dry-run 2>&1 | grep -E "^\+ @robota-sdk"
+refresh_publish_state
+print_publish_state
 echo ""
 
+# ── Dry-run ───────────────────────────────────────────────────
+if [ "${#MISSING_PACKAGES[@]}" -gt 0 ]; then
+  echo "🔍 Dry-run publish..."
+  run_publish_command dry-run
+  echo ""
+fi
+
 # ── Prompt for OTP if not provided ────────────────────────────
-if [ -z "$OTP" ]; then
+if [ "${#MISSING_PACKAGES[@]}" -gt 0 ] && [ -z "$OTP" ]; then
   read -rp "🔑 Enter npm OTP for publish: " OTP
 fi
 
-if [ -z "$OTP" ]; then
+if [ "${#MISSING_PACKAGES[@]}" -gt 0 ] && [ -z "$OTP" ]; then
   echo "❌ OTP is required."
   exit 1
 fi
 
 # ── Publish ───────────────────────────────────────────────────
-echo ""
-echo "🚀 Publishing all packages..."
-pnpm publish -r --no-git-checks --otp "$OTP" 2>&1 | grep -E "^\+ @robota-sdk|npm error"
+while [ "${#MISSING_PACKAGES[@]}" -gt 0 ]; do
+  echo ""
+  echo "🚀 Publishing ${#MISSING_PACKAGES[@]} pending package(s)..."
+  if run_publish_command publish; then
+    refresh_publish_state
+    wait_for_registry_publish_state
+    print_publish_state
+    if [ "${#MISSING_PACKAGES[@]}" -eq 0 ]; then
+      break
+    fi
+
+    if [ -t 0 ]; then
+      echo ""
+      read -rp "🔑 Publish completed but registry still has pending packages. Enter fresh npm OTP to retry: " OTP
+      continue
+    fi
+
+    echo "❌ Publish completed but npm registry still does not expose all packages."
+    exit 1
+  fi
+
+  refresh_publish_state
+  print_publish_state
+  if [ "${#MISSING_PACKAGES[@]}" -eq 0 ]; then
+    break
+  fi
+
+  if [ -t 0 ]; then
+    echo ""
+    read -rp "🔑 Publish OTP expired. Enter fresh npm OTP for remaining packages: " OTP
+    continue
+  fi
+
+  echo "❌ Publish failed before all packages were published."
+  exit 1
+done
 
 if [ -z "$TAG_OTP" ]; then
   if [ -t 0 ]; then

@@ -3,9 +3,19 @@
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession } from './interactive/index.js';
+export {
+  createProjectSessionStore,
+  listResumableSessionSummaries,
+  resolveLatestSessionId,
+  resolveSessionIdByIdOrName,
+} from './interactive/index.js';
 export type {
   IInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
+  ISkillActivationEvent,
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
   IToolState,
   IDiffLine,
   IExecutionResult,
@@ -26,6 +36,7 @@ export type { ICreateQueryOptions } from './query.js';
 export {
   CommandRegistry,
   BuiltinCommandSource,
+  createBuiltinCommandModule,
   SkillCommandSource,
   PluginCommandSource,
   SystemCommandExecutor,
@@ -40,42 +51,214 @@ export type {
 } from './capabilities/types.js';
 export type {
   ICommand,
+  ICommandHostAdapters,
+  ICommandHostContext,
   ICommandModule,
+  ICommandPickerAdapter,
+  ICommandPluginAdapter,
+  ICommandPluginReloadResult,
+  ICommandProcessAdapter,
   ICommandSource,
+  ICommandSessionRuntime,
+  ICommandSettingsAdapter,
+  ICommandSettingsDocument,
+  ICommandSkillListEntry,
   ISystemCommand,
   ICommandResult,
+  ICommandInteraction,
+  ICommandChoicePromptOption,
+  ICommandListEntry,
+  TCommandEffect,
+  TCommandInteractionPrompt,
+  TCommandResultDataValue,
+  TSystemCommandLifecycle,
+  ICommandPermissionModeAdapter,
   IForkExecutionOptions,
   ISkillExecutionCallbacks,
   ISkillExecutionResult,
+  ISkillActivationHistoryData,
+  TSkillActivationInvocation,
+  TSkillActivationMode,
+  TSkillActivationSource,
+  TSkillActivationStatus,
   TCommandModuleSessionRequirement,
+  IActiveProviderModelCatalogState,
+  IBuildModelCommandSubcommandsOptions,
+  IModelCommandModuleOptions,
+  IModelCommandSettingsAdapter,
+  IResolveActiveProviderModelCatalogStateOptions,
+  IProviderCommandModuleOptions,
+  IProviderCommandSettingsAdapter,
+  IProviderProfileNameSuggestionInput,
+  IProviderProfileNameSuggestionOptions,
+  ILegacyProviderSettings,
+  IProviderProfileSettings,
+  IProviderSettingsBuildOptions,
+  IProviderSetupFlowOptions,
+  IProviderSetupInput,
+  IProviderSetupPatch,
+  IStatusLineCommandSettings,
+  TProviderSettingsDocument,
+  TStatusLineCommandSettingsPatch,
+  ICommandAvailablePlugin,
+  ICommandInstalledPlugin,
+  ICommandMarketplaceSource,
+  TPluginInstallScope,
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from './commands/index.js';
+export {
+  addCommandContextReference,
+  buildProviderProfile,
+  buildProviderSetupPatch,
+  clearCommandContextReferences,
+  createProviderSetupFlow,
+  deleteProviderProfile,
+  formatEnvReference,
+  formatProviderSetupChoiceLabel,
+  formatProviderSetupHelpLinks,
+  formatProviderSetupPromptLabel,
+  formatProviderSetupSelectionPrompt,
+  getProviderSetupStep,
+  hasUsableSecretReference,
+  isEnvReference,
+  mergeProviderPatch,
+  probeProviderProfile,
+  listCommandContextReferences,
+  resolveEnvReference,
+  resolveProviderSetupSelection,
+  runProviderSetupPromptFlow,
+  sanitizeProviderProfileName,
+  setCurrentProvider,
+  suggestProviderProfileName,
+  submitProviderSetupValue,
+  testProviderProfileCommand,
+  AUTO_COMPACT_THRESHOLD_SETTINGS_KEY,
+  compactCommandContext,
+  DEFAULT_AUTO_COMPACT_THRESHOLD,
+  readAutoCompactThreshold,
+  readAutoCompactThresholdSource,
+  readCommandContextState,
+  removeCommandContextReference,
+  resetAutoCompactThresholdSetting,
+  setCommandAutoCompactThreshold,
+  upsertProviderProfile,
+  validateProviderProfile,
+  validateProviderSetupValue,
+  writeAutoCompactThresholdSetting,
+  formatCommandHelpMessage,
+  HELP_COMMAND_DESCRIPTION,
+  buildModelCommandSubcommands,
+  formatModelCommandUsageMessageAsync,
+  formatModelCommandUsageMessage,
+  MODEL_COMMAND_ARGUMENT_HINT,
+  MODEL_COMMAND_DESCRIPTION,
+  resolveActiveProviderModelCatalog,
+  resolveActiveProviderModelCatalogState,
+  buildLanguageCommandSubcommands,
+  formatLanguageUsageMessage,
+  LANGUAGE_COMMAND_ARGUMENT_HINT,
+  LANGUAGE_COMMAND_DESCRIPTION,
+  parseLanguageArgument,
+  RECOMMENDED_RESPONSE_LANGUAGES,
+  buildPermissionModeSubcommands,
+  formatCommandPermissionsMessage,
+  formatInvalidPermissionModeMessage,
+  isPermissionMode,
+  listCommandSessionAllowedTools,
+  parsePermissionModeArgument,
+  PERMISSIONS_COMMAND_DESCRIPTION,
+  PERMISSION_MODE_ARGUMENT_HINT,
+  PERMISSION_MODE_COMMAND_DESCRIPTION,
+  readCommandPermissionsState,
+  readCommandPermissionMode,
+  resolvePermissionModeAdapter,
+  VALID_PERMISSION_MODES,
+  writeCommandPermissionMode,
+  buildStatusLineCommandSubcommands,
+  buildPluginCommandSubcommands,
+  createPluginRegistryReloadRequestedEffect,
+  createPluginTuiRequestedEffect,
+  clearConversationHistory,
+  createSessionPickerRequestedEffect,
+  createSessionRenamedEffect,
+  CLEAR_COMMAND_DESCRIPTION,
+  COST_COMMAND_DESCRIPTION,
+  createSessionExitRequestedEffect,
+  EXIT_COMMAND_DESCRIPTION,
+  formatCommandSessionReplayValidationReport,
+  parseSessionNameArgument,
+  readCommandSessionInfo,
+  validateCommandSessionReplayLog,
+  RENAME_COMMAND_DESCRIPTION,
+  RENAME_COMMAND_USAGE,
+  RESUME_COMMAND_DESCRIPTION,
+  VALIDATE_SESSION_COMMAND_DESCRIPTION,
+  REWIND_COMMAND_ARGUMENT_HINT,
+  REWIND_COMMAND_DESCRIPTION,
+  buildRewindCommandSubcommands,
+  MEMORY_COMMAND_ARGUMENT_HINT,
+  MEMORY_COMMAND_DESCRIPTION,
+  MEMORY_COMMAND_USAGE,
+  buildMemoryCommandSubcommands,
+  BACKGROUND_COMMAND_DESCRIPTION,
+  BACKGROUND_COMMAND_USAGE,
+  buildBackgroundCommandSubcommands,
+  cancelCommandBackgroundTask,
+  closeCommandBackgroundTask,
+  formatCommandBackgroundTask,
+  formatCommandBackgroundTaskList,
+  listCommandBackgroundTasks,
+  parseCommandBackgroundLogCursor,
+  readCommandBackgroundTaskLog,
+  createCommandMemoryStores,
+  createCommandPendingMemoryStore,
+  createCommandProjectMemoryStore,
+  DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
+  hasSensitiveCommandMemoryContent,
+  isStatusLineCommandSettingsPatch,
+  isCommandMemoryType,
+  inspectCommandEditCheckpoint,
+  listCommandEditCheckpoints,
+  listCommandUsedMemoryReferences,
+  recordCommandMemoryEvent,
+  restoreCommandEditCheckpoint,
+  rollbackCommandEditCheckpoint,
+  STATUSLINE_COMMAND_ARGUMENT_HINT,
+  STATUSLINE_COMMAND_DESCRIPTION,
+  PLUGIN_COMMAND_ARGUMENT_HINT,
+  PLUGIN_COMMAND_DESCRIPTION,
+  RELOAD_PLUGINS_COMMAND_DESCRIPTION,
+  resolvePluginCommandAdapter,
+} from './commands/index.js';
+export type {
+  ICompactContextResult,
+  ICommandSessionInfo,
+  ICommandSessionReplayValidationReport,
+  IPermissionsCommandState,
+  IProviderSetupFlowState,
+  IProviderSetupPromptStep,
+  ICommandMemoryStores,
+  ICommandPendingMemoryStore,
+  ICommandProjectMemoryStore,
+  IMemoryCandidate,
+  IMemoryEvent,
+  IMemoryPendingRecord,
+  IMemoryReference,
+  TAutoCompactThreshold,
+  TAutoCompactThresholdSource,
+  TMemoryCandidateStatus,
+  TProviderSetupFlowSubmitResult,
+  TProviderSetupType,
+  TRecommendedResponseLanguage,
+  TPromptInput,
 } from './commands/index.js';
 
 // ── Skill prompt utilities ───────────────────────────────────
-export {
-  buildSkillPrompt,
-  substituteVariables,
-  preprocessShellCommands,
-} from './utils/skill-prompt.js';
+export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
 export type { SkillPromptContext } from './utils/skill-prompt.js';
-
-// ── Types (re-exported from owning packages) ────────────────
-export type { TToolResult, TTrustLevel, TPermissionDecision, TPermissionMode } from './types.js';
-export { TRUST_TO_MODE } from './types.js';
-export type { ITerminalOutput, ISpinner } from './types.js';
-export type {
-  IContextWindowState,
-  IContextTokenUsage,
-  IHistoryEntry,
-} from '@robota-sdk/agent-core';
-export {
-  isChatEntry,
-  chatEntryToMessage,
-  messageToHistoryEntry,
-  getMessagesForAPI,
-} from '@robota-sdk/agent-core';
-export type { TToolArgs, IPermissionLists } from '@robota-sdk/agent-core';
-export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
-export type { IAIProvider } from '@robota-sdk/agent-core';
 
 // ── Project memory ─────────────────────────────────────────
 export {
@@ -94,12 +277,16 @@ export type {
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
+  IEditCheckpointFileInspection,
   IEditCheckpointFileRecord,
+  IEditCheckpointInspection,
+  IEditCheckpointInspectionPlan,
   IEditCheckpointManifest,
   IEditCheckpointRecorder,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
+  TEditCheckpointFileRestoreAction,
 } from './checkpoints/index.js';
 
 // ── Self-hosting verification ─────────────────────────────
@@ -112,6 +299,22 @@ export type {
   TSelfHostingLoopState,
   TSelfHostingVerificationPhase,
 } from './self-hosting/index.js';
+
+// ── Reversible execution safety ───────────────────────────
+export {
+  evaluateReversibleToolSafety,
+  wrapReversibleExecutionTools,
+} from './reversible-execution/index.js';
+export type {
+  IReversibleExecutionOptions,
+  IReversibleToolSafetyContext,
+  IReversibleToolSafetyInput,
+  IReversibleToolSafetyReport,
+  TReversibleExecutionIsolation,
+  TReversibleRollbackLayer,
+  TReversibleSafetyStatus,
+  TReversibleSideEffect,
+} from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
@@ -159,6 +362,20 @@ export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './to
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';
 export type { ICommandExecutionToolDeps } from './tools/command-execution-tool.js';
+export {
+  createModelCommandToolProjection,
+  createProjectedCommandExecutionTools,
+  createProviderSafeModelCommandToolName,
+  formatProjectedModelCommandToolPromptDescription,
+  MODEL_COMMAND_TOOL_PREFIX,
+  normalizeModelCommandName,
+  PROVIDER_SAFE_TOOL_NAME_PATTERN,
+} from './tools/model-command-tool-projection.js';
+export type {
+  IModelCommandToolProjection,
+  IProjectedCommandExecutionToolsDeps,
+  IProjectedModelCommandTool,
+} from './tools/model-command-tool-projection.js';
 export { createBackgroundProcessTool } from './tools/background-process-tool.js';
 export type { IBackgroundProcessToolDeps } from './tools/background-process-tool.js';
 
@@ -167,6 +384,10 @@ export {
   BackgroundTaskError,
   BackgroundJobOrchestrator,
   BackgroundTaskManager,
+  appendPrefixedLogLines,
+  createBackgroundTaskLogPage,
+  createLimitedOutputCapture,
+  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   summarizeBackgroundJobGroup,
@@ -208,6 +429,8 @@ export type {
   TBackgroundTaskStatus,
   TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
+  ICreateLimitedOutputCaptureOptions,
+  ILimitedOutputCapture,
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupEventListener,
   TBackgroundJobGroupIdFactory,
@@ -265,10 +488,46 @@ export type {
   TTaskFileStatus,
 } from './context/task-context.js';
 
-// ── Permissions (from agent-core) ───────────────────────────
-export { evaluatePermission } from '@robota-sdk/agent-core';
+// ── Prompt file references ─────────────────────────────────
+export {
+  buildPromptWithFileReferences,
+  createPromptFileReferenceHistoryEntry,
+  formatPromptFileReferenceDiagnostics,
+  hasBlockingPromptFileReferenceDiagnostics,
+  parsePromptFileReferences,
+  resolvePromptFileReferences,
+  resolvePromptFileReferencePaths,
+  toPromptFileReferenceRecords,
+} from './context/prompt-file-references.js';
+export {
+  clearContextReferences,
+  createContextReferenceItem,
+  listActiveContextReferences,
+  removeContextReference,
+  toContextReferenceRecords,
+  upsertContextReference,
+} from './context/context-reference-inventory.js';
+export type {
+  IPromptFileReferenceDiagnostic,
+  IPromptFileReferenceHistoryData,
+  IPromptFileReferenceLimits,
+  IPromptFileReferenceRecord,
+  IPromptFileReferenceResolveOptions,
+  IPromptFileReferenceToken,
+  IResolvedPromptFileReference,
+  IResolvedPromptFileReferences,
+  TPromptFileReferenceDiagnosticCode,
+  TPromptFileReferenceReason,
+} from './context/prompt-file-references.js';
+export type {
+  IContextReferenceInventoryLimits,
+  IContextReferenceUpsertResult,
+  TContextReferenceLoadType,
+  TContextReferenceStatus,
+} from './context/context-reference-inventory.js';
+
+// ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
-export { runHooks } from '@robota-sdk/agent-core';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

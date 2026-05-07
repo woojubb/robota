@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   BackgroundTaskError,
+  createBackgroundTaskLogPage,
   getBuiltInAgent,
   createWorktreeSubagentRunner,
   type IAgentDefinition,
@@ -30,7 +31,6 @@ import {
 import { createGitWorktreeIsolationAdapter } from './git-worktree-isolation-adapter.js';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
-const LOG_PAGE_SIZE = 200;
 
 export interface IChildProcessSubagentRunnerOptions {
   providerConfig?: IProviderConfig;
@@ -211,7 +211,6 @@ function readTranscriptLog(
   transcriptPath: string,
   cursor?: IBackgroundTaskLogCursor,
 ): IBackgroundTaskLogPage {
-  const offset = cursor?.offset ?? 0;
   if (!existsSync(transcriptPath)) {
     return {
       taskId: jobId,
@@ -220,11 +219,5 @@ function readTranscriptLog(
     };
   }
   const lines = readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
-  const nextOffset = Math.min(offset + LOG_PAGE_SIZE, lines.length);
-  return {
-    taskId: jobId,
-    cursor,
-    nextCursor: nextOffset < lines.length ? { offset: nextOffset } : undefined,
-    lines: lines.slice(offset, nextOffset),
-  };
+  return createBackgroundTaskLogPage(jobId, lines, cursor);
 }

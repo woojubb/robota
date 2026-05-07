@@ -3,7 +3,10 @@
  */
 
 import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type { TBackgroundJobGroupEvent, TBackgroundTaskEvent } from '../background-tasks/index.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
@@ -46,6 +49,7 @@ export interface IExecutionResult {
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
   usage?: IUsageSnapshot;
+  promptFileReferences?: IPromptFileReferenceRecord[];
 }
 
 /** Summary of a tool call extracted from history. */
@@ -69,7 +73,9 @@ export interface IInteractiveSessionEvents {
   complete: (result: IExecutionResult) => void;
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;
+  compact: (event: ICompactEvent) => void;
   interrupted: (result: IExecutionResult) => void;
+  skill_activation: (event: ISkillActivationEvent) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
 }

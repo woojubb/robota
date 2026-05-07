@@ -1,6 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import {
   BackgroundTaskError,
+  appendPrefixedLogLines,
+  createBackgroundTaskLogPage,
+  createLimitedOutputCapture,
   type IBackgroundTaskHandle,
   type IBackgroundTaskInput,
   type IBackgroundTaskLogCursor,
@@ -8,20 +11,15 @@ import {
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,
+  type ILimitedOutputCapture,
   type IProcessBackgroundTaskRequest,
 } from '@robota-sdk/agent-sdk';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 const DEFAULT_KILL_GRACE_MS = 2_000;
-const LOG_PAGE_SIZE = 200;
 
 export interface IManagedShellProcessRunnerOptions {
   killGraceMs?: number;
-}
-
-interface IProcessCapture {
-  appendOutput(text: string): void;
-  getOutput(): string;
 }
 
 interface IProcessTaskRuntime {
@@ -29,40 +27,9 @@ interface IProcessTaskRuntime {
   request: IProcessBackgroundTaskRequest;
   child: ChildProcessWithoutNullStreams;
   logs: string[];
-  capture: IProcessCapture;
+  capture: ILimitedOutputCapture;
   killGraceMs: number;
   killTimer?: ReturnType<typeof setTimeout>;
-}
-
-function createCapture(limitBytes: number): IProcessCapture {
-  const chunks: string[] = [];
-  let capturedBytes = 0;
-  let truncated = false;
-
-  return {
-    appendOutput(text: string): void {
-      if (truncated) return;
-      const remaining = limitBytes - capturedBytes;
-      const buffer = Buffer.from(text, 'utf8');
-      if (buffer.byteLength <= remaining) {
-        chunks.push(text);
-        capturedBytes += buffer.byteLength;
-        return;
-      }
-      chunks.push(buffer.subarray(0, Math.max(remaining, 0)).toString('utf8'));
-      chunks.push('\n[output truncated]\n');
-      truncated = true;
-    },
-    getOutput(): string {
-      return chunks.join('');
-    },
-  };
-}
-
-function appendLog(lines: string[], source: string, text: string): void {
-  for (const line of text.split(/\r?\n/)) {
-    if (line.length > 0) lines.push(`[${source}] ${line}`);
-  }
 }
 
 function resolveShell(request: IProcessBackgroundTaskRequest): { command: string; args: string[] } {
@@ -114,7 +81,9 @@ function startProcessTask(
       stdio: ['pipe', 'pipe', 'pipe'],
     }),
     logs: [],
-    capture: createCapture(request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES),
+    capture: createLimitedOutputCapture({
+      limitBytes: request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES,
+    }),
     killGraceMs,
   };
   const result = createProcessResult(runtime);
@@ -126,7 +95,11 @@ function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundT
   return new Promise<IBackgroundTaskResult>((resolve, reject) => {
     const timeoutTimer = runtime.request.timeoutMs
       ? setTimeout(() => {
-          appendLog(runtime.logs, 'system', `timed out after ${runtime.request.timeoutMs}ms`);
+          appendPrefixedLogLines(
+            runtime.logs,
+            'system',
+            `timed out after ${runtime.request.timeoutMs}ms`,
+          );
           runtime.child.kill('SIGTERM');
           rejectOnceLocal(new BackgroundTaskError('timeout', 'Background process timed out'));
         }, runtime.request.timeoutMs)
@@ -159,7 +132,7 @@ function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundT
 
     attachOutputListeners(runtime);
     runtime.child.on('error', (error) => {
-      appendLog(runtime.logs, 'system', error.message);
+      appendPrefixedLogLines(runtime.logs, 'system', error.message);
       rejectOnceLocal(new BackgroundTaskError('process', error.message));
     });
     runtime.child.on('close', (code, signal) => {
@@ -197,17 +170,21 @@ function attachOutputListeners(runtime: IProcessTaskRuntime): void {
   runtime.child.stdout.on('data', (chunk: Buffer) => {
     const text = chunk.toString('utf8');
     runtime.capture.appendOutput(text);
-    appendLog(runtime.logs, 'stdout', text);
+    appendPrefixedLogLines(runtime.logs, 'stdout', text);
   });
   runtime.child.stderr.on('data', (chunk: Buffer) => {
     const text = chunk.toString('utf8');
     runtime.capture.appendOutput(text);
-    appendLog(runtime.logs, 'stderr', text);
+    appendPrefixedLogLines(runtime.logs, 'stderr', text);
   });
 }
 
 function cancelProcess(runtime: IProcessTaskRuntime, reason?: string): void {
-  appendLog(runtime.logs, 'system', reason ? `cancel requested: ${reason}` : 'cancel requested');
+  appendPrefixedLogLines(
+    runtime.logs,
+    'system',
+    reason ? `cancel requested: ${reason}` : 'cancel requested',
+  );
   if (!runtime.child.killed) runtime.child.kill('SIGTERM');
   runtime.killTimer = setTimeout(() => {
     if (!runtime.child.killed) runtime.child.kill('SIGKILL');
@@ -218,12 +195,5 @@ function readProcessLog(
   runtime: IProcessTaskRuntime,
   cursor?: IBackgroundTaskLogCursor,
 ): IBackgroundTaskLogPage {
-  const offset = cursor?.offset ?? 0;
-  const nextOffset = Math.min(offset + LOG_PAGE_SIZE, runtime.logs.length);
-  return {
-    taskId: runtime.taskId,
-    cursor,
-    nextCursor: nextOffset < runtime.logs.length ? { offset: nextOffset } : undefined,
-    lines: runtime.logs.slice(offset, nextOffset),
-  };
+  return createBackgroundTaskLogPage(runtime.taskId, runtime.logs, cursor);
 }

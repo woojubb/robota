@@ -100,9 +100,9 @@ robota -p "Explain this project"    # Print mode
 ## Why Robota SDK?
 
 - **Type-Safe**: Strict TypeScript with zero `any` in production code
-- **Multi-Provider**: Anthropic Claude, OpenAI, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
+- **Multi-Provider**: Anthropic Claude, OpenAI, DeepSeek, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
 - **Tool Calling**: Zod-based schema validation for type-safe function calls
-- **Subagents**: Runtime-managed background jobs, transcripts, and batch Agent tool requests
+- **Subagents**: Runtime-managed background jobs, transcripts, and `/agent` command orchestration
 - **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
 - **Streaming**: Real-time text delta streaming from all providers
 - **CLI Ready**: Built-in coding assistant CLI with permission system and context management
@@ -112,16 +112,19 @@ robota -p "Explain this project"    # Print mode
 ```
 agent-cli              ← Interactive terminal AI coding assistant
 agent-command-agent    ← /agent command module for background subagent control
+agent-command-help     ← /help command module for registered command discovery
+agent-command-provider ← /provider command module for provider profiles
+agent-command-skills   ← /skills command module for skill discovery and activation
 agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp    ← MCP transport (Model Context Protocol server)
 agent-transport-ws     ← WebSocket transport (framework-agnostic)
 agent-transport-headless ← Non-interactive transport for text/json/stream-json output
-  ↓ (all five consume)
+  ↓ (product/transport layers consume)
 agent-sdk              ← Assembly layer: InteractiveSession, config, context, createQuery()
   ↓
 agent-sessions         ← Session lifecycle: permissions, hooks, compaction
 agent-runtime          ← Background task and subagent lifecycle primitives
-agent-tools            ← Tool infrastructure + 8 built-in tools
+agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports/manifests
 agent-provider-*       ← AI provider implementations (anthropic, openai, gemini, google, gemma, qwen)
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugins
@@ -132,12 +135,16 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | Package                                                                                        | Description                                                            |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | [`@robota-sdk/agent-core`](./packages/agent-core/)                                             | Core agent runtime, abstractions, and plugin system                    |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                                           | Tool registry, FunctionTool, and 8 built-in tools                      |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                                           | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests   |
 | [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                                     | Session with permissions, hooks, and compaction                        |
 | [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                                       | Background task and subagent lifecycle primitives                      |
 | [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                                               | Assembly layer with config/context loading and createQuery()           |
 | [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)                           | `/agent` command module for background subagent jobs                   |
+| [`@robota-sdk/agent-command-help`](./packages/agent-command-help/)                             | `/help` command module for registered command discovery                |
+| [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)                     | `/provider` command module for provider profiles                       |
+| [`@robota-sdk/agent-command-skills`](./packages/agent-command-skills/)                         | `/skills` command module for skill discovery and activation            |
 | [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/)                 | Anthropic Claude provider                                              |
+| [`@robota-sdk/agent-provider-deepseek`](./packages/agent-provider-deepseek/)                   | DeepSeek OpenAI-compatible provider                                    |
 | [`@robota-sdk/agent-provider-openai`](./packages/agent-provider-openai/)                       | OpenAI provider                                                        |
 | [`@robota-sdk/agent-provider-gemini`](./packages/agent-provider-gemini/)                       | Canonical Google Gemini provider                                       |
 | [`@robota-sdk/agent-provider-google`](./packages/agent-provider-google/)                       | Gemini compatibility wrapper for legacy Google imports/settings        |
@@ -166,6 +173,7 @@ npm install @robota-sdk/agent-core
 
 # Provider
 npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-provider-deepseek
 npm install @robota-sdk/agent-provider-openai openai
 npm install @robota-sdk/agent-provider-gemini @google/genai
 npm install @robota-sdk/agent-provider-google @google/genai
@@ -181,6 +189,9 @@ npm install @robota-sdk/agent-sdk
 
 # Command module — /agent background jobs
 npm install @robota-sdk/agent-command-agent
+
+# Command module — /provider profile management
+npm install @robota-sdk/agent-command-provider
 
 # Transports
 npm install @robota-sdk/agent-transport-headless

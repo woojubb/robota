@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { IHookInput, IHookResult, IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { ISubagentJobHandle, ISubagentJobStart, ISubagentRunner } from '../index.js';
+import type {
+  ISubagentJobHandle,
+  ISubagentJobResult,
+  ISubagentJobStart,
+  ISubagentRunner,
+} from '../index.js';
 import type { TBackgroundTaskIsolation } from '../../background-tasks/index.js';
 import {
   WorktreeSubagentRunner,
@@ -15,6 +20,8 @@ interface ICapturedRunner {
 
 interface IFakeWorktreeAdapter extends ISubagentWorktreeAdapter {
   removed: IPreparedSubagentWorktree[];
+  status: string;
+  worktree: IPreparedSubagentWorktree;
 }
 
 const TEST_WORKTREE: IPreparedSubagentWorktree = {
@@ -61,15 +68,37 @@ function createCapturedRunner(onStart?: (job: ISubagentJobStart) => void): ICapt
   };
 }
 
-function createAdapter(clean: boolean): IFakeWorktreeAdapter {
+function createAdapter(clean: boolean, status = '?? dirty.txt'): IFakeWorktreeAdapter {
   return {
     removed: [],
-    prepare: () => TEST_WORKTREE,
+    status,
+    worktree: TEST_WORKTREE,
+    prepare() {
+      return this.worktree;
+    },
     isClean: () => clean,
+    getStatus() {
+      return this.status;
+    },
     remove(worktree) {
       this.removed.push(worktree);
     },
   };
+}
+
+function createDeferredResult(): {
+  promise: Promise<ISubagentJobResult>;
+  resolve: (result: ISubagentJobResult) => void;
+  reject: (error: Error) => void;
+} {
+  let resolveFn: (result: ISubagentJobResult) => void = () => undefined;
+  let rejectFn: (error: Error) => void = () => undefined;
+  const promise = new Promise<ISubagentJobResult>((resolve, reject) => {
+    resolveFn = resolve;
+    rejectFn = reject;
+  });
+  promise.catch(() => undefined);
+  return { promise, resolve: resolveFn, reject: rejectFn };
 }
 
 function getStringMetadata(result: Record<string, string | number | boolean>, key: string): string {
@@ -112,6 +141,10 @@ describe('WorktreeSubagentRunner', () => {
     expect(adapter.removed).toEqual([]);
     expect(getStringMetadata(metadata, 'worktreePath')).toBe(TEST_WORKTREE.worktreePath);
     expect(getStringMetadata(metadata, 'branchName')).toBe(TEST_WORKTREE.branchName);
+    expect(metadata.worktreeRemoved).toBe(false);
+    expect(getStringMetadata(metadata, 'worktreeStatus')).toBe('?? dirty.txt');
+    expect(getStringMetadata(metadata, 'worktreeNextAction')).toContain(TEST_WORKTREE.worktreePath);
+    expect(getStringMetadata(metadata, 'worktreeNextAction')).toContain(TEST_WORKTREE.branchName);
   });
 
   it('removes a clean worktree when the delegated job fails', async () => {
@@ -129,6 +162,96 @@ describe('WorktreeSubagentRunner', () => {
 
     await expect(runner.start(createJob('worktree')).result).rejects.toThrow('worker failed');
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
+  });
+
+  it('removes a clean worktree when delegated startup throws synchronously', () => {
+    const adapter = createAdapter(true);
+    const failingRunner: ISubagentRunner = {
+      start(): ISubagentJobHandle {
+        throw new Error('startup failed');
+      },
+    };
+    const runner = new WorktreeSubagentRunner({ runner: failingRunner, worktreeAdapter: adapter });
+
+    expect(() => runner.start(createJob('worktree'))).toThrow('startup failed');
+    expect(adapter.removed).toEqual([TEST_WORKTREE]);
+  });
+
+  it('removes a clean worktree when an isolated job is cancelled', async () => {
+    const adapter = createAdapter(true);
+    const deferred = createDeferredResult();
+    const cancellableRunner: ISubagentRunner = {
+      start(job: ISubagentJobStart): ISubagentJobHandle {
+        return {
+          jobId: job.jobId,
+          result: deferred.promise,
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+    const runner = new WorktreeSubagentRunner({
+      runner: cancellableRunner,
+      worktreeAdapter: adapter,
+    });
+
+    const handle = runner.start(createJob('worktree'));
+    await handle.cancel('stop requested');
+    await Promise.resolve();
+    deferred.resolve({ jobId: 'agent_1', output: 'cancelled after cleanup' });
+    const result = await handle.result;
+
+    expect(adapter.removed).toEqual([TEST_WORKTREE]);
+    expect(result.metadata).toMatchObject({
+      isolation: 'worktree',
+      worktreeRemoved: true,
+    });
+  });
+
+  it('preserves a dirty worktree when an isolated job is cancelled', async () => {
+    const adapter = createAdapter(false);
+    const cancellableRunner: ISubagentRunner = {
+      start(job: ISubagentJobStart): ISubagentJobHandle {
+        return {
+          jobId: job.jobId,
+          result: new Promise<ISubagentJobResult>(() => undefined),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+    const runner = new WorktreeSubagentRunner({
+      runner: cancellableRunner,
+      worktreeAdapter: adapter,
+    });
+
+    const handle = runner.start(createJob('worktree'));
+    await handle.cancel('stop requested');
+    await Promise.resolve();
+
+    expect(adapter.removed).toEqual([]);
+  });
+
+  it('includes base revision and parent status in dirty worktree handoff metadata', async () => {
+    const adapter = createAdapter(false, ' M changed.ts');
+    adapter.worktree = {
+      ...TEST_WORKTREE,
+      baseRevision: '1234567890abcdef',
+      parentStatus: ' M README.md',
+    };
+    const captured = createCapturedRunner();
+    const runner = new WorktreeSubagentRunner({
+      runner: captured.runner,
+      worktreeAdapter: adapter,
+    });
+
+    const result = await runner.start(createJob('worktree')).result;
+
+    expect(result.metadata).toMatchObject({
+      worktreeBaseRevision: '1234567890abcdef',
+      parentWorktreeStatus: ' M README.md',
+    });
+    expect(getStringMetadata(result.metadata ?? {}, 'worktreeNextAction')).toContain(
+      'Parent checkout had uncommitted changes',
+    );
   });
 
   it('delegates non-worktree jobs without changing cwd', async () => {

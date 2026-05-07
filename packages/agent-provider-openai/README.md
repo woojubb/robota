@@ -1,21 +1,24 @@
 # @robota-sdk/agent-provider-openai
 
-OpenAI Provider for Robota SDK - Complete type-safe integration with OpenAI's GPT models, featuring function calling, streaming, and advanced AI capabilities.
+OpenAI Provider for Robota SDK - type-safe integration with the official OpenAI Responses API, structured outputs, streaming, and function calling.
 
 ## 🚀 Features
 
 ### Core Capabilities
 
 - **🎯 Type-Safe Integration**: Complete TypeScript support with zero `any` types
-- **🤖 GPT Model Support**: GPT-4, GPT-3.5 Turbo, OpenAI models, and OpenAI-compatible chat completion models
+- **🤖 OpenAI Model Support**: Official OpenAI models through the Responses API by default
 - **⚡ Real-Time Streaming**: Asynchronous streaming responses with proper error handling
 - **🛠️ Function Calling**: Native OpenAI function calling with type validation
+- **🧩 Structured Outputs**: JSON object and JSON Schema response formats
+- **🌐 Capability Reporting**: Explicit native web search/fetch capability state without hidden local-tool fallback
+- **Provider-Owned Model Catalog Refresh**: `/model` can discover OpenAI models through the provider definition without CLI/TUI-owned model lists
 - **🔄 Provider-Agnostic Design**: Seamless integration with other Robota providers
 - **📊 Payload Logging**: Optional API request/response logging for debugging
 
 ### Architecture Highlights
 
-- **Generic Type Parameters**: Full `BaseAIProvider<TConfig, TMessage, TResponse>` implementation
+- **Provider Base Contract**: `AbstractAIProvider` implementation for the Robota provider interface
 - **Facade Pattern**: Modular design with separated concerns
 - **Error Safety**: Comprehensive error handling without any-type compromises
 - **OpenAI SDK Compatibility**: Direct integration with official OpenAI SDK types
@@ -37,6 +40,7 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 // Create type-safe OpenAI provider
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY,
+  defaultModel: 'gpt-4o',
 });
 
 // Create Robota agent with OpenAI provider
@@ -45,7 +49,7 @@ const agent = new Robota({
   aiProviders: [provider],
   defaultModel: {
     provider: 'openai',
-    model: 'gpt-4',
+    model: 'gpt-4o',
     temperature: 0.7,
     systemMessage: 'You are a helpful AI assistant specialized in technical topics.',
   },
@@ -61,7 +65,7 @@ await agent.destroy();
 
 ### OpenAI-Compatible Endpoints
 
-Use `baseURL` to point the provider at an OpenAI-compatible Chat Completions endpoint. For LM Studio, the local API typically listens on `http://localhost:1234/v1` and accepts a local placeholder API key:
+The official OpenAI profile uses the Responses API by default. Set `baseURL`, or set `apiSurface: 'chat-completions'`, only when you intentionally need an OpenAI-compatible Chat Completions endpoint. For LM Studio, the local API typically listens on `http://localhost:1234/v1` and accepts a local placeholder API key:
 
 ```typescript
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
@@ -77,7 +81,17 @@ Gemma-family local models should use `@robota-sdk/agent-provider-gemma` instead 
 OpenAI provider so Gemma chat-template channel markers are projected out of user-facing
 streamed text.
 
-For provider packages that share OpenAI-compatible transport code, the reusable primitives live in `@robota-sdk/agent-provider-openai-compatible`. This package owns OpenAI product semantics and generic OpenAI-compatible endpoint usage; model-family behavior such as Gemma reasoning/tool-call projection belongs in that model-family provider.
+For provider packages that share OpenAI-compatible transport code, the reusable primitives live in `@robota-sdk/agent-provider-openai-compatible`. This package owns OpenAI product semantics and an explicit compatibility mode; model-family behavior such as Gemma reasoning/tool-call projection belongs in that model-family provider.
+
+OpenAI-compatible Chat Completions profiles, including LM Studio-style `baseURL` profiles, are custom function-tool capable but are not treated as provider-native hosted web search/fetch providers. Use Robota local `WebSearch`/`WebFetch` tools for explicit local web access unless a concrete provider package documents hosted web support.
+
+### Model Catalog Refresh
+
+`createOpenAIProviderDefinition()` exposes provider-owned setup help links and a
+provider-owned `refreshModelCatalog` hook. SDK command
+common APIs may call this hook to query the OpenAI Models API with the effective provider profile and
+surface catalog freshness in `/model` output. CLI/TUI layers must render that result rather than
+owning OpenAI model metadata.
 
 ### Streaming Responses
 
@@ -97,7 +111,11 @@ for await (const chunk of stream) {
 }
 ```
 
-When `chat()` receives an `onTextDelta` callback, the provider uses the streaming Chat Completions path internally, forwards text deltas to the callback, assembles streamed tool-call chunks, and returns the final assistant message.
+When `chat()` receives an `onTextDelta` callback, the provider uses the selected API surface's streaming path internally, forwards text deltas to the callback, assembles streamed tool-call chunks, and returns the final assistant message.
+
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits exact OpenAI SDK request, response, and stream event payloads with `apiSurface` set to either `responses` or `chat-completions`. `agent-core` routes these provider-owned callbacks into provider-neutral `provider_native_raw_payload` execution events for replay-grade session logs.
 
 ## 🛠️ Function Calling
 
@@ -179,12 +197,12 @@ const agent = new Robota({
   aiProviders: [openaiProvider, anthropicProvider, googleProvider],
   defaultModel: {
     provider: 'openai',
-    model: 'gpt-4',
+    model: 'gpt-4o',
   },
 });
 
 // Dynamic provider switching
-const openaiResponse = await agent.run('Respond using GPT-4');
+const openaiResponse = await agent.run('Respond using GPT-4o');
 
 agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet-20240229' });
 const claudeResponse = await agent.run('Respond using Claude');
@@ -194,19 +212,16 @@ const claudeResponse = await agent.run('Respond using Claude');
 
 ```typescript
 interface IOpenAIProviderOptions {
-  // Required
-  client: OpenAI; // OpenAI SDK client instance
-
   // Model Configuration
-  model?: string; // Default: 'gpt-4'
-  temperature?: number; // 0-1, default: 0.7
-  maxTokens?: number; // Maximum tokens to generate
+  defaultModel?: string; // Used when chat options do not provide a model
 
   // API Configuration
   apiKey?: string; // API key (if not set in client)
+  client?: OpenAI; // OpenAI SDK client instance
   organization?: string; // OpenAI organization ID
   timeout?: number; // Request timeout (ms)
-  baseURL?: string; // Custom API base URL
+  baseURL?: string; // Custom API base URL; defaults to Chat Completions compatibility
+  apiSurface?: 'responses' | 'chat-completions';
 
   // Response Configuration
   responseFormat?: 'text' | 'json_object' | 'json_schema';
@@ -217,6 +232,13 @@ interface IOpenAIProviderOptions {
     schema?: Record<string, string | number | boolean | object>;
     strict?: boolean;
   };
+  reasoning?: {
+    effort?: 'low' | 'medium' | 'high';
+    summary?: 'auto' | 'concise' | 'detailed';
+  };
+  store?: boolean;
+  includeEncryptedReasoning?: boolean;
+  strictTools?: boolean;
 
   // Debugging & Logging
   payloadLogger?: IPayloadLogger; // Environment-specific payload logger
@@ -228,31 +250,26 @@ interface IOpenAIProviderOptions {
 }
 ```
 
-## 📋 Supported Models
+## 📋 Model Guidance
 
-| Model                  | Description          | Use Cases                                   |
-| ---------------------- | -------------------- | ------------------------------------------- |
-| `gpt-4`                | Most capable model   | Complex reasoning, analysis, creative tasks |
-| `gpt-4-turbo`          | Faster GPT-4 variant | Balanced performance and cost               |
-| `gpt-3.5-turbo`        | Fast and efficient   | Simple conversations, basic tasks           |
-| `gpt-4-vision-preview` | Vision capabilities  | Image analysis and understanding            |
+| Model     | Description           | Use Cases                                   |
+| --------- | --------------------- | ------------------------------------------- |
+| `gpt-4o`  | General-purpose model | Multimodal chat, tool use, balanced latency |
+| `gpt-4.1` | Strong coding model   | Code generation, refactoring, analysis      |
+| `o3`      | Reasoning model       | Complex reasoning and planning              |
 
 ## 🔍 API Reference
 
 ### OpenAIProvider Class
 
 ```typescript
-class OpenAIProvider extends BaseAIProvider<
-  IOpenAIProviderOptions,
-  UniversalMessage,
-  UniversalMessage
-> {
+class OpenAIProvider extends AbstractAIProvider {
   // Core methods
-  async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+  async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
   async chatStream(
-    messages: UniversalMessage[],
-    options?: ChatOptions,
-  ): AsyncIterable<UniversalMessage>;
+    messages: TUniversalMessage[],
+    options?: IChatOptions,
+  ): AsyncIterable<TUniversalMessage>;
 
   // Provider information
   readonly name: string = 'openai';
@@ -269,8 +286,8 @@ class OpenAIProvider extends BaseAIProvider<
 
 ```typescript
 // Chat Options
-interface ChatOptions {
-  tools?: ToolSchema[];
+interface IChatOptions {
+  tools?: IToolSchema[];
   maxTokens?: number;
   temperature?: number;
   model?: string;
@@ -286,7 +303,7 @@ interface OpenAIToolCall {
   };
 }
 
-interface OpenAILogData {
+interface IOpenAILogData {
   model: string;
   messagesCount: number;
   hasTools: boolean;
@@ -311,7 +328,7 @@ import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers/fil
 
 const provider = new OpenAIProvider({
   client: openaiClient,
-  model: 'gpt-4',
+  defaultModel: 'gpt-4o',
   payloadLogger: new FilePayloadLogger({
     logDir: './logs/openai-api',
     enabled: true,
@@ -328,7 +345,7 @@ import { ConsolePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers/
 
 const provider = new OpenAIProvider({
   client: openaiClient,
-  model: 'gpt-4',
+  defaultModel: 'gpt-4o',
   payloadLogger: new ConsolePayloadLogger({
     enabled: true,
     includeTimestamp: true,
@@ -341,7 +358,7 @@ const provider = new OpenAIProvider({
 ```typescript
 const provider = new OpenAIProvider({
   client: openaiClient,
-  model: 'gpt-4',
+  defaultModel: 'gpt-4o',
   // payloadLogger: undefined (default - no logging)
 });
 ```
@@ -351,14 +368,16 @@ const provider = new OpenAIProvider({
 You can create custom logger implementations by implementing the IPayloadLogger interface:
 
 ```typescript
-import type { IPayloadLogger, OpenAILogData } from '@robota-sdk/agent-provider-openai';
+import type { IPayloadLogger } from '@robota-sdk/agent-provider-openai';
+
+type OpenAILogPayload = Parameters<IPayloadLogger['logPayload']>[0];
 
 class CustomPayloadLogger implements IPayloadLogger {
   isEnabled(): boolean {
     return true;
   }
 
-  async logPayload(payload: OpenAILogData, type: 'chat' | 'stream'): Promise<void> {
+  async logPayload(payload: OpenAILogPayload, type: 'chat' | 'stream'): Promise<void> {
     // Custom logging implementation
     console.log(`[Custom Logger] ${type}:`, payload);
   }
@@ -408,7 +427,10 @@ try {
 ```typescript
 const provider = new OpenAIProvider({
   client: openaiClient,
-  model: 'gpt-4',
+  defaultModel: 'gpt-4o',
+});
+
+const response = await provider.chat(messages, {
   maxTokens: 1000, // Limit response length
   temperature: 0.3, // More deterministic responses
 });
@@ -416,9 +438,9 @@ const provider = new OpenAIProvider({
 
 ### Model Selection Strategy
 
-- Use `gpt-3.5-turbo` for simple tasks
-- Use `gpt-4` for complex reasoning
-- Use `gpt-4-turbo` for balanced performance
+- Use `gpt-4o` for balanced multimodal chat and tool use
+- Use `gpt-4.1` for coding-heavy workflows
+- Use reasoning models such as `o3` when explicit reasoning controls are required
 
 ## 🤝 Contributing
 

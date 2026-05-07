@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-orchestrator-server",
-  "version": "3.0.1-beta.15",
+  "version": "3.0.1-beta.16",
   "description": "DAG Orchestrator Server - Robota API gateway with orchestration over DAG runtime",
   "private": true,
   "type": "module",
@@ -13,6 +13,7 @@
     "start": "node dist/server.js",
     "build": "tsup",
     "test": "vitest run --passWithNoTests",
+    "test:comfyui": "COMFYUI_INTEGRATION=1 vitest run src/__tests__/external-comfyui-integration.test.ts",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -23,6 +24,7 @@
     "@robota-sdk/dag-api": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-cost": "workspace:*",
+    "@robota-sdk/dag-orchestration-client": "workspace:*",
     "@robota-sdk/dag-orchestrator": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

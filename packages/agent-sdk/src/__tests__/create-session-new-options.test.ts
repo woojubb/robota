@@ -11,6 +11,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IResolvedConfig } from '../config/config-types.js';
+import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type { TToolResult } from '@robota-sdk/agent-tools';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -219,7 +222,7 @@ describe('createSession — appendSystemPrompt option', () => {
     expect(systemMessage.endsWith(extraText)).toBe(true);
   });
 
-  it('does not include Agent tool or agent metadata unless agent runtime is enabled', async () => {
+  it('does not include agent metadata unless agent runtime is enabled', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     createSession({
@@ -231,11 +234,12 @@ describe('createSession — appendSystemPrompt option', () => {
 
     const opts = sessionCtorCalls[0]!;
     const systemMessage = opts.systemMessage as string;
-    expect(systemMessage).not.toContain('Agent — creates one isolated subagent job');
+    const tools = opts.tools as IToolWithEventService[];
+    expect(tools.some((tool) => tool.getName() === 'Agent')).toBe(false);
     expect(systemMessage).not.toContain('general-purpose');
   });
 
-  it('includes Agent tool and discovered agent metadata when agent runtime is enabled', async () => {
+  it('includes discovered agent metadata without registering a duplicate Agent tool', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-agents-'));
     const agentsDir = join(cwd, '.robota', 'agents');
@@ -264,16 +268,148 @@ describe('createSession — appendSystemPrompt option', () => {
 
       const opts = sessionCtorCalls[0]!;
       const systemMessage = opts.systemMessage as string;
-      expect(systemMessage).toContain('Agent — creates isolated subagent jobs');
-      expect(systemMessage).toContain(
-        'For explicit multi-agent or parallel-agent requests, use one Agent tool call with jobs',
-      );
-      expect(systemMessage).toContain('The tool returns terminal result data');
+      const tools = opts.tools as IToolWithEventService[];
+      expect(tools.some((tool) => tool.getName() === 'Agent')).toBe(false);
       expect(systemMessage).not.toContain('<agent');
       expect(systemMessage).toContain('- reviewer: Reviews code for risks and missing tests');
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+});
+
+describe('createSession — command descriptor tool guidance', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('does not register projected command tools when no command descriptor is model-invocable', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      commandDescriptors: [
+        {
+          name: 'skills',
+          kind: 'builtin-command',
+          description: 'Skill discovery command.',
+          userInvocable: true,
+          modelInvocable: false,
+          safety: 'read-only',
+        },
+      ],
+      modelCommandExecutor: vi.fn(),
+      isModelCommandInvocable: () => false,
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const tools = opts.tools as IToolWithEventService[];
+    expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
+    expect(tools.some((tool) => tool.getName().startsWith('robota_command_'))).toBe(false);
+  });
+
+  it('does not expose skill metadata when the skills command is not model-invocable', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-hidden-'));
+    mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
+      ['---', 'name: audit', 'description: Audit code', '---', 'Audit $ARGUMENTS'].join('\n'),
+      'utf-8',
+    );
+
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', claudeMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+      });
+
+      const opts = sessionCtorCalls[0]!;
+      const systemMessage = opts.systemMessage as string;
+      expect(systemMessage).not.toContain('## Skills');
+      expect(systemMessage).not.toContain('audit: Audit code');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('exposes skill metadata when the skills command is model-invocable', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-create-session-skills-visible-'));
+    mkdirSync(join(cwd, '.agents', 'skills', 'audit'), { recursive: true });
+    writeFileSync(
+      join(cwd, '.agents', 'skills', 'audit', 'SKILL.md'),
+      ['---', 'name: audit', 'description: Audit code', '---', 'Audit $ARGUMENTS'].join('\n'),
+      'utf-8',
+    );
+
+    try {
+      createSession({
+        config: baseConfig(),
+        cwd,
+        context: { agentsMd: '', claudeMd: '' },
+        terminal: MOCK_TERMINAL,
+        provider: createMockProvider(),
+        commandDescriptors: [
+          {
+            name: 'skills',
+            kind: 'builtin-command',
+            description: 'Skill discovery command.',
+            userInvocable: true,
+            modelInvocable: true,
+            safety: 'read-only',
+          },
+        ],
+        modelCommandExecutor: vi.fn(),
+        isModelCommandInvocable: () => true,
+      });
+
+      const opts = sessionCtorCalls[0]!;
+      const systemMessage = opts.systemMessage as string;
+      expect(systemMessage).toContain('## Skills');
+      expect(systemMessage).toContain('- audit: Audit code');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('projects registered command descriptors into provider-safe command tools', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      commandDescriptors: [
+        {
+          name: 'compact',
+          kind: 'builtin-command',
+          description:
+            'Context compaction command. Call it when the user explicitly requests compaction.',
+          userInvocable: true,
+          modelInvocable: true,
+          safety: 'write',
+        },
+      ],
+      modelCommandExecutor: vi.fn(),
+      isModelCommandInvocable: (command) => command === 'compact',
+    });
+
+    const opts = sessionCtorCalls[0]!;
+    const tools = opts.tools as IToolWithEventService[];
+    const compactTool = tools.find((tool) => tool.getName() === 'robota_command_compact');
+
+    expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
+    expect(compactTool?.schema.description).toContain('explicitly requests compaction');
+    expect(compactTool?.schema.description).toContain('Robota command id: compact.');
+    expect(compactTool?.schema.description).not.toContain('/compact');
   });
 });
 
@@ -308,6 +444,84 @@ describe('createSession — provider timeout option', () => {
     });
 
     expect(sessionCtorCalls[0]!['providerTimeout']).toBe(120000);
+  });
+});
+
+describe('createSession — sandbox client option', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('assembles sandbox-aware default tools when sandboxClient is provided', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const sandboxClient = new InMemorySandboxClient({
+      runHandler: () => ({ stdout: 'from sandbox', stderr: '', exitCode: 0 }),
+    });
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      sandboxClient,
+    });
+
+    const tools = sessionCtorCalls[0]!['tools'] as IToolWithEventService[];
+    const bashTool = tools.find((tool) => tool.getName() === 'Bash');
+    expect(bashTool).toBeDefined();
+
+    const rawResult = await bashTool!.execute(
+      { command: 'echo host should not run' },
+      { toolName: 'Bash', parameters: { command: 'echo host should not run' } },
+    );
+    const result = JSON.parse(rawResult.data as string) as TToolResult;
+    expect(result.output).toBe('from sandbox');
+  });
+
+  it('treats reversible execution as provider-sandbox isolated when sandboxClient is present', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const sandboxClient = new InMemorySandboxClient({
+      runHandler: () => ({ stdout: 'isolated', stderr: '', exitCode: 0 }),
+    });
+
+    createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', claudeMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      sandboxClient,
+      reversibleExecution: { mode: 'local-first' },
+    });
+
+    const tools = sessionCtorCalls[0]!['tools'] as IToolWithEventService[];
+    const bashTool = tools.find((tool) => tool.getName() === 'Bash');
+    const writeTool = tools.find((tool) => tool.getName() === 'Write');
+    const rawResult = await bashTool!.execute(
+      { command: 'touch isolated.txt' },
+      { toolName: 'Bash', parameters: { command: 'touch isolated.txt' } },
+    );
+    const result = JSON.parse(rawResult.data as string) as TToolResult;
+    const rawWriteResult = await writeTool!.execute(
+      { filePath: '/workspace/generated.ts', content: 'export const isolated = true;\n' },
+      {
+        toolName: 'Write',
+        parameters: {
+          filePath: '/workspace/generated.ts',
+          content: 'export const isolated = true;\n',
+        },
+      },
+    );
+    const writeResult = JSON.parse(rawWriteResult.data as string) as TToolResult;
+
+    expect(result).toMatchObject({
+      success: true,
+      output: 'isolated',
+      exitCode: 0,
+    });
+    expect(writeResult.success).toBe(true);
+    expect(sandboxClient.getFile('/workspace/generated.ts')).toBe(
+      'export const isolated = true;\n',
+    );
   });
 });
 

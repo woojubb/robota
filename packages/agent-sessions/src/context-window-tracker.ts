@@ -5,7 +5,7 @@
  */
 
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
-import { getModelContextWindow } from '@robota-sdk/agent-core';
+import { estimateContextTokensFromMessages, getModelContextWindow } from '@robota-sdk/agent-core';
 
 /** Percentage conversion factor */
 const PERCENT = 100;
@@ -13,12 +13,20 @@ const PERCENT = 100;
 /** Auto-compact when context usage reaches this fraction */
 export const AUTO_COMPACT_THRESHOLD = 0.835;
 
+export type TAutoCompactThreshold = number | false;
+
 export class ContextWindowTracker {
   private contextUsedTokens = 0;
   private readonly contextMaxTokens: number;
+  private autoCompactThreshold: TAutoCompactThreshold;
 
-  constructor(model: string, contextMaxTokens?: number) {
+  constructor(
+    model: string,
+    contextMaxTokens?: number,
+    autoCompactThreshold?: TAutoCompactThreshold,
+  ) {
     this.contextMaxTokens = contextMaxTokens ?? getModelContextWindow(model);
+    this.autoCompactThreshold = normalizeAutoCompactThreshold(autoCompactThreshold);
   }
 
   /** Get current context window state */
@@ -37,48 +45,53 @@ export class ContextWindowTracker {
 
   /** Whether auto-compaction threshold has been exceeded */
   shouldAutoCompact(): boolean {
-    return this.getContextState().usedPercentage >= AUTO_COMPACT_THRESHOLD * PERCENT;
+    if (this.autoCompactThreshold === false) {
+      return false;
+    }
+    return this.getContextState().usedPercentage >= this.autoCompactThreshold * PERCENT;
+  }
+
+  /** The auto-compaction policy for this tracker. */
+  getAutoCompactThreshold(): TAutoCompactThreshold {
+    return this.autoCompactThreshold;
+  }
+
+  /** Update the auto-compaction policy for this tracker. */
+  setAutoCompactThreshold(autoCompactThreshold: TAutoCompactThreshold): void {
+    this.autoCompactThreshold = normalizeAutoCompactThreshold(autoCompactThreshold);
   }
 
   /**
    * Estimate token usage from conversation history.
    *
-   * First tries to read actual token counts from message metadata
-   * (provider response). Falls back to character-based estimation
-   * (chars / 4) which is a reasonable approximation for English/code.
+   * Uses the shared core estimator so session display, /context, auto-compact, and core
+   * execution guards reason about the same effective token state.
    */
   updateFromHistory(history: TUniversalMessage[]): void {
-    // Try metadata-based counting first
-    let metadataTokens = 0;
-    let hasMetadata = false;
-    for (const msg of history) {
-      if (msg.metadata) {
-        const input = msg.metadata['inputTokens'];
-        if (typeof input === 'number') {
-          metadataTokens += input;
-          hasMetadata = true;
-        }
-        const output = msg.metadata['outputTokens'];
-        if (typeof output === 'number') {
-          metadataTokens += output;
-          hasMetadata = true;
-        }
-      }
-    }
-
-    if (hasMetadata) {
-      this.contextUsedTokens = metadataTokens;
-      return;
-    }
-
-    // Fallback: estimate from character count (chars / 4)
-    const CHARS_PER_TOKEN = 4;
-    const totalChars = JSON.stringify(history).length;
-    this.contextUsedTokens = Math.ceil(totalChars / CHARS_PER_TOKEN);
+    this.contextUsedTokens = estimateContextTokensFromMessages(history).usedTokens;
   }
 
   /** Reset token tracking */
   reset(): void {
     this.contextUsedTokens = 0;
   }
+}
+
+function normalizeAutoCompactThreshold(
+  autoCompactThreshold: TAutoCompactThreshold | undefined,
+): TAutoCompactThreshold {
+  if (autoCompactThreshold === undefined) {
+    return AUTO_COMPACT_THRESHOLD;
+  }
+  if (autoCompactThreshold === false) {
+    return false;
+  }
+  if (
+    !Number.isFinite(autoCompactThreshold) ||
+    autoCompactThreshold <= 0 ||
+    autoCompactThreshold > 1
+  ) {
+    throw new RangeError('autoCompactThreshold must be a number greater than 0 and at most 1.');
+  }
+  return autoCompactThreshold;
 }

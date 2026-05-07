@@ -54,7 +54,7 @@ const response = await agent.run('Write a poem');
 Server-side web search via Anthropic's `web_search_20250305` tool:
 
 ```typescript
-provider.enableWebTools = true;
+provider.configureNativeWebTools({ webSearch: true });
 provider.onServerToolUse = (name, input) => {
   console.log(`Searching: ${input.query}`);
 };
@@ -64,9 +64,13 @@ provider.onServerToolUse = (name, input) => {
 
 Tool calls are handled automatically by the Robota execution loop. The provider converts between the universal message format and Anthropic's `input_schema`-based tool format.
 
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits Anthropic request parameters and raw stream events. `agent-core` routes these provider-owned callbacks into provider-neutral `provider_native_raw_payload` execution events for replay-grade session logs.
+
 ### Provider Definition
 
-`createAnthropicProviderDefinition()` exposes setup metadata for branch-free CLI and SDK provider composition. Consumers can configure Anthropic alongside OpenAI-compatible, Gemma, Qwen, and Gemini providers without adding Anthropic-specific UI branches.
+`createAnthropicProviderDefinition()` exposes setup metadata and official API key setup links for branch-free CLI and SDK provider composition. Consumers can configure Anthropic alongside OpenAI-compatible, Gemma, Qwen, and Gemini providers without adding Anthropic-specific UI branches.
 
 ## Configuration
 
@@ -75,7 +79,7 @@ const provider = new AnthropicProvider({
   apiKey: 'sk-ant-...', // API key
   timeout: 60000, // Request timeout (ms)
   baseURL: 'https://...', // Custom base URL
-  client: anthropicClient, // Pre-configured SDK client
+  client: anthropicClient, // Pre-configured SDK client for advanced auth/transport
   executor: remoteExecutor, // Delegate to remote executor
 });
 ```
@@ -95,11 +99,11 @@ const provider = new AnthropicProvider({
 
 ### AnthropicProvider Instance Fields
 
-| Field             | Type                  | Default | Description                    |
-| ----------------- | --------------------- | ------- | ------------------------------ |
-| `enableWebTools`  | `boolean`             | `false` | Include web search server tool |
-| `onTextDelta`     | `TTextDeltaCallback?` | —       | Streaming text callback        |
-| `onServerToolUse` | `function?`           | —       | Server tool execution callback |
+| Field             | Type                  | Default | Description                                                                                             |
+| ----------------- | --------------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `enableWebTools`  | `boolean`             | `false` | Include web search server tool; prefer `configureNativeWebTools({ webSearch: true })` for generic setup |
+| `onTextDelta`     | `TTextDeltaCallback?` | —       | Streaming text callback                                                                                 |
+| `onServerToolUse` | `function?`           | —       | Server tool execution callback                                                                          |
 
 ## Always-Streaming Policy
 
@@ -115,7 +119,7 @@ When `IChatOptions.maxTokens` is not specified, the provider uses the model's `m
 
 ## Known Limitations
 
-- `chatStream()` does not apply `enableWebTools`, system message extraction, or `onServerToolUse` (use `chat()` for full feature support)
+- `chatStream()` does not apply system message extraction or `onServerToolUse` callbacks (use `chat()` for full feature support)
 - `validateConfig()` returns false for executor-based providers (functional but reports invalid)
 
 ## License

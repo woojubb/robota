@@ -9,7 +9,7 @@ import type {
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
 import {
-  convertToGeminiFormat,
+  convertToGeminiRequestFormat,
   convertFromGeminiResponse,
   convertToolsToGeminiFormat,
 } from './message-converter';
@@ -28,31 +28,34 @@ export async function executeDirect(
   providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
+  providerName = 'gemini',
 ): Promise<TUniversalMessage> {
-  if (!options?.model) {
-    throw new Error(
-      'Model is required in IChatOptions. Please specify a model in defaultModel configuration.',
-    );
-  }
-
-  const geminiMessages = convertToGeminiFormat(messages);
-  const genConfig = buildGenerationConfig(
-    messages,
-    providerOptions.defaultResponseModalities,
-    providerOptions.imageCapableModels,
-    options,
-  );
-
-  const result = await client.models.generateContent(
-    buildGenerateContentRequest(options.model as string, geminiMessages, genConfig, options),
-  );
-
-  const convertedResponse = convertFromGeminiResponse(result);
+  const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
     messages,
     providerOptions.defaultResponseModalities,
     options?.google?.responseModalities,
   );
+
+  if (options?.onTextDelta && !responseModalities.includes('IMAGE')) {
+    return assembleStreamingChatResponse(client, providerOptions, messages, options, providerName);
+  }
+
+  const requestFormat = convertToGeminiRequestFormat(messages);
+  const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
+  const request = buildGenerateContentRequest(
+    model,
+    requestFormat.contents,
+    genConfig,
+    options,
+    requestFormat.systemInstruction,
+  );
+
+  emitGeminiNativeRawPayload(options, providerName, 'request', request);
+  const result = await client.models.generateContent(request);
+  emitGeminiNativeRawPayload(options, providerName, 'response', result);
+
+  const convertedResponse = convertFromGeminiResponse(result);
   if (responseModalities.includes('IMAGE') && !hasImagePart(convertedResponse.parts)) {
     throw new Error(
       'Gemini response did not include an image part while IMAGE modality was requested.',
@@ -69,7 +72,9 @@ export async function* executeDirectStream(
   providerOptions: IGeminiProviderOptions,
   messages: TUniversalMessage[],
   options?: IChatOptions,
+  providerName = 'gemini',
 ): AsyncIterable<TUniversalMessage> {
+  const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
     messages,
     providerOptions.defaultResponseModalities,
@@ -78,27 +83,27 @@ export async function* executeDirectStream(
   if (responseModalities.includes('IMAGE')) {
     throw new Error('Google provider does not support streaming image modality responses.');
   }
-  if (!options?.model) {
-    throw new Error(
-      'Model is required in IChatOptions. Please specify a model in defaultModel configuration.',
-    );
-  }
 
-  const geminiMessages = convertToGeminiFormat(messages);
-  const genConfig = buildGenerationConfig(
-    messages,
-    providerOptions.defaultResponseModalities,
-    providerOptions.imageCapableModels,
+  const requestFormat = convertToGeminiRequestFormat(messages);
+  const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
+  const request = buildGenerateContentRequest(
+    model,
+    requestFormat.contents,
+    genConfig,
     options,
+    requestFormat.systemInstruction,
   );
 
-  const stream = await client.models.generateContentStream(
-    buildGenerateContentRequest(options.model as string, geminiMessages, genConfig, options),
-  );
+  emitGeminiNativeRawPayload(options, providerName, 'request', request);
+  const stream = await client.models.generateContentStream(request);
 
+  let sequence = 0;
   for await (const chunk of stream) {
+    emitGeminiNativeRawPayload(options, providerName, 'stream_event', chunk, sequence);
+    sequence++;
     const text = extractStreamText(chunk);
     if (text) {
+      options?.onTextDelta?.(text);
       yield {
         id: randomUUID(),
         role: 'assistant',
@@ -115,16 +120,79 @@ function buildGenerateContentRequest(
   contents: Content[],
   generationOptions: GenerateContentParameters['config'],
   options?: IChatOptions,
+  systemInstruction?: string,
 ): GenerateContentParameters {
   const config: GenerateContentParameters['config'] = { ...generationOptions };
   if (options?.tools && options.tools.length > 0) {
     config.tools = [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }];
+  }
+  if (systemInstruction) {
+    config.systemInstruction = systemInstruction;
   }
   return {
     model,
     contents,
     config,
   };
+}
+
+function resolveGeminiModel(
+  providerOptions: IGeminiProviderOptions,
+  options?: IChatOptions,
+): string {
+  const model = options?.model ?? providerOptions.defaultModel;
+  if (!model) {
+    throw new Error(
+      'Model is required in chat options. Please specify a model in defaultModel configuration.',
+    );
+  }
+  return model;
+}
+
+async function assembleStreamingChatResponse(
+  client: GoogleGenAI,
+  providerOptions: IGeminiProviderOptions,
+  messages: TUniversalMessage[],
+  options: IChatOptions,
+  providerName = 'gemini',
+): Promise<TUniversalMessage> {
+  const textParts: string[] = [];
+  for await (const chunk of executeDirectStream(
+    client,
+    providerOptions,
+    messages,
+    options,
+    providerName,
+  )) {
+    if (typeof chunk.content === 'string') {
+      textParts.push(chunk.content);
+    }
+  }
+  const content = textParts.join('');
+  return {
+    id: randomUUID(),
+    role: 'assistant',
+    content,
+    parts: content.length > 0 ? [{ type: 'text', text: content }] : [],
+    state: 'complete',
+    timestamp: new Date(),
+  };
+}
+
+function emitGeminiNativeRawPayload(
+  options: IChatOptions | undefined,
+  providerName: string,
+  payloadKind: 'request' | 'response' | 'stream_event',
+  payload: object,
+  sequence?: number,
+): void {
+  options?.onProviderNativeRawPayload?.({
+    provider: providerName,
+    apiSurface: 'gemini-generate-content',
+    payloadKind,
+    ...(sequence !== undefined && { sequence }),
+    payload,
+  });
 }
 
 function extractStreamText(

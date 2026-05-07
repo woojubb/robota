@@ -145,9 +145,10 @@ function applyToolCallDeltas(
   for (const delta of deltas) {
     const index = delta.index ?? 0;
     const current = state.toolCallParts.get(index) ?? { id: '', name: '', arguments: '' };
+    const nextName = delta.function?.name ?? current.name;
     state.toolCallParts.set(index, {
       id: delta.id ?? current.id,
-      name: delta.function?.name ?? current.name,
+      name: nextName,
       arguments: current.arguments + (delta.function?.arguments ?? ''),
     });
   }

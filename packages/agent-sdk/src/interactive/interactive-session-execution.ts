@@ -1,23 +1,34 @@
 /**
  * Prompt execution helpers for InteractiveSession.
  *
- * Contains abort detection, tool-summary extraction, and session persistence utilities.
+ * Contains abort detection, tool-summary extraction, and prompt preparation utilities.
  */
 
 import { randomUUID } from 'node:crypto';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 import { collectAssistantUsageMetadata } from '@robota-sdk/agent-core';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
-import type { Session } from '@robota-sdk/agent-sessions';
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
-import type {
-  IBackgroundJobGroupState,
-  IBackgroundTaskState,
-  TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
-} from '../background-tasks/index.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import { listActiveContextReferences } from '../context/context-reference-inventory.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import {
+  buildPromptWithFileReferences,
+  createPromptFileReferenceHistoryEntry,
+  formatPromptFileReferenceDiagnostics,
+  hasBlockingPromptFileReferenceDiagnostics,
+  resolvePromptFileReferences,
+  resolvePromptFileReferencePaths,
+  toPromptFileReferenceRecords,
+} from '../context/prompt-file-references.js';
+
+export interface IPreparedPromptInput {
+  modelInput: string;
+  hookInput?: string;
+  promptFileReferenceRecords: IPromptFileReferenceRecord[];
+  activeContextReferenceRecords: IPromptFileReferenceRecord[];
+  promptFileReferenceEntry?: IHistoryEntry;
+}
 
 /** Detect whether an error represents an abort/cancel action. */
 export function isAbortError(err: unknown): boolean {
@@ -60,6 +71,7 @@ export function buildResult(
   interactiveHistory: IHistoryEntry[],
   historyBefore: number,
   contextState: IContextWindowState,
+  promptFileReferences?: readonly IPromptFileReferenceRecord[],
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
   const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
@@ -69,6 +81,9 @@ export function buildResult(
     toolSummaries,
     contextState,
     ...(usage && { usage }),
+    ...(promptFileReferences && promptFileReferences.length > 0
+      ? { promptFileReferences: [...promptFileReferences] }
+      : {}),
   };
 }
 
@@ -108,6 +123,57 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
   };
 }
 
+export async function preparePromptInput(
+  input: string,
+  cwd: string,
+  rawInput?: string,
+  contextReferences: readonly IContextReferenceItem[] = [],
+): Promise<IPreparedPromptInput> {
+  const activeReferenceResult = await resolvePromptFileReferencePaths(
+    listActiveContextReferences(contextReferences).map((reference) => reference.sourcePath),
+    { cwd, reason: 'manual' },
+  );
+  const promptFileReferenceResult = await resolvePromptFileReferences(input, { cwd });
+  const diagnostics = [
+    ...activeReferenceResult.diagnostics,
+    ...promptFileReferenceResult.diagnostics,
+  ];
+  if (hasBlockingPromptFileReferenceDiagnostics(diagnostics)) {
+    throw new Error(formatPromptFileReferenceDiagnostics(diagnostics));
+  }
+
+  const resolvedReferences = dedupeResolvedReferences([
+    ...activeReferenceResult.references,
+    ...promptFileReferenceResult.references,
+  ]);
+  const modelInput = buildPromptWithFileReferences(input, resolvedReferences);
+  const hookInput = rawInput ?? (modelInput === input ? undefined : input);
+  const activeContextReferenceRecords = toPromptFileReferenceRecords(
+    activeReferenceResult.references,
+  );
+  const promptFileReferenceRecords = toPromptFileReferenceRecords(
+    promptFileReferenceResult.references,
+  );
+  const promptFileReferenceEntry =
+    promptFileReferenceResult.references.length > 0
+      ? createPromptFileReferenceHistoryEntry(promptFileReferenceResult.references)
+      : undefined;
+
+  return {
+    modelInput,
+    ...(hookInput !== undefined ? { hookInput } : {}),
+    activeContextReferenceRecords,
+    promptFileReferenceRecords,
+    ...(promptFileReferenceEntry !== undefined ? { promptFileReferenceEntry } : {}),
+  };
+}
+
+function dedupeResolvedReferences(
+  references: readonly (IPromptFileReferenceRecord & { content: string })[],
+): Array<IPromptFileReferenceRecord & { content: string }> {
+  return [...new Map(references.map((reference) => [reference.sourcePath, reference])).values()];
+}
+
 function extractTurnUsage(
   sessionHistory: TUniversalMessage[],
   historyBefore: number,
@@ -139,60 +205,6 @@ function extractTurnUsage(
     contextUsedPercentage: contextState.usedPercentage,
     costStatus: 'unknown',
   };
-}
-
-/**
- * Persist the current session state to the session store.
- * Silently ignores errors (persist failure must not break execution).
- */
-export function persistSession(
-  sessionStore: SessionStore,
-  session: Session,
-  sessionName: string | undefined,
-  cwd: string,
-  history: IHistoryEntry[],
-  backgroundState?: {
-    tasks: readonly IBackgroundTaskState[];
-    events: readonly TBackgroundTaskEvent[];
-    groups?: readonly IBackgroundJobGroupState[];
-    groupEvents?: readonly TBackgroundJobGroupEvent[];
-  },
-  memoryState?: {
-    events: readonly IMemoryEvent[];
-    usedReferences: readonly IMemoryReference[];
-  },
-): void {
-  try {
-    const sessionId = session.getSessionId();
-    const existing = sessionStore.load(sessionId);
-    sessionStore.save({
-      id: sessionId,
-      name: sessionName ?? existing?.name,
-      cwd,
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      messages: session.getHistory(),
-      history,
-      systemPrompt: session.getSystemMessage(),
-      toolSchemas: session.getToolSchemas(),
-      ...(backgroundState
-        ? {
-            backgroundTasks: [...backgroundState.tasks],
-            backgroundTaskEvents: [...backgroundState.events],
-            backgroundJobGroups: [...(backgroundState.groups ?? [])],
-            backgroundJobGroupEvents: [...(backgroundState.groupEvents ?? [])],
-          }
-        : {}),
-      ...(memoryState
-        ? {
-            memoryEvents: [...memoryState.events],
-            usedMemoryReferences: [...memoryState.usedReferences],
-          }
-        : {}),
-    });
-  } catch {
-    // Persist failure should not break execution
-  }
 }
 
 /** No-op terminal implementation used during async initialization. */

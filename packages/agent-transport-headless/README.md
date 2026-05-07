@@ -19,7 +19,10 @@ Plain text output, suitable for piping:
 ```bash
 robota -p "Explain this error"
 robota -p "List all TypeScript files" | head -20
+robota -p "/repo-writing backlog markdown format"
 ```
+
+Prompts that start with `/skill-name` are passed to `InteractiveSession.executeCommand()`. When the upstream session composes `@robota-sdk/agent-command-skills`, the SDK normalizes the virtual skill alias to `/skills <skill-name> [args]` and loads the full skill file before the model turn.
 
 ### JSON
 

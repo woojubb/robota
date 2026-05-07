@@ -11,8 +11,9 @@ const CONTEXT_RED_THRESHOLD = 90;
 interface IProps {
   permissionMode: TPermissionMode;
   modelName: string;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
   sessionId: string;
-  messageCount: number;
   isThinking: boolean;
   activeToolCount?: number;
   activeBackgroundTaskCount?: number;
@@ -28,6 +29,8 @@ interface IProps {
 interface IStatusLeftProps {
   permissionMode: TPermissionMode;
   modelName: string;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
   isThinking: boolean;
   activeToolCount: number;
   activeBackgroundTaskCount: number;
@@ -64,14 +67,9 @@ function StatusActivityText({
   });
 
   return (
-    <>
-      <Text color="cyan" bold>
-        Activity:
-      </Text>{' '}
-      <Text color={activity.color} bold={activity.kind !== 'idle'}>
-        {activity.text}
-      </Text>
-    </>
+    <Text color={activity.color} bold={activity.kind !== 'idle'}>
+      {activity.text}
+    </Text>
   );
 }
 
@@ -103,50 +101,70 @@ function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): Reac
   );
 }
 
-function StatusLeft({
-  permissionMode,
+function shouldShowPermissionMode(permissionMode: TPermissionMode): boolean {
+  return permissionMode !== 'default';
+}
+
+function ProviderText({
   modelName,
-  isThinking,
-  activeToolCount,
-  activeBackgroundTaskCount,
-  hasPendingPrompt,
-  contextPercentage,
-  contextUsedTokens,
-  contextMaxTokens,
-  sessionName,
-  gitBranch,
-  showGitBranch,
-}: IStatusLeftProps): React.ReactElement {
-  const shouldShowGitBranch = showGitBranch && gitBranch !== undefined && gitBranch.length > 0;
+  providerProfileName,
+  providerType,
+}: {
+  modelName: string;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
+}): React.ReactElement {
+  if (providerProfileName !== undefined && providerType !== undefined) {
+    return (
+      <Text dimColor>
+        {providerProfileName} ({providerType}) {modelName}
+      </Text>
+    );
+  }
+  return <Text dimColor>{modelName}</Text>;
+}
+
+function StatusLeft(props: IStatusLeftProps): React.ReactElement {
+  const shouldShowGitBranch =
+    props.showGitBranch && props.gitBranch !== undefined && props.gitBranch.length > 0;
+  const showPermissionMode = shouldShowPermissionMode(props.permissionMode);
   return (
     <Text>
       <StatusActivityText
-        isThinking={isThinking}
-        activeToolCount={activeToolCount}
-        activeBackgroundTaskCount={activeBackgroundTaskCount}
-        hasPendingPrompt={hasPendingPrompt}
+        isThinking={props.isThinking}
+        activeToolCount={props.activeToolCount}
+        activeBackgroundTaskCount={props.activeBackgroundTaskCount}
+        hasPendingPrompt={props.hasPendingPrompt}
       />
-      {'  |  '}
-      <ModeText permissionMode={permissionMode} />
-      {sessionName && (
+      {showPermissionMode && (
         <>
           {'  |  '}
-          <Text color="magenta">{sessionName}</Text>
+          <ModeText permissionMode={props.permissionMode} />
+        </>
+      )}
+      {props.sessionName && (
+        <>
+          {'  |  '}
+          <Text color="magenta">{props.sessionName}</Text>
         </>
       )}
       {shouldShowGitBranch && (
         <>
           {'  |  '}
-          <Text dimColor>git: {gitBranch}</Text>
+          <Text dimColor>git: {props.gitBranch}</Text>
         </>
       )}
       {'  |  '}
-      <Text dimColor>{modelName}</Text>
+      <ProviderText
+        modelName={props.modelName}
+        providerProfileName={props.providerProfileName}
+        providerType={props.providerType}
+      />
       {'  |  '}
       <ContextText
-        percentage={contextPercentage}
-        usedTokens={contextUsedTokens}
-        maxTokens={contextMaxTokens}
+        percentage={props.contextPercentage}
+        usedTokens={props.contextUsedTokens}
+        maxTokens={props.contextMaxTokens}
       />
     </Text>
   );
@@ -155,8 +173,9 @@ function StatusLeft({
 export default function StatusBar({
   permissionMode,
   modelName,
+  providerProfileName,
+  providerType,
   sessionId: _sessionId,
-  messageCount,
   isThinking,
   activeToolCount = 0,
   activeBackgroundTaskCount = 0,
@@ -179,6 +198,8 @@ export default function StatusBar({
       <StatusLeft
         permissionMode={permissionMode}
         modelName={modelName}
+        providerProfileName={providerProfileName}
+        providerType={providerType}
         isThinking={isThinking}
         activeToolCount={activeToolCount}
         activeBackgroundTaskCount={activeBackgroundTaskCount}
@@ -190,9 +211,6 @@ export default function StatusBar({
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
       />
-      <Text>
-        <Text dimColor>msgs: {messageCount}</Text>
-      </Text>
     </Box>
   );
 }

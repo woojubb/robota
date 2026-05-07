@@ -105,6 +105,46 @@ describe('OpenAICompatibleResponseParser', () => {
     ]);
   });
 
+  it('passes native tool calls through so core can return a normal tool-result error', () => {
+    const parser = new OpenAICompatibleResponseParser();
+    const response: OpenAI.Chat.ChatCompletion = {
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1,
+      model: 'local-model',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            refusal: null,
+            tool_calls: [
+              {
+                id: 'call-1',
+                type: 'function',
+                function: { name: 'UndeclaredTool', arguments: '{}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    };
+
+    const result = parser.parseResponse(response);
+
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'call-1',
+        type: 'function',
+        function: { name: 'UndeclaredTool', arguments: '{}' },
+      },
+    ]);
+  });
+
   it('applies text projection while parsing streaming chunks', () => {
     const parser = new OpenAICompatibleResponseParser({
       textProjector: (text) => text.replace('[hidden]', ''),

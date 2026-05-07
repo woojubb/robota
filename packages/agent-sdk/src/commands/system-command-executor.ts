@@ -1,6 +1,5 @@
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { InteractiveSession } from '../interactive/interactive-session.js';
-import type { ICommandResult, ISystemCommand } from './system-command.js';
+import type { ICommandHostContext, ICommandResult, ISystemCommand } from '../command-api/index.js';
 import { createSystemCommands } from './system-command.js';
 
 /** Registry for system commands. */
@@ -22,12 +21,24 @@ export class SystemCommandExecutor {
   /** Execute a command by name. Returns null if command not found. */
   async execute(
     name: string,
-    session: InteractiveSession,
+    session: ICommandHostContext,
     args: string,
   ): Promise<ICommandResult | null> {
-    const cmd = this.commands.get(name);
+    const cmd = this.getCommand(name);
     if (!cmd) return null;
-    return await cmd.execute(session, args);
+    return await this.executeCommand(cmd, session, args);
+  }
+
+  getCommand(name: string): ISystemCommand | undefined {
+    return this.commands.get(name);
+  }
+
+  async executeCommand(
+    command: ISystemCommand,
+    session: ICommandHostContext,
+    args: string,
+  ): Promise<ICommandResult> {
+    return await command.execute(session, args);
   }
 
   /** List all registered commands. */
@@ -39,7 +50,7 @@ export class SystemCommandExecutor {
     return this.listCommands()
       .filter((command) => command.modelInvocable === true)
       .map((command) => ({
-        name: `/${command.name}`,
+        name: command.name,
         kind: 'builtin-command',
         description: command.description,
         userInvocable: command.userInvocable !== false,
@@ -55,7 +66,7 @@ export class SystemCommandExecutor {
 
   async executeModelInvocable(
     name: string,
-    session: InteractiveSession,
+    session: ICommandHostContext,
     args: string,
   ): Promise<ICommandResult | null> {
     if (!this.isModelInvocable(name)) return null;

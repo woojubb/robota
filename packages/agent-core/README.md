@@ -36,6 +36,7 @@ console.log(response);
 - **ConversationStore**: Append-only conversation history with streaming buffer (`beginAssistant`/`appendStreaming`/`commitAssistant`)
 - **IBaseMessage**: Every message has a unique `id` (UUID) and `state` (`'complete'` | `'interrupted'`)
 - **Multi-provider**: Register multiple providers, switch dynamically with `setModel()`
+- **Provider capabilities**: Provider-neutral capability reports distinguish local tools from provider-native hosted web search/fetch
 - **AbstractAIProvider.streamWithAbort()**: Standard streaming wrapper for all providers — handles AbortSignal, returns partial content on abort
 - **Permission system**: Deterministic 3-step policy evaluation (`evaluatePermission`)
 - **Hook system**: Shell command-based lifecycle hooks (`runHooks`)
@@ -69,13 +70,18 @@ agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 `run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:
 
 - `provider_request`
+- `provider_native_raw_payload`
+- `provider_stream_raw_delta`
+- `provider_response_raw`
 - `provider_response_normalized`
 - `assistant_message_committed`
 - `tool_batch_started`
 - `tool_execution_request`
 - `tool_execution_result`
+- `tool_message_committed`
+- `history_mutation`
 
-Raw provider payload/chunk storage remains provider/session logging follow-up work so `agent-core` does not gain provider-specific branches.
+Provider-specific SDK payload capture remains provider-owned. Providers may call `IChatOptions.onProviderNativeRawPayload` with exact SDK request, response, or stream event objects; `Robota` forwards those callbacks as provider-neutral `provider_native_raw_payload` execution events without importing concrete provider SDK types. `provider_response_raw.responseKind` remains `provider-normalized-message`, which keeps common replay validation provider-neutral.
 
 ## IAgentConfig
 
@@ -106,16 +112,17 @@ agent-cli         ← Terminal UI
 
 ## Public API Surface
 
-| Category        | Exports                                                                                                                                                                                   |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`                         |
-| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName` |
-| **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `IHookResult`                            |
-| **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                |
-| **Models**      | `CLAUDE_MODELS`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`             |
-| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`, `IContextTokenUsage`, `TTextDeltaCallback`     |
-| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                       |
-| **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                             |
+| Category        | Exports                                                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`, `getProviderCapabilities`, `assertProviderNativeWebToolsAvailable` |
+| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName`                                             |
+| **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `IHookResult`                                                                        |
+| **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                                                            |
+| **Models**      | `CLAUDE_MODELS`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                                         |
+| **Context**     | `estimateContextTokensFromMessages()`, `estimateSerializedContextTokens()`, `readTokenUsageFromMessage()`, `IContextTokenEstimate`, `IMessageTokenUsage`, `IContextWindowState`, `IContextTokenUsage`                                 |
+| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IProviderCapabilities`, `IProviderNativeWebToolRequest`, `IToolSchema`, `TTextDeltaCallback`                                    |
+| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                                                                   |
+| **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                                                                         |
 
 ## What Moved Out in v3
 

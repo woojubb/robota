@@ -305,6 +305,9 @@ importers:
       '@robota-sdk/dag-cost':
         specifier: workspace:*
         version: link:../../packages/dag-cost
+      '@robota-sdk/dag-orchestration-client':
+        specifier: workspace:*
+        version: link:../../packages/dag-orchestration-client
       '@robota-sdk/dag-orchestrator':
         specifier: workspace:*
         version: link:../../packages/dag-orchestrator
@@ -399,6 +402,12 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/transform
+      '@robota-sdk/dag-runtime':
+        specifier: workspace:*
+        version: link:../../packages/dag-runtime
+      '@robota-sdk/dag-worker':
+        specifier: workspace:*
+        version: link:../../packages/dag-worker
       cors:
         specifier: ^2.8.5
         version: 2.8.5
@@ -555,12 +564,63 @@ importers:
       '@robota-sdk/agent-command-agent':
         specifier: workspace:*
         version: link:../agent-command-agent
+      '@robota-sdk/agent-command-background':
+        specifier: workspace:*
+        version: link:../agent-command-background
+      '@robota-sdk/agent-command-compact':
+        specifier: workspace:*
+        version: link:../agent-command-compact
+      '@robota-sdk/agent-command-context':
+        specifier: workspace:*
+        version: link:../agent-command-context
+      '@robota-sdk/agent-command-exit':
+        specifier: workspace:*
+        version: link:../agent-command-exit
+      '@robota-sdk/agent-command-help':
+        specifier: workspace:*
+        version: link:../agent-command-help
+      '@robota-sdk/agent-command-language':
+        specifier: workspace:*
+        version: link:../agent-command-language
+      '@robota-sdk/agent-command-memory':
+        specifier: workspace:*
+        version: link:../agent-command-memory
+      '@robota-sdk/agent-command-model':
+        specifier: workspace:*
+        version: link:../agent-command-model
+      '@robota-sdk/agent-command-permissions':
+        specifier: workspace:*
+        version: link:../agent-command-permissions
+      '@robota-sdk/agent-command-plugin':
+        specifier: workspace:*
+        version: link:../agent-command-plugin
+      '@robota-sdk/agent-command-provider':
+        specifier: workspace:*
+        version: link:../agent-command-provider
+      '@robota-sdk/agent-command-reset':
+        specifier: workspace:*
+        version: link:../agent-command-reset
+      '@robota-sdk/agent-command-rewind':
+        specifier: workspace:*
+        version: link:../agent-command-rewind
+      '@robota-sdk/agent-command-session':
+        specifier: workspace:*
+        version: link:../agent-command-session
+      '@robota-sdk/agent-command-skills':
+        specifier: workspace:*
+        version: link:../agent-command-skills
+      '@robota-sdk/agent-command-statusline':
+        specifier: workspace:*
+        version: link:../agent-command-statusline
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-provider-deepseek':
+        specifier: workspace:*
+        version: link:../agent-provider-deepseek
       '@robota-sdk/agent-provider-gemini':
         specifier: workspace:*
         version: link:../agent-provider-gemini
@@ -576,9 +636,6 @@ importers:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:3.0.0-beta.59
-        version: link:../agent-sessions
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
         version: link:../agent-transport-headless
@@ -642,6 +699,332 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-command-agent:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-background:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-compact:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-context:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-exit:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-help:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-language:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-memory:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-mode:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-model:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-permissions:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-plugin:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-provider:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-reset:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-rewind:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-session:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-skills:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-command-statusline:
     dependencies:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
@@ -1085,6 +1468,40 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/agent-provider-deepseek:
+    dependencies:
+      '@robota-sdk/agent-provider-openai-compatible':
+        specifier: workspace:*
+        version: link:../agent-provider-openai-compatible
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(zod@3.25.76)
+    devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.18.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.18.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/agent-provider-gemini:
     dependencies:
       '@google/genai':
@@ -1479,6 +1896,9 @@ importers:
         specifier: workspace:*
         version: link:../agent-sdk
     devDependencies:
+      '@robota-sdk/agent-command-skills':
+        specifier: workspace:*
+        version: link:../agent-command-skills
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -1558,6 +1978,36 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/auth:
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/credits:
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/dag-adapters-local:
     dependencies:
       '@robota-sdk/dag-core':
@@ -1585,18 +2035,6 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
-      '@robota-sdk/dag-projection':
-        specifier: workspace:*
-        version: link:../dag-projection
-      '@robota-sdk/dag-runtime':
-        specifier: workspace:*
-        version: link:../dag-runtime
-      '@robota-sdk/dag-scheduler':
-        specifier: workspace:*
-        version: link:../dag-scheduler
-      '@robota-sdk/dag-worker':
-        specifier: workspace:*
-        version: link:../dag-worker
     devDependencies:
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
@@ -1616,6 +2054,19 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
+
+  packages/dag-cli:
+    dependencies:
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      '@robota-sdk/dag-orchestration-client':
+        specifier: workspace:*
+        version: link:../dag-orchestration-client
+    devDependencies:
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
 
   packages/dag-core:
     dependencies:
@@ -1724,6 +2175,22 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
+
+  packages/dag-mcp-server:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@3.25.76)
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      '@robota-sdk/dag-orchestration-client':
+        specifier: workspace:*
+        version: link:../dag-orchestration-client
+    devDependencies:
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
 
   packages/dag-node:
     dependencies:
@@ -2043,6 +2510,31 @@ importers:
       zod:
         specifier: ^3.24.4
         version: 3.25.76
+    devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/dag-orchestration-client:
+    dependencies:
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
     devDependencies:
       eslint:
         specifier: ^8.56.0
@@ -8850,12 +9342,12 @@ packages:
       '@typescript-eslint/type-utils': 6.21.0(eslint@9.31.0)(typescript@5.8.3)
       '@typescript-eslint/utils': 6.21.0(eslint@9.31.0)(typescript@5.8.3)
       '@typescript-eslint/visitor-keys': 6.21.0
-      debug: 4.4.1
+      debug: 4.4.3
       eslint: 9.31.0
       graphemer: 1.4.0
       ignore: 5.3.2
       natural-compare: 1.4.0
-      semver: 7.7.2
+      semver: 7.7.4
       ts-api-utils: 1.4.3(typescript@5.8.3)
       typescript: 5.8.3
     transitivePeerDependencies:

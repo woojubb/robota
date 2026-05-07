@@ -34,6 +34,15 @@ describe('createGeminiProviderDefinition', () => {
       model: DEFAULT_GEMINI_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,
     });
+    expect(definition.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'Google AI Studio API keys',
+        url: 'https://aistudio.google.com/apikey',
+        sourceUrl: 'https://ai.google.dev/gemini-api/docs/api-key',
+        lastVerifiedAt: '2026-05-08',
+      },
+    ]);
   });
 
   it('creates the Gemini API provider implementation from generic provider config', () => {

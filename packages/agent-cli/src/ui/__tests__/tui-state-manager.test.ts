@@ -110,6 +110,25 @@ describe('TuiStateManager', () => {
     expect(mgr.activeTools).toEqual([]);
   });
 
+  it('clears rendered history, streaming text, and active tools on explicit history clear', () => {
+    const mgr = new TuiStateManager();
+    mgr.addEntry({
+      id: 'old',
+      timestamp: new Date('2026-05-03T00:00:00.000Z'),
+      category: 'chat',
+      type: 'user',
+      data: { role: 'user', content: 'old message' },
+    });
+    mgr.onTextDelta('partial');
+    mgr.onToolStart({ toolName: 'Read', firstArg: 'file.ts', isRunning: true });
+
+    mgr.clearHistory();
+
+    expect(mgr.history).toEqual([]);
+    expect(mgr.streamingText).toBe('');
+    expect(mgr.activeTools).toEqual([]);
+  });
+
   // ── Thinking state ────────────────────────────────────────────
 
   it('sets isThinking on thinking event', () => {

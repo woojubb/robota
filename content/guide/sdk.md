@@ -62,19 +62,22 @@ Event types include: `tool-start` (individual tool execution began), `tool-end` 
 
 ### Command Discovery
 
-The SDK owns `CommandRegistry` and the command sources used by clients:
+The SDK owns `CommandRegistry` and common command sources used by clients:
 
-- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/memory`, `/rewind`, `/provider`, `/resume`, `/background`, `/rename`, `/plugin`, `/reload-plugins`, `/language`, `/reset`, `/exit`
+- **`BuiltinCommandSource`** — SDK-core compatibility source; currently empty because user-visible built-ins are command modules
+- **Command modules** — product-composed built-ins such as `skills`, `help`, `clear`, `compact`, `mode`, `model`, `cost`, `context`, `permissions`, `memory`, `rewind`, `provider`, `resume`, `background`, `rename`, `plugin`, `reload-plugins`, `language`, `reset`, and `exit`; UI shells render and parse them as slash syntax
 - **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
 - **`PluginCommandSource`** — commands contributed by loaded plugins
 
-Clients such as the CLI compose these sources into a registry for autocomplete. `InteractiveSession.listCommands()` returns executable system commands for transports and direct command execution, while skill commands discovered through `SkillCommandSource` are executed with `session.executeSkillCommand()`.
+Clients such as the CLI compose command modules into a registry for autocomplete. `InteractiveSession.listCommands()` returns executable system commands for transports and direct command execution. Explicit `/skill-name` prompts are virtual aliases normalized by SDK to command `skills` with args `<skill-name> [args]` when the skills command module is composed.
+
+Skill metadata is exposed to the model only when `skills` is composed as a model-invocable command. Without that descriptor, the SDK does not add a `## Skills` section because there would be no standard activation route.
 
 ### System Commands
 
 `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers access commands through `session.executeCommand(name, args)` and `session.listCommands()` — the executor is not independently exported.
 
-Before each submitted prompt, the session checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the underlying `Session.run()`.
+Transport and UI layers parse explicit slash input and call `session.executeCommand()` before submitting normal prompts. Command routing stays generic: virtual `/skill-name` aliases normalize to command `skills` with args `<skill-name> [args]` only when the skills command module is composed.
 
 Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover available commands and `session.executeCommand()` to execute them.
 
@@ -143,6 +146,11 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
     },
     "openai": {
       "type": "openai",
+      "model": "gpt-4o",
+      "apiKey": "$ENV:OPENAI_API_KEY"
+    },
+    "local-gemma": {
+      "type": "gemma",
       "model": "supergemma4-26b-uncensored-v2",
       "apiKey": "lm-studio",
       "baseURL": "http://localhost:1234/v1"
@@ -169,7 +177,7 @@ The `.claude/` paths take higher runtime priority so that Claude Code settings o
 }
 ```
 
-`InteractiveSession` loads these settings for permissions, hooks, project context, skills, and session behavior. Provider profile resolution is performed by the consumer shell before creating the SDK session; the CLI uses `currentProvider` and `providers` to construct the active provider instance, then passes that instance to `InteractiveSession`. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`; generic OpenAI-compatible endpoints use `type: "openai"` plus `baseURL`. The legacy single `provider` object remains supported by CLI/provider-settings compatibility code when no active profile is configured.
+`InteractiveSession` loads these settings for permissions, hooks, project context, skills, and session behavior. Provider profile resolution is performed by the consumer shell before creating the SDK session; the CLI uses `currentProvider` and `providers` to construct the active provider instance, then passes that instance to `InteractiveSession`. OpenAI uses `type: "openai"` with the official OpenAI API and defaults to the Responses API. Qwen Model Studio uses `type: "qwen"` plus the documented DashScope OpenAI-compatible `baseURL`. DeepSeek uses `type: "deepseek"` plus the documented DeepSeek OpenAI-compatible `baseURL`. Local Gemma-family endpoints should use `type: "gemma"`. A generic OpenAI-compatible Chat Completions endpoint can still be configured with `type: "openai"`, `baseURL`, and optional `options.apiSurface: "chat-completions"` when no model-family provider fits. The legacy single `provider` object remains supported by CLI/provider-settings compatibility code when no active profile is configured.
 
 The `$ENV:` prefix resolves environment variables at load time.
 
@@ -206,19 +214,54 @@ const session = new InteractiveSession({
 
 `InteractiveSession` provides these capabilities:
 
-| Feature                    | Description                                                                                                                                                                |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                              |
-| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                                     |
-| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                               |
-| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                                            |
-| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`. `ISessionRecord` includes `history` (`IHistoryEntry[]`) plus background task snapshots for restoration and debugging |
-| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history              |
-| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                        |
-| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                   |
-| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                           |
-| **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                        |
-| **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                        |
+| Feature                    | Description                                                                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                                                |
+| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                                                       |
+| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                                                 |
+| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                                                              |
+| **Session persistence**    | Conversations can be saved/loaded through SDK-owned session store facades. Records include `history` (`IHistoryEntry[]`), background task snapshots, and sandbox snapshot ids when available |
+| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On non-fork resume, sandbox hydration runs before `session.injectMessage()` restores AI context                |
+| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                                                          |
+| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                                                     |
+| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                                                             |
+| **Background work**        | Subagent jobs are tracked through runtime-owned task state, transcripts, and background task events                                                                                          |
+| **Replay events**          | Session runs forward core provider/tool boundary events into append-only JSONL logs                                                                                                          |
+| **Sandbox execution**      | Optional sandbox clients route Bash and core file tools through an injected execution plane; workspace manifests can prepare fresh sandbox files/directories before session creation         |
+
+## Sandbox Execution
+
+`InteractiveSession` accepts `sandboxClient?: ISandboxClient`. When present, the SDK creates sandbox-aware Bash, Read, Write, and Edit tools. This keeps the CLI/TUI thin: hosts choose whether to supply a sandbox, while tool command/file behavior remains in `agent-tools`.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
+import { Sandbox } from 'e2b';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const sandbox = await Sandbox.create();
+const workspaceManifest: IWorkspaceManifest = {
+  entries: {
+    'task.md': { type: 'file', content: 'Analyze this project.\n' },
+    repo: { type: 'gitRepo', url: 'https://github.com/example/project.git', ref: 'main' },
+    output: { type: 'dir' },
+  },
+};
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sandboxClient: new E2BSandboxClient({ sandbox }),
+  workspaceManifest,
+  reversibleExecution: { mode: 'local-first' },
+});
+```
+
+`E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-sdk` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK. `workspaceManifest` is also owned by `agent-tools`; SDK only applies it during async interactive session initialization. Inline/local files, directories, and Git repositories are supported by the generic applicator. Cloud mount entries return `unsupported` until the chosen sandbox adapter implements native mounting.
+
+If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`, `InteractiveSession.shutdown()` saves `sandboxSnapshotId` into the session record. A later non-fork `resumeSessionId` restore hydrates that sandbox reference before saved messages are replayed. Forked sessions start from a fresh execution environment unless the host explicitly supplies its own sandbox reference.
 
 ## Subagent Sessions
 
@@ -236,9 +279,9 @@ const subSession = createSubagentSession({
 const result = await subSession.run();
 ```
 
-### Agent Tool Batch Jobs
+### Agent Command Batch Jobs
 
-The model-visible `Agent` tool supports both the existing single-job shape and a batch `jobs` shape for explicit parallel requests:
+The `agent` command module, rendered as `/agent` by CLI/headless shells, supports batch `jobs` input for explicit parallel requests through the standard command route:
 
 ```typescript
 {
@@ -249,11 +292,11 @@ The model-visible `Agent` tool supports both the existing single-job shape and a
 }
 ```
 
-When `jobs` is present, the Agent tool starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. This gives the runtime a deterministic path for requests such as "run two agents in parallel" even when the model emits only one tool call.
+When `jobs` is present, `/agent` starts every valid job before waiting for results. The returned JSON includes `success`, `groupId`, `agentIds`, and ordered per-job results. Model routing uses the projected `robota_command_agent` tool with `args: ...` rather than a parallel `Agent` tool route.
 
 ### Tool Filtering
 
-Subagent tool access is resolved in order: denylist (`disallowedTools`) is applied first, then allowlist (`tools`) filters to permitted tools only. The `Agent` tool is always removed from subagent sessions to prevent recursive spawning.
+Subagent tool access is resolved in order: denylist (`disallowedTools`) is applied first, then allowlist (`tools`) filters to permitted tools only. Agent command tooling is not exposed recursively inside subagent sessions.
 
 ### Model Shortcuts
 
@@ -293,9 +336,9 @@ Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}
 
 ## Replay-Grade Session Events
 
-`Session.run()` now forwards core execution events through the session logger. Current events include provider request envelopes, normalized provider responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
+`Session.run()` now forwards core execution events through the session logger. Current events include provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
 
-These events are append-only provenance for debugging and future `/resume` replay. Full deterministic replay still requires raw provider response/chunk storage, payload reference handling, redaction rules, history mutation events, and a replay validator.
+These events are append-only provenance for debugging and future `/resume` replay. Concrete provider packages own exact SDK-native payload selection through `IChatOptions.onProviderNativeRawPayload`; `agent-core` routes the callback without provider branches, and `agent-sessions` validates that provider requests have native raw response or stream payload coverage.
 
 ## Always-Streaming Policy
 
@@ -307,7 +350,7 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 ## Marketplace Client
 
-`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
+`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through the `@robota-sdk/agent-command-plugin` module and its `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
 
 ## Transport Adapters
 

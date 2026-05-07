@@ -5,44 +5,34 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { SessionStore, ISessionRecord } from '@robota-sdk/agent-sessions';
+import type { IResumableSessionSummary } from '@robota-sdk/agent-sdk';
 import ListPicker from './ListPicker.js';
 
 const SESSION_ID_DISPLAY_LENGTH = 8;
+const SESSION_PREVIEW_DISPLAY_LENGTH = 60;
 
 interface IProps {
-  sessionStore?: SessionStore;
-  cwd: string;
+  sessions: readonly IResumableSessionSummary[];
   onSelect: (sessionId: string) => void;
   onCancel: () => void;
 }
 
 export default function SessionPicker({
-  sessionStore,
-  cwd,
+  sessions,
   onSelect,
   onCancel,
 }: IProps): React.ReactElement {
-  const sessions = (sessionStore?.list() ?? []).filter((s) => s.cwd === cwd);
-
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1}>
       <Text bold color="cyan">
         Select a session to resume (ESC to cancel):
       </Text>
-      <ListPicker<ISessionRecord>
-        items={sessions}
-        renderItem={(session: ISessionRecord, isSelected: boolean) => {
-          const lastMsg = session.messages
-            .slice()
-            .reverse()
-            .find((m) => {
-              const msg = m as { role?: string; content?: string };
-              return msg.role === 'assistant' && msg.content;
-            }) as { content?: string } | undefined;
-          const rawPreview = lastMsg?.content?.replace(/[\n\r]+/g, ' ').trim() ?? '';
-          const preview = rawPreview
-            ? rawPreview.slice(0, 60) + (rawPreview.length > 60 ? '...' : '')
+      <ListPicker<IResumableSessionSummary>
+        items={[...sessions]}
+        renderItem={(session: IResumableSessionSummary, isSelected: boolean) => {
+          const preview = session.preview
+            ? session.preview.slice(0, SESSION_PREVIEW_DISPLAY_LENGTH) +
+              (session.preview.length > SESSION_PREVIEW_DISPLAY_LENGTH ? '...' : '')
             : '';
           return (
             <Text>
@@ -58,7 +48,7 @@ export default function SessionPicker({
                 })}
               </Text>
               {'  '}
-              <Text dimColor>msgs: {session.messages.length}</Text>
+              <Text dimColor>msgs: {session.messageCount}</Text>
               {preview ? (
                 <>
                   {'\n    '}
@@ -68,7 +58,7 @@ export default function SessionPicker({
             </Text>
           );
         }}
-        onSelect={(session: ISessionRecord) => onSelect(session.id)}
+        onSelect={(session: IResumableSessionSummary) => onSelect(session.id)}
         onCancel={onCancel}
       />
     </Box>

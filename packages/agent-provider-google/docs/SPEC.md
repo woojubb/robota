@@ -9,6 +9,7 @@ This package is a compatibility wrapper for the canonical `@robota-sdk/agent-pro
 - Does not own Gemini API transport, message conversion, image operations, provider defaults, or provider-definition metadata. Those belong to `agent-provider-gemini`.
 - Does not add CLI, SDK, or provider-name-specific branches.
 - Does not duplicate Gemini implementation code.
+- Does not own native replay payload capture mechanics. It inherits `agent-provider-gemini` behavior and only changes the compatibility provider label to `google`.
 
 ## Architecture Overview
 
@@ -41,6 +42,10 @@ src/
 ## Extension Points
 
 None. New behavior must be added to `agent-provider-gemini`, not this wrapper.
+
+## Native Replay Payload Capture
+
+`GoogleProvider` inherits Gemini native replay payload capture. When `IChatOptions.onProviderNativeRawPayload` is provided, emitted events use `provider: "google"` and the same Google GenAI request/response/stream payload objects documented by `agent-provider-gemini`.
 
 ## Test Strategy
 
