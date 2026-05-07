@@ -39,12 +39,15 @@ description: Runs the standard Robota change loop by identifying impact, buildin
    - targeted lint or typecheck when the change affects contracts or boundaries
 5. If the change affects CLI execution, transports, `InteractiveSession`, commands, model-routed tools, permissions, streaming, provider setup, or session persistence, run or add a headless verification path with structured runtime evidence.
 6. If the change affects execution behavior, examples, or scenarios, run the relevant verification flow.
-7. Stop immediately on strict-policy failures, contract failures, or non-zero verification exits.
-8. Summarize:
-   - what was verified
-   - what failed
-   - what was not verified
-   - any residual risks
+7. Do not repeat an already-passing stronger gate with a weaker duplicate. For example, after a final scoped harness verification or release-grade verification, do not manually re-run the same package checks unless files changed again.
+8. Skip verification for Git operations that publish no repository content, such as deleting a merged remote feature branch.
+9. Stop immediately on strict-policy failures, contract failures, or non-zero verification exits.
+10. Summarize:
+
+- what was verified
+- what failed
+- what was not verified
+- any residual risks
 
 ## Stop Conditions
 
@@ -60,6 +63,7 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 - [ ] Targeted tests or smoke checks are run for changed behavior.
 - [ ] CLI/transport/session behavior includes a headless verification path when applicable.
 - [ ] Scenario or execution verification is run when relevant.
+- [ ] No already-passing gate is repeated without new file changes.
 - [ ] Final summary distinguishes verified vs unverified areas.
 
 ## Focused Examples
@@ -82,6 +86,8 @@ pnpm lint
 
 - Editing package source and skipping the build step.
 - Running the full workspace by habit when the affected scope is narrow and known.
+- Re-running package checks after branch deletion, squash-merge cleanup, or other no-content Git operations.
+- Running `pnpm typecheck`, `pnpm lint`, and `pnpm test` manually immediately before `pnpm harness:pre-push` when the harness will execute the same final scoped checks.
 - Reporting success without saying what was actually verified.
 - Treating documentation reading as equivalent to verification.
 - Treating TUI-only checks as sufficient for behavior also reachable through headless CLI mode.

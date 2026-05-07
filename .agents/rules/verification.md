@@ -21,14 +21,13 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Pre-Push Local Verification Requirement
 
-- **NEVER push without first running CI checks locally.** Remote CI failure after a local-only fix is a preventable waste.
-- Before any `git push`, run locally in order:
-  1. `pnpm run typecheck` — zero type errors required
-  2. `pnpm run lint` — zero lint errors required (warnings allowed)
-  3. `pnpm run test` — all tests must pass
-- If any step fails, fix it locally before pushing.
-- The `.claude/hooks/pre-push-check.sh` hook enforces this automatically for Claude Code tool calls. Running `git push` directly in the terminal bypasses the hook — you are responsible for running the checks manually in that case.
-- This rule exists because repeated CI-only failures waste CI minutes and slow down the feedback loop.
+- **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
+- The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
+- Do not duplicate a stronger gate with a weaker one. If `pnpm harness:verify -- --base-ref <ref> --skip-record-check` or release-grade verification has already passed for the final diff, the pre-push hook may be treated as the final safety net rather than a separate manual command.
+- Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
+- If the hook skips because no repository content is being published, do not run full checks by habit.
+- If any scoped check fails, fix it locally before pushing.
+- This rule exists because both CI-only failures and repeated no-op local verification waste minutes and slow down the feedback loop.
 
 ### Behavioral Verification Before Push
 

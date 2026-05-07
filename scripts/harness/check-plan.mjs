@@ -134,10 +134,25 @@ function addCheck(checks, check) {
   }
 }
 
+function isWorktreePolicyFile(file) {
+  return (
+    file === '.agents/rules/git-branch.md' ||
+    file === '.agents/rules/verification.md' ||
+    file === '.agents/skills/branch-guard/SKILL.md' ||
+    file === '.agents/skills/repo-change-loop/SKILL.md' ||
+    file === 'scripts/harness/pre-push.mjs' ||
+    file === 'scripts/harness/pre-push-updates.mjs'
+  );
+}
+
 function classifyRepositoryChecks(unmappedFiles) {
   const checks = [];
 
   for (const file of unmappedFiles) {
+    if (isWorktreePolicyFile(file)) {
+      addCheck(checks, 'worktree-policy');
+    }
+
     if (file.startsWith('.agents/tasks/')) {
       addCheck(checks, 'task-plan-scan');
     } else if (
