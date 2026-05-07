@@ -4,6 +4,7 @@ import { render, useApp } from 'ink';
 import InteractivePrompt from '../../InteractivePrompt.js';
 import {
   createProviderSetupFlow,
+  formatProviderSetupHelpLinks,
   getProviderSetupStep,
   submitProviderSetupValue,
   validateProviderSetupValue,
@@ -21,6 +22,13 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   {
     type: 'openai',
     defaults: openaiDefaults,
+    setupHelpLinks: [
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+      },
+    ],
     setupSteps: [
       {
         key: 'model',
@@ -96,11 +104,19 @@ function toPrompt(flow: IProviderSetupFlowState): TInteractivePrompt {
   return {
     kind: 'text',
     title: step.title,
+    ...toPromptDescription(flow),
     ...(step.defaultValue !== undefined ? { placeholder: step.defaultValue } : {}),
     ...(step.defaultValue !== undefined ? { allowEmpty: true } : {}),
     ...(step.masked !== undefined ? { masked: step.masked } : {}),
     validate: (value) => validateProviderSetupValue(step, value),
   };
+}
+
+function toPromptDescription(
+  flow: IProviderSetupFlowState,
+): { description: string } | Record<string, never> {
+  const description = formatProviderSetupHelpLinks(flow.setupHelpLinks);
+  return description.length > 0 ? { description } : {};
 }
 
 render(<Driver type={rawType} />);

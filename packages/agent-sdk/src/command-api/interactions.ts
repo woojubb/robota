@@ -11,12 +11,14 @@ export type TCommandInteractionPrompt =
   | {
       kind: 'choice';
       title: string;
+      description?: string;
       options: readonly ICommandChoicePromptOption[];
       maxVisible?: number;
     }
   | {
       kind: 'text';
       title: string;
+      description?: string;
       placeholder?: string;
       allowEmpty?: boolean;
       masked?: boolean;

@@ -71,4 +71,24 @@ describe('provider definition helpers', () => {
     expect(catalog?.status).toBe('live');
     expect(catalog?.entries?.[0]?.id).toBe('gpt-5.1');
   });
+
+  it('allows provider-owned setup help links', () => {
+    const definition: IProviderDefinition = {
+      ...providerDefinition,
+      setupHelpLinks: [
+        {
+          kind: 'api-key',
+          label: 'Gemini API keys',
+          url: 'https://aistudio.google.com/apikey',
+          sourceUrl: 'https://ai.google.dev/gemini-api/docs/api-key',
+          lastVerifiedAt: '2026-05-08',
+        },
+      ],
+    };
+
+    expect(definition.setupHelpLinks?.[0]).toMatchObject({
+      kind: 'api-key',
+      label: 'Gemini API keys',
+    });
+  });
 });

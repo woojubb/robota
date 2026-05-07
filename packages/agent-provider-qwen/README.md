@@ -38,7 +38,7 @@ When `IChatOptions.onProviderNativeRawPayload` is provided, the provider emits e
 
 ## Provider Definition
 
-`createQwenProviderDefinition()` exposes setup metadata so CLI and SDK composition can configure Qwen profiles without adding Qwen-specific branches. The default CLI build can prompt for the DashScope API key, model, and base URL using this provider definition.
+`createQwenProviderDefinition()` exposes setup metadata and official Model Studio API key links so CLI and SDK composition can configure Qwen profiles without adding Qwen-specific branches. The default CLI build can prompt for the DashScope API key, model, and base URL using this provider definition.
 
 CLI settings can pass Qwen-owned options through the generic provider profile `options` bag:
 

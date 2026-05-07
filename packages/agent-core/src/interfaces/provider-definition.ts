@@ -35,9 +35,18 @@ export interface IProviderProbeResult {
 
 export type TProviderCredentialField = 'apiKey';
 export type TProviderSetupField = 'baseURL' | 'model' | TProviderCredentialField;
+export type TProviderSetupHelpLinkKind = 'api-key' | 'console' | 'official';
 
 export interface IProviderCredentialRequirement {
   anyOf: readonly TProviderCredentialField[];
+}
+
+export interface IProviderSetupHelpLink {
+  kind: TProviderSetupHelpLinkKind;
+  label: string;
+  url: string;
+  sourceUrl?: string;
+  lastVerifiedAt?: string;
 }
 
 export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
@@ -93,6 +102,7 @@ export interface IProviderDefinition {
   defaults?: IProviderProfileDefaults;
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
+  setupHelpLinks?: readonly IProviderSetupHelpLink[];
   setupSteps?: readonly IProviderSetupStepDefinition[];
   credentialRequirement?: IProviderCredentialRequirement;
   requiresApiKey?: boolean;

@@ -10,6 +10,7 @@ import {
 
 interface IProps {
   title: string;
+  description?: string;
   placeholder?: string;
   onSubmit: (value: string) => void;
   onCancel: () => void;
@@ -20,6 +21,7 @@ interface IProps {
 
 export default function TextPrompt({
   title,
+  description,
   placeholder,
   onSubmit,
   onCancel,
@@ -45,9 +47,7 @@ export default function TextPrompt({
 
   useInput((input, key) => {
     const action = getTextPromptInputAction(input, key);
-    if (action !== undefined) {
-      applyAction(action);
-    }
+    if (action !== undefined) applyAction(action);
   });
 
   return (
@@ -55,6 +55,7 @@ export default function TextPrompt({
       <Text color="yellow" bold>
         {title}
       </Text>
+      <PromptDescription description={description} />
       <Box marginTop={1}>
         <Text color="cyan">&gt; </Text>
         {state.value ? (
@@ -68,4 +69,12 @@ export default function TextPrompt({
       <Text dimColor> Enter Submit Esc Cancel</Text>
     </Box>
   );
+}
+
+function PromptDescription({ description }: { description?: string }): React.ReactElement | null {
+  if (description === undefined || description.length === 0) {
+    return null;
+  }
+
+  return <Text dimColor>{description}</Text>;
 }
