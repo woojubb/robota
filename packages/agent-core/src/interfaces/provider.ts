@@ -1,4 +1,18 @@
 import type { TUniversalMessage, IToolCall } from './messages';
+import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
+
+export type {
+  IProviderCapabilities,
+  IProviderFunctionCallingCapability,
+  IProviderNativeWebToolCapabilities,
+  IProviderNativeWebToolCapability,
+  IProviderNativeWebToolRequest,
+} from './provider-capabilities';
+export {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+  getProviderCapabilities,
+} from './provider-capabilities';
 
 /**
  * Reusable type definitions for provider layer
@@ -149,6 +163,21 @@ export interface IProviderSpecificOptions {
  */
 export type TTextDeltaCallback = (delta: string) => void;
 
+export type TProviderNativeRawPayloadKind = 'request' | 'response' | 'stream_event';
+
+export type TProviderNativeRawPayload = string | number | boolean | object | null | undefined;
+
+export interface IProviderNativeRawPayloadEvent {
+  provider: string;
+  apiSurface?: string;
+  payloadKind: TProviderNativeRawPayloadKind;
+  payload: TProviderNativeRawPayload;
+  sequence?: number;
+  metadata?: Record<string, TProviderConfigValue>;
+}
+
+export type TProviderNativeRawPayloadCallback = (event: IProviderNativeRawPayloadEvent) => void;
+
 /**
  * Options for AI provider chat requests
  */
@@ -165,8 +194,12 @@ export interface IChatOptions extends IProviderSpecificOptions {
    *  should use streaming internally and call this for each text chunk,
    *  while still returning the complete assembled message. */
   onTextDelta?: TTextDeltaCallback;
+  /** Callback for provider-owned native SDK request/response/stream payload capture. */
+  onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback;
   /** AbortSignal for cancelling the provider call */
   signal?: AbortSignal;
+  /** Provider-native hosted web tools requested for this call */
+  nativeWebTools?: IProviderNativeWebToolRequest;
 }
 
 /**
@@ -217,6 +250,17 @@ export interface IAIProvider {
    * @returns true if tool calling is supported
    */
   supportsTools(): boolean;
+
+  /**
+   * Report provider-neutral capability state.
+   * Providers without native web support can omit this and use default capability helpers.
+   */
+  getCapabilities?(): IProviderCapabilities;
+
+  /**
+   * Optional generic hook for enabling provider-native hosted web behavior.
+   */
+  configureNativeWebTools?(request: IProviderNativeWebToolRequest): IProviderCapabilities;
 
   /**
    * Validate provider configuration

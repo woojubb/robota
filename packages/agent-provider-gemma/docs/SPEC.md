@@ -10,6 +10,7 @@ This package owns Gemma model-family provider behavior for Robota when Gemma mod
 - Does not own generic OpenAI-compatible transport conversion, response parsing, stream assembly, or endpoint probing. Those belong to `agent-provider-openai-compatible`.
 - Does not own OpenAI-branded account semantics or OpenAI defaults. Those belong to `agent-provider-openai`.
 - Does not own session persistence, tool execution, or CLI command routing.
+- Owns provider-native replay payload selection for Gemma OpenAI-compatible Chat Completions calls. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import OpenAI SDK types.
 
 ## Architecture Overview
 
@@ -42,29 +43,31 @@ src/
 
 ## Public API Surface
 
-| Export                            | Kind       | Description                                                               |
-| --------------------------------- | ---------- | ------------------------------------------------------------------------- |
-| `GemmaProvider`                   | class      | Primary provider class; extends `AbstractAIProvider`.                     |
-| `GemmaReasoningProjector`         | class      | Stateful streaming projector for Gemma reasoning-channel markers.         |
-| `GemmaToolCallProjector`          | class      | Stateful projector for documented Gemma/LM Studio native tool-call text.  |
-| `projectGemmaReasoningText`       | function   | Stateless full-text projection helper.                                    |
-| `projectGemmaToolCallText`        | function   | Stateless full-text native tool-call projection helper.                   |
-| `createGemmaProviderDefinition`   | function   | Returns an `IProviderDefinition` for branch-free CLI/runtime composition. |
-| `DEFAULT_GEMMA_PROVIDER_MODEL`    | constant   | Default setup model owned by this package.                                |
-| `DEFAULT_GEMMA_PROVIDER_API_KEY`  | constant   | Default local endpoint API key owned by this package.                     |
-| `DEFAULT_GEMMA_PROVIDER_BASE_URL` | constant   | Default local endpoint base URL owned by this package.                    |
-| `IGemmaProviderOptions`           | interface  | Provider constructor options.                                             |
-| `TGemmaProviderOptionValue`       | type alias | Valid provider option values.                                             |
+| Export                            | Kind       | Description                                                                                                                              |
+| --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GemmaProvider`                   | class      | Primary provider class; extends `AbstractAIProvider`.                                                                                    |
+| `GemmaReasoningProjector`         | class      | Stateful streaming projector for Gemma reasoning-channel markers.                                                                        |
+| `GemmaToolCallProjector`          | class      | Stateful projector for documented Gemma/LM Studio native tool-call text.                                                                 |
+| `projectGemmaReasoningText`       | function   | Stateless full-text projection helper.                                                                                                   |
+| `projectGemmaToolCallText`        | function   | Stateless full-text native tool-call projection helper.                                                                                  |
+| `createGemmaProviderDefinition`   | function   | Returns an `IProviderDefinition` with local setup prompts, official LM Studio setup help links, and branch-free CLI/runtime composition. |
+| `DEFAULT_GEMMA_PROVIDER_MODEL`    | constant   | Default setup model owned by this package.                                                                                               |
+| `DEFAULT_GEMMA_PROVIDER_API_KEY`  | constant   | Default local endpoint API key owned by this package.                                                                                    |
+| `DEFAULT_GEMMA_PROVIDER_BASE_URL` | constant   | Default local endpoint base URL owned by this package.                                                                                   |
+| `IGemmaProviderOptions`           | interface  | Provider constructor options.                                                                                                            |
+| `TGemmaProviderOptionValue`       | type alias | Valid provider option values.                                                                                                            |
 
 ## Extension Points
 
 - Consumers can provide a preconfigured OpenAI SDK `client` for custom endpoint behavior.
 - Consumers can provide `apiKey`, `baseURL`, and `timeout` for local OpenAI-compatible servers.
 - Consumers can provide an executor to delegate provider execution without direct API calls.
-- Consumers such as `agent-cli` can inject `createGemmaProviderDefinition()` alongside other provider definitions. The CLI must not special-case Gemma by type string.
+- Consumers such as `agent-cli` can inject `createGemmaProviderDefinition()` alongside other provider definitions. The CLI must not special-case Gemma by type string or own Gemma/LM Studio setup URLs.
 - `createGemmaProviderDefinition()` reuses the shared OpenAI-compatible endpoint probe instead of owning a Gemma-specific CLI/setup branch.
 - Future Gemma variants can extend projection behavior inside this package without changing generic OpenAI-compatible transport.
 - Native and XML-like execution artifact projection is enabled only when declared tools are present. It validates executable calls against the request's tool names, strips Gemma XML artifact wrappers from user-facing text, and does not add CLI/TUI, command, or domain-tool-specific branches.
+- `GemmaProvider.getCapabilities()` reports Robota function calling support through OpenAI-compatible tools and provider-native web search/fetch as unsupported. LM Studio/Gemma tool-call text projection is not a provider-native hosted web capability. Request-level `IChatOptions.nativeWebTools` must fail before transport execution.
+- When `IChatOptions.onProviderNativeRawPayload` is provided, `GemmaProvider` emits `request`, non-streaming `response`, and ordered streaming `stream_event` payloads from the OpenAI-compatible Chat Completions SDK path before Gemma projection or universal normalization. Session logging owns redaction and payload externalization.
 
 ## Error Taxonomy
 
@@ -73,6 +76,7 @@ src/
 | Missing client, apiKey, and executor | `Either Gemma client, apiKey, or executor is required` | `provider.ts` constructor |
 | Missing model                        | `Model is required in chat options...`                 | `provider.ts`             |
 | Client unavailable                   | `Gemma client not available...`                        | `provider.ts`             |
+| Native web unsupported               | `Provider gemma does not support native web...`        | `provider.ts`             |
 | Chat failure                         | `Gemma chat failed: <message>`                         | `provider.ts`             |
 | Streaming failure                    | `Gemma stream failed: <message>`                       | `provider.ts`             |
 
@@ -82,6 +86,7 @@ src/
 - Unit tests cover `GemmaToolCallProjector` for documented LM Studio/Gemma tool-call blocks, split streamed blocks, declared-tool validation, and malformed block preservation.
 - Unit tests cover XML-like Gemma execution artifacts so declared tool tags and JSON command envelopes are converted to universal tool calls while wrapper tags are removed from visible text.
 - Unit tests cover `GemmaProvider` request construction with OpenAI-compatible base URL, tools, streaming text deltas, and model requirement errors.
+- Unit tests cover Gemma native web capability reporting and unsupported request-level native web errors.
 - Unit tests verify native Gemma tool-call text is converted to universal `toolCalls` before SDK execution sees the response.
 - Unit tests verify Gemma XML-like declared tool text is converted to universal `toolCalls` before SDK execution sees the response.
 - Unit tests verify raw Gemma marker text is not emitted through `onTextDelta` or final assistant content when the Gemma provider is selected.

@@ -33,7 +33,58 @@ export interface IProviderProbeResult {
   models?: string[];
 }
 
-export type TProviderSetupField = 'baseURL' | 'model' | 'apiKey';
+export type TProviderCredentialField = 'apiKey';
+export type TProviderSetupField = 'baseURL' | 'model' | TProviderCredentialField;
+export type TProviderSetupHelpLinkKind = 'api-key' | 'console' | 'official';
+
+export interface IProviderCredentialRequirement {
+  anyOf: readonly TProviderCredentialField[];
+}
+
+export interface IProviderSetupHelpLink {
+  kind: TProviderSetupHelpLinkKind;
+  label: string;
+  url: string;
+  sourceUrl?: string;
+  lastVerifiedAt?: string;
+}
+
+export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
+export type TProviderModelLifecycle = 'active' | 'preview' | 'deprecated' | 'unavailable';
+export type TProviderModelCapability =
+  | 'tools'
+  | 'vision'
+  | 'json_schema'
+  | 'reasoning'
+  | 'native_web'
+  | 'streaming';
+
+export interface IProviderModelCatalogEntry {
+  id: string;
+  displayName: string;
+  aliases?: readonly string[];
+  contextWindow?: number;
+  capabilities?: readonly TProviderModelCapability[];
+  lifecycle?: TProviderModelLifecycle;
+  lastVerifiedAt?: string;
+  sourceUrl?: string;
+}
+
+export interface IProviderModelCatalog {
+  status: TProviderModelCatalogStatus;
+  entries?: readonly IProviderModelCatalogEntry[];
+  lastVerifiedAt?: string;
+  sourceUrl?: string;
+  message?: string;
+}
+
+export interface IProviderModelCatalogRefreshOptions {
+  profile: IProviderProfileConfig;
+}
+
+export type TProviderModelCatalogRefresh = (
+  options: IProviderModelCatalogRefreshOptions,
+) => Promise<IProviderModelCatalog>;
 
 export interface IProviderSetupStepDefinition {
   key: TProviderSetupField;
@@ -49,7 +100,11 @@ export interface IProviderDefinition {
   displayName?: string;
   description?: string;
   defaults?: IProviderProfileDefaults;
+  modelCatalog?: IProviderModelCatalog;
+  refreshModelCatalog?: TProviderModelCatalogRefresh;
+  setupHelpLinks?: readonly IProviderSetupHelpLink[];
   setupSteps?: readonly IProviderSetupStepDefinition[];
+  credentialRequirement?: IProviderCredentialRequirement;
   requiresApiKey?: boolean;
   createProvider: (config: IProviderConfig) => IAIProvider;
   probeProfile?: (profile: IProviderProfileConfig) => Promise<IProviderProbeResult>;
@@ -74,4 +129,16 @@ export function formatSupportedProviderTypes(definitions: readonly IProviderDefi
       return `${definition.type} (${aliasLabel}: ${definition.aliases.join(', ')})`;
     })
     .join(', ');
+}
+
+export function getProviderCredentialRequirement(
+  definition: IProviderDefinition | undefined,
+): IProviderCredentialRequirement | undefined {
+  if (definition?.credentialRequirement !== undefined) {
+    return definition.credentialRequirement;
+  }
+  if (definition?.requiresApiKey === true) {
+    return { anyOf: ['apiKey'] };
+  }
+  return undefined;
 }

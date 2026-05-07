@@ -5,6 +5,7 @@ import type {
   IToolSchema,
   IExecutor,
   IAssistantMessage,
+  IProviderNativeRawPayloadEvent,
 } from '@robota-sdk/agent-core';
 
 // Mock the @anthropic-ai/sdk module
@@ -217,6 +218,34 @@ describe('AnthropicProvider', () => {
     });
   });
 
+  describe('capabilities', () => {
+    it('reports server web search support and generic configuration', () => {
+      const provider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+      });
+
+      expect(provider.getCapabilities().nativeWebTools.webSearch).toEqual({
+        supported: true,
+        enabled: false,
+        source: 'anthropic-messages',
+        reason: 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.',
+      });
+
+      provider.configureNativeWebTools({ webSearch: true });
+
+      expect(provider.enableWebTools).toBe(true);
+      expect(provider.getCapabilities().nativeWebTools).toEqual({
+        webSearch: { supported: true, enabled: true, source: 'anthropic-messages' },
+        webFetch: {
+          supported: false,
+          enabled: false,
+          source: 'anthropic-messages',
+          reason: 'Anthropic provider exposes server web search only.',
+        },
+      });
+    });
+  });
+
   // ── dispose ──────────────────────────────────────────────────
 
   describe('dispose', () => {
@@ -311,6 +340,46 @@ describe('AnthropicProvider', () => {
       expect(result.metadata).toBeDefined();
       expect(result.metadata?.inputTokens).toBe(10);
       expect(result.metadata?.outputTokens).toBe(20);
+    });
+
+    it('emits native Anthropic request and ordered stream event payloads', async () => {
+      const apiResponse = makeTextResponse('Hello there!');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+      const events: IProviderNativeRawPayloadEvent[] = [];
+
+      await provider.chat(
+        [
+          {
+            id: 'msg-1',
+            state: 'complete' as const,
+            role: 'user',
+            content: 'Hi',
+            timestamp: new Date(),
+          },
+        ],
+        {
+          model: 'claude-3-opus-20240229',
+          onProviderNativeRawPayload: (event) => events.push(event),
+        },
+      );
+
+      expect(events[0]).toEqual(
+        expect.objectContaining({
+          provider: 'anthropic',
+          apiSurface: 'anthropic-messages',
+          payloadKind: 'request',
+          payload: expect.objectContaining({ model: 'claude-3-opus-20240229', stream: true }),
+        }),
+      );
+      expect(events.slice(1).map((event) => event.payloadKind)).toEqual([
+        'stream_event',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+        'stream_event',
+      ]);
+      expect(events.slice(1).map((event) => event.sequence)).toEqual([0, 1, 2, 3, 4, 5]);
     });
 
     it('should use model maxOutput when maxTokens is not specified', async () => {
@@ -882,6 +951,39 @@ describe('AnthropicProvider', () => {
           stream: true,
           temperature: 0.7,
           tools: expect.arrayContaining([expect.objectContaining({ name: 'search' })]),
+        }),
+      );
+    });
+
+    it('should include enabled server web search in stream request', async () => {
+      const asyncChunks = (async function* () {
+        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
+      })();
+      mockClient.messages.create.mockResolvedValue(asyncChunks);
+      provider.configureNativeWebTools({ webSearch: true });
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Search current docs',
+          timestamp: new Date(),
+        },
+      ];
+
+      for await (const _chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+        nativeWebTools: { webSearch: true },
+      })) {
+        // just consume
+      }
+
+      expect(mockClient.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tools: expect.arrayContaining([
+            expect.objectContaining({ name: 'web_search', type: 'web_search_20250305' }),
+          ]),
         }),
       );
     });

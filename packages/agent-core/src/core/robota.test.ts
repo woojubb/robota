@@ -226,6 +226,122 @@ describe('Robota Core', () => {
       expect(userMessages[0].content).toBe('First');
       expect(userMessages[1].content).toBe('Second');
     });
+
+    it('should emit replay-grade provider and history mutation events', async () => {
+      const provider = new TrackingProvider();
+      const config = createConfig({ aiProviders: [provider] });
+      const robota = new Robota(config);
+      const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+      await robota.run('Replay this', {
+        onExecutionEvent: (event, data) => {
+          events.push({ event, data });
+        },
+      });
+
+      expect(events.map((entry) => entry.event)).toEqual(
+        expect.arrayContaining([
+          'provider_request',
+          'provider_response_raw',
+          'provider_response_normalized',
+          'assistant_message_committed',
+          'history_mutation',
+        ]),
+      );
+
+      const rawEvent = events.find((entry) => entry.event === 'provider_response_raw');
+      expect(rawEvent?.data).toEqual(
+        expect.objectContaining({
+          executionId: expect.any(String),
+          round: 1,
+          response: expect.objectContaining({ role: 'assistant' }),
+        }),
+      );
+
+      const mutations = events.filter((entry) => entry.event === 'history_mutation');
+      expect(mutations.map((entry) => entry.data)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            mutation: 'append_message',
+            message: expect.objectContaining({ role: 'user', content: 'Replay this' }),
+          }),
+          expect.objectContaining({
+            mutation: 'append_message',
+            message: expect.objectContaining({ role: 'assistant' }),
+          }),
+        ]),
+      );
+    });
+
+    it('should route provider-native raw payload callbacks into execution events', async () => {
+      class NativePayloadProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          options?.onProviderNativeRawPayload?.({
+            provider: this.name,
+            apiSurface: 'test-surface',
+            payloadKind: 'response',
+            payload: { id: 'native-response-1', choices: [{ index: 0 }] },
+          });
+          return super.chat(messages, options);
+        }
+      }
+
+      const provider = new NativePayloadProvider();
+      const config = createConfig({ aiProviders: [provider] });
+      const robota = new Robota(config);
+      const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+      await robota.run('Native replay', {
+        onExecutionEvent: (event, data) => {
+          events.push({ event, data });
+        },
+      });
+
+      const nativeEvent = events.find((entry) => entry.event === 'provider_native_raw_payload');
+      expect(nativeEvent?.data).toEqual(
+        expect.objectContaining({
+          executionId: expect.any(String),
+          round: 1,
+          provider: 'tracking-provider',
+          apiSurface: 'test-surface',
+          payloadKind: 'response',
+          sequence: 0,
+          payload: { id: 'native-response-1', choices: [{ index: 0 }] },
+        }),
+      );
+    });
+
+    it('should emit provider stream raw delta events when provider text deltas arrive', async () => {
+      class DeltaProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          options?.onTextDelta?.('alpha');
+          options?.onTextDelta?.('beta');
+          return super.chat(messages, options);
+        }
+      }
+
+      const provider = new DeltaProvider();
+      const config = createConfig({ aiProviders: [provider] });
+      const robota = new Robota(config);
+      const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+      await robota.run('Stream replay', {
+        onTextDelta: vi.fn(),
+        onExecutionEvent: (event, data) => {
+          events.push({ event, data });
+        },
+      });
+
+      const streamDeltas = events.filter((entry) => entry.event === 'provider_stream_raw_delta');
+      expect(streamDeltas.map((entry) => entry.data.delta)).toEqual(['alpha', 'beta']);
+      expect(streamDeltas.map((entry) => entry.data.sequence)).toEqual([0, 1]);
+    });
   });
 
   // ----------------------------------------------------------------

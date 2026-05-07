@@ -2,7 +2,13 @@
 export * from './types';
 
 // Re-export specific types to avoid conflicts
-export type { IAgentConfig, IAgentTemplate, IRunOptions } from './agent';
+export type {
+  IAgentConfig,
+  IAgentTemplate,
+  IRunOptions,
+  TExecutionEventCallback,
+  TExecutionEventData,
+} from './agent';
 
 // Message contracts (single source of truth)
 export type {
@@ -30,7 +36,16 @@ export type {
   TJSONSchemaEnum,
   TParameterDefaultValue,
   IChatOptions,
+  IProviderCapabilities,
+  IProviderFunctionCallingCapability,
+  IProviderNativeWebToolCapabilities,
+  IProviderNativeWebToolCapability,
+  IProviderNativeWebToolRequest,
+  IProviderNativeRawPayloadEvent,
   TTextDeltaCallback,
+  TProviderNativeRawPayload,
+  TProviderNativeRawPayloadCallback,
+  TProviderNativeRawPayloadKind,
   IProviderOptions,
   IProviderRequest,
   IRawProviderResponse,
@@ -39,17 +54,37 @@ export type {
   TProviderConfigValue,
   TProviderOptionValueBase,
 } from './provider';
+export {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+  getProviderCapabilities,
+} from './provider-capabilities';
 
 export type {
   IProviderConfig,
+  IProviderCredentialRequirement,
   IProviderDefinition,
+  IProviderModelCatalog,
+  IProviderModelCatalogEntry,
+  IProviderModelCatalogRefreshOptions,
   IProviderProbeResult,
   IProviderProfileConfig,
   IProviderProfileDefaults,
+  IProviderSetupHelpLink,
   IProviderSetupStepDefinition,
+  TProviderCredentialField,
+  TProviderModelCapability,
+  TProviderModelCatalogStatus,
+  TProviderModelCatalogRefresh,
+  TProviderModelLifecycle,
   TProviderSetupField,
+  TProviderSetupHelpLinkKind,
 } from './provider-definition';
-export { findProviderDefinition, formatSupportedProviderTypes } from './provider-definition';
+export {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+} from './provider-definition';
 
 export type {
   IMediaOutputRef,

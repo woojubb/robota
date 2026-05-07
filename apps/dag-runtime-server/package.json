@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-runtime-server",
-  "version": "3.0.1-beta.15",
+  "version": "3.0.1-beta.16",
   "description": "DAG Runtime Server - ComfyUI-compatible Prompt API execution server",
   "private": true,
   "type": "module",
@@ -33,6 +33,8 @@
     "@robota-sdk/dag-node-text-output": "workspace:*",
     "@robota-sdk/dag-node-text-template": "workspace:*",
     "@robota-sdk/dag-node-transform": "workspace:*",
+    "@robota-sdk/dag-runtime": "workspace:*",
+    "@robota-sdk/dag-worker": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

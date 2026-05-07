@@ -41,6 +41,15 @@ describe('createQwenProviderDefinition', () => {
       apiKey: DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE,
       baseURL: DEFAULT_QWEN_PROVIDER_BASE_URL,
     });
+    expect(definition.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'Alibaba Cloud Model Studio API keys',
+        url: 'https://modelstudio.console.alibabacloud.com/?tab=api#/api-key',
+        sourceUrl: 'https://www.alibabacloud.com/help/en/model-studio/get-api-key',
+        lastVerifiedAt: '2026-05-08',
+      },
+    ]);
     expect(DEFAULT_QWEN_PROVIDER_API_KEY_ENV).toBe('DASHSCOPE_API_KEY');
     expect(QWEN_PROVIDER_BASE_URLS).toMatchObject({
       singapore: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',

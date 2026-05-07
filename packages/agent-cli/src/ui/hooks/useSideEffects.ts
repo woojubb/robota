@@ -1,26 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { createSystemMessage, messageToHistoryEntry, getModelName } from '@robota-sdk/agent-core';
+import type {
+  ICommandInteraction,
+  ICommandResult,
+  InteractiveSession,
+} from '@robota-sdk/agent-sdk';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
-import {
-  getUserSettingsPath,
-  updateModelInSettings,
-  deleteSettings,
-  readSettings,
-  writeSettings,
-} from '../../utils/settings-io.js';
-import {
-  applyProviderConfiguration,
-  applyProviderSwitch,
-} from '../../utils/provider-configuration.js';
-import { readMergedProviderSettings } from '../../utils/provider-factory.js';
-import {
-  startProviderSetupInteraction,
-  submitProviderSetupInteractionValue,
-  type TProviderSetupInteractionState,
-} from '../../utils/provider-setup-interaction.js';
-import type { IProviderSetupInput } from '../../utils/provider-settings.js';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
 import type {
   ISideEffects,
@@ -28,28 +14,33 @@ import type {
   IUseSideEffectsResult,
 } from './side-effects-types.js';
 import { applyPendingStatusLinePatch } from './statusline-side-effect.js';
+import { applyCommandEffects } from './command-effect-handler.js';
+import {
+  addModelChangeCancelledMessage,
+  applyConfirmedModelChange,
+} from './model-change-side-effect.js';
 
 const EXIT_DELAY_MS = 500;
 
 export function useSideEffects({
   cwd,
+  providerOverride,
   interactiveSession,
+  commandEffectQueue,
   addEntry,
   baseHandleSubmit,
   setSessionName,
   setStatusLineSettings,
-  providerDefinitions,
+  showSessionPickerOnStart,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
   const pendingModelChangeRef = useRef<string | null>(null);
-  const [pendingProviderProfile, setPendingProviderProfile] = useState<string | null>(null);
-  const pendingProviderProfileRef = useRef<string | null>(null);
   const [pendingInteractionPrompt, setPendingInteractionPrompt] =
     useState<TInteractivePrompt | null>(null);
-  const providerSetupInteractionRef = useRef<TProviderSetupInteractionState | null>(null);
+  const commandInteractionRef = useRef<ICommandInteraction | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
-  const [showSessionPicker, setShowSessionPicker] = useState(false);
+  const [showSessionPicker, setShowSessionPicker] = useState(showSessionPickerOnStart ?? false);
 
   const requestShutdown = useCallback(
     (reason: TSessionEndReason, message: string): void => {
@@ -61,11 +52,68 @@ export function useSideEffects({
     [interactiveSession, addEntry, exit],
   );
 
+  const applyEffects = useCallback(
+    (effects: Parameters<typeof applyCommandEffects>[0], sideEffects: ISideEffects): boolean =>
+      applyCommandEffects(effects, sideEffects, {
+        addEntry,
+        requestShutdown,
+        requestModelChange: (modelId) => {
+          pendingModelChangeRef.current = modelId;
+          setPendingModelId(modelId);
+        },
+        openPluginTUI: () => setShowPluginTUI(true),
+        openSessionPicker: () => setShowSessionPicker(true),
+        renameSession: (name) => {
+          interactiveSession.setName(name);
+          setSessionName(name);
+        },
+        applyStatusLinePatch: () => applyPendingStatusLinePatch(sideEffects, setStatusLineSettings),
+      }),
+    [addEntry, interactiveSession, requestShutdown, setSessionName, setStatusLineSettings],
+  );
+
+  const applyCommandResult = useCallback(
+    (result: ICommandResult): void => {
+      if (result.message.length > 0) {
+        addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
+      }
+      if (result.interaction !== undefined) {
+        commandInteractionRef.current = result.interaction;
+        setPendingInteractionPrompt(result.interaction.prompt);
+        return;
+      }
+      commandInteractionRef.current = null;
+      setPendingInteractionPrompt(null);
+      if (result.effects !== undefined && result.effects.length > 0) {
+        applyEffects(result.effects, getHostSideEffects(interactiveSession));
+      }
+    },
+    [addEntry, applyEffects, interactiveSession],
+  );
+
+  const applyQueuedCommandState = useCallback(
+    (sideEffects: ISideEffects): boolean => {
+      const queued = commandEffectQueue.drain();
+      if (queued === undefined) {
+        return false;
+      }
+      if (queued.type === 'interaction') {
+        const { interaction } = queued;
+        commandInteractionRef.current = interaction;
+        setPendingInteractionPrompt(interaction.prompt);
+        return true;
+      }
+      return applyEffects(queued.effects, sideEffects);
+    },
+    [applyEffects, commandEffectQueue],
+  );
+
   const handleSubmit = useCallback(
     async (input: string): Promise<void> => {
       await baseHandleSubmit(input);
 
-      const sideEffects = interactiveSession as InteractiveSession & ISideEffects;
+      const sideEffects = getHostSideEffects(interactiveSession);
+      if (applyQueuedCommandState(sideEffects)) return;
 
       if (sideEffects._pendingModelId) {
         const modelId = sideEffects._pendingModelId as string;
@@ -75,76 +123,28 @@ export function useSideEffects({
         return;
       }
 
-      if (sideEffects._pendingLanguage) {
-        const lang = sideEffects._pendingLanguage as string;
-        delete sideEffects._pendingLanguage;
-        const settingsPath = getUserSettingsPath();
-        const settings = readSettings(settingsPath);
-        settings.language = lang;
-        writeSettings(settingsPath, settings);
-        addEntry(
-          messageToHistoryEntry(createSystemMessage(`Language set to "${lang}". Restarting...`)),
-        );
-        requestShutdown('other', 'Language change restart');
-        return;
-      }
-
-      if (sideEffects._pendingProviderProfile) {
-        const profile = sideEffects._pendingProviderProfile as string;
-        delete sideEffects._pendingProviderProfile;
-        pendingProviderProfileRef.current = profile;
-        setPendingProviderProfile(profile);
-        return;
-      }
-
-      if (sideEffects._pendingProviderSetup !== undefined) {
-        const setup = sideEffects._pendingProviderSetup;
-        delete sideEffects._pendingProviderSetup;
-        const result = startProviderSetupInteraction(providerDefinitions, setup.type);
-        if (result.status === 'prompt') {
-          providerSetupInteractionRef.current = result.state;
-          setPendingInteractionPrompt(result.prompt);
-        }
-        return;
-      }
-
       if (sideEffects._resetRequested) {
         delete sideEffects._resetRequested;
-        const settingsPath = getUserSettingsPath();
-        if (deleteSettings(settingsPath)) {
-          addEntry(
-            messageToHistoryEntry(createSystemMessage(`Deleted ${settingsPath}. Exiting...`)),
-          );
-        } else {
-          addEntry(messageToHistoryEntry(createSystemMessage('No user settings found.')));
-        }
-        requestShutdown('other', 'Reset settings restart');
+        applyEffects([{ type: 'settings-reset-requested' }], sideEffects);
         return;
       }
 
       if (sideEffects._exitRequested) {
         delete sideEffects._exitRequested;
-        requestShutdown('prompt_input_exit', 'User requested exit');
-        return;
-      }
-
-      if (sideEffects._triggerPluginTUI) {
-        delete sideEffects._triggerPluginTUI;
-        setShowPluginTUI(true);
+        applyEffects([{ type: 'session-exit-requested' }], sideEffects);
         return;
       }
 
       if (sideEffects._triggerResumePicker) {
         delete sideEffects._triggerResumePicker;
-        setShowSessionPicker(true);
+        applyEffects([{ type: 'session-picker-requested' }], sideEffects);
         return;
       }
 
       if (sideEffects._sessionName) {
         const name = sideEffects._sessionName as string;
         delete sideEffects._sessionName;
-        interactiveSession.setName(name);
-        setSessionName(name);
+        applyEffects([{ type: 'session-renamed', name }], sideEffects);
         return;
       }
 
@@ -153,11 +153,9 @@ export function useSideEffects({
     [
       interactiveSession,
       baseHandleSubmit,
-      addEntry,
-      requestShutdown,
-      setSessionName,
+      applyQueuedCommandState,
+      applyEffects,
       setStatusLineSettings,
-      providerDefinitions,
     ],
   );
 
@@ -167,101 +165,32 @@ export function useSideEffects({
       setPendingModelId(null);
       pendingModelChangeRef.current = null;
       if (index === 0 && modelId) {
-        try {
-          const settingsPath = getUserSettingsPath();
-          updateModelInSettings(settingsPath, modelId);
-          addEntry(
-            messageToHistoryEntry(
-              createSystemMessage(`Model changed to ${getModelName(modelId)}. Restarting...`),
-            ),
-          );
-          requestShutdown('other', 'Model change restart');
-        } catch (err) {
-          addEntry(
-            messageToHistoryEntry(
-              createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
-            ),
-          );
-        }
+        applyConfirmedModelChange({
+          cwd,
+          modelId,
+          providerOverride,
+          addEntry,
+          requestShutdown,
+        });
       } else {
-        addEntry(messageToHistoryEntry(createSystemMessage('Model change cancelled.')));
+        addModelChangeCancelledMessage(addEntry);
       }
     },
-    [addEntry, requestShutdown],
-  );
-
-  const handleProviderConfirm = useCallback(
-    (index: number) => {
-      const profile = pendingProviderProfileRef.current;
-      setPendingProviderProfile(null);
-      pendingProviderProfileRef.current = null;
-      if (index === 0 && profile) {
-        try {
-          const settingsPath = getUserSettingsPath();
-          applyProviderSwitch(settingsPath, profile, {
-            knownProviders: readMergedProviderSettings(cwd).providers,
-          });
-          addEntry(
-            messageToHistoryEntry(
-              createSystemMessage(`Provider changed to ${profile}. Restarting...`),
-            ),
-          );
-          requestShutdown('other', 'Provider change restart');
-        } catch (err) {
-          addEntry(
-            messageToHistoryEntry(
-              createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
-            ),
-          );
-        }
-      } else {
-        addEntry(messageToHistoryEntry(createSystemMessage('Provider change cancelled.')));
-      }
-    },
-    [cwd, addEntry, requestShutdown],
-  );
-
-  const completeProviderSetup = useCallback(
-    (input: IProviderSetupInput): void => {
-      providerSetupInteractionRef.current = null;
-      setPendingInteractionPrompt(null);
-      try {
-        const settingsPath = getUserSettingsPath();
-        applyProviderConfiguration(settingsPath, input, { providerDefinitions });
-        addEntry(
-          messageToHistoryEntry(
-            createSystemMessage(`Provider ${input.profile} configured. Restarting...`),
-          ),
-        );
-        requestShutdown('other', 'Provider setup restart');
-      } catch (err) {
-        addEntry(
-          messageToHistoryEntry(
-            createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
-          ),
-        );
-      }
-    },
-    [addEntry, requestShutdown, providerDefinitions],
+    [cwd, providerOverride, addEntry, requestShutdown],
   );
 
   const handleInteractionSubmit = useCallback(
-    (value: string) => {
-      const state = providerSetupInteractionRef.current;
-      if (state === null) {
+    async (value: string): Promise<void> => {
+      const interaction = commandInteractionRef.current;
+      if (interaction === null) {
         setPendingInteractionPrompt(null);
         return;
       }
       try {
-        const result = submitProviderSetupInteractionValue(state, value);
-        if (result.status === 'complete') {
-          completeProviderSetup(result.input);
-          return;
-        }
-        providerSetupInteractionRef.current = result.state;
-        setPendingInteractionPrompt(result.prompt);
+        const result = await interaction.submit(value);
+        applyCommandResult(result);
       } catch (err) {
-        providerSetupInteractionRef.current = null;
+        commandInteractionRef.current = null;
         setPendingInteractionPrompt(null);
         addEntry(
           messageToHistoryEntry(
@@ -270,19 +199,31 @@ export function useSideEffects({
         );
       }
     },
-    [addEntry, completeProviderSetup],
+    [addEntry, applyCommandResult],
   );
 
   const handleInteractionCancel = useCallback(() => {
-    providerSetupInteractionRef.current = null;
+    const interaction = commandInteractionRef.current;
+    commandInteractionRef.current = null;
     setPendingInteractionPrompt(null);
-    addEntry(messageToHistoryEntry(createSystemMessage('Provider setup cancelled.')));
-  }, [addEntry]);
+    if (interaction?.cancel === undefined) {
+      addEntry(messageToHistoryEntry(createSystemMessage('Command interaction cancelled.')));
+      return;
+    }
+    Promise.resolve(interaction.cancel())
+      .then((result) => applyCommandResult(result))
+      .catch((err) => {
+        addEntry(
+          messageToHistoryEntry(
+            createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
+          ),
+        );
+      });
+  }, [addEntry, applyCommandResult]);
 
   return {
     handleSubmit,
     pendingModelId,
-    pendingProviderProfile,
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
@@ -290,8 +231,11 @@ export function useSideEffects({
     setShowPluginTUI,
     setShowSessionPicker,
     handleModelConfirm,
-    handleProviderConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
   };
+}
+
+function getHostSideEffects(interactiveSession: InteractiveSession): ISideEffects {
+  return interactiveSession as unknown as ISideEffects;
 }

@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
+import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
@@ -32,8 +33,32 @@ type TBashArgs = z.infer<typeof BashSchema>;
  * Run a shell command and return stdout + stderr.
  * Resolves with the TToolResult JSON string.
  */
-async function runBash(args: TBashArgs): Promise<string> {
+async function runBash(args: TBashArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { command, timeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
+  if (options.sandboxClient) {
+    try {
+      const sandboxResult = await options.sandboxClient.run(command, {
+        timeoutMs: timeout,
+        workingDirectory,
+      });
+      const output = sandboxResult.stderr
+        ? `${sandboxResult.stdout}\nstderr:\n${sandboxResult.stderr}`
+        : sandboxResult.stdout;
+      const result: TToolResult = {
+        success: true,
+        output,
+        exitCode: sandboxResult.exitCode,
+      };
+      return JSON.stringify(result);
+    } catch (err) {
+      const result: TToolResult = {
+        success: false,
+        output: '',
+        error: err instanceof Error ? err.message : String(err),
+      };
+      return JSON.stringify(result);
+    }
+  }
 
   return new Promise<string>((resolve) => {
     const stdoutChunks: Buffer[] = [];
@@ -110,14 +135,21 @@ async function runBash(args: TBashArgs): Promise<string> {
 }
 
 /**
+ * Create a BashTool instance — register with Robota agent tools registry.
+ */
+export function createBashTool(options: ISandboxToolOptions = {}) {
+  return createZodFunctionTool(
+    'Bash',
+    'Executes a given bash command and returns its output.\n\nThe working directory persists between commands, but shell state does not.\n\nIMPORTANT: Avoid using this tool to run `find`, `grep`, `cat`, `head`, `tail`, `sed`, `awk`, or `echo` commands. Instead, use the appropriate dedicated tool:\n - File search: Use Glob (NOT find or ls)\n - Content search: Use Grep (NOT grep or rg)\n - Read files: Use Read (NOT cat/head/tail)\n - Edit files: Use Edit (NOT sed/awk)\n\nFor simple commands, keep the description brief (5-10 words). For complex commands, include enough context to clarify what the command does.\n\nOutput is limited to 30,000 characters. Longer output will be middle-truncated.',
+    BashSchema as unknown as IZodSchema,
+    async (params) => {
+      // createZodFunctionTool passes validated params; cast is safe
+      return runBash(params as TBashArgs, options);
+    },
+  );
+}
+
+/**
  * BashTool instance — register with Robota agent tools registry.
  */
-export const bashTool = createZodFunctionTool(
-  'Bash',
-  'Executes a given bash command and returns its output.\n\nThe working directory persists between commands, but shell state does not.\n\nIMPORTANT: Avoid using this tool to run `find`, `grep`, `cat`, `head`, `tail`, `sed`, `awk`, or `echo` commands. Instead, use the appropriate dedicated tool:\n - File search: Use Glob (NOT find or ls)\n - Content search: Use Grep (NOT grep or rg)\n - Read files: Use Read (NOT cat/head/tail)\n - Edit files: Use Edit (NOT sed/awk)\n\nFor simple commands, keep the description brief (5-10 words). For complex commands, include enough context to clarify what the command does.\n\nOutput is limited to 30,000 characters. Longer output will be middle-truncated.',
-  BashSchema as unknown as IZodSchema,
-  async (params) => {
-    // createZodFunctionTool passes validated params; cast is safe
-    return runBash(params as TBashArgs);
-  },
-);
+export const bashTool = createBashTool();

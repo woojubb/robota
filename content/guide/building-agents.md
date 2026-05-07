@@ -78,8 +78,11 @@ import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 
 const provider = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY,
+  defaultModel: 'gemini-3-flash-preview',
 });
 ```
+
+Gemini system prompts are sent as Gemini `systemInstruction`. The provider also supports structured output through `responseSchema` or `responseJsonSchema`, provider-level `safetySettings`, and `thinkingConfig`.
 
 ### Gemma
 
@@ -95,6 +98,8 @@ const provider = new GemmaProvider({
 
 Use the Gemma provider for Gemma-family local models served through LM Studio or another OpenAI-compatible endpoint. It owns Gemma-specific reasoning marker filtering and native tool-call text projection.
 
+LM Studio and other OpenAI-compatible Chat Completions endpoints support Robota local tools through normal function calling. They are not treated as provider-native web search/fetch providers, so configure web access with local `WebSearch`/`WebFetch` tools unless a concrete provider package documents hosted web support.
+
 ### Qwen
 
 ```typescript
@@ -108,12 +113,34 @@ const provider = new QwenProvider({
 
 Qwen can also enable provider-side hosted web search and extraction through `builtInWebTools`; those tools are separate from Robota local tools and do not bypass local permission checks.
 
+### DeepSeek
+
+```typescript
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
+
+const provider = new DeepSeekProvider({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  defaultModel: 'deepseek-v4-flash',
+});
+```
+
+DeepSeek uses the documented OpenAI-compatible API at `https://api.deepseek.com`. Provider-owned
+profile options can enable thinking controls such as `thinking: 'enabled'` and
+`reasoningEffort: 'high'`.
+
 ### Switching Providers
 
 ```typescript
 const agent = new Robota({
   name: 'FlexAgent',
-  aiProviders: [anthropicProvider, openaiProvider, geminiProvider, gemmaProvider, qwenProvider],
+  aiProviders: [
+    anthropicProvider,
+    openaiProvider,
+    geminiProvider,
+    gemmaProvider,
+    qwenProvider,
+    deepSeekProvider,
+  ],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 });
 

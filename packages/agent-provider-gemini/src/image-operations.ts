@@ -5,7 +5,10 @@ import type {
   IImageEditRequest,
   IImageComposeRequest,
   TProviderMediaResult,
+  IChatOptions,
 } from '@robota-sdk/agent-core';
+import type { GenerateContentParameters } from '@google/genai';
+import type { IGeminiProviderOptions } from './types';
 
 /** Checks whether the given parts contain an image part. */
 export function hasImagePart(parts: TUniversalMessagePart[] | undefined): boolean {
@@ -142,43 +145,117 @@ export function isImageCapableModel(
 /** Builds the Gemini generation config including response modalities. */
 export function buildGenerationConfig(
   messages: TUniversalMessage[],
-  defaultModalities: Array<'TEXT' | 'IMAGE'> | undefined,
-  imageCapableModels: string[] | undefined,
-  options?: {
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    google?: { responseModalities?: Array<'TEXT' | 'IMAGE'> };
-  },
-): {
-  temperature?: number;
-  maxOutputTokens?: number;
-  responseModalities?: Array<'TEXT' | 'IMAGE'>;
-} {
+  providerOptions: IGeminiProviderOptions,
+  options?: IChatOptions,
+): NonNullable<GenerateContentParameters['config']> {
+  assertCompatibleStructuredOutputOptions(providerOptions);
   const responseModalities = buildResponseModalities(
     messages,
-    defaultModalities,
+    providerOptions.defaultResponseModalities,
     options?.google?.responseModalities,
   );
-  if (
-    options?.model &&
-    responseModalities.includes('IMAGE') &&
-    !isImageCapableModel(options.model, imageCapableModels)
-  ) {
-    throw new Error(
-      `Selected model "${options.model}" is not configured as image-capable for Google provider.`,
-    );
+  validateImageCapableModel(options?.model, responseModalities, providerOptions);
+  const config: NonNullable<GenerateContentParameters['config']> = { responseModalities };
+  applyChatOptions(config, options);
+  applySafetySettings(config, providerOptions, options);
+  applyStructuredOutputOptions(config, providerOptions);
+  applyProviderGenerationOptions(config, providerOptions);
+  return config;
+}
+
+function validateImageCapableModel(
+  model: string | undefined,
+  responseModalities: Array<'TEXT' | 'IMAGE'>,
+  providerOptions: IGeminiProviderOptions,
+): void {
+  if (!model || !responseModalities.includes('IMAGE')) {
+    return;
   }
-  const config: {
-    temperature?: number;
-    maxOutputTokens?: number;
-    responseModalities?: Array<'TEXT' | 'IMAGE'>;
-  } = { responseModalities };
+  if (isImageCapableModel(model, providerOptions.imageCapableModels)) {
+    return;
+  }
+  throw new Error(
+    `Selected model "${model}" is not configured as image-capable for Google provider.`,
+  );
+}
+
+function applyChatOptions(
+  config: NonNullable<GenerateContentParameters['config']>,
+  options?: IChatOptions,
+): void {
   if (typeof options?.temperature === 'number') {
     config.temperature = options.temperature;
   }
   if (typeof options?.maxTokens === 'number') {
     config.maxOutputTokens = options.maxTokens;
   }
-  return config;
+  if (typeof options?.google?.topP === 'number') {
+    config.topP = options.google.topP;
+  }
+  if (typeof options?.google?.topK === 'number') {
+    config.topK = options.google.topK;
+  }
+  if (typeof options?.google?.candidateCount === 'number') {
+    config.candidateCount = options.google.candidateCount;
+  }
+  if (options?.google?.stopSequences && options.google.stopSequences.length > 0) {
+    config.stopSequences = options.google.stopSequences;
+  }
+  if (options?.signal) {
+    config.abortSignal = options.signal;
+  }
+}
+
+function applySafetySettings(
+  config: NonNullable<GenerateContentParameters['config']>,
+  providerOptions: IGeminiProviderOptions,
+  options?: IChatOptions,
+): void {
+  const safetySettings = options?.google?.safetySettings ?? providerOptions.safetySettings;
+  if (safetySettings && safetySettings.length > 0) {
+    config.safetySettings = safetySettings as NonNullable<
+      GenerateContentParameters['config']
+    >['safetySettings'];
+  }
+}
+
+function applyStructuredOutputOptions(
+  config: NonNullable<GenerateContentParameters['config']>,
+  providerOptions: IGeminiProviderOptions,
+): void {
+  if (providerOptions.responseMimeType) {
+    config.responseMimeType = providerOptions.responseMimeType;
+  }
+  if (providerOptions.responseSchema) {
+    config.responseMimeType = providerOptions.responseMimeType ?? 'application/json';
+    config.responseSchema = providerOptions.responseSchema;
+  }
+  if (providerOptions.responseJsonSchema) {
+    config.responseMimeType = providerOptions.responseMimeType ?? 'application/json';
+    config.responseJsonSchema = providerOptions.responseJsonSchema;
+  }
+}
+
+function applyProviderGenerationOptions(
+  config: NonNullable<GenerateContentParameters['config']>,
+  providerOptions: IGeminiProviderOptions,
+): void {
+  if (providerOptions.thinkingConfig) {
+    config.thinkingConfig = providerOptions.thinkingConfig as NonNullable<
+      GenerateContentParameters['config']
+    >['thinkingConfig'];
+  }
+  if (providerOptions.toolConfig) {
+    config.toolConfig = providerOptions.toolConfig as NonNullable<
+      GenerateContentParameters['config']
+    >['toolConfig'];
+  }
+}
+
+function assertCompatibleStructuredOutputOptions(providerOptions: IGeminiProviderOptions): void {
+  if (providerOptions.responseSchema && providerOptions.responseJsonSchema) {
+    throw new Error(
+      'Gemini structured output options responseSchema and responseJsonSchema are mutually exclusive.',
+    );
+  }
 }

@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type OpenAI from 'openai';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IOpenAICompatibleError } from '@robota-sdk/agent-provider-openai-compatible';
+import {
+  observeProviderNativeRawPayloadStream,
+  type IOpenAICompatibleError,
+} from '@robota-sdk/agent-provider-openai-compatible';
 import {
   buildQwenResponsesTools,
   convertToQwenResponsesInput,
@@ -44,10 +47,22 @@ export async function chatWithQwenResponsesApi(
 
   try {
     const requestParams = buildResponsesRequestParams(input);
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'qwen',
+      apiSurface: 'responses',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const response = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsNonStreaming,
       input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
     );
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'qwen',
+      apiSurface: 'responses',
+      payloadKind: 'response',
+      payload: response,
+    });
     return parseQwenResponsesResponse(response, {
       enabledBuiltInTools: getQwenBuiltInWebToolNames(input.builtInWebTools),
     });
@@ -96,12 +111,25 @@ async function chatWithQwenResponsesStreamingAssembly(
 
   try {
     const requestParams = buildResponsesStreamingRequestParams(input);
+    input.chatOptions?.onProviderNativeRawPayload?.({
+      provider: 'qwen',
+      apiSurface: 'responses',
+      payloadKind: 'request',
+      payload: requestParams,
+    });
     const stream = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
       input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
     );
     return assembleQwenResponsesStream({
-      stream: stream as AsyncIterable<TQwenResponsesStreamEvent>,
+      stream: observeProviderNativeRawPayloadStream(
+        stream as AsyncIterable<TQwenResponsesStreamEvent>,
+        {
+          provider: 'qwen',
+          apiSurface: 'responses',
+          onProviderNativeRawPayload: input.chatOptions?.onProviderNativeRawPayload,
+        },
+      ),
       enabledBuiltInTools: getQwenBuiltInWebToolNames(input.builtInWebTools),
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,

@@ -6,21 +6,57 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import { InteractiveSession, projectPaths } from '@robota-sdk/agent-sdk';
-import type { ICommandModule } from '@robota-sdk/agent-sdk';
-import { SessionStore } from '@robota-sdk/agent-sessions';
+import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
+import { createBackgroundCommandModule } from '@robota-sdk/agent-command-background';
+import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
+import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
+import { createContextCommandModule } from '@robota-sdk/agent-command-context';
+import { createExitCommandModule } from '@robota-sdk/agent-command-exit';
+import { createHelpCommandModule } from '@robota-sdk/agent-command-help';
+import { createLanguageCommandModule } from '@robota-sdk/agent-command-language';
+import { createMemoryCommandModule } from '@robota-sdk/agent-command-memory';
+import { createModelCommandModule } from '@robota-sdk/agent-command-model';
+import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
+import { createPluginCommandModule } from '@robota-sdk/agent-command-plugin';
+import { createResetCommandModule } from '@robota-sdk/agent-command-reset';
+import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
+import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
+import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
+import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
+import {
+  InteractiveSession,
+  createProjectSessionStore,
+  projectPaths,
+  resolveLatestSessionId,
+  resolveSessionIdByIdOrName,
+} from '@robota-sdk/agent-sdk';
+import type {
+  ICommandHostAdapters,
+  ICommandModule,
+  TProviderSettingsDocument,
+} from '@robota-sdk/agent-sdk';
 import { parseCliArgs } from './utils/cli-args.js';
-import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
-import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import {
+  getUserSettingsPath,
+  deleteSettings,
+  readSettings,
+  writeSettings,
+} from './utils/settings-io.js';
+import {
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
+} from './utils/provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './utils/provider-default-definitions.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from './utils/provider-setup.js';
+import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
@@ -31,7 +67,7 @@ import {
   getStartupCliUpdateNotice,
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
-import { createStatusLineCommandModule } from './commands/statusline-command-module.js';
+import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -94,6 +130,15 @@ function promptInput(label: string, masked = false): Promise<string> {
   });
 }
 
+function readTaskFilePrompt(cwd: string, taskFile: string): string {
+  const taskPath = resolve(cwd, taskFile);
+  const content = readFileSync(taskPath, 'utf8').trim();
+  if (content.length === 0) {
+    throw new Error(`Task file is empty: ${taskFile}`);
+  }
+  return `Task file (${taskFile}):\n${content}`;
+}
+
 /** Delete user settings and exit. */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
@@ -110,6 +155,50 @@ function resetConfig(): void {
 export interface IStartCliOptions {
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
+}
+
+export interface ICreateDefaultCliCommandModulesOptions {
+  cwd: string;
+  providerDefinitions: readonly IProviderDefinition[];
+}
+
+export function createDefaultCliCommandModules({
+  cwd,
+  providerDefinitions,
+}: ICreateDefaultCliCommandModulesOptions): readonly ICommandModule[] {
+  return [
+    createSkillsCommandModule({ cwd }),
+    createHelpCommandModule(),
+    createAgentCommandModule(),
+    createModelCommandModule({
+      providerDefinitions,
+      settings: {
+        readMergedSettings: () => readMergedProviderSettings(cwd),
+      },
+    }),
+    createPermissionsCommandModule(),
+    createLanguageCommandModule(),
+    createBackgroundCommandModule(),
+    createMemoryCommandModule(),
+    createCompactCommandModule(),
+    createContextCommandModule(),
+    createExitCommandModule(),
+    createSessionCommandModule(),
+    createResetCommandModule(),
+    createRewindCommandModule(),
+    createStatusLineCommandModule(),
+    createPluginCommandModule(),
+    createProviderCommandModule({
+      providerDefinitions,
+      settings: {
+        readMergedSettings: () => readMergedProviderSettings(cwd),
+        readTargetSettings: () =>
+          readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+        writeTargetSettings: (settings) =>
+          writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+      },
+    }),
+  ];
 }
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
@@ -138,9 +227,16 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+  const commandHostAdapters: ICommandHostAdapters = {
+    settings: {
+      read: () => readSettings(getUserSettingsPath()),
+      write: (settings) => writeSettings(getUserSettingsPath(), settings),
+    },
+    plugin: createCliPluginCommandAdapter(cwd),
+  };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
   const commandModules: readonly ICommandModule[] = [
-    createStatusLineCommandModule(),
+    ...createDefaultCliCommandModules({ cwd, providerDefinitions }),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
@@ -167,6 +263,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
+  const activeProviderSettings = readMergedProviderSettings(cwd);
+  const providerProfileName = args.provider ?? activeProviderSettings.currentProvider;
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
@@ -178,24 +276,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   });
 
   // Session management
-  const sessionStore = new SessionStore(paths.sessions);
+  const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
+  let showSessionPickerOnStart = false;
 
   if (args.continueMode) {
-    const sessions = sessionStore.list().filter((s) => s.cwd === cwd);
-    if (sessions.length > 0) {
-      resumeSessionId = sessions[0]!.id;
-    }
+    resumeSessionId = resolveLatestSessionId(sessionStore, cwd);
   } else if (args.resumeId !== undefined) {
     if (args.resumeId === '') {
-      // -r without argument = show picker (handled in App.tsx)
-      resumeSessionId = '__picker__';
+      showSessionPickerOnStart = true;
     } else {
-      const sessions = sessionStore.list();
-      const match = sessions.find((s) => s.id === args.resumeId || s.name === args.resumeId);
-      if (match) {
-        resumeSessionId = match.id;
-      } else {
+      resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
+      if (resumeSessionId === undefined) {
         process.stderr.write(`Session not found: ${args.resumeId}\n`);
         process.exit(1);
       }
@@ -223,6 +315,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // Build appendSystemPrompt from --append-system-prompt and --json-schema
     const appendParts: string[] = [];
     if (args.appendSystemPrompt) appendParts.push(args.appendSystemPrompt);
+    if (args.taskFile) {
+      try {
+        appendParts.push(readTaskFilePrompt(cwd, args.taskFile));
+      } catch (error) {
+        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+      }
+    }
     if (args.jsonSchema)
       appendParts.push(
         `Respond with valid JSON only, matching this JSON schema:\n${args.jsonSchema}`,
@@ -249,6 +349,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       commandModules,
+      commandHostAdapters,
     });
 
     const transport = createHeadlessTransport({
@@ -265,6 +366,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   renderApp({
     cwd,
     provider,
+    providerOverride: args.provider,
+    providerProfileName,
+    providerType: providerSettings.name,
     modelId,
     language: args.language,
     permissionMode: args.permissionMode,
@@ -272,12 +376,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     version,
     sessionStore,
     resumeSessionId,
+    showSessionPickerOnStart,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
     commandModules,
-    providerDefinitions,
+    commandHostAdapters,
     startupUpdateNoticePromise,
   });
 }

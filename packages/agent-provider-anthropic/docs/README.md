@@ -14,6 +14,7 @@ Anthropic Provider for Robota SDK - Complete type-safe integration with Anthropi
 - **🧠 Claude Model Support**: Claude 3 Haiku, Sonnet, and Opus models
 - **⚡ Real-Time Streaming**: Asynchronous streaming responses with proper error handling
 - **🛠️ Function Calling**: Native Anthropic tool use with type validation
+- **🌐 Server Web Search**: Generic `configureNativeWebTools({ webSearch: true })` enables Anthropic server-side web search
 - **🔄 Provider-Agnostic Design**: Seamless integration with other Robota providers
 - **📊 Usage Tracking**: Built-in token usage monitoring and cost tracking
 

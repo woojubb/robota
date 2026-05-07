@@ -5,7 +5,7 @@
  * Stateless: all mutable state is passed in via IRunContext.
  */
 
-import { createUserMessage, runHooks } from '@robota-sdk/agent-core';
+import { createUserMessage, getProviderCapabilities, runHooks } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -16,6 +16,11 @@ import type {
 import type { Robota } from '@robota-sdk/agent-core';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
+import type { ISessionOptions } from './session-types.js';
+import {
+  createToolExecutionBridge,
+  forwardToolExecutionEvent,
+} from './session-tool-execution-bridge.js';
 
 /** Dependencies injected by Session.run() */
 export interface IRunContext {
@@ -36,6 +41,8 @@ export interface IRunContext {
   maxTurns?: number;
   onTextDelta?: TTextDeltaCallback;
   onContextUpdate?: (state: IContextWindowState) => void;
+  onToolExecution?: ISessionOptions['onToolExecution'];
+  knownToolNames?: readonly string[];
 }
 
 /**
@@ -97,9 +104,7 @@ export async function executeRun(
 
   const history = ctx.robota.getHistory();
   const historyJson = JSON.stringify(history);
-  const providerHasWebTools =
-    'enableWebTools' in ctx.aiProvider &&
-    (ctx.aiProvider as { enableWebTools?: boolean }).enableWebTools === true;
+  const providerCapabilities = getProviderCapabilities(ctx.aiProvider);
   ctx.log('pre_run', {
     historyLength: history.length,
     historyChars: historyJson.length,
@@ -109,13 +114,20 @@ export async function executeRun(
     model: ctx.model,
     provider: ctx.aiProvider.name,
     maxTokens: ctx.contextTracker.getContextState().maxTokens,
-    webToolsEnabled: providerHasWebTools,
+    nativeWebSearchSupported: providerCapabilities.nativeWebTools.webSearch.supported,
+    nativeWebSearchEnabled: providerCapabilities.nativeWebTools.webSearch.enabled,
+    nativeWebFetchSupported: providerCapabilities.nativeWebTools.webFetch.supported,
+    nativeWebFetchEnabled: providerCapabilities.nativeWebTools.webFetch.enabled,
   });
   ctx.contextTracker.updateFromHistory([...history, createUserMessage(enrichedMessage)]);
   ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
 
   let response: string;
   try {
+    const toolExecutionBridge = createToolExecutionBridge({
+      knownToolNames: ctx.knownToolNames ?? [],
+      ...(ctx.onToolExecution && { onToolExecution: ctx.onToolExecution }),
+    });
     const onTextDelta = ctx.onTextDelta
       ? (delta: string): void => {
           ctx.log('text_delta', { delta });
@@ -126,7 +138,10 @@ export async function executeRun(
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
-      onExecutionEvent: (event, data) => ctx.log(event, data as TSessionLogData),
+      onExecutionEvent: (event, data) => {
+        ctx.log(event, data as TSessionLogData);
+        forwardToolExecutionEvent(toolExecutionBridge, event, data);
+      },
       ...(onTextDelta && { onTextDelta }),
     });
 

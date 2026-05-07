@@ -6,19 +6,23 @@ description: Guard against committing directly to protected branches (main, mast
 # Branch Guard
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Git Operations"
 
 ## Use This Skill When
+
 - About to run `git commit` on any branch.
 - The current branch is `main`, `master`, or `develop`.
 
 ## Preconditions
+
 - The agent has changes ready to commit.
 - The agent has confirmed user approval for the commit.
 
 ## Execution Steps
 
 1. **Check current branch**:
+
    ```bash
    git branch --show-current
    ```
@@ -48,6 +52,7 @@ description: Guard against committing directly to protected branches (main, mast
 3. **If NOT on a protected branch**: proceed with the commit normally.
 
 ## Protected Branches
+
 - `main`
 - `master`
 - `develop`
@@ -75,24 +80,52 @@ description: Guard against committing directly to protected branches (main, mast
    - Never do this as part of a regular feature workflow.
 
 5. **When switching branch context for a separate task:**
-
    - Commit and push all current work before switching.
    - After the separate task is done, return to the original branch.
-   - For tasks that must not touch the working tree (e.g., deploying from a different ref), use `git worktree add /tmp/<name> <ref>` or a separate `git clone`.
+   - For tasks that must not touch the working tree (e.g., deploying from a different ref), use a task-scoped worktree or a separate `git clone`.
    - Always clean up worktrees (`git worktree remove`) and temporary clones after use.
 
-6. **When deploying to `gh-pages`:**
+   Worktree operating procedure:
 
-   - Always use a separate clone or worktree. Never mix deployment artifacts with the source tree.
-   - Preserve special files (`CNAME`, `.nojekyll`) when replacing gh-pages content.
-   - Custom domain: `robota.io` — the `CNAME` file must exist in gh-pages root.
+   ```bash
+   git status -sb
+   git worktree list --porcelain
+   git fetch origin develop --prune
+   git worktree add -b <branch> /tmp/robota-<topic> origin/develop
+   ```
+
+   - Use `/tmp/robota-<topic>` for agent-managed task worktrees.
+   - Use one feature branch per task worktree; do not reuse a merged branch for new work.
+   - Do not checkout `main`, `master`, or `develop` inside task worktrees.
+   - Before merging or cleaning up, verify the PR and remote state:
+
+     ```bash
+     gh pr view <number> --json state,mergedAt,mergeCommit
+     git fetch origin develop --prune
+     ```
+
+   - If `gh pr merge` succeeds remotely but fails while updating a local protected branch that is checked out in another worktree, verify the PR state and do not retry the merge blindly.
+   - After the PR is merged and no uncommitted task changes remain:
+
+     ```bash
+     git worktree remove /tmp/robota-<topic>
+     git worktree prune
+     ```
+
+6. **When deploying docs or blog:**
+   - Cloudflare Pages deploys automatically when `main` is updated.
+   - Manual docs deployment uses `pnpm docs:deploy` after `pnpm docs:build` succeeds.
+   - Do not push generated documentation artifacts to source branches.
+   - Custom domain: `robota.io` is owned by the Cloudflare Pages project.
 
 ## Stop Conditions
+
 - User declines branch creation — do not commit on the protected branch.
 - Branch name conflicts with an existing branch — ask for an alternative name.
 - Merge target differs from fork origin — ask user before proceeding.
 
 ## Checklist
+
 - [ ] Current branch checked before every commit
 - [ ] Protected branch detected and user notified
 - [ ] Branch name suggested with conventional prefix
@@ -102,6 +135,7 @@ description: Guard against committing directly to protected branches (main, mast
 - [ ] Release merge (develop → main) explicitly approved by user
 
 ## Anti-Patterns
+
 - Committing directly to `main`, `master`, or `develop` without asking.
 - Creating a branch without user approval of the name.
 - Using generic branch names like `temp` or `wip` without a descriptive suffix.

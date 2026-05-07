@@ -1,13 +1,14 @@
-import { describe, expect, it, afterEach, vi } from 'vitest';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
-import { SessionStore } from '@robota-sdk/agent-sessions';
 import { InteractiveSession } from '../interactive-session.js';
+import { createProjectSessionStore } from '../session-persistence.js';
 import { ProjectMemoryStore } from '../../memory/project-memory-store.js';
 
 const TMP_BASE = join(tmpdir(), `robota-interactive-memory-${process.pid}`);
+const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));
@@ -35,7 +36,14 @@ function latestUserMessage(provider: IAIProvider): TUniversalMessage | undefined
   return [...messages].reverse().find((message) => message.role === 'user');
 }
 
+beforeEach(() => {
+  const home = join(TMP_BASE, 'home');
+  mkdirSync(home, { recursive: true });
+  process.env.HOME = home;
+});
+
 afterEach(() => {
+  process.env.HOME = ORIGINAL_HOME;
   if (existsSync(TMP_BASE)) rmSync(TMP_BASE, { recursive: true, force: true });
 });
 
@@ -43,7 +51,7 @@ describe('InteractiveSession memory command integration', () => {
   it('Given a memory cue When a turn completes Then no hidden pending memory is created', async () => {
     const cwd = makeProject();
     const provider = createProvider('noted');
-    const sessionStore = new SessionStore(join(cwd, '.robota', 'sessions'));
+    const sessionStore = createProjectSessionStore(cwd);
     const session = new InteractiveSession({
       cwd,
       provider,
@@ -80,7 +88,7 @@ describe('InteractiveSession memory command integration', () => {
     expect(session.getUsedMemoryReferences()).toEqual([]);
   });
 
-  it('Given model invocation When /memory add is executed Then memory is persisted through the command bridge', async () => {
+  it('Given no injected memory module When /memory is requested Then SDK core does not own it', async () => {
     const cwd = makeProject();
     const session = new InteractiveSession({
       cwd,
@@ -88,18 +96,9 @@ describe('InteractiveSession memory command integration', () => {
       bare: true,
     });
 
-    const result = await session.executeModelCommand(
-      'memory',
-      'add project build Use pnpm for package scripts.',
-    );
+    const result = await session.executeModelCommand('memory', 'list');
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-      }),
-    );
-    expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
-      '(project/build) Use pnpm for package scripts.',
-    );
+    expect(result).toBeNull();
+    expect(existsSync(join(cwd, '.robota', 'memory', 'MEMORY.md'))).toBe(false);
   });
 });

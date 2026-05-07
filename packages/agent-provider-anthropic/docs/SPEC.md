@@ -19,6 +19,7 @@
 - Does not implement image generation capabilities (unlike the Google provider).
 - Does not own session management, team collaboration, or workflow concerns.
 - Keeps all Anthropic-specific transport behavior explicit and provider-scoped; no leaking of Anthropic SDK types through the public API surface beyond `IAnthropicProviderOptions.client`.
+- Owns provider-native replay payload selection for Anthropic Messages streaming. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import Anthropic SDK stream event types.
 
 ## Architecture Overview
 
@@ -30,7 +31,7 @@ The package follows a provider-adapter pattern:
 
 3. **Types layer** (`types.ts`, `types/api-types.ts`) -- provider option interface and Anthropic-specific API type definitions covering messages, requests, streaming, tools, and errors.
 
-4. **Provider definition** (`provider-definition.ts`) -- exposes `createAnthropicProviderDefinition()` with setup defaults, validation requirements, and provider construction through the common `IProviderDefinition` contract.
+4. **Provider definition** (`provider-definition.ts`) -- exposes `createAnthropicProviderDefinition()` with setup defaults, official setup help links, credential requirements, and provider construction through the common `IProviderDefinition` contract.
 
 5. **Entry point** (`index.ts`) -- re-exports `provider.ts`, `types.ts`, and `provider-definition.ts`, and exposes a `createAnthropicProvider` factory function.
 
@@ -43,6 +44,15 @@ The provider MUST always use the streaming API (`messages.stream` / SSE) for all
 **Reason:** Anthropic SDK enforces a 10-minute timeout on non-streaming requests. Agentic workflows with tool loops can exceed this limit. Streaming connections have no such timeout.
 
 **Implementation:** The non-streaming code path (`client.messages.create` without streaming) is removed. All calls go through `chatWithStreaming`, passing a no-op callback when `onTextDelta` is not available.
+
+### Native Replay Payload Capture
+
+When `IChatOptions.onProviderNativeRawPayload` is provided, `AnthropicProvider` emits provider-native payload events before normalization:
+
+- `payloadKind: "request"` for the exact `messages.create` streaming request params sent to the Anthropic SDK.
+- `payloadKind: "stream_event"` for each Anthropic SDK stream event observed by the assembler or direct `chatStream()` path.
+
+Because Anthropic chat always uses streaming, a separate non-streaming `response` payload is not required for replay validation; ordered `stream_event` payloads are the native provider response stream. The package owns the `anthropic-messages` API surface label and payload selection. Core/session/CLI layers must treat payloads as opaque and rely on session logging for redaction/externalization.
 
 ## Output Token Limits
 
@@ -81,7 +91,7 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 | Export                                      | Kind                        | Source                           | Description                                                                                                                                                                                                                   |
 | ------------------------------------------- | --------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AnthropicProvider`                         | class                       | `src/provider.ts`                | Anthropic provider implementing `AbstractAIProvider`. Methods: `chat()`, `chatStream()`, `supportsTools()`, `validateConfig()`, `dispose()`.                                                                                  |
-| `createAnthropicProviderDefinition`         | function                    | `src/provider-definition.ts`     | Returns an `IProviderDefinition` for branch-free provider composition.                                                                                                                                                        |
+| `createAnthropicProviderDefinition`         | function                    | `src/provider-definition.ts`     | Returns an `IProviderDefinition` with Anthropic setup defaults, official setup help links, and branch-free provider composition.                                                                                              |
 | `DEFAULT_ANTHROPIC_PROVIDER_MODEL`          | constant                    | `src/provider-definition.ts`     | Package-owned default model for setup definitions.                                                                                                                                                                            |
 | ~~`AnthropicResponseParser`~~               | class (internal)            | `src/parsers/response-parser.ts` | Internal static utility — not exported from `src/index.ts`. Used by `AnthropicProvider` internally for response/streaming parsing.                                                                                            |
 | `IAnthropicProviderOptions`                 | interface                   | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature.                                                                               |
@@ -96,6 +106,10 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 | `enableWebTools`  | `boolean`                                               | `false` | When true, includes `web_search_20250305` server tool in requests |
 | `onTextDelta`     | `TTextDeltaCallback \| undefined`                       | —       | Streaming text delta callback for real-time output                |
 | `onServerToolUse` | `(name: string, input: Record<string, string>) => void` | —       | Callback when server-managed tool executes during streaming       |
+
+### Provider Capabilities
+
+`AnthropicProvider.getCapabilities()` reports provider-native web search as supported and enabled when `enableWebTools` is true. It reports provider-native web fetch as unsupported because this package only owns Anthropic server web search. `configureNativeWebTools({ webSearch: true })` sets `enableWebTools = true` and returns the updated capability report. Session/runtime layers must use this generic hook instead of checking `provider.name === "anthropic"`.
 
 ## Web Search Support
 
@@ -113,6 +127,7 @@ The provider supports Anthropic's server-side web search tool:
 - **`chat()` vs `chatStream()` asymmetry**: `chat()` applies `enableWebTools`, system message extraction, and `onServerToolUse` callbacks. `chatStream()` does NOT apply these features — it uses the native SDK streaming API directly without server tool support. This is a known limitation.
 - **Response parsing**: Two parsing paths coexist — `convertFromAnthropicResponse()` (inline in provider, used by `chat()`) and `AnthropicResponseParser` (separate class, used by `chatStream()`). They have minor behavioral differences (e.g., `null` vs `''` for tool-only content).
 - **Local API types**: `IAnthropicStreamChunk` and other types in `api-types.ts` were written before migration to the native Anthropic SDK. The provider's streaming code now uses native SDK event types directly; local API types are partially unused but retained for backward compatibility.
+- **Credential model**: Normal Anthropic execution uses `apiKey` for the official `x-api-key` authentication path. The provider definition advertises `requiresApiKey: true`; generic CLI/SDK layers must not add Anthropic-specific credential branches. Advanced Anthropic SDK authentication must be represented by a pre-configured `client`, not by a generic provider profile field.
 - **`validateConfig()` edge case**: Returns `false` for executor-based providers (no client/apiKey) even though the provider is functional. This is a known gap.
 
 ## Abort Signal Support

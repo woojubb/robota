@@ -94,3 +94,43 @@ const agent = new Robota({
 
 const response = await agent.run('Find all TODO comments in the project');
 ```
+
+## Sandbox-Aware Built-in Tools
+
+Use factory exports when Bash or file tools should run inside a provider sandbox instead of the host workspace:
+
+```typescript
+import {
+  E2BSandboxClient,
+  applyWorkspaceManifest,
+  createBashTool,
+  createEditTool,
+  createReadTool,
+  createWriteTool,
+} from '@robota-sdk/agent-tools';
+import { Sandbox } from 'e2b';
+
+const sandbox = await Sandbox.create();
+const sandboxClient = new E2BSandboxClient({ sandbox });
+
+await applyWorkspaceManifest(sandboxClient, {
+  entries: {
+    'task.md': { type: 'file', content: 'Run the requested checks.\n' },
+    output: { type: 'dir' },
+  },
+});
+
+const agent = new Robota({
+  name: 'SandboxedDevAgent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  tools: [
+    createBashTool({ sandboxClient }),
+    createReadTool({ sandboxClient }),
+    createWriteTool({ sandboxClient }),
+    createEditTool({ sandboxClient }),
+  ],
+});
+```
+
+`E2BSandboxClient` is a structural adapter. Install and construct the concrete provider SDK in your application, then pass the adapter to Robota tools or `InteractiveSession`. Workspace manifests use the same sandbox port and prepare files/directories before the tools run. When a session store is present, snapshot-capable sandbox clients can persist a `sandboxSnapshotId` on shutdown and hydrate that workspace during non-fork resume.

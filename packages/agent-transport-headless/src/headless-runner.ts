@@ -28,10 +28,17 @@ type TStreamJsonEvent =
       background_job_group_event: TBackgroundJobGroupEvent;
     };
 
-interface ISlashCommandExecution {
-  readonly isSlashCommand: boolean;
-  readonly result: ICommandResult | null;
-}
+type TSlashCommandExecution =
+  | {
+      readonly kind: 'not-slash';
+    }
+  | {
+      readonly kind: 'command-result';
+      readonly result: ICommandResult;
+    }
+  | {
+      readonly kind: 'session-execution';
+    };
 
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
@@ -68,18 +75,24 @@ function parseSlashCommand(prompt: string): { name: string; args: string } | nul
 async function executeSlashCommandIfPresent(
   session: InteractiveSession,
   prompt: string,
-): Promise<ISlashCommandExecution> {
+): Promise<TSlashCommandExecution> {
   const command = parseSlashCommand(prompt);
-  if (!command) return { isSlashCommand: false, result: null };
+  if (!command) return { kind: 'not-slash' };
+
   const result = await session.executeCommand(command.name, command.args);
+  if (result) {
+    if (result.effects?.some((effect) => effect.type === 'session-execution-started')) {
+      return { kind: 'session-execution' };
+    }
+    return { kind: 'command-result', result };
+  }
+
   return {
-    isSlashCommand: true,
-    result:
-      result ??
-      ({
-        message: `Unknown command "/${command.name}".`,
-        success: false,
-      } satisfies ICommandResult),
+    kind: 'command-result',
+    result: {
+      message: `Unknown command "/${command.name}".`,
+      success: false,
+    },
   };
 }
 
@@ -132,7 +145,7 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
     session.on('error', onError);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.isSlashCommand && commandExecution.result) {
+      if (commandExecution.kind === 'command-result') {
         cleanup();
         writeJsonResult(
           getSessionId(session),
@@ -140,6 +153,9 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
           commandExecution.result.success ? 'success' : 'error',
         );
         resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      if (commandExecution.kind === 'session-execution') {
         return;
       }
       void session.submit(prompt);
@@ -152,7 +168,7 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
     const cleanup = subscribeStreamJsonEvents(session, resolve);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.isSlashCommand && commandExecution.result) {
+      if (commandExecution.kind === 'command-result') {
         cleanup();
         writeJsonResult(
           getSessionId(session),
@@ -160,6 +176,9 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
           commandExecution.result.success ? 'success' : 'error',
         );
         resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      if (commandExecution.kind === 'session-execution') {
         return;
       }
       void session.submit(prompt);
@@ -276,10 +295,13 @@ function runTextFormat(session: InteractiveSession, prompt: string): Promise<num
     session.on('error', onError);
 
     void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.isSlashCommand && commandExecution.result) {
+      if (commandExecution.kind === 'command-result') {
         cleanup();
         process.stdout.write(commandExecution.result.message + '\n');
         resolve(commandExecution.result.success ? 0 : 1);
+        return;
+      }
+      if (commandExecution.kind === 'session-execution') {
         return;
       }
       void session.submit(prompt);

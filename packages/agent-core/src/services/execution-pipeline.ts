@@ -129,6 +129,7 @@ export async function forceSummaryCall(
   });
   try {
     const syntheticMsg =
+      roundState.forcedSummaryInstruction ??
       'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
     conversationStore.addUserMessage(syntheticMsg);
     const summaryMessages = conversationStore.getMessages();

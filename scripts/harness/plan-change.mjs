@@ -49,6 +49,7 @@ async function main() {
     changedFiles,
     scopeTokens: options.scopeTokens,
     manifestChangesByScope,
+    includeDependentScopes: !options.skipDependentScopes,
   });
 
   process.stdout.write(renderPlanSummary(plan));

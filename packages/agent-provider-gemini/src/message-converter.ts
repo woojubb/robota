@@ -1,22 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import type { Content, Part, FunctionCall, GenerateContentResponse } from '@google/genai';
+import type { Part, FunctionCall, GenerateContentResponse } from '@google/genai';
 import type {
   TUniversalMessage,
   IAssistantMessage,
-  IUserMessage,
-  ISystemMessage,
-  IToolMessage,
   TUniversalMessagePart,
 } from '@robota-sdk/agent-core';
 
 const RANDOM_ID_RADIX = 36;
 const RANDOM_ID_LENGTH = 9;
-
-type TGoogleJsonValue = string | number | boolean | null | TGoogleJsonValue[] | IGoogleJsonObject;
-
-interface IGoogleJsonObject {
-  readonly [key: string]: TGoogleJsonValue;
-}
 
 interface ICollectedGeminiParts {
   textValues: string[];
@@ -24,97 +15,13 @@ interface ICollectedGeminiParts {
   functionCalls: FunctionCall[];
 }
 
-/**
- * Maps universal message parts to Gemini-compatible parts.
- * Supports text and inline image parts; throws on unsupported part types.
- */
-export function mapMessagePartsToGeminiParts(
-  message: IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage,
-): Part[] {
-  const parts: Part[] = [];
-  const messageParts = message.parts ?? [];
-  for (const part of messageParts) {
-    if (part.type === 'text') {
-      parts.push({ text: part.text });
-      continue;
-    }
-    if (part.type === 'image_inline') {
-      parts.push({
-        inlineData: {
-          mimeType: part.mimeType,
-          data: part.data,
-        },
-      });
-      continue;
-    }
-    throw new Error(`Google provider does not support image URI parts directly: ${part.uri}`);
-  }
-  if (parts.length === 0 && typeof message.content === 'string' && message.content.length > 0) {
-    parts.push({ text: message.content });
-  }
-  return parts;
-}
-
-/**
- * Converts an array of universal messages to the Gemini Content format.
- *
- * IMPORTANT: Google Gemini allows content with function calls.
- * Content can be empty string or text, but NOT null.
- */
-export function convertToGeminiFormat(messages: TUniversalMessage[]): Content[] {
-  return messages.map((msg) => {
-    if (msg.role === 'user') {
-      return {
-        role: 'user',
-        parts: mapMessagePartsToGeminiParts(msg as IUserMessage),
-      };
-    } else if (msg.role === 'assistant') {
-      return convertAssistantMessage(msg as IAssistantMessage);
-    } else if (msg.role === 'tool') {
-      const toolMessage = msg as IToolMessage;
-      return {
-        role: 'user',
-        parts: mapMessagePartsToGeminiParts(toolMessage),
-      };
-    } else {
-      const systemMessage = msg as ISystemMessage;
-      const systemParts = mapMessagePartsToGeminiParts(systemMessage);
-      if (systemParts.length === 0) {
-        systemParts.push({ text: `System: ${systemMessage.content || ''}` });
-      }
-      return {
-        role: 'user',
-        parts: systemParts,
-      };
-    }
-  });
-}
-
-function convertAssistantMessage(assistantMsg: IAssistantMessage): Content {
-  const parts: Part[] = [];
-  const mappedAssistantParts = mapMessagePartsToGeminiParts(assistantMsg);
-  for (const mappedPart of mappedAssistantParts) {
-    parts.push(mappedPart);
-  }
-  if (parts.length === 0 && assistantMsg.content) {
-    parts.push({ text: assistantMsg.content });
-  }
-  if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
-    assistantMsg.toolCalls.forEach((tc) => {
-      parts.push({
-        functionCall: {
-          id: tc.id,
-          name: tc.function.name,
-          args: parseToolCallArguments(tc.function.arguments),
-        },
-      });
-    });
-  }
-  return {
-    role: 'model',
-    parts,
-  };
-}
+export {
+  convertToGeminiFormat,
+  convertToGeminiFormatWithInlineSystem,
+  convertToGeminiRequestFormat,
+  mapMessagePartsToGeminiParts,
+} from './request-converter';
+export type { IGeminiMessageConversionResult } from './request-converter';
 
 /** Generates a unique call identifier for function call responses. */
 export function generateCallId(): string {
@@ -224,18 +131,6 @@ function mapUsageMetadata(response: GenerateContentResponse): TUniversalMessage[
 }
 
 export { convertToolsToGeminiFormat } from './tool-schema-converter';
-
-function parseToolCallArguments(serializedArguments: string): IGoogleJsonObject {
-  const parsedArguments = JSON.parse(serializedArguments) as TGoogleJsonValue;
-  if (!isJsonObject(parsedArguments)) {
-    throw new Error('Google provider tool call arguments must be a JSON object.');
-  }
-  return parsedArguments;
-}
-
-function isJsonObject(value: TGoogleJsonValue): value is IGoogleJsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function requireFunctionCallName(functionCall: FunctionCall): string {
   if (!functionCall.name || functionCall.name.trim().length === 0) {

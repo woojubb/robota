@@ -3,8 +3,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { InteractiveSession } from '../interactive-session.js';
 import type { IToolState, IExecutionResult } from '../types.js';
+import type { ICommandModule } from '../../command-api/command-module.js';
 
 // Minimal mock Session that satisfies InteractiveSession's needs
 function createMockSession(options?: {
@@ -26,10 +30,43 @@ function createMockSession(options?: {
       usedTokens: 1000,
       maxTokens: 10000,
     }),
+    compact: vi.fn().mockResolvedValue(undefined),
     injectMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session-id'),
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
+  };
+}
+
+function createControllableRun(): {
+  run: () => Promise<string>;
+  started: Promise<void>;
+  resolve: (value: string) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolveRun: ((value: string) => void) | undefined;
+  let rejectRun: ((reason?: unknown) => void) | undefined;
+  let markStarted: () => void = () => {};
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+
+  return {
+    run: () =>
+      new Promise<string>((resolve, reject) => {
+        resolveRun = resolve;
+        rejectRun = reject;
+        markStarted();
+      }),
+    started,
+    resolve: (value: string) => {
+      if (!resolveRun) throw new Error('run has not started');
+      resolveRun(value);
+    },
+    reject: (reason?: unknown) => {
+      if (!rejectRun) throw new Error('run has not started');
+      rejectRun(reason);
+    },
   };
 }
 
@@ -82,15 +119,82 @@ describe('InteractiveSession', () => {
     expect(messages[1]!.role).toBe('assistant');
   });
 
-  it('queues prompt when already executing', async () => {
-    let resolveRun: (value: string) => void;
-    const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
+  it('expands @file references through SDK-owned prompt preprocessing', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'robota-interactive-file-ref-'));
+    try {
+      await writeFile(join(cwd, 'AGENTS.md'), '# Rules\nUse repo guidance.\n');
+      const mockSession = createMockSession({ runResult: 'done' });
+      const session = new InteractiveSession({
+        session: mockSession as never,
+        cwd,
+      });
+
+      const completedResults: IExecutionResult[] = [];
+      session.on('complete', (result) => {
+        completedResults.push(result);
+      });
+
+      await session.submit('Summarize @AGENTS.md');
+
+      const runInput = mockSession.run.mock.calls[0]?.[0] as string;
+      expect(runInput).toContain('<file path="AGENTS.md"');
+      expect(runInput).toContain('Use repo guidance.');
+      expect(mockSession.run).toHaveBeenCalledWith(expect.any(String), 'Summarize @AGENTS.md');
+      expect(completedResults[0]?.promptFileReferences?.[0]?.relativePath).toBe('AGENTS.md');
+      expect(session.listContextReferences()[0]).toEqual(
+        expect.objectContaining({
+          relativePath: 'AGENTS.md',
+          loadType: 'prompt-reference',
+          status: 'observed',
         }),
-    );
+      );
+      expect(session.getFullHistory()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            category: 'event',
+            type: 'prompt-file-reference',
+          }),
+        ]),
+      );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('adds manual context references to future prompt model input', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'robota-interactive-manual-ref-'));
+    try {
+      await writeFile(join(cwd, 'notes.md'), 'manual context body\n');
+      const mockSession = createMockSession({ runResult: 'done' });
+      const session = new InteractiveSession({
+        session: mockSession as never,
+        cwd,
+      });
+
+      const addResult = await session.addContextReference('notes.md');
+      await session.submit('Use the active context.');
+
+      const runInput = mockSession.run.mock.calls[0]?.[0] as string;
+      expect(addResult.reference?.relativePath).toBe('notes.md');
+      expect(runInput).toContain('<file path="notes.md"');
+      expect(runInput).toContain('manual context body');
+      expect(mockSession.run).toHaveBeenCalledWith(expect.any(String), 'Use the active context.');
+      expect(session.listContextReferences()[0]).toEqual(
+        expect.objectContaining({
+          relativePath: 'notes.md',
+          loadType: 'manual',
+          status: 'active',
+        }),
+      );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('queues prompt when already executing', async () => {
+    const mockSession = createMockSession();
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -98,7 +202,7 @@ describe('InteractiveSession', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     expect(session.isExecuting()).toBe(true);
 
@@ -107,7 +211,7 @@ describe('InteractiveSession', () => {
     expect(session.getPendingPrompt()).toBe('second');
 
     // Complete first execution
-    resolveRun!('first response');
+    controllableRun.resolve('first response');
     await first;
 
     // Wait for queued prompt to auto-execute
@@ -117,22 +221,93 @@ describe('InteractiveSession', () => {
     // second may or may not have executed depending on timing
   });
 
+  it('runs blocking system commands through the foreground thinking lifecycle', async () => {
+    let resolveCommand: (value: { message: string; success: boolean }) => void;
+    const blockingModule: ICommandModule = {
+      name: 'test-blocking',
+      systemCommands: [
+        {
+          name: 'slow',
+          description: 'Slow command',
+          lifecycle: 'blocking',
+          execute: () =>
+            new Promise<{ message: string; success: boolean }>((resolve) => {
+              resolveCommand = resolve;
+            }),
+        },
+      ],
+    };
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      commandModules: [blockingModule],
+    });
+    const thinkingStates: boolean[] = [];
+    session.on('thinking', (isThinking) => thinkingStates.push(isThinking));
+
+    const pending = session.executeCommand('slow', '');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(session.isExecuting()).toBe(true);
+    expect(thinkingStates).toEqual([true]);
+
+    resolveCommand!({ message: 'done', success: true });
+    const result = await pending;
+
+    expect(result?.message).toBe('done');
+    expect(session.isExecuting()).toBe(false);
+    expect(thinkingStates).toEqual([true, false]);
+  });
+
+  it('does not execute another system command while a foreground command is running', async () => {
+    let resolveCommand: (value: { message: string; success: boolean }) => void;
+    const quickCommand = vi.fn().mockReturnValue({ message: 'quick', success: true });
+    const blockingModule: ICommandModule = {
+      name: 'test-blocking',
+      systemCommands: [
+        {
+          name: 'slow',
+          description: 'Slow command',
+          lifecycle: 'blocking',
+          execute: () =>
+            new Promise<{ message: string; success: boolean }>((resolve) => {
+              resolveCommand = resolve;
+            }),
+        },
+        {
+          name: 'quick',
+          description: 'Quick command',
+          execute: quickCommand,
+        },
+      ],
+    };
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      commandModules: [blockingModule],
+    });
+
+    const pending = session.executeCommand('slow', '');
+    await new Promise((r) => setTimeout(r, 10));
+    const blocked = await session.executeCommand('quick', '');
+
+    expect(blocked?.success).toBe(false);
+    expect(blocked?.message).toContain('already running');
+    expect(quickCommand).not.toHaveBeenCalled();
+
+    resolveCommand!({ message: 'done', success: true });
+    await pending;
+  });
+
   it('cancelQueue clears pending without aborting', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
     });
 
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     expect(session.getPendingPrompt()).toBe('queued');
@@ -141,20 +316,15 @@ describe('InteractiveSession', () => {
     expect(session.getPendingPrompt()).toBeNull();
     expect(mockSession.abort).not.toHaveBeenCalled();
 
-    resolveRun!('done');
+    controllableRun.resolve('done');
     await first;
   });
 
   it('abort calls session.abort and clears queue', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
-    let rejectRun: (err: Error) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((_, reject) => {
-          rejectRun = reject;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -166,7 +336,7 @@ describe('InteractiveSession', () => {
     });
 
     const execution = session.submit('prompt');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     session.abort();
@@ -174,7 +344,7 @@ describe('InteractiveSession', () => {
     expect(mockSession.abort).toHaveBeenCalled();
     expect(session.getPendingPrompt()).toBeNull();
 
-    rejectRun!(abortError);
+    controllableRun.reject(abortError);
     await execution;
     await new Promise((r) => setTimeout(r, 10));
 

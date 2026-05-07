@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { GeminiProvider } from './provider';
-import type { TUniversalMessage, IExecutor } from '@robota-sdk/agent-core';
+import type {
+  IProviderNativeRawPayloadEvent,
+  TUniversalMessage,
+  IExecutor,
+} from '@robota-sdk/agent-core';
 
 // Shared mock for generateContent and generateContentStream
 const generateContentMock = vi.fn();
@@ -52,7 +56,7 @@ describe('GeminiProvider - chat error paths', () => {
     generateContentStreamMock.mockReset();
   });
 
-  it('throws when model is not specified', async () => {
+  it('throws when model and provider defaultModel are not specified', async () => {
     const provider = new GeminiProvider({ apiKey: 'test-key' });
     await expect(
       provider.chat(
@@ -70,10 +74,29 @@ describe('GeminiProvider - chat error paths', () => {
     ).rejects.toThrow('Google chat failed: Model is required');
   });
 
-  it('throws when options are undefined (no model)', async () => {
-    const provider = new GeminiProvider({ apiKey: 'test-key' });
-    await expect(
-      provider.chat([
+  it('uses provider defaultModel when options are undefined', async () => {
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key', defaultModel: 'gemini-pro' });
+    const response = await provider.chat([
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'user',
+        content: 'hello',
+        timestamp: new Date(),
+      },
+    ]);
+    expect(response.content).toBe('done');
+    expect(generateContentMock.mock.calls[0]?.[0].model).toBe('gemini-pro');
+  });
+
+  it('emits native Gemini request and response payloads before normalization', async () => {
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key', defaultModel: 'gemini-pro' });
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat(
+      [
         {
           id: 'msg-1',
           state: 'complete' as const,
@@ -81,8 +104,83 @@ describe('GeminiProvider - chat error paths', () => {
           content: 'hello',
           timestamp: new Date(),
         },
-      ]),
-    ).rejects.toThrow('Google chat failed:');
+      ],
+      { onProviderNativeRawPayload: (event) => events.push(event) },
+    );
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        provider: 'gemini',
+        apiSurface: 'gemini-generate-content',
+        payloadKind: 'request',
+        payload: expect.objectContaining({ model: 'gemini-pro' }),
+      }),
+      expect.objectContaining({
+        provider: 'gemini',
+        apiSurface: 'gemini-generate-content',
+        payloadKind: 'response',
+        payload: expect.objectContaining({ candidates: expect.any(Array) }),
+      }),
+    ]);
+  });
+
+  it('passes tool messages as function responses', async () => {
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    await provider.chat(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'assistant',
+          content: null,
+          toolCalls: [
+            {
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'get_weather', arguments: '{"city":"Seoul"}' },
+            },
+          ],
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-2',
+          state: 'complete' as const,
+          role: 'tool',
+          content: '{"temperature":20}',
+          toolCallId: 'call_1',
+          name: 'get_weather',
+          timestamp: new Date(),
+        },
+      ],
+      { model: 'gemini-pro' },
+    );
+    expect(generateContentMock.mock.calls[0]?.[0].contents).toEqual([
+      {
+        role: 'model',
+        parts: [
+          {
+            functionCall: {
+              id: 'call_1',
+              name: 'get_weather',
+              args: { city: 'Seoul' },
+            },
+          },
+        ],
+      },
+      {
+        role: 'user',
+        parts: [
+          {
+            functionResponse: {
+              id: 'call_1',
+              name: 'get_weather',
+              response: { temperature: 20 },
+            },
+          },
+        ],
+      },
+    ]);
   });
 
   it('wraps API errors in "Google chat failed" message', async () => {
@@ -289,6 +387,92 @@ describe('GeminiProvider - chatStream', () => {
     }).rejects.toThrow('Google stream failed:');
   });
 
+  it('uses provider defaultModel in stream mode', async () => {
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'ok' };
+      })(),
+    );
+    const provider = new GeminiProvider({ apiKey: 'test-key', defaultModel: 'gemini-pro' });
+    const chunks: TUniversalMessage[] = [];
+    for await (const chunk of provider.chatStream([
+      {
+        id: 'msg-1',
+        state: 'complete' as const,
+        role: 'user',
+        content: 'hello',
+        timestamp: new Date(),
+      },
+    ])) {
+      chunks.push(chunk);
+    }
+    expect(chunks).toHaveLength(1);
+    expect(generateContentStreamMock.mock.calls[0]?.[0].model).toBe('gemini-pro');
+  });
+
+  it('streams chat() through onTextDelta and returns assembled text', async () => {
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'Hello ' };
+        yield { text: 'Gemini' };
+      })(),
+    );
+    const onTextDelta = vi.fn();
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const response = await provider.chat(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
+      { model: 'gemini-pro', onTextDelta },
+    );
+    expect(response.content).toBe('Hello Gemini');
+    expect(onTextDelta).toHaveBeenNthCalledWith(1, 'Hello ');
+    expect(onTextDelta).toHaveBeenNthCalledWith(2, 'Gemini');
+  });
+
+  it('emits ordered native Gemini stream chunks', async () => {
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield { text: 'Hello ' };
+        yield { text: 'Gemini' };
+      })(),
+    );
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const events: IProviderNativeRawPayloadEvent[] = [];
+
+    await provider.chat(
+      [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'hello',
+          timestamp: new Date(),
+        },
+      ],
+      {
+        model: 'gemini-pro',
+        onTextDelta: vi.fn(),
+        onProviderNativeRawPayload: (event) => events.push(event),
+      },
+    );
+
+    expect(events.map((event) => event.payloadKind)).toEqual([
+      'request',
+      'stream_event',
+      'stream_event',
+    ]);
+    expect(
+      events.filter((event) => event.payloadKind === 'stream_event').map((event) => event.sequence),
+    ).toEqual([0, 1]);
+  });
+
   it('wraps stream errors', async () => {
     generateContentStreamMock.mockRejectedValue(new Error('network timeout'));
     const provider = new GeminiProvider({ apiKey: 'test-key' });
@@ -403,6 +587,21 @@ describe('GeminiProvider - constructor with executor', () => {
     );
     expect(result.content).toBe('executor response');
     expect(mockExecutor.executeChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('delegates validateConfig to executor when configured', () => {
+    const mockExecutor: IExecutor = {
+      executeChat: vi.fn(),
+      supportsTools: () => false,
+      validateConfig: () => true,
+      name: 'mock-executor',
+      version: '1.0.0',
+    };
+    const provider = new GeminiProvider({
+      apiKey: 'placeholder',
+      executor: mockExecutor,
+    });
+    expect(provider.validateConfig()).toBe(true);
   });
 
   it('propagates executor chat errors', async () => {

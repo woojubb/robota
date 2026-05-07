@@ -4,13 +4,13 @@
  */
 
 import { useState, useEffect } from 'react';
-import type { IPluginCallbacks } from '../../commands/slash-executor.js';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
 import type { IMenuSelectItem } from '../MenuSelect.js';
 
 export function usePluginScreenData(
   screen: string,
   marketplace: string | undefined,
-  callbacks: IPluginCallbacks,
+  callbacks: ICommandPluginAdapter,
   refreshCounter: number,
   stackLength: number,
 ): { items: IMenuSelectItem[]; loading: boolean; error: string | undefined } {

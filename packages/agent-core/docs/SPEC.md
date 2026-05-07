@@ -71,41 +71,57 @@ Safe defaults use the Null Object pattern:
 
 This package is the single source of truth (SSOT) for the following types:
 
-| Type                        | Location                            | Purpose                                                                                                                                                                                                               |
-| --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TUniversalMessage`         | `interfaces/messages.ts`            | Canonical message union (User, Assistant, System, Tool)                                                                                                                                                               |
-| `TUniversalMessageMetadata` | `interfaces/messages.ts`            | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects)                                                               |
-| `TUniversalValue`           | `interfaces/types.ts`               | Recursive value type without `any`                                                                                                                                                                                    |
-| `TMetadata`                 | `interfaces/types.ts`               | Metadata record type                                                                                                                                                                                                  |
-| `IAgentConfig`              | `interfaces/agent.ts`               | Agent configuration contract                                                                                                                                                                                          |
-| `IAIProvider`               | `interfaces/provider.ts`            | Provider integration contract                                                                                                                                                                                         |
-| `IProviderDefinition`       | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with display metadata, compatibility aliases, defaults, setup prompts, validation requirements, probe hooks, and `createProvider()` factories.       |
-| `IProviderConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions, including a provider-owned `options` bag that generic layers pass through without interpreting.                                                   |
-| `IProviderProbeResult`      | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                |
-| `TMessageFormatConverter`   | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                           |
-| `TMessageConverterRegistry` | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                         |
-| `IToolSchema`               | `interfaces/provider.ts`            | Tool schema contract, including root object `additionalProperties` for tools that intentionally tolerate unknown parameters                                                                                           |
-| `TToolParameters`           | `interfaces/types.ts`               | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                            |
-| `IEventService`             | `event-service/interfaces.ts`       | Event emission contract                                                                                                                                                                                               |
-| `IOwnerPathSegment`         | `event-service/interfaces.ts`       | Execution path tracking                                                                                                                                                                                               |
-| `RobotaError`               | `utils/errors.ts`                   | Base error hierarchy                                                                                                                                                                                                  |
-| `TTextDeltaCallback`        | `interfaces/provider.ts`            | Streaming text delta callback `(delta: string) => void`                                                                                                                                                               |
-| `TPermissionMode`           | `permissions/types.ts`              | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                       |
-| `TTrustLevel`               | `permissions/types.ts`              | Friendly trust aliases: safe, moderate, full                                                                                                                                                                          |
-| `TPermissionDecision`       | `permissions/types.ts`              | Evaluation outcome: auto, approve, deny                                                                                                                                                                               |
-| `TToolArgs`                 | `permissions/permission-gate.ts`    | Tool arguments record for permission matching                                                                                                                                                                         |
-| `IPermissionLists`          | `permissions/permission-gate.ts`    | Allow/deny pattern lists for permission config                                                                                                                                                                        |
-| `TKnownToolName`            | `permissions/permission-mode.ts`    | Known tool names in the permission system                                                                                                                                                                             |
-| `THookEvent`                | `hooks/types.ts`                    | Hook lifecycle events (9 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, WorktreeCreate, WorktreeRemove                                                              |
-| `THooksConfig`              | `hooks/types.ts`                    | Complete hooks configuration: event to hook groups                                                                                                                                                                    |
-| `IHookGroup`                | `hooks/types.ts`                    | Hook group: matcher pattern + hook definitions                                                                                                                                                                        |
-| `IHookDefinition`           | `hooks/types.ts`                    | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                              |
-| `IHookTypeExecutor`         | `hooks/types.ts`                    | Strategy interface for hook type execution                                                                                                                                                                            |
-| `IHookInput`                | `hooks/types.ts`                    | Input passed to hook commands via stdin                                                                                                                                                                               |
-| `IHookResult`               | `hooks/types.ts`                    | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                      |
-| `IContextTokenUsage`        | `context/types.ts`                  | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                      |
-| `IContextWindowState`       | `context/types.ts`                  | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                     |
-| `IHistoryEntry`             | `interfaces/history.ts`             | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type) |
+| Type                                  | Location                            | Purpose                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TUniversalMessage`                   | `interfaces/messages.ts`            | Canonical message union (User, Assistant, System, Tool)                                                                                                                                                                                                                                                                    |
+| `TUniversalMessageMetadata`           | `interfaces/messages.ts`            | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects)                                                                                                                                                                    |
+| `TUniversalValue`                     | `interfaces/types.ts`               | Recursive value type without `any`                                                                                                                                                                                                                                                                                         |
+| `TMetadata`                           | `interfaces/types.ts`               | Metadata record type                                                                                                                                                                                                                                                                                                       |
+| `IAgentConfig`                        | `interfaces/agent.ts`               | Agent configuration contract                                                                                                                                                                                                                                                                                               |
+| `IAIProvider`                         | `interfaces/provider.ts`            | Provider integration contract                                                                                                                                                                                                                                                                                              |
+| `IProviderCapabilities`               | `interfaces/provider.ts`            | Provider-neutral capability report for function calling and provider-native web search/fetch support.                                                                                                                                                                                                                      |
+| `IProviderNativeWebToolRequest`       | `interfaces/provider.ts`            | Provider-neutral request shape for native web search/fetch enablement.                                                                                                                                                                                                                                                     |
+| `IProviderNativeRawPayloadEvent`      | `interfaces/provider.ts`            | Provider-owned native SDK request/response/stream payload envelope emitted through `IChatOptions.onProviderNativeRawPayload` for replay-grade session logs without leaking provider SDK types into core.                                                                                                                   |
+| `TProviderNativeRawPayloadCallback`   | `interfaces/provider.ts`            | Per-call callback type used by provider packages to report exact provider-native SDK payloads.                                                                                                                                                                                                                             |
+| `TProviderNativeRawPayloadKind`       | `interfaces/provider.ts`            | Native payload phase union: `request`, `response`, or `stream_event`.                                                                                                                                                                                                                                                      |
+| `IProviderDefinition`                 | `interfaces/provider-definition.ts` | Provider assembly contract. Provider packages expose definitions with display metadata, compatibility aliases, defaults, official setup help links, setup prompts, credential requirements, model catalog fallback metadata, optional provider-owned catalog refresh hooks, probe hooks, and `createProvider()` factories. |
+| `IProviderSetupHelpLink`              | `interfaces/provider-definition.ts` | Provider-owned official setup link metadata. Provider packages use it to expose API key, console, or official documentation URLs to generic setup flows without CLI/TUI provider-name branches.                                                                                                                            |
+| `TProviderSetupHelpLinkKind`          | `interfaces/provider-definition.ts` | Setup link kind union: `api-key`, `console`, or `official`, matching the preferred fallback order for provider setup guidance.                                                                                                                                                                                             |
+| `IProviderModelCatalog`               | `interfaces/provider-definition.ts` | Provider-owned model catalog contract used by command UX. Static entries are staleable fallback metadata with source and verification timestamps; live/generated catalogs come only from provider-owned refresh hooks.                                                                                                     |
+| `IProviderModelCatalogEntry`          | `interfaces/provider-definition.ts` | Minimal provider model metadata for display and selection. Provider packages own entries; generic layers must not hardcode provider-specific model lists.                                                                                                                                                                  |
+| `IProviderModelCatalogRefreshOptions` | `interfaces/provider-definition.ts` | Provider-neutral refresh input. Generic layers pass the effective provider profile to provider-owned refresh hooks without interpreting provider-specific model semantics.                                                                                                                                                 |
+| `TProviderModelCatalogRefresh`        | `interfaces/provider-definition.ts` | Async provider-owned catalog refresh hook type. Generic layers may invoke it through `IProviderDefinition` but must not implement provider-specific discovery.                                                                                                                                                             |
+| `TProviderModelCatalogStatus`         | `interfaces/provider-definition.ts` | Catalog freshness status union: `live`, `generated`, `fallback`, or `unavailable`.                                                                                                                                                                                                                                         |
+| `TProviderModelLifecycle`             | `interfaces/provider-definition.ts` | Provider model lifecycle union used by command UX to avoid presenting unavailable models as selectable subcommands.                                                                                                                                                                                                        |
+| `TProviderModelCapability`            | `interfaces/provider-definition.ts` | Minimal provider-owned model capability labels for display and filtering.                                                                                                                                                                                                                                                  |
+| `IProviderConfig`                     | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions, including `apiKey` and a provider-owned `options` bag that generic layers pass through without interpreting.                                                                                                                                           |
+| `IProviderProbeResult`                | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                                                                                                                     |
+| `TMessageFormatConverter`             | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                                                                                                                                |
+| `TMessageConverterRegistry`           | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                                                                                                                              |
+| `IToolSchema`                         | `interfaces/provider.ts`            | Tool schema contract, including root object `additionalProperties` for tools that intentionally tolerate unknown parameters                                                                                                                                                                                                |
+| `TToolParameters`                     | `interfaces/types.ts`               | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                                                                                                                                                                                                 |
+| `IEventService`                       | `event-service/interfaces.ts`       | Event emission contract                                                                                                                                                                                                                                                                                                    |
+| `IOwnerPathSegment`                   | `event-service/interfaces.ts`       | Execution path tracking                                                                                                                                                                                                                                                                                                    |
+| `RobotaError`                         | `utils/errors.ts`                   | Base error hierarchy                                                                                                                                                                                                                                                                                                       |
+| `TTextDeltaCallback`                  | `interfaces/provider.ts`            | Streaming text delta callback `(delta: string) => void`                                                                                                                                                                                                                                                                    |
+| `TPermissionMode`                     | `permissions/types.ts`              | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                                                                                                                            |
+| `TTrustLevel`                         | `permissions/types.ts`              | Friendly trust aliases: safe, moderate, full                                                                                                                                                                                                                                                                               |
+| `TPermissionDecision`                 | `permissions/types.ts`              | Evaluation outcome: auto, approve, deny                                                                                                                                                                                                                                                                                    |
+| `TToolArgs`                           | `permissions/permission-gate.ts`    | Tool arguments record for permission matching                                                                                                                                                                                                                                                                              |
+| `IPermissionLists`                    | `permissions/permission-gate.ts`    | Allow/deny pattern lists for permission config                                                                                                                                                                                                                                                                             |
+| `TKnownToolName`                      | `permissions/permission-mode.ts`    | Known tool names in the permission system                                                                                                                                                                                                                                                                                  |
+| `THookEvent`                          | `hooks/types.ts`                    | Hook lifecycle events (9 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, WorktreeCreate, WorktreeRemove                                                                                                                                                                   |
+| `THooksConfig`                        | `hooks/types.ts`                    | Complete hooks configuration: event to hook groups                                                                                                                                                                                                                                                                         |
+| `IHookGroup`                          | `hooks/types.ts`                    | Hook group: matcher pattern + hook definitions                                                                                                                                                                                                                                                                             |
+| `IHookDefinition`                     | `hooks/types.ts`                    | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                                                                                                                                   |
+| `IHookTypeExecutor`                   | `hooks/types.ts`                    | Strategy interface for hook type execution                                                                                                                                                                                                                                                                                 |
+| `IHookInput`                          | `hooks/types.ts`                    | Input passed to hook commands via stdin                                                                                                                                                                                                                                                                                    |
+| `IHookResult`                         | `hooks/types.ts`                    | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                                                                                                                           |
+| `IContextTokenUsage`                  | `context/types.ts`                  | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                                                                                                                           |
+| `IContextWindowState`                 | `context/types.ts`                  | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                          |
+| `IContextTokenEstimate`               | `context/estimation.ts`             | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                                                                                            |
+| `IMessageTokenUsage`                  | `context/token-usage.ts`            | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                                                                                               |
+| `IHistoryEntry`                       | `interfaces/history.ts`             | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                      |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -128,18 +144,35 @@ Provider packages import these types. They must not re-declare them.
 
 ### Core
 
-| Export                         | Kind           | Description                                                                                                                          |
-| ------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `Robota`                       | class          | Main agent facade                                                                                                                    |
-| `AbstractAgent`                | abstract class | Base agent lifecycle                                                                                                                 |
-| `AbstractAIProvider`           | abstract class | Base for provider implementations                                                                                                    |
-| `AbstractPlugin`               | abstract class | Base for plugin extensions                                                                                                           |
-| `AbstractTool`                 | abstract class | Base for tool implementations                                                                                                        |
-| `AbstractExecutor`             | abstract class | Base for execution strategies                                                                                                        |
-| `LocalExecutor`                | class          | Local provider execution                                                                                                             |
-| `IProviderDefinition`          | interface      | Provider assembly definition, including optional setup display metadata, compatibility aliases, defaults, and provider-owned options |
-| `findProviderDefinition`       | function       | Resolve an injected provider definition by canonical type or alias                                                                   |
-| `formatSupportedProviderTypes` | function       | Format injected provider types and aliases for generic errors                                                                        |
+| Export                                  | Kind           | Description                                                                                                                                                                                                                                             |
+| --------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Robota`                                | class          | Main agent facade                                                                                                                                                                                                                                       |
+| `AbstractAgent`                         | abstract class | Base agent lifecycle                                                                                                                                                                                                                                    |
+| `AbstractAIProvider`                    | abstract class | Base for provider implementations                                                                                                                                                                                                                       |
+| `AbstractPlugin`                        | abstract class | Base for plugin extensions                                                                                                                                                                                                                              |
+| `AbstractTool`                          | abstract class | Base for tool implementations                                                                                                                                                                                                                           |
+| `AbstractExecutor`                      | abstract class | Base for execution strategies                                                                                                                                                                                                                           |
+| `LocalExecutor`                         | class          | Local provider execution                                                                                                                                                                                                                                |
+| `IProviderDefinition`                   | interface      | Provider assembly definition, including optional setup display metadata, official setup help links, compatibility aliases, defaults, credential requirements, model catalog fallback metadata, provider-owned refresh hooks, and provider-owned options |
+| `IProviderSetupHelpLink`                | interface      | Provider-owned official setup link metadata rendered by generic setup flows                                                                                                                                                                             |
+| `TProviderSetupHelpLinkKind`            | type           | Provider setup link kind union: `api-key`, `console`, or `official`                                                                                                                                                                                     |
+| `IProviderModelCatalog`                 | interface      | Provider-owned model catalog source, freshness status, fallback/live entries, source URL, and `lastVerifiedAt` metadata                                                                                                                                 |
+| `IProviderModelCatalogEntry`            | interface      | Minimal model display metadata for provider-aware command UX                                                                                                                                                                                            |
+| `IProviderModelCatalogRefreshOptions`   | interface      | Provider-neutral refresh input containing the effective provider profile                                                                                                                                                                                |
+| `TProviderModelCatalogRefresh`          | type           | Async provider-owned model catalog refresh hook                                                                                                                                                                                                         |
+| `IProviderCredentialRequirement`        | interface      | Provider-owned credential requirement over the generic API-key credential field                                                                                                                                                                         |
+| `TProviderModelCatalogStatus`           | type           | Catalog freshness status union                                                                                                                                                                                                                          |
+| `TProviderModelLifecycle`               | type           | Model lifecycle union for provider-owned catalog entries                                                                                                                                                                                                |
+| `TProviderModelCapability`              | type           | Provider-owned model capability labels                                                                                                                                                                                                                  |
+| `IProviderCapabilities`                 | interface      | Provider-neutral capability report, including native web search/fetch support and enabled state                                                                                                                                                         |
+| `IProviderNativeWebToolRequest`         | interface      | Provider-neutral requested native web search/fetch flags                                                                                                                                                                                                |
+| `IProviderNativeRawPayloadEvent`        | interface      | Provider-owned native request/response/stream payload envelope routed through core execution events for replay logs                                                                                                                                     |
+| `TProviderNativeRawPayloadCallback`     | type           | Per-call callback providers use to emit native payload events without mutating provider instances                                                                                                                                                       |
+| `TProviderNativeRawPayloadKind`         | type           | `request`, `response`, or `stream_event` payload phase label                                                                                                                                                                                            |
+| `getProviderCapabilities`               | function       | Return provider capabilities with safe defaults when a provider does not implement a capability hook                                                                                                                                                    |
+| `assertProviderNativeWebToolsAvailable` | function       | Fail before provider transport execution when requested native web search/fetch is unsupported or disabled                                                                                                                                              |
+| `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                                                                      |
+| `formatSupportedProviderTypes`          | function       | Format injected provider types and aliases for generic errors                                                                                                                                                                                           |
 
 ### Tools
 
@@ -147,18 +180,18 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 
 ### Permissions
 
-| Export                  | Kind     | Description                                                   |
-| ----------------------- | -------- | ------------------------------------------------------------- |
-| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode      |
-| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                       |
-| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                           |
-| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                 |
-| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'` |
-| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                              |
-| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                               |
-| `TToolArgs`             | type     | Tool arguments record for permission matching                 |
-| `IPermissionLists`      | type     | Allow/deny pattern lists                                      |
-| `TKnownToolName`        | type     | Known tool names: Bash, Read, Write, Edit, Glob, Grep         |
+| Export                  | Kind     | Description                                                                |
+| ----------------------- | -------- | -------------------------------------------------------------------------- |
+| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode                   |
+| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                                    |
+| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                                        |
+| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                              |
+| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`              |
+| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                                           |
+| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                                            |
+| `TToolArgs`             | type     | Tool arguments record for permission matching                              |
+| `IPermissionLists`      | type     | Allow/deny pattern lists                                                   |
+| `TKnownToolName`        | type     | Known tool names: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch |
 
 ### Hooks
 
@@ -183,14 +216,46 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 
 This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. Higher-level callers should prefer `IRunOptions.onTextDelta` for per-run streaming output so multiple sessions can share a provider instance without overwriting mutable provider callback state.
 
+### Provider-Native Replay Payloads
+
+`IChatOptions.onProviderNativeRawPayload` is the provider-neutral callback bridge for replay-grade raw payload capture. Provider packages own the native SDK request/response/stream objects and call this callback with `IProviderNativeRawPayloadEvent`:
+
+- `provider`: concrete provider identifier as known by the provider package.
+- `apiSurface`: optional provider-owned API surface label such as `responses`, `chat-completions`, `anthropic-messages`, or `gemini-generate-content`.
+- `payloadKind`: `request`, `response`, or `stream_event`.
+- `sequence`: optional provider-owned stream/request order. Core assigns a monotonically increasing fallback when omitted.
+- `payload`: the SDK-native payload object or primitive chosen by the provider package.
+- `metadata`: provider-owned scalar diagnostics only.
+
+`agent-core` must not import concrete provider SDK types, inspect provider names, or choose provider-specific payload fields. During a provider call, core wraps the callback and emits a `provider_native_raw_payload` execution event with the current `executionId`, `conversationId`, and `round`. The existing `provider_response_raw` event remains the provider-normalized Robota message snapshot and is not a substitute for provider-native payload capture.
+
+### Provider Capabilities
+
+`IAIProvider.getCapabilities()` is an optional provider hook. `AbstractAIProvider` supplies a default implementation reporting function-calling support from `supportsTools()` and provider-native web search/fetch as unsupported. Generic layers must call `getProviderCapabilities(provider)` instead of branching on provider names.
+
+Provider-native web tools are not the same as Robota local function tools:
+
+- `nativeWebTools.webSearch.supported` means the provider package has a documented hosted/server-side search path.
+- `nativeWebTools.webSearch.enabled` means that hosted path is active for the current provider instance.
+- `nativeWebTools.webFetch.supported` and `enabled` follow the same semantics for provider-side page extraction/fetch behavior.
+- `IChatOptions.nativeWebTools` requests provider-native hosted web behavior for one call. Providers must call `assertProviderNativeWebToolsAvailable()` before transport execution so unsupported or disabled native web requests fail before streaming starts.
+- `IAIProvider.configureNativeWebTools()` is an optional provider hook for session/runtime assembly. Session layers may call it to enable provider-owned native web tools without importing concrete provider classes or checking provider names.
+
+Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools owned by `@robota-sdk/agent-tools`; they are advertised through tool schemas and do not make `nativeWebTools` supported.
+
 ### Context Window Tracking
 
-| Export                | Kind      | Description                                                           |
-| --------------------- | --------- | --------------------------------------------------------------------- |
-| `IContextTokenUsage`  | interface | Token usage from a single API call (inputTokens, outputTokens, cache) |
-| `IContextWindowState` | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage) |
+| Export                              | Kind      | Description                                                                                        |
+| ----------------------------------- | --------- | -------------------------------------------------------------------------------------------------- |
+| `IContextTokenUsage`                | interface | Token usage from a single API call (inputTokens, outputTokens, cache)                              |
+| `IContextWindowState`               | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage)                              |
+| `IContextTokenEstimate`             | interface | Effective estimate with serialized, provider, and caller floor token candidates                    |
+| `IMessageTokenUsage`                | interface | Normalized message token usage from metadata or provider usage payloads                            |
+| `estimateContextTokensFromMessages` | function  | Returns the maximum effective token estimate from serialized messages and latest provider metadata |
+| `estimateSerializedContextTokens`   | function  | Deterministic serialized-history fallback estimate                                                 |
+| `readTokenUsageFromMessage`         | function  | Reads normalized token usage from a single message                                                 |
 
-These types are consumed by `@robota-sdk/agent-sessions` to track cumulative token usage and context window state across conversation turns.
+These types and helpers are consumed by `@robota-sdk/agent-sessions` to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
 
 Provider response usage is normalized before assistant messages are committed:
 
@@ -393,6 +458,25 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled       |
 | `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`          |
 
+### Replay Boundary Events
+
+`onExecutionEvent` emits provider-neutral, append-only replay events. `agent-core` must not expose concrete provider SDK objects or branch on provider names. The required event families are:
+
+| Event                          | Emitted When                                      | Required Data                                                                                            |
+| ------------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `provider_request`             | Immediately before a provider call                | executionId, conversationId, round, provider, model, messages, tools                                     |
+| `provider_stream_raw_delta`    | A provider text delta reaches core streaming path | executionId, conversationId, round, sequence, delta                                                      |
+| `provider_response_raw`        | Immediately after provider `chat()` returns       | executionId, conversationId, round, response, responseKind                                               |
+| `provider_response_normalized` | After provider response is accepted by core       | executionId, conversationId, round, response, toolCallsCount                                             |
+| `assistant_message_committed`  | Assistant message is committed to history         | executionId, conversationId, round, message                                                              |
+| `tool_batch_started`           | Before a tool batch executes                      | executionId, conversationId, round, batchId, mode, maxConcurrency, requestCount, tools                   |
+| `tool_execution_request`       | For each parsed tool call                         | executionId, conversationId, round, batchId, index, toolName, toolCallId, parameters, ownerPath          |
+| `tool_execution_result`        | For each terminal tool result                     | executionId, conversationId, round, batchId, index, toolName, toolCallId, success/result/error, metadata |
+| `tool_message_committed`       | Tool result message is committed to history       | executionId, conversationId, round, batchId, index, message                                              |
+| `history_mutation`             | A chat message is appended to canonical history   | executionId, conversationId, mutation, index, message                                                    |
+
+`provider_response_raw.responseKind` is `provider-normalized-message` until provider packages add provider-owned SDK-payload capture hooks. This keeps replay validation deterministic without making core depend on concrete provider SDK response types.
+
 ### Signal Propagation
 
 AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
@@ -499,6 +583,21 @@ Provider adapters own the `tool_call.id` value. Core treats it as the provider t
 
 Regression coverage must include a multi-round execution where the provider returns `call_0` in more than one assistant response and execution preserves both provider IDs without throwing duplicate tool message errors.
 
+### Unavailable Tool Call Handling
+
+Provider adapters must preserve provider-native tool calls and pass them to core, even when the tool name is not registered locally. Core owns the execution decision.
+
+Rules:
+
+- `ToolExecutionService` checks the requested tool name before invoking `IToolManager.executeTool()`.
+- If the tool is not registered, core must not execute anything or alias the request to another tool.
+- The skipped result is recorded as `success: false` with `metadata.errorCode: "unknown_tool"`, `metadata.requestedTool`, and `metadata.availableTools`.
+- The corresponding tool message content must explicitly say that the tool call was not executed because the tool is not registered.
+- Skipped unknown tools must not be counted as executed tools in `IExecutionResult.toolsExecuted`.
+- `tool_execution_result` replay events must include the same metadata so session logs and transports can explain the skipped call.
+- If unavailable tool calls repeat for consecutive model/tool rounds, the loop guard stops normal tool rounds and performs one final provider call without tools. The forced instruction tells the model which tool names were unavailable and that those calls were not executed because they are not registered.
+- Provider packages must not implement ad hoc aliases such as `agent` -> `robota_command_agent`; command and tool selection must be corrected by model-visible descriptors, schemas, and the normal tool-result feedback loop.
+
 ## Extension Points
 
 | Extension   | Base Class            | Contract                                         |
@@ -543,7 +642,7 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. The estimate uses `Math.max(cumulativeInputTokens, chars/2)` — the higher of the API-reported token count and the character-based estimate. `chars/2` (not `chars/3`) is used because Korean text, JSON, and code content have a higher char-to-token ratio. If usage exceeds 83.5% of the context window, the execution loop stops early with a clear assistant message prompting the user to `/compact`.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by `@robota-sdk/agent-sessions` at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
 
 ### Provider Error Recovery
 
@@ -667,13 +766,14 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 
 ### Current Coverage
 
-| Layer         | Test Files                                                                              | Coverage                 |
-| ------------- | --------------------------------------------------------------------------------------- | ------------------------ |
-| Core (Robota) | `robota.test.ts`                                                                        | Core flow                |
-| Executors     | `local-executor.test.ts`                                                                | Local execution          |
-| Managers      | `agent-factory.test.ts`, `tool-manager.test.ts`, `conversation-history-manager.test.ts` | Creation, tools, history |
-| Plugins       | `event-emitter-plugin.test.ts`                                                          | Event coordination       |
-| Services      | `event-service.test.ts`, `execution-service.test.ts`                                    | Events, execution        |
+| Layer         | Test Files                                                                              | Coverage                                       |
+| ------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Core (Robota) | `robota.test.ts`                                                                        | Core flow                                      |
+| Executors     | `local-executor.test.ts`                                                                | Local execution                                |
+| Managers      | `agent-factory.test.ts`, `tool-manager.test.ts`, `conversation-history-manager.test.ts` | Creation, tools, history                       |
+| Plugins       | `event-emitter-plugin.test.ts`                                                          | Event coordination                             |
+| Providers     | `provider-capabilities.test.ts`                                                         | Default capabilities and native web validation |
+| Services      | `event-service.test.ts`, `execution-service.test.ts`                                    | Events, execution                              |
 
 ### Scenario Verification
 

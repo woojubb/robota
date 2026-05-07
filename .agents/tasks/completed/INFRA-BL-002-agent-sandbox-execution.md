@@ -1,0 +1,205 @@
+---
+title: Agent 샌드박스 실행 환경
+status: completed
+created: 2026-03-15
+updated: 2026-05-05
+priority: medium
+urgency: later
+---
+
+## What
+
+에이전트가 BashTool, 파일 읽기/쓰기 등의 도구를 실행할 때 호스트 시스템이 아닌 격리된 환경에서 실행되도록 한다.
+
+현재 `BashTool`은 호스트 프로세스에서 직접 실행됨 — 에이전트가 잘못된 명령을 실행하면 실제 파일시스템에 영향을 줌.
+
+## 아키텍처 방향 (OpenAI SDK 참고)
+
+OpenAI Agents SDK가 채택한 구조:
+
+```
+Control Plane (API keys, orchestration, permissions)
+        ↕  SandboxClient interface
+Execution Plane (격리된 VM — 파일/셸/패키지)
+```
+
+- Control Plane과 Execution Plane을 분리하면 악성 명령이 API 키나 중앙 제어 시스템에 접근 불가
+- `SandboxClient` 추상 인터페이스로 provider를 교체 가능하게 설계
+- OpenAI SDK는 E2B, Modal, Fly.io Sprites, Daytona, Blaxel, Cloudflare, Vercel 등 플러그인 방식으로 지원
+
+Robota 설계 예시:
+
+```typescript
+interface ISandboxClient {
+  run(command: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  readFile(path: string): Promise<string>;
+  writeFile(path: string, content: string): Promise<void>;
+  snapshot(): Promise<string>; // snapshot ID
+  restore(snapshotId: string): Promise<void>;
+}
+```
+
+## 플랫폼별 기술 비교
+
+### E2B — 추천 기본값
+
+- **격리**: Firecracker microVM (전용 커널, 하이퍼바이저 레벨 격리)
+- **부팅 시간**: ~150ms
+- **TypeScript SDK**: `npm i e2b` — 공식 JS/TS SDK 제공
+
+```typescript
+import { Sandbox } from 'e2b';
+
+const sandbox = await Sandbox.create();
+const result = await sandbox.commands.run('echo hello');
+console.log(result.stdout);
+await sandbox.kill();
+```
+
+- **세션 일시중지/재개** 지원
+- **GPU**: 미지원
+- **가격**: 200개 기준 $16,819/월 (가장 저렴)
+- **적합**: AI 에이전트 특화, TS 지원, 빠른 통합
+
+### Fly.io Sprites — 장시간 실행 에이전트
+
+- **격리**: Firecracker microVM
+- **출시**: 2026년 1월
+- **특징**: 100GB 영구 NVMe 스토리지, 체크포인트/복구 ~300ms
+- **과금**: 유휴 시 과금 중단 (장시간 실행 에이전트에 유리)
+- **GPU**: 미지원
+- **TypeScript SDK**: 별도 SDK 없음, HTTP API 직접 호출
+- **가격**: 200개 기준 $35,770/월
+- **적합**: 세션 간 상태 유지가 필요한 장시간 에이전트, Ralph Loop
+
+### Modal — GPU 워크로드
+
+- **격리**: gVisor (사용자 공간 커널, 전용 커널 없음)
+- **특징**: Python 중심, GPU(NVIDIA) 전 인프라 지원
+- **TypeScript SDK**: 미제공 (Python 전용)
+- **가격**: 200개 기준 $24,491/월
+- **적합**: GPU 연산 필요한 ML 에이전트
+
+### AWS Lambda — 서버리스 (비추천)
+
+- **격리**: Firecracker microVM (Lambda 내부 기술)
+- **제약**: 15분 타임아웃, 250MB 패키지 제한
+- **TypeScript**: 지원
+- **문제**: 에이전트 샌드박스 전용이 아님, 장시간 실행 불가
+
+### 자체 서버 구축 (Self-hosted)
+
+표준 Docker 컨테이너는 호스트 커널을 공유하므로 에이전트 샌드박스로 부족함. VM 수준 격리 기술이 필요:
+
+| 기술                | 격리 방식                         | Kubernetes 통합              | 비고                              |
+| ------------------- | --------------------------------- | ---------------------------- | --------------------------------- |
+| **Firecracker**     | 전용 Linux 커널 microVM, KVM 기반 | 가능 (직접 구성)             | E2B/Fly.io 내부 기술, ~125ms 부팅 |
+| **gVisor**          | 사용자 공간 syscall 인터셉트      | RuntimeClass로 투명하게 적용 | Kubernetes와 가장 쉽게 통합       |
+| **Kata Containers** | VM + 컨테이너 경험 통합           | RuntimeClass 지원            | VM 수준 보안 + K8s 워크플로우     |
+
+**현실적인 자체 구축 스택**: Kubernetes + gVisor 또는 Kata Containers
+
+- CNCF 프로젝트 `kubernetes-sigs/agent-sandbox`: K8s 위에서 격리된 상태 저장 샌드박스를 declarative API로 관리
+- OpenSandbox (Alibaba, 2026년 3월): 로컬은 Docker, 프로덕션은 K8s+gVisor/Kata/Firecracker를 통합 API로 제공 (Apache 2.0)
+
+**자체 구축 비용**: 시니어 인프라 엔지니어 2~3명, 6~12개월 — 인터페이스 검증 후 필요 시 전환 권장
+
+## 플랫폼 선택 가이드
+
+| 상황                      | 추천                                           |
+| ------------------------- | ---------------------------------------------- |
+| 기본 통합 (TS, 빠른 시작) | **E2B**                                        |
+| 장시간 실행, 세션 유지    | **Fly.io Sprites**                             |
+| GPU 필요                  | **Modal** (Python only)                        |
+| 로컬 개발/테스트          | **Docker** (호스트 직접 실행 fallback)         |
+| 완전 자체 구축            | **K8s + gVisor/Kata** (ISandboxClient 검증 후) |
+
+## SDK 패키지 호환성
+
+| 패키지                   | 서버리스      | 비고                            |
+| ------------------------ | ------------- | ------------------------------- |
+| agent-core               | O             | 순수 로직                       |
+| agent-sessions           | O             | `node:path` 사용                |
+| agent-sdk                | O             | config 로딩에 `node:fs` 사용    |
+| agent-tools              | O → 수정 필요 | BashTool을 SandboxClient로 교체 |
+| agent-provider-anthropic | O             | HTTP only                       |
+| agent-cli                | N/A           | 터미널 전용                     |
+
+## 핵심 구현 범위
+
+1. `ISandboxClient` 인터페이스 정의 (agent-tools 또는 agent-core)
+2. `E2BSandboxClient` 구현체 (기본값)
+3. `BashTool`이 SandboxClient를 선택적으로 사용하도록 수정
+4. `createSession()` 옵션에 `sandbox?: ISandboxClient` 추가
+
+## 연관 작업
+
+- **SDK-BL-004** (Ralph Loop) — 매 반복마다 클린한 샌드박스에서 시작하면 시너지
+- **INFRA-BL-003** (Manifest) — 샌드박스 위에서 워크스페이스 정의
+- **INFRA-BL-004** (스냅샷) — Fly.io Sprites 체크포인트 기능 활용
+
+## Open Design Questions
+
+1. `ISandboxClient`를 어느 패키지에 둘지 (agent-core vs agent-tools)
+2. 샌드박스 없이 실행할 때 fallback 전략 — LocalSandboxClient (Docker) vs 호스트 직접 실행
+3. 파일시스템 권한 제어 API 설계 (read-only paths, write paths 명시)
+
+## Test Plan
+
+- Define contract tests for `ISandboxClient.run`, `readFile`, `writeFile`, `snapshot`, and `restore` before adding provider implementations.
+- Add provider adapter tests with mocked E2B/Fly.io clients so command results, file operations, and failure paths remain deterministic.
+- Run the affected package build, targeted tests, and `pnpm harness:scan` before promoting the sandbox implementation.
+
+## Promotion Path
+
+1. Open design questions 답변 후 스펙 작성
+2. E2B 통합부터 시작 (TS SDK 있음, 가장 간단)
+3. Branch: `feat/agent-sandbox-execution` (구현 시점에 생성)
+
+## Progress
+
+- [x] `ISandboxClient` owner를 `agent-tools`로 확정하고 command/file/snapshot/restore 포트를 정의
+- [x] Bash, Read, Write, Edit 도구를 sandbox-aware factory로 확장하고 기존 singleton host-local export 유지
+- [x] `agent-sdk` `InteractiveSession`/`createSession()`에 `sandboxClient` 주입 경로 추가
+- [x] `reversibleExecution`에서 sandbox 주입 시 기본 isolation을 `provider-sandbox`로 분류
+- [x] E2B-compatible structural adapter와 deterministic in-memory contract adapter 추가
+- [x] package SPEC/README/content 문서 업데이트
+- [x] 최종 검증, PR 생성, 머지 후 completed로 이동
+
+## Decisions
+
+- `ISandboxClient`는 `agent-tools`가 소유한다. 실제 command/file tool 구현이 이 패키지에 있으므로 `agent-core`에 실행-plane 세부 계약을 올리지 않는다.
+- E2B는 직접 dependency로 추가하지 않고 structural adapter로 지원한다. 애플리케이션 composition root가 `e2b` 설치와 `Sandbox.create()`를 담당하고, Robota는 해당 객체를 `E2BSandboxClient`로 감싼다.
+- sandbox가 주입된 SDK session은 Bash/Read/Write/Edit만 sandbox-aware로 전환한다. Glob/Grep은 기존 host-local 구현을 유지하며, provider-native file search가 필요하면 별도 manifest/catalog 백로그에서 확장한다.
+
+## Result
+
+- `agent-tools`에 provider-neutral `ISandboxClient` 포트, E2B-compatible structural adapter, in-memory contract adapter를 추가했다.
+- Bash/Read/Write/Edit built-in tool을 sandbox-aware factory로 확장하고 기존 singleton host-local export는 유지했다.
+- `agent-sdk`의 `createSession()`과 `InteractiveSession`이 `sandboxClient`를 받아 기본 도구를 sandbox execution plane으로 조립하도록 연결했다.
+- sandbox 주입 시 reversible execution 기본 isolation을 `provider-sandbox`로 분류하고, sandbox file mutation에는 host edit checkpoint wrapping을 적용하지 않도록 했다.
+- SPEC, README, content 문서, changeset을 갱신했고 검증을 통과했다.
+
+검증:
+
+- `pnpm --filter @robota-sdk/agent-tools test -- src/__tests__/sandbox-tools.test.ts`
+- `pnpm --filter @robota-sdk/agent-sdk test -- src/assembly/__tests__/create-tools.test.ts src/__tests__/create-session-new-options.test.ts src/reversible-execution/__tests__/reversible-execution-policy.test.ts`
+- `pnpm --filter @robota-sdk/agent-tools typecheck`
+- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-tools lint`
+- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm build`
+- `pnpm docs:build`
+- `pnpm harness:scan`
+- `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`
+
+## References
+
+- [E2B Docs](https://e2b.dev/docs)
+- [E2B vs Modal vs Fly.io Sprites — Northflank](https://northflank.com/blog/e2b-vs-modal-vs-fly-io-sprites)
+- [Top 5 Code Sandboxes for AI Agents in 2026 — DEV](https://dev.to/nebulagg/top-5-code-sandboxes-for-ai-agents-in-2026-58id)
+- [OpenAI Agents SDK Sandbox — TechCrunch](https://techcrunch.com/2026/04/15/openai-updates-its-agents-sdk-to-help-enterprises-build-safer-more-capable-agents/)
+- [OpenAI Agents SDK Sandbox Architecture — Help Net Security](https://www.helpnetsecurity.com/2026/04/16/openai-agents-sdk-harness-and-sandbox-update/)
+- [Self-hosted AI sandboxes guide — Northflank](https://northflank.com/blog/self-hosted-ai-sandboxes)
+- [How to sandbox AI agents 2026 — Northflank](https://northflank.com/blog/how-to-sandbox-ai-agents)
+- [kubernetes-sigs/agent-sandbox — GitHub](https://github.com/kubernetes-sigs/agent-sandbox)

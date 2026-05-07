@@ -1,5 +1,5 @@
 import type { ICapabilityDescriptor, TCapabilityKind } from '../capabilities/types.js';
-import type { ICommand } from './types.js';
+import type { ICommand } from '../command-api/types.js';
 
 function inferKind(command: ICommand): TCapabilityKind {
   if (command.source === 'skill') return 'skill';
@@ -11,7 +11,7 @@ export function commandToCapabilityDescriptor(command: ICommand): ICapabilityDes
   const skillLike =
     command.source === 'skill' || (command.source === 'plugin' && Boolean(command.skillContent));
   return {
-    name: `/${command.name}`,
+    name: command.name,
     kind: inferKind(command),
     description: command.description,
     userInvocable: command.userInvocable !== false,

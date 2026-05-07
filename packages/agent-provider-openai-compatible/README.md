@@ -12,6 +12,7 @@ Provider packages may inject text projectors for documented model-family output,
 - Does not own product-specific setup defaults, model-family prompt directives, or provider profile metadata.
 - Does not infer Gemma, Qwen, OpenAI, or local-model behavior from model names.
 - Allows provider packages to inject explicit projection strategies when a model family documents native text forms for tool calls or reasoning channels.
+- Provides `observeProviderNativeRawPayloadStream()` so concrete providers can mirror raw OpenAI-compatible stream events into replay logs without changing chunk assembly semantics.
 
 End-user code usually imports a concrete provider package such as `agent-provider-openai`, `agent-provider-gemma`, or `agent-provider-qwen`.
 

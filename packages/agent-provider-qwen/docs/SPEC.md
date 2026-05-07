@@ -11,6 +11,7 @@ This package owns Qwen provider behavior for Robota when Qwen models are served 
 - Does not own Google Gemini/Gemma marker projection. That behavior belongs to provider packages for those model families.
 - Owns the Qwen Responses API slice for provider-side `web_search` and `web_extractor`. Broader native DashScope behavior and non-web Responses built-in tools remain future work.
 - Does not own CLI routing, session persistence, tool execution, or SDK orchestration.
+- Owns provider-native replay payload selection for Qwen OpenAI-compatible Chat Completions and Qwen Responses API calls. Generic layers receive only the `IChatOptions.onProviderNativeRawPayload` callback contract and must not import concrete SDK types.
 
 ## Research
 
@@ -38,7 +39,7 @@ src/
   types.ts                # provider options and option value types
 ```
 
-`QwenProvider` is a provider shell over OpenAI-compatible Chat Completions plus a Qwen-owned Responses API path. Normal chat uses `agent-provider-openai-compatible`. When `builtInWebTools.webSearch` or `builtInWebTools.webFetch` is enabled, the provider switches to Responses API, sends provider-side built-in tool declarations, parses provider-side tool events, and records provenance in assistant-message metadata. `createQwenProviderDefinition()` returns an `IProviderDefinition` so CLI and SDK composition can inject Qwen without provider-specific branches.
+`QwenProvider` is a provider shell over OpenAI-compatible Chat Completions plus a Qwen-owned Responses API path. Normal chat uses `agent-provider-openai-compatible`. When `builtInWebTools.webSearch` or `builtInWebTools.webFetch` is enabled, the provider switches to Responses API, sends provider-side built-in tool declarations, parses provider-side tool events, and records provenance in assistant-message metadata. `createQwenProviderDefinition()` returns an `IProviderDefinition` with official setup help links so CLI and SDK composition can inject Qwen without provider-specific branches.
 
 ## Type Ownership
 
@@ -58,21 +59,21 @@ src/
 
 ## Public API Surface
 
-| Export                                     | Kind       | Description                                                               |
-| ------------------------------------------ | ---------- | ------------------------------------------------------------------------- |
-| `QwenProvider`                             | class      | Primary provider class; extends `AbstractAIProvider`.                     |
-| `createQwenProviderDefinition`             | function   | Returns an `IProviderDefinition` for branch-free CLI/runtime composition. |
-| `QWEN_PROVIDER_BASE_URLS`                  | constant   | Documented Qwen OpenAI-compatible base URLs by region.                    |
-| `QWEN_PROVIDER_RESPONSES_BASE_URLS`        | constant   | Documented Qwen Responses API base URLs by region.                        |
-| `DEFAULT_QWEN_PROVIDER_MODEL`              | constant   | Default setup model owned by this package.                                |
-| `DEFAULT_QWEN_PROVIDER_API_KEY_ENV`        | constant   | Default API-key environment variable name.                                |
-| `DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE`  | constant   | Default `$ENV:` API-key reference for settings.                           |
-| `DEFAULT_QWEN_PROVIDER_BASE_URL`           | constant   | Default setup base URL owned by this package.                             |
-| `DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL` | constant   | Default Responses API base URL owned by this package.                     |
-| `IQwenBuiltInWebToolsOptions`              | interface  | Provider-side web search/fetch configuration.                             |
-| `IQwenProviderOptions`                     | interface  | Provider constructor options.                                             |
-| `TQwenProviderOptionValue`                 | type alias | Valid provider option values.                                             |
-| `TQwenProviderRegion`                      | type alias | Supported region keys for `QWEN_PROVIDER_BASE_URLS`.                      |
+| Export                                     | Kind       | Description                                                                                                                   |
+| ------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `QwenProvider`                             | class      | Primary provider class; extends `AbstractAIProvider`.                                                                         |
+| `createQwenProviderDefinition`             | function   | Returns an `IProviderDefinition` with Qwen setup prompts, official setup help links, and branch-free CLI/runtime composition. |
+| `QWEN_PROVIDER_BASE_URLS`                  | constant   | Documented Qwen OpenAI-compatible base URLs by region.                                                                        |
+| `QWEN_PROVIDER_RESPONSES_BASE_URLS`        | constant   | Documented Qwen Responses API base URLs by region.                                                                            |
+| `DEFAULT_QWEN_PROVIDER_MODEL`              | constant   | Default setup model owned by this package.                                                                                    |
+| `DEFAULT_QWEN_PROVIDER_API_KEY_ENV`        | constant   | Default API-key environment variable name.                                                                                    |
+| `DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE`  | constant   | Default `$ENV:` API-key reference for settings.                                                                               |
+| `DEFAULT_QWEN_PROVIDER_BASE_URL`           | constant   | Default setup base URL owned by this package.                                                                                 |
+| `DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL` | constant   | Default Responses API base URL owned by this package.                                                                         |
+| `IQwenBuiltInWebToolsOptions`              | interface  | Provider-side web search/fetch configuration.                                                                                 |
+| `IQwenProviderOptions`                     | interface  | Provider constructor options.                                                                                                 |
+| `TQwenProviderOptionValue`                 | type alias | Valid provider option values.                                                                                                 |
+| `TQwenProviderRegion`                      | type alias | Supported region keys for `QWEN_PROVIDER_BASE_URLS`.                                                                          |
 
 ## Extension Points
 
@@ -81,6 +82,7 @@ src/
 - Consumers can provide an executor to delegate provider execution without direct API calls.
 - Consumers such as `agent-cli` can inject `createQwenProviderDefinition()` alongside other provider definitions. The CLI and SDK must not special-case Qwen by type string or model name.
 - Future native DashScope or non-web Responses API support must be added as explicit Qwen-owned transport capability, not as generic CLI/SDK branches.
+- When `IChatOptions.onProviderNativeRawPayload` is provided, `QwenProvider` emits provider-native `request`, non-streaming `response`, and ordered streaming `stream_event` payloads before universal normalization. Chat Completions events use the `chat-completions` API surface label; built-in web tool Responses events use the `responses` API surface label. Session logging owns redaction and payload externalization.
 
 ### Built-in Web Tools
 
@@ -90,6 +92,8 @@ Qwen built-in web tools are provider-side capabilities, not Robota local tools. 
 - `builtInWebTools.webFetch: true` sends both `web_search` and `web_extractor`, matching Alibaba's Responses API web extractor guidance.
 - `builtInWebTools.enableThinking` maps to Qwen's `enable_thinking` request field.
 - Provider-side tool usage is recorded in assistant metadata as `providerToolMode`, `providerBuiltInToolsEnabled`, `providerBuiltInToolsUsed`, `qwenWebSearchCalls`, and `qwenWebExtractorCalls`.
+
+`QwenProvider.getCapabilities()` reports provider-native web search and fetch as supported. The enabled state follows `builtInWebTools`: `webSearch` is enabled when `webSearch` or `webFetch` is true, and `webFetch` is enabled only when `webFetch` is true. Request-level `IChatOptions.nativeWebTools` must fail before transport execution if the requested tool is supported but not enabled by provider-owned configuration.
 
 `code_interpreter` is intentionally unsupported in this package slice. If Qwen returns unsupported provider-side tool metadata, the parser records it as `qwenUnsupportedProviderToolTypes`; it does not execute or emulate that tool locally.
 
@@ -114,6 +118,7 @@ Qwen built-in web tools are provider-side capabilities, not Robota local tools. 
 - Unit tests verify streaming assembly emits `onTextDelta` values and returns the final assembled assistant response.
 - Unit tests verify direct `chatStream` yields universal assistant stream chunks.
 - Unit tests verify Responses API requests include `web_search` and `web_extractor` according to provider options.
+- Unit tests verify capability reporting for disabled and enabled built-in web tool configuration.
 - Unit tests verify streamed `response.output_text.delta` events emit visible deltas and final metadata records provider-side tool provenance.
 - Unit tests verify Responses API `function_call` output remains a local Robota tool call and is not logged as provider-side built-in tool execution.
 - Unit tests verify upstream chat and streaming failures are wrapped with Qwen-owned error messages.

@@ -2,7 +2,7 @@
  * Permission mode definitions for Robota CLI
  *
  * Matches Claude Code-compatible permission modes:
- * - plan: read-only tools only (Read, Glob, Grep auto; Write, Edit, Bash denied)
+ * - plan: read-only tools only (Read, Glob, Grep, WebFetch, WebSearch auto; Write, Edit, Bash denied)
  * - default: safe reads auto, writes and bash need approval
  * - acceptEdits: reads + writes auto, bash needs approval
  * - bypassPermissions: all tools auto
@@ -13,7 +13,15 @@ import type { TPermissionMode, TPermissionDecision } from './types.js';
 /**
  * Tool names known to the permission system
  */
-export type TKnownToolName = 'Bash' | 'Read' | 'Write' | 'Edit' | 'Glob' | 'Grep';
+export type TKnownToolName =
+  | 'Bash'
+  | 'Read'
+  | 'Write'
+  | 'Edit'
+  | 'Glob'
+  | 'Grep'
+  | 'WebFetch'
+  | 'WebSearch';
 
 /**
  * Permission mode → tool policy matrix
@@ -27,6 +35,8 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Edit: 'deny',
     Glob: 'auto',
     Grep: 'auto',
+    WebFetch: 'auto',
+    WebSearch: 'auto',
   },
   default: {
     Bash: 'approve',
@@ -35,6 +45,8 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Edit: 'approve',
     Glob: 'auto',
     Grep: 'auto',
+    WebFetch: 'auto',
+    WebSearch: 'auto',
   },
   acceptEdits: {
     Bash: 'approve',
@@ -43,6 +55,8 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Edit: 'auto',
     Glob: 'auto',
     Grep: 'auto',
+    WebFetch: 'auto',
+    WebSearch: 'auto',
   },
   bypassPermissions: {
     Bash: 'auto',
@@ -51,6 +65,8 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Edit: 'auto',
     Glob: 'auto',
     Grep: 'auto',
+    WebFetch: 'auto',
+    WebSearch: 'auto',
   },
 };
 

@@ -9,11 +9,12 @@ import { createSession } from '../assembly/index.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
-import type { SessionStore } from '@robota-sdk/agent-sessions';
+import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskRunner,
@@ -23,7 +24,7 @@ import type {
   TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { ICommandModule, ICommandResult } from '../commands/index.js';
+import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -36,8 +37,14 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
+import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
+import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
@@ -46,7 +53,7 @@ export interface IInteractiveSessionStandardOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
@@ -62,6 +69,8 @@ export interface IInteractiveSessionStandardOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
+  /** Host adapters available to composed command modules. */
+  commandHostAdapters?: ICommandHostAdapters;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Model command execution bridge. */
@@ -70,6 +79,16 @@ export interface IInteractiveSessionStandardOptions {
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
   config?: IResolvedConfig;
+  /** Opt-in local-first reversible execution policy for write/shell tools. */
+  reversibleExecution?: IReversibleExecutionOptions;
+  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  sandboxClient?: ISandboxClient;
+  /** Fresh-session workspace manifest applied through the sandbox client. */
+  workspaceManifest?: IWorkspaceManifest;
+  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
+  sandboxWorkspaceRoot?: string;
+  /** Provider sandbox snapshot id to restore before replaying saved messages. */
+  sandboxSnapshotId?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -80,12 +99,14 @@ export interface IInteractiveSessionInjectedOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: SessionStore;
+  sessionStore?: IInteractiveSessionStore;
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
   /** Optional command modules composed into this injected session. */
   commandModules?: readonly ICommandModule[];
+  /** Host adapters available to composed command modules. */
+  commandHostAdapters?: ICommandHostAdapters;
 }
 
 /** Union of standard and injected construction options. */
@@ -104,6 +125,7 @@ export interface IInitOptions {
   forkSession?: boolean;
   onTextDelta: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
+  onCompactEvent?: (event: ICompactEvent) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
@@ -134,6 +156,16 @@ export interface IInitOptions {
   config?: IResolvedConfig;
   /** Recorder used to snapshot files before Write/Edit tools mutate them. */
   editCheckpointRecorder?: IEditCheckpointRecorder;
+  /** Opt-in local-first reversible execution policy for write/shell tools. */
+  reversibleExecution?: IReversibleExecutionOptions;
+  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  sandboxClient?: ISandboxClient;
+  /** Fresh-session workspace manifest applied through the sandbox client. */
+  workspaceManifest?: IWorkspaceManifest;
+  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
+  sandboxWorkspaceRoot?: string;
+  /** Provider sandbox snapshot id to restore before replaying saved messages. */
+  sandboxSnapshotId?: string;
 }
 
 /**
@@ -176,6 +208,11 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
 
   const paths = projectPaths(cwd);
 
+  const sandboxRestored = await restoreInteractiveSandboxSnapshot(options);
+  if (!sandboxRestored) {
+    await applyInteractiveWorkspaceManifest(options, cwd);
+  }
+
   // For non-fork resume, reuse the original session ID so saves update the same file
   const sessionId =
     options.resumeSessionId && !options.forkSession ? options.resumeSessionId : undefined;
@@ -193,6 +230,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     provider: options.provider,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
+    onCompactEvent: options.onCompactEvent,
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,
@@ -215,21 +253,44 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
+    reversibleExecution: options.reversibleExecution,
+    sandboxClient: options.sandboxClient,
   });
 }
 
+async function applyInteractiveWorkspaceManifest(
+  options: IInitOptions,
+  cwd: string,
+): Promise<void> {
+  if (!options.workspaceManifest) return;
+  if (!options.sandboxClient) {
+    throw new Error('workspaceManifest requires sandboxClient.');
+  }
+  await applyWorkspaceManifest(options.sandboxClient, options.workspaceManifest, {
+    hostRoot: cwd,
+    ...(options.sandboxWorkspaceRoot ? { targetRoot: options.sandboxWorkspaceRoot } : {}),
+  });
+}
+
+async function restoreInteractiveSandboxSnapshot(options: IInitOptions): Promise<boolean> {
+  if (!options.sandboxSnapshotId) return false;
+  if (!options.sandboxClient?.restore) {
+    throw new Error('sandboxSnapshotId requires sandboxClient with restore().');
+  }
+  await options.sandboxClient.restore(options.sandboxSnapshotId);
+  return true;
+}
+
 /** Inject a saved message into a session, supporting all roles including 'tool'. */
-export function injectSavedMessage(session: Session, msg: unknown): void {
-  if (!msg || typeof msg !== 'object') return;
-  const m = msg as Record<string, unknown>;
-  if (!m.role || !m.content) return;
-  const role = m.role as string;
-  if (role === 'tool') {
-    const toolCallId = (m.toolCallId as string) ?? '';
-    const name = (m.name as string) ?? undefined;
-    session.injectMessage('tool', m.content as string, { toolCallId, name });
-  } else if (role === 'user' || role === 'assistant' || role === 'system') {
-    session.injectMessage(role, m.content as string);
+export function injectSavedMessage(session: Session, msg: TUniversalMessage): void {
+  if (typeof msg.content !== 'string') return;
+  if (msg.role === 'tool') {
+    session.injectMessage('tool', msg.content, {
+      toolCallId: msg.toolCallId,
+      ...(msg.name !== undefined ? { name: msg.name } : {}),
+    });
+  } else {
+    session.injectMessage(msg.role, msg.content);
   }
 }
 
@@ -238,20 +299,23 @@ export function injectSavedMessage(session: Session, msg: unknown): void {
  * Returns the loaded history and any pending messages that need injection once session is ready.
  */
 export function loadSessionRecord(
-  sessionStore: SessionStore,
+  sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
   forkSession: boolean,
   existingSession: Session | null,
 ): {
   history: IHistoryEntry[];
   sessionName: string | undefined;
-  pendingRestoreMessages: unknown[] | null;
+  pendingRestoreMessages: TUniversalMessage[] | null;
   backgroundTasks: IBackgroundTaskState[];
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
   backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
+  skillActivationEvents: ISkillActivationEvent[];
   memoryEvents: IMemoryEvent[];
   usedMemoryReferences: IMemoryReference[];
+  contextReferences: IContextReferenceItem[];
+  sandboxSnapshotId: string | undefined;
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -263,26 +327,30 @@ export function loadSessionRecord(
       backgroundTaskEvents: [],
       backgroundJobGroups: [],
       backgroundJobGroupEvents: [],
+      skillActivationEvents: [],
       memoryEvents: [],
       usedMemoryReferences: [],
+      contextReferences: [],
+      sandboxSnapshotId: undefined,
     };
   }
 
-  const history = (record.history ?? []) as IHistoryEntry[];
-  const restoredBackgroundTasks = (record.backgroundTasks ?? []) as IBackgroundTaskState[];
-  const restoredBackgroundTaskEvents = (record.backgroundTaskEvents ??
-    []) as TBackgroundTaskEvent[];
-  const backgroundJobGroups = (record.backgroundJobGroups ?? []) as IBackgroundJobGroupState[];
-  const backgroundJobGroupEvents = (record.backgroundJobGroupEvents ??
-    []) as TBackgroundJobGroupEvent[];
-  const memoryEvents = (record.memoryEvents ?? []) as IMemoryEvent[];
-  const usedMemoryReferences = (record.usedMemoryReferences ?? []) as IMemoryReference[];
+  const history = record.history ?? [];
+  const restoredBackgroundTasks = record.backgroundTasks ?? [];
+  const restoredBackgroundTaskEvents = record.backgroundTaskEvents ?? [];
+  const backgroundJobGroups = record.backgroundJobGroups ?? [];
+  const backgroundJobGroupEvents = record.backgroundJobGroupEvents ?? [];
+  const skillActivationEvents = record.skillActivationEvents ?? [];
+  const memoryEvents = record.memoryEvents ?? [];
+  const usedMemoryReferences = record.usedMemoryReferences ?? [];
+  const contextReferences = record.contextReferences ?? [];
+  const sandboxSnapshotId = record.sandboxSnapshotId;
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
     restoredBackgroundTaskEvents,
   );
   const sessionName = record.name;
-  let pendingRestoreMessages: unknown[] | null = null;
+  let pendingRestoreMessages: TUniversalMessage[] | null = null;
 
   if (!forkSession && record.messages) {
     if (existingSession) {
@@ -304,8 +372,11 @@ export function loadSessionRecord(
     backgroundTaskEvents,
     backgroundJobGroups,
     backgroundJobGroupEvents,
+    skillActivationEvents,
     memoryEvents,
     usedMemoryReferences,
+    contextReferences,
+    sandboxSnapshotId,
   };
 }
 

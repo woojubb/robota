@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-anthropic",
-  "version": "3.0.0-beta.59",
+  "version": "3.0.0-beta.60",
   "description": "Anthropic Claude integration for Robota SDK - Claude 3, Claude 2, function calling, and tool integration with Anthropic's API",
   "type": "module",
   "main": "dist/node/index.js",
@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"

@@ -1,5 +1,5 @@
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { ISlashCommand } from '../../commands/types.js';
+import type { ICommand } from '@robota-sdk/agent-sdk';
 import { parseSlashInput } from '../hooks/useAutocomplete.js';
 
 export interface IAutocompleteInputKey {
@@ -140,10 +140,7 @@ export function moveAutocompleteSelection(
   return selectedIndex < commandCount - 1 ? selectedIndex + 1 : 0;
 }
 
-export function resolveTabCompletion(
-  value: string,
-  command: ISlashCommand,
-): TCommandSelectionResult {
+export function resolveTabCompletion(value: string, command: ICommand): TCommandSelectionResult {
   const parsed = parseSlashInput(value);
   if (parsed.parentCommand) {
     return { type: 'insert', value: `/${parsed.parentCommand} ${command.name} ` };
@@ -156,7 +153,7 @@ export function resolveTabCompletion(
 
 export function resolveEnterCommandSelection(
   value: string,
-  command: ISlashCommand,
+  command: ICommand,
 ): TCommandSelectionResult {
   const parsed = parseSlashInput(value);
   if (parsed.parentCommand) {

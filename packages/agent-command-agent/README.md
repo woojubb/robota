@@ -1,15 +1,15 @@
 # @robota-sdk/agent-command-agent
 
-Composable `/agent` command module for Robota sessions.
+Composable `agent` command module for Robota sessions. User-facing shells render and parse it as `/agent`; SDK command identity remains `agent`.
 
 This package contributes command metadata and execution for agent job control. It is intentionally outside `@robota-sdk/agent-sdk` so SDK consumers can choose whether to compose the command.
 
 ## Scope
 
-- Parses `/agent` command input into job-control operations.
+- Parses `agent` command input into job-control operations after a shell strips the user-facing slash.
 - Provides command metadata for SDK/CLI command registries.
 - Delegates lifecycle work to runtime/SDK subagent managers instead of owning process execution directly.
-- Complements the model-visible Agent tool: slash commands are user-invoked control flow, while `Agent({ jobs })` is the deterministic model-invoked batch path for explicit parallel requests.
+- Provides the model-visible `agent` command through the SDK-projected `robota_command_agent` tool route. There is no parallel model-visible `Agent` tool route.
 
 ## Typical Composition
 

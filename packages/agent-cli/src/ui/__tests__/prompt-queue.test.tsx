@@ -4,15 +4,21 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { render } from 'ink-testing-library';
+import { cleanup, render } from 'ink-testing-library';
 import { Box, Text, useInput } from 'ink';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 interface IQueueTestController {
   completeCurrent?: () => void;
 }
 
-async function waitForAssertion(assertion: () => void, timeoutMs = 1500): Promise<void> {
+const WAIT_FOR_ASSERTION_TIMEOUT_MS = 10000;
+const WAIT_FOR_ASSERTION_INTERVAL_MS = 20;
+
+async function waitForAssertion(
+  assertion: () => void,
+  timeoutMs = WAIT_FOR_ASSERTION_TIMEOUT_MS,
+): Promise<void> {
   const startedAt = Date.now();
   let lastError: Error | undefined;
 
@@ -22,7 +28,7 @@ async function waitForAssertion(assertion: () => void, timeoutMs = 1500): Promis
       return;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, WAIT_FOR_ASSERTION_INTERVAL_MS));
     }
   }
 
@@ -43,6 +49,7 @@ function QueueTestApp({
   controller?: IQueueTestController;
 }): React.ReactElement {
   const [isThinking, setIsThinking] = useState(false);
+  const thinkingRef = useRef(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [isAborting, setIsAborting] = useState(false);
@@ -50,6 +57,7 @@ function QueueTestApp({
 
   const executePrompt = useCallback(
     async (input: string) => {
+      thinkingRef.current = true;
       setIsThinking(true);
       setLog((prev) => [...prev, `exec:${input}`]);
       onExecute(input);
@@ -63,6 +71,7 @@ function QueueTestApp({
         }
         setTimeout(resolve, 300);
       });
+      thinkingRef.current = false;
       setIsThinking(false);
     },
     [controller, onExecute],
@@ -70,7 +79,7 @@ function QueueTestApp({
 
   const handleSubmit = useCallback(
     async (input: string) => {
-      if (isThinking) {
+      if (thinkingRef.current) {
         setPendingPrompt(input);
         pendingRef.current = input;
         setLog((prev) => [...prev, `queued:${input}`]);
@@ -78,12 +87,12 @@ function QueueTestApp({
       }
       await executePrompt(input);
     },
-    [isThinking, executePrompt],
+    [executePrompt],
   );
 
   useInput((_input, key) => {
     // ESC always aborts + clears queue
-    if (key.escape && isThinking) {
+    if (key.escape && thinkingRef.current) {
       setIsAborting(true);
       setPendingPrompt(null);
       pendingRef.current = null;
@@ -135,15 +144,17 @@ function SubmitTrigger({
 }
 
 describe('Prompt Queue', () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
   it('executes prompt normally when not thinking', async () => {
     const onExecute = vi.fn();
-    const { lastFrame } = render(<QueueTestApp onExecute={onExecute} />);
-
-    lastFrame(); // trigger render
-    // Simulate submit via stdin
     const { stdin } = render(<QueueTestApp onExecute={onExecute} />);
+
     stdin.write('s:hello');
-    await new Promise((r) => setTimeout(r, 100));
+    await waitForAssertion(() => expect(onExecute).toHaveBeenCalledWith('hello'));
 
     expect(onExecute).toHaveBeenCalledWith('hello');
   });

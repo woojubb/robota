@@ -4,7 +4,7 @@
  */
 
 import type { IMenuSelectItem } from './MenuSelect.js';
-import type { IPluginCallbacks } from '../commands/slash-executor.js';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
 
 interface IConfirmState {
   message: string;
@@ -45,7 +45,7 @@ export function handleMarketplaceListSelect(value: string, nav: Pick<INavActions
 export function handleMarketplaceActionSelect(
   value: string,
   marketplace: string,
-  callbacks: IPluginCallbacks,
+  callbacks: ICommandPluginAdapter,
   nav: Pick<INavActions, 'push' | 'pop' | 'popN' | 'notify' | 'setConfirm'>,
 ): void {
   if (value === 'browse') {
@@ -98,7 +98,7 @@ export function handleMarketplaceBrowseSelect(
 export function handleInstallScopeSelect(
   value: string,
   pluginId: string,
-  callbacks: IPluginCallbacks,
+  callbacks: ICommandPluginAdapter,
   nav: Pick<INavActions, 'popN' | 'notify'>,
 ): void {
   const scope = value as 'user' | 'project';
@@ -115,7 +115,7 @@ export function handleInstallScopeSelect(
 
 export function handleInstalledListSelect(
   value: string,
-  callbacks: IPluginCallbacks,
+  callbacks: ICommandPluginAdapter,
   nav: Pick<INavActions, 'notify' | 'setConfirm' | 'refresh'>,
 ): void {
   nav.setConfirm({
@@ -139,7 +139,7 @@ export function handleInstalledListSelect(
 export function handleInstalledActionSelect(
   value: string,
   pluginId: string,
-  callbacks: IPluginCallbacks,
+  callbacks: ICommandPluginAdapter,
   nav: Pick<INavActions, 'popN' | 'notify' | 'setConfirm'>,
 ): void {
   if (value === 'uninstall') {

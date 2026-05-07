@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.59",
+  "version": "3.0.0-beta.60",
   "description": "AI coding assistant CLI built on Robota SDK",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
   "exports": {
     ".": {
       "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
@@ -50,14 +51,30 @@
   },
   "dependencies": {
     "@robota-sdk/agent-command-agent": "workspace:*",
+    "@robota-sdk/agent-command-background": "workspace:*",
+    "@robota-sdk/agent-command-compact": "workspace:*",
+    "@robota-sdk/agent-command-context": "workspace:*",
+    "@robota-sdk/agent-command-exit": "workspace:*",
+    "@robota-sdk/agent-command-help": "workspace:*",
+    "@robota-sdk/agent-command-language": "workspace:*",
+    "@robota-sdk/agent-command-memory": "workspace:*",
+    "@robota-sdk/agent-command-model": "workspace:*",
+    "@robota-sdk/agent-command-permissions": "workspace:*",
+    "@robota-sdk/agent-command-plugin": "workspace:*",
+    "@robota-sdk/agent-command-provider": "workspace:*",
+    "@robota-sdk/agent-command-reset": "workspace:*",
+    "@robota-sdk/agent-command-rewind": "workspace:*",
+    "@robota-sdk/agent-command-session": "workspace:*",
+    "@robota-sdk/agent-command-skills": "workspace:*",
+    "@robota-sdk/agent-command-statusline": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
+    "@robota-sdk/agent-provider-deepseek": "workspace:*",
     "@robota-sdk/agent-provider-gemma": "workspace:*",
     "@robota-sdk/agent-provider-gemini": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-provider-qwen": "workspace:*",
     "@robota-sdk/agent-sdk": "workspace:*",
-    "@robota-sdk/agent-sessions": "workspace:3.0.0-beta.59",
     "@robota-sdk/agent-transport-headless": "workspace:*",
     "chalk": "^5.3.0",
     "cli-highlight": "^2.1.0",

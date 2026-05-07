@@ -4,15 +4,16 @@
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import {
-  bashTool,
-  readTool,
-  writeTool,
-  editTool,
+  createBashTool,
+  createReadTool,
+  createWriteTool,
+  createEditTool,
   globTool,
   grepTool,
   webFetchTool,
   webSearchTool,
 } from '@robota-sdk/agent-tools';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 /** Human-readable descriptions of the built-in tools (for system prompt) */
 export const DEFAULT_TOOL_DESCRIPTIONS = [
@@ -22,19 +23,26 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'Edit — replace a string in a file',
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
-  'WebSearch — search the internet (Anthropic built-in)',
+  'WebFetch — fetch URL content as text',
+  'WebSearch — search the internet through the configured local tool',
 ];
 
 /**
  * Create the default set of CLI tools.
  * Returns the 8 standard tools as IToolWithEventService[].
  */
-export function createDefaultTools(): IToolWithEventService[] {
+export interface ICreateDefaultToolsOptions {
+  sandboxClient?: ISandboxClient;
+}
+
+export function createDefaultTools(
+  options: ICreateDefaultToolsOptions = {},
+): IToolWithEventService[] {
   return [
-    bashTool as IToolWithEventService,
-    readTool as IToolWithEventService,
-    writeTool as IToolWithEventService,
-    editTool as IToolWithEventService,
+    createBashTool(options) as IToolWithEventService,
+    createReadTool(options) as IToolWithEventService,
+    createWriteTool(options) as IToolWithEventService,
+    createEditTool(options) as IToolWithEventService,
     globTool as IToolWithEventService,
     grepTool as IToolWithEventService,
     webFetchTool as IToolWithEventService,

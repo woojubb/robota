@@ -7,6 +7,7 @@
 - OpenAI-compatible transport tuned for Gemma-family behavior.
 - Reasoning marker projection from Gemma serving templates.
 - Native tool-call text projection into Robota tool-call structures.
+- Explicit capability report for unsupported provider-native hosted web search/fetch on LM Studio-style endpoints.
 - Provider-definition metadata for CLI setup.
 
 ## Documents

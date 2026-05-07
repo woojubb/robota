@@ -7,6 +7,10 @@ export {
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
+  appendPrefixedLogLines,
+  createBackgroundTaskLogPage,
+  createLimitedOutputCapture,
+  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
 } from '@robota-sdk/agent-runtime';
 export { BackgroundTaskError } from '@robota-sdk/agent-runtime';
 export type {
@@ -40,6 +44,8 @@ export type {
   TBackgroundTaskStatus,
   TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
+  ICreateLimitedOutputCaptureOptions,
+  ILimitedOutputCapture,
 } from '@robota-sdk/agent-runtime';
 export type {
   IBackgroundJobGroupCreateRequest,

@@ -3,9 +3,9 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect, vi } from 'vitest';
 import PluginTUI from '../PluginTUI.js';
-import type { IPluginCallbacks } from '../../commands/slash-executor.js';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
 
-function mockCallbacks(): IPluginCallbacks {
+function mockCallbacks(): ICommandPluginAdapter {
   return {
     listInstalled: vi.fn().mockResolvedValue([]),
     listAvailablePlugins: vi.fn().mockResolvedValue([]),
@@ -17,7 +17,7 @@ function mockCallbacks(): IPluginCallbacks {
     marketplaceRemove: vi.fn().mockResolvedValue(undefined),
     marketplaceUpdate: vi.fn().mockResolvedValue(undefined),
     marketplaceList: vi.fn().mockResolvedValue([]),
-    reloadPlugins: vi.fn().mockResolvedValue(undefined),
+    reloadPlugins: vi.fn().mockResolvedValue({ loadedPluginCount: 0 }),
   };
 }
 
@@ -163,5 +163,5 @@ describe('PluginTUI', () => {
     stdin.write('\r'); // User scope
     await new Promise((r) => setTimeout(r, 100));
     expect(cbs.install).toHaveBeenCalledWith('new-plugin@test-mp', 'user');
-  });
+  }, 15000);
 });

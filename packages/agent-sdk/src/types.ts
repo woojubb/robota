@@ -1,5 +1,6 @@
 /**
- * Shared types for Robota SDK — re-exported from their owning packages.
+ * Internal SDK aliases for lower-owner types used by SDK implementation files.
+ * These are not re-exported from the top-level public entrypoint.
  */
 
 // Permission types from agent-core

@@ -29,7 +29,7 @@ export interface IAnthropicProviderOptions {
   [key: string]: TAnthropicProviderOptionValue;
 
   /**
-   * Anthropic API key (required when client is not provided)
+   * Anthropic API key (required when client and executor are not provided)
    */
   apiKey?: string;
 
@@ -45,6 +45,8 @@ export interface IAnthropicProviderOptions {
 
   /**
    * Anthropic client instance (optional: will be created from apiKey if not provided)
+   * Use this path for advanced Anthropic SDK authentication that is outside
+   * Robota's normal API-key setup flow.
    */
   client?: Anthropic;
 

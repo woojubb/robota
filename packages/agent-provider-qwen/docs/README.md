@@ -8,6 +8,7 @@
 - DashScope/OpenAI-compatible chat transport.
 - Optional provider-side web tools through Responses API `web_search` and `web_extractor`.
 - Usage/provenance projection for provider-side hosted work, separate from local Robota tools.
+- Provider-neutral capability reporting for hosted web search/fetch enabled state.
 
 ## Documents
 

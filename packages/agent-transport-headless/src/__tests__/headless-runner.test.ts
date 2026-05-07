@@ -126,6 +126,44 @@ describe('createHeadlessRunner (text format)', () => {
     expect(session.submit).not.toHaveBeenCalled();
     expect(stdoutWriteSpy).toHaveBeenCalledWith('Started agent job: agent_1\n');
   });
+
+  it('executes /skill through SDK command routing without submitting the raw slash prompt', async () => {
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const session = {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event)!.push(handler);
+      }),
+      off: vi.fn(),
+      submit: vi.fn(),
+      executeCommand: vi.fn().mockImplementation(async () => {
+        const result: IExecutionResult = {
+          response: 'Skill response',
+          history: [],
+          toolSummaries: [],
+          contextState: {} as IExecutionResult['contextState'],
+        };
+        for (const handler of listeners.get('complete') ?? []) {
+          handler(result);
+        }
+        return {
+          success: true,
+          message: '',
+          effects: [{ type: 'session-execution-started' }],
+          data: { skill: 'audit', sessionExecution: true },
+        };
+      }),
+      getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
+    } as unknown as InteractiveSession;
+    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+
+    const exitCode = await runner.run('/audit src/index.ts');
+
+    expect(exitCode).toBe(0);
+    expect(session.executeCommand).toHaveBeenCalledWith('audit', 'src/index.ts');
+    expect(session.submit).not.toHaveBeenCalled();
+    expect(stdoutWriteSpy).toHaveBeenCalledWith('Skill response\n');
+  });
 });
 
 describe('createHeadlessRunner (json format)', () => {

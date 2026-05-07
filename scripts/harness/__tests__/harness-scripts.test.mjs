@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -9,6 +9,11 @@ import {
   resolveBaseRef,
   resolveRequestedScopes,
 } from '../shared.mjs';
+import {
+  decidePrePushVerification,
+  isDeletedRefUpdate,
+  parsePrePushUpdates,
+} from '../pre-push-updates.mjs';
 
 // ---------------------------------------------------------------------------
 // parseScopeArgs
@@ -49,6 +54,11 @@ describe('parseScopeArgs', () => {
     expect(result.skipRepositoryChecks).toBe(true);
   });
 
+  it('parses --skip-dependent-scopes flag', () => {
+    const result = parseScopeArgs(['--skip-dependent-scopes']);
+    expect(result.skipDependentScopes).toBe(true);
+  });
+
   it('parses --report-file path and --report-format json', () => {
     const result = parseScopeArgs(['--report-file', 'output.json', '--report-format', 'json']);
     expect(result.reportFile).toBe('output.json');
@@ -86,6 +96,7 @@ describe('parseScopeArgs', () => {
       includeScenarios: false,
       skipRecordCheck: false,
       skipRepositoryChecks: false,
+      skipDependentScopes: false,
       reportFile: null,
       reportFormat: null,
       baseRef: null,
@@ -102,6 +113,12 @@ describe('CI build workflow', () => {
 
     expect(content).toContain('run: pnpm build');
     expect(content).toContain('Detect build requirement');
+    expect(content).toContain(
+      "const checksRequiringPackageDist = new Set(['build', 'test', 'typecheck'])",
+    );
+    expect(content).toContain(
+      'scope.checks.some((check) => checksRequiringPackageDist.has(check))',
+    );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
     expect(content).toContain(
       'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
@@ -175,7 +192,9 @@ describe('publish workflow', () => {
   it('syncs and verifies beta dist-tags after recursive publish', () => {
     const script = readFileSync('scripts/publish/publish-packages.sh', 'utf8');
 
-    expect(script).toContain('pnpm publish -r --no-git-checks --otp "$OTP"');
+    expect(script).toContain('command+=(publish -r --no-git-checks)');
+    expect(script).toContain('command+=(--otp "$OTP")');
+    expect(script).toContain('Already published packages will be skipped on retry.');
     expect(script).toContain('Syncing beta dist-tags');
     expect(script).toContain('npm dist-tag add "$package_name@$VERSION" beta');
     expect(script).toContain('Verifying npm dist-tags');
@@ -191,6 +210,62 @@ describe('publish workflow', () => {
     expect(versionSkill).toContain('script explicitly syncs `beta` afterward');
     expect(publishRules).not.toContain('No manual dist-tag sync needed');
     expect(versionSkill).not.toContain('No dist-tag sync needed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CLI dev source resolution
+// ---------------------------------------------------------------------------
+describe('CLI dev source resolution', () => {
+  const cliDevSourcePackages = [
+    'packages/agent-cli',
+    'packages/agent-command-agent',
+    'packages/agent-command-background',
+    'packages/agent-command-compact',
+    'packages/agent-command-context',
+    'packages/agent-command-exit',
+    'packages/agent-command-help',
+    'packages/agent-command-language',
+    'packages/agent-command-memory',
+    'packages/agent-command-mode',
+    'packages/agent-command-model',
+    'packages/agent-command-permissions',
+    'packages/agent-command-plugin',
+    'packages/agent-command-provider',
+    'packages/agent-command-reset',
+    'packages/agent-command-rewind',
+    'packages/agent-command-session',
+    'packages/agent-command-skills',
+    'packages/agent-command-statusline',
+    'packages/agent-core',
+    'packages/agent-provider-anthropic',
+    'packages/agent-provider-gemini',
+    'packages/agent-provider-gemma',
+    'packages/agent-provider-openai',
+    'packages/agent-provider-openai-compatible',
+    'packages/agent-provider-qwen',
+    'packages/agent-runtime',
+    'packages/agent-sdk',
+    'packages/agent-sessions',
+    'packages/agent-tools',
+    'packages/agent-transport-headless',
+  ];
+
+  it('runs cli:dev with source export conditions', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(packageJson.scripts['cli:dev']).toContain('--conditions=source');
+  });
+
+  it('declares source root exports for the CLI dependency closure', () => {
+    for (const packageDir of cliDevSourcePackages) {
+      const packageJson = JSON.parse(readFileSync(`${packageDir}/package.json`, 'utf8'));
+
+      expect(existsSync(`${packageDir}/src/index.ts`)).toBe(true);
+      expect(packageJson.exports['.'].source).toBe('./src/index.ts');
+      expect(packageJson.exports['.'].node).toBeDefined();
+      expect(packageJson.exports['.'].default).toBeDefined();
+    }
   });
 });
 
@@ -243,6 +318,45 @@ describe('verify-change build flow', () => {
 });
 
 // ---------------------------------------------------------------------------
+// command layering scan
+// ---------------------------------------------------------------------------
+describe('command layering scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:commands']).toBe(
+      'node scripts/harness/check-command-layering.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:commands');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SDK public surface scan
+// ---------------------------------------------------------------------------
+describe('SDK public surface scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:sdk-public-surface']).toBe(
+      'node scripts/harness/check-sdk-public-surface.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:sdk-public-surface');
+  });
+});
+
+describe('worktree policy scan', () => {
+  it('is wired into the root harness scan', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(rootPackage.scripts['harness:scan:worktrees']).toBe(
+      'node scripts/harness/check-worktree-policy.mjs',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:worktrees');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pre-push hook
 // ---------------------------------------------------------------------------
 describe('pre-push hook', () => {
@@ -252,6 +366,108 @@ describe('pre-push hook', () => {
     expect(content).toContain('pnpm harness:pre-push');
     expect(content).not.toContain('origin/main');
     expect(content).not.toContain('harness:scan:dist');
+  });
+
+  it('keeps dependent scope expansion opt-in for pre-push', () => {
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+
+    expect(content).toContain('HARNESS_PRE_PUSH_MODE');
+    expect(content).toContain('--skip-dependent-scopes');
+    expect(content).toContain('HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push');
+  });
+
+  it('does not skip dirty working tree changes as tree-equivalent pushes', () => {
+    const content = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+
+    expect(content).toContain('hasWorkingTreeChanges');
+    expect(content).toContain('baseRef && !hasWorkingTreeChanges()');
+  });
+
+  it('parses Git pre-push update lines', () => {
+    const updates = parsePrePushUpdates(
+      `refs/heads/topic abc123 refs/heads/topic def456
+(delete) 0000000000000000000000000000000000000000 refs/heads/old abc123
+`,
+    );
+
+    expect(updates).toEqual([
+      {
+        localRef: 'refs/heads/topic',
+        localObjectId: 'abc123',
+        remoteRef: 'refs/heads/topic',
+        remoteObjectId: 'def456',
+      },
+      {
+        localRef: '(delete)',
+        localObjectId: '0000000000000000000000000000000000000000',
+        remoteRef: 'refs/heads/old',
+        remoteObjectId: 'abc123',
+      },
+    ]);
+  });
+
+  it('detects deleted ref updates from hook payloads', () => {
+    expect(
+      isDeletedRefUpdate({
+        localRef: '(delete)',
+        localObjectId: '0000000000000000000000000000000000000000',
+        remoteRef: 'refs/heads/topic',
+        remoteObjectId: 'abc123',
+      }),
+    ).toBe(true);
+  });
+
+  it('skips verification for delete-only pushes', () => {
+    const decision = decidePrePushVerification({
+      updates: [
+        {
+          localRef: '(delete)',
+          localObjectId: '0000000000000000000000000000000000000000',
+          remoteRef: 'refs/heads/topic',
+          remoteObjectId: 'abc123',
+        },
+      ],
+      baseRef: 'origin/develop',
+      treeMatchesBase: false,
+    });
+
+    expect(decision).toEqual({
+      shouldRun: false,
+      reason: 'delete-only push',
+    });
+  });
+
+  it('skips verification when the branch tree already matches the base', () => {
+    const decision = decidePrePushVerification({
+      updates: [],
+      baseRef: 'origin/develop',
+      treeMatchesBase: true,
+    });
+
+    expect(decision).toEqual({
+      shouldRun: false,
+      reason: 'no content delta from origin/develop',
+    });
+  });
+
+  it('runs verification when a pushed ref has a content delta', () => {
+    const decision = decidePrePushVerification({
+      updates: [
+        {
+          localRef: 'refs/heads/topic',
+          localObjectId: 'abc123',
+          remoteRef: 'refs/heads/topic',
+          remoteObjectId: 'def456',
+        },
+      ],
+      baseRef: 'origin/develop',
+      treeMatchesBase: false,
+    });
+
+    expect(decision).toEqual({
+      shouldRun: true,
+      reason: null,
+    });
   });
 });
 

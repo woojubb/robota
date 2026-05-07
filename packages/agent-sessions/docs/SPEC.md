@@ -18,6 +18,8 @@ The package follows a modular structure with Session delegating to focused sub-c
 
 ```
 session.ts                -- Session class: orchestrates run loop, delegates to sub-components
+session-run.ts            -- Per-turn Session.run execution helper and replay-event forwarding
+session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onToolExecution display callbacks
 permission-enforcer.ts    -- PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
 context-window-tracker.ts -- ContextWindowTracker: token usage tracking, auto-compact threshold
 compaction-orchestrator.ts -- CompactionOrchestrator: conversation summarization via LLM
@@ -29,6 +31,7 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 - **Facade** -- `Session` hides Robota agent creation, tool registration, permission wiring, and hook execution behind a single `run()` method.
 - **Decorator** -- Each tool is wrapped with a permission-checking proxy via `PermissionEnforcer.wrapTools()` before being registered with the Robota agent.
+- **Adapter** -- `session-tool-execution-bridge` adapts core replay events for unregistered tool calls into the same UI callback shape used by wrapped registered tools.
 - **Strategy (injected)** -- Permission approval can be handled by a `TPermissionHandler` callback, an injected `promptForApproval` function, or denied by default.
 - **Composition** -- Session delegates to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator rather than implementing everything inline.
 - **Null Object** -- When no `SessionStore` is provided, persistence is silently skipped.
@@ -54,8 +57,10 @@ Types owned by this package (SSOT):
 | `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                           |
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)                   |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, diagnostic extension fields)        |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
+| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy             |
+| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields) |
 
 Types consumed from other packages (not owned here):
 
@@ -88,6 +93,7 @@ Types consumed from other packages (not owned here):
 | `SilentSessionLogger`            | Class                | No-op session logger                                                                                           |
 | `ISessionOptions`                | Interface            | Constructor options for Session                                                                                |
 | `ISessionShutdownOptions`        | Interface            | Graceful shutdown options for `Session.shutdown()`                                                             |
+| `TAutoCompactThreshold`          | Type                 | Auto-compact threshold fraction, or `false` to disable automatic compaction                                    |
 | `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                            |
 | `TPermissionResult`              | Type                 | Permission decision result                                                                                     |
 | `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                       |
@@ -96,6 +102,7 @@ Types consumed from other packages (not owned here):
 | `ISessionLogger`                 | Interface            | Pluggable session event logger interface                                                                       |
 | `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
 | `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
+| `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                  |
 | `IContextWindowState`            | Type                 | Context window usage state (re-exported from agent-core)                                                       |
 
 ### Session Constructor — sessionId Parameter
@@ -107,6 +114,10 @@ Types consumed from other packages (not owned here):
 `ISessionOptions.maxTurns` is an optional maximum number of model/tool rounds for one `Session.run()` call. When provided, `Session` forwards it to `Robota.run()` as `maxExecutionRounds`. When omitted, `Session` forwards `maxExecutionRounds: 0`, which means the session run has no core round cap and is instead bounded by abort, context-window checks, provider idle timeout, and runtime-level controls.
 
 `ISessionOptions.onContextUpdate` is an optional callback fired from the session runtime whenever `ContextWindowTracker` is refreshed. It fires before the provider call using the assembled request history estimate and again after the provider response is committed with exact provider usage when available. Consumers such as `InteractiveSession` forward it as `context_update`.
+
+`ISessionOptions.autoCompactThreshold` controls the initial automatic compaction trigger as a `0 < value <= 1` fraction. The default is `0.835`. Set it to `false` when an embedding runtime manages compaction externally. `Session.setAutoCompactThreshold()` may change this policy after construction; subsequent `run()` calls use the new policy immediately.
+
+`ISessionOptions.onCompactEvent` receives structured compaction metadata with `trigger`, `before`, and `after` context-window states. Manual `Session.compact()` calls report `trigger: "manual"` by default; auto-compaction from `Session.run()` reports `trigger: "auto"`. The session logger also writes a `context_compact` event with the same before/after state so headless transports and logs can explain what happened without streaming compaction summary text into the normal answer path.
 
 ### Key Session Methods
 
@@ -121,7 +132,9 @@ Types consumed from other packages (not owned here):
 | `getHistory`               | `() => TUniversalMessage[]`                                          | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                       |
 | `getFullHistory`           | `() => IHistoryEntry[]`                                              | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                   |
 | `addHistoryEntry`          | `(entry: IHistoryEntry) => void`                                     | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
-| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time context window usage (tokens, percentage).                                                                            |
+| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                             |
+| `getAutoCompactThreshold`  | `() => TAutoCompactThreshold`                                        | Returns the configured automatic compaction threshold, or `false` when disabled.                                                        |
+| `setAutoCompactThreshold`  | `(threshold: TAutoCompactThreshold) => void`                         | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                |
 | `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                                                         | Cancels the currently running `run()` call. No-op if not running.                                                                       |
 | `shutdown`                 | `(options?: ISessionShutdownOptions) => Promise<void>`               | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                       |
@@ -151,13 +164,15 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 | `messages`                 | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
 | `history`                  | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
 | `systemPrompt`             | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
-| `toolSchemas`              | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable command tools such as `ExecuteCommand`.                                                        |
+| `toolSchemas`              | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable projected command tools such as `robota_command_skills`.                                       |
 | `backgroundTasks`          | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
 | `backgroundTaskEvents`     | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
 | `backgroundJobGroups`      | `unknown[]` | No       | Latest persisted background job group snapshots for agent/runtime orchestration resume.                                                                           |
 | `backgroundJobGroupEvents` | `unknown[]` | No       | Durable background job group lifecycle events needed for resume/debugging.                                                                                        |
 | `memoryEvents`             | `unknown[]` | No       | SDK-owned automatic memory audit events such as extracted, queued, saved, skipped, approved, rejected, and retrieved.                                             |
 | `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
+| `contextReferences`        | `unknown[]` | No       | SDK-owned context reference inventory for resume/debugging.                                                                                                       |
+| `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-sessions` stores this value opaquely and does not import sandbox packages.        |
 
 ### Session Data Migration
 
@@ -178,16 +193,26 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 - **`session_init` event** -- Recorded when a session is constructed. Includes `systemPrompt`, `systemPromptLength`, provider/model, cwd, and registered `toolSchemas`.
 - **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
-- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, `webToolsEnabled` flag, full enriched input, and current message history before the model call.
+- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name, provider-native web capability/enabled state, full enriched input, and current message history before the model call.
 - **`provider_request` event** -- Recorded before each provider call. Includes the provider-neutral request envelope: provider, model, messages, tool schemas/options, round, and execution identifiers.
+- **`provider_native_raw_payload` event** -- Recorded when a provider package reports an SDK-native request, response, or stream event through `IChatOptions.onProviderNativeRawPayload`. Includes provider, optional API surface, payload kind, sequence, payload, round, and execution identifiers. This event is provider-owned at capture time; Session only persists it through the existing logger.
+- **`provider_stream_raw_delta` event** -- Recorded for each provider text delta observed by the core streaming callback. Includes sequence, delta, round, and execution identifiers.
+- **`provider_response_raw` event** -- Recorded immediately after provider `chat()` returns and before core validates/extracts the assistant message. Includes the provider-returned response object and `responseKind`.
 - **`provider_response_normalized` event** -- Recorded immediately after the provider adapter returns a `TUniversalMessage`. Includes the normalized assistant message, tool call count, provider/model metadata, round, and execution identifiers.
 - **`tool_batch_started` event** -- Recorded before a tool batch executes. Includes batch mode, max concurrency, request count, ordered tool names, round, and execution identifiers.
 - **`tool_execution_request` event** -- Recorded for each parsed tool request. Includes tool name, toolCallId/executionId, parsed parameters, batch index, owner path, round, and execution identifiers.
-- **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, batch index, round, and execution identifiers.
+- **`tool_execution_result` event** -- Recorded for each terminal tool result. Includes tool name, toolCallId/executionId, success/error, result payload when available, result metadata, batch index, round, and execution identifiers.
+- **`tool_message_committed` event** -- Recorded when a tool result message is appended to canonical history.
+- **`history_mutation` event** -- Recorded for append-only canonical chat history changes used by replay readers.
 - **`text_delta` event** -- Recorded for each streaming text chunk delivered through `ISessionOptions.onTextDelta`. This is append-only JSONL data and must be available while a run is still in progress.
 - **`assistant` event** -- Recorded after each assistant response. Includes full assistant content, full post-run history, and `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
 - **`session_shutdown` event** -- Recorded once when `Session.shutdown()` begins. Includes the Claude-compatible shutdown reason.
+- **Provider-native web configuration** -- Session calls `IAIProvider.configureNativeWebTools?.({ webSearch: true })` during construction. Providers that own auto-enabled hosted web behavior may implement the hook; Session must not branch on concrete provider names or import provider packages.
 - **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
+
+`FileSessionLogger` applies recursive secret redaction before persistence. Keys such as `apiKey`, `authorization`, `accessToken`, `refreshToken`, `secret`, `password`, and `xApiKey` are replaced with `[REDACTED]`. Log fields larger than the inline threshold are stored as content-addressed JSON payload files in `{sessionId}.payloads/{sha256}.json`, and the JSONL line stores an `IExternalPayloadReference`.
+
+`session-log-replay.ts` owns replay readers and validators. `replaySessionLogEntries()` reconstructs provider messages and chat history from `history_mutation` events. `validateSessionReplayLogEntries()` reports missing provider-native raw payloads, missing provider-normalized raw responses, missing normalized responses, unmatched tool requests/results, and invalid external payload references. Every `provider_request` must be paired with at least one `provider_native_raw_payload` event for the same `executionId`/`round` whose `payloadKind` is `response` or `stream_event`, plus the existing `provider_response_raw` and `provider_response_normalized` events.
 
 ## Hook Lifecycle
 
@@ -215,7 +240,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI. `Session` stores this callback and passes it to `Robota.run()` as a per-run option; it MUST NOT mutate provider-level `onTextDelta` state because parent/subagent sessions may share the same provider instance.
 
-8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName, toolArgs }` when a tool begins and `{ type: 'end', toolName, toolArgs, success, denied?, toolResultData? }` when it completes. `toolResultData` is the serialized, possibly truncated tool result payload used by higher layers for display metadata such as Edit start lines. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
+8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName, toolArgs }` when a tool begins and `{ type: 'end', toolName, toolArgs, success, denied?, toolResultData? }` when it completes. `toolResultData` is the serialized, possibly truncated tool result payload used by higher layers for display metadata such as Edit start lines. Registered tool execution is wired through `PermissionEnforcer.wrapToolWithPermission()`. Unregistered tool calls are not wrapped by `PermissionEnforcer`, so `Session` bridges core replay events into the same callback with `success: false`, `errorCode: "unknown_tool"`, and the reason the tool call was not executed. The bridge must not duplicate registered tool events.
 
 9. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
 
@@ -223,7 +248,9 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 11. **`ISessionOptions.maxTurns`** -- Optional model/tool round cap passed to the underlying Robota run. Omitted means unlimited for the session layer.
 
-12. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+12. **`ISessionOptions.autoCompactThreshold`** -- Optional automatic compaction threshold. A number is interpreted as a fraction of the context window; `false` disables automatic compaction.
+
+13. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Abort Behavior
 
@@ -265,17 +292,20 @@ This ensures the AI retains project context (working directory, coding rules, av
 
 ### Auto-Compaction
 
-Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream.
+Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream. The trigger defaults to 83.5% of the context window and can be configured per session or disabled with `autoCompactThreshold: false`.
+
+`ContextWindowTracker.updateFromHistory()` delegates token estimation to `agent-core`'s shared context estimator. The tracker treats terminal provider usage as exact post-response state; when metadata-free messages follow the latest provider usage, it uses the maximum of serialized-history estimate, latest provider usage, and any future caller floor instead of summing all historical provider input counts. This keeps `/context`, status bars, automatic compaction, and core hard-capacity guards aligned on the same effective context state.
 
 ## Error Taxonomy
 
 This package does not define a custom error hierarchy. All errors are thrown as standard `Error` instances. Error scenarios include:
 
-| Error Condition        | Thrown By            | Message Pattern                                             |
-| ---------------------- | -------------------- | ----------------------------------------------------------- |
-| Tool permission denied | `PermissionEnforcer` | Returns `IToolResult` with `"Permission denied"` (no throw) |
-| Hook blocked tool      | `PermissionEnforcer` | Returns `IToolResult` with `"Blocked by hook: {reason}"`    |
-| Tool execution error   | `PermissionEnforcer` | Returns `IToolResult` with error message (never throws)     |
+| Error Condition        | Thrown By            | Message Pattern                                                                                       |
+| ---------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| Tool permission denied | `PermissionEnforcer` | Returns `IToolResult` with `"Permission denied"` (no throw)                                           |
+| Hook blocked tool      | `PermissionEnforcer` | Returns `IToolResult` with `"Blocked by hook: {reason}"`                                              |
+| Tool execution error   | `PermissionEnforcer` | Returns `IToolResult` with error message (never throws)                                               |
+| Unknown tool call      | `ExecutionService`   | Returns a failed tool result with `errorCode: "unknown_tool"` and explains that execution was skipped |
 
 The permission wrapper deliberately catches all errors and returns them as `IToolResult` objects to avoid corrupting the conversation history with unmatched tool_use/tool_result pairs.
 

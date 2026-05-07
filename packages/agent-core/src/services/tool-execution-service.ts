@@ -1,6 +1,10 @@
-import { IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { IToolManager } from '../interfaces/manager';
-import type { TToolParameters, TToolMetadata } from '../interfaces/tool';
+import type {
+  IToolExecutionContext,
+  IToolExecutionResult,
+  TToolParameters,
+  TToolMetadata,
+} from '../interfaces/tool';
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import { SilentLogger, type ILogger } from '../utils/logger';
@@ -19,6 +23,8 @@ export const TOOL_EVENTS = {
 } as const;
 
 export const TOOL_EVENT_PREFIX = 'tool' as const;
+
+export const UNKNOWN_TOOL_ERROR_CODE = 'unknown_tool' as const;
 
 export interface IToolExecutionBatchContext {
   requests: IToolExecutionRequest[];
@@ -63,6 +69,38 @@ export class ToolExecutionService {
         throw new ValidationError(
           'ToolExecutionService requires executionId (toolCallId) in ToolExecutionContext',
         );
+      }
+
+      if (!this.tools.hasTool(toolName)) {
+        const availableTools = this.tools
+          .getTools()
+          .map((tool) => tool.name)
+          .sort();
+        const error = formatUnknownToolError(toolName, availableTools);
+        const eventService = context.eventService;
+        if (eventService) {
+          const errorEvent: IToolEventData = {
+            timestamp: new Date(),
+            toolName,
+            error,
+          };
+          eventService.emit(TOOL_EVENTS.CALL_ERROR, errorEvent);
+        }
+        this.logger.warn('Tool call skipped because requested tool is not registered', {
+          toolName,
+          availableTools,
+        });
+        return {
+          success: false,
+          error,
+          toolName,
+          executionId: context.executionId,
+          metadata: {
+            errorCode: UNKNOWN_TOOL_ERROR_CODE,
+            requestedTool: toolName,
+            availableTools,
+          },
+        };
       }
 
       const eventService = context.eventService;
@@ -180,4 +218,10 @@ export class ToolExecutionService {
   ): Promise<{ results: IToolExecutionResult[]; errors: Error[] }> {
     return executeBatch(batchContext, this, this.logger);
   }
+}
+
+function formatUnknownToolError(toolName: string, availableTools: string[]): string {
+  const available =
+    availableTools.length > 0 ? availableTools.join(', ') : 'no registered tools are available';
+  return `Tool "${toolName}" is not registered, so the tool call was not executed. Available tools: ${available}.`;
 }

@@ -17,7 +17,7 @@ import {
   handleInstalledActionSelect,
 } from './plugin-tui-handlers.js';
 import type { IMenuSelectItem } from './MenuSelect.js';
-import type { IPluginCallbacks } from '../commands/slash-executor.js';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
 import { usePluginScreenData } from './hooks/usePluginScreenData.js';
 
 type TScreenId =
@@ -47,7 +47,7 @@ interface IConfirmState {
 }
 
 interface IProps {
-  callbacks: IPluginCallbacks;
+  callbacks: ICommandPluginAdapter;
   onClose: () => void;
   addMessage?: (msg: { role: string; content: string }) => void;
 }

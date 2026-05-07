@@ -21,14 +21,15 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Pre-Push Local Verification Requirement
 
-- **NEVER push without first running CI checks locally.** Remote CI failure after a local-only fix is a preventable waste.
-- Before any `git push`, run locally in order:
-  1. `pnpm run typecheck` — zero type errors required
-  2. `pnpm run lint` — zero lint errors required (warnings allowed)
-  3. `pnpm run test` — all tests must pass
-- If any step fails, fix it locally before pushing.
-- The `.claude/hooks/pre-push-check.sh` hook enforces this automatically for Claude Code tool calls. Running `git push` directly in the terminal bypasses the hook — you are responsible for running the checks manually in that case.
-- This rule exists because repeated CI-only failures waste CI minutes and slow down the feedback loop.
+- **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
+- The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
+- Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
+- Do not duplicate a stronger gate with a weaker one. If `pnpm harness:verify -- --base-ref <ref> --skip-record-check` or release-grade verification has already passed for the final diff, the pre-push hook may be treated as the final safety net rather than a separate manual command.
+- Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
+- Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
+- If the hook skips because no repository content is being published, do not run full checks by habit.
+- If any scoped check fails, fix it locally before pushing.
+- This rule exists because both CI-only failures and repeated no-op local verification waste minutes and slow down the feedback loop.
 
 ### Behavioral Verification Before Push
 
@@ -37,6 +38,14 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - For LLM-driven tool calling, background work, streaming, session persistence, or resume behavior, verification must inspect structured runtime evidence such as tool-call records, background-job events, terminal states, persisted session data, or a headless scenario result. Assistant prose or markup does not count as execution proof.
 - A pre-push hook is a final safety net, not a substitute for intentional verification. Do not rely on push-time checks to discover whether the work is valid.
 - If feature-specific verification cannot be run locally, stop before pushing and report the blocker and residual risk to the user.
+
+### Headless CLI Verification Requirement
+
+- Any change that affects CLI execution, transport adapters, `InteractiveSession` behavior used by the CLI, slash/built-in commands, model-invocable commands, tool-call routing, provider setup, session persistence, streaming output, or permission mode behavior MUST include or run a headless verification path.
+- Headless verification means a non-interactive `-p`/headless transport scenario or an automated integration test using an injected provider fixture. It must not require a real provider API key.
+- For model-routed behavior, the test must prove structured execution occurred, such as tool-call schemas, tool result messages, command/skill activation events, persisted session records, or JSON/stream-json output. Text that merely resembles command output is not proof.
+- If the affected behavior is visible in both TUI and headless mode, verify both paths before reporting completion.
+- If no suitable headless fixture exists, add one in the owning package before pushing.
 
 ### Execution Safety
 

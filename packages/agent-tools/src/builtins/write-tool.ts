@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
+import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 import { atomicWriteUtf8File } from './atomic-file-write.js';
 
@@ -15,11 +16,15 @@ const WriteSchema = z.object({
 
 type TWriteArgs = z.infer<typeof WriteSchema>;
 
-async function writeFileTool(args: TWriteArgs): Promise<string> {
+async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { filePath, content } = args;
 
   try {
-    await atomicWriteUtf8File(filePath, content);
+    if (options.sandboxClient) {
+      await options.sandboxClient.writeFile(filePath, content);
+    } else {
+      await atomicWriteUtf8File(filePath, content);
+    }
 
     const result: TToolResult = {
       success: true,
@@ -37,13 +42,20 @@ async function writeFileTool(args: TWriteArgs): Promise<string> {
 }
 
 /**
+ * Create a WriteTool instance — register with Robota agent tools registry.
+ */
+export function createWriteTool(options: ISandboxToolOptions = {}) {
+  return createZodFunctionTool(
+    'Write',
+    'Writes a file to the local filesystem. This will overwrite an existing file if one exists.\n\nALWAYS prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.\n\nNEVER create documentation files (*.md) or README files unless explicitly requested by the user.',
+    WriteSchema as unknown as IZodSchema,
+    async (params) => {
+      return writeFileTool(params as TWriteArgs, options);
+    },
+  );
+}
+
+/**
  * WriteTool instance — register with Robota agent tools registry.
  */
-export const writeTool = createZodFunctionTool(
-  'Write',
-  'Writes a file to the local filesystem. This will overwrite an existing file if one exists.\n\nALWAYS prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.\n\nNEVER create documentation files (*.md) or README files unless explicitly requested by the user.',
-  WriteSchema as unknown as IZodSchema,
-  async (params) => {
-    return writeFileTool(params as TWriteArgs);
-  },
-);
+export const writeTool = createWriteTool();

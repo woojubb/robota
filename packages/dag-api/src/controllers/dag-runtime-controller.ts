@@ -1,128 +1,126 @@
 import type { IDagRun, ITaskRun } from '@robota-sdk/dag-core';
-import type { RunCancelService, RunOrchestratorService, RunQueryService } from '@robota-sdk/dag-runtime';
 import type {
-    ICancelRunRequest,
-    IQueryRunRequest,
-    ITriggerRunRequest,
-    TRuntimeApiResponse
+  ICancelRunRequest,
+  IQueryRunRequest,
+  ITriggerRunRequest,
+  TRuntimeApiResponse,
 } from '../contracts/runtime-api.js';
 import { toRuntimeProblemDetails } from '../contracts/runtime-api.js';
+import type {
+  IRuntimeRunCancellerPort,
+  IRuntimeRunReaderPort,
+  IRuntimeRunStarterPort,
+} from '../ports/controller-service-ports.js';
 
 /**
  * API controller for DAG runtime operations: trigger, query, and cancel runs.
- * @see RunOrchestratorService
+ * @see IRuntimeRunStarterPort
  */
 export class DagRuntimeController {
-    public constructor(
-        private readonly runOrchestrator: RunOrchestratorService,
-        private readonly runQuery: RunQueryService,
-        private readonly runCancel: RunCancelService
-    ) {}
+  public constructor(
+    private readonly runOrchestrator: IRuntimeRunStarterPort,
+    private readonly runQuery: IRuntimeRunReaderPort,
+    private readonly runCancel: IRuntimeRunCancellerPort,
+  ) {}
 
-    /**
-     * Triggers a new DAG run with the specified definition and input.
-     * @param request - The trigger request with dagId, trigger type, and input.
-     * @returns Created run details or problem details on error.
-     */
-    public async triggerRun(
-        request: ITriggerRunRequest
-    ): Promise<TRuntimeApiResponse<{
-        dagRunId: string;
-        dagId: string;
-        version: number;
-        logicalDate: string;
-        taskRunIds: string[];
-    }>> {
-        const started = await this.runOrchestrator.startRun({
-            dagId: request.dagId,
-            version: request.version,
-            trigger: request.trigger,
-            logicalDate: request.logicalDate,
-            input: request.input
-        });
+  /**
+   * Triggers a new DAG run with the specified definition and input.
+   * @param request - The trigger request with dagId, trigger type, and input.
+   * @returns Created run details or problem details on error.
+   */
+  public async triggerRun(request: ITriggerRunRequest): Promise<
+    TRuntimeApiResponse<{
+      dagRunId: string;
+      dagId: string;
+      version: number;
+      logicalDate: string;
+      taskRunIds: string[];
+    }>
+  > {
+    const started = await this.runOrchestrator.startRun({
+      dagId: request.dagId,
+      version: request.version,
+      trigger: request.trigger,
+      logicalDate: request.logicalDate,
+      input: request.input,
+    });
 
-        if (!started.ok) {
-            const problem = toRuntimeProblemDetails(
-                started.error,
-                '/v1/dag/runs',
-                request.correlationId
-            );
-            return {
-                ok: false,
-                status: problem.status,
-                errors: [problem]
-            };
-        }
-
-        return {
-            ok: true,
-            status: 201,
-            data: started.value
-        };
+    if (!started.ok) {
+      const problem = toRuntimeProblemDetails(started.error, '/v1/dag/runs', request.correlationId);
+      return {
+        ok: false,
+        status: problem.status,
+        errors: [problem],
+      };
     }
 
-    /**
-     * Queries a DAG run and its associated task runs.
-     * @param request - The query request with dagRunId.
-     * @returns DAG run with task runs or problem details on error.
-     */
-    public async queryRun(
-        request: IQueryRunRequest
-    ): Promise<TRuntimeApiResponse<{ dagRun: IDagRun; taskRuns: ITaskRun[] }>> {
-        const queried = await this.runQuery.getRun(request.dagRunId);
-        if (!queried.ok) {
-            const rawProblem = toRuntimeProblemDetails(
-                queried.error,
-                `/v1/dag/runs/${request.dagRunId}`,
-                request.correlationId
-            );
-            const status = queried.error.code.endsWith('_NOT_FOUND')
-                ? 404
-                : rawProblem.status;
-            const problem = {
-                ...rawProblem,
-                status
-            };
-            return {
-                ok: false,
-                status,
-                errors: [problem]
-            };
-        }
+    return {
+      ok: true,
+      status: 201,
+      data: started.value,
+    };
+  }
 
-        return {
-            ok: true,
-            status: 200,
-            data: queried.value
-        };
+  /**
+   * Queries a DAG run and its associated task runs.
+   * @param request - The query request with dagRunId.
+   * @returns DAG run with task runs or problem details on error.
+   */
+  public async queryRun(
+    request: IQueryRunRequest,
+  ): Promise<TRuntimeApiResponse<{ dagRun: IDagRun; taskRuns: ITaskRun[] }>> {
+    const queried = await this.runQuery.getRun(request.dagRunId);
+    if (!queried.ok) {
+      const rawProblem = toRuntimeProblemDetails(
+        queried.error,
+        `/v1/dag/runs/${request.dagRunId}`,
+        request.correlationId,
+      );
+      const status = queried.error.code.endsWith('_NOT_FOUND') ? 404 : rawProblem.status;
+      const problem = {
+        ...rawProblem,
+        status,
+      };
+      return {
+        ok: false,
+        status,
+        errors: [problem],
+      };
     }
 
-    /**
-     * Cancels an active DAG run.
-     * @param request - The cancel request with dagRunId.
-     * @returns Cancellation confirmation or problem details on error.
-     */
-    public async cancelRun(
-        request: ICancelRunRequest
-    ): Promise<TRuntimeApiResponse<{ dagRunId: string; status: 'cancelled' }>> {
-        const cancelled = await this.runCancel.cancelRun(request.dagRunId);
-        if (!cancelled.ok) {
-            const problem = toRuntimeProblemDetails(
-                cancelled.error,
-                `/v1/dag/runs/${request.dagRunId}/cancel`,
-                request.correlationId
-            );
-            return {
-                ok: false,
-                status: problem.status,
-                errors: [problem]
-            };
-        }
+    return {
+      ok: true,
+      status: 200,
+      data: queried.value,
+    };
+  }
 
-        return {
-            ok: true,
-            status: 200,
-            data: cancelled.value
-        };
+  /**
+   * Cancels an active DAG run.
+   * @param request - The cancel request with dagRunId.
+   * @returns Cancellation confirmation or problem details on error.
+   */
+  public async cancelRun(
+    request: ICancelRunRequest,
+  ): Promise<TRuntimeApiResponse<{ dagRunId: string; status: 'cancelled' }>> {
+    const cancelled = await this.runCancel.cancelRun(request.dagRunId);
+    if (!cancelled.ok) {
+      const problem = toRuntimeProblemDetails(
+        cancelled.error,
+        `/v1/dag/runs/${request.dagRunId}/cancel`,
+        request.correlationId,
+      );
+      return {
+        ok: false,
+        status: problem.status,
+        errors: [problem],
+      };
     }
+
+    return {
+      ok: true,
+      status: 200,
+      data: cancelled.value,
+    };
+  }
 }

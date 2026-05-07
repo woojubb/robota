@@ -48,6 +48,9 @@ function runRepositoryCheck(check, dryRun) {
     case 'harness-consistency':
       runCommand('pnpm', ['harness:scan:consistency'], WORKSPACE_ROOT, dryRun);
       break;
+    case 'worktree-policy':
+      runCommand('pnpm', ['harness:scan:worktrees'], WORKSPACE_ROOT, dryRun);
+      break;
     case 'publish-safety':
       runCommand('pnpm', ['harness:scan:publish'], WORKSPACE_ROOT, dryRun);
       break;
@@ -59,6 +62,7 @@ function runRepositoryCheck(check, dryRun) {
           'vitest',
           'run',
           'scripts/harness/__tests__/harness-scripts.test.mjs',
+          'scripts/harness/__tests__/lessons-digest.test.mjs',
           'scripts/harness/__tests__/check-plan.test.mjs',
           'scripts/harness/__tests__/scan-test-plan.test.mjs',
           'scripts/harness/__tests__/harness-smoke.test.mjs',
@@ -89,6 +93,7 @@ async function main() {
     changedFiles,
     scopeTokens: options.scopeTokens,
     manifestChangesByScope,
+    includeDependentScopes: !options.skipDependentScopes,
   });
 
   if (plan.repositoryChecks.length > 0 && !options.skipRepositoryChecks) {

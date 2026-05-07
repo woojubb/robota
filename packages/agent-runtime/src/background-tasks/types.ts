@@ -140,6 +140,10 @@ export interface IBackgroundTaskState {
   transcriptPath?: string;
   worktreePath?: string;
   branchName?: string;
+  worktreeStatus?: string;
+  worktreeNextAction?: string;
+  worktreeBaseRevision?: string;
+  parentWorktreeStatus?: string;
   timeoutReason?: TBackgroundTaskTimeoutReason;
 }
 

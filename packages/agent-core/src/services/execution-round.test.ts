@@ -4,7 +4,9 @@ import {
   validateAndExtractResponse,
   callProviderWithCache,
   addToolResultsToHistory,
+  getContextCapacityDecision,
 } from './execution-round';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type { ILogger } from '../utils/logger';
 import { vi } from 'vitest';
 
@@ -28,7 +30,47 @@ function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> 
   };
 }
 
+const NOW = new Date('2026-05-05T00:00:00.000Z');
+
+function userMessage(content: string): TUniversalMessage {
+  return {
+    id: `user-${content.length}`,
+    role: 'user',
+    content,
+    state: 'complete',
+    timestamp: NOW,
+  };
+}
+
 describe('execution-round helpers', () => {
+  describe('getContextCapacityDecision', () => {
+    it('does not hard-block at approximately 80k / 200k effective usage', () => {
+      const decision = getContextCapacityDecision(
+        [userMessage('x'.repeat(320_000))],
+        'claude-haiku-4-5',
+        0,
+      );
+
+      expect(decision.estimatedTokens).toBeGreaterThanOrEqual(80_000);
+      expect(decision.estimatedTokens).toBeLessThan(90_000);
+      expect(decision.contextLimit).toBe(200_000);
+      expect(decision.shouldBlock).toBe(false);
+    });
+
+    it('hard-blocks true near-capacity usage and exposes diagnostic values', () => {
+      const decision = getContextCapacityDecision(
+        [userMessage('x'.repeat(780_000))],
+        'claude-haiku-4-5',
+        0,
+      );
+
+      expect(decision.shouldBlock).toBe(true);
+      expect(decision.thresholdPercentage).toBe(95);
+      expect(decision.serializedTokens).toBe(decision.estimatedTokens);
+      expect(decision.usedPercentage).toBeGreaterThan(95);
+    });
+  });
+
   describe('computeRoundThinkingContext', () => {
     it('generates thinkingNodeId based on conversationId and count', () => {
       const result = computeRoundThinkingContext('conv-1', {
@@ -37,6 +79,7 @@ describe('execution-round helpers', () => {
         toolsExecuted: [],
         lastTrackedAssistantMessage: undefined,
         cumulativeInputTokens: 0,
+        consecutiveUnknownToolFailureRounds: 0,
       });
       expect(result.thinkingNodeId).toBe('thinking_conv-1_round1');
       expect(result.previousThinkingNodeId).toBeUndefined();
@@ -48,6 +91,7 @@ describe('execution-round helpers', () => {
         runningAssistantCount: 1,
         toolsExecuted: ['search'],
         cumulativeInputTokens: 0,
+        consecutiveUnknownToolFailureRounds: 0,
         lastTrackedAssistantMessage: {
           id: 'msg-1',
           role: 'assistant',
@@ -294,7 +338,7 @@ describe('execution-round helpers', () => {
         { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
         { id: 'tc-3', type: 'function' as const, function: { name: 'Glob', arguments: '{}' } },
       ];
-      const largeContent = 'x'.repeat(3000); // ~1000 tokens at chars/3
+      const largeContent = 'x'.repeat(4000); // ~1000 tokens at chars/4
       const toolSummary = {
         results: [
           { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
@@ -405,7 +449,7 @@ describe('execution-round helpers', () => {
         { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
         { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
       ];
-      const largeContent = 'x'.repeat(3000);
+      const largeContent = 'x'.repeat(4000);
       const toolSummary = {
         results: [
           { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
@@ -463,7 +507,7 @@ describe('execution-round helpers', () => {
         { id: 'tc-3', type: 'function' as const, function: { name: 'Glob', arguments: '{}' } },
         { id: 'tc-4', type: 'function' as const, function: { name: 'Write', arguments: '{}' } },
       ];
-      const largeContent = 'x'.repeat(3000);
+      const largeContent = 'x'.repeat(4000);
       const toolSummary = {
         results: [
           { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
@@ -499,7 +543,7 @@ describe('execution-round helpers', () => {
         { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
         { id: 'tc-3', type: 'function' as const, function: { name: 'Glob', arguments: '{}' } },
       ];
-      const largeContent = 'x'.repeat(3000);
+      const largeContent = 'x'.repeat(4000);
       const toolSummary = {
         results: [
           { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
@@ -549,7 +593,7 @@ describe('execution-round helpers', () => {
       ];
       const toolSummary = {
         results: [
-          { executionId: 'tc-1', toolName: 'Read', success: true, result: 'x'.repeat(3000) },
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: 'x'.repeat(4000) },
           { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'output' },
         ],
         errors: [],

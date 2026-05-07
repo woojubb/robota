@@ -1,38 +1,48 @@
 # Deployment Guide
 
+## Deployable Role
+
+`dag-studio` is the Next.js frontend host for the DAG Designer and Playground routes. It does not
+host the DAG API, does not proxy ComfyUI traffic, and does not own run-progress WebSocket handling.
+
+The production DAG topology is:
+
+```text
+browser -> dag-studio -> dag-orchestrator-server -> dag-runtime-server or ComfyUI
+```
+
+The repository-wide deployment topology is documented in
+`.agents/specs/ARCHITECTURE-MAP.md#dag-service-deployment-stack`.
+
 ## Environment Variables
 
-### Required Environment Variables
-
-Create a `.env.local` file in the root directory with the following variables:
+Configure these variables in the frontend hosting provider:
 
 ```env
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-ABCDEF123
-
-# Authentication Providers
-NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
-
-# API Configuration
-NEXT_PUBLIC_API_BASE_URL=https://api.robota.dev
-NEXT_PUBLIC_PLAYGROUND_API_URL=https://playground-api.robota.dev
-
-# Analytics and Monitoring
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-ABCDEF123
-
-# Environment
-NODE_ENV=production
-NEXT_PUBLIC_APP_ENV=production
-NEXT_PUBLIC_APP_VERSION=1.0.0
-
-# Security
-NEXTAUTH_SECRET=your_nextauth_secret_here
-NEXTAUTH_URL=https://robota.dev
+NEXT_PUBLIC_DAG_API_BASE_URL=https://dag-orchestrator.example.com
+NEXT_PUBLIC_API_VERSION=v1
 ```
+
+`NEXT_PUBLIC_DAG_API_BASE_URL` is required for deployed DAG Designer usage. It must be the public
+origin of `dag-orchestrator-server`, without a trailing slash. Local development defaults to
+`http://localhost:3012` when the variable is omitted.
+
+`NEXT_PUBLIC_API_VERSION` only controls the generic `API_CONFIG.baseUrl` value
+(`/api/<version>`). DAG Designer calls use `NEXT_PUBLIC_DAG_API_BASE_URL` directly.
+
+## Hosting Contract
+
+- Vercel can host this frontend app, but Vercel Functions must not be treated as the
+  `dag-orchestrator-server` runtime because they do not act as a WebSocket server.
+- Cloudflare can host the frontend through its Next.js hosting path. Moving the orchestrator to
+  Cloudflare would require a Worker/Durable Object rewrite, not a direct Express deployment.
+- Do not add Next.js API routes solely to colocate the orchestrator with the frontend. The
+  orchestrator owns long-running WebSocket I/O, ComfyUI proxying, and persistence adapter wiring.
+
+## Cross-Service Requirements
+
+- `dag-orchestrator-server` `CORS_ORIGINS` must include the deployed `dag-studio` origin.
+- When `NEXT_PUBLIC_DAG_API_BASE_URL` uses `https://`, `dag-designer` opens run-progress streams
+  with `wss://` against `/v1/dag/runs/:id/ws`.
+- The orchestrator's `BACKEND_URL` must point to the ComfyUI-compatible runtime, not to this
+  frontend app.

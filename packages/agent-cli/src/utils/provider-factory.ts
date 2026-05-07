@@ -7,7 +7,6 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import type { IAIProvider, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-sdk';
 import { type TProviderSettingsDocument } from './provider-settings.js';
@@ -15,8 +14,11 @@ import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js'
 import {
   findProviderDefinition,
   formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
   type IProviderConfig,
+  type IProviderCredentialRequirement,
   type IProviderDefinition,
+  type TProviderCredentialField,
 } from './provider-definition.js';
 import { resolveEnvReference } from './env-ref.js';
 
@@ -46,15 +48,28 @@ export function readProviderSettings(
 }
 
 export function readMergedProviderSettings(cwd: string): TProviderSettingsDocument {
-  const paths = [
-    join(homedir(), '.robota', 'settings.json'),
-    join(homedir(), '.claude', 'settings.json'),
+  return readMergedProviderSettingsFromPaths(getProviderSettingsPaths(cwd));
+}
+
+export function getProviderSettingsPaths(cwd: string): string[] {
+  const userHome = getUserHome();
+  return [
+    join(userHome, '.robota', 'settings.json'),
+    join(userHome, '.claude', 'settings.json'),
     join(cwd, '.robota', 'settings.json'),
     join(cwd, '.robota', 'settings.local.json'),
     join(cwd, '.claude', 'settings.json'),
     join(cwd, '.claude', 'settings.local.json'),
   ];
+}
 
+function getUserHome(): string {
+  return process.env.HOME ?? process.env.USERPROFILE ?? '/';
+}
+
+export function readMergedProviderSettingsFromPaths(
+  paths: readonly string[],
+): TProviderSettingsDocument {
   return paths.reduce<TProviderSettingsDocument>((settings, filePath) => {
     const parsed = readSettingsFile(filePath);
     if (parsed === undefined) {
@@ -198,8 +213,14 @@ function createProviderFromConfig(
       `Unknown provider: ${settings.name}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
     );
   }
-  if (definition.requiresApiKey === true && !settings.apiKey) {
-    throw new Error(`Provider ${settings.name} requires apiKey`);
+  const credentialRequirement = getProviderCredentialRequirement(definition);
+  if (
+    credentialRequirement !== undefined &&
+    !hasRequiredProviderCredential(settings, credentialRequirement)
+  ) {
+    throw new Error(
+      `Provider ${settings.name} requires ${formatCredentialRequirement(credentialRequirement)}`,
+    );
   }
   return definition.createProvider(settings);
 }
@@ -237,6 +258,25 @@ export function createProviderFromProfile(
     ),
     providerDefinitions,
   );
+}
+
+function hasRequiredProviderCredential(
+  settings: IProviderConfig,
+  requirement: IProviderCredentialRequirement,
+): boolean {
+  return requirement.anyOf.some((field) => hasProviderCredentialValue(settings, field));
+}
+
+function hasProviderCredentialValue(
+  settings: IProviderConfig,
+  field: TProviderCredentialField,
+): boolean {
+  const value = settings[field];
+  return value !== undefined && value.length > 0;
+}
+
+function formatCredentialRequirement(requirement: IProviderCredentialRequirement): string {
+  return requirement.anyOf.join(' or ');
 }
 
 function getProviderDefinitions(

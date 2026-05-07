@@ -13,6 +13,8 @@ deterministic from explicit fields -- no derived heuristics.
 - No dispatch, worker, or scheduling behavior in this package.
 - Does not mutate run or task state -- read-only projections.
 - Does not own API response shaping -- that belongs to `dag-api`.
+- Does not depend on `dag-api`. `ProjectionReadModelService` is structurally compatible with
+  `dag-api`'s `IObservabilityProjectionReaderPort`, and composition roots inject it where needed.
 
 ## Architecture Overview
 
@@ -46,7 +48,8 @@ This package is SSOT for:
 
 - Accepts `IStoragePort` from `dag-core` via constructor injection. Custom storage implementations provide the underlying data.
 - No abstract classes to extend; the service is used directly.
-- `dag-api`'s `DagObservabilityController` consumes this service for API-layer projection queries.
+- Composition roots may inject `ProjectionReadModelService` into `dag-api`'s
+  `DagObservabilityController` through the API-owned observability projection port.
 
 ## Error Taxonomy
 
@@ -67,14 +70,14 @@ None. Service class is standalone.
 
 ### Port Consumption via DI
 
-| Service Class | Injected Port (from dag-core) | Location |
-|---------------|------------------------------|----------|
-| `ProjectionReadModelService` | `IStoragePort` | `src/services/projection-read-model-service.ts` |
+| Service Class                | Injected Port (from dag-core) | Location                                        |
+| ---------------------------- | ----------------------------- | ----------------------------------------------- |
+| `ProjectionReadModelService` | `IStoragePort`                | `src/services/projection-read-model-service.ts` |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner) | Consumer Class | Location |
-|--------------|---------------|----------|
+| Port (Owner)              | Consumer Class               | Location                                        |
+| ------------------------- | ---------------------------- | ----------------------------------------------- |
 | `IStoragePort` (dag-core) | `ProjectionReadModelService` | `src/services/projection-read-model-service.ts` |
 
 ## Test Strategy

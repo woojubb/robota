@@ -9,8 +9,9 @@ interface IProps {
   cwd: string;
   permissionMode: TPermissionMode;
   modelId?: string;
+  providerProfileName?: string | undefined;
+  providerType?: string | undefined;
   sessionId: string;
-  messageCount: number;
   isThinking: boolean;
   activeToolCount: number;
   activeBackgroundTaskCount: number;
@@ -24,8 +25,9 @@ export default function SessionStatusBar({
   cwd,
   permissionMode,
   modelId,
+  providerProfileName,
+  providerType,
   sessionId,
-  messageCount,
   isThinking,
   activeToolCount,
   activeBackgroundTaskCount,
@@ -41,8 +43,9 @@ export default function SessionStatusBar({
     <StatusBar
       permissionMode={permissionMode}
       modelName={modelId ? getModelName(modelId) : ''}
+      providerProfileName={providerProfileName}
+      providerType={providerType}
       sessionId={sessionId}
-      messageCount={messageCount}
       isThinking={isThinking}
       activeToolCount={activeToolCount}
       activeBackgroundTaskCount={activeBackgroundTaskCount}

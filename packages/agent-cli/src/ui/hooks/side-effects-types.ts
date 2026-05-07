@@ -1,41 +1,37 @@
-import type { IProviderDefinition, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
 import type {
   IStatusLineSettings,
   TStatusLineSettingsPatch,
 } from '../../utils/statusline-settings.js';
+import type { ICommandEffectQueue } from './command-effect-queue.js';
 
 /** Side-effect flags for TUI-specific actions */
 export interface ISideEffects {
   _pendingModelId?: string;
-  _pendingLanguage?: string;
   _resetRequested?: boolean;
   _exitRequested?: boolean;
-  _triggerPluginTUI?: boolean;
   _triggerResumePicker?: boolean;
   _sessionName?: string;
-  _pendingProviderProfile?: string;
-  _pendingProviderSetup?: {
-    type?: string;
-  };
   _statusLinePatch?: TStatusLineSettingsPatch;
 }
 
 export interface IUseSideEffectsOptions {
   cwd: string;
+  providerOverride?: string | undefined;
   interactiveSession: InteractiveSession;
+  commandEffectQueue: ICommandEffectQueue;
   addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
   setSessionName: (name: string) => void;
   setStatusLineSettings: (settings: IStatusLineSettings) => void;
-  providerDefinitions: readonly IProviderDefinition[];
+  showSessionPickerOnStart?: boolean;
 }
 
 export interface IUseSideEffectsResult {
   handleSubmit: (input: string) => Promise<void>;
   pendingModelId: string | null;
-  pendingProviderProfile: string | null;
   pendingInteractionPrompt: TInteractivePrompt | null;
   showPluginTUI: boolean;
   showSessionPicker: boolean;
@@ -43,7 +39,6 @@ export interface IUseSideEffectsResult {
   setShowPluginTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
   handleModelConfirm: (index: number) => void;
-  handleProviderConfirm: (index: number) => void;
-  handleInteractionSubmit: (value: string) => void;
+  handleInteractionSubmit: (value: string) => Promise<void>;
   handleInteractionCancel: () => void;
 }

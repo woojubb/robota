@@ -7,9 +7,10 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 
 ## Rule Anchor
 
-- `AGENTS.md` > "Build Requirements"
-- `AGENTS.md` > "Execution Safety"
-- `AGENTS.md` > "Harness Direction"
+- `.agents/rules/verification.md` > "Build Requirements"
+- `.agents/rules/verification.md` > "Behavioral Verification Before Push"
+- `.agents/rules/verification.md` > "Headless CLI Verification Requirement"
+- `.agents/rules/verification.md` > "Harness Direction"
 
 ## Use This Skill When
 
@@ -36,13 +37,17 @@ description: Runs the standard Robota change loop by identifying impact, buildin
    - package build
    - targeted tests
    - targeted lint or typecheck when the change affects contracts or boundaries
-5. If the change affects execution behavior, examples, or scenarios, run the relevant verification flow.
-6. Stop immediately on strict-policy failures, contract failures, or non-zero verification exits.
-7. Summarize:
-   - what was verified
-   - what failed
-   - what was not verified
-   - any residual risks
+5. If the change affects CLI execution, transports, `InteractiveSession`, commands, model-routed tools, permissions, streaming, provider setup, or session persistence, run or add a headless verification path with structured runtime evidence.
+6. If the change affects execution behavior, examples, or scenarios, run the relevant verification flow.
+7. Do not repeat an already-passing stronger gate with a weaker duplicate. For example, after a final scoped harness verification or release-grade verification, do not manually re-run the same package checks unless files changed again.
+8. Skip verification for Git operations that publish no repository content, such as deleting a merged remote feature branch.
+9. Stop immediately on strict-policy failures, contract failures, or non-zero verification exits.
+10. Summarize:
+
+- what was verified
+- what failed
+- what was not verified
+- any residual risks
 
 ## Stop Conditions
 
@@ -56,7 +61,9 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 - [ ] Changed scope is identified before running commands.
 - [ ] Affected package build is run for package source changes.
 - [ ] Targeted tests or smoke checks are run for changed behavior.
+- [ ] CLI/transport/session behavior includes a headless verification path when applicable.
 - [ ] Scenario or execution verification is run when relevant.
+- [ ] No already-passing gate is repeated without new file changes.
 - [ ] Final summary distinguishes verified vs unverified areas.
 
 ## Focused Examples
@@ -79,10 +86,14 @@ pnpm lint
 
 - Editing package source and skipping the build step.
 - Running the full workspace by habit when the affected scope is narrow and known.
+- Re-running package checks after branch deletion, squash-merge cleanup, or other no-content Git operations.
+- Running `pnpm typecheck`, `pnpm lint`, and `pnpm test` manually immediately before `pnpm harness:pre-push` when the harness will execute the same final scoped checks.
+- Treating dependent package typechecks as mandatory for every local push. Use `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` when the change risk warrants broad dependent validation.
 - Reporting success without saying what was actually verified.
 - Treating documentation reading as equivalent to verification.
+- Treating TUI-only checks as sufficient for behavior also reachable through headless CLI mode.
 
 ## Related Harness Commands
 
-- Current: `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
+- Current: `pnpm harness:pre-push`, `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push`, `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
 - Current review support: `pnpm harness:review -- --scope <packages/foo|apps/bar>`

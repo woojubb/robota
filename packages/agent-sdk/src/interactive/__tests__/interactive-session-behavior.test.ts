@@ -50,6 +50,38 @@ function createMockSession(options?: {
   };
 }
 
+function createControllableRun(): {
+  run: () => Promise<string>;
+  started: Promise<void>;
+  resolve: (value: string) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolveRun: ((value: string) => void) | undefined;
+  let rejectRun: ((reason?: unknown) => void) | undefined;
+  let markStarted: () => void = () => {};
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+
+  return {
+    run: () =>
+      new Promise<string>((resolve, reject) => {
+        resolveRun = resolve;
+        rejectRun = reject;
+        markStarted();
+      }),
+    started,
+    resolve: (value: string) => {
+      if (!resolveRun) throw new Error('run has not started');
+      resolveRun(value);
+    },
+    reject: (reason?: unknown) => {
+      if (!rejectRun) throw new Error('run has not started');
+      rejectRun(reason);
+    },
+  };
+}
+
 describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Scenario: Normal prompt execution ─────────────────────────
 
@@ -94,14 +126,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Scenario: Prompt queue ────────────────────────────────────
 
   it('submitting during execution queues the prompt (max 1)', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -109,7 +136,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
     expect(session.isExecuting()).toBe(true);
 
     // Queue second
@@ -121,7 +148,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(session.getPendingPrompt()).toBe('third');
 
     // Complete first
-    resolveRun!('first response');
+    controllableRun.resolve('first response');
     await first;
     await new Promise((r) => setTimeout(r, 50));
 
@@ -131,21 +158,16 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   it('cancelQueue clears queued prompt without affecting execution', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
     });
 
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     expect(session.getPendingPrompt()).toBe('queued');
@@ -154,7 +176,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(session.getPendingPrompt()).toBeNull();
     expect(mockSession.abort).not.toHaveBeenCalled(); // execution still running
 
-    resolveRun!('done');
+    controllableRun.resolve('done');
     await first;
     await new Promise((r) => setTimeout(r, 50));
 
@@ -167,18 +189,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('abort clears queue and emits interrupted event', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
-    let rejectRun: (err: Error) => void;
     const abortHistory = [
       { role: 'user', content: 'test' },
       { role: 'assistant', content: 'partial answer', state: 'interrupted' },
     ];
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((_, reject) => {
-          rejectRun = reject;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
     // History is empty at start, populated when abort happens
     mockSession.getHistory.mockReturnValue([]);
     // After abort, history contains the interrupted messages
@@ -198,7 +215,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const exec = session.submit('test');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     await session.submit('queued');
     session.abort();
@@ -206,7 +223,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(mockSession.abort).toHaveBeenCalled();
     expect(session.getPendingPrompt()).toBeNull();
 
-    rejectRun!(abortError);
+    controllableRun.reject(abortError);
     await exec;
     await new Promise((r) => setTimeout(r, 10));
 
@@ -474,14 +491,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Regression: queued prompt rawInput is preserved ────────────
 
   it('queued prompt preserves displayInput and rawInput', async () => {
-    let resolveRun: (value: string) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
-          resolveRun = resolve;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -489,14 +501,14 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
 
     // Queue with displayInput + rawInput
     await session.submit('expanded prompt', '/skill', '/plugin:skill args');
     expect(session.getPendingPrompt()).toBe('expanded prompt');
 
     // Complete first
-    resolveRun!('done');
+    controllableRun.resolve('done');
     await first;
     await new Promise((r) => setTimeout(r, 50));
 
@@ -514,14 +526,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('abort preserves partial assistant text in messages', async () => {
     const abortError = new DOMException('The operation was aborted.', 'AbortError');
-    let rejectRun: (err: Error) => void;
     const mockSession = createMockSession();
-    mockSession.run.mockImplementation(
-      () =>
-        new Promise<string>((_, reject) => {
-          rejectRun = reject;
-        }),
-    );
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementation(controllableRun.run);
     mockSession.getHistory.mockReturnValue([]);
     mockSession.abort.mockImplementation(() => {
       mockSession.getHistory.mockReturnValue([
@@ -535,9 +542,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const exec = session.submit('write a story');
-    await new Promise((r) => setTimeout(r, 10));
+    await controllableRun.started;
     session.abort();
-    rejectRun!(abortError);
+    controllableRun.reject(abortError);
     await exec;
     await new Promise((r) => setTimeout(r, 10));
 

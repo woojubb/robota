@@ -33,7 +33,7 @@ describe('system prompt composer', () => {
   it('renders registered capabilities without composer changes', () => {
     const section = createCapabilitySection([
       {
-        name: '/agent',
+        name: 'agent',
         kind: 'builtin-command',
         description: 'Start, inspect, steer, stop, and close subagent jobs.',
         userInvocable: true,
@@ -45,7 +45,8 @@ describe('system prompt composer', () => {
 
     const prompt = composeSystemPrompt([section]);
 
-    expect(prompt).toContain('/agent');
+    expect(prompt).toContain('agent');
+    expect(prompt).not.toContain('/agent');
     expect(prompt).toContain('Start, inspect, steer, stop, and close subagent jobs.');
     expect(prompt).toContain('run AGENT_NAME --background PROMPT');
   });

@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os';
 import {
   createProviderFromProfile,
   createProviderFromSettings,
+  getProviderSettingsPaths,
   readProviderSettings,
 } from '../provider-factory.js';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
 import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
 import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
@@ -32,7 +34,7 @@ vi.mock('@robota-sdk/agent-provider-anthropic', () => {
         timeout?: number;
       }) =>
         new MockAnthropicProvider({
-          apiKey: config.apiKey,
+          ...(config.apiKey !== undefined && { apiKey: config.apiKey }),
           ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
           ...(config.timeout !== undefined && { timeout: config.timeout }),
           defaultModel: config.model,
@@ -52,9 +54,7 @@ vi.mock('@robota-sdk/agent-provider-openai', () => {
     createOpenAIProviderDefinition: () => ({
       type: 'openai',
       defaults: {
-        model: 'supergemma4-26b-uncensored-v2',
-        apiKey: 'lm-studio',
-        baseURL: 'http://localhost:1234/v1',
+        apiKey: '$ENV:OPENAI_API_KEY',
       },
       requiresApiKey: true,
       createProvider: (config: {
@@ -67,6 +67,45 @@ vi.mock('@robota-sdk/agent-provider-openai', () => {
           apiKey: config.apiKey,
           ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
           ...(config.timeout !== undefined && { timeout: config.timeout }),
+          defaultModel: config.model,
+        }),
+    }),
+  };
+});
+
+vi.mock('@robota-sdk/agent-provider-deepseek', () => {
+  const MockDeepSeekProvider = vi.fn().mockImplementation((options: unknown) => ({
+    name: 'deepseek',
+    version: 'test',
+    options,
+  }));
+  return {
+    DeepSeekProvider: MockDeepSeekProvider,
+    createDeepSeekProviderDefinition: () => ({
+      type: 'deepseek',
+      defaults: {
+        model: 'deepseek-v4-flash',
+        apiKey: '$ENV:DEEPSEEK_API_KEY',
+        baseURL: 'https://api.deepseek.com',
+      },
+      requiresApiKey: true,
+      createProvider: (config: {
+        model: string;
+        apiKey?: string;
+        baseURL?: string;
+        timeout?: number;
+        options?: Record<string, unknown>;
+      }) =>
+        new MockDeepSeekProvider({
+          apiKey: config.apiKey,
+          ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
+          ...(config.timeout !== undefined && { timeout: config.timeout }),
+          ...(config.options?.['thinking'] !== undefined && {
+            thinking: config.options['thinking'],
+          }),
+          ...(config.options?.['reasoningEffort'] !== undefined && {
+            reasoningEffort: config.options['reasoningEffort'],
+          }),
           defaultModel: config.model,
         }),
     }),
@@ -195,7 +234,19 @@ describe('provider-factory', () => {
     process.env.HOME = ORIGINAL_HOME;
     delete process.env.ROBOTA_TEST_ANTHROPIC_API_KEY;
     delete process.env.DASHSCOPE_API_KEY;
+    delete process.env.DEEPSEEK_API_KEY;
     rmSync(TMP_BASE, { recursive: true, force: true });
+  });
+
+  it('resolves user settings paths from HOME for test and runtime isolation', () => {
+    const paths = getProviderSettingsPaths(cwd);
+    const home = process.env.HOME;
+    if (home === undefined) {
+      throw new Error('HOME is required for this test');
+    }
+
+    expect(paths[0]).toBe(join(home, '.robota', 'settings.json'));
+    expect(paths[1]).toBe(join(home, '.claude', 'settings.json'));
   });
 
   it('reads active OpenAI-compatible provider profile', () => {
@@ -455,6 +506,37 @@ describe('provider-factory', () => {
         enableThinking: true,
       },
       defaultModel: 'qwen3.6-plus',
+    });
+  });
+
+  it('creates DeepSeekProvider for a DeepSeek OpenAI-compatible profile', () => {
+    writeJson(join(cwd, '.robota', 'settings.json'), {
+      currentProvider: 'deepseek',
+      providers: {
+        deepseek: {
+          type: 'deepseek',
+          model: 'deepseek-v4-pro',
+          apiKey: 'deepseek-key',
+          baseURL: 'https://api.deepseek.com',
+          timeout: 45_000,
+          options: {
+            thinking: 'enabled',
+            reasoningEffort: 'high',
+          },
+        },
+      },
+    });
+
+    const provider = createProviderFromSettings(cwd);
+
+    expect(provider.name).toBe('deepseek');
+    expect(DeepSeekProvider).toHaveBeenCalledWith({
+      apiKey: 'deepseek-key',
+      baseURL: 'https://api.deepseek.com',
+      timeout: 45_000,
+      thinking: 'enabled',
+      reasoningEffort: 'high',
+      defaultModel: 'deepseek-v4-pro',
     });
   });
 
