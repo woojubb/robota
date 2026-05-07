@@ -29,9 +29,15 @@ export interface IAnthropicProviderOptions {
   [key: string]: TAnthropicProviderOptionValue;
 
   /**
-   * Anthropic API key (required when client is not provided)
+   * Anthropic API key (required when client, authToken, and executor are not provided)
    */
   apiKey?: string;
+
+  /**
+   * Anthropic OAuth bearer token, including short-lived WIF access tokens
+   * (required when client, apiKey, and executor are not provided)
+   */
+  authToken?: string;
 
   /**
    * API request timeout (milliseconds)
