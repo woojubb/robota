@@ -16,6 +16,15 @@ describe('createAnthropicProviderDefinition', () => {
 
     expect(definition.credentialRequirement).toBeUndefined();
     expect(definition.requiresApiKey).toBe(true);
+    expect(definition.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'Anthropic API keys',
+        url: 'https://platform.claude.com/settings/keys',
+        sourceUrl: 'https://platform.claude.com/docs/en/api/overview',
+        lastVerifiedAt: '2026-05-08',
+      },
+    ]);
   });
 
   it('creates a provider from an API key', () => {

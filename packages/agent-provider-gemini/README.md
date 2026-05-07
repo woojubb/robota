@@ -34,7 +34,7 @@ const agent = new Robota({
 const response = await agent.run('Hello!');
 ```
 
-`createGeminiProviderDefinition()` returns setup metadata for CLI/SDK composition:
+`createGeminiProviderDefinition()` returns setup metadata and official Google AI Studio API key links for CLI/SDK composition:
 
 ```typescript
 const definition = createGeminiProviderDefinition();
@@ -123,7 +123,7 @@ Robota `system` messages are sent to Gemini as `config.systemInstruction`, match
 | Export                           | Kind      | Description                                                                                                                             |
 | -------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `GeminiProvider`                 | class     | Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`                                                        |
-| `createGeminiProviderDefinition` | function  | Returns provider setup/creation metadata with canonical `gemini` type and `google` compatibility alias                                  |
+| `createGeminiProviderDefinition` | function  | Returns provider setup/creation metadata and official setup help links with canonical `gemini` type and `google` compatibility alias    |
 | `IGeminiProviderOptions`         | interface | Constructor options: `apiKey`, `defaultModel`, structured output, safety/thinking config, modalities, image model allowlist, `executor` |
 | `TGeminiProviderOptionValue`     | type      | Union type for valid provider option values                                                                                             |
 

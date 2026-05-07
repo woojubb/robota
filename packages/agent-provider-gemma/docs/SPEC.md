@@ -43,26 +43,26 @@ src/
 
 ## Public API Surface
 
-| Export                            | Kind       | Description                                                               |
-| --------------------------------- | ---------- | ------------------------------------------------------------------------- |
-| `GemmaProvider`                   | class      | Primary provider class; extends `AbstractAIProvider`.                     |
-| `GemmaReasoningProjector`         | class      | Stateful streaming projector for Gemma reasoning-channel markers.         |
-| `GemmaToolCallProjector`          | class      | Stateful projector for documented Gemma/LM Studio native tool-call text.  |
-| `projectGemmaReasoningText`       | function   | Stateless full-text projection helper.                                    |
-| `projectGemmaToolCallText`        | function   | Stateless full-text native tool-call projection helper.                   |
-| `createGemmaProviderDefinition`   | function   | Returns an `IProviderDefinition` for branch-free CLI/runtime composition. |
-| `DEFAULT_GEMMA_PROVIDER_MODEL`    | constant   | Default setup model owned by this package.                                |
-| `DEFAULT_GEMMA_PROVIDER_API_KEY`  | constant   | Default local endpoint API key owned by this package.                     |
-| `DEFAULT_GEMMA_PROVIDER_BASE_URL` | constant   | Default local endpoint base URL owned by this package.                    |
-| `IGemmaProviderOptions`           | interface  | Provider constructor options.                                             |
-| `TGemmaProviderOptionValue`       | type alias | Valid provider option values.                                             |
+| Export                            | Kind       | Description                                                                                                                              |
+| --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GemmaProvider`                   | class      | Primary provider class; extends `AbstractAIProvider`.                                                                                    |
+| `GemmaReasoningProjector`         | class      | Stateful streaming projector for Gemma reasoning-channel markers.                                                                        |
+| `GemmaToolCallProjector`          | class      | Stateful projector for documented Gemma/LM Studio native tool-call text.                                                                 |
+| `projectGemmaReasoningText`       | function   | Stateless full-text projection helper.                                                                                                   |
+| `projectGemmaToolCallText`        | function   | Stateless full-text native tool-call projection helper.                                                                                  |
+| `createGemmaProviderDefinition`   | function   | Returns an `IProviderDefinition` with local setup prompts, official LM Studio setup help links, and branch-free CLI/runtime composition. |
+| `DEFAULT_GEMMA_PROVIDER_MODEL`    | constant   | Default setup model owned by this package.                                                                                               |
+| `DEFAULT_GEMMA_PROVIDER_API_KEY`  | constant   | Default local endpoint API key owned by this package.                                                                                    |
+| `DEFAULT_GEMMA_PROVIDER_BASE_URL` | constant   | Default local endpoint base URL owned by this package.                                                                                   |
+| `IGemmaProviderOptions`           | interface  | Provider constructor options.                                                                                                            |
+| `TGemmaProviderOptionValue`       | type alias | Valid provider option values.                                                                                                            |
 
 ## Extension Points
 
 - Consumers can provide a preconfigured OpenAI SDK `client` for custom endpoint behavior.
 - Consumers can provide `apiKey`, `baseURL`, and `timeout` for local OpenAI-compatible servers.
 - Consumers can provide an executor to delegate provider execution without direct API calls.
-- Consumers such as `agent-cli` can inject `createGemmaProviderDefinition()` alongside other provider definitions. The CLI must not special-case Gemma by type string.
+- Consumers such as `agent-cli` can inject `createGemmaProviderDefinition()` alongside other provider definitions. The CLI must not special-case Gemma by type string or own Gemma/LM Studio setup URLs.
 - `createGemmaProviderDefinition()` reuses the shared OpenAI-compatible endpoint probe instead of owning a Gemma-specific CLI/setup branch.
 - Future Gemma variants can extend projection behavior inside this package without changing generic OpenAI-compatible transport.
 - Native and XML-like execution artifact projection is enabled only when declared tools are present. It validates executable calls against the request's tool names, strips Gemma XML artifact wrappers from user-facing text, and does not add CLI/TUI, command, or domain-tool-specific branches.

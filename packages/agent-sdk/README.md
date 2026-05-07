@@ -217,6 +217,10 @@ resolves the active provider from settings, reads provider-owned fallback metada
 `IProviderDefinition` records, and can invoke provider-owned catalog refresh hooks. The CLI/TUI must
 only render command results and must not own provider model lists.
 
+For provider setup, the SDK projects provider-owned setup help links from `IProviderDefinition`
+records into generic prompt descriptions. The CLI/TUI renders those descriptions without owning
+provider-specific API key or console URLs.
+
 For `/permissions`, the SDK owns permission-mode constants, subcommand descriptors, validation,
 state formatting, and command-host adapter access. The command module owns user-visible behavior and
 keeps permission-mode changes under `/permissions [mode]`.

@@ -2,7 +2,7 @@
 
 DeepSeek provider for Robota using DeepSeek's OpenAI-compatible Chat Completions API.
 
-This provider owns DeepSeek defaults, setup metadata, model catalog metadata, thinking controls, and
+This provider owns DeepSeek defaults, setup metadata, official setup help links, model catalog metadata, thinking controls, and
 error framing while reusing the shared OpenAI-compatible Chat Completions primitives.
 
 ```ts
@@ -29,7 +29,7 @@ const provider = new DeepSeekProvider({
 
 ## Provider Definition
 
-`createDeepSeekProviderDefinition()` exposes setup metadata so CLI and SDK composition can configure
+`createDeepSeekProviderDefinition()` exposes setup metadata and official setup help links so CLI and SDK composition can configure
 DeepSeek profiles from injected provider definitions. The default base URL is
 `https://api.deepseek.com`, and the default API-key reference is `$ENV:DEEPSEEK_API_KEY`.
 

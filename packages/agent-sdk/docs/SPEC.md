@@ -297,8 +297,8 @@ agent-cli (Ink TUI — CLI-specific)
   - `ICommandHostContext` — narrow command-facing facade over session/context/runtime capabilities. Command modules must not require `InteractiveSession`, React state, CLI settings files, or TUI hooks directly.
   - `ICommandResult` — command output, structured diagnostics, typed host effects, and generic interactions.
   - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
-  - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs.
-- **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
+  - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs. Prompt descriptors may include a provider-neutral `description` string for host-rendered help text.
+- **Provider common APIs**: `agent-sdk/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
 - **Context/compact common APIs**: `agent-sdk/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `context` and `compact` command behavior lives in `@robota-sdk/agent-command-context` and `@robota-sdk/agent-command-compact`; both consume these APIs as external command modules.
 - **Model common APIs**: `agent-sdk/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Language common APIs**: `agent-sdk/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
@@ -403,6 +403,11 @@ Gemma-family local models should be configured through `type: "gemma"` so provid
 Provider profile `options` are preserved as provider-owned data. SDK config loading validates that the value is universal/JSON-like and passes it through; SDK code must not interpret provider-specific option keys. OpenAI-compatible local endpoints such as LM Studio should use local `WebSearch`/`WebFetch` function tools for web access unless their concrete provider package documents and enables provider-native hosted web capabilities.
 
 Generated provider profile keys are normalized to lowercase ASCII slugs. The setup flow prefers the selected model id, falls back to provider type, and appends `-2`, `-3`, etc. for duplicates. Secrets, organizations, accounts, and API key fragments must not be included in generated keys.
+
+Provider setup help links come from injected `IProviderDefinition.setupHelpLinks` records. The SDK
+formats those provider-owned links for generic prompts, but it does not choose provider URLs or
+branch on provider names. Link priority is API key issuance URL, then official console URL, then
+official provider documentation or homepage URL.
 
 Resolved provider fields:
 
@@ -928,7 +933,7 @@ interface ICommandInteraction {
 }
 ```
 
-`ICommandInteractionPrompt` is the generic prompt descriptor used by UI hosts. It supports choice and text prompts with masked text and validation metadata. Hosts render the prompt and pass submitted values back to the interaction; they do not inspect command-specific state.
+`ICommandInteractionPrompt` is the generic prompt descriptor used by UI hosts. It supports choice and text prompts with optional description text, masked text, and validation metadata. Hosts render the prompt and pass submitted values back to the interaction; they do not inspect command-specific state.
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 

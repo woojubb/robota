@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createProviderSetupFlow,
+  formatProviderSetupHelpLinks,
   formatProviderSetupSelectionPrompt,
   formatProviderSetupPromptLabel,
   getProviderSetupStep,
@@ -20,6 +21,13 @@ const providerDefinitions: readonly IProviderDefinition[] = [
     displayName: 'OpenAI',
     description: 'Use OpenAI Responses API',
     defaults: openaiDefaults,
+    setupHelpLinks: [
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+      },
+    ],
     setupSteps: [
       {
         key: 'model',
@@ -77,6 +85,13 @@ describe('provider setup prompt flow', () => {
 
   it('builds OpenAI setup input from model and default API key submissions', () => {
     let state = createProviderSetupFlow('openai', providerDefinitions);
+    expect(state.setupHelpLinks).toEqual([
+      {
+        kind: 'api-key',
+        label: 'OpenAI API keys',
+        url: 'https://platform.openai.com/api-keys',
+      },
+    ]);
     expect(getProviderSetupStep(state)).toMatchObject({
       key: 'model',
       required: true,
@@ -181,22 +196,34 @@ describe('provider setup prompt flow', () => {
     expect(input.apiKey).toBe(openaiDefaults.apiKey);
     expect(promptInput).toHaveBeenNthCalledWith(
       1,
-      formatProviderSetupPromptLabel({
-        key: 'model',
-        title: 'OpenAI model',
-        required: true,
-      }),
+      formatProviderSetupPromptLabel(
+        {
+          key: 'model',
+          title: 'OpenAI model',
+          required: true,
+        },
+        providerDefinitions[0]?.setupHelpLinks,
+      ),
       false,
     );
     expect(promptInput).toHaveBeenNthCalledWith(
       2,
-      formatProviderSetupPromptLabel({
-        key: 'apiKey',
-        title: 'OpenAI API key',
-        defaultValue: openaiDefaults.apiKey,
-        masked: true,
-      }),
+      formatProviderSetupPromptLabel(
+        {
+          key: 'apiKey',
+          title: 'OpenAI API key',
+          defaultValue: openaiDefaults.apiKey,
+          masked: true,
+        },
+        providerDefinitions[0]?.setupHelpLinks,
+      ),
       true,
+    );
+  });
+
+  it('formats provider setup help links for generic setup descriptions', () => {
+    expect(formatProviderSetupHelpLinks(providerDefinitions[0]?.setupHelpLinks)).toBe(
+      '  Setup help: API key: OpenAI API keys - https://platform.openai.com/api-keys',
     );
   });
 });

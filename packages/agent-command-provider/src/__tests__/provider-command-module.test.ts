@@ -18,6 +18,13 @@ const providerDefinitions: readonly IProviderDefinition[] = [
       apiKey: 'lm-studio',
       baseURL: 'http://localhost:1234/v1',
     },
+    setupHelpLinks: [
+      {
+        kind: 'official',
+        label: 'OpenAI-compatible local server docs',
+        url: 'https://lmstudio.ai/docs/developer',
+      },
+    ],
     setupSteps: [
       {
         key: 'baseURL',
@@ -380,6 +387,8 @@ describe('createProviderCommandModule', () => {
     expect(first?.interaction?.prompt).toMatchObject({
       kind: 'text',
       title: 'OpenAI-compatible base URL',
+      description:
+        '  Setup help: Official: OpenAI-compatible local server docs - https://lmstudio.ai/docs/developer',
       placeholder: 'http://localhost:1234/v1',
       allowEmpty: true,
     });

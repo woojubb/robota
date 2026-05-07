@@ -7,6 +7,17 @@ export const DEFAULT_GEMMA_PROVIDER_API_KEY = 'lm-studio';
 export const DEFAULT_GEMMA_PROVIDER_BASE_URL = 'http://localhost:1234/v1';
 const GEMMA_MODEL_SOURCE_URL = 'https://ai.google.dev/gemma';
 const GEMMA_MODEL_LAST_VERIFIED_AT = '2026-05-04';
+const GEMMA_SETUP_URL = 'https://lmstudio.ai/docs/developer';
+const GEMMA_SETUP_LAST_VERIFIED_AT = '2026-05-08';
+const GEMMA_SETUP_HELP_LINKS: NonNullable<IProviderDefinition['setupHelpLinks']> = [
+  {
+    kind: 'official',
+    label: 'LM Studio local API documentation',
+    url: GEMMA_SETUP_URL,
+    sourceUrl: GEMMA_SETUP_URL,
+    lastVerifiedAt: GEMMA_SETUP_LAST_VERIFIED_AT,
+  },
+];
 const GEMMA_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> = {
   status: 'fallback',
   sourceUrl: GEMMA_MODEL_SOURCE_URL,
@@ -34,6 +45,7 @@ export function createGemmaProviderDefinition(): IProviderDefinition {
       baseURL: DEFAULT_GEMMA_PROVIDER_BASE_URL,
     },
     modelCatalog: GEMMA_MODEL_CATALOG,
+    setupHelpLinks: GEMMA_SETUP_HELP_LINKS,
     setupSteps: [
       {
         key: 'baseURL',

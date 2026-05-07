@@ -51,8 +51,8 @@ src/
 ```
 
 `DeepSeekProvider` is a provider shell over OpenAI-compatible Chat Completions.
-`createDeepSeekProviderDefinition()` returns an `IProviderDefinition` so CLI and SDK composition can
-inject DeepSeek without provider-specific branches.
+`createDeepSeekProviderDefinition()` returns an `IProviderDefinition` with official setup help
+links so CLI and SDK composition can inject DeepSeek without provider-specific branches.
 
 ## Type Ownership
 
@@ -71,19 +71,19 @@ inject DeepSeek without provider-specific branches.
 
 ## Public API Surface
 
-| Export                                        | Kind       | Description                                                               |
-| --------------------------------------------- | ---------- | ------------------------------------------------------------------------- |
-| `DeepSeekProvider`                            | class      | Primary provider class; extends `AbstractAIProvider`.                     |
-| `createDeepSeekProviderDefinition`            | function   | Returns an `IProviderDefinition` for branch-free CLI/runtime composition. |
-| `refreshDeepSeekModelCatalog`                 | function   | Refreshes model catalog metadata from DeepSeek `/models`.                 |
-| `DEFAULT_DEEPSEEK_PROVIDER_MODEL`             | constant   | Default setup model owned by this package.                                |
-| `DEFAULT_DEEPSEEK_PROVIDER_API_KEY_ENV`       | constant   | Default API-key environment variable name.                                |
-| `DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE` | constant   | Default `$ENV:` API-key reference for settings.                           |
-| `DEFAULT_DEEPSEEK_PROVIDER_BASE_URL`          | constant   | Default setup base URL owned by this package.                             |
-| `IDeepSeekProviderOptions`                    | interface  | Provider constructor options.                                             |
-| `IDeepSeekThinkingConfig`                     | interface  | DeepSeek thinking request object.                                         |
-| `TDeepSeekThinkingMode`                       | type alias | DeepSeek thinking toggle.                                                 |
-| `TDeepSeekReasoningEffort`                    | type alias | DeepSeek reasoning effort controls.                                       |
+| Export                                        | Kind       | Description                                                                                                                       |
+| --------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `DeepSeekProvider`                            | class      | Primary provider class; extends `AbstractAIProvider`.                                                                             |
+| `createDeepSeekProviderDefinition`            | function   | Returns an `IProviderDefinition` with DeepSeek setup prompts, official setup help links, and branch-free CLI/runtime composition. |
+| `refreshDeepSeekModelCatalog`                 | function   | Refreshes model catalog metadata from DeepSeek `/models`.                                                                         |
+| `DEFAULT_DEEPSEEK_PROVIDER_MODEL`             | constant   | Default setup model owned by this package.                                                                                        |
+| `DEFAULT_DEEPSEEK_PROVIDER_API_KEY_ENV`       | constant   | Default API-key environment variable name.                                                                                        |
+| `DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE` | constant   | Default `$ENV:` API-key reference for settings.                                                                                   |
+| `DEFAULT_DEEPSEEK_PROVIDER_BASE_URL`          | constant   | Default setup base URL owned by this package.                                                                                     |
+| `IDeepSeekProviderOptions`                    | interface  | Provider constructor options.                                                                                                     |
+| `IDeepSeekThinkingConfig`                     | interface  | DeepSeek thinking request object.                                                                                                 |
+| `TDeepSeekThinkingMode`                       | type alias | DeepSeek thinking toggle.                                                                                                         |
+| `TDeepSeekReasoningEffort`                    | type alias | DeepSeek reasoning effort controls.                                                                                               |
 
 ## Extension Points
 

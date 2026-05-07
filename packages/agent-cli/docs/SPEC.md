@@ -141,7 +141,7 @@ Supported setup flags:
 | `--api-key <value>`              | Store a literal API key                                             |
 | `--api-key-env <name>`           | Store `$ENV:<name>`, not the current environment value              |
 
-First-run setup must offer the injected provider definitions as a selectable list when stdin/stdout are TTYs. The list is generated from `IProviderDefinition[]` and may render `displayName`, `type`, and `description`, but it must not branch on concrete provider names. Selecting a provider starts the same provider setup flow used by runtime provider setup.
+First-run setup must offer the injected provider definitions as a selectable list when stdin/stdout are TTYs. The list is generated from `IProviderDefinition[]` and may render `displayName`, `type`, `description`, and provider-owned setup help links, but it must not branch on concrete provider names. Selecting a provider starts the same provider setup flow used by runtime provider setup.
 
 Interactive setup generates a readable profile key from the selected model id through SDK provider
 common APIs. If that key already exists, setup appends a numeric suffix such as `-2` or `-3`.
@@ -169,13 +169,13 @@ Provider slash commands are command-module interactions rendered through generic
 
 Selecting a profile opens a provider-command-owned action menu with switch, edit, test, duplicate, delete, and cancel. Edit uses provider setup metadata with masked current values hidden from the prompt display. Delete confirms the action, blocks the last profile, and requires a replacement before deleting the active profile. Non-interactive/headless slash execution never blocks on these interactions; it prints the deterministic command message and exits.
 
-Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values, submits prompt values back to the active command interaction, and applies typed command effects.
+Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values including generic prompt descriptions, submits prompt values back to the active command interaction, and applies typed command effects.
 
 The TUI status area must show enough active profile identity for users to verify the selected
 runtime profile. When profile metadata is available, it renders profile key, provider type, and
 model; when only model metadata is available, it falls back to the model label.
 
-Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
+Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, setup help descriptions, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
 
 TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
 
