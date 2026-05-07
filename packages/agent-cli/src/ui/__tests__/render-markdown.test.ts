@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { renderMarkdown } from '../render-markdown.js';
 
-const ANSI_RED = '\u001b[31m';
-const ANSI_GREEN = '\u001b[32m';
+const ANSI_LIGHT_RED = '\u001b[38;5;210m';
+const ANSI_LIGHT_GREEN = '\u001b[38;5;120m';
 const ANSI_DARK_RED_BACKGROUND = '\u001b[48;5;52m';
 const ANSI_DARK_GREEN_BACKGROUND = '\u001b[48;5;22m';
 const ANSI_RESET = '\u001b[0m';
@@ -17,9 +17,9 @@ describe('renderMarkdown', () => {
       { color: true },
     );
 
-    expect(output).toContain(`${ANSI_DARK_RED_BACKGROUND}${ANSI_RED}`);
+    expect(output).toContain(`${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}`);
     expect(output).toContain(`${CODE_BLOCK_INDENT}- const oldValue = true;`);
-    expect(output).toContain(`${ANSI_DARK_GREEN_BACKGROUND}${ANSI_GREEN}`);
+    expect(output).toContain(`${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}`);
     expect(output).toContain(`${CODE_BLOCK_INDENT}+ const newValue = true;`);
   });
 
@@ -32,8 +32,12 @@ describe('renderMarkdown', () => {
       codeBlockWidth,
     });
 
-    expect(output).toContain(`${ANSI_DARK_RED_BACKGROUND}${ANSI_RED}${removedRow}${ANSI_RESET}`);
-    expect(output).toContain(`${ANSI_DARK_GREEN_BACKGROUND}${ANSI_GREEN}${addedRow}${ANSI_RESET}`);
+    expect(output).toContain(
+      `${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}${removedRow}${ANSI_RESET}`,
+    );
+    expect(output).toContain(
+      `${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}${addedRow}${ANSI_RESET}`,
+    );
   });
 
   it('keeps diff fenced code block content readable when color is disabled', () => {
@@ -45,8 +49,8 @@ describe('renderMarkdown', () => {
     expect(output).toContain('- removed line');
     expect(output).toContain('+ added line');
     expect(output).toContain(' unchanged line');
-    expect(output).not.toContain(ANSI_RED);
-    expect(output).not.toContain(ANSI_GREEN);
+    expect(output).not.toContain(ANSI_LIGHT_RED);
+    expect(output).not.toContain(ANSI_LIGHT_GREEN);
     expect(output).not.toContain(ANSI_DARK_RED_BACKGROUND);
     expect(output).not.toContain(ANSI_DARK_GREEN_BACKGROUND);
   });

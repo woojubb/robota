@@ -990,7 +990,7 @@ Assistant responses are rendered as Markdown through `render-markdown.ts`. A fen
 **Rules:**
 
 - `render-markdown.ts` owns assistant Markdown diff rendering.
-- `diff` fenced blocks receive line-level terminal colors: removed lines use red foreground plus dark red background, added lines use green foreground plus dark green background, hunk headers use cyan foreground, and diff metadata is dim.
+- `diff` fenced blocks receive line-level terminal colors: removed lines use high-contrast light red foreground plus dark red background, added lines use high-contrast light green foreground plus dark green background, hunk headers use cyan foreground, and diff metadata is dim.
 - Added and removed `diff` rows are padded before ANSI styling so the background covers the full rendered row. The renderer uses an explicit code block width when supplied and otherwise falls back to the widest diff row.
 - Color is controlled by renderer options and terminal color environment. With color disabled, the same diff text remains readable without ANSI escape codes.
 - General fenced code blocks continue through `marked-terminal`; only `diff` fenced blocks take the Robota line-level path.

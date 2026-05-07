@@ -97,7 +97,7 @@ describe('createCompactCommandModule', () => {
 
     expect(executor.listModelInvocableCommands()).toEqual([
       {
-        name: '/compact',
+        name: 'compact',
         kind: 'builtin-command',
         description: 'Compress context window',
         userInvocable: true,
