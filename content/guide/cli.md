@@ -170,6 +170,8 @@ The available command list is built from composed command modules such as `agent
 
 `/permissions` and `/model` show nested submenus for selection.
 
+`/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
+
 ### Plugin Management
 
 Plugins extend the CLI with additional skills, hooks, and tools. They are stored in `~/.robota/plugins/` (user scope) or `.robota/plugins/` (project scope).

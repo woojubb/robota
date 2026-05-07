@@ -155,19 +155,21 @@ Non-interactive print/headless execution must not prompt. Missing provider confi
 
 Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command-provider`, which consumes SDK provider common APIs the same way a third-party command module would.
+Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command-provider`, which consumes SDK provider common APIs the same way a third-party command module would. The CLI must not implement provider-profile action rules; it only renders `choice` and `text` prompts returned by the command module and applies typed restart effects.
 
 | Command                    | Behavior                                                                                                                                             |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/provider`                | Show current provider and subcommands                                                                                                                |
+| `/provider`                | Show merged provider profiles and open a profile picker in interactive TUI mode                                                                      |
 | `/provider current`        | Show active profile, type, model, and baseURL                                                                                                        |
-| `/provider list`           | Show provider profiles from merged settings                                                                                                          |
+| `/provider list`           | Show provider profiles from merged settings; interactive TUI mode can select a profile from the list                                                 |
 | `/provider use <profile>`  | The provider command module confirms, persists `currentProvider` through its injected effective-scope settings adapter, and returns a restart effect |
 | `/provider add`            | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions        |
 | `/provider add <type>`     | Start setup for the selected provider type and create a model-derived profile key with numeric suffixes for duplicates                               |
 | `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                                    |
 
-Provider changes must follow the SDK command contract: the provider command module owns provider setup state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values, submits prompt values back to the active command interaction, and applies typed command effects.
+Selecting a profile opens a provider-command-owned action menu with switch, edit, test, duplicate, delete, and cancel. Edit uses provider setup metadata with masked current values hidden from the prompt display. Delete confirms the action, blocks the last profile, and requires a replacement before deleting the active profile. Non-interactive/headless slash execution never blocks on these interactions; it prints the deterministic command message and exits.
+
+Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values, submits prompt values back to the active command interaction, and applies typed command effects.
 
 The TUI status area must show enough active profile identity for users to verify the selected
 runtime profile. When profile metadata is available, it renders profile key, provider type, and

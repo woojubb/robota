@@ -52,15 +52,17 @@ The host owns provider definition selection and settings persistence. The comman
 
 | Command                    | Behavior                                                                                                                                                       |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/provider`                | Show current provider and subcommands                                                                                                                          |
+| `/provider`                | Show merged provider profiles and, in interactive hosts, return a generic profile-picker interaction                                                           |
 | `/provider current`        | Show active profile, type, model, and baseURL                                                                                                                  |
-| `/provider list`           | Show provider profiles from merged settings                                                                                                                    |
+| `/provider list`           | Show provider profiles from merged settings and, in interactive hosts, return the same generic profile-picker interaction                                      |
 | `/provider use <profile>`  | Confirm, persist `currentProvider` through the injected settings adapter target that will win on next startup, and return a `session-restart-requested` effect |
 | `/provider add`            | Start setup without a selected type and return a generic choice interaction generated from injected provider definitions                                       |
 | `/provider add <type>`     | Start setup for the selected provider type and create a model-derived profile key through SDK provider common APIs                                             |
 | `/provider test [profile]` | Validate fields and optionally probe the endpoint through SDK provider common APIs                                                                             |
 
-Provider setup owns defaults, required-field validation, environment-reference validation, masked-field metadata, settings patch construction, and restart effect emission. The command package does not choose settings file paths; the host adapter must expose the correct target document for the effective settings scope.
+The profile picker is a command-owned interaction chain. Selecting a profile opens an action menu with switch, edit, test, duplicate, delete, and cancel. Switch reuses the same confirmation/restart path as `/provider use <profile>`. Edit reuses provider setup metadata with current profile values as hidden defaults for masked fields, writes an override through SDK provider settings helpers, and restarts only when the edited profile is current. Duplicate writes a new profile without switching. Delete requires confirmation, blocks the last profile, and requires a replacement before deleting the current profile. A profile inherited from a lower-priority settings file is not silently deleted from the active write target.
+
+Provider setup owns defaults, required-field validation, environment-reference validation, masked-field metadata, settings patch construction, profile edit defaults, delete helpers, and restart effect emission. The command package does not choose settings file paths; the host adapter must expose the correct target document for the effective settings scope.
 
 Generated setup profile keys are suggestions, not identity derivations from provider type/model.
 The SDK setup flow prefers a sanitized model id and appends numeric suffixes when an existing

@@ -136,6 +136,41 @@ describe('provider setup prompt flow', () => {
     });
   });
 
+  it('builds edit input for a fixed profile from current profile values', () => {
+    let state = createProviderSetupFlow('anthropic', providerDefinitions, {
+      profileName: 'work-claude',
+      setCurrent: false,
+      initialValues: {
+        apiKey: '$ENV:ANTHROPIC_API_KEY',
+        model: 'claude-sonnet-4-6',
+      },
+    });
+
+    expect(getProviderSetupStep(state)).toMatchObject({
+      key: 'apiKey',
+      defaultValue: '$ENV:ANTHROPIC_API_KEY',
+      required: false,
+    });
+
+    const apiKeyResult = submitProviderSetupValue(state, '');
+    expect(apiKeyResult.status).toBe('next');
+    if (apiKeyResult.status !== 'next') throw new Error('expected next');
+    state = apiKeyResult.state;
+
+    const modelResult = submitProviderSetupValue(state, 'claude-opus-4-5');
+
+    expect(modelResult).toEqual({
+      status: 'complete',
+      input: {
+        profile: 'work-claude',
+        type: 'anthropic',
+        model: 'claude-opus-4-5',
+        apiKey: '$ENV:ANTHROPIC_API_KEY',
+        setCurrent: false,
+      },
+    });
+  });
+
   it('runs prompt input with masked API key steps', async () => {
     const promptInput = vi.fn(async (label: string) => (label.includes('model') ? 'gpt-4o' : ''));
 

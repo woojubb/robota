@@ -115,6 +115,7 @@ export {
   buildProviderSetupPatch,
   clearCommandContextReferences,
   createProviderSetupFlow,
+  deleteProviderProfile,
   formatEnvReference,
   formatProviderSetupChoiceLabel,
   formatProviderSetupPromptLabel,
