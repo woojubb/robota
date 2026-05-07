@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-mcp-server",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "description": "MCP server for Robota DAG orchestration APIs",
   "type": "module",
   "bin": {

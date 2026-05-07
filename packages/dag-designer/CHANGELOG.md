@@ -1,5 +1,21 @@
 # @robota-sdk/dag-designer
 
+## 3.0.0-beta.61
+
+### Minor Changes
+
+- b61f9ce: Add partial run request contracts, run draft state contracts, local draft stores, orchestrator partial execution target derivation, and designer client draft APIs.
+
+### Patch Changes
+
+- Updated dependencies [c34d696]
+- Updated dependencies [0b3638f]
+- Updated dependencies [d7c5605]
+- Updated dependencies [b90ed47]
+- Updated dependencies [b61f9ce]
+  - @robota-sdk/dag-api@3.0.0-beta.61
+  - @robota-sdk/dag-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes

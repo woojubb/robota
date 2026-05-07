@@ -1,5 +1,19 @@
 # @robota-sdk/dag-api
 
+## 3.0.0-beta.61
+
+### Minor Changes
+
+- 0b3638f: Change node catalog controller contracts to return runtime `TObjectInfo` data and map catalog lookup failures through the standard problem-details envelope.
+
+### Patch Changes
+
+- c34d696: Add a shared DAG orchestration HTTP client and expose DAG orchestration APIs through a new MCP server package.
+- d7c5605: Move the shared DAG orchestration HTTP client into a dedicated thin client package.
+- Updated dependencies [b90ed47]
+- Updated dependencies [b61f9ce]
+  - @robota-sdk/dag-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes

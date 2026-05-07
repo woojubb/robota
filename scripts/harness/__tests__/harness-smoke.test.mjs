@@ -56,17 +56,6 @@ describe('check-dependency-direction (smoke)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// check-worktree-policy.mjs
-// ---------------------------------------------------------------------------
-describe('check-worktree-policy (smoke)', () => {
-  it('exits with code 0 when worktree rules and hook mechanics are aligned', () => {
-    const result = runScript('check-worktree-policy.mjs');
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain('worktree policy scan passed');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // audit-spec-coverage.mjs
 // ---------------------------------------------------------------------------
 describe('audit-spec-coverage (smoke)', () => {

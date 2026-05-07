@@ -1,5 +1,13 @@
 # @robota-sdk/dag-cost
 
+## 3.0.0-beta.61
+
+### Patch Changes
+
+- Updated dependencies [b90ed47]
+- Updated dependencies [b61f9ce]
+  - @robota-sdk/dag-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes
