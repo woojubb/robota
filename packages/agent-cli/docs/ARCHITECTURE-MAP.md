@@ -15,5 +15,10 @@ architecture, composition, commands/provider flow, execution modes, inventory, a
 - interactive TUI vs non-interactive print-mode behavior;
 - package dependencies among CLI, SDK, command packages, providers, runtime, sessions, tools, or core.
 
+Non-UI behavior exposed through the CLI must be owned below the CLI first. `agent-cli` may add TUI,
+input handling, ephemeral selection state, product composition, and concrete local host adapters; it
+must not own reusable behavior, lifecycle, retention, command semantics, background task spawning,
+provider semantics, persistence, permission policy, or transport-visible contracts.
+
 Package contract truth remains in [SPEC.md](SPEC.md). This router preserves the package docs
 entrypoint while keeping detailed architecture grouped under the repository architecture-map folder.
