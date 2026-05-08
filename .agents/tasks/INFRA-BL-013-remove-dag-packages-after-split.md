@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+In progress.
 
 ## Created
 
@@ -11,6 +11,15 @@ Backlog.
 ## Priority
 
 P0 - repository boundary cleanup after `robota-dag` extraction.
+
+## Branch
+
+chore/remove-dag-packages-after-split
+
+## Scope
+
+Root workspace, `.agents/`, `packages/dag-*`, `packages/dag-nodes/**`, `apps/dag-*`, DAG docs,
+scripts, release/publish configuration.
 
 ## Problem
 
@@ -93,7 +102,7 @@ Keep and verify:
 
 ## Work Plan
 
-- [ ] Confirm the branch starts from clean `develop`.
+- [x] Confirm the branch starts from clean `develop`.
 - [ ] Inventory all DAG packages, apps, docs, examples, scripts, and harness references.
 - [ ] Inventory any agent-to-DAG imports and remove or replace them before deleting DAG packages.
 - [ ] Remove DAG packages and apps from the workspace.
@@ -124,7 +133,7 @@ Keep and verify:
 - [ ] CI/harness plans only cover packages/apps that remain in this repository.
 - [ ] The final PR contains only original-repo cleanup and does not modify the new DAG repository.
 
-## Verification Plan
+## Test Plan
 
 - `pnpm install`
 - `pnpm build`
@@ -144,3 +153,11 @@ Keep and verify:
 2. Complete the inventory before deleting files.
 3. Remove DAG workspace ownership in one cleanup PR.
 4. Merge only after GitHub CI confirms the agent-only repository is green.
+
+## Progress
+
+### 2026-05-09
+
+- Promoted from backlog on `chore/remove-dag-packages-after-split` after pushing the backlog branch.
+- Proceeding under the user-provided assumption that `robota-dag` is being prepared in a separate
+  checkout and this repository should remove DAG ownership.

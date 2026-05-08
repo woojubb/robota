@@ -11,5 +11,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [Remove DAG Packages After Repository Split](remove-dag-packages-after-split.md)
 - [Harness Release Operations Governance](harness-release-operations-governance.md)
