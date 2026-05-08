@@ -23,6 +23,10 @@ flowchart TD
   Adapters --> Domain
 ```
 
+The `ProductShells --> Adapters` edge is composition-root wiring only. A product shell may construct
+or select a concrete local adapter, but the reusable contract and behavior must be owned by a lower
+layer. See [capability-placement.md](capability-placement.md) for owner-first feature placement.
+
 Layer rules:
 
 | Layer                | Owns                                                                       | Must not own                                         |
@@ -32,6 +36,13 @@ Layer rules:
 | Application services | Use cases, lifecycle state machines, orchestration policies                | UI, HTTP routing details, persistence technology     |
 | Domain contracts     | Types, pure rules, ports, error shapes                                     | Concrete I/O, runtime process management             |
 | Adapters/providers   | Vendor transports, filesystem/network implementations                      | Cross-package contracts they merely implement        |
+
+## Composition Root Rule
+
+Product shells may import concrete adapters only to wire a process entrypoint. That import must not
+turn into durable behavior ownership. If a shell starts defining lifecycle transitions, retention,
+provider semantics, command contracts, persistence formats, or transport-visible data, move that
+contract to the lower reusable owner before adding product UI.
 
 ## Target Architecture
 
@@ -45,5 +56,8 @@ Recommended target ownership:
    ports, persistence, permissions, and provider semantics must live in `agent-sdk`,
    `agent-runtime`, `agent-command-*`, provider packages, transports, or another lower reusable
    owner before the CLI renders them.
-4. Keep docs deployment free of source-branch artifacts. Cloudflare Pages owns production deploy
+4. Apply the same owner-first rule to every product shell. `agent-web`, docs, blog, and future
+   shells may render or host capabilities, but reusable contracts and state live in the owning
+   service, SDK, runtime, command, provider, transport, or domain package.
+5. Keep docs deployment free of source-branch artifacts. Cloudflare Pages owns production deploy
    from `main`; manual direct upload is explicit and credential-gated.
