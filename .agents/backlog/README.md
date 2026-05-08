@@ -11,6 +11,5 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [Agent Server Boundary Audit](agent-server-boundary-audit.md)
 - [CLI AI Workflow Harness Evolution Plan](cli-ai-workflow-harness-evolution-plan.md)
 - [Harness Release Operations Governance](harness-release-operations-governance.md)
