@@ -54,6 +54,45 @@ Skipping step 1–3 (coding before spec) is a process violation. This applies ev
 - The verification checks that the SPEC still accurately describes the current code — not just that the code matches the spec.
 - A refactoring without updated SPEC.md is an incomplete change, same as a spec change without conformance verification.
 
+### Document Authority and Content Placement
+
+Architecture documents, design documents, and package SPEC files have different authority. A change
+is incomplete when durable content is left only in the wrong document class.
+
+| Document class                                                                                                                               | Authority                                                                                  | Must contain                                                                                                                                               | Must not contain                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Architecture documents: `.agents/specs/ARCHITECTURE-MAP.md`, `.agents/specs/architecture-map/*.md`, package-local `docs/ARCHITECTURE-MAP.md` | Stable structural boundaries, owner placement, dependency direction, layer rules, topology | Package ownership, allowed/forbidden dependency edges, product-shell boundaries, cross-package topology, update requirements                               | Package-local public API detail, implementation plans, option analysis, transient backlog, marketing prose     |
+| Design documents: `.design/**/*.md`, `docs/plans/*-design.md`, `docs/superpowers/**/*design*.md`                                             | Planning and decision rationale before the accepted contract is updated                    | Problem statement, alternatives, recommendation, tradeoffs, research notes, implementation phases, affected files, test strategy                           | Final package contract truth, stable dependency rules, API source of truth after implementation                |
+| Package/app SPEC files: `packages/*/docs/SPEC.md`, `apps/*/docs/SPEC.md` where present                                                       | Owner contract for one package or app                                                      | Scope, owned responsibilities, non-goals, public API, class/interface contracts, lifecycle/events, persistence/protocol details, verification requirements | Cross-repository topology owned by the architecture map, implementation diary, details owned by other packages |
+| Cross-cutting specs under `.agents/specs/*.md`                                                                                               | Shared contract truth when no single package owns the whole contract                       | Protocols, shared lifecycle models, command/background/verification contracts, reusable policy spanning packages                                           | Package-local API inventories that belong in package SPEC files                                                |
+| Public docs and READMEs                                                                                                                      | User-facing explanation and usage guidance                                                 | Supported behavior, setup instructions, examples, migration notes, package overview                                                                        | Hidden contracts that are not represented in SPEC/API/architecture docs                                        |
+
+Document authority is determined by path and role, not by a broad word in the filename. For
+example, `content/guide/architecture.md` is public user documentation, while
+`.agents/specs/architecture-map/*.md` is architecture authority.
+
+Authority order by question:
+
+- Package-local behavior, public API, lifecycle, events, persistence, and class/interface contracts
+  are owned by the package/app SPEC.
+- Cross-package ownership, dependency direction, product-shell boundaries, and deployment topology
+  are owned by architecture documents.
+- HTTP/API wire contracts are owned by the relevant API specification.
+- Design documents, task files, backlog files, PR notes, and chat history do not override accepted
+  SPEC, API, or architecture documents.
+
+Content promotion rules:
+
+- When a design decision becomes accepted, promote the durable contract into the owner SPEC, API
+  spec, or architecture document in the same PR.
+- Keep rationale, rejected alternatives, research notes, and phased implementation plans in design,
+  task, or backlog documents.
+- Do not duplicate package-local API details in architecture maps; link the owning SPEC instead.
+- Do not keep cross-package ownership rules only in a package SPEC; update the relevant architecture
+  map subdocument.
+- Do not use README, website content, task files, or backlog files as the only source of contract
+  truth.
+
 ### Structural Architecture Documentation
 
 - Any change that creates, removes, renames, or reassigns responsibilities across workspace packages MUST update the architecture documents that describe the structure in the same PR.
