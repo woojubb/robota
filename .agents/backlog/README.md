@@ -11,7 +11,6 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [Architecture Capability Placement Guards](architecture-capability-placement-guards.md)
 - [Document Authority Consistency Guard](document-authority-consistency-guard.md)
 - [Background Workspace Projection Conformance](background-workspace-projection-conformance.md)
 - [Agent Server Boundary Audit](agent-server-boundary-audit.md)
