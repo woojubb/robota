@@ -51,6 +51,7 @@ const REQUIRED_ROOT_HARNESS_SCRIPTS = [
   'harness:scan:document-authority',
   'harness:scan:commands',
   'harness:scan:capability-placement',
+  'harness:scan:background-workspace',
   'harness:scan:sdk-public-surface',
   'harness:scan:specs',
   'harness:scan:release-governance',
