@@ -76,6 +76,13 @@ function runRepositoryCheck(check, dryRun) {
   }
 }
 
+async function hasPackageScript(workdir, scriptName) {
+  const manifestPath = path.join(workdir, 'package.json');
+  const manifestContent = await fs.readFile(manifestPath, 'utf8');
+  const manifest = JSON.parse(manifestContent);
+  return Object.prototype.hasOwnProperty.call(manifest.scripts ?? {}, scriptName);
+}
+
 async function main() {
   const options = parseScopeArgs(process.argv.slice(2));
   const scopes = await listWorkspaceScopes();
@@ -179,12 +186,16 @@ async function main() {
 
     if (!options.skipTypecheck && plannedChecks.has('typecheck')) {
       try {
-        runCommand(
-          'pnpm',
-          ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
-          workdir,
-          options.dryRun,
-        );
+        if (await hasPackageScript(workdir, 'typecheck')) {
+          runCommand('pnpm', ['typecheck'], workdir, options.dryRun);
+        } else {
+          runCommand(
+            'pnpm',
+            ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
+            workdir,
+            options.dryRun,
+          );
+        }
         stepResults.typecheck = 'pass';
       } catch (error) {
         stepResults.typecheck = 'fail';

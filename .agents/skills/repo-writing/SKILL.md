@@ -6,22 +6,26 @@ description: Applies Robota's repository writing rules for `.design/`, general d
 # Repository Writing
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Language Policy"
 - `AGENTS.md` > "Git Operations"
 - `AGENTS.md` > "Rules and Skills Boundary"
 
 ## Use This Skill When
+
 - Editing documentation or design notes.
 - Writing or reviewing `.design/` documents.
 - Preparing commit messages.
 - Deciding whether generated docs should be edited directly.
 
 ## Preconditions
+
 - Identify the target file path.
 - Determine whether the file is under `.design/`.
 - Determine whether the output is a document, generated file, or commit message.
 
 ## Execution Steps
+
 1. Classify the target:
    - `.design/` document
    - general repository document
@@ -36,12 +40,14 @@ description: Applies Robota's repository writing rules for `.design/`, general d
 5. Keep examples and surrounding prose aligned with the target language of the document.
 
 ## Stop Conditions
+
 - A `.design/` document is written in English.
 - A non-`.design/` repository document is written in Korean.
 - Generated docs are edited directly.
 - A commit message is not in English or not in conventional format.
 
 ## Checklist
+
 - [ ] Target path is classified correctly before writing.
 - [ ] Language matches repository policy for that location.
 - [ ] Generated docs are changed through sources, not direct edits.
@@ -49,9 +55,10 @@ description: Applies Robota's repository writing rules for `.design/`, general d
 - [ ] Commit titles focus on outcome rather than implementation trivia.
 
 ## Focused Examples
+
 ```text
 feat(agents): add ownerPath validation to tool execution
-fix(dag-runtime): stop implicit retry after failed transition
+fix(agent-runtime): stop implicit retry after failed transition
 docs(design): document harness migration phases
 ```
 
@@ -62,11 +69,13 @@ README.md -> English
 ```
 
 ## Anti-Patterns
+
 - Mixing Korean and English policy arbitrarily in the same document class.
 - Editing generated API reference files directly.
 - Writing commit titles as implementation diary entries.
 - Treating repository writing rules as optional style preferences.
 
 ## Related Harness Commands
+
 - Current: repository policy review, docs generator commands
 - Planned: `pnpm harness:scan`

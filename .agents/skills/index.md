@@ -60,7 +60,6 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | [robota-sdk-usage](robota-sdk-usage/SKILL.md)       | Robota SDK constructor config and migration patterns                                                        |
 | [plugin-development](plugin-development/SKILL.md)   | Plugin validation, disable strategies, error handling                                                       |
-| [dag-node-standard](dag-node-standard/SKILL.md)     | AbstractNodeDefinition, zod config, NodeIoAccessor                                                          |
 | [api-spec-management](api-spec-management/SKILL.md) | API specification management for external-facing endpoints                                                  |
 | [package-code-review](package-code-review/SKILL.md) | Six-perspective code review: correctness, architecture, type safety, security, performance, maintainability |
 

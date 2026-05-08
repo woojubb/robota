@@ -1,7 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@source "../../../../packages/dag-designer/src/**/*.{ts,tsx}";
-@source "../../../../packages/dag-designer/dist/node/**/*.{js,mjs,cjs}";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -129,7 +127,9 @@
     background: var(--studio-bg);
     color: var(--studio-text);
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -233,23 +233,33 @@
 }
 
 .studio-glow-violet {
-  box-shadow: 0 0 0 1px var(--studio-accent-violet), 0 0 20px rgba(167, 139, 250, 0.2);
+  box-shadow:
+    0 0 0 1px var(--studio-accent-violet),
+    0 0 20px rgba(167, 139, 250, 0.2);
 }
 
 .studio-glow-emerald {
-  box-shadow: 0 0 0 1px var(--studio-accent-emerald), 0 0 20px rgba(52, 211, 153, 0.2);
+  box-shadow:
+    0 0 0 1px var(--studio-accent-emerald),
+    0 0 20px rgba(52, 211, 153, 0.2);
 }
 
 .studio-glow-amber {
-  box-shadow: 0 0 0 1px var(--studio-accent-amber), 0 0 20px rgba(251, 191, 36, 0.2);
+  box-shadow:
+    0 0 0 1px var(--studio-accent-amber),
+    0 0 20px rgba(251, 191, 36, 0.2);
 }
 
 .studio-glow-rose {
-  box-shadow: 0 0 0 1px var(--studio-accent-rose), 0 0 20px rgba(251, 113, 133, 0.2);
+  box-shadow:
+    0 0 0 1px var(--studio-accent-rose),
+    0 0 20px rgba(251, 113, 133, 0.2);
 }
 
 .studio-glow-cyan {
-  box-shadow: 0 0 0 1px var(--studio-accent-cyan), 0 0 20px rgba(34, 211, 238, 0.2);
+  box-shadow:
+    0 0 0 1px var(--studio-accent-cyan),
+    0 0 20px rgba(34, 211, 238, 0.2);
 }
 
 /* Subtle dot grid background */
@@ -328,7 +338,8 @@
 
 /* === STATUS INDICATORS === */
 @keyframes studio-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4);
   }
   50% {
@@ -337,10 +348,15 @@
 }
 
 @keyframes bounce {
-  0%, 20%, 53%, 80%, 100% {
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
     transform: translate3d(0, 0, 0);
   }
-  40%, 43% {
+  40%,
+  43% {
     transform: translate3d(0, -8px, 0);
   }
   70% {
@@ -351,17 +367,17 @@
   }
 }
 
-.react-flow__node[data-status="running"] {
+.react-flow__node[data-status='running'] {
   animation: studio-pulse 2s infinite;
   border-color: var(--studio-accent-emerald) !important;
   box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.2);
 }
 
-.react-flow__node[data-status="completed"] {
+.react-flow__node[data-status='completed'] {
   border-color: var(--studio-accent-emerald) !important;
 }
 
-.react-flow__node[data-status="error"] {
+.react-flow__node[data-status='error'] {
   border-color: var(--studio-accent-rose) !important;
   background: var(--studio-accent-rose-dim) !important;
 }
@@ -369,7 +385,9 @@
 /* Selected node — violet glow */
 .react-flow__node.selected,
 .react-flow__node:focus {
-  box-shadow: 0 0 0 2px var(--studio-accent-violet), 0 0 24px rgba(167, 139, 250, 0.25);
+  box-shadow:
+    0 0 0 2px var(--studio-accent-violet),
+    0 0 24px rgba(167, 139, 250, 0.25);
 }
 
 /* === EDGES === */

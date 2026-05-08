@@ -25,15 +25,6 @@
 '@robota-sdk/agent-plugin-performance': patch
 '@robota-sdk/agent-plugin-usage': patch
 '@robota-sdk/agent-plugin-webhook': patch
-'@robota-sdk/dag-core': patch
-'@robota-sdk/dag-api': patch
-'@robota-sdk/dag-node': patch
-'@robota-sdk/dag-orchestrator': patch
-'@robota-sdk/dag-projection': patch
-'@robota-sdk/dag-runtime': patch
-'@robota-sdk/dag-scheduler': patch
-'@robota-sdk/dag-worker': patch
-'@robota-sdk/dag-designer': patch
 ---
 
 fix: resolve ESLint tsconfig parsing errors and improve pnpm CI reliability

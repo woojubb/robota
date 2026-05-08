@@ -16,7 +16,6 @@ Key endpoints:
 
 - Host-level composition only. Core package contracts remain in their respective packages.
 - Provider chat/stream routes are inlined (formerly in `@robota-sdk/agent-remote-server-core`, now deleted).
-- Does not own DAG concerns (owned by `apps/dag-runtime-server`).
 
 ## Architecture Overview
 

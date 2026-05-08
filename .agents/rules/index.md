@@ -9,7 +9,7 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | --------------- | ---------------------------------------- | ------------------------------------------ |
 | Code Quality    | [code-quality.md](code-quality.md)       | Type system, imports, development patterns |
 | Process         | [process.md](process.md)                 | Routing file — see sub-rules below         |
-| API Boundary    | [api-boundary.md](api-boundary.md)       | Runtime/Orchestrator API rules             |
+| API Boundary    | [api-boundary.md](api-boundary.md)       | API specification and app lifecycle rules  |
 | Naming & Style  | [naming-style.md](naming-style.md)       | Language policy, agent identity, styling   |
 | Git & Branch    | [git-branch.md](git-branch.md)           | Git operations and branch policy           |
 | Common Mistakes | [common-mistakes.md](common-mistakes.md) | Observed failure patterns                  |

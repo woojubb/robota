@@ -142,8 +142,8 @@ function PlaygroundContent(): React.ReactElement {
               <div className="h-full rounded border border-gray-200 bg-white p-4">
                 <h2 className="mb-2 text-sm font-semibold text-gray-800">Playground Runtime</h2>
                 <p className="text-xs text-gray-600">
-                  Workflow graph visualization has been removed from playground. Use DAG designer
-                  for graph workflows.
+                  Workflow graph visualization has been removed from playground. This host now
+                  focuses on agent execution and runtime inspection.
                 </p>
                 <div className="mt-4 rounded border border-gray-100 bg-gray-50 p-3 text-xs text-gray-700">
                   <div>Mode: {state.mode}</div>
