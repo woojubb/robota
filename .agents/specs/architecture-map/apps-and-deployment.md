@@ -38,6 +38,9 @@ Deployment decision:
   frontend shell.
 - Keep reusable Playground behavior in `agent-playground`; `agent-web` owns only the product route
   and deployment host.
+- Remote execution contract ownership stays in `agent-remote-client` and reusable Playground
+  execution behavior stays in `agent-playground`; `agent-web` and `agent-server` compose those
+  packages without owning their contracts.
 
 ## Documentation Deployment Stack
 
