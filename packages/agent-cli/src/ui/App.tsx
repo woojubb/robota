@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
@@ -8,6 +8,7 @@ import type {
   ICommandModule,
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
+  IExecutionDetailPage,
 } from '@robota-sdk/agent-sdk';
 import { listResumableSessionSummaries } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
@@ -25,9 +26,15 @@ import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
+import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import UpdateNotice from './UpdateNotice.js';
 import { formatCliUpdateNotice, type ICliUpdateNotice } from '../utils/update-check.js';
 import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
+import {
+  countActiveBackgroundWorkspaceEntries,
+  getDefaultBackgroundWorkspaceEntries,
+} from './execution-workspace-view-model.js';
 
 interface IProps {
   cwd: string;
@@ -88,7 +95,10 @@ function AppInner(
     isAborting,
     isShuttingDown,
     pendingPrompt,
-    backgroundTasks,
+    executionWorkspaceSnapshot,
+    selectedExecutionEntryId,
+    selectExecutionWorkspaceEntry,
+    readExecutionWorkspaceDetail,
     permissionRequest,
     contextState,
     handleSubmit: baseHandleSubmit,
@@ -115,10 +125,23 @@ function AppInner(
   const { exit } = useApp();
   const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<ICliUpdateNotice | undefined>();
+  const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
+  const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);
+  const [executionDetailError, setExecutionDetailError] = useState<string | undefined>();
+  const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
-  const activeBackgroundTaskCount = backgroundTasks.filter(
-    (task) => task.status === 'queued' || task.status === 'running',
-  ).length;
+  const backgroundWorkspaceEntries = useMemo(
+    () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
+    [executionWorkspaceSnapshot],
+  );
+  const activeBackgroundTaskCount = countActiveBackgroundWorkspaceEntries(
+    executionWorkspaceSnapshot,
+  );
+  const selectedExecutionEntry = useMemo(
+    () =>
+      executionWorkspaceSnapshot?.entries.find((entry) => entry.id === selectedExecutionEntryId),
+    [executionWorkspaceSnapshot, selectedExecutionEntryId],
+  );
 
   const {
     handleSubmit,
@@ -174,8 +197,17 @@ function AppInner(
   // ESC abort
   useInput((_input: string, key: { escape: boolean }) => {
     if (!key.escape || !isThinking) return;
-    if (permissionRequest || showPluginTUI || showSessionPicker) return;
+    if (permissionRequest || showPluginTUI || showSessionPicker || showExecutionWorkspaceSwitcher) {
+      return;
+    }
     handleAbort();
+  });
+
+  // Ctrl+B toggles the execution workspace switcher.
+  useInput((input: string, key: { ctrl?: boolean }) => {
+    if (!key.ctrl || input !== 'b') return;
+    if (permissionRequest || showPluginTUI || showSessionPicker || isShuttingDown) return;
+    setShowExecutionWorkspaceSwitcher((shown) => !shown);
   });
 
   // Ctrl+C graceful shutdown
@@ -196,6 +228,34 @@ function AppInner(
       process.off('SIGTERM', onSigterm);
     };
   }, [handleShutdown, exit, isShuttingDown]);
+
+  useEffect(() => {
+    if (!selectedExecutionEntry || selectedExecutionEntry.kind === 'main_thread') {
+      setExecutionDetailPage(null);
+      setExecutionDetailError(undefined);
+      setIsExecutionDetailLoading(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setIsExecutionDetailLoading(true);
+    setExecutionDetailError(undefined);
+    readExecutionWorkspaceDetail(selectedExecutionEntry.id)
+      .then((page) => {
+        if (!isCurrent) return;
+        setExecutionDetailPage(page);
+        setIsExecutionDetailLoading(false);
+      })
+      .catch((error: Error) => {
+        if (!isCurrent) return;
+        setExecutionDetailError(error.message);
+        setIsExecutionDetailLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [executionWorkspaceSnapshot, readExecutionWorkspaceDetail, selectedExecutionEntry]);
 
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
@@ -222,7 +282,16 @@ function AppInner(
       </Box>
       {updateNotice && <UpdateNotice message={formatCliUpdateNotice(updateNotice)} />}
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        <MessageList history={history} />
+        {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' ? (
+          <ExecutionWorkspaceDetailPane
+            entry={selectedExecutionEntry}
+            page={executionDetailPage}
+            loading={isExecutionDetailLoading}
+            error={executionDetailError}
+          />
+        ) : (
+          <MessageList history={history} />
+        )}
         {isShuttingDown && (
           <Box marginBottom={1}>
             <Text color="yellow">Shutting down...</Text>
@@ -237,8 +306,16 @@ function AppInner(
             />
           </Box>
         )}
-        <BackgroundTaskPanel tasks={backgroundTasks} />
+        <BackgroundTaskPanel entries={backgroundWorkspaceEntries} />
       </Box>
+      {showExecutionWorkspaceSwitcher && (
+        <ExecutionWorkspaceSwitcher
+          snapshot={executionWorkspaceSnapshot}
+          selectedEntryId={selectedExecutionEntryId}
+          onSelect={selectExecutionWorkspaceEntry}
+          onClose={() => setShowExecutionWorkspaceSwitcher(false)}
+        />
+      )}
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
       {pendingModelId && (
         <ConfirmPrompt
@@ -295,6 +372,7 @@ function AppInner(
           !!permissionRequest ||
           showPluginTUI ||
           showSessionPicker ||
+          showExecutionWorkspaceSwitcher ||
           isShuttingDown ||
           pendingInteractionPrompt !== null ||
           (isThinking && !!pendingPrompt)

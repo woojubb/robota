@@ -1,6 +1,6 @@
 # Agent CLI Target Architecture and Dependencies
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This document owns the target CLI ownership model and dependency graph. Use it before adding,
 removing, or moving package edges around `@robota-sdk/agent-cli`.
@@ -78,6 +78,7 @@ Target ownership rules:
 | Session persistence facade                                   | `agent-sdk`                                   | Request project-local store and display SDK-owned summaries.           |
 | Reusable background/subagent state machines and ports        | `agent-runtime`                               | Supply local process/worktree adapters when they are terminal-hosted.  |
 | Background task workspace/read model and retention semantics | `agent-sdk` + `agent-runtime`                 | Render SDK projection; keep only selected-entry UI state.              |
+| Execution workspace task switching                           | `agent-sdk` read model, `agent-cli` TUI       | SDK owns entries/details/events; CLI owns Ctrl+B menu and selection.   |
 | Terminal process spawning, Ink rendering, local settings I/O | `agent-cli`                                   | Keep concrete I/O at the outer shell.                                  |
 | Core provider/history/permission/model contracts             | `agent-core`                                  | Import public contracts only.                                          |
 
@@ -92,8 +93,9 @@ Target migration order:
    fallback catalog contract.
 5. Audit the SDK public export surface so owned APIs and compatibility re-exports are explicit and
    do not hide package ownership.
-6. For richer background-task UI, implement SDK/runtime workspace projections, origin metadata, task
-   spawning ports, and retention policy before adding the CLI switcher surface.
+6. For richer background-task UI, consume SDK/runtime workspace projections, origin metadata, task
+   spawning ports, and retention policy from the CLI switcher surface. Do not add a CLI-owned task
+   registry or retention policy.
 
 ## Package Dependency Graph
 

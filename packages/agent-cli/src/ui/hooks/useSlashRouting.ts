@@ -23,8 +23,6 @@ export function useSlashRouting(
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
-      manager.onUserTurnAccepted();
-
       if (!input.startsWith('/')) {
         await interactiveSession.submit(input);
         manager.setPendingPrompt(interactiveSession.getPendingPrompt());

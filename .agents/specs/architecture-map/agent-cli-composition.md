@@ -1,6 +1,6 @@
 # Agent CLI Composition Architecture Map
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This file is the stable router for the `@robota-sdk/agent-cli` architecture slice. Detailed CLI
 composition content is split under [agent-cli/](agent-cli/) so readers can load only the relevant

@@ -1,24 +1,24 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { IBackgroundTaskViewModel } from './tui-state-manager.js';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-sdk';
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
 
 interface IProps {
-  tasks: IBackgroundTaskViewModel[];
+  entries: IExecutionWorkspaceEntry[];
 }
 
-export default function BackgroundTaskPanel({ tasks }: IProps): React.ReactElement | null {
-  if (tasks.length === 0) return null;
+export default function BackgroundTaskPanel({ entries }: IProps): React.ReactElement | null {
+  if (entries.length === 0) return null;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text color="cyan" bold>
         Background work
       </Text>
-      {tasks.map((task, index) => {
-        const row = formatBackgroundTaskRow(task, { isLast: index === tasks.length - 1 });
+      {entries.map((entry, index) => {
+        const row = formatBackgroundTaskRow(entry, { isLast: index === entries.length - 1 });
         return (
-          <Text key={task.id}>
+          <Text key={entry.id}>
             {`${row.connector} `}
             <Text color={row.color}>{row.marker}</Text>
             {` ${row.label}`}
