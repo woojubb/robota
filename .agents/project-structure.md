@@ -18,30 +18,12 @@ packages/
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-transport-*/           # Transports: headless, http, mcp, ws
-├── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
-├── dag-core/                    # DAG domain contracts and state rules (SSOT)
-├── dag-cost/                    # Cost domain (CEL evaluator, cost meta types, storage port)
-├── dag-adapters-local/          # Local adapters (in-memory ports + file-based storage)
-├── dag-node/                    # Node authoring infrastructure (base class, IO, registries)
-├── dag-runtime/                 # DAG orchestration runtime
-├── dag-worker/                  # DAG worker execution layer
-├── dag-scheduler/               # DAG scheduler layer
-├── dag-projection/              # DAG projection/read-model layer
-├── dag-api/                     # DAG API/composition layer
-├── dag-orchestration-client/    # DAG orchestration HTTP client contracts
-├── dag-cli/                     # JSON-first CLI client for DAG orchestration APIs
-├── dag-mcp-server/              # MCP server for DAG orchestration APIs
-├── dag-designer/                # DAG web designer layer
-├── dag-orchestrator/            # DAG orchestration layer
-└── dag-nodes/                   # DAG node implementations
+└── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
 ├── agent-web/              # Web application (Agent Playground)
 ├── blog/                   # Blog/content application
-├── dag-studio/             # DAG Designer application
 ├── docs/                   # Documentation site
-├── agent-server/           # AI provider proxy + Playground WebSocket
-├── dag-runtime-server/     # DAG execution server (ComfyUI-compatible)
-└── dag-orchestrator-server/ # Orchestration gateway (cost/auth/retry)
+└── agent-server/           # AI provider proxy + Playground WebSocket
 ```
 
 ## Related Documents
@@ -51,7 +33,6 @@ apps/
 | [specs/ARCHITECTURE-MAP.md](specs/ARCHITECTURE-MAP.md)                                           | Repository-level architecture map router  |
 | [specs/architecture-map/README.md](specs/architecture-map/README.md)                             | Architecture-map document tree            |
 | [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table |
-| [dag-dependency-direction.md](dag-dependency-direction.md)                                       | DAG package dependency flow and rules     |
 | [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI architecture map router               |
 
 ## Command Package Rule

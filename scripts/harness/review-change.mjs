@@ -58,7 +58,13 @@ function summarizeScopes(selectedScopes) {
   }));
 }
 
-function renderMarkdownReport({ changedFiles, selectedScopes, outsideSelectedScopeFiles, findings, recommendedCommands }) {
+function renderMarkdownReport({
+  changedFiles,
+  selectedScopes,
+  outsideSelectedScopeFiles,
+  findings,
+  recommendedCommands,
+}) {
   const lines = [
     '# Harness Review Report',
     '',
@@ -92,9 +98,8 @@ async function writeReport(reportFile, format, payload) {
   const targetPath = path.resolve(WORKSPACE_ROOT, reportFile);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
 
-  const content = format === 'json'
-    ? `${JSON.stringify(payload, null, 2)}\n`
-    : renderMarkdownReport(payload);
+  const content =
+    format === 'json' ? `${JSON.stringify(payload, null, 2)}\n` : renderMarkdownReport(payload);
 
   await fs.writeFile(targetPath, content, 'utf8');
   return targetPath;
@@ -113,23 +118,43 @@ async function main() {
   const scopes = await listWorkspaceScopes();
   const changedFiles = detectChangedFiles(options.baseRef);
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
-  const selectedScopes = options.scopeTokens.length > 0
-    ? resolveRequestedScopes(options.scopeTokens, scopes)
-    : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
+  const selectedScopes =
+    options.scopeTokens.length > 0
+      ? resolveRequestedScopes(options.scopeTokens, scopes)
+      : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
 
   const outsideSelectedScopeFiles = changedFiles.filter((file) => {
-    return !selectedScopes.some((scope) => file === scope.relativeDir || file.startsWith(`${scope.relativeDir}/`));
+    return !selectedScopes.some(
+      (scope) => file === scope.relativeDir || file.startsWith(`${scope.relativeDir}/`),
+    );
   });
 
   const findings = [];
   const scopeRecommendations = [];
 
-  if (changedFiles.some((file) => file === 'AGENTS.md' || file.startsWith('.agents/') || file.startsWith('scripts/harness/'))) {
-    findings.push(createFinding('high', 'repository', 'Policy or harness files changed. Run `pnpm harness:scan` and review drift carefully.'));
+  if (
+    changedFiles.some(
+      (file) =>
+        file === 'AGENTS.md' || file.startsWith('.agents/') || file.startsWith('scripts/harness/'),
+    )
+  ) {
+    findings.push(
+      createFinding(
+        'high',
+        'repository',
+        'Policy or harness files changed. Run `pnpm harness:scan` and review drift carefully.',
+      ),
+    );
   }
 
   if (outsideSelectedScopeFiles.some((file) => file === 'package.json')) {
-    findings.push(createFinding('high', 'repository', 'Root package.json changed. Command surface or workspace behavior may have changed.'));
+    findings.push(
+      createFinding(
+        'high',
+        'repository',
+        'Root package.json changed. Command surface or workspace behavior may have changed.',
+      ),
+    );
   }
 
   for (const scope of selectedScopes) {
@@ -143,66 +168,121 @@ async function main() {
     const hasDocsIndex = await pathExists(docsIndexPath);
 
     if (classification.hasSourceChanges) {
-      findings.push(createFinding('high', scope.relativeDir, 'Source files changed. Build, test, lint, and typecheck should be reviewed for this scope.'));
+      findings.push(
+        createFinding(
+          'high',
+          scope.relativeDir,
+          'Source files changed. Build, test, lint, and typecheck should be reviewed for this scope.',
+        ),
+      );
     }
 
     if (classification.hasEntrypointChanges) {
-      findings.push(createFinding('high', scope.relativeDir, 'Entrypoint changed. Public surface and semver impact should be reviewed.'));
+      findings.push(
+        createFinding(
+          'high',
+          scope.relativeDir,
+          'Entrypoint changed. Public surface and semver impact should be reviewed.',
+        ),
+      );
     }
 
     if (classification.hasManifestChanges) {
-      findings.push(createFinding('medium', scope.relativeDir, 'Package manifest changed. Build scripts, dependencies, or package metadata may have shifted.'));
+      findings.push(
+        createFinding(
+          'medium',
+          scope.relativeDir,
+          'Package manifest changed. Build scripts, dependencies, or package metadata may have shifted.',
+        ),
+      );
     }
 
     if (classification.hasScenarioChanges) {
-      findings.push(createFinding('medium', scope.relativeDir, 'Scenario or example files changed. Owner verification flow should be checked.'));
+      findings.push(
+        createFinding(
+          'medium',
+          scope.relativeDir,
+          'Scenario or example files changed. Owner verification flow should be checked.',
+        ),
+      );
     }
 
     if (classification.hasSourceChanges && hasExamplesDir && hasScenarioVerification) {
-      findings.push(createFinding('medium', scope.relativeDir, 'Source changed in a scenario-owning scope. Include scenario verification in follow-up checks.'));
+      findings.push(
+        createFinding(
+          'medium',
+          scope.relativeDir,
+          'Source changed in a scenario-owning scope. Include scenario verification in follow-up checks.',
+        ),
+      );
     }
 
-    if ((classification.hasScenarioChanges || (classification.hasSourceChanges && hasExamplesDir)) && hasScenarioRecord) {
-      findings.push(createFinding('low', scope.relativeDir, 'Scenario-owning scope changed. If verification reports record drift and the new output is intentional, refresh the owner record.'));
+    if (
+      (classification.hasScenarioChanges || (classification.hasSourceChanges && hasExamplesDir)) &&
+      hasScenarioRecord
+    ) {
+      findings.push(
+        createFinding(
+          'low',
+          scope.relativeDir,
+          'Scenario-owning scope changed. If verification reports record drift and the new output is intentional, refresh the owner record.',
+        ),
+      );
     }
 
     if (classification.hasDocsChanges && !classification.hasSourceChanges) {
-      findings.push(createFinding('low', scope.relativeDir, 'Docs changed without source changes in this scope.'));
+      findings.push(
+        createFinding(
+          'low',
+          scope.relativeDir,
+          'Docs changed without source changes in this scope.',
+        ),
+      );
     }
 
     if (!hasSpec) {
-      findings.push(createFinding('medium', scope.relativeDir, 'Workspace is missing docs/SPEC.md. Package or app ownership is not fully documented.'));
+      findings.push(
+        createFinding(
+          'medium',
+          scope.relativeDir,
+          'Workspace is missing docs/SPEC.md. Package or app ownership is not fully documented.',
+        ),
+      );
     }
 
     if (hasSpec && !hasDocsIndex) {
-      findings.push(createFinding('medium', scope.relativeDir, 'Workspace is missing docs/README.md. The canonical docs entrypoint is incomplete.'));
+      findings.push(
+        createFinding(
+          'medium',
+          scope.relativeDir,
+          'Workspace is missing docs/README.md. The canonical docs entrypoint is incomplete.',
+        ),
+      );
     }
 
     if (hasSpec && hasDocsIndex) {
       const docsIndexContent = await readText(docsIndexPath);
       if (!hasCanonicalSpecReference(docsIndexContent)) {
-        findings.push(createFinding('medium', scope.relativeDir, 'docs/README.md does not point to `SPEC.md`. Canonical package specification is hard to discover.'));
+        findings.push(
+          createFinding(
+            'medium',
+            scope.relativeDir,
+            'docs/README.md does not point to `SPEC.md`. Canonical package specification is hard to discover.',
+          ),
+        );
       }
-    }
-
-    if (scope.relativeDir.startsWith('packages/dag-') && classification.hasSourceChanges) {
-      findings.push(createFinding('high', scope.relativeDir, 'DAG package source changed. Review dependency direction, event ownership, fallback behavior, and terminal state integrity.'));
-    }
-
-    if (scope.relativeDir.startsWith('packages/dag-nodes/') && classification.hasSourceChanges) {
-      findings.push(createFinding('high', scope.relativeDir, 'DAG node source changed. Check AbstractNodeDefinition usage, NodeIoAccessor validation, and DAG error code conventions.'));
     }
 
     scopeRecommendations.push({
       scope,
-      includeScenarios: hasScenarioVerification && (
-        classification.hasScenarioChanges
-        || ((classification.hasSourceChanges || classification.hasConfigChanges) && hasExamplesDir)
-      ),
-      includeRecord: hasScenarioRecord && (
-        classification.hasScenarioChanges
-        || ((classification.hasSourceChanges || classification.hasConfigChanges) && hasExamplesDir)
-      ),
+      includeScenarios:
+        hasScenarioVerification &&
+        (classification.hasScenarioChanges ||
+          ((classification.hasSourceChanges || classification.hasConfigChanges) && hasExamplesDir)),
+      includeRecord:
+        hasScenarioRecord &&
+        (classification.hasScenarioChanges ||
+          ((classification.hasSourceChanges || classification.hasConfigChanges) && hasExamplesDir)),
     });
   }
 
@@ -211,9 +291,13 @@ async function main() {
 
   printSection('Review Summary');
   process.stdout.write(`Changed files: ${changedFiles.length}\n`);
-  process.stdout.write(`Selected scopes: ${selectedScopes.map((scope) => scope.relativeDir).join(', ') || 'none'}\n`);
+  process.stdout.write(
+    `Selected scopes: ${selectedScopes.map((scope) => scope.relativeDir).join(', ') || 'none'}\n`,
+  );
   if (outsideSelectedScopeFiles.length > 0) {
-    process.stdout.write(`Files outside selected scopes: ${outsideSelectedScopeFiles.join(', ')}\n`);
+    process.stdout.write(
+      `Files outside selected scopes: ${outsideSelectedScopeFiles.join(', ')}\n`,
+    );
   }
 
   printSection('Findings');
@@ -221,7 +305,10 @@ async function main() {
     process.stdout.write('- No review findings from the heuristic harness.\n');
   } else {
     const order = { high: 0, medium: 1, low: 2 };
-    findings.sort((left, right) => order[left.priority] - order[right.priority] || left.scope.localeCompare(right.scope));
+    findings.sort(
+      (left, right) =>
+        order[left.priority] - order[right.priority] || left.scope.localeCompare(right.scope),
+    );
     for (const finding of findings) {
       process.stdout.write(`- [${finding.priority}] ${finding.scope}: ${finding.message}\n`);
     }

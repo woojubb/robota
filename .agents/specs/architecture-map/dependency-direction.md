@@ -8,11 +8,11 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 
 ```mermaid
 flowchart TD
-  ProductShells["Product shells\nagent-cli, dag-cli, dag-mcp-server,\ndag-studio, docs, blog"]
-  Assembly["Assembly/API layers\nagent-sdk, dag-api,\ndag-orchestrator-server"]
-  Application["Application services\nagent-sessions, agent-runtime,\ndag-orchestrator, dag-runtime,\ndag-worker, dag-projection"]
-  Domain["Domain contracts\nagent-core, dag-core, dag-cost,\nauth, credits"]
-  Adapters["Adapters and providers\nagent-provider-*, agent-tools,\ndag-adapters-local, HTTP/ComfyUI adapters,\nCloudflare Pages"]
+  ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
+  Assembly["Assembly/API layers\nagent-sdk, agent-server"]
+  Application["Application services\nagent-sessions, agent-runtime"]
+  Domain["Domain contracts\nagent-core, auth, credits"]
+  Adapters["Adapters and providers\nagent-provider-*, agent-tools,\ntransports, Cloudflare Pages"]
 
   ProductShells --> Assembly
   Assembly --> Application
@@ -39,19 +39,11 @@ Recommended target ownership:
 
 1. Keep `.agents/specs/ARCHITECTURE-MAP.md` as the repo-wide router. Put detailed repository
    structures in focused `.agents/specs/architecture-map/*.md` subdocuments.
-2. Keep `agent-cli` and DAG operational clients separate. `agent-cli` must not import `dag-cli` or
-   `dag-mcp-server`; future integration should be through MCP, ordinary tools, or a dedicated
-   command module that consumes SDK command contracts.
-3. Keep operational orchestration HTTP clients out of `dag-api`; `dag-orchestration-client` owns
-   that surface.
-4. Centralize orchestrator REST contracts before exposing additional DAG mutation, asset,
-   cost-metadata, or published-workflow operations through CLI/MCP clients.
-5. Keep `dag-orchestrator-server` as the imperative shell. Domain rules stay in `dag-core`,
-   orchestration use cases stay in `dag-orchestrator`, controller mapping and narrow controller
-   ports stay in `dag-api`, and persistence/runtime technology stays behind adapters or app-level
-   composition roots.
-6. Keep DAG deployment split into frontend, long-running orchestrator, and ComfyUI-compatible
-   runtime units. The frontend may move between frontend hosts, but WebSocket/proxy/persistence
-   ownership stays out of `dag-studio`.
-7. Keep docs deployment free of source-branch artifacts. Cloudflare Pages owns production deploy
+2. Keep `agent-cli` as a product shell. It may own terminal rendering, input, ephemeral selection
+   state, and concrete host adapters only.
+3. Put reusable behavior below the CLI. Background task lifecycle, command contracts, spawning
+   ports, persistence, permissions, and provider semantics must live in `agent-sdk`,
+   `agent-runtime`, `agent-command-*`, provider packages, transports, or another lower reusable
+   owner before the CLI renders them.
+4. Keep docs deployment free of source-branch artifacts. Cloudflare Pages owns production deploy
    from `main`; manual direct upload is explicit and credential-gated.

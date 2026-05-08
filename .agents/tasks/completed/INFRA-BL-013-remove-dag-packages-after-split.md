@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Created
 
@@ -103,35 +103,35 @@ Keep and verify:
 ## Work Plan
 
 - [x] Confirm the branch starts from clean `develop`.
-- [ ] Inventory all DAG packages, apps, docs, examples, scripts, and harness references.
-- [ ] Inventory any agent-to-DAG imports and remove or replace them before deleting DAG packages.
-- [ ] Remove DAG packages and apps from the workspace.
-- [ ] Remove DAG package entries from root build/test/typecheck/lint/publish configuration.
-- [ ] Remove or reroute DAG docs, architecture-map `.md` entries, backlog references, and publish
+- [x] Inventory all DAG packages, apps, docs, examples, scripts, and harness references.
+- [x] Inventory any agent-to-DAG imports and remove or replace them before deleting DAG packages.
+- [x] Remove DAG packages and apps from the workspace.
+- [x] Remove DAG package entries from root build/test/typecheck/lint/publish configuration.
+- [x] Remove or reroute DAG docs, architecture-map `.md` entries, backlog references, and publish
       registry rows.
-- [ ] Delete or archive `.agents/specs/architecture-map/dag-system.md` so this repository's
+- [x] Delete or archive `.agents/specs/architecture-map/dag-system.md` so this repository's
       architecture map no longer owns the DAG system.
-- [ ] Update root `AGENTS.md`, `.agents/project-structure.md`, and rules/docs so this repository is
+- [x] Update root `AGENTS.md`, `.agents/project-structure.md`, and rules/docs so this repository is
       agent-only.
-- [ ] Add migration notes pointing DAG users and contributors to the new `robota-dag` repository.
-- [ ] Run repository verification and fix any stale DAG assumptions.
+- [x] Add migration notes pointing DAG users and contributors to the new `robota-dag` repository.
+- [x] Run repository verification and fix any stale DAG assumptions.
 
 ## Acceptance Criteria
 
-- [ ] `pnpm install` succeeds without any local DAG workspace packages.
-- [ ] Root `pnpm build`, `pnpm test`, `pnpm typecheck`, and `pnpm lint` no longer reference removed
+- [x] `pnpm install` succeeds without any local DAG workspace packages.
+- [x] Root `pnpm build`, `pnpm test`, `pnpm typecheck`, and `pnpm lint` no longer reference removed
       DAG scopes.
-- [ ] `rg -n "@robota-sdk/dag|packages/dag|apps/dag" packages apps .agents scripts package.json pnpm-workspace.yaml`
+- [x] `rg -n "@robota-sdk/dag|packages/dag|apps/dag" packages apps .agents scripts package.json pnpm-workspace.yaml`
       returns only intentional migration notes or archived references.
-- [ ] No package in this repository declares a production dependency on a removed DAG workspace
+- [x] No package in this repository declares a production dependency on a removed DAG workspace
       package.
-- [ ] Publish registry and changeset/release tooling no longer publish DAG packages from this
+- [x] Publish registry and changeset/release tooling no longer publish DAG packages from this
       repository.
-- [ ] Docs clearly say DAG source moved to `robota-dag`.
-- [ ] `.agents/specs/architecture-map/**/*.md` no longer documents `dag-*` packages or `apps/dag-*`
+- [x] Docs clearly say DAG source moved to `robota-dag`.
+- [x] `.agents/specs/architecture-map/**/*.md` no longer documents `dag-*` packages or `apps/dag-*`
       ownership except for intentional migration notes.
-- [ ] CI/harness plans only cover packages/apps that remain in this repository.
-- [ ] The final PR contains only original-repo cleanup and does not modify the new DAG repository.
+- [x] CI/harness plans only cover packages/apps that remain in this repository.
+- [x] The final PR contains only original-repo cleanup and does not modify the new DAG repository.
 
 ## Test Plan
 
@@ -161,3 +161,30 @@ Keep and verify:
 - Promoted from backlog on `chore/remove-dag-packages-after-split` after pushing the backlog branch.
 - Proceeding under the user-provided assumption that `robota-dag` is being prepared in a separate
   checkout and this repository should remove DAG ownership.
+- Removed DAG workspace packages/apps, DAG node packages, DAG-specific skills, DAG architecture map
+  ownership, root DAG scripts, DAG workspace globs, DAG changesets, and DAG CI artifact paths.
+- Kept `auth` and `credits` in this repository because they are not DAG-named packages and no
+  remaining production package imports DAG packages.
+- Archived the older orchestration fork task as completed history because this cleanup supersedes
+  the active DAG split planning document in this repository.
+- Verified install, build, tests, typecheck, lint, harness scan, harness verify, and targeted stale
+  DAG reference scans.
+
+## Decisions
+
+- Removed DAG packages, apps, node packages, release entries, and DAG-only harness behavior from
+  this repository instead of leaving compatibility wrappers, because DAG source ownership moves to
+  `robota-dag`.
+- Kept `auth` and `credits` because they are shared non-DAG packages still owned by this repository.
+- Reframed the architecture map around agent SDK/CLI/provider/app ownership and kept the rule that
+  `agent-cli` owns UI only; reusable behavior belongs in lower-level SDK/runtime/command packages.
+
+## Blockers
+
+- None.
+
+## Result
+
+The repository no longer owns DAG workspace packages, DAG apps, DAG-specific architecture-map pages,
+DAG release entries, or DAG build/deploy scripts. Workspace install/build/test/typecheck/lint and
+harness verification pass with the remaining agent-oriented packages and apps.

@@ -21,8 +21,6 @@ SPEC or cross-cutting spec.
 | Agent SDK contracts                    | [../../../packages/agent-sdk/docs/SPEC.md](../../../packages/agent-sdk/docs/SPEC.md)   | InteractiveSession, command contracts/common APIs, and SDK facades.         |
 | Auth contracts                         | [../../../packages/auth/docs/SPEC.md](../../../packages/auth/docs/SPEC.md)             | Auth verifier ports and scope policy.                                       |
 | Credits contracts                      | [../../../packages/credits/docs/SPEC.md](../../../packages/credits/docs/SPEC.md)       | Credit account, reservation, and settlement contracts.                      |
-| DAG core contracts                     | [../../../packages/dag-core/docs/SPEC.md](../../../packages/dag-core/docs/SPEC.md)     | DAG definitions, reducers, ports, and state rules.                          |
-| DAG cost contracts                     | [../../../packages/dag-cost/docs/SPEC.md](../../../packages/dag-cost/docs/SPEC.md)     | Cost metadata, CEL evaluation, and storage ports.                           |
 
 ## Boundary Rule
 

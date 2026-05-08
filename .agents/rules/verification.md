@@ -13,7 +13,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Browser Verification Requirement
 
-- After changes to web apps (apps/web, apps/dag-studio) or dag-designer UI components, you MUST verify in a browser before reporting completion.
+- After changes to web apps such as `apps/agent-web` or `packages/agent-playground`, you MUST verify in a browser before reporting completion.
 - Use Playwright MCP to navigate to the app URL, take a screenshot, and verify the UI renders correctly.
 - Check for: page loads without error, key elements visible, no console errors.
 - If the dev server is not running, start it and wait for it to be ready before checking.

@@ -6,10 +6,12 @@ description: Defines the standard error response format for HTTP APIs based on R
 # API Error Response Standard
 
 ## Rule Anchor
+
 - `AGENTS.md` > "No Fallback Policy"
 - `AGENTS.md` > "Type System (Strict)"
 
 ## Use This Skill When
+
 - Implementing HTTP API error responses.
 - Reviewing API endpoint error handling.
 - Adding new error types to an API surface.
@@ -20,17 +22,18 @@ All HTTP API error responses MUST use the Problem Details format:
 
 ```ts
 interface IProblemDetails {
-  type: string;       // URI reference identifying the error type
-  title: string;      // Short human-readable summary
-  status: number;     // HTTP status code
-  detail?: string;    // Human-readable explanation specific to this occurrence
-  instance?: string;  // URI reference identifying the specific occurrence
+  type: string; // URI reference identifying the error type
+  title: string; // Short human-readable summary
+  status: number; // HTTP status code
+  detail?: string; // Human-readable explanation specific to this occurrence
+  instance?: string; // URI reference identifying the specific occurrence
 }
 ```
 
 ## SSOT
 
-The canonical `IProblemDetails` interface is owned by the `dag-api` package. All other packages that need this type MUST import from `dag-api`.
+The canonical `IProblemDetails` interface is owned by the API package or app that exposes the HTTP
+surface. Shared consumers must import from that owner instead of redeclaring the same shape.
 
 ## Usage Rules
 
@@ -45,10 +48,7 @@ The canonical `IProblemDetails` interface is owned by the `dag-api` package. All
 Each API package should maintain a typed error union:
 
 ```ts
-type TOrderError =
-  | 'ORDER_NOT_FOUND'
-  | 'ORDER_ALREADY_COMPLETED'
-  | 'INSUFFICIENT_INVENTORY';
+type TOrderError = 'ORDER_NOT_FOUND' | 'ORDER_ALREADY_COMPLETED' | 'INSUFFICIENT_INVENTORY';
 
 function toHttpStatus(error: TOrderError): number {
   const statusMap: Record<TOrderError, number> = {
@@ -69,6 +69,7 @@ function toHttpStatus(error: TOrderError): number {
 - Catching all errors and returning a generic 500 without classification.
 
 ## Checklist
+
 - [ ] All error responses use `IProblemDetails` shape.
 - [ ] Error `type` field uses the `urn:robota:error:` namespace.
 - [ ] HTTP status code matches the error semantics.
