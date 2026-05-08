@@ -141,6 +141,13 @@ describe('CI build workflow', () => {
     expect(verifyIndex).toBeGreaterThan(restoreIndex);
   });
 
+  it('uses package typecheck scripts during scoped verification', () => {
+    const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
+
+    expect(content).toContain("hasPackageScript(workdir, 'typecheck')");
+    expect(content).toContain("runCommand('pnpm', ['typecheck'], workdir, options.dryRun)");
+  });
+
   it('keeps main PR duplicate jobs as fast successful no-ops', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
 

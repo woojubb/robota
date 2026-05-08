@@ -6,6 +6,8 @@ settings:
 
 overrides:
   fast-xml-parser: '>=4.5.5'
+  fast-xml-builder: 1.2.0
+  fast-uri: 3.1.1
   node-forge: '>=1.4.0'
   protobufjs: '>=7.5.5'
   jws@^3.0.0: ^3.2.3
@@ -9471,7 +9473,7 @@ packages:
       }
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.0
+      fast-uri: 3.1.1
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
     dev: false
@@ -13124,20 +13126,21 @@ packages:
       }
     dev: true
 
-  /fast-uri@3.1.0:
+  /fast-uri@3.1.1:
     resolution:
       {
-        integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==,
+        integrity: sha512-h2r7rcm6Ee/J8o0LD5djLuFVcfbZxhvho4vvsbeV0aMvXjUgqv4YpxpkEx0d68l6+IleVfLAdVEfhR7QNMkGHQ==,
       }
     dev: false
 
-  /fast-xml-builder@1.1.4:
+  /fast-xml-builder@1.2.0:
     resolution:
       {
-        integrity: sha512-f2jhpN4Eccy0/Uz9csxh3Nu6q4ErKxf0XIsasomfOihuSUa3/xw6w8dnOtCDgEItQFJG8KyXPzQXzcODDrrbOg==,
+        integrity: sha512-00aAWieqff+ZJhsXA4g1g7M8k+7AYoMUUHF+/zFb5U6Uv/P0Vl4QZo84/IcufzYalLuEj9928bXN9PbbFzMF0Q==,
       }
     dependencies:
-      path-expression-matcher: 1.2.0
+      path-expression-matcher: 1.5.0
+      xml-naming: 0.1.0
     dev: false
 
   /fast-xml-parser@5.5.9:
@@ -13147,7 +13150,7 @@ packages:
       }
     hasBin: true
     dependencies:
-      fast-xml-builder: 1.1.4
+      fast-xml-builder: 1.2.0
       path-expression-matcher: 1.2.0
       strnum: 2.2.2
     dev: false
@@ -18911,6 +18914,14 @@ packages:
     engines: { node: '>=14.0.0' }
     dev: false
 
+  /path-expression-matcher@1.5.0:
+    resolution:
+      {
+        integrity: sha512-cbrerZV+6rvdQrrD+iGMcZFEiiSrbv9Tfdkvnusy6y0x0GKBXREFg/Y65GhIfm0tnLntThhzCnfKwp1WRjeCyQ==,
+      }
+    engines: { node: '>=14.0.0' }
+    dev: false
+
   /path-is-absolute@1.0.1:
     resolution:
       {
@@ -23328,6 +23339,14 @@ packages:
       }
     engines: { node: '>=18' }
     dev: true
+
+  /xml-naming@0.1.0:
+    resolution:
+      {
+        integrity: sha512-k8KO9hrMyNk6tUWqUfkTEZbezRRpONVOzUTnc97VnCvyj6Tf9lyUR9EDAIeiVLv56jsMcoXEwjW8Kv5yPY52lw==,
+      }
+    engines: { node: '>=16.0.0' }
+    dev: false
 
   /xmlchars@2.2.0:
     resolution:

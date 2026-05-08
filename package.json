@@ -137,6 +137,8 @@
   "pnpm": {
     "overrides": {
       "fast-xml-parser": ">=4.5.5",
+      "fast-xml-builder": "1.2.0",
+      "fast-uri": "3.1.1",
       "node-forge": ">=1.4.0",
       "protobufjs": ">=7.5.5",
       "jws@^3.0.0": "^3.2.3",
