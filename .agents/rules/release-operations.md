@@ -20,6 +20,37 @@ The state MUST include:
 
 Do not begin OTP-sensitive work while the release state is unclear. Do not keep a long-running watcher active after the user interrupts the turn.
 
+### Release-Run Artifact
+
+For release or publish operations, create and keep a version-specific release-run file under
+`.agents/release-runs/`:
+
+```bash
+pnpm harness:release:init -- --version <version>
+```
+
+The release-run file is the executable state artifact for the Release Control Plane. It records the
+current SHA, branch, PR, target version, active gate, gate status, next action, stop condition,
+watcher cleanup status, CI triage notes, and final report fields.
+
+Before publish, the matching artifact MUST pass:
+
+```bash
+pnpm harness:release:check -- --version <version> --publish
+```
+
+CI-fix work during release MUST append a structured note before code changes:
+
+```bash
+pnpm harness:release:triage -- --version <version> --pr <number> --check <check-name>
+```
+
+Final release reports SHOULD be generated from the artifact with:
+
+```bash
+pnpm harness:release:report -- --version <version>
+```
+
 ### Release State Machine
 
 Run release operations in this order unless the user explicitly changes the target:
@@ -79,6 +110,10 @@ Never reintroduce per-package CI builds for a monorepo release path. Build once 
 ### Publish Boundary
 
 `pnpm publish:beta` is the publish boundary. Build, release-grade CI, and publish safety checks happen before this boundary. OTP belongs only after dry-run success inside this boundary.
+
+The publish script validates the release-run state for the package version before npm auth, dry-run,
+or OTP prompts. If the release-run is missing, pending, failed, or has uncleared watchers, publishing
+must stop before asking for OTP.
 
 If publish fails, first classify the failure with the CI Failure Triage rules. Retry only the missing packages through the existing publish script behavior; do not manually publish individual packages.
 
