@@ -29,6 +29,24 @@ Status: resolved by `INFRA-BL-006`.
 The source tree now points docs production deployment to Cloudflare Pages. `docs:deploy` is a manual
 Wrangler direct upload helper, and release workflow docs handling is build verification only.
 
+### SYS-AUDIT-006: Capability Placement Was Too CLI-Centered
+
+Status: resolved by [capability-placement.md](capability-placement.md) with follow-up backlog.
+
+Problem:
+
+The CLI detail map strongly stated that CLI-visible behavior is not CLI-owned behavior, but the same
+rule was not promoted as a repository-wide feature placement path. Future product shells, services,
+or transports could repeat the same ownership mistake outside the CLI package.
+
+Resolution:
+
+The architecture map now has an owner-first capability placement slice. Product shells may render,
+host, and wire concrete adapters, but reusable contracts, lifecycle state, provider semantics,
+command behavior, background workspace projections, auth, credits, and transport-visible protocols
+must be owned by lower reusable packages first. Follow-up backlog items track mechanical guard
+coverage and focused audits for background workspace projection and app/server boundaries.
+
 ## Governance and Update Policy
 
 Update this document in the same PR whenever a change affects any of these:
