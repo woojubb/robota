@@ -62,6 +62,7 @@ import type {
   IBackgroundTaskRunner,
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
+import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 
 const ID_RADIX = 36;
@@ -335,6 +336,11 @@ export function createSession(options: ICreateSessionOptions): Session {
       backgroundTaskManager,
       cwd,
       parentSessionId: sessionId,
+      metadata: createExecutionOriginMetadata({
+        kind: 'tool_call',
+        sessionId,
+        label: 'BackgroundProcess',
+      }),
     };
     tools.push(createBackgroundProcessTool(backgroundProcessToolDeps));
   }

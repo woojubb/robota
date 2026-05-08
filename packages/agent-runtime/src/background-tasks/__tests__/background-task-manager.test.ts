@@ -181,6 +181,26 @@ describe('BackgroundTaskManager', () => {
     expect(completed?.parentWorktreeStatus).toBe(' M README.md');
   });
 
+  it('preserves opaque request metadata in task snapshots', async () => {
+    const manager = new BackgroundTaskManager({
+      runners: [createResolvedRunner('done')],
+    });
+
+    const created = await manager.spawn({
+      ...createAgentRequest('Track origin'),
+      metadata: {
+        executionOriginKind: 'skill',
+        executionOriginSkillId: 'review-skill',
+      },
+    });
+
+    expect(created.metadata).toEqual({
+      executionOriginKind: 'skill',
+      executionOriginSkillId: 'review-skill',
+    });
+    expect(manager.get(created.id)?.metadata).toEqual(created.metadata);
+  });
+
   it('queues tasks when maxConcurrent capacity is full', async () => {
     const controlled = createControllableRunner();
     const manager = new BackgroundTaskManager({

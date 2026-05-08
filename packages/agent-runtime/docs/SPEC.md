@@ -104,6 +104,12 @@ Runtime ports own required shapes. Adapter packages own concrete I/O and must no
 
 Runner handles may expose `logPath` and `transcriptPath` for append-only diagnostic streams. `BackgroundTaskManager` projects those paths into task state immediately after runner start and preserves matching result metadata on completion.
 
+Task requests may include generic primitive `metadata`. The runtime treats this as opaque
+provenance/control-plane data: it clones metadata into `IBackgroundTaskState`, preserves it in state
+snapshots, and never interprets SDK-, command-, skill-, transport-, or UI-specific keys. Higher
+layers may use metadata for origin projection, grouping, or workspace read models, but lifecycle
+transitions, queueing, cancellation, and runner behavior must not depend on those keys.
+
 ## Error Taxonomy
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.

@@ -3,9 +3,11 @@ import type { Session } from '@robota-sdk/agent-sessions';
 import { BackgroundTaskManager } from '../../background-tasks/index.js';
 import type {
   IBackgroundTaskHandle,
+  IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
+  IExecutionWorkspaceEvent,
   TBackgroundTaskEvent,
 } from '../../background-tasks/index.js';
 import { InteractiveSession } from '../interactive-session.js';
@@ -110,6 +112,66 @@ describe('InteractiveSession background task integration', () => {
     await interactiveSession.closeBackgroundTask(created.id);
 
     expect(interactiveSession.listBackgroundTasks()).toHaveLength(0);
+  });
+
+  it('projects an execution workspace with main thread and background tasks', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const workspaceEvents: IExecutionWorkspaceEvent[] = [];
+    interactiveSession.on('execution_workspace_event', (event) => {
+      workspaceEvents.push(event);
+    });
+
+    const created = await manager.spawn(createAgentRequest('Find files'));
+    await manager.wait(created.id);
+
+    const entries = interactiveSession.listExecutionWorkspaceEntries();
+    expect(entries.map((entry) => entry.kind)).toEqual(['main_thread', 'background_task']);
+    expect(entries[1]).toMatchObject({
+      sourceId: created.id,
+      taskKind: 'agent',
+      attention: 'unread',
+    });
+    expect(workspaceEvents.map((event) => event.cause)).toContain('background_task');
+  });
+
+  it('reads execution workspace detail from a background task log', async () => {
+    const runner: IBackgroundTaskRunner = {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        return {
+          taskId: task.taskId,
+          logPath: '/tmp/agent.log',
+          result: Promise.resolve({ taskId: task.taskId, kind: 'agent', output: 'done' }),
+          cancel: () => Promise.resolve(),
+          readLog: (): Promise<IBackgroundTaskLogPage> =>
+            Promise.resolve({
+              taskId: task.taskId,
+              lines: ['line 1', 'line 2'],
+              nextCursor: { offset: 2 },
+            }),
+        };
+      },
+    };
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const interactiveSession = new InteractiveSession({ session: sessionStub });
+
+    const created = await manager.spawn(createAgentRequest('Read logs'));
+    const entry = interactiveSession
+      .listExecutionWorkspaceEntries()
+      .find((workspaceEntry) => workspaceEntry.sourceId === created.id);
+    const detail = await interactiveSession.readExecutionWorkspaceDetail(entry?.id ?? '');
+
+    expect(detail.records.map((record) => record.text)).toEqual(['line 1', 'line 2']);
+    expect(detail.nextCursor).toEqual({ offset: 2 });
   });
 
   it('persists background task snapshots and streaming deltas into session JSON', async () => {
