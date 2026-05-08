@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
+import type { IBackgroundTaskManager, TBackgroundPrimitive } from '../background-tasks/index.js';
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 120_000;
 
@@ -29,6 +29,7 @@ export interface IBackgroundProcessToolDeps {
   backgroundTaskManager: IBackgroundTaskManager;
   cwd?: string;
   parentSessionId?: string;
+  metadata?: Record<string, TBackgroundPrimitive>;
 }
 
 function stringifyStarted(taskId: string, status: string, command: string): string {
@@ -67,6 +68,7 @@ async function startBackgroundProcess(
       stdin: args.stdin,
       timeoutMs: args.timeout ?? DEFAULT_PROCESS_TIMEOUT_MS,
       outputLimitBytes: args.outputLimitBytes,
+      metadata: deps.metadata,
     });
     return stringifyStarted(state.id, state.status, args.command);
   } catch (error) {

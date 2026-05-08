@@ -660,30 +660,36 @@ Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reportin
 
 Background task runtime exports:
 
-| Export                           | Kind      | Description                                                             |
-| -------------------------------- | --------- | ----------------------------------------------------------------------- |
-| `BackgroundTaskManager`          | class     | Generic in-memory background task registry and scheduler                |
-| `BackgroundTaskError`            | class     | Typed background task error with category and recoverability            |
-| `createLimitedOutputCapture`     | function  | Runtime-owned UTF-8-safe bounded output capture helper                  |
-| `appendPrefixedLogLines`         | function  | Runtime-owned source-prefixed log line projection helper                |
-| `createBackgroundTaskLogPage`    | function  | Runtime-owned cursor-based log pagination helper                        |
-| `IBackgroundTaskManager`         | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
-| `IBackgroundTaskRunner`          | interface | Port implemented by agent/process runner adapters                       |
-| `ILimitedOutputCapture`          | interface | Runtime-owned bounded output capture contract                           |
-| `TBackgroundTaskIdFactory`       | type      | Request-aware task ID factory used by composed managers                 |
-| `IBackgroundTaskState`           | interface | Runtime lifecycle state for one background task                         |
-| `IBackgroundTaskRequest`         | type      | Discriminated union of agent/process background task requests           |
-| `IBackgroundTaskResult`          | interface | Completed background task output                                        |
-| `TBackgroundTaskEvent`           | type      | Runtime-owned lifecycle/progress event union                            |
-| `TBackgroundTaskRunnerEvent`     | type      | Runner-owned progress event union without task IDs                      |
-| `TBackgroundTaskMode`            | type      | `foreground` or `background`                                            |
-| `TBackgroundTaskStatus`          | type      | Shared task lifecycle status union                                      |
-| `TBackgroundTaskTimeoutReason`   | type      | Watchdog reason union projected onto failed task state                  |
-| `transitionBackgroundTaskStatus` | function  | Pure lifecycle transition function                                      |
-| `BackgroundJobOrchestrator`      | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
-| `IBackgroundJobGroupState`       | interface | Parent-session-scoped background task group snapshot                    |
-| `IBackgroundJobGroupSummary`     | interface | Presentation-neutral group completion counts and result lines           |
-| `TBackgroundJobWaitPolicy`       | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
+| Export                                | Kind      | Description                                                             |
+| ------------------------------------- | --------- | ----------------------------------------------------------------------- |
+| `BackgroundTaskManager`               | class     | Generic in-memory background task registry and scheduler                |
+| `BackgroundTaskError`                 | class     | Typed background task error with category and recoverability            |
+| `createLimitedOutputCapture`          | function  | Runtime-owned UTF-8-safe bounded output capture helper                  |
+| `appendPrefixedLogLines`              | function  | Runtime-owned source-prefixed log line projection helper                |
+| `createBackgroundTaskLogPage`         | function  | Runtime-owned cursor-based log pagination helper                        |
+| `IBackgroundTaskManager`              | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
+| `IBackgroundTaskRunner`               | interface | Port implemented by agent/process runner adapters                       |
+| `ILimitedOutputCapture`               | interface | Runtime-owned bounded output capture contract                           |
+| `TBackgroundTaskIdFactory`            | type      | Request-aware task ID factory used by composed managers                 |
+| `IBackgroundTaskState`                | interface | Runtime lifecycle state for one background task                         |
+| `IBackgroundTaskRequest`              | type      | Discriminated union of agent/process background task requests           |
+| `IBackgroundTaskResult`               | interface | Completed background task output                                        |
+| `TBackgroundTaskEvent`                | type      | Runtime-owned lifecycle/progress event union                            |
+| `TBackgroundTaskRunnerEvent`          | type      | Runner-owned progress event union without task IDs                      |
+| `TBackgroundTaskMode`                 | type      | `foreground` or `background`                                            |
+| `TBackgroundTaskStatus`               | type      | Shared task lifecycle status union                                      |
+| `TBackgroundTaskTimeoutReason`        | type      | Watchdog reason union projected onto failed task state                  |
+| `transitionBackgroundTaskStatus`      | function  | Pure lifecycle transition function                                      |
+| `BackgroundJobOrchestrator`           | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
+| `IBackgroundJobGroupState`            | interface | Parent-session-scoped background task group snapshot                    |
+| `IBackgroundJobGroupSummary`          | interface | Presentation-neutral group completion counts and result lines           |
+| `TBackgroundJobWaitPolicy`            | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
+| `createExecutionWorkspaceSnapshot`    | function  | SDK-owned main-thread/task/group workspace projection                   |
+| `createExecutionWorkspaceTaskSpawner` | function  | Origin-bound task spawning port for commands, skills, and transports    |
+| `IExecutionWorkspaceEntry`            | interface | Presentation-neutral selectable execution entry                         |
+| `IExecutionWorkspaceSnapshot`         | interface | Session-scoped execution workspace read model                           |
+| `IExecutionWorkspaceTaskSpawner`      | interface | SDK task creation port for agent/process tasks and groups               |
+| `IExecutionOrigin`                    | interface | SDK-owned task provenance projected from opaque runtime metadata        |
 
 Background agent watchdog configuration is provider-neutral. Agent requests may set `idleTimeoutMs`, `maxRuntimeMs`, `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold`; the runtime refreshes `lastActivityAt` from runner progress events and fails runaway jobs with `timeoutReason`.
 
@@ -1337,6 +1343,40 @@ the documented SDK facade instead of importing `agent-runtime` directly.
 | `readBackgroundTaskLog(...)`   | Read optional runner logs                     |
 
 `InteractiveSession` emits `background_task_event` with `TBackgroundTaskEvent`.
+
+`InteractiveSession` also exposes an SDK-owned execution workspace read model for clients that need
+to switch between the main conversation, background tasks, and background groups without owning
+lifecycle state:
+
+| Method                                     | Behavior                                                                |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `getExecutionWorkspaceSnapshot()`          | Return a presentation-neutral snapshot with the main-thread entry first |
+| `listExecutionWorkspaceEntries(filter?)`   | Return selectable main-thread/task/group entries                        |
+| `getExecutionWorkspaceEntry(entryId)`      | Return one execution workspace entry                                    |
+| `readExecutionWorkspaceDetail(...)`        | Return a normalized detail page for main transcript, task log, or group |
+| `createExecutionWorkspaceTaskSpawner(...)` | Return an origin-bound SDK task spawning port for commands/skills/hosts |
+
+The read model is the only shared contract for task-switching surfaces. `agent-cli` and transports
+may render entries, keep ephemeral selection state, and invoke explicit controls, but they must not
+infer lifecycle, retention, origin, unread/attention semantics, or control availability from raw
+events when this projection is available.
+
+Execution workspace entries use a common `IExecutionWorkspaceEntry` shape:
+
+- `main_thread` is an SDK projection backed by `InteractiveSession` history and current foreground
+  execution state. It is not a `BackgroundTaskManager` record.
+- `background_task` entries are projections of `IBackgroundTaskState`.
+- `background_group` entries are projections of `BackgroundJobOrchestrator` groups.
+- `origin` is SDK-owned provenance. Runtime stores only opaque primitive metadata; the SDK maps it
+  into `IExecutionOrigin` for commands, model commands, tool calls, skills, transports, and system
+  work.
+- `controls` is presentation-neutral and advisory. Selecting an entry is never a lifecycle
+  mutation; cancellation, close, send, read, wait, and group summary remain explicit APIs.
+
+Default visibility keeps active, permission-blocked, failed, cancelled, and unread-completed tasks
+in the workspace list. Clean completed tasks remain queryable through runtime state until `close()`
+or session cleanup, but clients may choose a collapsed recent/history presentation from the SDK
+entry metadata instead of deleting records.
 
 When session persistence is enabled, `InteractiveSession` must persist background task state as part of the project-local session record. Lifecycle, tool start/end, permission, completion, failure, cancellation, and close events update the session JSON with the latest task snapshots and durable event summaries. High-frequency `background_task_text_delta` events must not rewrite the main session JSON per chunk; they are written to append-only JSONL session logs and task/subagent transcript files so debugging data is available while streaming is still in progress without risking partial JSON writes.
 
