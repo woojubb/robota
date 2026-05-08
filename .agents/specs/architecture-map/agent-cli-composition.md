@@ -54,5 +54,11 @@ affects any of these:
 - package dependencies among CLI, SDK, command packages, provider packages, runtime, sessions, tools, or core;
 - any future CLI composition of DAG/MCP/deployment capabilities.
 
+CLI-visible behavior is not automatically CLI-owned behavior. Before adding terminal UI for a new
+capability, verify the non-UI behavior is owned by `agent-sdk`, `agent-runtime`, an
+`agent-command-*` package, a provider package, or another lower reusable layer. If that owner API
+does not exist, add it first and keep `agent-cli` limited to TUI, input, ephemeral selection state,
+and concrete host adapters.
+
 Before merging a CLI architecture change, check this router, the relevant subdocument, and the
 owning package `SPEC.md` files for boundary drift.
