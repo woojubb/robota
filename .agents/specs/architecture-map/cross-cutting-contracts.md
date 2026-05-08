@@ -15,6 +15,7 @@ SPEC or cross-cutting spec.
 | Capability placement                   | [capability-placement.md](capability-placement.md)                                     | Owner-first path for new product-visible behavior.                          |
 | Built-in command ownership             | [../command-inventory.md](../command-inventory.md)                                     | Command modules, lifecycle, model visibility, and host effects.             |
 | Agent invocation routing               | [../agent-invocation-router.md](../agent-invocation-router.md)                         | Deterministic agent command descriptors and routing claim guards.           |
+| AI workflow control plane              | [../ai-workflow-control-plane.md](../ai-workflow-control-plane.md)                     | Workflow manifest, command registry, artifacts, hooks, review, and CLI UI.  |
 | Background task lifecycle              | [../background-task-layer.md](../background-task-layer.md)                             | Generic background task composition, runners, projection, and CLI boundary. |
 | Subagent process management            | [../subagent-process-manager.md](../subagent-process-manager.md)                       | CLI subagent process execution and parallel lifecycle.                      |
 | Verification pipeline                  | [../verification-pipeline-plan.md](../verification-pipeline-plan.md)                   | Local hooks, harness, CI, build, and release verification.                  |
