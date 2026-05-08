@@ -23,6 +23,9 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own `CommandRegistry`, `ICommand`, or `ICommandSource` — command registry contracts are imported from `@robota-sdk/agent-sdk`; skill command metadata is provided by `@robota-sdk/agent-command-skills`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
+- Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
+  deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
+  be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions`; CLI keeps local duplicate UI adapter types and must not import `agent-sessions` in production source
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
@@ -1308,6 +1311,22 @@ CLI may filter the always-visible compact panel to `visibility: default` backgro
 but it must not invent a separate retention timeout, close/dismiss policy, unread policy, or group
 completion rule. Explicit controls such as cancel, close, wait, send, or read-log remain SDK/command
 APIs and are not implied by view selection.
+
+### AI Workflow Control Surface
+
+Future AI workflow dashboards, task intake wizards, review/evidence screens, and workflow command
+menus are TUI-only surfaces. The CLI may render repository workflow state only through SDK/runtime
+or harness-owner projections defined by
+[../../../.agents/specs/ai-workflow-control-plane.md](../../../.agents/specs/ai-workflow-control-plane.md).
+
+The CLI must not parse workflow manifests, choose canonical harness commands, execute workflow hooks,
+write evidence artifacts, decide review gates, retain workflow runs, or infer workflow lifecycle from
+raw shell output. It may provide terminal-local runner adapters and render:
+
+- manifest readiness and setup gaps supplied by owner APIs;
+- workflow run list/detail projections;
+- command choices and hook decisions supplied by owner APIs;
+- evidence links and review decisions recorded through owner APIs.
 
 ## Memory Management
 

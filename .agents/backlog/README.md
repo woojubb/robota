@@ -10,5 +10,3 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 3. When done, archive to `.agents/tasks/completed/`.
 
 ## Items
-
-- [CLI AI Workflow Harness Evolution Plan](cli-ai-workflow-harness-evolution-plan.md)
