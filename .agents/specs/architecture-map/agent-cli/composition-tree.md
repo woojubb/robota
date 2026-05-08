@@ -1,6 +1,6 @@
 # Agent CLI Composition Tree
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
@@ -62,7 +62,8 @@ packages/agent-cli/src/bin.ts
             |  |- register injected command modules
             |  |- PluginCommandSource reload
             |  `- TuiStateManager event bridge
-            |     `- SDK skill_activation -> MessageList system event
+            |     |- SDK skill_activation -> MessageList system event
+            |     `- SDK execution_workspace_event -> workspace snapshot render state
             |- useSlashRouting()
             |  |- non-slash input -> interactiveSession.submit()
             |  `- slash input -> interactiveSession.executeCommand()
@@ -72,6 +73,8 @@ packages/agent-cli/src/bin.ts
             `- Ink renderers
                |- MessageList
                |- InputArea
+               |- ExecutionWorkspaceSwitcher / ExecutionWorkspaceDetailPane
+               |- BackgroundTaskPanel
                |- SessionStatusBar / StatusBar
                |- PermissionPrompt
                |- InteractivePrompt

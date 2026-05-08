@@ -327,7 +327,8 @@ The CLI TUI renders structured session/runtime data. It must not parse assistant
 | Tool summaries               | `MessageList`                         | structured `tool-summary` event data   | Show compact one-line tool rows plus structured details such as diffs/output      |
 | Streaming assistant response | `StreamingIndicator`                  | SDK text deltas                        | Show current assistant text without persisting duplicate rendered state           |
 | Live tool execution          | `StreamingIndicator`                  | SDK tool state events                  | Show current tool state using the shared status marker set                        |
-| Background work              | `BackgroundTaskPanel`                 | SDK background task events             | Show a one-level tree of running and retained terminal jobs                       |
+| Background work              | `BackgroundTaskPanel`                 | SDK execution workspace entries        | Show SDK default-visible background task entries as a compact one-level tree      |
+| Execution workspace switcher | `ExecutionWorkspaceSwitcher`          | SDK execution workspace snapshot       | Switch between main-thread, background task, and group entries without mutation   |
 | Status/activity              | `StatusBar` and `SessionStatusBar`    | session state, context state, settings | Show current activity and session metadata in the primary scan path               |
 | Diff blocks                  | `ToolDiffBlock` and markdown renderer | structured diff lines                  | Render diff bodies through fenced `diff` markdown; keep metadata outside the body |
 | Setup/permission prompts     | prompt components                     | CLI flow descriptors                   | Render generic interactions only; prompt semantics remain in flow modules         |
@@ -604,8 +605,8 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
 1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
-2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
+2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to React state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
 5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Command-specific follow-up prompts are handled by `ICommandInteraction` and command-specific host actions are handled by typed `TCommandEffect` values.
 6. Manages the permission queue (serialises concurrent permission requests).
@@ -1252,11 +1253,18 @@ When a user invokes a skill slash command with `context: fork`, the CLI still ca
 
 When a user asks in normal conversation to call or delegate to an agent, the request is handled through the model-invocable `/agent` built-in command module. The CLI only displays the resulting command/background events and final assistant response.
 
-Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the runtime-owned event union exposed as the SDK `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
+Background agent task lifecycle and progress are projected by the SDK execution workspace APIs.
+`TuiStateManager` stores the latest SDK workspace snapshot and the currently selected entry id for
+rendering. React components may render this SDK state only; they must not own task transitions,
+retention, grouping, unread semantics, or cancellation logic.
 
-`TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
-
-`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time, timeout reason, or preserved worktree state, and a short whitespace-normalized preview. Preserved worktree rows prefer `worktreeNextAction` as the preview so users can review or delete the handoff path. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through `@robota-sdk/agent-command-background`:
+`BackgroundTaskPanel` renders SDK default-visible background task entries as a one-level tree headed
+by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter from
+`IExecutionWorkspaceEntry` data and contains a compact status marker, human-readable task label,
+secondary metadata such as task kind/status/attention, and a short whitespace-normalized preview.
+The always-visible panel must not expose raw task IDs; task IDs remain available through
+`/background list` and `/background read`. User controls are routed through
+`@robota-sdk/agent-command-background`:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
@@ -1267,7 +1275,39 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
 
-Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
+Background job groups are SDK-owned orchestration state. The TUI may render group entries from the
+SDK execution workspace snapshot, but it must not decide group completion, aggregate raw logs,
+trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through
+SDK APIs and `/agent wait` command behavior.
+
+### Execution Workspace Switcher
+
+The execution workspace switcher is a TUI-only view over `InteractiveSession` execution workspace
+APIs. `agent-sdk` owns the snapshot entries, status, attention, visibility, origin metadata, detail
+pagination, and available controls. `agent-cli` owns only:
+
+- opening/closing the switcher with Ctrl+B;
+- arrow-key menu navigation while the switcher is open;
+- the currently selected entry id as ephemeral terminal view state;
+- rendering SDK-provided entries and detail records.
+
+The switcher list includes the main thread plus SDK-projected background task and background group
+entries. The active visible entry renders with `●`; inactive entries render with `○`. A separate
+highlight marker may indicate the currently focused menu row before Enter commits a selection. Enter
+changes only the selected view id; it must not cancel, close, pause, foreground, wait, or otherwise
+mutate execution.
+
+When the selected entry is not the main thread, the message pane is replaced by an execution detail
+pane populated through `InteractiveSession.readExecutionWorkspaceDetail(entryId)`. Main-thread
+selection renders the normal `MessageList`. Live updates come from `execution_workspace_event`
+snapshots emitted by the SDK; React components must not infer lifecycle, retention, or task grouping
+from raw `background_task_event` data when an SDK workspace entry exists.
+
+Completed, failed, cancelled, and grouped task visibility follows the SDK `visibility` field. The
+CLI may filter the always-visible compact panel to `visibility: default` background task entries,
+but it must not invent a separate retention timeout, close/dismiss policy, unread policy, or group
+completion rule. Explicit controls such as cancel, close, wait, send, or read-log remain SDK/command
+APIs and are not implied by view selection.
 
 ## Memory Management
 

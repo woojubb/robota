@@ -465,5 +465,5 @@ implementation:
 
 ## Follow-Up
 
-This backlog must be completed before
-[`CLI Background Task Switcher`](cli-background-task-switcher.md) moves to active implementation.
+This backlog was completed before
+[`CLI Background Task Switcher`](CLI-BL-056-background-task-switcher.md) moved to implementation.
