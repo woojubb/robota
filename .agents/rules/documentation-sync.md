@@ -20,6 +20,20 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - `packages/<pkg>/README.md` is the npm/GitHub package README.
 - `apps/docs/.temp/` and `apps/docs/.vitepress/dist/` are generated outputs. Do not edit them directly.
 
+### Document Role Sync Gate
+
+- Architecture maps own stable structural boundaries. Update them when ownership, layer direction,
+  package topology, deployment topology, or product-shell responsibility changes.
+- Package/app SPEC files own package-local contracts. Update them when public API, behavior,
+  lifecycle, events, persistence, protocol details, or class/interface contracts change.
+- Design documents own rationale and plans. When a design is accepted or implemented, promote the
+  durable contract into the relevant SPEC/API/architecture document instead of leaving the design as
+  the only source of truth.
+- README and robota.io content own user-facing explanation. They must reflect accepted behavior, but
+  they must not introduce contracts that are absent from SPEC/API/architecture docs.
+- Backlog and task files own scheduling, recommendations, and execution state only. They must not be
+  referenced as contract authority after implementation.
+
 ### Package Change Documentation Gate
 
 - Any package source, public API, CLI behavior, provider behavior, transport behavior, or user-facing configuration change MUST update documentation in the same PR or commit.

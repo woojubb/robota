@@ -18,6 +18,10 @@ The repository is a TypeScript pnpm monorepo. Detailed package inventory lives i
 | Documentation and publishing         | `apps/docs`, `apps/blog`, `content/`, package docs                                                                               | [apps-and-deployment.md](apps-and-deployment.md)                                             |
 | Cross-cutting contracts              | `auth`, `credits`, shared command/provider/session specs                                                                         | [cross-cutting-contracts.md](cross-cutting-contracts.md)                                     |
 
+For new product-visible capabilities, read [capability-placement.md](capability-placement.md) before
+choosing an owner package. Product visibility is not ownership; architecture ownership follows the
+lowest reusable contract, lifecycle, policy, or adapter boundary.
+
 ## Stable Entrypoints
 
 - Repository architecture router: [../ARCHITECTURE-MAP.md](../ARCHITECTURE-MAP.md)
