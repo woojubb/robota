@@ -58,6 +58,19 @@ Remove or migrate ownership for:
   publish registry entries.
 - Root workspace/package scripts that build, test, lint, typecheck, publish, or deploy DAG scopes.
 
+Architecture-map cleanup must include every `.md` file under `.agents/specs/architecture-map/` that
+currently documents DAG packages, apps, deployment topology, or dependency direction. Known affected
+files at backlog creation time:
+
+- `.agents/specs/architecture-map/README.md`
+- `.agents/specs/architecture-map/repository-overview.md`
+- `.agents/specs/architecture-map/dependency-direction.md`
+- `.agents/specs/architecture-map/apps-and-deployment.md`
+- `.agents/specs/architecture-map/cross-cutting-contracts.md`
+- `.agents/specs/architecture-map/architecture-lessons.md`
+- `.agents/specs/architecture-map/dag-system.md`
+- `.agents/specs/architecture-map/agent-cli-composition.md`
+
 Keep and verify:
 
 - `packages/agent-*`
@@ -85,8 +98,10 @@ Keep and verify:
 - [ ] Inventory any agent-to-DAG imports and remove or replace them before deleting DAG packages.
 - [ ] Remove DAG packages and apps from the workspace.
 - [ ] Remove DAG package entries from root build/test/typecheck/lint/publish configuration.
-- [ ] Remove or reroute DAG docs, architecture-map entries, backlog references, and publish
+- [ ] Remove or reroute DAG docs, architecture-map `.md` entries, backlog references, and publish
       registry rows.
+- [ ] Delete or archive `.agents/specs/architecture-map/dag-system.md` so this repository's
+      architecture map no longer owns the DAG system.
 - [ ] Update root `AGENTS.md`, `.agents/project-structure.md`, and rules/docs so this repository is
       agent-only.
 - [ ] Add migration notes pointing DAG users and contributors to the new `robota-dag` repository.
@@ -104,6 +119,8 @@ Keep and verify:
 - [ ] Publish registry and changeset/release tooling no longer publish DAG packages from this
       repository.
 - [ ] Docs clearly say DAG source moved to `robota-dag`.
+- [ ] `.agents/specs/architecture-map/**/*.md` no longer documents `dag-*` packages or `apps/dag-*`
+      ownership except for intentional migration notes.
 - [ ] CI/harness plans only cover packages/apps that remain in this repository.
 - [ ] The final PR contains only original-repo cleanup and does not modify the new DAG repository.
 
@@ -116,6 +133,7 @@ Keep and verify:
 - `pnpm lint`
 - `pnpm harness:scan`
 - `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`
+- `rg -n "dag-|DAG|apps/dag|packages/dag|@robota-sdk/dag" .agents/specs/architecture-map -g '*.md'`
 - Targeted stale-reference scans for `@robota-sdk/dag`, `packages/dag`, `apps/dag`, and DAG release
   registry entries.
 
