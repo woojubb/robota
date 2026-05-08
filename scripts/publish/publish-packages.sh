@@ -57,6 +57,11 @@ VERSION=$(node -p "require('./packages/agent-core/package.json').version")
 echo "📦 Version: $VERSION"
 echo ""
 
+# ── Release-run preflight ─────────────────────────────────────
+echo "🧾 Checking release-run publish state..."
+pnpm harness:release:check -- --version "$VERSION" --publish
+echo ""
+
 # ── Detect publishable packages ───────────────────────────────
 PUBLISHABLE_PACKAGES=()
 while IFS= read -r PACKAGE_NAME; do

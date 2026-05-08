@@ -63,12 +63,32 @@ requireScript(
   'harness:scan:release-governance',
   'node scripts/harness/check-release-governance.mjs',
 );
+requireScript(rootPackageJson, 'harness:release:init', 'node scripts/harness/release-run.mjs init');
+requireScript(
+  rootPackageJson,
+  'harness:release:check',
+  'node scripts/harness/release-run.mjs check',
+);
+requireScript(
+  rootPackageJson,
+  'harness:release:triage',
+  'node scripts/harness/release-run.mjs triage',
+);
+requireScript(
+  rootPackageJson,
+  'harness:release:report',
+  'node scripts/harness/release-run.mjs report',
+);
 requireContains(
   'package.json',
   rootPackageJson.scripts?.['harness:scan'] ?? '',
   'pnpm harness:scan:release-governance',
   'Root harness:scan must include harness:scan:release-governance.',
 );
+
+const releaseRunScript = readText('scripts/harness/release-run.mjs');
+const releaseRunReadme = readText('.agents/release-runs/README.md');
+const releaseRunTemplate = readText('.agents/templates/release-run-template.md');
 
 const requiredReleaseSections = [
   '### Release Control Plane',
@@ -143,6 +163,45 @@ requireContains(
   'Release Control Plane',
   'Publish rules must reference the Release Control Plane before publish.',
 );
+requireContains(
+  'scripts/harness/release-run.mjs',
+  releaseRunScript,
+  'validatePublishReadiness',
+  'Release-run script must validate publish readiness.',
+);
+requireContains(
+  'scripts/harness/release-run.mjs',
+  releaseRunScript,
+  'Active watchers',
+  'Release-run script must check long-running watcher cleanup fields.',
+);
+requireContains(
+  '.agents/release-runs/README.md',
+  releaseRunReadme,
+  'pnpm harness:release:check -- --version <version> --publish',
+  'Release-run README must document the publish preflight command.',
+);
+for (const field of [
+  'Version',
+  'Branch',
+  'SHA',
+  'PR',
+  'Target branch',
+  'Active gate',
+  'Gate status',
+  'Next action',
+  'Stop condition',
+  'Publish ready',
+  'Active watchers',
+  'Cleanup status',
+]) {
+  requireContains(
+    '.agents/templates/release-run-template.md',
+    releaseRunTemplate,
+    `- ${field}:`,
+    `Release-run template must include ${field}.`,
+  );
+}
 
 requireContains(
   '.github/workflows/ci.yml',
@@ -201,6 +260,13 @@ requireContains(
   publishScript,
   'run_publish_command dry-run',
   'Publish script must dry-run before requesting OTP.',
+);
+requireOrder(
+  'scripts/publish/publish-packages.sh',
+  publishScript,
+  'pnpm harness:release:check -- --version "$VERSION" --publish',
+  'read -rp "🔑 Enter npm OTP for publish: " OTP',
+  'Publish script must validate release-run state before requesting OTP.',
 );
 requireContains(
   'scripts/publish/publish-packages.sh',
