@@ -14,19 +14,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const FORBIDDEN_PRODUCTION_DEPENDENCIES = [
-  {
-    from: '@robota-sdk/dag-cli',
-    to: '@robota-sdk/dag-api',
-    reason: 'dag-cli must consume @robota-sdk/dag-orchestration-client for operational HTTP calls.',
-  },
-  {
-    from: '@robota-sdk/dag-mcp-server',
-    to: '@robota-sdk/dag-api',
-    reason:
-      'dag-mcp-server must consume @robota-sdk/dag-orchestration-client for operational HTTP calls.',
-  },
-];
+const FORBIDDEN_PRODUCTION_DEPENDENCIES = [];
 
 function findWorkspacePackages() {
   const packages = new Map();
@@ -39,7 +27,7 @@ function findWorkspacePackages() {
       if (!entry.isDirectory()) continue;
       const pkgJsonPath = join(base, entry.name, 'package.json');
       if (!existsSync(pkgJsonPath)) {
-        // Check for nested packages (e.g., dag-nodes/*)
+        // Check for nested workspace packages.
         const nestedDir = join(base, entry.name);
         for (const nested of readdirSync(nestedDir, { withFileTypes: true })) {
           if (!nested.isDirectory()) continue;

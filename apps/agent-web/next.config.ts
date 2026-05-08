@@ -64,8 +64,6 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-icons',
-      '@robota-sdk/dag-core',
-      '@robota-sdk/dag-designer',
       '@robota-sdk/agent-core',
       '@robota-sdk/agent-playground',
     ],

@@ -22,7 +22,6 @@ While using Claude Code recently, I discovered `AGENTS.md` and got curious: coul
 | Core libraries | `agent-core, sessions, tools, sdk` | Execution loop, conversation, plugins  |
 | AI providers   | `anthropic / openai / google`      | Claude, GPT-4, Gemini                  |
 | Plugins (9)    | `agent-plugin-*`                   | Logging, analytics, errors, perf, etc. |
-| DAG (8)        | `dag-core ~ dag-worker`            | Workflow execution engine              |
 | Other          | `team, remote, mcp`                | Multi-agent, remote, MCP               |
 
 ## What is AGENTS.md?

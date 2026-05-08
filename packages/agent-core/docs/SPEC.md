@@ -10,7 +10,8 @@
 
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
-- Does not own workflow visualization, DAG orchestration, or session persistence (those belong to `dag-*`, `@robota-sdk/agent-sessions`).
+- Does not own workflow visualization or session persistence; session persistence belongs to
+  `@robota-sdk/agent-sessions`.
 
 ## Architecture Overview
 

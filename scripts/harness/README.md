@@ -143,7 +143,6 @@ These scripts are the executable layer of the Robota harness.
 - detects unregistered skills (exist on disk but not in AGENTS.md)
 - detects stale skill references (in AGENTS.md but no directory on disk)
 - scans for forbidden agent hierarchy terms in production code
-- checks DAG package dependency direction (sibling imports)
 - flags dynamic imports in production code for manual review
 - reports findings grouped by type with summary counts
 

@@ -120,9 +120,7 @@ describe('CI build workflow', () => {
       'scope.checks.some((check) => checksRequiringPackageDist.has(check))',
     );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
-    expect(content).toContain(
-      'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
-    );
+    expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain(
       'package_dist_required: ${{ steps.build_requirement.outputs.required }}',
     );
@@ -141,6 +139,13 @@ describe('CI build workflow', () => {
     expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
     expect(restoreIndex).toBeGreaterThanOrEqual(0);
     expect(verifyIndex).toBeGreaterThan(restoreIndex);
+  });
+
+  it('uses package typecheck scripts during scoped verification', () => {
+    const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
+
+    expect(content).toContain("hasPackageScript(workdir, 'typecheck')");
+    expect(content).toContain("runCommand('pnpm', ['typecheck'], workdir, options.dryRun)");
   });
 
   it('keeps main PR duplicate jobs as fast successful no-ops', () => {
@@ -169,9 +174,7 @@ describe('deploy workflow', () => {
 
     expect(content).toContain('run: pnpm build');
     expect(content).toContain('package-dist.tgz');
-    expect(content).toContain(
-      'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
-    );
+    expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
     expect(content).not.toContain('@robota-sdk/agent-playground... build');
   });

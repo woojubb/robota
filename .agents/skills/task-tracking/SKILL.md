@@ -6,9 +6,11 @@ description: Track work using task files in .agents/tasks/. Use when starting, p
 # Task Tracking
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Harness Operating Model"
 
 ## Use This Skill When
+
 - Starting a new task or feature that involves multiple steps.
 - Resuming work from a previous session.
 - Completing a task and archiving the record.
@@ -33,25 +35,32 @@ description: Track work using task files in .agents/tasks/. Use when starting, p
 - **Scope**: packages/foo, apps/bar
 
 ## Objective
+
 What this task aims to achieve (1-3 sentences).
 
 ## Plan
+
 - [ ] Step 1
 - [ ] Step 2
 - [ ] Step 3
 
 ## Progress
+
 ### YYYY-MM-DD
+
 - Completed step 1
 - Started step 2
 
 ## Decisions
+
 - Chose approach A over B because ...
 
 ## Blockers
+
 - (none, or describe current blockers)
 
 ## Result
+
 (Filled when completed — summary of what was done and any follow-up items.)
 ```
 
@@ -60,7 +69,7 @@ What this task aims to achieve (1-3 sentences).
 ### Starting a Task
 
 1. Create `.agents/tasks/<task-name>.md` using the format above.
-   - Use a descriptive kebab-case name: `agents-test-coverage`, `dag-core-refactor`, `harness-cleanup`.
+   - Use a descriptive kebab-case name: `agents-test-coverage`, `runtime-refactor`, `harness-cleanup`.
    - Set status to `in-progress`.
    - Write the objective and initial plan.
 

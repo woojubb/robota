@@ -6,22 +6,26 @@ description: Applies consumer-driven contract testing to verify API compatibilit
 # Contract Testing (Consumer-Driven Contracts)
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Build Requirements"
 - `AGENTS.md` > "Type System (Strict)"
 
 ## Use This Skill When
+
 - Two modules communicate via API (HTTP, WebSocket, or typed interface).
 - The consumer and provider are developed independently.
 - You need to catch breaking API changes before deployment.
 - E2E tests are too slow or flaky for API compatibility checks.
 
 ## Core Principles
+
 1. **Consumer defines the contract**: what requests it sends and what responses it expects.
 2. **Provider verifies the contract**: replays consumer expectations against its implementation.
 3. **Contracts live in version control**: JSON or TypeScript files checked into the repo.
 4. **Independent testing**: consumer and provider run contract tests without needing the other running.
 
 ## Workflow
+
 1. Consumer writes a contract file describing expected request/response pairs.
 2. Consumer tests pass against a mock that satisfies the contract.
 3. Provider loads the contract and replays requests against its real handlers.
@@ -30,15 +34,20 @@ description: Applies consumer-driven contract testing to verify API compatibilit
 6. When the API changes, update the contract first, then the implementation.
 
 ## Contract File Format (Lightweight)
+
 ```ts
-// contracts/designer-api.contract.ts
-export const DESIGNER_API_CONTRACT = {
-  name: 'dag-designer',
+// contracts/agent-server.contract.ts
+export const AGENT_SERVER_CONTRACT = {
+  name: 'agent-server',
   interactions: [
     {
-      description: 'create a new DAG definition',
-      request: { method: 'POST', path: '/v1/dag-definitions', body: { dagId: 'test-dag', nodes: [], edges: [] } },
-      response: { status: 201, bodySchema: { dagId: 'string', version: 'number', status: 'string' } },
+      description: 'start a playground session',
+      request: {
+        method: 'POST',
+        path: '/v1/sessions',
+        body: { provider: 'openai', model: 'gpt-4.1-mini' },
+      },
+      response: { status: 201, bodySchema: { sessionId: 'string', status: 'string' } },
     },
     {
       description: 'get server capabilities',
@@ -50,6 +59,7 @@ export const DESIGNER_API_CONTRACT = {
 ```
 
 ## Checklist
+
 - [ ] Contract file exists for each API boundary.
 - [ ] Consumer tests use a mock derived from the contract.
 - [ ] Provider tests replay contract interactions.
@@ -58,6 +68,7 @@ export const DESIGNER_API_CONTRACT = {
 - [ ] Contracts are versioned alongside API version (v1, v2).
 
 ## Anti-Patterns
+
 - Consumer tests use hand-written mocks that drift from the real API.
 - Provider changes API without updating the contract.
 - Contracts are too detailed (testing internal implementation, not contract shape).

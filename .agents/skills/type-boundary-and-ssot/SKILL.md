@@ -31,14 +31,13 @@ description: Applies Robota's preferred workflow for trust-boundary validation, 
 
 ## Trust Boundaries in This Project
 
-| Boundary                    | Data Source                  | Package                  |
-| --------------------------- | ---------------------------- | ------------------------ |
-| LLM API response            | OpenAI/Anthropic/Google JSON | providers                |
-| User config/tool definition | Constructor arguments        | agents                   |
-| Event payload               | EventService emit data       | workflow, dag-projection |
-| DAG definition              | User-authored JSON           | dag-core, dag-api        |
-| API request body            | HTTP request                 | dag-api, api-server      |
-| Plugin config               | Plugin constructor options   | agents plugins           |
+| Boundary                    | Data Source                  | Package                |
+| --------------------------- | ---------------------------- | ---------------------- |
+| LLM API response            | OpenAI/Anthropic/Google JSON | providers              |
+| User config/tool definition | Constructor arguments        | agents                 |
+| Event payload               | EventService emit data       | agent event/runtime    |
+| API request body            | HTTP request                 | owning API app/package |
+| Plugin config               | Plugin constructor options   | agents plugins         |
 
 ## Execution Steps
 
@@ -75,18 +74,18 @@ description: Applies Robota's preferred workflow for trust-boundary validation, 
 ### Type Guard Function
 
 ```ts
-function isDagDefinition(input: unknown): input is IDagDefinition {
+function isProviderProfile(input: unknown): input is IProviderProfile {
   if (typeof input !== 'object' || input === null) return false;
   const obj = input as Record<string, unknown>;
-  return typeof obj.dagId === 'string' && Array.isArray(obj.nodes) && Array.isArray(obj.edges);
+  return typeof obj.provider === 'string' && typeof obj.model === 'string';
 }
 
 // Usage at boundary
 const parsed: unknown = JSON.parse(rawBody);
-if (!isDagDefinition(parsed)) {
-  throw new Error('[DAG-VALIDATION] invalid definition shape');
+if (!isProviderProfile(parsed)) {
+  throw new Error('[CONFIG-VALIDATION] invalid provider profile shape');
 }
-// After this point, `parsed` is IDagDefinition
+// After this point, `parsed` is IProviderProfile
 ```
 
 ### Validator Function with Result

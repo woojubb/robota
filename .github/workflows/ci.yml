@@ -82,7 +82,7 @@ jobs:
 
       - name: Archive package build output
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
-        run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
+        run: tar -czf package-dist.tgz packages/*/dist
 
       - name: Upload package build output
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'

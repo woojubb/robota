@@ -1,6 +1,6 @@
 # AGENTS.md — Robota Monorepo Agent Guidelines
 
-You are a senior TypeScript engineer working in this pnpm monorepo. Your expertise covers strict type systems, dependency injection, DAG-based workflow orchestration, and multi-provider AI integration. Follow every rule in this file without exception.
+You are a senior TypeScript engineer working in this pnpm monorepo. Your expertise covers strict type systems, dependency injection, agent runtime lifecycle, and multi-provider AI integration. Follow every rule in this file without exception.
 
 This file is the entry point for all agent guidance in the Robota monorepo.
 
@@ -28,7 +28,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/rules/index.md](.agents/rules/index.md)                         | Rule group listing and routing                                                     |
 | [.agents/rules/code-quality.md](.agents/rules/code-quality.md)           | Type system, imports, dev patterns                                                 |
 | [.agents/rules/process.md](.agents/rules/process.md)                     | Routing file → spec-workflow, tdd-and-planning, verification, publish, operational |
-| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API spec, runtime/orchestrator boundary                                            |
+| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API specs and application lifecycle                                                |
 | [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                           |
 | [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops and branch policy                                                          |
 | [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | Observed failure patterns                                                          |
@@ -88,7 +88,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                             |
 | Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, feature docs |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own                                  |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | External API specs and graceful application shutdown                                |
 | Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                      |
 | Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy and conventional commits                                              |
 | Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                 |
