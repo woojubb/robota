@@ -11,5 +11,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
-- [CLI Background Task Switcher](cli-background-task-switcher.md)
 - [Harness Release Operations Governance](harness-release-operations-governance.md)

@@ -1,34 +1,42 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render } from 'ink-testing-library';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-sdk';
 import BackgroundTaskPanel from '../BackgroundTaskPanel.js';
-import type { IBackgroundTaskViewModel } from '../tui-state-manager.js';
 
-function makeTask(
-  overrides: Partial<IBackgroundTaskViewModel> & Pick<IBackgroundTaskViewModel, 'id' | 'status'>,
-): IBackgroundTaskViewModel {
-  const { id, status, statusLabel, ...rest } = overrides;
+function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWorkspaceEntry {
   return {
-    id,
-    kind: 'agent',
-    label: 'general-purpose',
-    status,
-    statusLabel: statusLabel ?? status,
-    mode: 'background',
-    unread: false,
+    id: 'task:agent_1',
+    sourceId: 'agent_1',
+    kind: 'background_task',
+    origin: { kind: 'slash_command', sessionId: 'session_1', commandName: 'agent' },
+    taskKind: 'agent',
+    status: 'running',
+    title: 'general-purpose',
+    subtitle: 'agent',
     preview: 'Analyze backlog',
-    ...rest,
+    unread: false,
+    attention: 'none',
+    visibility: 'default',
+    updatedAt: '2026-05-09T00:00:00.000Z',
+    controls: ['select', 'cancel'],
+    ...overrides,
   };
 }
 
 describe('BackgroundTaskPanel', () => {
-  it('renders one-level tree rows with compact status markers instead of raw task ids', () => {
+  it('renders SDK workspace entries with compact markers instead of raw task ids', () => {
     const { lastFrame } = render(
       <BackgroundTaskPanel
-        tasks={[
-          makeTask({ id: 'agent_1', status: 'running', lastActivityAt: new Date().toISOString() }),
-          makeTask({ id: 'agent_2', status: 'completed', resultPreview: 'Done' }),
-          makeTask({ id: 'agent_3', status: 'failed', errorPreview: 'Timed out' }),
+        entries={[
+          makeEntry({ id: 'task:agent_1', status: 'running' }),
+          makeEntry({ id: 'task:agent_2', status: 'completed', preview: 'Done' }),
+          makeEntry({
+            id: 'task:agent_3',
+            status: 'failed',
+            attention: 'failed',
+            preview: 'Timed out',
+          }),
         ]}
       />,
     );
@@ -36,37 +44,10 @@ describe('BackgroundTaskPanel', () => {
     const frame = lastFrame()!;
     expect(frame).toContain('Background work');
     expect(frame).toContain('├ □ general-purpose agent');
-    expect(frame).toContain('├ ■ general-purpose agent · Done');
-    expect(frame).toContain('└ ■ general-purpose agent · failed · Timed out');
+    expect(frame).toContain('├ ■ general-purpose agent · completed');
+    expect(frame).toContain('└ ■ general-purpose agent · failed');
     expect(frame).not.toContain('agent_1');
     expect(frame).not.toContain('agent_2');
     expect(frame).not.toContain('agent_3');
-    expect(frame).not.toContain('running agent:');
-    expect(frame).not.toContain('completed agent:');
-    expect(frame).not.toContain('failed agent:');
-  });
-
-  it('keeps idle age, timeout reason, and preview text without an unread marker', () => {
-    const { lastFrame } = render(
-      <BackgroundTaskPanel
-        tasks={[
-          makeTask({
-            id: 'agent_1',
-            status: 'failed',
-            statusLabel: 'timed out',
-            timeoutReason: 'idle',
-            unread: true,
-            errorPreview: 'Background agent produced no activity',
-          }),
-        ]}
-      />,
-    );
-
-    const frame = lastFrame()!;
-    expect(frame).toContain('└ ■ general-purpose agent');
-    expect(frame).not.toContain('■ !');
-    expect(frame).toContain('· timed out · idle');
-    expect(frame).toContain('· Background agent produced no activity');
-    expect(frame).not.toContain('timed out agent:');
   });
 });
