@@ -228,8 +228,21 @@ describe('release governance scan', () => {
     expect(rootPackage.scripts['harness:scan:release-governance']).toBe(
       'node scripts/harness/check-release-governance.mjs',
     );
+    expect(rootPackage.scripts['harness:release:init']).toBe(
+      'node scripts/harness/release-run.mjs init',
+    );
+    expect(rootPackage.scripts['harness:release:check']).toBe(
+      'node scripts/harness/release-run.mjs check',
+    );
+    expect(rootPackage.scripts['harness:release:triage']).toBe(
+      'node scripts/harness/release-run.mjs triage',
+    );
+    expect(rootPackage.scripts['harness:release:report']).toBe(
+      'node scripts/harness/release-run.mjs report',
+    );
     expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:release-governance');
     expect(script).toContain('Release Control Plane');
+    expect(script).toContain('release-run.mjs');
     expect(script).toContain('checksRequiringPackageDist');
     expect(releaseRules).toContain('current SHA');
     expect(releaseRules).toContain('failure class');
