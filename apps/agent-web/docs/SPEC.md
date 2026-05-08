@@ -12,6 +12,9 @@ route redirects to `/playground`.
   `@robota-sdk/agent-playground/client` and shared contracts/components from
   `@robota-sdk/agent-core`.
 - Does not own API server behavior; that belongs to `apps/agent-server`.
+- The browser host must not import provider packages, `apps/agent-server`, or the root
+  `@robota-sdk/agent-playground` entry; it renders the browser-safe
+  `@robota-sdk/agent-playground/client` entry only.
 - Keeps deployment, auth configuration, and frontend integration behavior within this app.
 - Styling uses Tailwind CSS v4 utility classes only.
 
