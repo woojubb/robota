@@ -63,11 +63,31 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskState,
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+  IExecutionOrigin,
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceFilter,
+  IExecutionWorkspaceSnapshot,
+  IExecutionWorkspaceSnapshotOptions,
+  IExecutionWorkspaceTaskSpawner,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
   TBackgroundTaskIsolation,
+  TExecutionWorkspaceUpdateCause,
 } from '../background-tasks/index.js';
-import { BackgroundJobOrchestrator } from '../background-tasks/index.js';
+import {
+  BackgroundJobOrchestrator,
+  createBackgroundGroupExecutionEntryId,
+  createBackgroundTaskExecutionEntryId,
+  createExecutionOriginMetadata,
+  createExecutionWorkspaceSnapshot,
+  createExecutionWorkspaceTaskSpawner,
+  createLineDetailPage,
+  createMainThreadDetailPage,
+  parseExecutionWorkspaceEntryId,
+  summarizeBackgroundJobGroup,
+} from '../background-tasks/index.js';
 import type {
   ISubagentJobResult,
   ISubagentJobState,
@@ -146,6 +166,12 @@ function getQualifiedSkillName(rawInput?: string): string | undefined {
   if (!rawInput?.startsWith('/')) return undefined;
   const firstToken = rawInput.slice(1).trim().split(/\s+/)[0];
   return firstToken && firstToken.length > 0 ? firstToken : undefined;
+}
+
+function getBackgroundTaskEventEntryId(event: TBackgroundTaskEvent): string | undefined {
+  if ('task' in event) return createBackgroundTaskExecutionEntryId(event.task.id);
+  if ('taskId' in event) return createBackgroundTaskExecutionEntryId(event.taskId);
+  return undefined;
 }
 
 export class InteractiveSession {
@@ -749,6 +775,63 @@ export class InteractiveSession {
     return this.getBackgroundJobOrchestratorOrThrow().waitGroup(groupId);
   }
 
+  getExecutionWorkspaceSnapshot(
+    options: IExecutionWorkspaceSnapshotOptions = {},
+  ): IExecutionWorkspaceSnapshot {
+    const session = this.getSessionOrThrow();
+    const sessionId = session.getSessionId();
+    return createExecutionWorkspaceSnapshot({
+      sessionId,
+      mainThread: {
+        sessionId,
+        isExecuting: this.executing,
+        hasPendingPrompt: this.pendingPrompt !== null,
+        historyLength: this.history.length,
+        updatedAt: this.getMainThreadUpdatedAt(),
+        preview: this.getMainThreadPreview(),
+      },
+      tasks: this.getBackgroundTaskSnapshots(),
+      groups: this.getBackgroundJobGroupSnapshots(),
+      selectedEntryId: options.selectedEntryId,
+      filter: options.filter,
+    });
+  }
+
+  listExecutionWorkspaceEntries(filter?: IExecutionWorkspaceFilter): IExecutionWorkspaceEntry[] {
+    return [...this.getExecutionWorkspaceSnapshot({ filter }).entries];
+  }
+
+  getExecutionWorkspaceEntry(entryId: string): IExecutionWorkspaceEntry | undefined {
+    return this.getExecutionWorkspaceSnapshot().entries.find((entry) => entry.id === entryId);
+  }
+
+  async readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage> {
+    await this.ensureInitialized();
+    const entryRef = parseExecutionWorkspaceEntryId(entryId);
+    if (!entryRef) throw new Error(`Unknown execution workspace entry: ${entryId}`);
+    if (entryRef.kind === 'main_thread') {
+      return createMainThreadDetailPage({ entryId, history: this.history, cursor });
+    }
+    if (entryRef.kind === 'background_group') {
+      return this.readBackgroundGroupDetail(entryId, entryRef.sourceId);
+    }
+    return this.readBackgroundTaskDetail(entryId, entryRef.sourceId, cursor);
+  }
+
+  createExecutionWorkspaceTaskSpawner(origin: IExecutionOrigin): IExecutionWorkspaceTaskSpawner {
+    const sessionId = this.getSessionOrThrow().getSessionId();
+    return createExecutionWorkspaceTaskSpawner({
+      manager: this.getBackgroundTaskManagerOrThrow(),
+      groupOrchestrator: this.getBackgroundJobOrchestratorOrThrow(),
+      sessionId,
+      cwd: this.getCwd(),
+      origin: { ...origin, sessionId: origin.sessionId || sessionId },
+    });
+  }
+
   listAgentDefinitions(): Array<{ name: string; description: string }> {
     const deps = retrieveAgentToolDeps(this.getSessionOrThrow());
     return (deps?.agentDefinitions ?? []).map((agent) => ({
@@ -772,10 +855,11 @@ export class InteractiveSession {
     await this.ensureInitialized();
     const deps = this.getAgentToolDepsOrThrow();
     const definition = this.resolveAgentDefinition(input.agentType, deps);
+    const sessionId = this.getSessionOrThrow().getSessionId();
     return this.getSubagentManagerOrThrow().spawn({
       type: input.agentType,
       label: input.label,
-      parentSessionId: this.getSessionOrThrow().getSessionId(),
+      parentSessionId: sessionId,
       mode: input.mode,
       depth: (deps.subagentDepth ?? 0) + 1,
       cwd: deps.cwd ?? this.cwd ?? process.cwd(),
@@ -784,6 +868,12 @@ export class InteractiveSession {
       isolation: input.isolation,
       allowedTools: definition.tools,
       disallowedTools: definition.disallowedTools,
+      metadata: createExecutionOriginMetadata({
+        kind: this.commandInvocationSource === 'model' ? 'model_command' : 'slash_command',
+        sessionId,
+        commandName: 'agent',
+        label: input.label,
+      }),
     });
   }
 
@@ -917,6 +1007,70 @@ export class InteractiveSession {
     }
   }
 
+  private async readBackgroundTaskDetail(
+    entryId: string,
+    taskId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage> {
+    const task = this.getBackgroundTaskManagerOrThrow().get(taskId);
+    if (!task) throw new Error(`Unknown background task: ${taskId}`);
+    if (task.logPath || task.transcriptPath) {
+      const page = await this.getBackgroundTaskManagerOrThrow().readLog(taskId, cursor);
+      return createLineDetailPage({
+        entryId,
+        lines: page.lines,
+        cursor: page.cursor,
+        nextCursor: page.nextCursor,
+        kind: task.kind === 'process' ? 'process_output' : 'progress',
+      });
+    }
+    const detailKind =
+      task.status === 'failed' ? 'error' : task.status === 'completed' ? 'result' : 'progress';
+    const text =
+      task.error?.message ??
+      task.result?.output ??
+      task.currentAction ??
+      task.promptPreview ??
+      task.commandPreview ??
+      task.status;
+    return createLineDetailPage({ entryId, lines: [text], cursor, kind: detailKind });
+  }
+
+  private readBackgroundGroupDetail(entryId: string, groupId: string): IExecutionDetailPage {
+    const group = this.getBackgroundJobOrchestratorOrThrow().getGroup(groupId);
+    if (!group) throw new Error(`Unknown background job group: ${groupId}`);
+    const summary = summarizeBackgroundJobGroup(group);
+    return createLineDetailPage({
+      entryId,
+      lines: summary.lines,
+      kind: 'group_summary',
+    });
+  }
+
+  private getMainThreadUpdatedAt(): string {
+    return this.history.at(-1)?.timestamp.toISOString() ?? new Date(0).toISOString();
+  }
+
+  private getMainThreadPreview(): string | undefined {
+    if (this.streamingText.trim().length > 0) return this.streamingText;
+    const latest = this.history.at(-1);
+    if (!latest) return undefined;
+    return latest.type;
+  }
+
+  private emitExecutionWorkspaceUpdated(
+    cause: TExecutionWorkspaceUpdateCause,
+    entryId?: string,
+  ): void {
+    if (!this.session) return;
+    this.emit('execution_workspace_event', {
+      type: 'execution_workspace_updated',
+      cause,
+      ...(entryId ? { entryId } : {}),
+      snapshot: this.getExecutionWorkspaceSnapshot(),
+    });
+  }
+
   private getBackgroundTaskManagerOrThrow(): IBackgroundTaskManager {
     const manager = this.getBackgroundTaskManager();
     if (!manager) {
@@ -998,12 +1152,17 @@ export class InteractiveSession {
     this.backgroundTasks = this.getBackgroundTaskSnapshots();
     this.backgroundTaskEvents.push(event);
     this.persistCurrentSession();
+    this.emitExecutionWorkspaceUpdated('background_task', getBackgroundTaskEventEntryId(event));
   }
 
   private recordBackgroundJobGroupEvent(event: TBackgroundJobGroupEvent): void {
     this.backgroundJobGroups = this.getBackgroundJobGroupSnapshots();
     this.backgroundJobGroupEvents.push(event);
     this.persistCurrentSession();
+    this.emitExecutionWorkspaceUpdated(
+      'background_group',
+      createBackgroundGroupExecutionEntryId(event.group.id),
+    );
   }
 
   private getBackgroundTaskSnapshots(): IBackgroundTaskState[] {
@@ -1072,11 +1231,13 @@ export class InteractiveSession {
     this.clearStreaming();
     this.emit('thinking', true);
     this.history.push(messageToHistoryEntry(createUserMessage(displayInput)));
+    this.emitExecutionWorkspaceUpdated('main_thread');
   }
 
   private finishForkSkillExecution(): void {
     this.executing = false;
     this.emit('thinking', false);
+    this.emitExecutionWorkspaceUpdated('main_thread');
     this.persistCurrentSession();
     if (!this.shuttingDown && this.pendingPrompt) {
       const queued = this.pendingPrompt;
@@ -1157,6 +1318,7 @@ export class InteractiveSession {
     this.executing = true;
     this.clearStreaming();
     this.emit('thinking', true);
+    this.emitExecutionWorkspaceUpdated('main_thread');
 
     try {
       const result = await this.commandExecutor.executeCommand(command, this, args);
@@ -1171,6 +1333,7 @@ export class InteractiveSession {
     } finally {
       this.executing = false;
       this.emit('thinking', false);
+      this.emitExecutionWorkspaceUpdated('main_thread');
       this.persistCurrentSession();
       if (!this.shuttingDown && this.pendingPrompt) {
         const queued = this.pendingPrompt;
@@ -1191,6 +1354,7 @@ export class InteractiveSession {
     this.clearStreaming();
     this.emit('thinking', true);
     this.history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
+    this.emitExecutionWorkspaceUpdated('main_thread');
 
     const historyBefore = this.getSessionOrThrow().getHistory().length;
     this.usedMemoryReferences = [];
@@ -1255,6 +1419,7 @@ export class InteractiveSession {
       await this.finalizeEditCheckpointTurn();
       this.executing = false;
       this.emit('thinking', false);
+      this.emitExecutionWorkspaceUpdated('main_thread');
       this.persistCurrentSession();
       if (!this.shuttingDown && this.pendingPrompt) {
         const queued = this.pendingPrompt;

@@ -75,6 +75,7 @@ export interface IBaseBackgroundTaskRequest {
   timeoutMs?: number;
   idleTimeoutMs?: number;
   maxRuntimeMs?: number;
+  metadata?: Record<string, TBackgroundPrimitive>;
 }
 
 export interface IAgentBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
@@ -145,6 +146,7 @@ export interface IBackgroundTaskState {
   worktreeBaseRevision?: string;
   parentWorktreeStatus?: string;
   timeoutReason?: TBackgroundTaskTimeoutReason;
+  metadata?: Record<string, TBackgroundPrimitive>;
 }
 
 export interface IBackgroundTaskInput {

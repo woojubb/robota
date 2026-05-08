@@ -2,11 +2,85 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
 2026-05-09
+
+## Branch
+
+feat/sdk-background-workspace
+
+## Scope
+
+packages/agent-runtime, packages/agent-sdk, .agents/tasks, .agents/backlog
+
+## Recommendation
+
+Implement this backlog as the first PR before any CLI switcher work.
+
+Reason: the current `BackgroundTaskManager` is already the lifecycle source of truth, and the CLI
+must not build a private task registry or retention policy. A SDK-owned execution workspace
+projection lets `agent-cli`, headless transports, and future clients consume the same main-thread,
+agent-task, process-task, and group read model while the runtime continues to own flat lifecycle
+state.
+
+## Plan
+
+- [x] Record research-supported architecture decisions.
+- [x] Update package specs before changing public contracts.
+- [x] Add runtime request/state metadata passthrough for SDK origin projection.
+- [x] Add SDK execution workspace entry/detail projection and InteractiveSession APIs.
+- [x] Add focused regression tests for main thread, task, group, detail, and events.
+- [x] Run affected package verification.
+
+## Progress
+
+### 2026-05-09
+
+- Promoted from backlog to active task after merging the backlog architecture PR.
+- Chose SDK execution workspace projection first because CLI/TUI must remain render-only.
+- Added runtime task metadata passthrough so SDK callers can preserve origin, command, tool, skill,
+  and transport attribution without changing runner contracts.
+- Added SDK execution workspace projection, detail readers, task spawner, InteractiveSession APIs,
+  and presentation-neutral update events.
+- Verified the affected runtime and SDK scopes, including harness checks for both packages.
+
+## Decisions
+
+- Keep `BackgroundTaskManager` flat. Workspace hierarchy, selection, attention, and host-visible
+  retention are SDK projections over runtime snapshots/events.
+- Carry origin metadata through generic runtime request/state metadata instead of adding
+  CLI-specific fields to task runners.
+- Treat view selection as non-mutating. Task controls remain explicit lifecycle APIs.
+
+## Blockers
+
+- None.
+
+## Test Plan
+
+- `pnpm --filter @robota-sdk/agent-runtime test`
+- `pnpm --filter @robota-sdk/agent-runtime typecheck`
+- `pnpm --filter @robota-sdk/agent-runtime build`
+- `pnpm --filter @robota-sdk/agent-runtime lint`
+- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm harness:verify -- --scope packages/agent-runtime --base-ref origin/develop --skip-record-check`
+- `pnpm harness:verify -- --scope packages/agent-sdk --base-ref origin/develop --skip-record-check`
+
+## Result
+
+Implemented the SDK-owned execution workspace layer that the CLI switcher can consume without
+building a private task registry. Runtime background tasks remain the lifecycle source of truth;
+SDK now projects main-thread, background task, and group entries, reads selected-entry details,
+emits workspace update events, and provides origin-bound process/agent task spawning.
+
+CLI rendering remains in the follow-up CLI switcher backlog and must consume these SDK interfaces
+instead of adding task lifecycle or retention behavior to `agent-cli`.
 
 ## Priority
 
