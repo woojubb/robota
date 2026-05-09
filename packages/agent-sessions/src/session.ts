@@ -174,9 +174,16 @@ export class Session {
     };
 
     this.robota = new Robota(agentConfig);
-    fireSessionStartHook(this.sessionId, this.cwd, this.hooks, this.hookTypeExecutors, (stdout) => {
-      this.sessionStartStdout = stdout;
-    });
+    fireSessionStartHook(
+      this.sessionId,
+      this.cwd,
+      this.hooks,
+      this.hookTypeExecutors,
+      (stdout) => {
+        this.sessionStartStdout = stdout;
+      },
+      this.permissionMode,
+    );
   }
 
   /**
@@ -209,6 +216,7 @@ export class Session {
           clearSessionStartStdout: () => {
             this.sessionStartStdout = '';
           },
+          permissionMode: this.permissionMode,
           ...(this.maxTurns !== undefined ? { maxTurns: this.maxTurns } : {}),
           onTextDelta: this.onTextDeltaCallback,
           onContextUpdate: this.onContextUpdateCallback,
@@ -308,6 +316,7 @@ export class Session {
         reason,
         this.hooks,
         this.hookTypeExecutors,
+        this.permissionMode,
       );
     })();
     return this.shutdownPromise;
