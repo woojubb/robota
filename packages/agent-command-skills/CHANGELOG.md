@@ -1,5 +1,11 @@
 # @robota-sdk/agent-command-skills
 
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- @robota-sdk/agent-sdk@3.0.0-beta.62
+
 ## 3.0.0-beta.61
 
 ### Patch Changes
