@@ -1,69 +1,66 @@
 ---
 id: PLG-002
-title: 'Playground agent-sdk 기반 리팩토링 (WsTransport 방식)'
+title: 'agent-cli 보조 브라우저 모니터 (CLI Second Screen)'
 status: backlog
 priority: medium
 created: 2026-05-10
-area: apps/agent-server, packages/agent-playground
+area: packages/agent-cli, packages/agent-transport-ws, apps/agent-web, packages/agent-playground
 ---
+
+## Vision
+
+터미널에서 `agent-cli`를 실행하는 사용자가 보조 모니터로 브라우저를 열어 실행 현황을 실시간으로 시각화한다.
+입력은 CLI, 시각화는 브라우저. 두 화면이 하나의 `InteractiveSession`을 공유한다.
+
+```
+사용자
+  ├── 터미널: agent-cli (입력 + TUI)
+  │     └── InteractiveSession
+  │           └── createWsTransport → WS 서버 (사이드카, 선택적)
+  └── 브라우저: agent-web/playground (읽기 전용 보조 화면)
+        └── WS 연결 → text_delta, tool_start, tool_end, complete 수신
+              └── WorkflowVisualization + 대화 복원
+```
 
 ## Background
 
-현재 playground는 브라우저에서 직접 `Robota` 에이전트를 구성·실행하는 구조다.
-`agent-cli`가 `agent-sdk + TUI` 조합인 것과 동일하게, playground는 `agent-sdk + WEB` 조합이어야 한다.
+`agent-cli`는 `agent-sdk + TUI` 조합이다. `agent-transport-ws`는 `InteractiveSession`을 WebSocket으로 노출하는 표준 어댑터로 이미 존재한다. 두 가지를 결합하면 CLI 세션을 브라우저에서 관찰할 수 있다.
 
-```
-agent-sdk + TUI  = agent-cli   (InteractiveSession + Ink TUI)
-agent-sdk + WEB  = playground  (InteractiveSession + WsTransport + browser UI)
-```
-
-## Problem
-
-현재 구조:
-
-```
-브라우저 (agent-playground)
-  → PlaygroundExecutor
-    → PlaygroundAgentSession
-      → Robota (agent-core) ← 브라우저에서 에이전트 실행
-        → RemoteExecutor → HTTP → agent-server (단순 AI API 프록시)
-```
-
-- 브라우저가 `Robota` 에이전트를 직접 구성한다 — SDK 공개 API 우회
-- `agent-server`는 AI API 단순 프록시에 불과 — `InteractiveSession` 미사용
-- `RemoteExecutor` HTTP 레이어가 agent-core 내부 타입에 직접 의존
-
-## Goal
-
-`agent-transport-ws`를 통해 `InteractiveSession`을 브라우저에 WebSocket으로 노출한다.
-
-목표 구조:
-
-```
-agent-server (Node.js)
-  PlaygroundWebSocketServer (인증/라우팅)
-    └── 연결당: InteractiveSession + createWsHandler
-          └── AI Provider (Anthropic, OpenAI, Google)
-
-브라우저 (agent-playground)
-  PlaygroundWsClient (agent-transport-ws 프로토콜)
-    ├── send: { type: 'submit', prompt }
-    └── recv: text_delta, tool_start, tool_end, complete
-          └── IConversationEvent[] → WorkflowVisualization + ChatInterface
-```
+브라우저는 **보조 화면**으로, 입력 기능이 없고 에이전트 실행도 없다. 기존 `agent-playground`의 `PlaygroundExecutor` 구조(브라우저에서 직접 에이전트 구성·실행)와 완전히 다른 방향이다.
 
 ## Architecture
 
-### agent-transport-ws 프로토콜
+### agent-cli 측 (사이드카 서버)
 
-클라이언트 → 서버:
+`agent-cli`가 `--web` 또는 `--web-port <port>` 플래그를 받으면:
 
-| type     | payload              | 의미        |
-| -------- | -------------------- | ----------- |
-| `submit` | `{ prompt: string }` | 메시지 전송 |
-| `abort`  | —                    | 실행 중단   |
+1. 지정 포트에 HTTP + WebSocket 서버를 로컬로 시작
+2. 기존 `InteractiveSession`에 `createWsTransport` 연결
+3. 브라우저가 `ws://localhost:<port>` 로 접속하면 세션 이벤트 스트리밍 시작
 
-서버 → 클라이언트 (실시간 이벤트):
+```typescript
+// agent-cli 내부 (개념)
+const session = new InteractiveSession({ cwd, provider });
+const transport = createWsTransport({ send: (msg) => ws.send(JSON.stringify(msg)) });
+transport.attach(session);
+await transport.start();
+```
+
+### 브라우저 측 (읽기 전용 클라이언트)
+
+`agent-web`에 `/monitor` 또는 `/session` 페이지를 추가:
+
+1. 로컬 포트(`ws://localhost:<port>`)에 WebSocket 연결
+2. `TServerMessage` 이벤트 수신하여 대화 상태 복원:
+   - `text_delta` → 스트리밍 텍스트 누적
+   - `tool_start` / `tool_end` → 도구 호출 상태 추적
+   - `complete` → 턴 완료, 메시지 확정
+3. `IConversationEvent[]` 로 변환 → `WorkflowVisualization` 렌더링
+4. 입력 UI 없음 — 관찰 전용
+
+### 프로토콜 (agent-transport-ws 기존 정의 그대로)
+
+서버 → 클라이언트 (CLI 세션 이벤트 중계):
 
 | type         | payload                        | 의미                 |
 | ------------ | ------------------------------ | -------------------- |
@@ -73,80 +70,84 @@ agent-server (Node.js)
 | `thinking`   | `{ isThinking: boolean }`      | 모델 thinking 상태   |
 | `complete`   | `{ result: IExecutionResult }` | 턴 완료              |
 | `error`      | `{ message: string }`          | 오류                 |
+| `messages`   | `{ messages: [...] }`          | 전체 대화 히스토리   |
 
 ## Scope
 
-### `apps/agent-server` (수정)
+### `packages/agent-cli` (수정)
 
-- `package.json`: `@robota-sdk/agent-sdk`, `@robota-sdk/agent-transport-ws` 의존성 추가
-- `websocket-server.ts`: 인증 후 연결당 `InteractiveSession` 생성 + `createWsHandler` 연결
-- `app.ts`: provider 구성을 `InteractiveSession` 팩토리로 이동
+- `--web` / `--web-port <port>` CLI 플래그 추가 (기본값: 비활성)
+- 플래그 활성 시: 로컬 HTTP + WebSocket 서버 시작
+- `createWsTransport` 를 `InteractiveSession` 에 연결
+- TUI 하단에 "브라우저 모니터: http://localhost:\<port\>" 안내 표시
 
-### `packages/agent-playground` (교체/제거)
+### `packages/agent-transport-ws` (변경 없음)
 
-- `PlaygroundExecutor` → `PlaygroundWsClient` 로 교체
-  - WebSocket 연결, `submit` 전송, `TServerMessage` 수신
-- `PlaygroundAgentSession` 제거 (서버로 이동)
-- `remote-providers.ts`, `RemoteExecutor` 의존성 제거
-- `conversation-events.ts`: `TServerMessage` → `IConversationEvent[]` 변환으로 재작성
-- `PlaygroundHistoryPlugin` 제거 (히스토리는 서버 관리)
+- 기존 `createWsTransport` / `createWsHandler` 그대로 사용
 
-### 제거되는 복잡성
+### `apps/agent-web` + `packages/agent-playground` (신규 페이지)
 
-- 브라우저에서 `Robota`/`agent-core` 에이전트 실행 없음
-- `@robota-sdk/agent-remote-client` 의존성 제거 가능
-- 브라우저 내 AI provider 구성 없음
+- `/monitor` 페이지 (또는 `/playground?mode=monitor`)
+- 접속 URL 입력 또는 기본 `ws://localhost:4242` 자동 연결
+- `TServerMessage` → `IConversationEvent[]` 변환 훅
+- `WorkflowVisualization` + 대화 내용 표시 (읽기 전용)
+- 기존 `PlaygroundExecutor` / `PlaygroundAgentSession` 미사용
 
-## Session Management
+### 기존 `apps/agent-web` playground (영향 없음)
 
-- 기존 JWT 인증 유지 (`PlaygroundWebSocketServer`에 이미 구현됨)
-- WebSocket 연결 1개 = `InteractiveSession` 1개
-- `cwd`: 서버 프로세스 디렉토리 사용 (`process.cwd()`)
-- 세션 종료: WebSocket 연결 종료 시 `session.shutdown()` 호출
+- 현재 `PlaygroundExecutor` 기반 playground는 별도 유지
+- 이 작업은 새 페이지/모드 추가이며 기존 코드 교체가 아님
+
+## Session Lifecycle
+
+- CLI 시작 시 `--web` 플래그가 있으면 서버 시작
+- 브라우저가 연결되면 `get-messages` 로 전체 히스토리 동기화
+- CLI 종료 시 WebSocket 서버도 함께 종료
+- 브라우저 연결 끊김: 재연결 시도 (서버는 계속 동작 중)
 
 ## Test Plan
 
-- [ ] `pnpm typecheck` — agent-playground가 agent-core 내부 타입을 직접 import하지 않는지 확인
-- [ ] `pnpm --filter agent-playground test` — 기존 컴포넌트 테스트 통과
-- [ ] `pnpm --filter agent-server test` — WebSocket + InteractiveSession 통합 테스트
-- [ ] `pnpm --filter agent-web build` — 프로덕션 빌드 성공
-- [ ] `pnpm harness:verify -- --scope apps/agent-web` — 하네스 검증
-- [ ] `pnpm harness:verify -- --scope apps/agent-server` — 하네스 검증
+- [ ] `pnpm --filter agent-cli typecheck` — 새 플래그 타입 정합성
+- [ ] `pnpm --filter agent-web build` — monitor 페이지 빌드 성공
+- [ ] `pnpm --filter agent-transport-ws test` — 기존 ws-handler 테스트 통과
+- [ ] `pnpm harness:verify -- --scope packages/agent-cli` — 하네스 검증
 
 ## User Execution Test Scenarios
 
-### Scenario 1: playground 대화 및 실시간 스트리밍 확인
+### Scenario 1: CLI 실행 중 브라우저 보조 화면 연결
 
 **Prerequisites:**
 
-- `pnpm --filter agent-web build && pnpm --filter agent-web start`
-- `pnpm --filter agent-server dev`
-- `ANTHROPIC_API_KEY` 또는 `OPENAI_API_KEY` 환경변수 설정
+- `agent-cli` 빌드 완료 (`pnpm --filter agent-cli build`)
+- `agent-web` 실행 중 (`pnpm --filter agent-web start`)
+- API 키 설정 완료
 
 **Steps:**
 
-1. http://localhost:3000/playground 접속
-2. "안녕하세요, 간단히 자기소개 해주세요" 메시지 전송
-3. 응답이 실시간으로 스트리밍되는지 확인
-4. Workflow 패널에서 노드 확인
+1. `robota --web` 로 CLI 시작
+2. TUI에서 "브라우저 모니터: http://localhost:4242" 안내 확인
+3. 브라우저에서 http://localhost:3000/monitor 접속
+4. 터미널에서 "안녕하세요" 입력 후 전송
+5. 브라우저 Workflow 패널에서 실시간 노드 렌더링 확인
 
 **Expected:**
 
-- 응답 텍스트가 `text_delta` 이벤트로 실시간 스트리밍
-- Chat 패널에 AI 응답 완성 후 표시
-- Workflow 패널: UserMessage → AssistantResponse 노드 렌더링
+- CLI 응답 스트리밍과 동시에 브라우저에 `text_delta` 이벤트 표시
+- 응답 완료 후 Workflow 패널: UserMessage → AssistantResponse 노드
 
-### Scenario 2: 도구 호출 흐름 확인
+### Scenario 2: 도구 호출 시 브라우저 실시간 반영
 
-**Prerequisites:** Scenario 1과 동일
+**Prerequisites:** Scenario 1과 동일, 도구 사용 유발 프롬프트 사용
 
 **Steps:**
 
-1. 도구가 등록된 상태에서 도구 사용을 유발하는 메시지 전송
-2. Workflow 패널에서 도구 노드 확인
+1. CLI에서 도구 사용을 유발하는 메시지 입력
+2. 브라우저 Workflow 패널에서 도구 노드 실시간 등장 확인
 
 **Expected:**
 
-- Workflow 패널: UserMessage → ToolCall → ToolResult → AssistantResponse 노드 체인
+- `tool_start` 이벤트 수신 시 ToolCall 노드 즉시 렌더링
+- `tool_end` 이벤트 수신 시 ToolResult 노드 추가
+- CLI 완료 시 AssistantResponse 노드로 체인 완성
 
 **Evidence:** (구현 후 기록)

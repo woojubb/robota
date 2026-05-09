@@ -205,7 +205,7 @@ PM v2 점검에서 발견된 Web Playground 동작 결함.
 | ID                                                       | 제목                                                                             | 우선순위 |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------- | -------- |
 | [PLG-001](PLG-001-playground-websocket-url-hardcoded.md) | Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가   | critical |
-| [PLG-002](PLG-002-playground-agent-sdk-refactor.md)      | Playground를 agent-sdk 공개 API 기반으로 리팩토링 (agent-sdk + WEB = playground) | medium   |
+| [PLG-002](PLG-002-playground-agent-sdk-refactor.md)      | agent-cli 보조 브라우저 모니터 — CLI 세션을 브라우저 보조 화면으로 실시간 시각화 | medium   |
 
 ### Pre-Launch Audit v2 — Documentation (2026-05-10)
 
