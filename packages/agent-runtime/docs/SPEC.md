@@ -17,6 +17,12 @@ This package is a composable material layer. It provides stateful runtime servic
 - Does not import `agent-sdk`, `agent-sessions`, `agent-tools`, provider packages, or `agent-cli`.
 - Concrete I/O belongs in adapters owned by runtime shells or dedicated adapter packages.
 - SDK assembly may re-export this package for compatibility, but this package remains the SSOT for runtime lifecycle contracts.
+- **Layer position — below agent-sessions.** `agent-sessions` may consume agent-runtime services;
+  agent-runtime must never depend on agent-sessions. Dependency direction is strictly upward:
+  `agent-core` ← `agent-runtime` ← `agent-sessions` ← `agent-sdk`.
+- **Contract stability.** Public API shapes are stable runtime lifecycle contracts. Higher-layer
+  packages (`agent-sessions`, `agent-sdk`) depend on these contracts. Breaking changes to the
+  public API surface require coordinating all consumers before merging.
 
 ## Architecture Overview
 

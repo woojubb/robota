@@ -12,6 +12,14 @@ The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQue
 2. **No duplication**: If the same functionality exists in an existing package, use it. Refactor the existing package if needed.
 3. **Connection required**: All features in agent-sdk must be connected to the Robota package ecosystem.
 4. **General/specialized separation**: General-purpose features (permissions, hooks, tools) belong in their respective packages; only SDK-specific features (config, context) are kept in agent-sdk.
+5. **React-free**: `agent-sdk` is a pure TypeScript package. React hooks, React context, and React
+   components must never be added to this package. React/Ink belongs in product shells
+   (`agent-cli`) and command packages (`agent-command-*`). This keeps the SDK usable in any
+   TypeScript context — CLI, web server, worker, test — without a React dependency.
+6. **Assembly layer, not a re-export layer**: The SDK composes sessions, runtime, tools, and core
+   into a single SDK surface. Pass-through re-exports are only permitted through explicit SDK facade
+   barrels (`background-tasks/`, `subagents/`). General-purpose symbols must be imported from their
+   owner packages, not tunnelled through the SDK.
 
 ## Architecture
 

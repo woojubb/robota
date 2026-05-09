@@ -13,6 +13,14 @@
 - Does not own AI provider implementations; provider and model selection is resolved through `@robota-sdk/agent-core` infrastructure.
 - Does not manage session persistence or conversation history; those concerns belong to `@robota-sdk/agent-sessions`.
 - Template definitions are static JSON; no runtime template creation or persistence API is exposed.
+- Implements relay tool behavior (delegating work to child agents) using the tool contract from
+  `@robota-sdk/agent-tools` and MCP relay support from `@robota-sdk/agent-tool-mcp`. Allowed
+  dependencies: `@robota-sdk/agent-core`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-tool-mcp`,
+  and `@robota-sdk/agent-event-service`. Must not import `agent-sdk`, `agent-sessions`,
+  `agent-cli`, or any other agent-\* package outside this list.
+- Injected by the consuming layer (agent-cli or composition root) at construction time.
+  This package does not own a global agent registry; the consumer provides AI providers and
+  event service at wiring time.
 
 ## Architecture Overview
 

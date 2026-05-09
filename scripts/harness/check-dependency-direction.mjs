@@ -6,6 +6,8 @@
  * Rules enforced:
  * 1. No bidirectional production dependencies (A depends on B AND B depends on A).
  * 2. No pass-through re-exports of entire packages (export * from '@robota-sdk/other').
+ * 3. agent-core must have zero production dependencies on other @robota-sdk/agent-* packages.
+ * 4. agent-plugin-* packages may only depend on agent-core among @robota-sdk/* packages.
  *
  * Exit code 0 = clean, 1 = violations found.
  */
@@ -126,13 +128,70 @@ function checkForbiddenProductionDeps(packages) {
   return violations;
 }
 
+/**
+ * Rule 3: agent-core must have zero production dependencies on other @robota-sdk/agent-* packages.
+ * agent-core is the foundation layer; other agent-* packages register with it, not the reverse.
+ */
+function checkAgentCoreZeroDeps(packages) {
+  const violations = [];
+  const core = packages.get('@robota-sdk/agent-core');
+  if (!core) return violations;
+
+  for (const dep of core.dependencies) {
+    if (dep.startsWith('@robota-sdk/agent-') && dep !== '@robota-sdk/agent-core') {
+      violations.push({
+        package: '@robota-sdk/agent-core',
+        dep,
+        message:
+          `agent-core zero-deps violation: @robota-sdk/agent-core must not depend on ${dep}. ` +
+          'agent-core is the foundation layer; other agent-* packages register through its contracts.',
+      });
+    }
+  }
+
+  return violations;
+}
+
+/**
+ * Rule 4: agent-plugin-* packages may only depend on agent-core among @robota-sdk/* packages.
+ * Plugins are leaf nodes in the plugin layer and must not reach into SDK, sessions, or CLI.
+ */
+function checkPluginLayerDeps(packages) {
+  const violations = [];
+  const ALLOWED_ROBOTA_DEPS = new Set(['@robota-sdk/agent-core']);
+
+  for (const [name, pkg] of packages) {
+    if (!name.startsWith('@robota-sdk/agent-plugin-')) continue;
+
+    for (const dep of pkg.dependencies) {
+      if (dep.startsWith('@robota-sdk/') && !ALLOWED_ROBOTA_DEPS.has(dep)) {
+        violations.push({
+          package: name,
+          dep,
+          message:
+            `Plugin layer violation: ${name} must not depend on ${dep}. ` +
+            'agent-plugin-* packages may only depend on @robota-sdk/agent-core.',
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
 const packages = findWorkspacePackages();
 const biDirViolations = checkBidirectionalDeps(packages);
 const reexportViolations = checkPassthroughReexports(packages);
 const forbiddenDepViolations = checkForbiddenProductionDeps(packages);
+const coreZeroDepViolations = checkAgentCoreZeroDeps(packages);
+const pluginLayerViolations = checkPluginLayerDeps(packages);
 
 const hasViolations =
-  biDirViolations.length > 0 || reexportViolations.length > 0 || forbiddenDepViolations.length > 0;
+  biDirViolations.length > 0 ||
+  reexportViolations.length > 0 ||
+  forbiddenDepViolations.length > 0 ||
+  coreZeroDepViolations.length > 0 ||
+  pluginLayerViolations.length > 0;
 
 if (hasViolations) {
   console.error('❌ Dependency direction violations found:\n');
@@ -144,6 +203,12 @@ if (hasViolations) {
   }
   for (const v of forbiddenDepViolations) {
     console.error(`  [FORBIDDEN-DEP] ${v.message}`);
+  }
+  for (const v of coreZeroDepViolations) {
+    console.error(`  [CORE-ZERO-DEPS] ${v.message}`);
+  }
+  for (const v of pluginLayerViolations) {
+    console.error(`  [PLUGIN-LAYER] ${v.message}`);
   }
   console.error('');
   process.exit(1);

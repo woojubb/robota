@@ -23,3 +23,24 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 - First seen: 2026-05-04T15:06:25.000Z
 - Last seen: 2026-05-06T18:23:52.000Z
 - Status: candidate; human review is required before promotion.
+
+<!-- auto-lesson:same-file-edited-3-times -->
+
+## same-file-edited-3-times
+
+- Frequency: 133 events in the last 7 days
+- Sources: reverts
+- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-001-architecture-md-stale-apps.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-002-repository-overview-package-families.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-005-agent-plugin-spec-sweep.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-007-harness-mechanical-enforcement.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-008-agent-team-tool-mcp-spec-verify.md`
+- First seen: 2026-05-09T07:35:07.000Z
+- Last seen: 2026-05-09T13:46:10.000Z
+- Status: candidate; human review is required before promotion.
+<!-- auto-lesson:repeated-tool-errors -->
+
+## repeated-tool-errors
+
+- Frequency: 6 events in the last 7 days
+- Sources: reverts
+- Example paths: (none)
+- First seen: 2026-05-09T09:16:51.000Z
+- Last seen: 2026-05-09T13:46:10.000Z
+- Status: candidate; human review is required before promotion.

@@ -9,15 +9,18 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 ```mermaid
 flowchart TD
   ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
-  Assembly["Assembly/API layers\nagent-sdk, agent-server"]
-  Application["Application services\nagent-sessions, agent-runtime"]
-  Domain["Domain contracts\nagent-core, auth, credits"]
-  Adapters["Adapters and providers\nagent-provider-*, agent-tools,\ntransports, Cloudflare Pages"]
+  Assembly["Assembly/API layers\nagent-sdk, apps/agent-server"]
+  Sessions["Session services\nagent-sessions"]
+  Runtime["Runtime services\nagent-runtime"]
+  Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth, credits"]
+  Adapters["Adapters and providers\nagent-provider-*, agent-tools, agent-tool-mcp,\nagent-transport-*, agent-plugin-*"]
 
   ProductShells --> Assembly
-  Assembly --> Application
+  Assembly --> Sessions
+  Assembly --> Runtime
   Assembly --> Domain
-  Application --> Domain
+  Sessions --> Domain
+  Runtime --> Domain
   Assembly --> Adapters
   ProductShells --> Adapters
   Adapters --> Domain
@@ -29,13 +32,14 @@ layer. See [capability-placement.md](capability-placement.md) for owner-first fe
 
 Layer rules:
 
-| Layer                | Owns                                                                       | Must not own                                         |
-| -------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Product shells       | UI, CLI flags, process entrypoints, concrete host adapters                 | Domain rules, reusable contracts, provider semantics |
-| Assembly/API layers  | Session assembly, command contracts, HTTP/API composition, request mapping | Product-specific rendering, vendor SDK behavior      |
-| Application services | Use cases, lifecycle state machines, orchestration policies                | UI, HTTP routing details, persistence technology     |
-| Domain contracts     | Types, pure rules, ports, error shapes                                     | Concrete I/O, runtime process management             |
-| Adapters/providers   | Vendor transports, filesystem/network implementations                      | Cross-package contracts they merely implement        |
+| Layer               | Owns                                                                       | Must not own                                                              |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Product shells      | UI, CLI flags, process entrypoints, concrete host adapters                 | Domain rules, reusable contracts, provider semantics                      |
+| Assembly/API layers | Session assembly, command contracts, HTTP/API composition, request mapping | Product-specific rendering, vendor SDK behavior                           |
+| Session services    | Conversation lifecycle, persistence, compaction                            | UI, command contracts, provider semantics                                 |
+| Runtime services    | Background task state machines, subagent lifecycle ports                   | Session persistence, UI, command contracts                                |
+| Domain contracts    | Types, pure rules, ports, error shapes                                     | Concrete I/O, runtime process management, deps on other agent-\* packages |
+| Adapters/providers  | Vendor transports, filesystem/network implementations, plugins             | Cross-package contracts they merely implement                             |
 
 ## Composition Root Rule
 
