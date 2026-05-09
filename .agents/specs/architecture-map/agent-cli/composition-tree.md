@@ -22,15 +22,16 @@ packages/agent-cli/src/bin.ts
    |  |- agent-provider-gemma
    |  |- agent-provider-qwen
    |  `- agent-provider-deepseek
-   |- commandModules
+   |- commandModules (via createDefaultCliCommandModules())
+   |  |- createSkillsCommandModule({ cwd })
    |  |- createHelpCommandModule()
    |  |- createAgentCommandModule()
-   |  |- createModelCommandModule()
-   |  |- createModeCommandModule()
+   |  |- createModelCommandModule({ providerDefinitions })
    |  |- createPermissionsCommandModule()
    |  |- createLanguageCommandModule()
    |  |- createBackgroundCommandModule()
    |  |- createMemoryCommandModule()
+   |  |- createUserLocalCommandModule()
    |  |- createCompactCommandModule()
    |  |- createContextCommandModule()
    |  |- createExitCommandModule()
@@ -40,7 +41,7 @@ packages/agent-cli/src/bin.ts
    |  |- createStatusLineCommandModule()
    |  |- createPluginCommandModule()
    |  |- createProviderCommandModule({ providerDefinitions, settings adapter })
-   |  `- options.commandModules
+   |  `- options.commandModules (injected extras)
    |- ensureConfig() / provider setup
    |- readProviderSettings() and createProviderFromSettings()
    |- create runtime adapters
