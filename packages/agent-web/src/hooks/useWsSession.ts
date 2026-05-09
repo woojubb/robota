@@ -59,6 +59,10 @@ export function useWsSession(url: string): IWsSessionState {
         setMessages(reconstructed);
         break;
       }
+      case 'user_message': {
+        setMessages((prev) => [...prev, { id: nextId(), role: 'user', content: msg.content }]);
+        break;
+      }
       case 'text_delta': {
         setStreamingText((prev) => {
           const next = prev + msg.delta;

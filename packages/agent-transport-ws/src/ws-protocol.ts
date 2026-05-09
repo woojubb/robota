@@ -38,6 +38,7 @@ export type TClientMessage =
 /** Outbound message from server to client. */
 export type TServerMessage =
   | { type: 'text_delta'; delta: string }
+  | { type: 'user_message'; content: string }
   | { type: 'tool_start'; state: IToolState }
   | { type: 'tool_end'; state: IToolState }
   | { type: 'thinking'; isThinking: boolean }
