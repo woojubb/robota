@@ -128,6 +128,20 @@ Create a design and contract PR before UI work:
 - Add CLI rendering tests only after SDK/runtime contracts exist, verifying that provenance and
   state labels are visible without exposing private implementation details.
 
+## User Test Scenarios
+
+### Scenario: Inspect Baseline Transparency Rules
+
+- Prerequisites: Open `.agents/specs/transparent-workflow.md`.
+- User actions: Review the action provenance table, state vocabulary, memory transparency fields,
+  UI disclosure checklist, and repository independence section.
+- Expected visible result: The user can confirm that commands execute only from current user input
+  or accepted assistant suggestions, remembered commands are excluded, and CLI surfaces must render
+  SDK/runtime projections instead of owning workflow semantics.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. The agent can verify the spec links and required
+  sections with `pnpm harness:scan`.
+
 ## Verification Plan
 
 - `pnpm harness:scan`

@@ -124,6 +124,20 @@ Create a design and contract PR before UI work:
 - Add CLI tests only after SDK contracts exist, verifying the effective storage root and stored item
   summaries are visible.
 
+## User Test Scenarios
+
+### Scenario: Confirm Baseline Storage Is User-Local Only
+
+- Prerequisites: Open `.agents/specs/user-local-storage.md`.
+- User actions: Review the canonical storage rule, category layout, repo-outside validation, and
+  existing storage audit.
+- Expected visible result: The user can confirm that baseline workflow state must live under the
+  user-local root outside the active repository, with no repo-local fallback and no remembered
+  commands as executable preferences.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. The agent can verify the storage spec is linked from
+  specs index and package SPEC files.
+
 ## Verification Plan
 
 - `pnpm harness:scan`

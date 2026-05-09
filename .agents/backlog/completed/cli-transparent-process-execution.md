@@ -119,6 +119,20 @@ Create a design and contract PR before UI work:
   directly execute commands.
 - Add negative tests proving command output is not classified as correctness evidence by default.
 
+## User Test Scenarios
+
+### Scenario: Review What A User-Directed Process Must Disclose
+
+- Prerequisites: Open `.agents/specs/process-execution.md`.
+- User actions: Read the request contract, status contract, output contract, command source rules,
+  and ownership table.
+- Expected visible result: The user can confirm that a future process UI must show command origin,
+  cwd, environment summary, output, cancellation, timeout, exit result, and duration, while command
+  meaning remains owned by the user/repository.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. Runtime process execution remains follow-up
+  implementation work.
+
 ## Verification Plan
 
 - `pnpm harness:scan`
