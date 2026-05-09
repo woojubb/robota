@@ -86,6 +86,15 @@ not baseline workflow state. Existing project-local sessions, logs, checkpoints,
 classified by the storage spec and must not be reused for new baseline workflow features without a
 separate migration PR.
 
+### Transparent Process Execution Boundary
+
+Transparent process execution rules are defined in
+[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The CLI
+may provide terminal-local process runner adapters and render command rows, output panes, and
+controls from SDK/runtime projections. It must not infer canonical repo commands, score command
+readiness, persist commands as executable preferences, interpret output as correctness evidence, or
+own process lifecycle state.
+
 ### Provider Profile Creation
 
 The CLI owns provider profile resolution and provider definition composition. It must not branch on provider type names to decide defaults, required fields, setup prompts, endpoint probes, or constructor behavior. Those values come from injected `IProviderDefinition` records.

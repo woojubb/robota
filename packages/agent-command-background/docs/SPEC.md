@@ -38,6 +38,10 @@ Aliases:
 - Background task state remains SDK/runtime owned.
 - This package must consume SDK command-facing APIs through `@robota-sdk/agent-sdk`.
 - CLI products compose this module; SDK core must not embed `/background` registration or execution.
+- Any future process-run subcommand must follow
+  [../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md): it
+  may route an explicit user-directed command through SDK/runtime APIs, but it must not infer
+  command meaning, reuse remembered commands, or interpret output as correctness evidence.
 
 ## Dependencies
 

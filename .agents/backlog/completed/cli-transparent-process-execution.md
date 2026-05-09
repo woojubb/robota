@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -94,13 +94,17 @@ Create a design and contract PR before UI work:
 
 ## Acceptance Criteria
 
-- [ ] A user can see what command is running, where it is running, and why it was selected.
-- [ ] Commands only run from current user input or explicit user acceptance.
-- [ ] The runner supports foreground/background execution, cancellation, timeout, output paging,
+- [x] The process execution contract requires users to see what command is running, where it is
+      running, and why it was selected.
+- [x] The process execution contract requires commands to run only from current user input or
+      explicit user acceptance.
+- [x] The process execution contract covers foreground/background execution, cancellation, timeout, output paging,
       exit code, and duration.
-- [ ] Command history or retained output does not become correctness evidence by default.
-- [ ] The implementation does not require repo-side Robota adapters or files.
-- [ ] CLI UI depends on SDK/runtime contracts rather than owning process lifecycle state.
+- [x] The process execution contract states that command history or retained output does not become
+      correctness evidence by default.
+- [x] The process execution contract does not require repo-side Robota adapters or files.
+- [x] The process execution contract requires CLI UI to depend on SDK/runtime contracts rather than
+      owning process lifecycle state.
 
 ## Test Plan
 
@@ -121,3 +125,15 @@ Create a design and contract PR before UI work:
 - Add contract tests for process execution request/status models.
 - Add runtime tests for cancellation, timeout, exit status, and output truncation.
 - Add CLI tests only after SDK/runtime contracts exist.
+
+## Result
+
+Completed by adding `.agents/specs/process-execution.md` and linking package ownership from
+`agent-runtime`, `agent-sdk`, `agent-cli`, and `agent-command-background` SPEC files.
+
+- The contract defines process request, status, output, provenance, command-source, and ownership
+  rules.
+- Existing runtime/SDK/CLI process capabilities are audited separately from missing transparent
+  process UI/API contracts.
+- User-facing process-run commands, foreground process UI, SDK provenance types, and runtime/CLI
+  tests remain follow-up implementation work.

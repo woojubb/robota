@@ -14,6 +14,7 @@ Package-specific specs are owned by each package at `packages/<name>/docs/SPEC.m
 | [ai-workflow-control-plane.md](ai-workflow-control-plane.md)   | Repo-native AI workflow manifest, evidence, hook, review, and CLI ownership design     |
 | [background-task-layer.md](background-task-layer.md)           | Generic background task lifecycle, composition, runners, and TUI/transport projection  |
 | [command-inventory.md](command-inventory.md)                   | Built-in command ownership, lifecycle, model visibility, and host effect surfaces      |
+| [process-execution.md](process-execution.md)                   | Transparent local process execution request, status, output, and provenance contract   |
 | [subagent-process-manager.md](subagent-process-manager.md)     | CLI subagent process management, parallel execution, and TUI lifecycle                 |
 | [transparent-workflow.md](transparent-workflow.md)             | Cross-client action provenance, state vocabulary, memory visibility, and UI disclosure |
 | [user-local-storage.md](user-local-storage.md)                 | User-local-only baseline workflow storage policy, category inspection, and path guards |
