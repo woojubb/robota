@@ -1,6 +1,6 @@
 ---
 title: 'UX-001: Node.js 22+ 요구사항 에러 메시지 개선 및 안내 강화'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -103,4 +103,12 @@ Exit code: 1
 nvm use 22  # 원래 버전으로 복원
 ```
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #361 (fix/ux-001-node-version-check-esm) — `bin/robota.cjs` CJS 래퍼를 bin 엔트리로 추가. Node 18로 직접 실행 시 확인:
+
+```
+  Robota requires Node.js 22 or higher.
+  Current version: 18.20.8
+  ...
+```
+
+Exit code: 1 ✅. 참고: ESM static import 호이스팅 이슈로 `bin.ts` 내 버전 체크가 실제로 작동하지 않아 CJS 래퍼 방식으로 구조 변경.
