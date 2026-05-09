@@ -1,131 +1,141 @@
 ---
 id: PLG-002
-title: 'agent-cli 보조 브라우저 모니터 (CLI Second Screen)'
+title: 'agent-web 패키지 — CLI 세션 브라우저 모니터 (Phase 1) + 양방향 제어 (Phase 2)'
 status: backlog
 priority: medium
 created: 2026-05-10
-area: packages/agent-cli, packages/agent-transport-ws, apps/agent-web, packages/agent-playground
+area: packages/agent-web, packages/agent-cli, apps/agent-web
 ---
 
 ## Vision
 
-터미널에서 `agent-cli`를 실행하는 사용자가 보조 모니터로 브라우저를 열어 실행 현황을 실시간으로 시각화한다.
-입력은 CLI, 시각화는 브라우저. 두 화면이 하나의 `InteractiveSession`을 공유한다.
+`agent-cli`를 사용하는 사람이 보조 모니터로 브라우저를 열어 실행 현황을 실시간으로 시각화한다.
+Phase 2에서는 TUI와 브라우저가 동일한 `InteractiveSession`을 공유하며 양방향으로 입력이 가능해진다.
 
 ```
-사용자
-  ├── 터미널: agent-cli (입력 + TUI)
-  │     └── InteractiveSession
-  │           └── createWsTransport → WS 서버 (사이드카, 선택적)
-  └── 브라우저: agent-web/playground (읽기 전용 보조 화면)
-        └── WS 연결 → text_delta, tool_start, tool_end, complete 수신
-              └── WorkflowVisualization + 대화 복원
+Phase 1 (읽기 전용 모니터)
+  사용자
+    ├── 터미널: agent-cli (입력 + TUI)
+    │     └── InteractiveSession
+    │           └── createWsTransport → WS 서버 (사이드카)
+    └── 브라우저: apps/agent-web (읽기 전용 보조 화면)
+          └── WS 연결 → 이벤트 수신 → WorkflowVisualization
+
+Phase 2 (양방향 공유 세션)
+  사용자
+    ├── 터미널: agent-cli TUI → session.submit(prompt)
+    └── 브라우저: agent-web UI → session.submit(prompt)  ← 양쪽 모두 입력 가능
+          └── 동일한 InteractiveSession, 이벤트는 두 클라이언트 모두에게 브로드캐스트
 ```
 
 ## Background
 
-`agent-cli`는 `agent-sdk + TUI` 조합이다. `agent-transport-ws`는 `InteractiveSession`을 WebSocket으로 노출하는 표준 어댑터로 이미 존재한다. 두 가지를 결합하면 CLI 세션을 브라우저에서 관찰할 수 있다.
+`agent-cli`는 `agent-sdk + TUI` 조합이다.
+`agent-transport-ws`는 `InteractiveSession`을 WebSocket으로 노출하는 표준 어댑터로 이미 존재한다.
+새 패키지 `packages/agent-web`은 이 WebSocket 프로토콜을 소비하는 브라우저 UI 라이브러리다.
 
-브라우저는 **보조 화면**으로, 입력 기능이 없고 에이전트 실행도 없다. 기존 `agent-playground`의 `PlaygroundExecutor` 구조(브라우저에서 직접 에이전트 구성·실행)와 완전히 다른 방향이다.
+기존 `packages/agent-playground`는 별도 유지된다. `agent-playground`는 에이전트를 브라우저에서
+직접 구성·실행하는 독립형 플레이그라운드이고, `agent-web`은 CLI 세션을 구독하는 관찰/제어 UI다.
 
-## Architecture
+## New Package: `packages/agent-web`
 
-### agent-cli 측 (사이드카 서버)
+CLI 세션을 브라우저에서 관찰·제어하기 위한 React 컴포넌트 라이브러리.
+`apps/agent-web`(Next.js 앱)이 이 패키지를 소비한다.
 
-`agent-cli`가 `--web` 또는 `--web-port <port>` 플래그를 받으면:
-
-1. 지정 포트에 HTTP + WebSocket 서버를 로컬로 시작
-2. 기존 `InteractiveSession`에 `createWsTransport` 연결
-3. 브라우저가 `ws://localhost:<port>` 로 접속하면 세션 이벤트 스트리밍 시작
-
-```typescript
-// agent-cli 내부 (개념)
-const session = new InteractiveSession({ cwd, provider });
-const transport = createWsTransport({ send: (msg) => ws.send(JSON.stringify(msg)) });
-transport.attach(session);
-await transport.start();
+```
+packages/agent-web/
+  src/
+    client/              # WS 클라이언트 (TServerMessage 수신)
+      ws-session-client.ts
+      session-event-reducer.ts   # TServerMessage → 대화 상태
+    components/
+      SessionMonitor.tsx          # 메인 컴포넌트 (Phase 1: 읽기 전용)
+      SessionController.tsx       # Phase 2: 입력 포함
+      conversation-view/          # 대화 내용 표시
+      workflow-view/              # WorkflowVisualization 래핑
+    hooks/
+      useWsSession.ts             # WS 연결 + 이벤트 상태 관리
 ```
 
-### 브라우저 측 (읽기 전용 클라이언트)
+## Protocol (agent-transport-ws 기존 정의 그대로)
 
-`agent-web`에 `/monitor` 또는 `/session` 페이지를 추가:
+서버 → 클라이언트:
 
-1. 로컬 포트(`ws://localhost:<port>`)에 WebSocket 연결
-2. `TServerMessage` 이벤트 수신하여 대화 상태 복원:
-   - `text_delta` → 스트리밍 텍스트 누적
-   - `tool_start` / `tool_end` → 도구 호출 상태 추적
-   - `complete` → 턴 완료, 메시지 확정
-3. `IConversationEvent[]` 로 변환 → `WorkflowVisualization` 렌더링
-4. 입력 UI 없음 — 관찰 전용
-
-### 프로토콜 (agent-transport-ws 기존 정의 그대로)
-
-서버 → 클라이언트 (CLI 세션 이벤트 중계):
-
-| type         | payload                        | 의미                 |
+| type         | payload                        | Phase 1 처리         |
 | ------------ | ------------------------------ | -------------------- |
-| `text_delta` | `{ delta: string }`            | 스트리밍 텍스트 조각 |
-| `tool_start` | `{ state: IToolState }`        | 도구 호출 시작       |
-| `tool_end`   | `{ state: IToolState }`        | 도구 호출 완료       |
-| `thinking`   | `{ isThinking: boolean }`      | 모델 thinking 상태   |
-| `complete`   | `{ result: IExecutionResult }` | 턴 완료              |
-| `error`      | `{ message: string }`          | 오류                 |
-| `messages`   | `{ messages: [...] }`          | 전체 대화 히스토리   |
+| `text_delta` | `{ delta: string }`            | 스트리밍 텍스트 누적 |
+| `tool_start` | `{ state: IToolState }`        | ToolCall 노드 추가   |
+| `tool_end`   | `{ state: IToolState }`        | ToolResult 노드 추가 |
+| `thinking`   | `{ isThinking: boolean }`      | thinking 인디케이터  |
+| `complete`   | `{ result: IExecutionResult }` | 턴 완료, 노드 확정   |
+| `messages`   | `{ messages: [...] }`          | 전체 히스토리 초기화 |
+| `error`      | `{ message: string }`          | 에러 표시            |
+
+클라이언트 → 서버 (Phase 2에서 활성화):
+
+| type     | payload              | 의미        |
+| -------- | -------------------- | ----------- |
+| `submit` | `{ prompt: string }` | 메시지 전송 |
+| `abort`  | —                    | 실행 중단   |
 
 ## Scope
 
-### `packages/agent-cli` (수정)
+### Phase 1 — 읽기 전용 모니터
 
-- `--web` / `--web-port <port>` CLI 플래그 추가 (기본값: 비활성)
+**`packages/agent-cli` (수정)**
+
+- `--web` / `--web-port <port>` 플래그 추가 (기본값: 비활성, 기본 포트: 4242)
 - 플래그 활성 시: 로컬 HTTP + WebSocket 서버 시작
 - `createWsTransport` 를 `InteractiveSession` 에 연결
-- TUI 하단에 "브라우저 모니터: http://localhost:\<port\>" 안내 표시
+- TUI 하단에 "Web monitor: http://localhost:\<port\>" 안내 표시
 
-### `packages/agent-transport-ws` (변경 없음)
+**`packages/agent-web` (신규)**
 
-- 기존 `createWsTransport` / `createWsHandler` 그대로 사용
+- `@robota-sdk/agent-transport-ws` 를 클라이언트로 소비하는 WS 훅
+- `TServerMessage` → `IConversationEvent[]` 변환 (읽기 전용 상태머신)
+- `SessionMonitor` 컴포넌트: 연결 URL 입력 + 이벤트 수신 + 시각화
+- `WorkflowVisualization` 재사용 (`agent-playground` 에서 import)
 
-### `apps/agent-web` + `packages/agent-playground` (신규 페이지)
+**`apps/agent-web` (수정)**
 
-- `/monitor` 페이지 (또는 `/playground?mode=monitor`)
-- 접속 URL 입력 또는 기본 `ws://localhost:4242` 자동 연결
-- `TServerMessage` → `IConversationEvent[]` 변환 훅
-- `WorkflowVisualization` + 대화 내용 표시 (읽기 전용)
-- 기존 `PlaygroundExecutor` / `PlaygroundAgentSession` 미사용
+- `/monitor` 페이지 추가 → `SessionMonitor` 컴포넌트 렌더링
+- 기본 연결 URL: `ws://localhost:4242`
 
-### 기존 `apps/agent-web` playground (영향 없음)
+### Phase 2 — 양방향 공유 세션
 
-- 현재 `PlaygroundExecutor` 기반 playground는 별도 유지
-- 이 작업은 새 페이지/모드 추가이며 기존 코드 교체가 아님
+**`packages/agent-cli` (수정)**
 
-## Session Lifecycle
+- 다중 WS 클라이언트 지원 (연결당 동일 `InteractiveSession` 공유)
+- 브라우저에서 `submit` 수신 시 `session.submit()` 호출
+- 모든 연결 클라이언트에 이벤트 브로드캐스트
 
-- CLI 시작 시 `--web` 플래그가 있으면 서버 시작
-- 브라우저가 연결되면 `get-messages` 로 전체 히스토리 동기화
-- CLI 종료 시 WebSocket 서버도 함께 종료
-- 브라우저 연결 끊김: 재연결 시도 (서버는 계속 동작 중)
+**`packages/agent-web` (수정)**
+
+- `SessionController` 컴포넌트: 입력창 + 전송 버튼 + abort 버튼 추가
+- `submit` / `abort` 메시지 전송 기능
 
 ## Test Plan
 
+- [ ] `pnpm --filter @robota-sdk/agent-web build` — 새 패키지 빌드 성공
 - [ ] `pnpm --filter agent-cli typecheck` — 새 플래그 타입 정합성
-- [ ] `pnpm --filter agent-web build` — monitor 페이지 빌드 성공
-- [ ] `pnpm --filter agent-transport-ws test` — 기존 ws-handler 테스트 통과
+- [ ] `pnpm --filter agent-web build` — `/monitor` 페이지 포함 빌드 성공
+- [ ] `pnpm --filter @robota-sdk/agent-transport-ws test` — 기존 ws-handler 테스트 통과
 - [ ] `pnpm harness:verify -- --scope packages/agent-cli` — 하네스 검증
 
 ## User Execution Test Scenarios
 
-### Scenario 1: CLI 실행 중 브라우저 보조 화면 연결
+### Scenario 1 (Phase 1): CLI 실행 중 브라우저 보조 화면 연결
 
 **Prerequisites:**
 
-- `agent-cli` 빌드 완료 (`pnpm --filter agent-cli build`)
-- `agent-web` 실행 중 (`pnpm --filter agent-web start`)
+- `agent-cli` 빌드 완료
+- `apps/agent-web` 실행 중 (`pnpm --filter agent-web start`)
 - API 키 설정 완료
 
 **Steps:**
 
-1. `robota --web` 로 CLI 시작
-2. TUI에서 "브라우저 모니터: http://localhost:4242" 안내 확인
+1. `robota --web` 으로 CLI 시작
+2. TUI에서 "Web monitor: http://localhost:4242" 안내 확인
 3. 브라우저에서 http://localhost:3000/monitor 접속
 4. 터미널에서 "안녕하세요" 입력 후 전송
 5. 브라우저 Workflow 패널에서 실시간 노드 렌더링 확인
@@ -133,21 +143,22 @@ await transport.start();
 **Expected:**
 
 - CLI 응답 스트리밍과 동시에 브라우저에 `text_delta` 이벤트 표시
-- 응답 완료 후 Workflow 패널: UserMessage → AssistantResponse 노드
+- Workflow 패널: UserMessage → AssistantResponse 노드 체인
 
-### Scenario 2: 도구 호출 시 브라우저 실시간 반영
+### Scenario 2 (Phase 2): 브라우저에서 메시지 전송 후 CLI TUI에 반영
 
-**Prerequisites:** Scenario 1과 동일, 도구 사용 유발 프롬프트 사용
+**Prerequisites:** Scenario 1 환경 + Phase 2 구현 완료
 
 **Steps:**
 
-1. CLI에서 도구 사용을 유발하는 메시지 입력
-2. 브라우저 Workflow 패널에서 도구 노드 실시간 등장 확인
+1. `robota --web` 으로 CLI 시작 후 브라우저 `/monitor` 접속
+2. 브라우저 입력창에 "브라우저에서 보내는 메시지" 전송
+3. 터미널 TUI에서 해당 메시지와 AI 응답 확인
+4. TUI에서 응답 스트리밍이 브라우저에도 실시간 표시되는지 확인
 
 **Expected:**
 
-- `tool_start` 이벤트 수신 시 ToolCall 노드 즉시 렌더링
-- `tool_end` 이벤트 수신 시 ToolResult 노드 추가
-- CLI 완료 시 AssistantResponse 노드로 체인 완성
+- 브라우저 → CLI 방향 입력이 동일 세션에서 처리됨
+- TUI와 브라우저 양쪽에 동일한 응답 스트리밍
 
 **Evidence:** (구현 후 기록)

@@ -202,10 +202,10 @@ TypeScript Dev/QA v2 점검에서 발견된 서버 품질 이슈.
 
 PM v2 점검에서 발견된 Web Playground 동작 결함.
 
-| ID                                                       | 제목                                                                             | 우선순위 |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------- | -------- |
-| [PLG-001](PLG-001-playground-websocket-url-hardcoded.md) | Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가   | critical |
-| [PLG-002](PLG-002-playground-agent-sdk-refactor.md)      | agent-cli 보조 브라우저 모니터 — CLI 세션을 브라우저 보조 화면으로 실시간 시각화 | medium   |
+| ID                                                       | 제목                                                                                 | 우선순위 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------- |
+| [PLG-001](PLG-001-playground-websocket-url-hardcoded.md) | Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가       | critical |
+| [PLG-002](PLG-002-playground-agent-sdk-refactor.md)      | packages/agent-web 신규 — CLI 세션 브라우저 모니터 (Phase 1) + 양방향 제어 (Phase 2) | medium   |
 
 ### Pre-Launch Audit v2 — Documentation (2026-05-10)
 
