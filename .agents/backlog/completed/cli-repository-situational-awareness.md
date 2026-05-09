@@ -107,6 +107,20 @@ Create a design and contract PR before UI work:
 - Add tests proving context display does not create or modify repo files.
 - Add CLI rendering tests after SDK projections exist.
 
+## User Test Scenarios
+
+### Scenario: Review Passive Repository Context Boundaries
+
+- Prerequisites: Open `.agents/specs/repository-situational-awareness.md`.
+- User actions: Review the context item model, allowed provenance sources, read boundary, and
+  command/automation boundary.
+- Expected visible result: The user can confirm that future context display may show cwd, repo root,
+  branch, dirty summary, explicit references, and background workspace context, but must not infer
+  commands, guess package managers, enumerate files, score readiness, or write repo files.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. SDK projection APIs and CLI rendering remain follow-up
+  implementation work.
+
 ## Verification Plan
 
 - `pnpm harness:scan`

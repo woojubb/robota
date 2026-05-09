@@ -121,6 +121,20 @@ Create a design and contract PR before UI work:
 - Add regression tests proving `agent-cli` does not own lifecycle state or duplicate terminal-state
   rules.
 
+## User Test Scenarios
+
+### Scenario: Review The Switchable Background Work Contract
+
+- Prerequisites: Open `.agents/specs/background-work-state.md`.
+- User actions: Review the common entry model, state/retention rules, action contract, and ownership
+  table.
+- Expected visible result: The user can confirm that main conversation, shell/process jobs, agent
+  jobs, groups, and future skill-spawned work share one SDK-owned projection, while `agent-cli`
+  renders selection and details only.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. Runtime archive/clear and expanded TUI behavior remain
+  follow-up implementation work.
+
 ## Verification Plan
 
 - `pnpm harness:scan`

@@ -196,6 +196,19 @@ Each implementation PR should update the owning package specs before changing `a
 - Include at least one fixture repository with no Robota files and no Robota local state inside the
   repo to verify that the planned behavior remains repo-agnostic.
 
+## User Test Scenarios
+
+### Scenario: Review The Split Workflow Plan
+
+- Prerequisites: Open `.agents/backlog/README.md` and this planning backlog.
+- User actions: Follow each focused backlog link, then read the architecture ownership and
+  restricted-behavior sections.
+- Expected visible result: The user can see that user repositories own their harness, `agent-cli`
+  does not inject repo files or dependencies, and each focused backlog has a separate scope.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. The agent can verify links and document text with
+  repository reads and `pnpm harness:scan`.
+
 ## Verification Plan
 
 - `pnpm harness:scan`

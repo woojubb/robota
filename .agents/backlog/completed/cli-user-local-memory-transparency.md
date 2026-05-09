@@ -130,6 +130,20 @@ Create a design and contract PR before UI work:
 - Add CLI tests verifying users can see storage location, source, last-used time,
   display/navigation rule, and delete/disable actions.
 
+## User Test Scenarios
+
+### Scenario: Review What Robota May Remember Locally
+
+- Prerequisites: Open `.agents/specs/user-local-memory.md`.
+- User actions: Review allowed baseline memory, restricted memory, memory item model, inspection and
+  removal rules, and the project memory boundary.
+- Expected visible result: The user can confirm remembered values are limited to
+  display/navigation, are inspectable with storage location and source, can be deleted or disabled,
+  and cannot execute commands.
+- Cleanup/reset: None.
+- Agent verification: Static/manual review. SDK storage APIs and CLI rendering remain follow-up
+  implementation work.
+
 ## Verification Plan
 
 - `pnpm harness:scan`
