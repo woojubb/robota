@@ -83,6 +83,7 @@ export interface IInteractiveSessionEvents {
   background_task_event: (event: TBackgroundTaskEvent) => void;
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
   execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
+  user_message: (content: string) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
