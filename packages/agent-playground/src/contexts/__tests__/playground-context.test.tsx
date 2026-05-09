@@ -172,7 +172,7 @@ describe('PlaygroundProvider', () => {
     const executor = latestExecutor();
 
     expect(executor.construction.serverUrl).toBe('ws://playground.example.test');
-    expect(executor.construction.authToken).toBe('playground-token');
+    expect(executor.construction.authToken).toBe('dev.playground.token');
     expect(eventServiceMocks.DefaultEventService).toHaveBeenCalledTimes(1);
     expect(hook.result.current.state.serverUrl).toBe('ws://playground.example.test');
     expect(hook.result.current.actions.getConnectionStatus()).toEqual({
