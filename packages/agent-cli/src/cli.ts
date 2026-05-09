@@ -26,6 +26,7 @@ import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
 import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
 import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
+import { createUserLocalCommandModule } from '@robota-sdk/agent-command-user-local';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -68,6 +69,7 @@ import {
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
+import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -180,6 +182,7 @@ export function createDefaultCliCommandModules({
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createMemoryCommandModule(),
+    createUserLocalCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),
     createExitCommandModule(),
@@ -227,6 +230,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+
+  if (await runUserLocalDirectCommandIfRequested(args, cwd)) {
+    return;
+  }
+
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
       read: () => readSettings(getUserSettingsPath()),

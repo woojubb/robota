@@ -67,6 +67,7 @@
     "@robota-sdk/agent-command-session": "workspace:*",
     "@robota-sdk/agent-command-skills": "workspace:*",
     "@robota-sdk/agent-command-statusline": "workspace:*",
+    "@robota-sdk/agent-command-user-local": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "@robota-sdk/agent-provider-deepseek": "workspace:*",

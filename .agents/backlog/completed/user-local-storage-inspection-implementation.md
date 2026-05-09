@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -19,7 +19,7 @@ Implement the user-local storage foundation defined by
 root, categories, and stored item summaries through a Robota product surface.
 
 This backlog implements the follow-up work deferred by
-[User-Local Storage Foundation](completed/cli-user-local-storage-foundation.md).
+[User-Local Storage Foundation](cli-user-local-storage-foundation.md).
 
 ## Recommendation Gate
 
@@ -57,16 +57,16 @@ Open decisions:
 
 ## Acceptance Criteria
 
-- [ ] SDK resolves the effective user-local root under the user's home directory by default.
-- [ ] SDK rejects a baseline workflow storage root inside the active repository.
-- [ ] SDK exposes stable category projections for `preferences`, `view-state`,
+- [x] SDK resolves the effective user-local root under the user's home directory by default.
+- [x] SDK rejects a baseline workflow storage root inside the active repository.
+- [x] SDK exposes stable category projections for `preferences`, `view-state`,
       `memory-projections`, `task-associations`, `workflow-metadata`, and `inspection-index`.
-- [ ] Product command `robota user-local storage list --format json` prints the effective root and
+- [x] Product command `robota user-local storage list --format json` prints the effective root and
       category summaries without requiring provider configuration.
-- [ ] The product command does not create tracked, ignored, or project `.robota/` baseline workflow
+- [x] The product command does not create tracked, ignored, or project `.robota/` baseline workflow
       state in the active repository.
-- [ ] Stored command strings are not exposed as reusable execution preferences.
-- [ ] The backlog is updated with User Execution Test Scenario evidence after implementation.
+- [x] Stored command strings are not exposed as reusable execution preferences.
+- [x] The backlog is updated with User Execution Test Scenario evidence after implementation.
 
 ## Test Plan
 
@@ -121,8 +121,28 @@ Open decisions:
   ```
 
 - Agent verification: Must be executed after implementation using the commands above.
-- Evidence: Pending until implementation. The backlog cannot be marked complete until the observed
-  command output and repository `find` result are recorded here.
+- Evidence:
+  - Executed after implementation from `/Users/jungyoun/Documents/dev/robota`.
+  - Build command: `pnpm --filter @robota-sdk/agent-cli build` exited 0 after package builds for
+    `@robota-sdk/agent-sdk` and `@robota-sdk/agent-command-user-local`.
+  - Product command exited 0 and printed JSON with:
+    - `root:
+"/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.Kp2lGxRyLa/.robota"`
+    - `activeRepositoryRoot:
+"/private/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.CZ0kZpeuex"`
+    - categories: `preferences`, `view-state`, `memory-projections`, `task-associations`,
+      `workflow-metadata`, and `inspection-index`
+    - every category reported `mayExecuteCommands: false`, `itemCount: 0`, and `items: []`
+  - Repository-state command:
+
+    ```bash
+    find "$FIXTURE_REPO" -maxdepth 2 -name ".robota" -o -name "robota*"
+    ```
+
+    printed no output, confirming no project `.robota` or Robota baseline workflow state was
+    created inside the fixture repository.
+
+  - Cleanup executed with `rm -rf "$TMP_HOME" "$FIXTURE_REPO"`.
 
 ## Implementation Notes
 
@@ -130,3 +150,8 @@ Open decisions:
   SDK/command-owned code.
 - If implementation chooses a different final product command, update this backlog before coding and
   keep the scenario equally runnable by the user.
+
+## Result
+
+Implemented with SDK-owned user-local storage projection APIs, a provider-free
+`@robota-sdk/agent-command-user-local` command owner, and thin `agent-cli` direct command routing.
