@@ -174,6 +174,9 @@ importers:
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.9
+      '@types/supertest':
+        specifier: ^7.2.0
+        version: 7.2.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.14.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
@@ -183,6 +186,9 @@ importers:
       eslint:
         specifier: ^8.55.0
         version: 8.57.1
+      supertest:
+        specifier: ^7.2.2
+        version: 7.2.2
       tsup:
         specifier: ^8.5.0
         version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
@@ -5438,6 +5444,14 @@ packages:
     dev: false
     optional: true
 
+  /@noble/hashes@1.8.0:
+    resolution:
+      {
+        integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==,
+      }
+    engines: { node: ^14.21.3 || >=16 }
+    dev: true
+
   /@nodelib/fs.scandir@2.1.5:
     resolution:
       {
@@ -5721,6 +5735,15 @@ packages:
     requiresBuild: true
     dev: true
     optional: true
+
+  /@paralleldrive/cuid2@2.3.1:
+    resolution:
+      {
+        integrity: sha512-XO7cAxhnTZl0Yggq6jOgjiOHhbgcO4NqFqwSmQpjK3b6TEE6Uj/jfSk6wzYyemh3+I0sHirKSetjQwn5cZktFw==,
+      }
+    dependencies:
+      '@noble/hashes': 1.8.0
+    dev: true
 
   /@pkgjs/parseargs@0.11.0:
     resolution:
@@ -7849,6 +7872,13 @@ packages:
     dependencies:
       '@types/node': 20.19.9
 
+  /@types/cookiejar@2.1.5:
+    resolution:
+      {
+        integrity: sha512-he+DHOWReW0nghN24E1WUqM0efK4kI9oTqDm6XmK8ZPe2djZ90BSNdGnIyCLzCPw7/pogPlGbzI2wHGGmi4O/Q==,
+      }
+    dev: true
+
   /@types/cors@2.8.19:
     resolution:
       {
@@ -8118,6 +8148,13 @@ packages:
       }
     dev: true
 
+  /@types/methods@1.1.4:
+    resolution:
+      {
+        integrity: sha512-ymXWVrDiCxTBE3+RIrrP533E70eA+9qu7zdWoHuOmGujkYtzf4HQF96b8nwHLqhuf4ykX61IGRIB38CC6/sImQ==,
+      }
+    dev: true
+
   /@types/mime@1.3.5:
     resolution:
       {
@@ -8289,6 +8326,28 @@ packages:
       {
         integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==,
       }
+    dev: true
+
+  /@types/superagent@8.1.9:
+    resolution:
+      {
+        integrity: sha512-pTVjI73witn+9ILmoJdajHGW2jkSaOzhiFYF1Rd3EQ94kymLqB9PjD9ISg7WaALC7+dCHT0FGe9T2LktLq/3GQ==,
+      }
+    dependencies:
+      '@types/cookiejar': 2.1.5
+      '@types/methods': 1.1.4
+      '@types/node': 20.19.9
+      form-data: 4.0.4
+    dev: true
+
+  /@types/supertest@7.2.0:
+    resolution:
+      {
+        integrity: sha512-uh2Lv57xvggst6lCqNdFAmDSvoMG7M/HDtX4iUCquxQ5EGPtaPM5PL5Hmi7LCvOG8db7YaCPNJEeoI8s/WzIQw==,
+      }
+    dependencies:
+      '@types/methods': 1.1.4
+      '@types/superagent': 8.1.9
     dev: true
 
   /@types/swagger-schema-official@2.0.25:
@@ -9827,6 +9886,13 @@ packages:
     dev: false
     optional: true
 
+  /asap@2.0.6:
+    resolution:
+      {
+        integrity: sha512-BSHWgDSAiKs50o2Re8ppvp3seVHXSRM44cdSsT9FfNEUUZLOGWVCsiWaRPWM1Znn+mqZ1OfVZ3z3DWEzSp7hRA==,
+      }
+    dev: true
+
   /assertion-error@1.1.0:
     resolution:
       {
@@ -10876,6 +10942,13 @@ packages:
     engines: { node: '>= 18' }
     dev: false
 
+  /component-emitter@1.3.1:
+    resolution:
+      {
+        integrity: sha512-T0+barUSQRTUQASh8bx02dl+DhF54GtIDY13Y3m9oWTklKbb3Wv974meRpeZ3lp1JpLVECWWNHC4vaG2XHXouQ==,
+      }
+    dev: true
+
   /concat-map@0.0.1:
     resolution:
       {
@@ -10960,7 +11033,6 @@ packages:
         integrity: sha512-D76uU73ulSXrD1UXF4KE2TMxVVwhsnCgfAyTg9k8P6KGZjlXKrOLe4dJQKI3Bxi5wjesZoFXJWElNWBjPZMbhg==,
       }
     engines: { node: '>=6.6.0' }
-    dev: false
 
   /cookie@0.7.1:
     resolution:
@@ -10985,6 +11057,13 @@ packages:
       }
     engines: { node: '>=18' }
     dev: false
+
+  /cookiejar@2.1.4:
+    resolution:
+      {
+        integrity: sha512-LDx6oHrK+PhzLKJU9j5S7/Y3jM/mUHvD/DeI1WQmJn652iPC5Y4TBzC9l+5OMOXlyTTA+SmVUPm0HQUwpD5Jqw==,
+      }
+    dev: true
 
   /copy-anything@3.0.5:
     resolution:
@@ -11556,6 +11635,16 @@ packages:
       }
     dependencies:
       dequal: 2.0.3
+
+  /dezalgo@1.0.4:
+    resolution:
+      {
+        integrity: sha512-rXSP0bf+5n0Qonsb+SVVfNfIsimO4HEtmnIpPHY8Q1UCzKlQrDMfdobr8nJOOsRgWCyMRqeSBQzmWUMq7zvVig==,
+      }
+    dependencies:
+      asap: 2.0.6
+      wrappy: 1.0.2
+    dev: true
 
   /diff-sequences@29.6.3:
     resolution:
@@ -13152,6 +13241,13 @@ packages:
       }
     dev: true
 
+  /fast-safe-stringify@2.1.1:
+    resolution:
+      {
+        integrity: sha512-W+KJc2dmILlPplD/H4K9l9LcAHAfPtP6BY84uVLXQ6Evcz9Lcg33Y2z1IVblT6xdY54PXYVHEv+0Wpq8Io6zkA==,
+      }
+    dev: true
+
   /fast-uri@3.1.2:
     resolution:
       {
@@ -13546,6 +13642,20 @@ packages:
       hasown: 2.0.2
       mime-types: 2.1.35
 
+  /form-data@4.0.5:
+    resolution:
+      {
+        integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==,
+      }
+    engines: { node: '>= 6' }
+    dependencies:
+      asynckit: 0.4.0
+      combined-stream: 1.0.8
+      es-set-tostringtag: 2.1.0
+      hasown: 2.0.2
+      mime-types: 2.1.35
+    dev: true
+
   /formatly@0.3.0:
     resolution:
       {
@@ -13577,6 +13687,18 @@ packages:
     dependencies:
       fetch-blob: 3.2.0
     dev: false
+
+  /formidable@3.5.4:
+    resolution:
+      {
+        integrity: sha512-YikH+7CUTOtP44ZTnUhR7Ic2UASBPOqmaRkRKxRbywPTe5VxF7RRCck4af9wutiZ/QKM5nME9Bie2fFaPz5Gug==,
+      }
+    engines: { node: '>=14.0.0' }
+    dependencies:
+      '@paralleldrive/cuid2': 2.3.1
+      dezalgo: 1.0.4
+      once: 1.4.0
+    dev: true
 
   /forwarded@0.2.0:
     resolution:
@@ -17522,7 +17644,6 @@ packages:
         integrity: sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==,
       }
     engines: { node: '>= 0.6' }
-    dev: false
 
   /micromark-core-commonmark@2.0.3:
     resolution:
@@ -17903,6 +18024,15 @@ packages:
     engines: { node: '>=4' }
     hasBin: true
     dev: false
+
+  /mime@2.6.0:
+    resolution:
+      {
+        integrity: sha512-USPkMeET31rOMiarsBNIHZKLGgvKc/LrjofAnBlOttf5ajRvqiRA8QsenbcooctK6d6Ts6aqZXBA+XbkKthiQg==,
+      }
+    engines: { node: '>=4.0.0' }
+    hasBin: true
+    dev: true
 
   /mime@3.0.0:
     resolution:
@@ -19401,7 +19531,6 @@ packages:
     engines: { node: '>=0.6' }
     dependencies:
       side-channel: 1.1.0
-    dev: false
 
   /quansync@0.2.10:
     resolution:
@@ -21255,6 +21384,26 @@ packages:
       ts-interface-checker: 0.1.13
     dev: true
 
+  /superagent@10.3.0:
+    resolution:
+      {
+        integrity: sha512-B+4Ik7ROgVKrQsXTV0Jwp2u+PXYLSlqtDAhYnkkD+zn3yg8s/zjA2MeGayPoY/KICrbitwneDHrjSotxKL+0XQ==,
+      }
+    engines: { node: '>=14.18.0' }
+    dependencies:
+      component-emitter: 1.3.1
+      cookiejar: 2.1.4
+      debug: 4.4.3
+      fast-safe-stringify: 2.1.1
+      form-data: 4.0.5
+      formidable: 3.5.4
+      methods: 1.1.2
+      mime: 2.6.0
+      qs: 6.15.0
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
   /superjson@2.2.2:
     resolution:
       {
@@ -21263,6 +21412,20 @@ packages:
     engines: { node: '>=16' }
     dependencies:
       copy-anything: 3.0.5
+    dev: true
+
+  /supertest@7.2.2:
+    resolution:
+      {
+        integrity: sha512-oK8WG9diS3DlhdUkcFn4tkNIiIbBx9lI2ClF8K+b2/m8Eyv47LSawxUzZQSNKUrVb2KsqeTDCcjAAVPYaSLVTA==,
+      }
+    engines: { node: '>=14.18.0' }
+    dependencies:
+      cookie-signature: 1.2.2
+      methods: 1.1.2
+      superagent: 10.3.0
+    transitivePeerDependencies:
+      - supports-color
     dev: true
 
   /supports-color@5.5.0:
