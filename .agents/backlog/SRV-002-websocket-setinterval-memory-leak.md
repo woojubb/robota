@@ -1,6 +1,6 @@
 ---
 title: 'SRV-002: WebSocket 정리 setInterval 메모리 누수 수정'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -85,4 +85,4 @@ test('close() clears the cleanup interval', () => {
 });
 ```
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #354 (fix/agent-server-prelaunch) — `PlaygroundWebSocketServer.close()`에 `clearInterval(this.cleanupInterval)` 추가. `cleanupInterval` 클래스 필드로 interval ID 저장하여 메모리 누수 수정.

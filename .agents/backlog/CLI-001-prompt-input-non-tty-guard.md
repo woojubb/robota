@@ -1,6 +1,6 @@
 ---
 title: 'CLI-001: promptInput() 비-TTY 환경 크래시 방지 가드 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -94,4 +94,4 @@ TypeError: stdin.setRawMode is not a function
 
 **Cleanup:** 없음
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #356 (fix/agent-cli-prelaunch) — `packages/agent-cli/src/cli.ts`에 `stdin.isTTY` 가드 추가. 비-TTY 환경에서 명확한 에러 메시지 출력 후 reject, `setRawMode` 크래시 방지.
