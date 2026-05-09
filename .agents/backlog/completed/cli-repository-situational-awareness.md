@@ -112,14 +112,17 @@ Create a design and contract PR before UI work:
 ### Scenario: Review Passive Repository Context Boundaries
 
 - Prerequisites: Open `.agents/specs/repository-situational-awareness.md`.
-- User actions: Review the context item model, allowed provenance sources, read boundary, and
-  command/automation boundary.
-- Expected visible result: The user can confirm that future context display may show cwd, repo root,
-  branch, dirty summary, explicit references, and background workspace context, but must not infer
-  commands, guess package managers, enumerate files, score readiness, or write repo files.
+- User actions:
+
+  ```bash
+  rg -n "current `cwd`|repository root|dirty status summary|explicitly referenced documents|command discovery|must not list file paths|write repository-local state" .agents/specs/repository-situational-awareness.md
+  ```
+
+- Expected visible result: The command prints allowed context items, command inference prohibition,
+  file-listing restriction, and repository-write prohibition.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. SDK projection APIs and CLI rendering remain follow-up
-  implementation work.
+- Agent verification: Direct command execution plus `pnpm harness:scan`. SDK projection APIs and
+  CLI rendering remain follow-up implementation work.
 
 ## Verification Plan
 

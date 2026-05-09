@@ -129,14 +129,17 @@ Create a design and contract PR before UI work:
 ### Scenario: Confirm Baseline Storage Is User-Local Only
 
 - Prerequisites: Open `.agents/specs/user-local-storage.md`.
-- User actions: Review the canonical storage rule, category layout, repo-outside validation, and
-  existing storage audit.
-- Expected visible result: The user can confirm that baseline workflow state must live under the
-  user-local root outside the active repository, with no repo-local fallback and no remembered
-  commands as executable preferences.
+- User actions:
+
+  ```bash
+  rg -n "~/.robota|No workspace-local fallback|No project `.robota/` cache|Command strings must not be stored|Repo-Outside Validation" .agents/specs/user-local-storage.md
+  ```
+
+- Expected visible result: The command prints the canonical user-local root, no fallback rule,
+  project `.robota/` prohibition, command-string storage prohibition, and repo-outside validation
+  section.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. The agent can verify the storage spec is linked from
-  specs index and package SPEC files.
+- Agent verification: Direct command execution plus `pnpm harness:scan`.
 
 ## Verification Plan
 

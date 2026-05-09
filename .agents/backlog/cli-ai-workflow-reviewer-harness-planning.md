@@ -201,13 +201,18 @@ Each implementation PR should update the owning package specs before changing `a
 ### Scenario: Review The Split Workflow Plan
 
 - Prerequisites: Open `.agents/backlog/README.md` and this planning backlog.
-- User actions: Follow each focused backlog link, then read the architecture ownership and
-  restricted-behavior sections.
-- Expected visible result: The user can see that user repositories own their harness, `agent-cli`
-  does not inject repo files or dependencies, and each focused backlog has a separate scope.
+- User actions:
+
+  ```bash
+  rg -n "completed/cli-transparent-workflow-contract|completed/cli-repository-situational-awareness|Do not require a Robota manifest|baseline command discovery|SDK/runtime ownership" .agents/backlog/cli-ai-workflow-reviewer-harness-planning.md
+  rg -n "Transparent Repo-Agnostic Workflow Client Planning" .agents/backlog/README.md
+  ```
+
+- Expected visible result: The first command prints the split backlog links, the no-Robota-manifest
+  rule, the command-discovery restriction, and SDK/runtime ownership text. The second command shows
+  the umbrella backlog remains listed in the backlog index.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. The agent can verify links and document text with
-  repository reads and `pnpm harness:scan`.
+- Agent verification: Direct command execution plus `pnpm harness:scan`.
 
 ## Verification Plan
 

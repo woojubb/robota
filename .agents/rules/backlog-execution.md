@@ -42,25 +42,37 @@ User test scenarios are separate from the agent's engineering test plan:
 
 - The engineering test plan covers unit, integration, type, harness, CI, build, and internal
   verification commands.
-- The user test scenario describes what a user can do manually after the work is complete to confirm
-  the feature behaves as intended.
+- The user test scenario describes the exact command or UI interaction a user can run after the work
+  is complete to confirm the feature behaves as intended.
 
 Each user test scenario must include:
 
 - prerequisite state or sample setup;
-- user actions in order;
-- expected visible result;
+- exact command lines, UI actions, or browser/TUI interactions in order;
+- expected observable result, including exit code, output substring, visible UI state, or file
+  change;
 - any cleanup or reset step;
-- whether the agent can verify the scenario directly, partially, or only by static/manual review.
+- whether the agent can verify the scenario directly, partially, or only by manual UI review;
+- the concrete evidence the agent captured when running or reviewing the scenario.
 
-Before declaring a backlog or work unit complete, the agent must run or review the user test
-scenario as a final gate when feasible. If the scenario cannot be executed in the current
-environment, the agent must still validate it for coherence against the implemented behavior and
-state the limitation.
+Before declaring a backlog or work unit complete, the agent must execute the user test scenario as a
+final gate whenever the scenario is command-line, file-system, HTTP, browser, or otherwise available
+from the workspace. The gate passes only when the observed result matches the expected observable
+result.
+
+Evidence is mandatory. A user scenario gate without captured evidence does not pass. Evidence may be
+command output, exit code, screenshot, log excerpt, rendered UI observation, changed-file diff, or
+another concrete artifact that proves the expected observable result occurred.
+
+Static review may not be used as a passing user scenario gate when an executable command, browser
+flow, TUI flow, or local script can reasonably be run. If a scenario is genuinely manual-only, it
+must be labeled `manual-only`, explain why it cannot be executed by the agent, and the PR must not
+claim it passed by execution.
 
 When the user scenario gate passes, the final user-facing response must tell the user that the
-scenario is available to run and summarize the scenario briefly. If the scenario gate does not pass,
-the work is not complete and the agent must fix the issue or ask for a decision.
+scenario is available to run, provide the concrete command or UI steps, and state the expected
+result. If the scenario gate does not pass, the work is not complete and the agent must fix the
+issue or ask for a decision.
 
 ## Base Branch Workflow
 
@@ -103,7 +115,11 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 
 - No recommendation gate was presented for the backlog or work unit.
 - A required user-facing backlog lacks a user test scenario section.
-- The user scenario gate fails or cannot be coherently mapped to the completed behavior.
+- A user test scenario is abstract, lacks exact commands/UI steps, or lacks expected observable
+  results.
+- The user scenario gate was not executed when it could reasonably be executed by the agent.
+- The user scenario gate has no captured evidence.
+- The user scenario gate fails or cannot be mapped to the completed behavior.
 - The recommendation conflicts with repo rules, layering, package ownership, or backlog intent.
 - The work would combine unrelated backlogs into one PR.
 - The final initiative PR would be auto-merged into `develop`.
@@ -117,7 +133,9 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
       scenarios, and open decisions.
 - [ ] Backlog includes user test scenarios when behavior is user-visible.
 - [ ] PR scope maps to exactly one backlog or explicitly split work unit.
-- [ ] User scenario gate was run or coherently reviewed before completion.
+- [ ] User scenario includes exact commands or UI steps and expected observable results.
+- [ ] User scenario gate was executed by the agent when executable.
+- [ ] User scenario gate includes captured evidence; no evidence means no pass.
 - [ ] Child PR targets the initiative base branch.
 - [ ] Final initiative PR targets `develop` and is not auto-merged.
 - [ ] PR description records the accepted recommendation, verification evidence, and user scenario

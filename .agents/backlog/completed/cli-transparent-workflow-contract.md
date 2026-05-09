@@ -133,14 +133,16 @@ Create a design and contract PR before UI work:
 ### Scenario: Inspect Baseline Transparency Rules
 
 - Prerequisites: Open `.agents/specs/transparent-workflow.md`.
-- User actions: Review the action provenance table, state vocabulary, memory transparency fields,
-  UI disclosure checklist, and repository independence section.
-- Expected visible result: The user can confirm that commands execute only from current user input
-  or accepted assistant suggestions, remembered commands are excluded, and CLI surfaces must render
-  SDK/runtime projections instead of owning workflow semantics.
+- User actions:
+
+  ```bash
+  rg -n "user-input|accepted-assistant-suggestion|Remembered commands are not a baseline command source|agent-cli.*must not define|Repository Independence" .agents/specs/transparent-workflow.md
+  ```
+
+- Expected visible result: The command prints the allowed execution provenance values, remembered
+  command exclusion, CLI non-ownership rule, and repository independence heading.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. The agent can verify the spec links and required
-  sections with `pnpm harness:scan`.
+- Agent verification: Direct command execution plus `pnpm harness:scan`.
 
 ## Verification Plan
 

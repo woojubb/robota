@@ -27,8 +27,8 @@ The rule must answer:
 - **Separate user scenarios from engineering tests.** Unit, integration, harness, build, and CI
   checks are the agent's test plan. User scenarios describe what the user can manually run or
   inspect.
-- **Gate completion on the scenario.** A backlog is not complete until the user scenario is run or
-  coherently reviewed against the completed behavior.
+- **Gate completion on executed evidence.** A backlog is not complete until the user scenario is
+  executed when feasible and evidence is captured.
 - **Report scenario availability.** When the scenario gate passes, the final response must tell the
   user that the scenario is available to run.
 - **Keep orchestration thin.** The backlog execution skill coordinates the scenario gate but does
@@ -79,13 +79,18 @@ handoff shape. Detailed engineering tests remain owned by testing and package-sp
 - Prerequisites: Open `.agents/backlog/README.md`,
   `.agents/rules/backlog-execution.md`, and
   `.agents/skills/backlog-execution-orchestrator/SKILL.md`.
-- User actions: Check that a user-facing backlog is expected to contain both `## Test Plan` and
-  `## User Test Scenarios`; then confirm the skill requires the scenario gate result in PR bodies
-  and final handoff.
-- Expected visible result: The user can see the engineering test plan is separate from the manual
-  user scenario, and the scenario must be run or coherently reviewed before completion.
+- User actions:
+
+  ```bash
+  rg -n "## User Test Scenarios|exact command lines or UI steps|Static review is not enough" .agents/backlog/README.md
+  rg -n "exact command lines, UI actions|expected observable result|must execute the user test scenario|The user scenario gate was not executed" .agents/rules/backlog-execution.md
+  rg -n "exact commands or UI steps|Execute the user test scenario|observed evidence" .agents/skills/backlog-execution-orchestrator/SKILL.md
+  ```
+
+- Expected visible result: The commands print the backlog entry requirement, executable/observable
+  scenario rule, mandatory execution gate, stop condition, and PR evidence requirement.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review plus `pnpm harness:scan`.
+- Agent verification: Direct command execution plus `pnpm harness:scan`.
 
 ## Verification Plan
 
@@ -99,5 +104,6 @@ Completed by updating backlog execution rules, the backlog execution orchestrato
 README guidance, and the current initiative backlog files.
 
 - The rule now requires user-facing test scenarios for user-visible backlog work.
-- The orchestrator skill records the user scenario gate as part of the normal PR pipeline.
+- The orchestrator skill records the user scenario gate and evidence as part of the normal PR
+  pipeline.
 - Current initiative backlogs now include user scenarios that users can inspect manually.
