@@ -119,7 +119,7 @@ Create a design and contract PR before UI work:
   directly execute commands.
 - Add negative tests proving command output is not classified as correctness evidence by default.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog produced a process execution contract document and did not deliver
 runnable Robota product behavior. Product-surface scenarios must be added by follow-up
@@ -139,7 +139,7 @@ implementation PRs that expose process execution through CLI/TUI/SDK behavior.
 - Expected result: The command prints the required process request/status fields, command
   source rule, and the restriction against remembered command history.
 - Evidence: Executed as process verification for the contract document. Runtime process execution
-  remains follow-up implementation work, where product-surface user scenarios must be added.
+  remains follow-up implementation work, where product-surface user execution test scenarios must be added.
 
 ## Verification Plan
 

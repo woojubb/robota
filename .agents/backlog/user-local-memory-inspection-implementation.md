@@ -71,7 +71,7 @@ Open decisions:
 - [ ] Users can delete a remembered item.
 - [ ] No command strings are stored or exposed as reusable execution preferences.
 - [ ] No baseline user-local memory is written inside the active repository, including `.robota/`.
-- [ ] The backlog is updated with User Test Scenario evidence after implementation.
+- [ ] The backlog is updated with User Execution Test Scenario evidence after implementation.
 
 ## Test Plan
 
@@ -85,7 +85,7 @@ Open decisions:
 - Add CLI routing tests proving the commands are provider-free.
 - Run `pnpm harness:scan`.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 ### Scenario: Inspect And Disable A User-Local View Preference
 

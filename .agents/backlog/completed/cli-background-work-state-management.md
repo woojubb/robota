@@ -121,7 +121,7 @@ Create a design and contract PR before UI work:
 - Add regression tests proving `agent-cli` does not own lifecycle state or duplicate terminal-state
   rules.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog produced a background-work state contract document and did not deliver
 runnable Robota product behavior. Product-surface scenarios must be added by follow-up
@@ -141,7 +141,7 @@ implementation PRs that expose background switching through CLI/TUI/SDK behavior
 - Expected result: The command prints the supported entry types, current SDK projection
   anchor, future skill-spawned support, and the CLI non-ownership rule for task completion.
 - Evidence: Executed as process verification for the contract document. Runtime archive/clear and
-  expanded TUI behavior remain follow-up implementation work, where product-surface user scenarios
+  expanded TUI behavior remain follow-up implementation work, where product-surface user execution test scenarios
   must be added.
 
 ## Verification Plan

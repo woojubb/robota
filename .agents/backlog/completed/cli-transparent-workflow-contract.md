@@ -128,7 +128,7 @@ Create a design and contract PR before UI work:
 - Add CLI rendering tests only after SDK/runtime contracts exist, verifying that provenance and
   state labels are visible without exposing private implementation details.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog produced a cross-cutting contract document and did not deliver runnable
 Robota product behavior. Product-surface scenarios must be added by follow-up implementation PRs

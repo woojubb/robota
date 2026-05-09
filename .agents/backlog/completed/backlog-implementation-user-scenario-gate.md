@@ -1,4 +1,4 @@
-# Implementation User Scenario Gate Alignment
+# Implementation User Execution Test Scenario Gate Alignment
 
 ## Status
 
@@ -10,21 +10,21 @@ Completed.
 
 ## Priority
 
-P0 - correction to make user scenario gates validate implemented work, not backlog quality.
+P0 - correction to make user execution test scenario gates validate implemented work, not backlog quality.
 
 ## Request
 
-Clarify the backlog execution flow so user test scenarios are planned in the backlog before
+Clarify the backlog execution flow so user execution test scenarios are planned in the backlog before
 implementation, executed after implementation against the completed code path or delivered artifact,
 and recorded back into the backlog with evidence before the gate can pass.
 
 ## Non-Negotiable Product Principles
 
-- **Scenario planned before implementation.** The backlog must define the user test scenario before
+- **Scenario planned before implementation.** The backlog must define the user execution test scenario before
   work starts so the implementation target is concrete.
 - **Scenario targets completed work.** For code-changing backlogs, the scenario must exercise the
   implemented code path. Backlog text review, documentation search, or static prose checks are not a
-  valid user scenario gate for code work.
+  valid user execution test scenario gate for code work.
 - **Runnable environment required.** If the scenario needs a fixture, demo command, local server,
   test project, seed data, or other setup, the backlog must say whether it exists, will be built, or
   requires a user decision.
@@ -34,21 +34,22 @@ and recorded back into the backlog with evidence before the gate can pass.
   No recorded evidence means the gate does not pass.
 - **User handoff is executable.** After the gate passes, the user must receive the verified scenario
   with exact commands or UI steps and expected results they can run directly.
-- **Do not fake user scenarios for documents.** Document/rule/static checks are verification
-  evidence, not user test scenarios.
-- **Use product surfaces.** User test scenarios must use Robota product surfaces such as CLI
-  commands, TUI actions, browser UI flows, or public SDK/example usage.
+- **Do not fake user execution test scenarios for documents.** Document/rule/static checks are verification
+  evidence, not user execution test scenarios.
+- **Use product surfaces.** User execution test scenarios must use Robota product surfaces such as
+  CLI commands, TUI actions, browser UI flows, or public SDK/example usage.
 
 ## Expected Outcomes
 
-- User scenario gates validate completed implementation behavior, not planning-document quality.
+- User execution test scenario gates validate completed implementation behavior, not
+  planning-document quality.
 - Future code backlogs cannot pass with only `rg` checks against backlog text or documentation.
 - Missing scenario environment becomes an explicit implementation item or user decision.
-- Completed backlogs contain the evidence needed to prove the user scenario gate passed.
+- Completed backlogs contain the evidence needed to prove the user execution test scenario gate passed.
 - Final user handoffs include concrete commands or UI steps that have already been verified.
-- Documentation-only or governance-only backlogs do not present document inspection as a user test
-  scenario.
-- User test scenarios are scoped to product usage instead of internal repository checks.
+- Documentation-only or governance-only backlogs do not present document inspection as a user
+  execution test scenario.
+- User execution test scenarios are scoped to product usage instead of internal repository checks.
 
 ## Architecture Ownership Rule
 
@@ -69,16 +70,16 @@ affected package specs and owner skills.
 
 ## Acceptance Criteria
 
-- [x] Rules distinguish the planned user scenario from the post-implementation execution gate.
+- [x] Rules distinguish the planned user execution test scenario from the post-implementation execution gate.
 - [x] Rules require code-changing backlogs to exercise implemented code paths.
-- [x] Rules require missing user scenario environment to be built, proposed, or decided.
+- [x] Rules require missing user execution test scenario environment to be built, proposed, or decided.
 - [x] Rules require the backlog to be updated with observed evidence after execution.
 - [x] The orchestrator skill enforces the same lifecycle.
 - [x] Backlog authoring guidance describes the required lifecycle and evidence update.
-- [x] Documentation-only and governance-only changes are required to mark user scenarios as not
-      applicable instead of presenting document inspection as a user test scenario.
-- [x] User scenario scope is limited to product surfaces such as Robota CLI, TUI, browser UI, or
-      public SDK/example usage.
+- [x] Documentation-only and governance-only changes are required to mark user execution test scenarios as not
+      applicable instead of presenting document inspection as a user execution test scenario.
+- [x] User execution test scenario scope is limited to product surfaces such as Robota CLI, TUI,
+      browser UI, or public SDK/example usage.
 
 ## Test Plan
 
@@ -88,11 +89,11 @@ affected package specs and owner skills.
   target, environment readiness, post-implementation execution, and backlog evidence update
   requirements.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog changes process rules, a workflow skill, and backlog authoring
 guidance. It does not deliver runnable user-facing product behavior. Document inspection would only
-prove that the process documents changed, so it must not be presented as a user test scenario.
+prove that the process documents changed, so it must not be presented as a user execution test scenario.
 
 ## Process Verification Evidence
 
@@ -102,9 +103,9 @@ prove that the process documents changed, so it must not be presented as a user 
 - Verification commands:
 
   ```bash
-  rg -n "implemented code path|completed implementation|product surface|internal repository checks|Missing user scenario test environment" .agents/rules/backlog-execution.md
+  rg -n "implemented code path|completed implementation|product surface|internal repository checks|Missing test environment for the user execution test scenario" .agents/rules/backlog-execution.md
   rg -n "completed implementation or delivered artifact|product surface|internal repository verification|where the backlog was updated" .agents/skills/backlog-execution-orchestrator/SKILL.md
-  rg -n "completed code path or delivered artifact|product-surface scenarios|rg`, harness commands|must not invent a user test scenario" .agents/backlog/README.md
+  rg -n "completed code path or delivered artifact|product-surface scenarios|rg`, harness commands|must not invent a user execution test scenario" .agents/backlog/README.md
   ```
 
 - Expected result: The first command prints rule lines requiring implementation-code
@@ -133,5 +134,5 @@ prove that the process documents changed, so it must not be presented as a user 
 ## Result
 
 Completed by updating the backlog execution rule, backlog execution orchestrator skill, and backlog
-entry requirements so user scenario gates are planned before implementation, executed after
+entry requirements so user execution test scenario gates are planned before implementation, executed after
 implementation against the completed work, and recorded with evidence in the backlog.
