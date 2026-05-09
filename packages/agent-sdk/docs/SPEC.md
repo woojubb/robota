@@ -155,6 +155,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── prompt-file-reference-*.ts ← `@file` prompt reference parser/resolver, path policy, formatting, and diagnostics
 │   └── task-context.ts         ← active `.agents/tasks/*.md` discovery, selection, formatting, and status updates
 ├── src/memory/                 ← project memory store, reusable capture policy, retrieval services
+├── src/user-local/             ← user-local storage root validation, category projections, and future baseline memory persistence
 ├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
 ├── src/self-hosting/           ← self-hosting verification planner + lifecycle state machine
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
@@ -543,6 +544,24 @@ Resolved provider fields:
   User-local display/navigation preferences are governed by
   [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md) and
   must not be stored in `.robota/memory/`.
+
+### User-Local Storage
+
+- **Package**: `agent-sdk/user-local/`
+- **Purpose**: Resolve and inspect baseline workflow storage under user-local storage outside the
+  active repository.
+- **Default root**: `~/.robota`.
+- **Validation**: SDK APIs reject empty roots, relative roots, roots equal to the active repository,
+  and roots inside the active repository, including symlink-resolved paths when possible.
+- **Categories**: `preferences`, `view-state`, `memory-projections`, `task-associations`,
+  `workflow-metadata`, and `inspection-index`.
+- **Inspection projection**: SDK returns root, active repository root, category summaries, item
+  summaries, storage locations, enabled/delete/disable metadata, and timestamps when available.
+- **Command boundary**: `@robota-sdk/agent-command-user-local` formats provider-free
+  `user-local storage list --format json` output from SDK projections. `agent-cli` only routes the
+  direct product command before provider setup and prints the command-owned output.
+- **Repository independence**: SDK user-local APIs must not create repository `.robota/` baseline
+  workflow state.
 
 ### Context Window Management
 

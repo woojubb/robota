@@ -256,6 +256,23 @@ export type {
   TPromptInput,
 } from './commands/index.js';
 
+// ── User-local storage ─────────────────────────────────────
+export {
+  USER_LOCAL_STORAGE_CATEGORIES,
+  USER_LOCAL_STORAGE_CATEGORY_DEFINITIONS,
+  inspectUserLocalStorage,
+  resolveUserLocalStorageRoot,
+} from './user-local/index.js';
+export type {
+  IInspectUserLocalStorageOptions,
+  IResolveUserLocalStorageRootOptions,
+  IUserLocalStorageCategoryDefinition,
+  IUserLocalStorageCategoryProjection,
+  IUserLocalStorageInspection,
+  IUserLocalStorageItemSummary,
+  TUserLocalStorageCategory,
+} from './user-local/index.js';
+
 // ── Skill prompt utilities ───────────────────────────────────
 export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
 export type { SkillPromptContext } from './utils/skill-prompt.js';
