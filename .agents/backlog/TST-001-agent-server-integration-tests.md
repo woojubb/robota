@@ -1,6 +1,6 @@
 ---
 title: 'TST-001: agent-server 통합 테스트 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon

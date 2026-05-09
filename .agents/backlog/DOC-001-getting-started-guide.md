@@ -1,6 +1,6 @@
 ---
 title: 'DOC-001: 공개 docs 사이트 Getting Started 가이드 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -106,4 +106,4 @@ pnpm --filter docs dev
 
 **Cleanup:** 서버 종료 (`Ctrl+C`)
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #355 (docs/cli-getting-started) — `content/getting-started/README.md`에 CLI 퀵스타트 섹션 추가. 설치, 첫 실행, 프로바이더 설정, 기본 사용법 포함.

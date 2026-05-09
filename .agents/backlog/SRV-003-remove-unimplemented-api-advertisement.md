@@ -1,6 +1,6 @@
 ---
 title: 'SRV-003: agent-server 루트 엔드포인트에서 미구현 API 광고 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -89,4 +89,4 @@ curl -s http://localhost:3001/ | jq .
 
 **Cleanup:** 없음
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #354 (fix/agent-server-prelaunch) — `apps/agent-server/src/app.ts` GET / 응답에서 `stream`, `capabilities` 키 제거. 실제 등록된 엔드포인트(health, chat, wsStatus)만 광고.

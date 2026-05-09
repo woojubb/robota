@@ -1,6 +1,6 @@
 ---
 title: 'TST-002: agent-web 스모크 테스트 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: later

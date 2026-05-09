@@ -1,6 +1,6 @@
 ---
 title: 'SEC-001: WebSocket JWT 토큰 검증 구현'
-status: todo
+status: done
 created: 2026-05-10
 priority: critical
 urgency: now
@@ -95,4 +95,4 @@ Connected
 
 **Cleanup:** 서버 종료 (`Ctrl+C`)
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #354 (fix/agent-server-prelaunch) — `apps/agent-server/src/websocket-server.ts`에 `jwt.verify()` 구현. JWT_SECRET 환경변수 설정 시 실제 JWT 검증, 미설정 시 3-part format 체크.

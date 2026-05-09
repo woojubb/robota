@@ -1,6 +1,6 @@
 ---
 title: 'SRV-001: agent-server Graceful Shutdown 구현'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -95,4 +95,4 @@ WebSocket server closed
 
 **Cleanup:** 없음
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #354 (fix/agent-server-prelaunch) — `apps/agent-server/src/server.ts`에 SIGTERM/SIGINT 핸들러 및 30초 타임아웃 구현. HTTP 서버 닫기, WebSocket 연결 정리, 진행 중인 요청 완료 대기 로직 포함.
