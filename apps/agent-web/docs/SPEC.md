@@ -2,12 +2,19 @@
 
 ## Scope
 
-Owns the Robota web application. A Next.js 15 host that serves the Playground UI (`@robota-sdk/agent-playground/client`), the DAG Designer (`@robota-sdk/dag-designer`), and provides the browser runtime composition layer. The root route redirects to `/dag-designer`.
+Owns the Robota web application. A Next.js 15 host that serves the Playground UI
+(`@robota-sdk/agent-playground/client`) and provides the browser runtime composition layer. The root
+route redirects to `/playground`.
 
 ## Boundaries
 
-- Does not own package-level runtime contracts; imports browser-safe components from `@robota-sdk/agent-playground/client` and shared contracts/components from `@robota-sdk/agent-core`, `@robota-sdk/dag-core`, and `@robota-sdk/dag-designer`.
+- Does not own package-level runtime contracts; imports browser-safe components from
+  `@robota-sdk/agent-playground/client` and shared contracts/components from
+  `@robota-sdk/agent-core`.
 - Does not own API server behavior; that belongs to `apps/agent-server`.
+- The browser host must not import provider packages, `apps/agent-server`, or the root
+  `@robota-sdk/agent-playground` entry; it renders the browser-safe
+  `@robota-sdk/agent-playground/client` entry only.
 - Keeps deployment, auth configuration, and frontend integration behavior within this app.
 - Styling uses Tailwind CSS v4 utility classes only.
 
@@ -15,13 +22,14 @@ Owns the Robota web application. A Next.js 15 host that serves the Playground UI
 
 Next.js App Router application with the following route structure:
 
-- `/` -- redirects to `/dag-designer`.
-- `/dag-designer` -- DAG Designer landing page with template selection.
-- `/dag-designer/[dagId]` -- DAG Designer editor for a specific DAG.
+- `/` -- redirects to `/playground`.
 - `/playground` -- Playground main page.
 - `/playground/demo` -- Playground demo mode.
 
-The app composes workspace packages as React components and configures API access via `API_CONFIG` (versioned base URL, timeout, retry, rate limiting). Client-side caching is provided by `src/lib/cache.ts`. Browser builds explicitly disable Node builtin polyfills in `next.config.ts` so Node-only optional exports from workspace packages do not enter the client bundle.
+The app composes workspace packages as React components and configures API access via `API_CONFIG`
+(versioned base URL, timeout, retry, rate limiting). Client-side caching is provided by
+`src/lib/cache.ts`. Browser builds explicitly disable Node builtin polyfills in `next.config.ts` so
+Node-only optional exports from workspace packages do not enter the client bundle.
 
 ## Type Ownership
 
@@ -46,7 +54,6 @@ This is a private app (`"private": true`); it has no published API surface. Inte
 ## Extension Points
 
 - `API_CONFIG` -- configurable via `NEXT_PUBLIC_API_VERSION` environment variable.
-- DAG Designer templates -- template definitions in `src/app/dag-designer/templates.ts`.
 - Layout composition -- `src/app/layout.tsx` provides the root layout shell.
 
 ## Error Taxonomy
@@ -74,14 +81,13 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                                     | Consumer    | Location                |
-| ------------------------------------------------ | ----------- | ----------------------- |
-| `@robota-sdk/agent-playground/client` components | Page routes | `src/app/playground/`   |
-| `@robota-sdk/dag-designer` components            | Page routes | `src/app/dag-designer/` |
+| Port (Owner)                                     | Consumer    | Location              |
+| ------------------------------------------------ | ----------- | --------------------- |
+| `@robota-sdk/agent-playground/client` components | Page routes | `src/app/playground/` |
 
 ## Test Strategy
 
 - **Test framework**: Jest with `@testing-library/react` and `jest-environment-jsdom`.
 - **Current state**: `pnpm test` runs with `--passWithNoTests`, indicating no test files exist yet.
 - **Coverage gaps**: No component tests, no route tests, no API integration tests.
-- Recommended: component tests for DAG Designer pages and Playground integration.
+- Recommended: component tests for Playground integration.

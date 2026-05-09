@@ -17,6 +17,12 @@ This package is a composable material layer. It provides stateful runtime servic
 - Does not import `agent-sdk`, `agent-sessions`, `agent-tools`, provider packages, or `agent-cli`.
 - Concrete I/O belongs in adapters owned by runtime shells or dedicated adapter packages.
 - SDK assembly may re-export this package for compatibility, but this package remains the SSOT for runtime lifecycle contracts.
+- **Layer position — below agent-sessions.** `agent-sessions` may consume agent-runtime services;
+  agent-runtime must never depend on agent-sessions. Dependency direction is strictly upward:
+  `agent-core` ← `agent-runtime` ← `agent-sessions` ← `agent-sdk`.
+- **Contract stability.** Public API shapes are stable runtime lifecycle contracts. Higher-layer
+  packages (`agent-sessions`, `agent-sdk`) depend on these contracts. Breaking changes to the
+  public API surface require coordinating all consumers before merging.
 
 ## Architecture Overview
 
@@ -103,6 +109,63 @@ Consumers extend the runtime by implementing ports:
 Runtime ports own required shapes. Adapter packages own concrete I/O and must not add global task registries outside `BackgroundTaskManager`.
 
 Runner handles may expose `logPath` and `transcriptPath` for append-only diagnostic streams. `BackgroundTaskManager` projects those paths into task state immediately after runner start and preserves matching result metadata on completion.
+
+Task requests may include generic primitive `metadata`. The runtime treats this as opaque
+provenance/control-plane data: it clones metadata into `IBackgroundTaskState`, preserves it in state
+snapshots, and never interprets SDK-, command-, skill-, transport-, or UI-specific keys. Higher
+layers may use metadata for origin projection, grouping, or workspace read models, but lifecycle
+transitions, queueing, cancellation, and runner behavior must not depend on those keys.
+
+## Transparent Workflow Relationship
+
+The cross-cutting transparent workflow contract is defined in
+[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
+`agent-runtime` owns the mechanical background task lifecycle state machine and transition
+validation for agent/process work. It does not own command authorization provenance, user-local
+preference semantics, memory inspection, or TUI disclosure policy.
+
+Current runtime statuses are `queued`, `running`, `waiting_permission`, `completed`, `failed`, and
+`cancelled`. The transparent workflow user-facing vocabulary displays `waiting_permission` as
+`waiting-for-input`; a future API change may alias or rename this status only with compatibility
+tests. `archived` is a visibility/retention projection over terminal records, not a state that
+restarts execution. Runtime `close()` remains the mechanical terminal-record dismissal operation.
+
+## User-Local Storage Relationship
+
+Baseline workflow storage policy is defined in
+[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md).
+`agent-runtime` does not resolve storage roots, validate repository boundaries, or persist baseline
+workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
+storage contracts decide whether and how higher layers persist those associations.
+
+## User-Local Memory Relationship
+
+Inspectable user-local memory behavior is specified in
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md).
+`agent-runtime` may expose task ids, group ids, lifecycle state, and metadata that SDK projections
+use for user-local associations. Runtime must not read or write user-local memory, project memory,
+or command-history preferences, and remembered values must not influence runtime command execution.
+
+## Process Execution Relationship
+
+Transparent process execution is specified in
+[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md).
+`agent-runtime` owns generic process task lifecycle, stdout/stderr log paging contracts, timeout,
+cancellation, send/read controls, exit code, signal code, and state transitions. Runtime does not
+own command selection, command meaning, environment-summary presentation, action provenance, or
+correctness interpretation.
+
+## Background Work State Relationship
+
+Switchable background work state is specified in
+[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+`agent-runtime` owns mechanical task lifecycle, events, cancellation, wait, send, close, and log
+read operations. It does not own selected workspace entry state, filled/empty UI indicators,
+presentation grouping, archive visibility, or TUI detail rendering.
+
+Runtime may expose retention metadata only as task lifecycle or registry state protected by
+state-machine tests. `archived` remains a visibility/retention projection over terminal records, not
+a status that restarts or resumes execution.
 
 ## Error Taxonomy
 

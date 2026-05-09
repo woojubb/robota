@@ -41,6 +41,7 @@ export interface ISubagentSpawnRequest {
   maxTextDeltas?: number;
   repetitionWindow?: number;
   repetitionThreshold?: number;
+  metadata?: Record<string, TBackgroundPrimitive>;
 }
 
 export interface ISubagentJobState {
@@ -70,6 +71,7 @@ export interface ISubagentJobState {
   timeoutReason?: TBackgroundTaskTimeoutReason;
   result?: string;
   error?: string;
+  metadata?: Record<string, TBackgroundPrimitive>;
 }
 
 export interface ISubagentJobResult {

@@ -120,9 +120,7 @@ describe('CI build workflow', () => {
       'scope.checks.some((check) => checksRequiringPackageDist.has(check))',
     );
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
-    expect(content).toContain(
-      'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
-    );
+    expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain(
       'package_dist_required: ${{ steps.build_requirement.outputs.required }}',
     );
@@ -141,6 +139,13 @@ describe('CI build workflow', () => {
     expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
     expect(restoreIndex).toBeGreaterThanOrEqual(0);
     expect(verifyIndex).toBeGreaterThan(restoreIndex);
+  });
+
+  it('uses package typecheck scripts during scoped verification', () => {
+    const content = readFileSync('scripts/harness/verify-change.mjs', 'utf8');
+
+    expect(content).toContain("hasPackageScript(workdir, 'typecheck')");
+    expect(content).toContain("runCommand('pnpm', ['typecheck'], workdir, options.dryRun)");
   });
 
   it('keeps main PR duplicate jobs as fast successful no-ops', () => {
@@ -169,9 +174,7 @@ describe('deploy workflow', () => {
 
     expect(content).toContain('run: pnpm build');
     expect(content).toContain('package-dist.tgz');
-    expect(content).toContain(
-      'tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist',
-    );
+    expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
     expect(content).not.toContain('@robota-sdk/agent-playground... build');
   });
@@ -210,6 +213,40 @@ describe('publish workflow', () => {
     expect(versionSkill).toContain('script explicitly syncs `beta` afterward');
     expect(publishRules).not.toContain('No manual dist-tag sync needed');
     expect(versionSkill).not.toContain('No dist-tag sync needed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// release governance
+// ---------------------------------------------------------------------------
+describe('release governance scan', () => {
+  it('is registered in the root harness scan and checks release operation rules', () => {
+    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
+    const script = readFileSync('scripts/harness/check-release-governance.mjs', 'utf8');
+    const releaseRules = readFileSync('.agents/rules/release-operations.md', 'utf8');
+
+    expect(rootPackage.scripts['harness:scan:release-governance']).toBe(
+      'node scripts/harness/check-release-governance.mjs',
+    );
+    expect(rootPackage.scripts['harness:release:init']).toBe(
+      'node scripts/harness/release-run.mjs init',
+    );
+    expect(rootPackage.scripts['harness:release:check']).toBe(
+      'node scripts/harness/release-run.mjs check',
+    );
+    expect(rootPackage.scripts['harness:release:triage']).toBe(
+      'node scripts/harness/release-run.mjs triage',
+    );
+    expect(rootPackage.scripts['harness:release:report']).toBe(
+      'node scripts/harness/release-run.mjs report',
+    );
+    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:release-governance');
+    expect(script).toContain('Release Control Plane');
+    expect(script).toContain('release-run.mjs');
+    expect(script).toContain('checksRequiringPackageDist');
+    expect(releaseRules).toContain('current SHA');
+    expect(releaseRules).toContain('failure class');
+    expect(releaseRules).toContain('root monorepo build once');
   });
 });
 
@@ -342,17 +379,6 @@ describe('SDK public surface scan', () => {
       'node scripts/harness/check-sdk-public-surface.mjs',
     );
     expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:sdk-public-surface');
-  });
-});
-
-describe('worktree policy scan', () => {
-  it('is wired into the root harness scan', () => {
-    const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
-
-    expect(rootPackage.scripts['harness:scan:worktrees']).toBe(
-      'node scripts/harness/check-worktree-policy.mjs',
-    );
-    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:worktrees');
   });
 });
 

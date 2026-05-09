@@ -1,5 +1,24 @@
 # @robota-sdk/agent-provider-google
 
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.62
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.62
+
+## 3.0.0-beta.61
+
+### Patch Changes
+
+- 36eb7a9: Add provider-owned native replay payload hooks, replay validation coverage, and a session log validation command.
+- Updated dependencies [1c0d44c]
+- Updated dependencies [36eb7a9]
+- Updated dependencies [d97bdf2]
+  - @robota-sdk/agent-core@3.0.0-beta.61
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes

@@ -125,6 +125,9 @@ function baseArgs(): IParsedCliArgs {
     forkSession: false,
     sessionName: undefined,
     outputFormat: undefined,
+    format: undefined,
+    summary: undefined,
+    source: undefined,
     systemPrompt: undefined,
     appendSystemPrompt: undefined,
     taskFile: undefined,
@@ -145,6 +148,9 @@ function baseArgs(): IParsedCliArgs {
     settingsScope: undefined,
     checkUpdate: false,
     disableUpdateCheck: false,
+    web: false,
+    webPort: 4242,
+    noOpen: false,
   };
 }
 

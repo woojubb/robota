@@ -35,6 +35,14 @@ The package exports an `ICommandModule` that consumes command contracts and skil
 
 When this model-invocable command module is composed, skill names and descriptions are listed in the system prompt `Skills` section as selection metadata. Full `SKILL.md` content is loaded only by SDK skill execution after `skills` activates a matching skill.
 
+## Background Work State Relationship
+
+Skills that spawn agent work must register through SDK/runtime task contracts and appear through the
+shared background work state model defined in
+[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+This command package must not create a skill-specific background task path, write CLI UI state, or
+define separate lifecycle, retention, archive, or clear behavior.
+
 ## Verification Plan
 
 - `pnpm --filter @robota-sdk/agent-command-skills test`

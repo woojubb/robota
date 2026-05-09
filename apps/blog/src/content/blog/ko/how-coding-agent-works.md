@@ -22,7 +22,6 @@ lang: 'ko'
 | 핵심 라이브러리 | `agent-core, sessions, tools, sdk` | 실행 루프, 대화 관리, 플러그인 |
 | AI 프로바이더   | `anthropic / openai / google`      | Claude, GPT-4, Gemini          |
 | 플러그인 (9개)  | `agent-plugin-*`                   | 로깅, 분석, 에러, 성능 등      |
-| DAG (8개)       | `dag-core ~ dag-worker`            | 워크플로우 실행 엔진           |
 | 기타            | `team, remote, mcp`                | 멀티 에이전트, 원격, MCP       |
 
 ## AGENTS.md란 무엇인가

@@ -202,8 +202,8 @@ The first implementation should support a simple deterministic syntax:
 
 ```text
 /agent parallel \
-  developer=general-purpose:"Analyze implementation risks for DAG-BL-011" \
-  designer=Plan:"Analyze architecture boundaries for DAG-BL-011"
+  developer=general-purpose:"Analyze implementation risks for SDK-BL-011" \
+  designer=Plan:"Analyze architecture boundaries for SDK-BL-011"
 ```
 
 The command parser may later support JSON input for headless clients:
@@ -215,12 +215,12 @@ The command parser may later support JSON input for headless clients:
     {
       "label": "developer",
       "agent": "general-purpose",
-      "prompt": "Analyze implementation risks for DAG-BL-011"
+      "prompt": "Analyze implementation risks for SDK-BL-011"
     },
     {
       "label": "designer",
       "agent": "Plan",
-      "prompt": "Analyze architecture boundaries for DAG-BL-011"
+      "prompt": "Analyze architecture boundaries for SDK-BL-011"
     }
   ]
 }

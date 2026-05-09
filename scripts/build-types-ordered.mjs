@@ -33,8 +33,6 @@ function findPackages() {
   };
 
   scanDir(path.join(root, 'packages'));
-  scanDir(path.join(root, 'packages', 'dag-nodes'));
-
   return [...results.values()];
 }
 

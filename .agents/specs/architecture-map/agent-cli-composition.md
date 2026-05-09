@@ -1,6 +1,6 @@
 # Agent CLI Composition Architecture Map
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This file is the stable router for the `@robota-sdk/agent-cli` architecture slice. Detailed CLI
 composition content is split under [agent-cli/](agent-cli/) so readers can load only the relevant
@@ -35,11 +35,8 @@ area. Package `SPEC.md` files remain the source of truth for ownership contracts
 
 This map is the companion detail router for the `@robota-sdk/agent-cli` startup path, TUI hooks,
 command-layer inventory, and CLI-specific audits. The repository-wide architecture router lives at
-[../ARCHITECTURE-MAP.md](../ARCHITECTURE-MAP.md) and routes to the broader agent, DAG, MCP, app,
-and deployment structure documents.
-
-If a future CLI feature integrates DAG orchestration or MCP behavior, update this CLI router and the
-relevant repository architecture subdocument in the same PR.
+[../ARCHITECTURE-MAP.md](../ARCHITECTURE-MAP.md) and routes to the broader agent, MCP, app, and
+deployment structure documents.
 
 ## Governance and Update Policy
 
@@ -52,7 +49,13 @@ affects any of these:
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive vs non-interactive execution mode flags or transport behavior;
 - package dependencies among CLI, SDK, command packages, provider packages, runtime, sessions, tools, or core;
-- any future CLI composition of DAG/MCP/deployment capabilities.
+- any future CLI composition of MCP/deployment capabilities.
+
+CLI-visible behavior is not automatically CLI-owned behavior. Before adding terminal UI for a new
+capability, verify the non-UI behavior is owned by `agent-sdk`, `agent-runtime`, an
+`agent-command-*` package, a provider package, or another lower reusable layer. If that owner API
+does not exist, add it first and keep `agent-cli` limited to TUI, input, ephemeral selection state,
+and concrete host adapters.
 
 Before merging a CLI architecture change, check this router, the relevant subdocument, and the
 owning package `SPEC.md` files for boundary drift.

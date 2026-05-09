@@ -3,6 +3,10 @@
  * Robota CLI binary entry point.
  *
  * Boots the CLI and handles any uncaught top-level errors gracefully.
+ *
+ * NOTE: Node.js version check and Terminal.app warning are injected as a
+ * build-time banner in tsup.config.ts, ensuring they execute before any
+ * ESM module is loaded (static imports are hoisted by the JS engine).
  */
 import { startCli } from './cli.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';

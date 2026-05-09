@@ -126,6 +126,7 @@ export class SubagentManager implements ISubagentManager {
       maxTextDeltas: request.maxTextDeltas,
       repetitionWindow: request.repetitionWindow,
       repetitionThreshold: request.repetitionThreshold,
+      metadata: request.metadata,
       permissionPolicy: 'inherit-allowlist',
     };
   }
@@ -158,6 +159,7 @@ export class SubagentManager implements ISubagentManager {
       timeoutReason: state.timeoutReason,
       result: state.result?.output,
       error: state.error?.message,
+      metadata: state.metadata,
     };
   }
 }
@@ -218,6 +220,7 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
     repetitionWindow: request.repetitionWindow,
     repetitionThreshold: request.repetitionThreshold,
     isolation: request.isolation,
+    metadata: request.metadata,
   };
 }
 

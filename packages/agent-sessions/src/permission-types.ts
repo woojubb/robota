@@ -71,6 +71,8 @@ export interface IPermissionEnforcerOptions {
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
+  /** Absolute path to session transcript file — passed to PreToolUse hook inputs as transcript_path */
+  transcriptPath?: string;
 }
 
 /** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */

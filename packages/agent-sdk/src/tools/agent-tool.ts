@@ -24,6 +24,7 @@ import type {
   ISubagentJobResult,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
+import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import { runManagedAgentBatch } from './agent-tool-batch.js';
 import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
@@ -181,6 +182,11 @@ function createSpawnRequest(
     prompt: args.prompt,
     model: args.model,
     isolation: args.isolation,
+    metadata: createExecutionOriginMetadata({
+      kind: 'tool_call',
+      sessionId: deps.parentSessionId ?? 'unknown-session',
+      label,
+    }),
   };
 }
 

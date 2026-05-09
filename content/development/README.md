@@ -54,8 +54,7 @@ packages/
 ├── agent-plugin-*/             ← 9 extracted plugins
 ├── agent-team/                 ← Multi-agent task assignment
 ├── agent-remote-client/        ← HTTP client for remote agents
-├── agent-tool-mcp/             ← MCP tool protocol
-└── dag-*/                      ← DAG workflow (separate domain)
+└── agent-tool-mcp/             ← MCP tool protocol
 ```
 
 ## Key Rules
@@ -72,7 +71,9 @@ See [AGENTS.md](https://github.com/woojubb/robota/blob/main/AGENTS.md) for the c
 
 ## Publishing
 
-Robota publishes every non-private package together with one coordinated version. The current beta.59 package set has 18 publishable `@robota-sdk/*` packages; private app, plugin, DAG, and internal packages are not published by the beta script.
+Robota publishes every non-private package together with one coordinated version. The current beta
+package set publishes approved `@robota-sdk/*` packages; private app, plugin, and internal packages
+are not published by the beta script.
 
 ```bash
 pnpm harness:verify:release

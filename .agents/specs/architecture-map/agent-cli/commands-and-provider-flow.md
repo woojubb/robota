@@ -1,6 +1,6 @@
 # Agent CLI Commands and Provider Flow
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This document owns command-layer boundaries, provider setup, profile switching, and model catalog
 flow for the CLI product shell.

@@ -30,6 +30,41 @@ npm install -g @robota-sdk/agent-cli
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
 
+## Quick Start — CLI (Robota Coding Assistant)
+
+Install the CLI globally:
+
+```bash
+npm install -g @robota-sdk/agent-cli
+# or
+pnpm add -g @robota-sdk/agent-cli
+```
+
+Start the assistant:
+
+```bash
+robota
+```
+
+On first run, you'll be guided through provider selection and API key configuration.
+
+### Supported Providers
+
+| Provider           | Model Examples                 | API Key                                                  |
+| ------------------ | ------------------------------ | -------------------------------------------------------- |
+| Anthropic (Claude) | claude-opus-4, claude-sonnet-4 | [console.anthropic.com](https://console.anthropic.com)   |
+| OpenAI             | gpt-4o, gpt-4-turbo            | [platform.openai.com](https://platform.openai.com)       |
+| DeepSeek           | deepseek-chat                  | [platform.deepseek.com](https://platform.deepseek.com)   |
+| Qwen (Alibaba)     | qwen-max                       | [dashscope.aliyuncs.com](https://dashscope.aliyuncs.com) |
+| Gemini             | gemini-2.0-flash               | [aistudio.google.com](https://aistudio.google.com)       |
+| LM Studio (local)  | any local model                | localhost — no key needed                                |
+
+### System Requirements
+
+- **Node.js 22 or higher** — check with `node --version`
+- macOS, Linux, or Windows (WSL recommended)
+- **macOS Terminal.app**: CJK input (Korean/Chinese/Japanese) may cause crashes — use iTerm2 instead
+
 ## Your First Agent
 
 ### 1. Create a simple conversational agent

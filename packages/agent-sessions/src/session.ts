@@ -91,6 +91,8 @@ export class Session {
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
+  /** Absolute path to the session transcript file, if file-backed storage is active. */
+  private readonly transcriptPath: string | undefined;
 
   constructor(options: ISessionOptions) {
     const { tools, provider, systemMessage, terminal, sessionStore, permissionHandler } = options;
@@ -118,6 +120,7 @@ export class Session {
       options.permissionMode ??
       (options.defaultTrustLevel ? TRUST_TO_MODE[options.defaultTrustLevel] : undefined) ??
       'default';
+    this.transcriptPath = sessionStore?.getFilePath?.(this.sessionId);
     this.log('session_init', {
       cwd: this.cwd,
       systemPromptLength: systemMessage.length,
@@ -142,6 +145,7 @@ export class Session {
       sessionLogger: options.sessionLogger,
       onToolExecution: options.onToolExecution,
       hookTypeExecutors: options.hookTypeExecutors,
+      transcriptPath: this.transcriptPath,
     });
 
     this.contextTracker = new ContextWindowTracker(
@@ -174,9 +178,17 @@ export class Session {
     };
 
     this.robota = new Robota(agentConfig);
-    fireSessionStartHook(this.sessionId, this.cwd, this.hooks, this.hookTypeExecutors, (stdout) => {
-      this.sessionStartStdout = stdout;
-    });
+    fireSessionStartHook(
+      this.sessionId,
+      this.cwd,
+      this.hooks,
+      this.hookTypeExecutors,
+      (stdout) => {
+        this.sessionStartStdout = stdout;
+      },
+      this.permissionMode,
+      this.transcriptPath,
+    );
   }
 
   /**
@@ -209,6 +221,8 @@ export class Session {
           clearSessionStartStdout: () => {
             this.sessionStartStdout = '';
           },
+          permissionMode: this.permissionMode,
+          transcriptPath: this.transcriptPath,
           ...(this.maxTurns !== undefined ? { maxTurns: this.maxTurns } : {}),
           onTextDelta: this.onTextDeltaCallback,
           onContextUpdate: this.onContextUpdateCallback,
@@ -308,6 +322,8 @@ export class Session {
         reason,
         this.hooks,
         this.hookTypeExecutors,
+        this.permissionMode,
+        this.transcriptPath,
       );
     })();
     return this.shutdownPromise;

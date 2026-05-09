@@ -357,6 +357,6 @@ describe('WebSocket Transport Handler', () => {
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(9);
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(10);
   });
 });

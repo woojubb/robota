@@ -1,6 +1,6 @@
 # Agent CLI Layering Audit
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This document owns CLI-specific layer audit findings, resolved lessons, and mechanical guard
 candidates.
@@ -223,3 +223,38 @@ rule that command packages consume SDK contracts like third-party modules.
 
 This audit did not find `agent-command-*` importing `agent-cli` files. That preserves command module
 portability and keeps CLI/TUI as a generic host.
+
+### CLI-AUDIT-009: CLI-visible features must not become CLI-owned features
+
+Status: active guardrail.
+
+Risk:
+
+The CLI is the first visible consumer for many Robota capabilities, especially TUI workflows. That
+can lead implementations to put behavior directly in `agent-cli` because the feature is exposed
+through terminal UI. This creates duplicated state, host-specific policy, and non-portable behavior
+that other hosts and transports cannot reuse.
+
+Required boundary:
+
+- CLI may own terminal rendering, input handling, keyboard navigation, ephemeral selected-view state,
+  and concrete local host adapters.
+- CLI must not own durable feature behavior, lifecycle state machines, task registries, command
+  behavior, provider semantics, permission policy, persistence contracts, retention policy,
+  background task grouping, log aggregation semantics, or transport-visible contracts.
+- If a TUI component needs data or behavior not exposed by `agent-sdk` or a lower owner, add that
+  SDK/runtime/command/provider capability first.
+
+Background-task implication:
+
+The future background task switcher must consume an SDK-owned execution workspace/read model. It
+must not build a private CLI task registry, infer lifecycle from raw runtime events inside React
+components, or decide completed-task retention independently from SDK/runtime policy.
+
+Mechanical guard candidates:
+
+- Extend command-layering or a new architecture scan to flag new CLI-owned background task registry
+  classes, lifecycle transition helpers, or command behavior under `packages/agent-cli/src/ui`.
+- Flag React/Ink components that import runtime task transition helpers directly instead of using
+  SDK projection APIs once those APIs exist.
+- Require package SPEC and architecture-map updates when a CLI PR introduces new non-UI behavior.

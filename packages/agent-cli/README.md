@@ -1,10 +1,25 @@
+**Language:** [English](README.md) | [한국어](README.ko.md)
+
 # @robota-sdk/agent-cli
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
 
-## Installation
+## Prerequisites
 
-Requires Node.js 22+.
+Node.js **22 or higher** is required.
+
+```bash
+node --version  # Must output v22.x.x or higher
+```
+
+If your version is below 22, upgrade using [nvm](https://github.com/nvm-sh/nvm):
+
+```bash
+nvm install 22
+nvm use 22
+```
+
+## Installation
 
 ```bash
 # Global install

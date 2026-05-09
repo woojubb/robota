@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { listWorkspaceScopes, pathExists, readJson, readText } from './shared.mjs';
+import { listWorkspaceScopes, pathExists, readText } from './shared.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
 const AGENTS_PATH = path.join(WORKSPACE_ROOT, 'AGENTS.md');
@@ -97,7 +97,7 @@ async function checkSpecQuality(findings) {
     }
 
     const missingSections = SPEC_REQUIRED_SECTIONS.filter(
-      (required) => !sections.some((section) => section.includes(required))
+      (required) => !sections.some((section) => section.includes(required)),
     );
 
     if (missingSections.length > 0) {
@@ -145,10 +145,14 @@ async function checkForbiddenTerms(findings) {
       continue;
     }
 
-    const result = spawnSync('grep', ['-rl', '-E', 'main agent|sub-agent|parent-agent|child-agent', '--include=*.ts', srcDir], {
-      cwd: WORKSPACE_ROOT,
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      'grep',
+      ['-rl', '-E', 'main agent|sub-agent|parent-agent|child-agent', '--include=*.ts', srcDir],
+      {
+        cwd: WORKSPACE_ROOT,
+        encoding: 'utf8',
+      },
+    );
 
     if (result.status === 0 && result.stdout.trim().length > 0) {
       const files = result.stdout.trim().split(/\r?\n/);
@@ -169,63 +173,38 @@ async function checkForbiddenTerms(findings) {
   }
 }
 
-async function checkDependencyDirection(findings) {
-  const scopes = await listWorkspaceScopes();
-  const dagScopes = scopes.filter((scope) => scope.relativeDir.startsWith('packages/dag-') && scope.shortName !== 'dag-core');
-
-  for (const scope of dagScopes) {
-    const pkgJsonPath = path.join(WORKSPACE_ROOT, scope.relativeDir, 'package.json');
-    if (!(await pathExists(pkgJsonPath))) {
-      continue;
-    }
-
-    const pkgJson = await readJson(pkgJsonPath);
-    const allDeps = {
-      ...pkgJson.dependencies,
-      ...pkgJson.devDependencies,
-      ...pkgJson.peerDependencies,
-    };
-
-    for (const depName of Object.keys(allDeps)) {
-      if (!depName.startsWith('@robota-sdk/dag-')) {
-        continue;
-      }
-
-      const depShortName = depName.replace('@robota-sdk/', '');
-      if (depShortName === 'dag-core') {
-        continue;
-      }
-
-      if (['dag-api', 'dag-designer', 'dag-scheduler', 'dag-orchestrator'].includes(scope.shortName)) {
-        continue;
-      }
-
-      findings.push({
-        file: path.join(scope.relativeDir, 'package.json'),
-        type: 'dag-sibling-dependency',
-        detail: `${scope.workspaceName} depends on sibling ${depName}. DAG packages should depend only on dag-core.`,
-      });
-    }
-  }
-}
-
 async function checkBoundaryValidation(findings) {
   // Scan for blind type assertions in production code (not tests)
   const patterns = [
-    { regex: 'as any', type: 'blind-assertion-any', detail: 'Blind `as any` assertion in production code.' },
-    { regex: 'as unknown as', type: 'blind-assertion-unknown', detail: 'Blind `as unknown as T` assertion in production code.' },
+    {
+      regex: 'as any',
+      type: 'blind-assertion-any',
+      detail: 'Blind `as any` assertion in production code.',
+    },
+    {
+      regex: 'as unknown as',
+      type: 'blind-assertion-unknown',
+      detail: 'Blind `as unknown as T` assertion in production code.',
+    },
   ];
 
   for (const { regex, type, detail } of patterns) {
-    const result = spawnSync('grep', [
-      '-rn', '--include=*.ts',
-      '--exclude-dir=node_modules', '--exclude-dir=dist',
-      '-l', regex,
-      'packages/',
-    ], {
-      cwd: WORKSPACE_ROOT,
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      'grep',
+      [
+        '-rn',
+        '--include=*.ts',
+        '--exclude-dir=node_modules',
+        '--exclude-dir=dist',
+        '-l',
+        regex,
+        'packages/',
+      ],
+      {
+        cwd: WORKSPACE_ROOT,
+        encoding: 'utf8',
+      },
+    );
 
     if (result.status !== 0 || !result.stdout.trim()) {
       continue;
@@ -233,7 +212,12 @@ async function checkBoundaryValidation(findings) {
 
     const files = result.stdout.trim().split(/\r?\n/);
     for (const file of files) {
-      if (file.includes('.test.') || file.includes('.spec.') || file.includes('__tests__') || file.includes('node_modules')) {
+      if (
+        file.includes('.test.') ||
+        file.includes('.spec.') ||
+        file.includes('__tests__') ||
+        file.includes('node_modules')
+      ) {
         continue;
       }
 
@@ -246,27 +230,34 @@ async function checkBoundaryValidation(findings) {
   }
 
   // Scan for silent fallback patterns in production code
-  const fallbackResult = spawnSync('grep', [
-    '-rn', '--include=*.ts',
-    '-l', '-E', 'catch\\s*\\{[^}]*\\}\\s*$|\\|\\|\\s*fallback|\\|\\|\\s*default',
-    'packages/',
-  ], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  const fallbackResult = spawnSync(
+    'grep',
+    [
+      '-rn',
+      '--include=*.ts',
+      '-l',
+      '-E',
+      'catch\\s*\\{[^}]*\\}\\s*$|\\|\\|\\s*fallback|\\|\\|\\s*default',
+      'packages/',
+    ],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   // Note: fallback detection is advisory since grep patterns are coarse
 }
 
 async function checkDynamicImports(findings) {
-  const result = spawnSync('grep', [
-    '-rn', '--include=*.ts',
-    '-E', 'await import\\(|= import\\(',
-    'packages/',
-  ], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'grep',
+    ['-rn', '--include=*.ts', '-E', 'await import\\(|= import\\(', 'packages/'],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (result.status !== 0 || !result.stdout.trim()) {
     return;
@@ -335,7 +326,6 @@ async function main() {
     checkSpecQuality(findings),
     checkUnregisteredSkills(findings),
     checkForbiddenTerms(findings),
-    checkDependencyDirection(findings),
     checkBoundaryValidation(findings),
     checkDynamicImports(findings),
   ]);
@@ -383,7 +373,9 @@ async function main() {
     await fs.writeFile(targetPath, `${JSON.stringify(reportPayload, null, 2)}\n`, 'utf8');
 
     const relativePath = path.relative(WORKSPACE_ROOT, targetPath);
-    process.stdout.write(`\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`);
+    process.stdout.write(
+      `\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`,
+    );
   }
 }
 

@@ -75,6 +75,15 @@ For parallel delegation, `/agent parallel ...` is the same-turn orchestration pa
 
 When the user enters `/agent run <natural-language prompt>`, the first unflagged token is treated as an agent type only if it matches an available agent definition or was supplied through `--agent`/`--type`. Otherwise the whole phrase remains the prompt and the command defaults to `general-purpose`. This keeps arbitrary natural-language prompts from being misread as unknown agent names.
 
+## Background Work State Relationship
+
+Agent jobs created by this command must appear through the shared background work state contract in
+[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+This package may request SDK agent job APIs and return task or group ids, but lifecycle, grouping,
+origin projection, switchable entry state, retention, archive, and clear behavior remain owned by
+SDK/runtime contracts. `/agent open` may ask the host to focus an SDK-projected entry when the host
+supports it; it must not write directly to CLI UI state.
+
 ## Class Contract Registry
 
 | Class/Function             | Implements/Uses                     | Notes                                     |

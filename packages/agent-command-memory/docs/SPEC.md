@@ -43,6 +43,10 @@ import { createMemoryCommandModule } from '@robota-sdk/agent-command-memory';
 - This package must not import SDK internal memory store files directly.
 - Project memory storage and session memory-event persistence stay behind SDK command memory APIs.
 - Slash invocation and model invocation must execute the same system command handler.
+- Future user-local memory inspection, delete, or disable subcommands must follow
+  [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). They
+  must consume SDK user-local memory APIs, disclose storage location and display/navigation effect,
+  and must not execute commands from remembered values.
 
 ## Verification
 

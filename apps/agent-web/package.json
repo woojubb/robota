@@ -4,21 +4,22 @@
   "private": true,
   "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 7071",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest --passWithNoTests",
-    "test:watch": "jest --watch --passWithNoTests",
-    "test:coverage": "jest --coverage --passWithNoTests",
-    "test:ci": "jest --ci --coverage --watchAll=false --passWithNoTests",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false",
     "analyze": "ANALYZE=true npm run build",
     "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-playground": "workspace:^",
+    "@robota-sdk/agent-web": "workspace:^",
     "next": "15.4.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"

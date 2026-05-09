@@ -51,6 +51,24 @@ export class PlaygroundExecutor {
     this.statisticsPlugin = createStatisticsPlugin();
     this.eventService = options.eventService;
     this.agentSession = new PlaygroundAgentSession(this.eventService);
+
+    if (serverUrl) {
+      const sessionId =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `session-${Date.now()}`;
+      this.websocketClient = new PlaygroundWebSocketClient(
+        serverUrl,
+        'playground-user',
+        sessionId,
+        authToken,
+      );
+      this.websocketClient.connect().catch((err) => {
+        this.logger.warn('WebSocket initial connect failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
   }
 
   async createAgent(config: IPlaygroundAgentConfig): Promise<void> {

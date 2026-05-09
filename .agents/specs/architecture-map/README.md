@@ -10,10 +10,10 @@ and LLM agents can read only the architecture slice relevant to the change.
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | [repository-overview.md](repository-overview.md)         | Package/app family placement, top-level map orientation                            |
 | [dependency-direction.md](dependency-direction.md)       | Cross-package dependency direction, layer ownership, target ownership rules        |
+| [capability-placement.md](capability-placement.md)       | Owner-first placement rules for new product-visible capabilities                   |
 | [agent-system.md](agent-system.md)                       | Agent product stack, playground stack, command/provider/runtime boundaries         |
 | [agent-cli-composition.md](agent-cli-composition.md)     | Agent CLI architecture router into focused files under `agent-cli/`                |
-| [dag-system.md](dag-system.md)                           | DAG orchestration packages, operational clients, controller/runtime split          |
-| [apps-and-deployment.md](apps-and-deployment.md)         | DAG deployment topology and docs deployment flow                                   |
+| [apps-and-deployment.md](apps-and-deployment.md)         | Agent app topology and docs deployment flow                                        |
 | [cross-cutting-contracts.md](cross-cutting-contracts.md) | Auth, credits, provider definitions, commands, events, sessions, storage contracts |
 | [architecture-lessons.md](architecture-lessons.md)       | Source-backed audit findings, resolved lessons, and update policy                  |
 
