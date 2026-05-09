@@ -150,6 +150,7 @@ function baseArgs(): IParsedCliArgs {
     disableUpdateCheck: false,
     web: false,
     webPort: 4242,
+    noOpen: false,
   };
 }
 
