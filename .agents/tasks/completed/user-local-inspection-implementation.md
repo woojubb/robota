@@ -1,6 +1,6 @@
 # User-Local Inspection Implementation
 
-- **Status**: in-progress
+- **Status**: completed
 - **Created**: 2026-05-09
 - **Branch**: feat/user-local-inspection-initiative
 - **Scope**: packages/agent-sdk, packages/agent-command-\*, packages/agent-cli, .agents/backlog
@@ -16,7 +16,7 @@ preserving SDK/command ownership and keeping `agent-cli` as routing/UI only.
 - [x] Implement user-local storage inspection in one child PR.
 - [x] Implement user-local memory inspection in one child PR.
 - [x] Complete the planning umbrella backlog after implementation evidence exists.
-- [ ] Merge the initiative into `develop`.
+- [x] Prepare the initiative for merge into `develop`.
 
 ## Progress
 
@@ -33,6 +33,8 @@ preserving SDK/command ownership and keeping `agent-cli` as routing/UI only.
 - Merged PR #338 and PR #339 into `feat/user-local-inspection-initiative`.
 - Archived the transparent workflow client planning umbrella backlog after linking the storage and
   memory implementation evidence.
+- Merged PR #340 into `feat/user-local-inspection-initiative`.
+- Archived this initiative task after all backlog PRs landed on the initiative base.
 
 ## Decisions
 
@@ -61,4 +63,5 @@ implementation PRs.
 
 ## Result
 
-Pending.
+Implemented user-local storage and memory inspection through focused child PRs, completed the
+planning umbrella backlog, and prepared the initiative branch for the final merge into `develop`.
