@@ -64,4 +64,4 @@ pnpm test
 # 출력: N tests passed
 ```
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #357 (test/agent-web-and-docs) — `apps/agent-web/src/lib/cache.test.ts` 8개 테스트 추가. TTL 내 값 반환, TTL 만료 후 undefined 반환, 수동 무효화 등 SimpleCache 핵심 동작 검증. `pnpm --filter agent-web test` 전체 통과.
