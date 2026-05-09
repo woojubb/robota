@@ -91,4 +91,92 @@ export interface IRunHooksResult {
 
 ## User Execution Test Scenarios
 
-Not applicable — internal hook runner behavior change.
+**Prerequisites:** `pnpm build` (agent-core dist must exist)
+
+**Setup:** No API key required. The demo script uses `@robota-sdk/agent-core` public API directly.
+
+**Scenarios:**
+
+1. `{ continue: false, stopReason: "..." }` → any hook event is blocked
+2. PreToolUse `{ hookSpecificOutput: { permissionDecision: "deny" } }` → tool is blocked
+3. `{ systemMessage: "..." }` → text is injected into stdout for AI context
+
+**Command:**
+
+```
+node scripts/examples/hook-json-response-demo.mjs
+```
+
+**Expected observable result:**
+
+```
+=== Scenario 1: { continue: false } blocks the hook event ===
+
+runHooks result: { "blocked": true, "reason": "Security policy violation", "stdout": "" }
+  blocked === true: YES ✓
+  reason contains stopReason text: YES ✓
+
+=== Scenario 2: permissionDecision: deny blocks PreToolUse ===
+
+runHooks result: { "blocked": true, ..., "permissionDecision": "deny" }
+  blocked === true: YES ✓
+  permissionDecision === "deny": YES ✓
+
+=== Scenario 3: systemMessage injected into stdout for AI context ===
+
+runHooks result: { "blocked": false, "stdout": "User has elevated permissions today." }
+  blocked === false: YES ✓
+  stdout contains systemMessage text: YES ✓
+
+PASS — HOOK-006 JSON response parsing is correctly implemented.
+```
+
+**Cleanup:** No state to clean up.
+
+## Execution Evidence (2026-05-09)
+
+**Command executed:**
+
+```
+node scripts/examples/hook-json-response-demo.mjs
+```
+
+**Actual output:**
+
+```
+=== Scenario 1: { continue: false } blocks the hook event ===
+
+runHooks result: {
+  "blocked": true,
+  "reason": "Security policy violation",
+  "stdout": ""
+}
+  blocked === true: YES ✓
+  reason contains stopReason text: YES ✓
+
+=== Scenario 2: permissionDecision: deny blocks PreToolUse ===
+
+runHooks result: {
+  "blocked": true,
+  "reason": "Blocked by hook (permissionDecision: deny)",
+  "stdout": "",
+  "permissionDecision": "deny"
+}
+  blocked === true: YES ✓
+  permissionDecision === "deny": YES ✓
+
+=== Scenario 3: systemMessage injected into stdout for AI context ===
+
+runHooks result: {
+  "blocked": false,
+  "stdout": "User has elevated permissions today."
+}
+  blocked === false: YES ✓
+  stdout contains systemMessage text: YES ✓
+
+PASS — HOOK-006 JSON response parsing is correctly implemented.
+```
+
+**Exit code:** 0
+
+**Observed result matches expected:** YES
