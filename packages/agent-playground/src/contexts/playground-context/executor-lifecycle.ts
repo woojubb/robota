@@ -25,7 +25,7 @@ export function useExecutorInitialization({
     if (stateExecutor || !defaultServerUrl) return;
     try {
       const eventService = new DefaultEventService();
-      const executor = new PlaygroundExecutor(defaultServerUrl, 'playground-token', {
+      const executor = new PlaygroundExecutor(defaultServerUrl, 'dev.playground.token', {
         logger,
         eventService,
       });
