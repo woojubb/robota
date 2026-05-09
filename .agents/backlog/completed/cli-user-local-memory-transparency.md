@@ -135,14 +135,17 @@ Create a design and contract PR before UI work:
 ### Scenario: Review What Robota May Remember Locally
 
 - Prerequisites: Open `.agents/specs/user-local-memory.md`.
-- User actions: Review allowed baseline memory, restricted memory, memory item model, inspection and
-  removal rules, and the project memory boundary.
-- Expected visible result: The user can confirm remembered values are limited to
-  display/navigation, are inspectable with storage location and source, can be deleted or disabled,
-  and cannot execute commands.
+- User actions:
+
+  ```bash
+  rg -n "Allowed remembered values must affect display or navigation only|remembered shell commands|commandExecutionEffect|deleteAvailable|disableAvailable|Existing `.robota/memory/` project memory" .agents/specs/user-local-memory.md
+  ```
+
+- Expected visible result: The command prints the display/navigation-only rule, restricted command
+  memory, command execution effect, delete/disable fields, and project-memory boundary.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. SDK storage APIs and CLI rendering remain follow-up
-  implementation work.
+- Agent verification: Direct command execution plus `pnpm harness:scan`. SDK storage APIs and CLI
+  rendering remain follow-up implementation work.
 
 ## Verification Plan
 

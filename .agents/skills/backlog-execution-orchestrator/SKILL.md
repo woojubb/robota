@@ -43,10 +43,12 @@ or implementation details.
    - why it matches repo rules, layering, and ownership;
    - affected scope;
    - test and verification plan;
-   - user test scenario plan;
+   - concrete user test scenario plan with exact commands or UI steps and expected observable
+     result;
    - decisions that require the user.
 3. Ensure the backlog or work unit includes a user-facing test scenario section when it changes
-   user-visible behavior, command behavior, workflow behavior, or user-facing docs.
+   user-visible behavior, command behavior, workflow behavior, or user-facing docs. The scenario
+   must be executable by command/tooling whenever feasible and must not be only an abstract review.
 4. If the recommendation is coherent with rules and architecture, proceed. If not, stop and ask.
 5. Use `branch-guard` before commits or branch changes.
 6. For multi-backlog initiatives:
@@ -57,9 +59,11 @@ or implementation details.
    - open the final initiative PR into `develop`;
    - do not auto-merge the final `develop` PR.
 7. Route detailed work to owner skills.
-8. Run or coherently review the user test scenario as a final gate. If it passes, include the
-   scenario in the user handoff as something the user can execute. If it fails, keep working or ask
-   for a decision.
+8. Execute the user test scenario as a final gate when command-line, file-system, HTTP, browser,
+   TUI, or local-script execution is available. If it passes, include the exact scenario and
+   expected result in the user handoff. Capture evidence for the gate; without evidence, the gate
+   does not pass. If it fails, keep working or ask for a decision. If the scenario is genuinely
+   manual-only, label it as such and explain why it could not be executed.
 9. Ensure every PR body records recommendation, rationale, implementation summary, tests, user
    scenario gate result, and residual risks.
 
@@ -87,7 +91,7 @@ Every child PR must include:
 - rationale against backlog intent and architecture;
 - implementation summary;
 - tests and verification commands;
-- user test scenario gate result;
+- user test scenario gate result, including exact command/UI steps and observed evidence;
 - residual risks or skipped checks;
 - next backlog or handoff note when relevant.
 
@@ -95,7 +99,11 @@ Every child PR must include:
 
 - No recommendation gate was presented.
 - A required user-facing backlog has no user test scenario section.
-- The user test scenario gate fails or cannot be coherently mapped to the completed behavior.
+- A user test scenario is abstract, lacks exact commands/UI steps, or lacks expected observable
+  results.
+- The user test scenario gate was not executed when it could reasonably be executed by the agent.
+- The user test scenario gate has no captured evidence.
+- The user test scenario gate fails or cannot be mapped to the completed behavior.
 - The recommendation conflicts with rules, ownership, architecture, or backlog intent.
 - The work combines unrelated backlogs in one PR.
 - A child branch targets `develop` instead of the initiative base branch during a multi-backlog

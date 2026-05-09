@@ -126,14 +126,17 @@ Create a design and contract PR before UI work:
 ### Scenario: Review The Switchable Background Work Contract
 
 - Prerequisites: Open `.agents/specs/background-work-state.md`.
-- User actions: Review the common entry model, state/retention rules, action contract, and ownership
-  table.
-- Expected visible result: The user can confirm that main conversation, shell/process jobs, agent
-  jobs, groups, and future skill-spawned work share one SDK-owned projection, while `agent-cli`
-  renders selection and details only.
+- User actions:
+
+  ```bash
+  rg -n "main conversation thread|local shell or process tasks|agent tasks|future skill-spawned|IExecutionWorkspaceEntry|must not decide task completion" .agents/specs/background-work-state.md
+  ```
+
+- Expected visible result: The command prints the supported entry types, current SDK projection
+  anchor, future skill-spawned support, and the CLI non-ownership rule for task completion.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. Runtime archive/clear and expanded TUI behavior remain
-  follow-up implementation work.
+- Agent verification: Direct command execution plus `pnpm harness:scan`. Runtime archive/clear and
+  expanded TUI behavior remain follow-up implementation work.
 
 ## Verification Plan
 

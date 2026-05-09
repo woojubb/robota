@@ -124,14 +124,17 @@ Create a design and contract PR before UI work:
 ### Scenario: Review What A User-Directed Process Must Disclose
 
 - Prerequisites: Open `.agents/specs/process-execution.md`.
-- User actions: Read the request contract, status contract, output contract, command source rules,
-  and ownership table.
-- Expected visible result: The user can confirm that a future process UI must show command origin,
-  cwd, environment summary, output, cancellation, timeout, exit result, and duration, while command
-  meaning remains owned by the user/repository.
+- User actions:
+
+  ```bash
+  rg -n "`command`|`origin`|`cwd`|`environmentSummary`|`timeoutMs`|`durationMs`|Commands may execute only from|remembered command history" .agents/specs/process-execution.md
+  ```
+
+- Expected visible result: The command prints the required process request/status fields, command
+  source rule, and the restriction against remembered command history.
 - Cleanup/reset: None.
-- Agent verification: Static/manual review. Runtime process execution remains follow-up
-  implementation work.
+- Agent verification: Direct command execution plus `pnpm harness:scan`. Runtime process execution
+  remains follow-up implementation work.
 
 ## Verification Plan
 
