@@ -123,20 +123,26 @@ Create a design and contract PR before UI work:
 
 ## User Test Scenarios
 
-### Scenario: Review The Switchable Background Work Contract
+Not applicable. This backlog produced a background-work state contract document and did not deliver
+runnable Robota product behavior. Product-surface scenarios must be added by follow-up
+implementation PRs that expose background switching through CLI/TUI/SDK behavior.
 
-- Prerequisites: Open `.agents/specs/background-work-state.md`.
-- User actions:
+## Process Verification Evidence
+
+### Verification: Switchable Background Work Contract Is Documented
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "main conversation thread|local shell or process tasks|agent tasks|future skill-spawned|IExecutionWorkspaceEntry|must not decide task completion" .agents/specs/background-work-state.md
   ```
 
-- Expected visible result: The command prints the supported entry types, current SDK projection
+- Expected result: The command prints the supported entry types, current SDK projection
   anchor, future skill-spawned support, and the CLI non-ownership rule for task completion.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`. Runtime archive/clear and
-  expanded TUI behavior remain follow-up implementation work.
+- Evidence: Executed as process verification for the contract document. Runtime archive/clear and
+  expanded TUI behavior remain follow-up implementation work, where product-surface user scenarios
+  must be added.
 
 ## Verification Plan
 

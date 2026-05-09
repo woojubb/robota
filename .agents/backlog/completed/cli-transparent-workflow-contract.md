@@ -130,19 +130,25 @@ Create a design and contract PR before UI work:
 
 ## User Test Scenarios
 
-### Scenario: Inspect Baseline Transparency Rules
+Not applicable. This backlog produced a cross-cutting contract document and did not deliver runnable
+Robota product behavior. Product-surface scenarios must be added by follow-up implementation PRs
+that expose the contract through CLI/TUI/SDK behavior.
 
-- Prerequisites: Open `.agents/specs/transparent-workflow.md`.
-- User actions:
+## Process Verification Evidence
+
+### Verification: Baseline Transparency Rules Are Documented
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "user-input|accepted-assistant-suggestion|Remembered commands are not a baseline command source|agent-cli.*must not define|Repository Independence" .agents/specs/transparent-workflow.md
   ```
 
-- Expected visible result: The command prints the allowed execution provenance values, remembered
+- Expected result: The command prints the allowed execution provenance values, remembered
   command exclusion, CLI non-ownership rule, and repository independence heading.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`.
+- Evidence: Executed as process verification for the contract document; no product-surface scenario
+  applies until implementation exposes the behavior.
 
 ## Verification Plan
 

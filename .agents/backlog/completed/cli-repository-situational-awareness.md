@@ -109,20 +109,26 @@ Create a design and contract PR before UI work:
 
 ## User Test Scenarios
 
-### Scenario: Review Passive Repository Context Boundaries
+Not applicable. This backlog produced a repository situational awareness contract document and did
+not deliver runnable Robota product behavior. Product-surface scenarios must be added by follow-up
+implementation PRs that expose repository context through CLI/TUI/SDK behavior.
 
-- Prerequisites: Open `.agents/specs/repository-situational-awareness.md`.
-- User actions:
+## Process Verification Evidence
+
+### Verification: Passive Repository Context Boundaries Are Documented
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "current `cwd`|repository root|dirty status summary|explicitly referenced documents|command discovery|must not list file paths|write repository-local state" .agents/specs/repository-situational-awareness.md
   ```
 
-- Expected visible result: The command prints allowed context items, command inference prohibition,
+- Expected result: The command prints allowed context items, command inference prohibition,
   file-listing restriction, and repository-write prohibition.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`. SDK projection APIs and
-  CLI rendering remain follow-up implementation work.
+- Evidence: Executed as process verification for the contract document. SDK projection APIs and CLI
+  rendering remain follow-up implementation work, where product-surface user scenarios must be
+  added.
 
 ## Verification Plan
 

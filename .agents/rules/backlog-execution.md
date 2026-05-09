@@ -15,7 +15,8 @@ The recommendation must include:
 - why it matches repository rules, layering, ownership, and architecture boundaries;
 - affected packages, docs, or commands;
 - the expected test and verification plan;
-- the expected user test scenario plan, separate from agent/CI verification;
+- the expected user test scenario plan when the backlog changes runnable user-facing behavior, or
+  the not-applicable reason when it does not;
 - any decisions that require the user instead of agent autonomy.
 
 If the recommendation is coherent with repository rules, layering, architecture, and the backlog
@@ -30,49 +31,78 @@ judgment, stop and ask the user for a decision.
   work unit must have its own recommendation gate.
 - Do not combine unrelated backlogs in one PR.
 - Every PR description must include the accepted recommendation, rationale, implementation summary,
-  tests run, user scenario gate result, and residual risks.
+  tests run, user scenario gate result or not-applicable reason, and residual risks.
 
 ## User Test Scenario Rule
 
-Every backlog that changes user-visible behavior, command behavior, workflow behavior, or
-documentation for such behavior must include a user-facing test scenario section before
-implementation starts.
+Every backlog that changes runnable user-facing behavior, command behavior, TUI/browser behavior, or
+workflow behavior must include a user-facing test scenario section before implementation starts.
 
 User test scenarios are separate from the agent's engineering test plan:
 
 - The engineering test plan covers unit, integration, type, harness, CI, build, and internal
   verification commands.
-- The user test scenario describes the exact command or UI interaction a user can run after the work
-  is complete to confirm the feature behaves as intended.
+- The user test scenario describes the exact product command, UI interaction, browser flow, TUI
+  flow, or public SDK/example flow a user can run after the work is implemented to confirm the
+  implemented code or delivered artifact behaves as intended.
+- A valid user test scenario must use a product surface. Product surfaces include the Robota CLI
+  command or local equivalent that invokes the same product binary, Robota TUI actions, Robota
+  browser UI flows, and public SDK/example usage for SDK-only features.
+- For `agent-cli` and command-package backlogs, the default user scenario surface is a Robota CLI or
+  TUI action, such as `robota ...` or the repository-local command that invokes the same CLI
+  entrypoint.
+- For code-changing backlogs, the user test scenario must exercise the implemented code path. A
+  documentation search, backlog review, or static text check may not be used as the user scenario
+  gate for code implementation work.
+- For documentation-only, rule-only, skill-only, backlog-only, or governance-only changes that do
+  not deliver runnable user-facing behavior, do not invent a user test scenario. Mark the user test
+  scenario as not applicable and record verification evidence in the engineering test plan instead.
+- If documentation changes describe a user procedure, any user test scenario must execute the
+  documented procedure itself. It must not inspect the document to prove the document is well
+  written.
 
 Each user test scenario must include:
 
-- prerequisite state or sample setup;
+- prerequisite state, sample setup, fixture data, server startup, environment variables, or other
+  test environment requirements;
 - exact command lines, UI actions, or browser/TUI interactions in order;
 - expected observable result, including exit code, output substring, visible UI state, or file
   change;
 - any cleanup or reset step;
 - whether the agent can verify the scenario directly, partially, or only by manual UI review;
-- the concrete evidence the agent captured when running or reviewing the scenario.
+- the evidence field that must be updated after implementation when the agent runs the scenario.
+
+The planned user test scenario is part of the backlog before implementation starts. If the scenario
+requires a test fixture, demo command, local server, test project, seed data, or other environment
+that does not exist yet, the agent must either build that environment as part of the backlog,
+propose it in the recommendation gate, or ask the user for a decision before proceeding. A scenario
+that cannot realistically be run by the user after completion is not acceptable.
 
 Before declaring a backlog or work unit complete, the agent must execute the user test scenario as a
 final gate whenever the scenario is command-line, file-system, HTTP, browser, or otherwise available
 from the workspace. The gate passes only when the observed result matches the expected observable
-result.
+result, and only when the scenario was run against the completed implementation or delivered
+artifact.
 
 Evidence is mandatory. A user scenario gate without captured evidence does not pass. Evidence may be
 command output, exit code, screenshot, log excerpt, rendered UI observation, changed-file diff, or
-another concrete artifact that proves the expected observable result occurred.
+another concrete artifact that proves the expected observable result occurred. After running the
+scenario, the agent must update the backlog item with the observed evidence before the backlog can be
+considered complete.
 
 Static review may not be used as a passing user scenario gate when an executable command, browser
 flow, TUI flow, or local script can reasonably be run. If a scenario is genuinely manual-only, it
 must be labeled `manual-only`, explain why it cannot be executed by the agent, and the PR must not
 claim it passed by execution.
 
+Document inspection, rule inspection, backlog inspection, source inspection, `rg` checks, harness
+commands, unit tests, and other internal repository checks are engineering or governance
+verification only. They must not be presented to the user as a user test scenario.
+
 When the user scenario gate passes, the final user-facing response must tell the user that the
-scenario is available to run, provide the concrete command or UI steps, and state the expected
-result. If the scenario gate does not pass, the work is not complete and the agent must fix the
-issue or ask for a decision.
+scenario was verified, provide the concrete command or UI steps the user can run, state the expected
+result, and summarize the evidence already observed by the agent. If the scenario gate does not
+pass, the work is not complete and the agent must fix the issue or ask for a decision.
 
 ## Base Branch Workflow
 
@@ -114,15 +144,25 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 ## Stop Conditions
 
 - No recommendation gate was presented for the backlog or work unit.
-- A required user-facing backlog lacks a user test scenario section.
+- A required runnable user-facing backlog lacks a user test scenario section.
 - A user test scenario is abstract, lacks exact commands/UI steps, or lacks expected observable
   results.
+- A code-changing backlog uses backlog text review, documentation search, or other static review as
+  the user scenario gate instead of exercising the implemented code path.
+- A user scenario uses internal repository verification instead of a product surface such as Robota
+  CLI, TUI, browser UI, or public SDK/example usage.
+- A documentation-only, rule-only, skill-only, backlog-only, or governance-only change presents
+  document inspection as a user test scenario.
+- The required test environment for the user scenario is missing and was neither built, proposed, nor
+  decided with the user.
 - The user scenario gate was not executed when it could reasonably be executed by the agent.
 - The user scenario gate has no captured evidence.
+- The backlog item was not updated with the observed user scenario evidence after execution.
 - The user scenario gate fails or cannot be mapped to the completed behavior.
 - The recommendation conflicts with repo rules, layering, package ownership, or backlog intent.
 - The work would combine unrelated backlogs into one PR.
 - The final initiative PR would be auto-merged into `develop`.
+- A final user response presents engineering or governance verification as a user test scenario.
 - An orchestration skill duplicates implementation details from invoked skills instead of only
   coordinating them.
 
@@ -130,13 +170,17 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 
 - [ ] Recommendation gate presented before work begins.
 - [ ] Recommendation includes rationale, ownership, affected scope, engineering tests, user
-      scenarios, and open decisions.
-- [ ] Backlog includes user test scenarios when behavior is user-visible.
+      scenarios or not-applicable reason, and open decisions.
+- [ ] Backlog includes user test scenarios only when runnable user-facing behavior changes.
 - [ ] PR scope maps to exactly one backlog or explicitly split work unit.
-- [ ] User scenario includes exact commands or UI steps and expected observable results.
-- [ ] User scenario gate was executed by the agent when executable.
+- [ ] User scenario targets the completed implementation or delivered artifact, not backlog quality.
+- [ ] User scenario includes exact commands or UI steps, required environment setup, and expected
+      observable results.
+- [ ] Missing user scenario test environment was built, proposed, or explicitly decided.
+- [ ] User scenario gate was executed by the agent against the completed work when executable.
 - [ ] User scenario gate includes captured evidence; no evidence means no pass.
+- [ ] Backlog item records the observed user scenario evidence after execution.
 - [ ] Child PR targets the initiative base branch.
 - [ ] Final initiative PR targets `develop` and is not auto-merged.
 - [ ] PR description records the accepted recommendation, verification evidence, and user scenario
-      gate result.
+      gate result or not-applicable reason.
