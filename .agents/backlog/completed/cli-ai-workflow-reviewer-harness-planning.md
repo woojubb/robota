@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -26,6 +26,19 @@ The core question is:
 
 This umbrella backlog splits the work into focused backlog documents that keep the same backlog
 shape and can later become independent implementation PRs.
+
+## Completion Summary
+
+Completed on 2026-05-09 as the planning umbrella for the user-local inspection initiative.
+
+Implementation evidence from this initiative is recorded in:
+
+- [User-local storage inspection implementation](user-local-storage-inspection-implementation.md)
+- [User-local memory inspection implementation](user-local-memory-inspection-implementation.md)
+
+The storage and memory implementation backlogs include concrete Robota CLI User Execution Test
+Scenarios, expected observable results, and captured execution evidence. This umbrella item remains
+planning-only and therefore does not define its own product-surface scenario.
 
 ## Non-Negotiable Product Principles
 
@@ -175,14 +188,14 @@ Each implementation PR should update the owning package specs before changing `a
 
 ## Acceptance Criteria
 
-- [ ] The umbrella backlog links every focused backlog item.
-- [ ] The planning document cites the source article and prior-art docs.
-- [ ] The reviewer profile is inspired by the article but does not impersonate a named person.
-- [ ] The plan clearly states that user repos own their harness and must not depend on Robota.
-- [ ] The plan clearly separates CLI UI from SDK/runtime ownership.
-- [ ] The plan forbids automatic repo injection of Robota manifests, hooks, scripts, package
+- [x] The umbrella backlog links every focused backlog item.
+- [x] The planning document cites the source article and prior-art docs.
+- [x] The reviewer profile is inspired by the article but does not impersonate a named person.
+- [x] The plan clearly states that user repos own their harness and must not depend on Robota.
+- [x] The plan clearly separates CLI UI from SDK/runtime ownership.
+- [x] The plan forbids automatic repo injection of Robota manifests, hooks, scripts, package
       dependencies, or CI changes.
-- [ ] The plan forbids baseline command discovery, evidence judgment, failure diagnosis, repair
+- [x] The plan forbids baseline command discovery, evidence judgment, failure diagnosis, repair
       loops, review gates, readiness scoring, and hook ownership.
 
 ## Test Plan
@@ -204,21 +217,27 @@ the CLI/TUI/SDK behavior.
 
 ## Process Verification Evidence
 
-### Verification: Split Workflow Plan Is Linked
+### Verification: Split Workflow Plan Is Linked And Archived
 
 - Prerequisites: Run from the repository root.
 - Verification commands:
 
   ```bash
-  rg -n "completed/cli-transparent-workflow-contract|completed/cli-repository-situational-awareness|Do not require a Robota manifest|baseline command discovery|SDK/runtime ownership" .agents/backlog/cli-ai-workflow-reviewer-harness-planning.md
-  rg -n "Transparent Repo-Agnostic Workflow Client Planning" .agents/backlog/README.md
+  test -f .agents/backlog/completed/cli-ai-workflow-reviewer-harness-planning.md
+  rg -n "completed/cli-transparent-workflow-contract|completed/cli-repository-situational-awareness|Do not require a Robota manifest|baseline command discovery|SDK/runtime ownership" .agents/backlog/completed/cli-ai-workflow-reviewer-harness-planning.md
+  rg -n "user-local-storage-inspection-implementation|user-local-memory-inspection-implementation|Not applicable" .agents/backlog/completed/cli-ai-workflow-reviewer-harness-planning.md
+  ! rg -q "Transparent Repo-Agnostic Workflow Client Planning" .agents/backlog/README.md
   ```
 
 - Expected result: The first command prints the split backlog links, the no-Robota-manifest
-  rule, the command-discovery restriction, and SDK/runtime ownership text. The second command shows
-  the umbrella backlog remains listed in the backlog index.
-- Evidence: Executed as process verification during planning; no product-surface scenario applies
-  until implementation backlogs add runnable behavior.
+  rule, the command-discovery restriction, and SDK/runtime ownership text. The implementation
+  evidence command prints links to the storage and memory implementation backlogs. The README check
+  exits successfully because the completed umbrella backlog is no longer listed as active work.
+- Evidence: Executed on 2026-05-09 from `docs/complete-workflow-client-planning`. The link/archive
+  verification command exited 0 and printed the split backlog links, implementation evidence links,
+  `Not applicable` scenario marker, no-Robota-manifest rule, command-discovery restriction, and
+  SDK/runtime ownership text. `pnpm harness:scan` exited 0; the only scan output requiring context
+  was the existing file-size warning list and non-blocking app/internal `dist/` warnings.
 
 ## Verification Plan
 
