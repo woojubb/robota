@@ -29,6 +29,8 @@ export interface IRunContext {
   model: string;
   /** Current permission mode — passed to all hook inputs as permission_mode */
   permissionMode?: string;
+  /** Absolute path to session transcript file — passed to all hook inputs as transcript_path */
+  transcriptPath?: string;
   robota: Robota;
   aiProvider: IAIProvider;
   contextTracker: ContextWindowTracker;
@@ -89,6 +91,7 @@ export async function executeRun(
       user_message: rawInput ?? message,
       prompt: rawInput ?? message,
       ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
+      ...(ctx.transcriptPath !== undefined && { transcript_path: ctx.transcriptPath }),
       env: {
         CLAUDE_PROJECT_DIR: ctx.cwd,
         CLAUDE_SESSION_ID: ctx.sessionId,
@@ -169,6 +172,7 @@ export async function executeRun(
         reason: error instanceof Error ? error.message : String(error),
         stop_hook_active: false,
         ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
+        ...(ctx.transcriptPath !== undefined && { transcript_path: ctx.transcriptPath }),
         env: {
           CLAUDE_PROJECT_DIR: ctx.cwd,
           CLAUDE_SESSION_ID: ctx.sessionId,
@@ -227,6 +231,7 @@ export async function executeRun(
       last_assistant_message: response,
       stop_hook_active: false,
       ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
+      ...(ctx.transcriptPath !== undefined && { transcript_path: ctx.transcriptPath }),
       env: {
         CLAUDE_PROJECT_DIR: ctx.cwd,
         CLAUDE_SESSION_ID: ctx.sessionId,
