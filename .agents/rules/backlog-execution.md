@@ -95,6 +95,19 @@ changed-file diff, or another concrete artifact that proves the expected observa
 After running the scenario, the agent must update the backlog item with the observed evidence before
 the backlog can be considered complete.
 
+**Done gate.** A backlog item with a `## User Execution Test Scenarios` section must not have its
+status set to `done` (or equivalent completion marker) until all of the following are true:
+
+1. The scenario has been executed — not reviewed, not inspected, not summarized.
+2. Concrete evidence (command output, exit code, screenshot, log excerpt, diff, or another artifact)
+   has been recorded in the backlog file under the evidence field of the scenario.
+3. The observed result matches the expected observable result stated in the scenario.
+
+Setting `status: done` without meeting all three conditions is a process violation. If the scenario
+cannot be executed (genuinely manual-only), the item must be labeled `manual-only` with the reason
+before the status is set to `done`, and the PR description must not claim the gate passed by
+execution.
+
 Static review may not be used as a passing user execution test scenario gate when an executable
 command, browser flow, TUI flow, or local script can reasonably be run. If a scenario is genuinely
 manual-only, it must be labeled `manual-only`, explain why it cannot be executed by the agent, and
@@ -167,6 +180,8 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
   agent.
 - The user execution test scenario gate has no captured evidence.
 - The backlog item was not updated with the observed user execution test scenario evidence after execution.
+- The backlog item status was set to `done` before evidence was recorded and the observed result
+  confirmed (done-gate violation).
 - The user execution test scenario gate fails or cannot be mapped to the completed behavior.
 - The recommendation conflicts with repo rules, layering, package ownership, or backlog intent.
 - The work would combine unrelated backlogs into one PR.
@@ -194,6 +209,8 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
       executable.
 - [ ] User execution test scenario gate includes captured evidence; no evidence means no pass.
 - [ ] Backlog item records the observed user execution test scenario evidence after execution.
+- [ ] `status: done` (or equivalent) was not set until evidence was recorded and the observed result
+      matched the expected observable result — or the scenario was labeled `manual-only` with reason.
 - [ ] Child PR targets the initiative base branch.
 - [ ] Final initiative PR targets `develop` and is not auto-merged.
 - [ ] PR description records the accepted recommendation, verification evidence, and user execution test scenario

@@ -65,4 +65,96 @@ if (hookResult.blocked) {
 
 ## User Execution Test Scenarios
 
-실제 훅 스크립트를 연결하고 차단 시나리오를 테스트하여 AI 재계획 동작 확인.
+**Prerequisites:** `pnpm build` (agent-core dist must exist)
+
+**Setup:** No API key required. The demo script uses `@robota-sdk/agent-core` public API directly.
+
+**Scenario:** Configure a PreToolUse hook that exits with code 2 (block). Verify the tool result
+returned to the AI is `{ blocked: true, reason: "..." }` (new CC-compatible format), not the old
+`{ success: false, error: "Blocked by hook: ..." }`.
+
+**Command:**
+
+```
+node scripts/examples/hook-block-demo.mjs
+```
+
+**Expected observable result:**
+
+```
+runHooks result:
+{
+  "blocked": true,
+  "reason": "Bash tool blocked: dangerous command detected\n",
+  "stdout": ""
+}
+
+Tool result returned to AI (IToolResult.data parsed):
+{
+  "blocked": true,
+  "reason": "Bash tool blocked: dangerous command detected\n"
+}
+
+Verification:
+  New format { blocked: true, reason } present: YES ✓
+  Old format { error, output } absent:          YES ✓
+  result.success === true (history-safe):       YES ✓
+
+PASS — HOOK-003 implementation is correct.
+```
+
+**Cleanup:** No state to clean up.
+
+## Execution Evidence (2026-05-09)
+
+**Command executed:**
+
+```
+node scripts/examples/hook-block-demo.mjs
+```
+
+**Actual output:**
+
+```
+=== HOOK-003 User Execution Test Scenario ===
+
+Hook input (sent to hook scripts via stdin):
+{
+  "session_id": "demo-session-001",
+  "cwd": "/Users/jungyoun/Documents/dev/robota",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -rf /"
+  },
+  "permission_mode": "default"
+}
+
+runHooks result:
+{
+  "blocked": true,
+  "reason": "Bash tool blocked: dangerous command detected\n",
+  "stdout": ""
+}
+
+Tool result returned to AI (IToolResult.data parsed):
+{
+  "blocked": true,
+  "reason": "Bash tool blocked: dangerous command detected\n"
+}
+
+Verification:
+  New format { blocked: true, reason } present: YES ✓
+  Old format { error, output } absent:          YES ✓
+  result.success === true (history-safe):       YES ✓
+
+PASS — HOOK-003 implementation is correct.
+```
+
+**Exit code:** 0
+
+**Observed result matches expected:** YES
+
+**Note on unit tests (Test Plan):** `packages/agent-sessions/src/__tests__/tool-hook-helpers.test.ts`
+(10 tests) was also added as engineering verification. Unit tests belong in Test Plan, not User
+Execution Test Scenarios — recorded here for completeness only.
