@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -112,12 +112,12 @@ Create a design and contract PR before UI work:
 
 ## Acceptance Criteria
 
-- [ ] The contract defines action provenance, named states, memory inspection, and UI disclosure.
-- [ ] The contract separates CLI UI from SDK/runtime ownership.
-- [ ] The contract forbids hidden baseline automation and command inference.
-- [ ] The contract forbids remembered commands from becoming a baseline command source.
-- [ ] The contract requires user-impacting state and remembered values to be inspectable.
-- [ ] The contract does not require any repo-side Robota file or dependency.
+- [x] The contract defines action provenance, named states, memory inspection, and UI disclosure.
+- [x] The contract separates CLI UI from SDK/runtime ownership.
+- [x] The contract forbids hidden baseline automation and command inference.
+- [x] The contract forbids remembered commands from becoming a baseline command source.
+- [x] The contract requires user-impacting state and remembered values to be inspectable.
+- [x] The contract does not require any repo-side Robota file or dependency.
 
 ## Test Plan
 
@@ -134,3 +134,16 @@ Create a design and contract PR before UI work:
 - Document authority scan must pass when this backlog is later promoted.
 - Implementation PRs must add contract tests before TUI screens.
 - Tests must include repos without Robota files to prove the client remains repo-agnostic.
+
+## Result
+
+Completed by adding `.agents/specs/transparent-workflow.md` and linking package ownership from
+`agent-runtime`, `agent-sdk`, and `agent-cli` SPEC files.
+
+- The contract establishes action provenance, state vocabulary, memory inspection fields, UI
+  disclosure, and repository independence rules.
+- `agent-cli` remains a renderer of SDK/runtime projections.
+- Runtime compatibility for current `waiting_permission` status is documented as a projection to
+  user-facing `waiting-for-input`.
+- Code-level provenance, state-machine, memory projection, and CLI rendering tests are deferred to
+  the implementation backlogs that add those APIs.

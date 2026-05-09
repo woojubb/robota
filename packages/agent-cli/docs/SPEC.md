@@ -23,6 +23,9 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own `CommandRegistry`, `ICommand`, or `ICommandSource` — command registry contracts are imported from `@robota-sdk/agent-sdk`; skill command metadata is provided by `@robota-sdk/agent-command-skills`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
+- Does NOT own transparent workflow action provenance, shared state vocabulary, memory inspection
+  contracts, command execution eligibility, or retention policy — these are owned by SDK/runtime
+  contracts described in the cross-cutting transparent workflow spec
 - Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
@@ -58,6 +61,15 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 3. Creates the provider instance by calling `definition.createProvider(config)`.
 4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files. Session persistence is passed only through SDK-owned facade types.
 5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+
+### Transparent Workflow Boundary
+
+Transparent workflow rules are defined in
+[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
+The CLI may render provenance, lifecycle state, memory/preference inspection, and disclosure fields
+only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
+workspace entry, but it must not infer command origin, replay remembered commands, define state
+transitions, choose retention policy, or inspect/delete memory outside SDK/command APIs.
 
 ### Provider Profile Creation
 
@@ -332,6 +344,7 @@ The CLI TUI renders structured session/runtime data. It must not parse assistant
 | Live tool execution          | `StreamingIndicator`                  | SDK tool state events                  | Show current tool state using the shared status marker set                        |
 | Background work              | `BackgroundTaskPanel`                 | SDK execution workspace entries        | Show SDK default-visible background task entries as a compact one-level tree      |
 | Execution workspace switcher | `ExecutionWorkspaceSwitcher`          | SDK execution workspace snapshot       | Switch between main-thread, background task, and group entries without mutation   |
+| Transparent workflow facts   | TUI surfaces                          | SDK/runtime projections                | Render provenance, state, memory, and disclosure fields without owning semantics  |
 | Status/activity              | `StatusBar` and `SessionStatusBar`    | session state, context state, settings | Show current activity and session metadata in the primary scan path               |
 | Diff blocks                  | `ToolDiffBlock` and markdown renderer | structured diff lines                  | Render diff bodies through fenced `diff` markdown; keep metadata outside the body |
 | Setup/permission prompts     | prompt components                     | CLI flow descriptors                   | Render generic interactions only; prompt semantics remain in flow modules         |
@@ -1311,6 +1324,9 @@ CLI may filter the always-visible compact panel to `visibility: default` backgro
 but it must not invent a separate retention timeout, close/dismiss policy, unread policy, or group
 completion rule. Explicit controls such as cancel, close, wait, send, or read-log remain SDK/command
 APIs and are not implied by view selection.
+
+When rendering user-facing workflow states, the CLI follows the transparent workflow vocabulary. It
+may display a debug/raw runtime status only in an explicitly labeled diagnostic context.
 
 ### AI Workflow Control Surface
 
