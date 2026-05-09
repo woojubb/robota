@@ -148,6 +148,8 @@ function baseArgs(): IParsedCliArgs {
     settingsScope: undefined,
     checkUpdate: false,
     disableUpdateCheck: false,
+    web: false,
+    webPort: 4242,
   };
 }
 

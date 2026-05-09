@@ -56,6 +56,7 @@ interface IProps {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
+  webPort?: number;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -118,6 +119,7 @@ function AppInner(
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
     commandHostAdapters: props.commandHostAdapters,
+    webPort: props.webPort,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);

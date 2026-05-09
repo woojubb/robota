@@ -37,6 +37,7 @@ export interface IRenderOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
+  webPort?: number;
 }
 
 export function renderApp(options: IRenderOptions): void {
