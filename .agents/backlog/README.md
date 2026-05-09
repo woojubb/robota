@@ -11,4 +11,5 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 
 ## Items
 
+- [Backlog Execution Orchestrator Skill](backlog-execution-orchestrator-skill.md)
 - [CLI AI Workflow Reviewer and Harness Planning](cli-ai-workflow-reviewer-harness-planning.md)
