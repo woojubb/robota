@@ -98,7 +98,13 @@ export class PermissionEnforcer {
           args: parameters as Record<string, string | number | boolean | object>,
         });
 
-        const hookInput = buildHookInput(enforcer.sessionId, enforcer.cwd, toolName, parameters);
+        const hookInput = buildHookInput(
+          enforcer.sessionId,
+          enforcer.cwd,
+          toolName,
+          parameters,
+          enforcer.getPermissionMode(),
+        );
 
         const preResult = await runPreToolHook(
           enforcer.config.hooks,

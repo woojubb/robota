@@ -27,6 +27,8 @@ export interface IRunContext {
   sessionId: string;
   cwd: string;
   model: string;
+  /** Current permission mode — passed to all hook inputs as permission_mode */
+  permissionMode?: string;
   robota: Robota;
   aiProvider: IAIProvider;
   contextTracker: ContextWindowTracker;
@@ -86,6 +88,7 @@ export async function executeRun(
       hook_event_name: 'UserPromptSubmit',
       user_message: rawInput ?? message,
       prompt: rawInput ?? message,
+      ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
       env: {
         CLAUDE_PROJECT_DIR: ctx.cwd,
         CLAUDE_SESSION_ID: ctx.sessionId,
@@ -165,6 +168,7 @@ export async function executeRun(
         hook_event_name: 'StopFailure',
         reason: error instanceof Error ? error.message : String(error),
         stop_hook_active: false,
+        ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
         env: {
           CLAUDE_PROJECT_DIR: ctx.cwd,
           CLAUDE_SESSION_ID: ctx.sessionId,
@@ -222,6 +226,7 @@ export async function executeRun(
       response: response.substring(0, 500),
       last_assistant_message: response,
       stop_hook_active: false,
+      ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
       env: {
         CLAUDE_PROJECT_DIR: ctx.cwd,
         CLAUDE_SESSION_ID: ctx.sessionId,

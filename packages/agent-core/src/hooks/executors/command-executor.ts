@@ -15,8 +15,8 @@ import type {
   IHookTypeExecutor,
 } from '../types.js';
 
-/** Default timeout in seconds */
-const DEFAULT_TIMEOUT_SECONDS = 10;
+/** Default timeout in seconds — matches Claude Code's 600s default */
+const DEFAULT_TIMEOUT_SECONDS = 600;
 
 export class CommandExecutor implements IHookTypeExecutor {
   readonly type = 'command' as const;

@@ -108,6 +108,8 @@ export interface IHookInput {
   agent_type?: string;
   /** Subagent transcript path when available (SubagentStop only) */
   agent_transcript_path?: string;
+  /** Claude Code permission mode at time of event (e.g. "default", "plan", "acceptEdits", "bypassPermissions") */
+  permission_mode?: string;
   /** Additional environment variables to pass to hook child processes */
   env?: Record<string, string>;
 }
