@@ -93,4 +93,4 @@ pnpm test
 # 출력: N tests passed (0 failed)
 ```
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #358 (test/agent-server-integration) — 19개 테스트 추가: `apps/agent-server/src/__tests__/app.test.ts` 16개 (HTTP 라우트 및 미들웨어), `apps/agent-server/src/__tests__/websocket-server.test.ts` 3개 (WebSocket 인증 및 interval 정리). `pnpm --filter @robota-sdk/agent-server test` 전체 통과.
