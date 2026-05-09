@@ -1,6 +1,6 @@
 ---
 title: 'CLI-002: --system-prompt 플래그 미연결 처리 (숨기기 또는 구현)'
-status: todo
+status: done
 created: 2026-05-10
 priority: low
 urgency: later
@@ -80,4 +80,4 @@ robota --system-prompt "Always respond in uppercase"
 
 **Cleanup:** 세션 종료 (`/exit`)
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #356 (fix/agent-cli-prelaunch) — `packages/agent-cli/src/cli.ts`에 `--system-prompt` 미구현 경고 추가. 플래그 사용 시 "(미지원)" 경고 메시지 출력하여 사용자 혼란 방지.

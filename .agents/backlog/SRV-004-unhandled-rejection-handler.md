@@ -1,6 +1,6 @@
 ---
 title: 'SRV-004: agent-server unhandledRejection 프로세스 핸들러 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon
@@ -54,4 +54,4 @@ Not applicable. 프로세스 레벨 에러 핸들러 추가는 사용자가 CLI/
 # 실제 미처리 rejection 발생 시 프로세스가 종료되지 않고 로그 출력
 ```
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #354 (fix/agent-server-prelaunch) — `apps/agent-server/src/server.ts`에 `unhandledRejection`, `uncaughtException` 핸들러 추가. unhandledRejection은 로깅 후 서버 계속 실행, uncaughtException은 로깅 후 process.exit(1).

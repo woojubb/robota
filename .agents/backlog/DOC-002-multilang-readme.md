@@ -1,6 +1,6 @@
 ---
 title: 'DOC-002: 한국어 README 및 다국어 지원 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: later
