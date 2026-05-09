@@ -15,6 +15,12 @@ const WORKSPACE_ROOT = process.cwd();
 const AGENTS_PATH = path.join(WORKSPACE_ROOT, 'AGENTS.md');
 const ROOT_PACKAGE_JSON_PATH = path.join(WORKSPACE_ROOT, 'package.json');
 const SKILLS_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'skills');
+const GUIDANCE_PHRASE_SCAN_TARGETS = [
+  'AGENTS.md',
+  '.agents/rules',
+  '.agents/skills',
+  '.agents/backlog',
+];
 
 const PHRASE_CHECKS = [
   {
@@ -42,6 +48,32 @@ const PHRASE_CHECKS = [
     id: 'unchecked-example-cast',
     pattern: /obj as ITaskRunPayload/,
     message: 'Boundary examples must not teach unchecked casts into owned payload types.',
+  },
+];
+
+const USER_WORD = 'user';
+const EXECUTION_WORD = 'execution';
+const TEST_WORD = 'test';
+const SCENARIO_WORD = 'scenario';
+
+const GUIDANCE_PHRASE_CHECKS = [
+  {
+    id: 'legacy-user-test-scenario-term',
+    pattern: new RegExp(`\\b${USER_WORD}\\s+${TEST_WORD}\\s+${SCENARIO_WORD}s?\\b`, 'i'),
+    message: 'Use "user execution test scenario" for user-runnable product verification.',
+  },
+  {
+    id: 'legacy-user-scenario-term',
+    pattern: new RegExp(
+      `\\b${USER_WORD}\\s+${SCENARIO_WORD}(?:s| gates?| evidence| surface| test environment)?\\b`,
+      'i',
+    ),
+    message: 'Use canonical user execution test scenario terminology instead of legacy shorthand.',
+  },
+  {
+    id: 'incomplete-user-execution-scenario-term',
+    pattern: new RegExp(`\\b${USER_WORD}\\s+${EXECUTION_WORD}\\s+${SCENARIO_WORD}s?\\b`, 'i'),
+    message: 'Use "user execution test scenario"; do not omit "test" from the term.',
   },
 ];
 
@@ -90,6 +122,38 @@ async function listSkillFiles() {
   return skillFiles.sort();
 }
 
+async function listMarkdownFilesRecursive(targetPath) {
+  const absPath = path.join(WORKSPACE_ROOT, targetPath);
+  if (!(await pathExists(absPath))) {
+    return [];
+  }
+
+  const stat = await fs.stat(absPath);
+  if (stat.isFile()) {
+    return targetPath.endsWith('.md') ? [absPath] : [];
+  }
+
+  if (!stat.isDirectory()) {
+    return [];
+  }
+
+  const entries = await fs.readdir(absPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const childTarget = path.join(targetPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listMarkdownFilesRecursive(childTarget)));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      files.push(path.join(WORKSPACE_ROOT, childTarget));
+    }
+  }
+
+  return files.sort();
+}
+
 function relativePath(targetPath) {
   return path.relative(WORKSPACE_ROOT, targetPath);
 }
@@ -115,6 +179,13 @@ async function main() {
     // rules directory missing — skip
   }
   const skillFiles = await listSkillFiles();
+  const guidanceFiles = (
+    await Promise.all(
+      GUIDANCE_PHRASE_SCAN_TARGETS.map((target) => listMarkdownFilesRecursive(target)),
+    )
+  )
+    .flat()
+    .sort();
   const rootPackageJson = await readJson(ROOT_PACKAGE_JSON_PATH);
   const rootScripts =
     typeof rootPackageJson.scripts === 'object' && rootPackageJson.scripts !== null
@@ -172,6 +243,25 @@ async function main() {
         }
         findings.push({
           file: relativePath(skillFile),
+          type: check.id,
+          detail: check.message,
+        });
+        break;
+      }
+    }
+  }
+
+  for (const guidanceFile of guidanceFiles) {
+    const content = await fs.readFile(guidanceFile, 'utf8');
+    const lines = content.split(/\r?\n/);
+
+    for (const check of GUIDANCE_PHRASE_CHECKS) {
+      for (const line of lines) {
+        if (!check.pattern.test(line)) {
+          continue;
+        }
+        findings.push({
+          file: relativePath(guidanceFile),
           type: check.id,
           detail: check.message,
         });

@@ -14,6 +14,6 @@ This file routes to detailed rule documents. Each linked file contains the full 
 | [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gate discipline, publish boundary                           |
 | [documentation-sync.md](documentation-sync.md) | Document role sync, package README, and robota.io source update requirements                               |
 | [research.md](research.md)                     | Research-first implementation, documentation-only prior art, recommendation authority                      |
-| [backlog-execution.md](backlog-execution.md)   | Recommendation gates, one-backlog PRs, user scenario gates, initiative branch workflow                     |
+| [backlog-execution.md](backlog-execution.md)   | Recommendation gates, one-backlog PRs, user execution test scenario gates, initiative branch workflow      |
 | [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation                                                    |
 | [learning-loop.md](learning-loop.md)           | Convert repeated lessons into rules, hooks, harness checks, or tested automation                           |
