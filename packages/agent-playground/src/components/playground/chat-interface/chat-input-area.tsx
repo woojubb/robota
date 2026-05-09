@@ -32,7 +32,9 @@ export function ChatInputArea({
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={isAgentReady ? 'Type your message...' : 'Run your code first to enable chat'}
+          placeholder={
+            isAgentReady ? 'Type your message...' : 'Create an agent first to enable chat'
+          }
           className="flex-1 px-3 py-2 border rounded-md text-sm bg-background disabled:opacity-50"
           disabled={!isAgentReady || isLoading}
         />

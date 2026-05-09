@@ -12,7 +12,7 @@ export function EmptyChatState({ isAgentReady }: IEmptyChatStateProps) {
       <p className="text-sm">
         {isAgentReady
           ? 'Your agent is ready! Type a message below to get started.'
-          : 'Run your code first to activate your agent.'}
+          : 'Create an agent first using the "Create Agent" button.'}
       </p>
     </div>
   );
