@@ -1,6 +1,6 @@
 ---
 title: 'HOOK-007: CommandExecutor 기본 타임아웃 10s → 600s로 조정'
-status: todo
+status: done
 created: 2026-05-09
 priority: medium
 urgency: later

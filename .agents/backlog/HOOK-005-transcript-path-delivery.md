@@ -1,6 +1,6 @@
 ---
 title: 'HOOK-005: 전체 훅 이벤트에서 transcript_path 미전달'
-status: todo
+status: done
 created: 2026-05-09
 priority: medium
 urgency: later
