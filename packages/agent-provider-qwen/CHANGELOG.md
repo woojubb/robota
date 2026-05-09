@@ -1,5 +1,13 @@
 # @robota-sdk/agent-provider-qwen
 
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.62
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.62
+
 ## 3.0.0-beta.61
 
 ### Patch Changes

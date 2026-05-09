@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-google",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "description": "Compatibility wrapper for the renamed @robota-sdk/agent-provider-gemini package",
   "type": "module",
   "main": "dist/node/index.js",

@@ -131,6 +131,8 @@ QA 사전 출시 점검에서 발견된 CLI 품질 이슈.
 | ---------------------------------------------------------- | ----------------------------------------------------- | -------- |
 | [CLI-001](CLI-001-prompt-input-non-tty-guard.md)           | promptInput() 비-TTY 환경 크래시 방지 가드 추가       | high     |
 | [CLI-002](CLI-002-system-prompt-flag-hide-or-implement.md) | --system-prompt 플래그 미연결 처리 (숨기기 또는 구현) | low      |
+| [CLI-003](CLI-003-web-flag-auto-open-browser.md)           | --web 플래그 진입 시 브라우저 자동 오픈               | medium   |
+| [CLI-004](CLI-004-web-monitor-user-message-missing.md)     | --web 모니터에서 사용자 프롬프트가 실시간으로 미표시  | high     |
 
 ### Pre-Launch Audit — Testing (2026-05-10)
 

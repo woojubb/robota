@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-gemma",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "description": "Gemma model-family provider for Robota using OpenAI-compatible local endpoints",
   "type": "module",
   "main": "dist/node/index.js",

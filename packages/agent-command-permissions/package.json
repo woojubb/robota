@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-permissions",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "description": "Composable /permissions command module for permission state and mode changes",
   "type": "module",
   "main": "dist/node/index.js",
