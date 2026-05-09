@@ -158,3 +158,68 @@ PM 사전 출시 점검에서 식별된 문서화 부족.
 | ------------------------------------------- | -------------------------------------------- | -------- |
 | [DOC-001](DOC-001-getting-started-guide.md) | 공개 docs 사이트 Getting Started 가이드 추가 | high     |
 | [DOC-002](DOC-002-multilang-readme.md)      | 한국어 README 및 다국어 지원 추가            | medium   |
+
+### Pre-Launch Audit v2 — CLI Quality (2026-05-10)
+
+QA/PM/Dev v2 사전 출시 점검에서 발견된 CLI 동작 결함.
+
+| ID                                                                | 제목                                                                                    | 우선순위 |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------- |
+| [CLI2-001](CLI2-001-help-flag-missing.md)                         | --help 플래그 미지원 — 첫 탐색 경험 차단                                                | critical |
+| [CLI2-002](CLI2-002-language-flag-ignored-in-tui.md)              | --language 플래그가 인터랙티브 TUI 모드에서 무시됨                                      | high     |
+| [CLI2-003](CLI2-003-slash-command-uninitialized-session-throw.md) | 슬래시 커맨드 실행 직후 미초기화 세션에서 getContextState() throw                       | high     |
+| [CLI2-004](CLI2-004-no-session-persistence-ignored-in-tui.md)     | --no-session-persistence 플래그가 인터랙티브 TUI 모드에서 무시됨                        | medium   |
+| [CLI2-005](CLI2-005-prompt-input-stdin-listener-leak.md)          | promptInput() Ctrl+C 경로에서 stdin 리스너 누수                                         | medium   |
+| [CLI2-006](CLI2-006-output-format-no-validation.md)               | --output-format 인수 유효성 검사 없이 as 캐스팅 — 잘못된 값이 stream-json으로 무음 폴백 | critical |
+| [CLI2-008](CLI2-008-agent-command-mode-orphan-package.md)         | agent-command-mode 패키지가 CLI에 등록되지 않은 orphan 상태                             | medium   |
+| [CLI2-009](CLI2-009-resolve-git-branch-sync-ui-blocking.md)       | SessionStatusBar의 resolveGitBranch()가 동기 execSync로 UI 차단 가능                    | low      |
+
+### Pre-Launch Audit v2 — TypeScript Dev Quality (2026-05-10)
+
+TypeScript Dev v2 사전 출시 점검에서 발견된 타입/구조 결함.
+
+| ID                                                                  | 제목                                                                                   | 우선순위 |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------- |
+| [DEV-001](DEV-001-as-unknown-as-isideeffects-dead-code.md)          | useSideEffects의 as unknown as ISideEffects 이중 캐스팅 — dead code 경로               | high     |
+| [DEV-002](DEV-002-non-null-assertion-websocket-sessionid.md)        | WebSocket client.sessionId! non-null assertion — 인증 로직 변경 시 런타임 크래시 위험  | critical |
+| [DEV-003](DEV-003-require-main-esm-misuse.md)                       | server.ts의 require.main === module — ESM 컴파일 시 항상 false                         | critical |
+| [DEV-004](DEV-004-websocket-error-type-always-auth.md)              | sendError가 모든 오류에 type: 'auth' 전송 — 잘못된 프로토콜                            | high     |
+| [DEV-005](DEV-005-parseint-missing-radix.md)                        | parseInt(RATE_LIMIT_MAX) 기수 없음 — NaN 시 rate limit 무력화                          | high     |
+| [DEV-006](DEV-006-tool-concurrent-duplicate-matching-bug.md)        | onToolEnd 중복 도구명 매칭 버그 — 동시 실행 시 잘못된 상태 업데이트                    | high     |
+| [DEV-007](DEV-007-substr-deprecated.md)                             | websocket-server.ts의 substr() deprecated — slice()로 교체                             | medium   |
+| [DEV-008](DEV-008-server-shutdown-order-wrong.md)                   | agent-server 종료 시 shutdown 순서 역전 — 활성 WebSocket이 30s 타임아웃 강제 종료 유발 | medium   |
+| [DEV-009](DEV-009-useinteractivesession-react-init-anti-pattern.md) | useInteractiveSession 렌더 본문 세션 초기화 — React strict mode 이중 초기화 위험       | medium   |
+
+### Pre-Launch Audit v2 — Server Quality (2026-05-10)
+
+TypeScript Dev/QA v2 점검에서 발견된 서버 품질 이슈.
+
+| ID                                                             | 제목                                                               | 우선순위 |
+| -------------------------------------------------------------- | ------------------------------------------------------------------ | -------- |
+| [SRV2-001](SRV2-001-firebase-req-any-cors-whitelist-bypass.md) | Firebase handler any 타입 + 이중 CORS 적용으로 화이트리스트 무력화 | high     |
+
+### Pre-Launch Audit v2 — Playground (2026-05-10)
+
+PM v2 점검에서 발견된 Web Playground 동작 결함.
+
+| ID                                                       | 제목                                                                           | 우선순위 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- |
+| [PLG-001](PLG-001-playground-websocket-url-hardcoded.md) | Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가 | critical |
+
+### Pre-Launch Audit v2 — Documentation (2026-05-10)
+
+PM v2 점검에서 발견된 문서 불일치 및 누락.
+
+| ID                                                               | 제목                                                              | 우선순위 |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------- | -------- |
+| [DOC2-001](DOC2-001-nodejs-version-requirement-inconsistency.md) | Node.js 버전 요구사항 3중 불일치 — README/docs/CLI 간 다른 메시지 | high     |
+| [DOC2-003](DOC2-003-github-issue-pr-templates-missing.md)        | GitHub 이슈/PR 템플릿 없음 — 베타 출시 후 커뮤니티 지원 준비 미완 | low      |
+
+### Pre-Launch Audit v2 — Dependencies (2026-05-10)
+
+QA v2 점검에서 발견된 의존성 관리 이슈.
+
+| ID                                                     | 제목                                                                                        | 우선순위 |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- | -------- |
+| [DEP-001](DEP-001-unused-dependencies-agent-server.md) | agent-server 미사용 의존성 — express-winston, winston, @robota-sdk/agent-provider-bytedance | medium   |
+| [DEP-002](DEP-002-google-api-key-env-name-mismatch.md) | agent-server의 GoogleProvider가 GOOGLE_API_KEY를 읽으나 실제 키는 GEMINI_API_KEY            | medium   |
