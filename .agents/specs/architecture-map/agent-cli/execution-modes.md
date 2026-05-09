@@ -1,6 +1,6 @@
 # Agent CLI Execution Modes
 
-Source-verified against `develop` on 2026-05-07.
+Source-verified against `develop` on 2026-05-09.
 
 This document owns the interactive TUI and non-interactive print-mode execution paths.
 
