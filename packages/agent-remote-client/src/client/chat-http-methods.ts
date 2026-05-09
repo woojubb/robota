@@ -21,16 +21,17 @@ export interface IChatRequestMessage {
   toolCallId?: string;
 }
 
-/** Shape of the response payload from the chat endpoint */
+/** Shape of the response payload from the chat endpoint.
+ * The server returns a flat TUniversalMessage (role/content at top level). */
 export interface IChatResponsePayload {
-  success?: boolean;
-  data?: {
-    role?: string;
-    content?: string;
-    toolCalls?: IToolCall[];
-  };
-  provider?: string;
-  model?: string;
+  id?: string;
+  role?: string;
+  content?: string;
+  toolCalls?: IToolCall[];
+  state?: string;
+  timestamp?: string;
+  usage?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -130,18 +131,17 @@ export async function executeChatRequest(
         extractResponseHeaders(fetchResponse),
       );
 
-    // Extract assistant message preserving toolCalls if present
+    // Server returns a flat TUniversalMessage: { role, content, toolCalls?, ... }
     const responsePayload = httpResponse.data;
-    const dataMessage = responsePayload?.data;
 
-    const rawRole = dataMessage?.role;
+    const rawRole = responsePayload?.role;
     // The server response always returns an assistant message role
     const role: IChatRequestMessage['role'] =
       rawRole === 'user' || rawRole === 'assistant' || rawRole === 'system' || rawRole === 'tool'
         ? rawRole
         : 'assistant';
 
-    const content = typeof dataMessage?.content === 'string' ? dataMessage.content : '';
+    const content = typeof responsePayload?.content === 'string' ? responsePayload.content : '';
 
     const assistantMessage: IChatRequestMessage = {
       role,
@@ -149,16 +149,11 @@ export async function executeChatRequest(
     };
 
     // Preserve toolCalls when available (array of tool call fragments)
-    if (dataMessage?.toolCalls && Array.isArray(dataMessage.toolCalls)) {
-      assistantMessage.toolCalls = validateToolCallArray(dataMessage.toolCalls);
+    if (responsePayload?.toolCalls && Array.isArray(responsePayload.toolCalls)) {
+      assistantMessage.toolCalls = validateToolCallArray(responsePayload.toolCalls);
     }
 
-    const providerName =
-      typeof responsePayload?.provider === 'string' ? responsePayload.provider : undefined;
-    const modelName =
-      typeof responsePayload?.model === 'string' ? responsePayload.model : undefined;
-
-    return toResponseMessage(assistantMessage, providerName, modelName);
+    return toResponseMessage(assistantMessage, provider, model);
   } catch (error) {
     throw new Error(`Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

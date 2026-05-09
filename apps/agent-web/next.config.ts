@@ -87,6 +87,18 @@ const nextConfig: NextConfig = {
         tls: false,
         worker_threads: false,
       };
+      // agent-core compiles `import { randomUUID } from 'node:crypto'` to
+      // `import { randomUUID } from 'crypto'` in its browser dist.
+      // Next.js/webpack has no polyfill for crypto.randomUUID, so we swap
+      // the entire crypto import to a thin browser shim.
+      const { NormalModuleReplacementPlugin } = require('webpack');
+      config.plugins = [
+        ...(config.plugins ?? []),
+        new NormalModuleReplacementPlugin(
+          /^(node:)?crypto$/,
+          require('path').resolve(__dirname, 'src/lib/crypto-browser.js'),
+        ),
+      ];
     }
 
     return config;
