@@ -47,11 +47,13 @@ export function fireSessionStartHook(
   hooks: Record<string, unknown> | undefined,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   onStdout: (stdout: string) => void,
+  permissionMode?: string,
 ): void {
   const hookInput: IHookInput = {
     session_id: sessionId,
     cwd,
     hook_event_name: 'SessionStart',
+    ...(permissionMode !== undefined && { permission_mode: permissionMode }),
     env: {
       CLAUDE_PROJECT_DIR: cwd,
       CLAUDE_SESSION_ID: sessionId,
@@ -73,12 +75,14 @@ export async function fireSessionEndHook(
   reason: TSessionEndReason,
   hooks: Record<string, unknown> | undefined,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  permissionMode?: string,
 ): Promise<void> {
   const hookInput: IHookInput = {
     session_id: sessionId,
     cwd,
     hook_event_name: 'SessionEnd',
     reason,
+    ...(permissionMode !== undefined && { permission_mode: permissionMode }),
     env: {
       CLAUDE_PROJECT_DIR: cwd,
       CLAUDE_SESSION_ID: sessionId,

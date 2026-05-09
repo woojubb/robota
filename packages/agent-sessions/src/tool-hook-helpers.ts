@@ -36,6 +36,7 @@ export function buildHookInput(
   cwd: string,
   toolName: string,
   parameters: TToolParameters,
+  permissionMode?: string,
 ): IHookInput {
   return {
     session_id: sessionId,
@@ -43,6 +44,7 @@ export function buildHookInput(
     hook_event_name: 'PreToolUse',
     tool_name: toolName,
     tool_input: parameters as Record<string, string | number | boolean | object>,
+    ...(permissionMode !== undefined && { permission_mode: permissionMode }),
   };
 }
 
