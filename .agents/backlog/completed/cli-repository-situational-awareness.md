@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -89,13 +89,13 @@ Create a design and contract PR before UI work:
 
 ## Acceptance Criteria
 
-- [ ] The context view shows repo root, branch, dirty status, cwd, explicitly referenced docs, and
+- [x] The context view shows repo root, branch, dirty status, cwd, explicitly referenced docs, and
       active background workspace context where available.
-- [ ] Each context item has a clear source/provenance.
-- [ ] Context display does not infer canonical commands, readiness scores, package manager setup, or
+- [x] Each context item has a clear source/provenance.
+- [x] Context display does not infer canonical commands, readiness scores, package manager setup, or
       visible workspace files.
-- [ ] Context display does not write repo files.
-- [ ] CLI UI depends on SDK context projections rather than owning repo scanning policy.
+- [x] Context display does not write repo files.
+- [x] CLI UI depends on SDK context projections rather than owning repo scanning policy.
 
 ## Test Plan
 
@@ -114,3 +114,16 @@ Create a design and contract PR before UI work:
 - Add tests proving no repo files are written.
 - Add tests proving no package-manager guessing or workspace-file enumeration occurs.
 - Add CLI rendering tests after SDK contracts exist.
+
+## Result
+
+Completed by adding `.agents/specs/repository-situational-awareness.md` and linking package
+ownership from `agent-sdk`, `agent-cli`, `agent-command-context`, and `agent-command-statusline`
+SPEC files.
+
+- The contract defines passive context item fields, allowed provenance sources, bounded read rules,
+  and command/automation boundaries.
+- Dirty status is limited to summary display by default, without visible workspace file
+  enumeration.
+- SDK projection APIs, host adapter tests, command formatting, and CLI rendering tests remain
+  follow-up implementation work.

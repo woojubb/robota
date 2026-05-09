@@ -152,5 +152,7 @@ Before adding a user-facing process-run UI, implementation PRs must add:
   them ineligible as command sources.
 - [background-work-state.md](background-work-state.md) owns how process tasks appear in switchable
   main-thread/background work views.
+- [repository-situational-awareness.md](repository-situational-awareness.md) owns passive context
+  display and forbids context items as command sources.
 - [background-task-layer.md](background-task-layer.md) owns generic background process task
   lifecycle primitives.

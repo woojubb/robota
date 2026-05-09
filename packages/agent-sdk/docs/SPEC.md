@@ -385,6 +385,19 @@ Existing `BackgroundProcess` and execution workspace APIs are the current buildi
 user-facing process-run commands must use SDK/runtime contracts and must not let CLI components
 assemble process semantics from raw child-process state.
 
+### Repository Situational Awareness (SDK-Specific)
+
+Passive repository context display is specified in
+[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
+The SDK is the designated owner for context item projections, provenance fields, and bounded read
+contracts for cwd, repository root, branch, dirty summary, explicit context references, and active
+background workspace context.
+
+Situational awareness projections must not infer commands, package managers, CI mappings,
+repository readiness, setup profiles, or harness contracts. Existing context loading may continue to
+serve prompt construction, but passive display surfaces must use explicit projection APIs instead of
+reusing broad context-loading internals for repository interpretation.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`

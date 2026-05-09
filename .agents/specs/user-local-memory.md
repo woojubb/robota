@@ -157,3 +157,5 @@ Before a TUI screen or command writes baseline user-local memory, implementation
   may reference user-local view preferences without becoming lifecycle state.
 - [process-execution.md](process-execution.md) owns command execution provenance and forbids
   remembered values as command sources.
+- [repository-situational-awareness.md](repository-situational-awareness.md) owns passive context
+  display that may use remembered view preferences only for display/navigation defaults.
