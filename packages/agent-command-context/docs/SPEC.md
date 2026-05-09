@@ -55,6 +55,12 @@ the command package never reads files directly. Auto-compact controls update the
 immediately and persist through the SDK command host settings adapter when one is available. The
 command does not parse prose or call session internals.
 
+Future repository situational awareness output must follow
+[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
+This package may format SDK-projected context items and provenance labels, but it must not read the
+workspace directly, infer package managers, discover commands, score readiness, or write repository
+files.
+
 ## Class Contract Registry
 
 | Class/Function               | Implements/Uses                           | Notes                                                 |

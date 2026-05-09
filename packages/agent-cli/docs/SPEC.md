@@ -101,6 +101,15 @@ controls from SDK/runtime projections. It must not infer canonical repo commands
 readiness, persist commands as executable preferences, interpret output as correctness evidence, or
 own process lifecycle state.
 
+### Repository Situational Awareness Boundary
+
+Passive repository context display is defined in
+[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
+The CLI may render cwd, repository root, branch, dirty summary, explicit references, and active
+background workspace context only from SDK/command projections. It must not walk the workspace,
+guess package managers, infer commands, score readiness, create setup profiles, or write repository
+files for context display.
+
 ### Provider Profile Creation
 
 The CLI owns provider profile resolution and provider definition composition. It must not branch on provider type names to decide defaults, required fields, setup prompts, endpoint probes, or constructor behavior. Those values come from injected `IProviderDefinition` records.

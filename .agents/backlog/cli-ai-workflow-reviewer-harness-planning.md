@@ -125,8 +125,9 @@ Reviewer role:
 - [User-local memory transparency](completed/cli-user-local-memory-transparency.md) (completed):
   cwd, view preference, and task association storage that is inspectable, removable, and stored
   outside the repository.
-- [Repository situational awareness](cli-repository-situational-awareness.md): passive display of
-  current working context without command inference, repo scanning, or package-manager guessing.
+- [Repository situational awareness](completed/cli-repository-situational-awareness.md) (completed):
+  passive display of current working context without command inference, repo scanning, or
+  package-manager guessing.
 
 ## Expected Outcomes
 
@@ -168,7 +169,7 @@ Promote the split backlogs in this order:
 3. `completed/cli-transparent-process-execution.md`
 4. `completed/cli-background-work-state-management.md`
 5. `completed/cli-user-local-memory-transparency.md`
-6. `cli-repository-situational-awareness.md`
+6. `completed/cli-repository-situational-awareness.md`
 
 Each implementation PR should update the owning package specs before changing `agent-cli` UI.
 

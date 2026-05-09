@@ -151,5 +151,7 @@ Before adding additional TUI behavior beyond the existing switcher, implementati
   preferences and retained inspectable metadata.
 - [user-local-memory.md](user-local-memory.md) owns remembered display/navigation preferences such
   as the last selected background entry.
+- [repository-situational-awareness.md](repository-situational-awareness.md) owns passive display of
+  active background workspace context alongside cwd and Git summaries.
 - [background-task-layer.md](background-task-layer.md) owns generic background task lifecycle
   primitives.
