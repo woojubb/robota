@@ -49,6 +49,13 @@ with the expected observable result, and update the backlog with the captured ev
 command output, exit code, screenshot, log excerpt, diff, or another concrete artifact recorded in
 the backlog, the user execution test scenario gate does not pass.
 
+**Done gate (enforced).** A backlog item with a `## User Execution Test Scenarios` section must not
+have its status set to `done` until: (1) the scenario was executed, (2) concrete evidence was
+recorded in the backlog file, and (3) the observed result matched the expected observable result.
+Setting `status: done` without meeting all three conditions is a process violation. Full rule
+definition and stop conditions are in
+[`.agents/rules/backlog-execution.md`](../rules/backlog-execution.md).
+
 ## Items
 
 ### Architecture Audit (2026-05-09)
