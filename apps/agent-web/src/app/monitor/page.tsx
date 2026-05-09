@@ -13,7 +13,7 @@ const SessionMonitor = dynamic(
 export default function MonitorPage() {
   return (
     <SessionMonitor
-      defaultUrl={process.env.NEXT_PUBLIC_CLI_WS_URL ?? 'ws://localhost:4242'}
+      defaultUrl={process.env.NEXT_PUBLIC_CLI_WS_URL ?? 'ws://localhost:7070'}
       className="h-full"
     />
   );

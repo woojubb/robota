@@ -151,7 +151,7 @@ export function parseCliArgs(): IParsedCliArgs {
   };
 }
 
-const DEFAULT_WEB_PORT = 4242;
+const DEFAULT_WEB_PORT = 7070;
 
 function parseWebPort(raw: string | undefined): number {
   if (raw === undefined) return DEFAULT_WEB_PORT;

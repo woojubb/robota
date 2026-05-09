@@ -4,7 +4,7 @@
   "private": true,
   "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 7071",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

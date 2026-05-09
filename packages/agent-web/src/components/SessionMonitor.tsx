@@ -25,7 +25,7 @@ interface ISessionMonitorProps {
 }
 
 export function SessionMonitor({
-  defaultUrl = 'ws://localhost:4242',
+  defaultUrl = 'ws://localhost:7070',
   className,
 }: ISessionMonitorProps): React.ReactElement {
   const [url, setUrl] = useState(defaultUrl);
