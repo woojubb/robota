@@ -48,12 +48,14 @@ export function fireSessionStartHook(
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   onStdout: (stdout: string) => void,
   permissionMode?: string,
+  transcriptPath?: string,
 ): void {
   const hookInput: IHookInput = {
     session_id: sessionId,
     cwd,
     hook_event_name: 'SessionStart',
     ...(permissionMode !== undefined && { permission_mode: permissionMode }),
+    ...(transcriptPath !== undefined && { transcript_path: transcriptPath }),
     env: {
       CLAUDE_PROJECT_DIR: cwd,
       CLAUDE_SESSION_ID: sessionId,
@@ -76,6 +78,7 @@ export async function fireSessionEndHook(
   hooks: Record<string, unknown> | undefined,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   permissionMode?: string,
+  transcriptPath?: string,
 ): Promise<void> {
   const hookInput: IHookInput = {
     session_id: sessionId,
@@ -83,6 +86,7 @@ export async function fireSessionEndHook(
     hook_event_name: 'SessionEnd',
     reason,
     ...(permissionMode !== undefined && { permission_mode: permissionMode }),
+    ...(transcriptPath !== undefined && { transcript_path: transcriptPath }),
     env: {
       CLAUDE_PROJECT_DIR: cwd,
       CLAUDE_SESSION_ID: sessionId,

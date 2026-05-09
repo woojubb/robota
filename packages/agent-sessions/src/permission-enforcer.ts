@@ -44,6 +44,7 @@ export class PermissionEnforcer {
   private readonly sessionLogger?: ISessionLogger;
   private readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
   private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
+  private readonly transcriptPath?: string;
   private readonly sessionAllowedTools = new Set<string>();
 
   constructor(options: IPermissionEnforcerOptions) {
@@ -57,6 +58,7 @@ export class PermissionEnforcer {
     this.sessionLogger = options.sessionLogger;
     this.onToolExecution = options.onToolExecution;
     this.hookTypeExecutors = options.hookTypeExecutors;
+    this.transcriptPath = options.transcriptPath;
   }
 
   /** Wrap all tools with permission checking */
@@ -104,6 +106,7 @@ export class PermissionEnforcer {
           toolName,
           parameters,
           enforcer.getPermissionMode(),
+          enforcer.transcriptPath,
         );
 
         const preResult = await runPreToolHook(

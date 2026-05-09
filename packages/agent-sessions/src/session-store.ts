@@ -56,6 +56,8 @@ export interface ISessionStore {
   load(id: string): ISessionRecord | undefined;
   list(): ISessionRecord[];
   delete(id: string): void;
+  /** Return the absolute file path for a session file, if the store is file-backed. */
+  getFilePath?(id: string): string;
 }
 
 /**
@@ -88,6 +90,11 @@ export class SessionStore implements ISessionStore {
   /** Absolute path to a session's JSON file */
   private filePath(id: string): string {
     return join(this.baseDir, `${id}.json`);
+  }
+
+  /** Return the absolute file path for a session — implements ISessionStore.getFilePath */
+  getFilePath(id: string): string {
+    return this.filePath(id);
   }
 
   /**
