@@ -1,3 +1,5 @@
+**Language:** [English](README.md) | [한국어](README.ko.md)
+
 # @robota-sdk/agent-cli
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
