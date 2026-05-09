@@ -13,6 +13,8 @@ export async function runUserLocalDirectCommandIfRequested(
     cwd,
     argv: args.positional.slice(1),
     format: args.format,
+    summary: args.summary,
+    source: args.source,
   });
   const output = result.message.endsWith('\n') ? result.message : `${result.message}\n`;
   if (!result.success) {

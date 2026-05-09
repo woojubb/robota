@@ -24,6 +24,11 @@ export function createUserLocalCommandEntry(): ICommand {
         description: 'Inspect user-local storage categories',
         source: 'user-local',
       },
+      {
+        name: 'memory',
+        description: 'Inspect and manage user-local memory items',
+        source: 'user-local',
+      },
     ],
   };
 }

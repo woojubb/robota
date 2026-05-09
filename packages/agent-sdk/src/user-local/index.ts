@@ -4,6 +4,15 @@ export {
   inspectUserLocalStorage,
   resolveUserLocalStorageRoot,
 } from './storage.js';
+export {
+  deleteUserLocalMemoryItem,
+  disableUserLocalMemoryItem,
+  inspectUserLocalMemoryItem,
+  listUserLocalMemoryItems,
+  readEnabledUserLocalMemoryItem,
+  setUserLocalMemoryItem,
+} from './memory.js';
+export { USER_LOCAL_MEMORY_CATEGORIES } from './memory-types.js';
 export type {
   IInspectUserLocalStorageOptions,
   IResolveUserLocalStorageRootOptions,
@@ -13,3 +22,13 @@ export type {
   IUserLocalStorageItemSummary,
   TUserLocalStorageCategory,
 } from './storage.js';
+export type {
+  IUserLocalMemoryDeleteResult,
+  IUserLocalMemoryItemOptions,
+  IUserLocalMemoryItemProjection,
+  IUserLocalMemoryListOptions,
+  IUserLocalMemoryListProjection,
+  IUserLocalMemorySetOptions,
+  TUserLocalMemoryCategory,
+  TUserLocalMemoryCommandExecutionEffect,
+} from './memory-types.js';

@@ -29,13 +29,22 @@ import {
 - User invocable: yes
 - Model invocable: no
 - Safety: `read-only` for storage inspection
-- Argument hint: `storage list [--format json]`
+- Argument hint: `storage list [--format json] | memory set/list/inspect/disable/delete`
 
 ## Behavior
 
 - `user-local storage list --format json` prints the effective user-local root and stable category
   summaries using SDK projections.
+- `user-local memory set <category> <key> <value> --summary <summary> --source <source>` stores
+  an explicit display/navigation memory item through SDK user-local APIs.
+- `user-local memory list --format json` prints inspectable memory item projections.
+- `user-local memory inspect <category> <key> --format json` prints one item, including
+  `displayNavigationRule` and `commandExecutionEffect: "none"`.
+- `user-local memory disable <category> <key>` disables an item without deleting it.
+- `user-local memory delete <category> <key>` deletes an item. A follow-up inspect for that item
+  returns a user-readable not-found error.
 - Storage inspection is provider-free and must run before provider setup is required.
+- User-local memory commands are provider-free and must run before provider setup is required.
 - The command must not create or reuse repository-local `.robota/` baseline workflow state.
 - The command must not expose stored command strings as reusable execution preferences.
 
@@ -44,7 +53,7 @@ import {
 - This package must not import `agent-cli` or TUI code.
 - This package must not inspect or assemble storage paths directly; it calls SDK user-local APIs.
 - CLI direct invocation may call this package's direct execution helper before provider setup.
-- Future memory inspection/delete/disable behavior must stay in this package while persistence
+- User-local memory inspection/delete/disable behavior stays in this package while persistence
   semantics remain in SDK user-local APIs.
 
 ## Verification

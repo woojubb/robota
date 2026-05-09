@@ -123,6 +123,52 @@ describe('default CLI command composition', () => {
     }
   });
 
+  it('routes direct user-local memory commands before provider setup', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-'));
+    const home = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-home-'));
+    const originalArgv = process.argv;
+    const originalHome = process.env.HOME;
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
+    const writes: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.argv = [
+      'node',
+      'robota',
+      'user-local',
+      'memory',
+      'set',
+      'view-preference',
+      'last-panel',
+      'background',
+      '--summary',
+      'Open the background panel',
+      '--source',
+      'user-input',
+    ];
+    process.env.HOME = home;
+    process.stdout.write = ((chunk: string) => {
+      writes.push(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await startCli({ providerDefinitions: [] });
+      expect(writes.join('')).toContain('Stored user-local memory item view-preference/last-panel');
+      expect(existsSync(join(cwd, '.robota'))).toBe(false);
+    } finally {
+      process.stdout.write = originalWrite;
+      process.argv = originalArgv;
+      cwdSpy.mockRestore();
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      rmSync(cwd, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it('runs permissions mode changes through headless slash-command execution', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-headless-permissions-'));
     const session = new InteractiveSession({
