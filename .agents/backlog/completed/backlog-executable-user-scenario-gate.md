@@ -40,7 +40,8 @@ that the agent executed the scenario when execution is feasible.
 - Gates without evidence fail by rule.
 - Abstract static review no longer counts as a passed user scenario when an executable check is
   available.
-- Current initiative backlog scenarios become command-backed and reproducible.
+- Future product-behavior backlog scenarios become product-command-backed and reproducible.
+- Document/governance-only backlog checks are recorded as process verification, not user scenarios.
 
 ## Architecture Ownership Rule
 
@@ -55,7 +56,8 @@ tests. Backlog files own the concrete user scenarios for their own scope.
 2. Strengthen `.agents/skills/backlog-execution-orchestrator/SKILL.md` to execute scenarios when
    feasible and report observed evidence in PRs.
 3. Update `.agents/backlog/README.md` with the concrete scenario requirement.
-4. Replace current initiative user scenarios with executable command-backed scenarios.
+4. Replace document-inspection user scenarios with process verification evidence, and require future
+   product-behavior scenarios to use product surfaces.
 
 ## Acceptance Criteria
 
@@ -64,8 +66,8 @@ tests. Backlog files own the concrete user scenarios for their own scope.
 - [x] The rule requires agent execution when feasible.
 - [x] The rule requires captured evidence and rejects evidence-free gates.
 - [x] The orchestration skill requires observed evidence in PR bodies.
-- [x] Current initiative user scenarios include concrete commands.
-- [x] The concrete scenarios were executed by the agent before completion.
+- [x] Current initiative document/governance checks are not presented as user scenarios.
+- [x] Product-behavior scenarios are required to use product surfaces.
 
 ## Test Plan
 
@@ -73,14 +75,21 @@ tests. Backlog files own the concrete user scenarios for their own scope.
 - Run `pnpm harness:scan`.
 - Run `rg` checks proving rule/skill text contains exact-command, expected-result, execution, and
   evidence requirements.
-- Run each current initiative user scenario command and confirm expected matches are printed.
+- Confirm current initiative document/governance checks are process verification, not user
+  scenarios.
 
 ## User Test Scenarios
 
-### Scenario: Verify User Scenario Gates Are Executable And Evidenced
+Not applicable. This backlog changed process rules and orchestration guidance only. It did not
+deliver runnable Robota product behavior, so document inspection must not be presented as a user
+test scenario.
+
+## Process Verification Evidence
+
+### Verification: Scenario Gate Is Executable And Evidenced
 
 - Prerequisites: Run from the repository root.
-- User actions:
+- Verification commands:
 
   ```bash
   rg -n "exact command lines, UI actions|expected observable result|must execute the user test scenario|The user scenario gate was not executed" .agents/rules/backlog-execution.md
@@ -88,19 +97,19 @@ tests. Backlog files own the concrete user scenarios for their own scope.
   rg -n "^## User Test Scenarios" .agents/backlog/cli-ai-workflow-reviewer-harness-planning.md .agents/backlog/completed/*.md
   ```
 
-- Expected visible result: The first command prints the mandatory concrete scenario fields and
+- Expected result: The first command prints the mandatory concrete scenario fields and
   execution gate. The second command prints orchestration requirements to execute and report
   evidence. The third command prints user scenario sections, including the current initiative
   backlogs.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`.
+- Evidence: Executed during the original gate hardening and reclassified here as process
+  verification after product-surface scenario scoping.
 
 ## Verification Plan
 
 - `git diff --check`
 - `pnpm harness:scan`
-- Execute the user scenario commands listed above.
-- Execute each updated current-initiative scenario command.
+- Execute the process verification commands listed above.
+- Confirm document/governance-only backlogs do not present document inspection as user scenarios.
 
 ## Result
 

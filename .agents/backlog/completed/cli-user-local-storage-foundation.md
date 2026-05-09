@@ -126,20 +126,26 @@ Create a design and contract PR before UI work:
 
 ## User Test Scenarios
 
-### Scenario: Confirm Baseline Storage Is User-Local Only
+Not applicable. This backlog produced a user-local storage contract document and did not deliver
+runnable Robota product behavior. Product-surface scenarios must be added by follow-up
+implementation PRs that expose storage inspection or behavior through CLI/TUI/SDK usage.
 
-- Prerequisites: Open `.agents/specs/user-local-storage.md`.
-- User actions:
+## Process Verification Evidence
+
+### Verification: Baseline Storage Is User-Local Only
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "~/.robota|No workspace-local fallback|No project `.robota/` cache|Command strings must not be stored|Repo-Outside Validation" .agents/specs/user-local-storage.md
   ```
 
-- Expected visible result: The command prints the canonical user-local root, no fallback rule,
+- Expected result: The command prints the canonical user-local root, no fallback rule,
   project `.robota/` prohibition, command-string storage prohibition, and repo-outside validation
   section.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`.
+- Evidence: Executed as process verification for the contract document; no product-surface scenario
+  applies until implementation exposes the behavior.
 
 ## Verification Plan
 

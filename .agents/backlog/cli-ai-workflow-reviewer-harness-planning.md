@@ -198,21 +198,27 @@ Each implementation PR should update the owning package specs before changing `a
 
 ## User Test Scenarios
 
-### Scenario: Review The Split Workflow Plan
+Not applicable. This backlog is a planning umbrella and does not deliver runnable Robota product
+behavior. Product-surface scenarios must be added by the focused implementation backlogs that build
+the CLI/TUI/SDK behavior.
 
-- Prerequisites: Open `.agents/backlog/README.md` and this planning backlog.
-- User actions:
+## Process Verification Evidence
+
+### Verification: Split Workflow Plan Is Linked
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "completed/cli-transparent-workflow-contract|completed/cli-repository-situational-awareness|Do not require a Robota manifest|baseline command discovery|SDK/runtime ownership" .agents/backlog/cli-ai-workflow-reviewer-harness-planning.md
   rg -n "Transparent Repo-Agnostic Workflow Client Planning" .agents/backlog/README.md
   ```
 
-- Expected visible result: The first command prints the split backlog links, the no-Robota-manifest
+- Expected result: The first command prints the split backlog links, the no-Robota-manifest
   rule, the command-discovery restriction, and SDK/runtime ownership text. The second command shows
   the umbrella backlog remains listed in the backlog index.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`.
+- Evidence: Executed as process verification during planning; no product-surface scenario applies
+  until implementation backlogs add runnable behavior.
 
 ## Verification Plan
 

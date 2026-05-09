@@ -121,20 +121,25 @@ Create a design and contract PR before UI work:
 
 ## User Test Scenarios
 
-### Scenario: Review What A User-Directed Process Must Disclose
+Not applicable. This backlog produced a process execution contract document and did not deliver
+runnable Robota product behavior. Product-surface scenarios must be added by follow-up
+implementation PRs that expose process execution through CLI/TUI/SDK behavior.
 
-- Prerequisites: Open `.agents/specs/process-execution.md`.
-- User actions:
+## Process Verification Evidence
+
+### Verification: User-Directed Process Disclosure Is Documented
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "`command`|`origin`|`cwd`|`environmentSummary`|`timeoutMs`|`durationMs`|Commands may execute only from|remembered command history" .agents/specs/process-execution.md
   ```
 
-- Expected visible result: The command prints the required process request/status fields, command
+- Expected result: The command prints the required process request/status fields, command
   source rule, and the restriction against remembered command history.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`. Runtime process execution
-  remains follow-up implementation work.
+- Evidence: Executed as process verification for the contract document. Runtime process execution
+  remains follow-up implementation work, where product-surface user scenarios must be added.
 
 ## Verification Plan
 

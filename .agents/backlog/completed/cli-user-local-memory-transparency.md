@@ -132,20 +132,26 @@ Create a design and contract PR before UI work:
 
 ## User Test Scenarios
 
-### Scenario: Review What Robota May Remember Locally
+Not applicable. This backlog produced a user-local memory contract document and did not deliver
+runnable Robota product behavior. Product-surface scenarios must be added by follow-up
+implementation PRs that expose memory inspection through CLI/TUI/SDK behavior.
 
-- Prerequisites: Open `.agents/specs/user-local-memory.md`.
-- User actions:
+## Process Verification Evidence
+
+### Verification: User-Local Memory Boundaries Are Documented
+
+- Prerequisites: Run from the repository root.
+- Verification commands:
 
   ```bash
   rg -n "Allowed remembered values must affect display or navigation only|remembered shell commands|commandExecutionEffect|deleteAvailable|disableAvailable|Existing `.robota/memory/` project memory" .agents/specs/user-local-memory.md
   ```
 
-- Expected visible result: The command prints the display/navigation-only rule, restricted command
+- Expected result: The command prints the display/navigation-only rule, restricted command
   memory, command execution effect, delete/disable fields, and project-memory boundary.
-- Cleanup/reset: None.
-- Agent verification: Direct command execution plus `pnpm harness:scan`. SDK storage APIs and CLI
-  rendering remain follow-up implementation work.
+- Evidence: Executed as process verification for the contract document. SDK storage APIs and CLI
+  rendering remain follow-up implementation work, where product-surface user scenarios must be
+  added.
 
 ## Verification Plan
 
