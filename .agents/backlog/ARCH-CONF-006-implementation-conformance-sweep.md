@@ -86,3 +86,21 @@ grep -r "@robota-sdk/agent-cli" packages/agent-command-*/src/ --include="*.ts"
 ## User Execution Test Scenarios
 
 Not applicable — verification-only task. Implementation fixes (if any) are tracked in separate fix backlog items.
+
+## Test Plan Execution Evidence (2026-05-10)
+
+All 7 verification checks executed and passed:
+
+1. **agent-core ZERO deps** → `OK — no @robota-sdk/* prod/peer deps`
+2. **agent-sdk React-free** → `OK — no 'react' imports in agent-sdk/src`
+3. **agent-sessions does NOT depend on agent-runtime** → `OK — no agent-runtime dependency`
+4. **agent-plugin-\* only depends on agent-core** → All 9 plugins: OK
+5. **agent-cli does NOT import agent-sessions directly** → `OK — no agent-sessions in agent-cli/src`
+6. **agent-sdk does NOT import agent-command-\*** → `OK — no agent-command-* imports in agent-sdk/src`
+7. **agent-command-\* does NOT import agent-cli** → `OK — no agent-cli imports in agent-command-*`
+
+Additionally verified via `pnpm harness:scan`:
+
+- `harness:scan:deps` (check-dependency-direction.mjs) → ✅ No dependency direction violations
+- `harness:scan:sdk-react-free` (check-sdk-react-free.mjs) → ✅ agent-sdk is React-free
+- `harness:scan:publish` → ✅ agent-core has zero @robota-sdk dependencies
