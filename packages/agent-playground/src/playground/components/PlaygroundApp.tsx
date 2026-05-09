@@ -279,7 +279,7 @@ export function PlaygroundApp(props: { defaultServerUrl?: string }): React.React
   return (
     <>
       <Toaster />
-      <PlaygroundProvider defaultServerUrl={props.defaultServerUrl ?? 'ws://localhost:3001/ws'}>
+      <PlaygroundProvider defaultServerUrl={props.defaultServerUrl ?? 'ws://localhost:3001'}>
         <PlaygroundContent />
       </PlaygroundProvider>
     </>
