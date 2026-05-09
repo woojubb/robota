@@ -26,6 +26,7 @@ import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
 import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
 import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
+import { createUserLocalCommandModule } from '@robota-sdk/agent-command-user-local';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -68,6 +69,7 @@ import {
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
+import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -95,11 +97,22 @@ function readVersion(): string {
 
 /** Prompt for input in raw mode. Mask with asterisks if masked=true. */
 function promptInput(label: string, masked = false): Promise<string> {
-  return new Promise<string>((resolve) => {
+  return new Promise<string>((resolve, reject) => {
     process.stdout.write(label);
     let input = '';
     const stdin = process.stdin;
     const wasRaw = stdin.isRaw;
+    if (!stdin.isTTY) {
+      reject(
+        new Error(
+          'Cannot prompt for input: stdin is not a TTY.\n' +
+            'Set your API key via environment variable instead:\n' +
+            '  ANTHROPIC_API_KEY=<key> robota\n' +
+            '  OPENAI_API_KEY=<key> robota',
+        ),
+      );
+      return;
+    }
     stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding('utf8');
@@ -180,6 +193,7 @@ export function createDefaultCliCommandModules({
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createMemoryCommandModule(),
+    createUserLocalCommandModule(),
     createCompactCommandModule(),
     createContextCommandModule(),
     createExitCommandModule(),
@@ -227,6 +241,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+
+  if (await runUserLocalDirectCommandIfRequested(args, cwd)) {
+    return;
+  }
+
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
       read: () => readSettings(getUserSettingsPath()),
@@ -330,6 +349,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     const appendSystemPrompt = appendParts.length > 0 ? appendParts.join('\n\n') : undefined;
 
     // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
+    if (args.systemPrompt) {
+      process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
+    }
 
     const session = new InteractiveSession({
       cwd,
@@ -384,5 +406,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     commandModules,
     commandHostAdapters,
     startupUpdateNoticePromise,
+    webPort: args.web ? args.webPort : undefined,
+    noOpen: args.noOpen,
   });
 }

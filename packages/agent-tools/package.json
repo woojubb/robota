@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.62",
   "description": "Tool registry and implementations for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
@@ -9,6 +9,9 @@
     ".": {
       "types": "./dist/node/index.d.ts",
       "source": "./src/index.ts",
+      "browser": {
+        "import": "./dist/browser/browser.js"
+      },
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
@@ -31,9 +34,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
-    "build:js": "tsup src/index.ts --format esm,cjs --out-dir dist/node --clean",
-    "build:types": "tsup src/index.ts --format esm,cjs --dts-only --out-dir dist/node",
+    "build": "tsup",
+    "build:js": "tsup --no-dts",
+    "build:types": "tsup --dts-only",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",

@@ -20,6 +20,9 @@ export interface IParsedCliArgs {
   forkSession: boolean;
   sessionName: string | undefined;
   outputFormat: string | undefined;
+  format: string | undefined;
+  summary: string | undefined;
+  source: string | undefined;
   systemPrompt: string | undefined;
   appendSystemPrompt: string | undefined;
   taskFile: string | undefined;
@@ -40,6 +43,9 @@ export interface IParsedCliArgs {
   settingsScope: string | undefined;
   checkUpdate: boolean;
   disableUpdateCheck: boolean;
+  web: boolean;
+  webPort: number;
+  noOpen: boolean;
 }
 
 /** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
@@ -78,6 +84,9 @@ export function parseCliArgs(): IParsedCliArgs {
       'fork-session': { type: 'boolean', default: false },
       name: { type: 'string', short: 'n' },
       'output-format': { type: 'string' },
+      format: { type: 'string' },
+      summary: { type: 'string' },
+      source: { type: 'string' },
       'system-prompt': { type: 'string' },
       'append-system-prompt': { type: 'string' },
       'task-file': { type: 'string' },
@@ -98,6 +107,9 @@ export function parseCliArgs(): IParsedCliArgs {
       'settings-scope': { type: 'string' },
       'check-update': { type: 'boolean', default: false },
       'disable-update-check': { type: 'boolean', default: false },
+      web: { type: 'boolean', default: false },
+      'web-port': { type: 'string' },
+      'no-open': { type: 'boolean', default: false },
     },
   });
 
@@ -113,6 +125,9 @@ export function parseCliArgs(): IParsedCliArgs {
     forkSession: values['fork-session'] ?? false,
     sessionName: values['name'],
     outputFormat: values['output-format'],
+    format: values['format'],
+    summary: values['summary'],
+    source: values['source'],
     systemPrompt: values['system-prompt'],
     appendSystemPrompt: values['append-system-prompt'],
     taskFile: values['task-file'],
@@ -133,5 +148,20 @@ export function parseCliArgs(): IParsedCliArgs {
     settingsScope: values['settings-scope'],
     checkUpdate: values['check-update'] ?? false,
     disableUpdateCheck: values['disable-update-check'] ?? false,
+    web: values['web'] ?? false,
+    webPort: parseWebPort(values['web-port']),
+    noOpen: values['no-open'] ?? false,
   };
+}
+
+const DEFAULT_WEB_PORT = 7070;
+
+function parseWebPort(raw: string | undefined): number {
+  if (raw === undefined) return DEFAULT_WEB_PORT;
+  const n = parseInt(raw, 10);
+  if (isNaN(n) || n < 1 || n > 65535) {
+    process.stderr.write(`Invalid --web-port "${raw}". Must be 1–65535.\n`);
+    process.exit(1);
+  }
+  return n;
 }

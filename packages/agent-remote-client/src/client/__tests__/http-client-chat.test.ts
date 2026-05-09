@@ -30,10 +30,10 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: { role: 'assistant', content: 'Hello!' },
-          provider: 'openai',
-          model: 'gpt-4',
+          id: 'msg_1',
+          role: 'assistant',
+          content: 'Hello!',
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -53,8 +53,9 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: { role: 'assistant', content: 'ok' },
+          role: 'assistant',
+          content: 'ok',
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -83,8 +84,9 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: { role: 'assistant', content: 'ok' },
+          role: 'assistant',
+          content: 'ok',
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -109,14 +111,10 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: {
-            role: 'assistant',
-            content: '',
-            toolCalls,
-          },
-          provider: 'openai',
-          model: 'gpt-4',
+          role: 'assistant',
+          content: '',
+          toolCalls,
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -136,8 +134,9 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: { role: 'assistant', content: 'done' },
+          role: 'assistant',
+          content: 'done',
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -173,10 +172,7 @@ describe('HttpClient chat methods', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: vi.fn().mockResolvedValue({
-          success: true,
-          data: undefined,
-        }),
+        json: vi.fn().mockResolvedValue({}),
         headers: new Map(),
       });
 
@@ -196,8 +192,9 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: { role: 'unknown_role', content: 'test' },
+          role: 'unknown_role',
+          content: 'test',
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -216,8 +213,9 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: { role: 'assistant', content: 123 },
+          role: 'assistant',
+          content: 123,
+          state: 'complete',
         }),
         headers: new Map(),
       });
@@ -248,16 +246,14 @@ describe('HttpClient chat methods', () => {
         ok: true,
         status: 200,
         json: vi.fn().mockResolvedValue({
-          success: true,
-          data: {
-            role: 'assistant',
-            content: '',
-            toolCalls: [
-              { id: 'call_1', type: 'function', function: { name: 'test', arguments: '{}' } },
-              { invalid: 'entry' }, // should be filtered
-              null, // should be filtered
-            ],
-          },
+          role: 'assistant',
+          content: '',
+          toolCalls: [
+            { id: 'call_1', type: 'function', function: { name: 'test', arguments: '{}' } },
+            { invalid: 'entry' }, // should be filtered
+            null, // should be filtered
+          ],
+          state: 'complete',
         }),
         headers: new Map(),
       });

@@ -162,6 +162,7 @@ export function createQueuedBackgroundTaskState(
     updatedAt: now,
     unread: false,
     isolation: request.kind === 'agent' ? request.isolation : undefined,
+    ...(request.metadata ? { metadata: { ...request.metadata } } : {}),
     ...preview,
   };
 }
@@ -178,9 +179,16 @@ export function matchesBackgroundTaskFilter(
 }
 
 export function cloneBackgroundTaskState(state: IBackgroundTaskState): IBackgroundTaskState {
+  const result = state.result
+    ? {
+        ...state.result,
+        metadata: state.result.metadata ? { ...state.result.metadata } : undefined,
+      }
+    : undefined;
   return {
     ...state,
-    result: state.result ? { ...state.result } : undefined,
+    metadata: state.metadata ? { ...state.metadata } : undefined,
+    result,
     error: state.error ? { ...state.error } : undefined,
   };
 }

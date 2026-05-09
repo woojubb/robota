@@ -6,7 +6,7 @@ export function ChatInputHint({ isAgentReady }: IChatInputHintProps) {
   if (!isAgentReady) {
     return (
       <p className="text-xs text-muted-foreground mt-2">
-        💡 Click "Run" to compile your agent code and start chatting
+        💡 Click "Create Agent" to set up your agent and start chatting
       </p>
     );
   }

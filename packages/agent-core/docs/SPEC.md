@@ -10,7 +10,13 @@
 
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
-- Does not own workflow visualization, DAG orchestration, or session persistence (those belong to `dag-*`, `@robota-sdk/agent-sessions`).
+- Does not own workflow visualization or session persistence; session persistence belongs to
+  `@robota-sdk/agent-sessions`.
+- **Zero dependency on other agent-\* packages.** `agent-core` must never import any other
+  `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered
+  assembly architecture: other agent-\* packages register with agent-core through its abstract
+  contracts; agent-core never depends on them. Plugins were externalized to `agent-plugin-*`
+  packages specifically to preserve this constraint.
 
 ## Architecture Overview
 

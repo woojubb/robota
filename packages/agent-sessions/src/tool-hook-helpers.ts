@@ -36,6 +36,8 @@ export function buildHookInput(
   cwd: string,
   toolName: string,
   parameters: TToolParameters,
+  permissionMode?: string,
+  transcriptPath?: string,
 ): IHookInput {
   return {
     session_id: sessionId,
@@ -43,6 +45,8 @@ export function buildHookInput(
     hook_event_name: 'PreToolUse',
     tool_name: toolName,
     tool_input: parameters as Record<string, string | number | boolean | object>,
+    ...(permissionMode !== undefined && { permission_mode: permissionMode }),
+    ...(transcriptPath !== undefined && { transcript_path: transcriptPath }),
   };
 }
 
@@ -62,9 +66,8 @@ export async function runPreToolHook(
     return {
       success: true,
       data: JSON.stringify({
-        success: false,
-        output: '',
-        error: `Blocked by hook: ${hookResult.reason}`,
+        blocked: true,
+        reason: hookResult.reason ?? 'Blocked by hook',
       }),
       metadata: {},
     };

@@ -4,7 +4,11 @@
 
 import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
-import type { TBackgroundJobGroupEvent, TBackgroundTaskEvent } from '../background-tasks/index.js';
+import type {
+  IExecutionWorkspaceEvent,
+  TBackgroundJobGroupEvent,
+  TBackgroundTaskEvent,
+} from '../background-tasks/index.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 
@@ -78,6 +82,8 @@ export interface IInteractiveSessionEvents {
   skill_activation: (event: ISkillActivationEvent) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
+  execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
+  user_message: (content: string) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

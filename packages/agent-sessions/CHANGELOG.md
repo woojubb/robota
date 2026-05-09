@@ -1,5 +1,28 @@
 # @robota-sdk/agent-sessions
 
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.62
+
+## 3.0.0-beta.61
+
+### Minor Changes
+
+- 18fcc5b: Add provider-neutral sandbox snapshot hydration for interactive sessions. Snapshot-capable sandbox clients now persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume, while the E2B structural adapter supports both `createSnapshot()`-style checkpoints and pause/resume sandbox references.
+
+### Patch Changes
+
+- 1c0d44c: Align context usage estimation across session display, auto-compaction, and core hard-capacity guards so mid-window sessions do not block prematurely.
+- 36eb7a9: Add provider-owned native replay payload hooks, replay validation coverage, and a session log validation command.
+- d97bdf2: Add provider-owned model catalog metadata, route `/model` suggestions through the active provider, and make `cli:dev` resolve the CLI workspace dependency closure through source export conditions.
+- Updated dependencies [1c0d44c]
+- Updated dependencies [36eb7a9]
+- Updated dependencies [d97bdf2]
+  - @robota-sdk/agent-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Minor Changes

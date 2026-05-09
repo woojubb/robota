@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-openai-compatible",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.62",
   "description": "Reusable OpenAI-compatible Chat Completions transport primitives for Robota providers",
   "type": "module",
   "main": "dist/node/index.js",

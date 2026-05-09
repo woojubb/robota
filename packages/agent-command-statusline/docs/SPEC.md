@@ -36,6 +36,10 @@ Own the user-visible `/statusline` command as a composable command module. The p
 - Must not import `@robota-sdk/agent-cli`.
 - Must not read or write settings directly.
 - Must not render status bar output directly.
+- Git/statusline context fields must follow
+  [../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md):
+  they may surface bounded SDK/host-adapter projections such as branch or dirty summary, but must
+  not infer commands, package managers, readiness, or setup profiles.
 
 ## Test Plan
 

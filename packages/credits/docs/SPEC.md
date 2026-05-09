@@ -6,14 +6,14 @@
 
 ## Boundaries
 
-| Responsibility                       | Owner                        | Not This Package            |
-| ------------------------------------ | ---------------------------- | --------------------------- |
-| Account/reservation/ledger contracts | `credits`                    | Does not estimate DAG costs |
-| Reservation and settlement policy    | `credits`                    | Does not execute workflows  |
-| Cost formula evaluation              | `dag-cost`                   | Not duplicated here         |
-| Auth principal verification          | `auth`                       | Does not verify credentials |
-| Payment provider integration         | Future `billing` package     | Not implemented here        |
-| Persistence adapters                 | Adapter/application packages | Does not implement storage  |
+| Responsibility                       | Owner                        | Not This Package                 |
+| ------------------------------------ | ---------------------------- | -------------------------------- |
+| Account/reservation/ledger contracts | `credits`                    | Does not estimate workload costs |
+| Reservation and settlement policy    | `credits`                    | Does not execute workflows       |
+| Cost formula evaluation              | Application/domain packages  | Not duplicated here              |
+| Auth principal verification          | `auth`                       | Does not verify credentials      |
+| Payment provider integration         | Future `billing` package     | Not implemented here             |
+| Persistence adapters                 | Adapter/application packages | Does not implement storage       |
 
 ## Architecture Overview
 
@@ -52,7 +52,8 @@ credits
 
 ## Extension Points
 
-Consumers implement `ICreditAccountStorePort` and `ICreditReservationStorePort`. Applications compose those adapters with `dag-cost` estimates and auth principals to enforce execution policy.
+Consumers implement `ICreditAccountStorePort` and `ICreditReservationStorePort`. Applications
+compose those adapters with workload cost estimates and auth principals to enforce execution policy.
 
 ## Error Taxonomy
 

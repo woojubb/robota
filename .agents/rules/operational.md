@@ -50,8 +50,7 @@ All task and backlog files use an uppercase prefix ID in both the filename and t
 | `SDK`   | agent-sdk                   |
 | `CORE`  | agent-core                  |
 | `PLUG`  | Plugin system               |
-| `DAG`   | DAG related                 |
-| `ORCH`  | Orchestration               |
+| `ORCH`  | Cross-package orchestration |
 | `INFRA` | Infrastructure / deployment |
 
 | Type | Meaning                 |

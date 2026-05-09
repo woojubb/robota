@@ -1,5 +1,29 @@
 # @robota-sdk/agent-command-provider
 
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.62
+  - @robota-sdk/agent-sdk@3.0.0-beta.62
+
+## 3.0.0-beta.61
+
+### Patch Changes
+
+- cc0223d: Add SDK-owned provider profile name suggestions, create model-derived profile keys during interactive setup, and show the active provider profile identity in the CLI status area.
+- d97bdf2: Add provider-owned model catalog metadata, route `/model` suggestions through the active provider, and make `cli:dev` resolve the CLI workspace dependency closure through source export conditions.
+- Updated dependencies [e243fb0]
+- Updated dependencies [1c0d44c]
+- Updated dependencies [36eb7a9]
+- Updated dependencies [cc0223d]
+- Updated dependencies [18fcc5b]
+- Updated dependencies [d97bdf2]
+- Updated dependencies [3bde012]
+  - @robota-sdk/agent-sdk@3.0.0-beta.61
+  - @robota-sdk/agent-core@3.0.0-beta.61
+
 ## 3.0.0-beta.60
 
 ### Patch Changes

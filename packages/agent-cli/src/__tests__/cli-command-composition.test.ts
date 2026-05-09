@@ -1,7 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type {
   IAIProvider,
   IChatOptions,
@@ -11,7 +11,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { CommandRegistry, InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
-import { createDefaultCliCommandModules } from '../cli.js';
+import { createDefaultCliCommandModules, startCli } from '../cli.js';
 
 function createFakeProvider(): IAIProvider {
   return {
@@ -57,12 +57,116 @@ describe('default CLI command composition', () => {
     }
 
     expect(registry.getCommands().map((command) => command.name)).not.toContain('mode');
+    expect(registry.getCommands().map((command) => command.name)).toContain('user-local');
     expect(registry.getSubcommands('permissions').map((command) => command.name)).toEqual([
       'plan',
       'default',
       'acceptEdits',
       'bypassPermissions',
     ]);
+  });
+
+  it('routes direct user-local storage inspection before provider setup', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-'));
+    const home = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-home-'));
+    const originalArgv = process.argv;
+    const originalHome = process.env.HOME;
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
+    const writes: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.argv = ['node', 'robota', 'user-local', 'storage', 'list', '--format', 'json'];
+    process.env.HOME = home;
+    process.stdout.write = ((chunk: string) => {
+      writes.push(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await startCli({ providerDefinitions: [] });
+      const output = parseJsonObject(writes.join('').trim());
+      expect(output['root']).toBe(join(home, '.robota'));
+      const categories = output['categories'];
+      expect(Array.isArray(categories)).toBe(true);
+      if (!Array.isArray(categories)) {
+        throw new Error('Expected categories array');
+      }
+      const categoryNames = categories.map((item) => {
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+          throw new Error('Expected category object');
+        }
+        const category = (item as Record<string, unknown>)['category'];
+        if (typeof category !== 'string') {
+          throw new Error('Expected category string');
+        }
+        return category;
+      });
+      expect(categoryNames).toEqual([
+        'preferences',
+        'view-state',
+        'memory-projections',
+        'task-associations',
+        'workflow-metadata',
+        'inspection-index',
+      ]);
+      expect(existsSync(join(cwd, '.robota'))).toBe(false);
+    } finally {
+      process.stdout.write = originalWrite;
+      process.argv = originalArgv;
+      cwdSpy.mockRestore();
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      rmSync(cwd, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('routes direct user-local memory commands before provider setup', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-'));
+    const home = mkdtempSync(join(tmpdir(), 'robota-direct-user-local-memory-home-'));
+    const originalArgv = process.argv;
+    const originalHome = process.env.HOME;
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
+    const writes: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.argv = [
+      'node',
+      'robota',
+      'user-local',
+      'memory',
+      'set',
+      'view-preference',
+      'last-panel',
+      'background',
+      '--summary',
+      'Open the background panel',
+      '--source',
+      'user-input',
+    ];
+    process.env.HOME = home;
+    process.stdout.write = ((chunk: string) => {
+      writes.push(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await startCli({ providerDefinitions: [] });
+      expect(writes.join('')).toContain('Stored user-local memory item view-preference/last-panel');
+      expect(existsSync(join(cwd, '.robota'))).toBe(false);
+    } finally {
+      process.stdout.write = originalWrite;
+      process.argv = originalArgv;
+      cwdSpy.mockRestore();
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      rmSync(cwd, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it('runs permissions mode changes through headless slash-command execution', async () => {

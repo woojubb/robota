@@ -31,8 +31,6 @@ Packages marked **publish** are published to npm under `@robota-sdk/` scope. All
 | agent-team                       | no      | —       | private: true                       |
 | agent-playground                 | no      | —       | private: true                       |
 | agent-tool-mcp                   | no      | —       | private: true                       |
-| dag-\* (all)                     | no      | —       | private: true                       |
-| dag-nodes/\* (10 pkgs)           | no      | —       | private: true                       |
 
 **Rules:**
 

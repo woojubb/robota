@@ -11,6 +11,10 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 - Does not own system prompt building. Accepts a pre-built `systemMessage` string.
 - Does not own configuration resolution or context loading. Those belong to `agent-sdk`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
+- **Owns the session persistence port.** `SessionStore` and `ISessionRecord` are the SSOT for
+  conversation session persistence contracts. Storage adapters implement these interfaces; the port
+  interface must not be duplicated in other packages. Consumers obtain a session store through SDK
+  facades (`createProjectSessionStore`) rather than constructing `SessionStore` directly.
 
 ## Architecture Overview
 
@@ -173,6 +177,11 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 | `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
 | `contextReferences`        | `unknown[]` | No       | SDK-owned context reference inventory for resume/debugging.                                                                                                       |
 | `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-sessions` stores this value opaquely and does not import sandbox packages.        |
+
+Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
+Inspectable user-local memory is governed by
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). Session
+records must not become a command source or hidden preference store.
 
 ### Session Data Migration
 

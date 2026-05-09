@@ -35,9 +35,11 @@ describe('ChatInterface', () => {
 
     expect(screen.getByText('Not Ready')).toBeInTheDocument();
     expect(screen.getByText('Start a conversation')).toBeInTheDocument();
-    expect(screen.getByText('Run your code first to activate your agent.')).toBeInTheDocument();
-    expect(screen.getByText(/Click "Run" to compile your agent code/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Run your code first to enable chat')).toBeDisabled();
+    expect(
+      screen.getByText('Create an agent first using the "Create Agent" button.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Click "Create Agent" to set up your agent/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Create an agent first to enable chat')).toBeDisabled();
     expect(screen.getByRole('button')).toBeDisabled();
   });
 

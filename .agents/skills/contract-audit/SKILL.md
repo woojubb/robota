@@ -28,21 +28,23 @@ description: Use when reviewing a package's class contract relationships (interf
 
 Review packages in dependency order so upstream contracts are established first.
 
-| Tier | Packages | Rationale |
-|------|----------|-----------|
-| 1 | dag-core, agents | Contract owners (ports, abstract bases) |
-| 2 | dag-runtime, dag-worker, dag-scheduler, openai, anthropic, google | Primary implementors |
-| 3 | dag-api, dag-projection, dag-nodes, dag-designer | Composition and specialization |
-| 4 | sessions, team, remote, dag-server-core, playground, bytedance | Infrastructure and leaf |
+| Tier | Packages                                              | Rationale                                                |
+| ---- | ----------------------------------------------------- | -------------------------------------------------------- |
+| 1    | agent-core, agent-sdk                                 | Contract owners and SDK facades                          |
+| 2    | agent-runtime, agent-sessions, agent-tools            | Primary lifecycle and tool implementors                  |
+| 3    | agent-command-_, agent-provider-_, agent-transport-\* | Product command, provider, and transport specializations |
+| 4    | agent-cli, agent-playground, agent-server, agent-web  | Product shells, apps, and leaf integrations              |
 
 ## Execution Steps
 
 1. **Select target package** using tier priority above.
 
 2. **Collect contracts mechanically**:
+
    ```bash
    node scripts/audit/audit-implements.mjs
    ```
+
    Filter output for the target package. Extract all `implements` and `extends` relationships.
 
 3. **Classify each contract**:
@@ -54,16 +56,19 @@ Review packages in dependency order so upstream contracts are established first.
 4. **Build registry tables** for the Class Contract Registry section:
 
    ### Interface Implementations
+
    | Interface | Implementor | Kind | Location |
-   |-----------|------------|------|----------|
+   | --------- | ----------- | ---- | -------- |
 
    ### Inheritance Chains
+
    | Base | Derived | Location | Notes |
-   |------|---------|----------|-------|
+   | ---- | ------- | -------- | ----- |
 
    ### Cross-Package Port Consumers
+
    | Port (Owner) | Adapter (Consumer Package) | Location |
-   |--------------|---------------------------|----------|
+   | ------------ | -------------------------- | -------- |
 
 5. **Update SPEC.md**: Add or replace the `## Class Contract Registry` section.
 

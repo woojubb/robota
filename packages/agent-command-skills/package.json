@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-skills",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.62",
   "description": "Composable skills command module for Robota sessions",
   "type": "module",
   "main": "dist/node/index.js",

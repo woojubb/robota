@@ -126,8 +126,6 @@ export function createApp(): express.Application {
       endpoints: {
         health: '/api/v1/remote/health',
         chat: '/api/v1/remote/chat',
-        stream: '/api/v1/remote/stream',
-        capabilities: '/api/v1/remote/providers/:provider/capabilities',
       },
       providers: providerNames,
     });

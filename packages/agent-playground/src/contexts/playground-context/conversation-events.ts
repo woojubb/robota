@@ -3,7 +3,10 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IConversationEvent, PlaygroundExecutor } from '../../lib/playground/robota-executor';
 
 export function buildConversationEvents(executor: PlaygroundExecutor): IConversationEvent[] {
-  if (typeof executor.getPlaygroundEvents === 'function') return executor.getPlaygroundEvents();
+  if (typeof executor.getPlaygroundEvents === 'function') {
+    const pluginEvents = executor.getPlaygroundEvents();
+    if (pluginEvents.length > 0) return pluginEvents;
+  }
   const history = executor.getHistory();
   return history.map((msg, index) => ({
     id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,

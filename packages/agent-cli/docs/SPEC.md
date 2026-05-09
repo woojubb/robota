@@ -23,6 +23,17 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own `CommandRegistry`, `ICommand`, or `ICommandSource` — command registry contracts are imported from `@robota-sdk/agent-sdk`; skill command metadata is provided by `@robota-sdk/agent-command-skills`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
 - Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
+- Does NOT own transparent workflow action provenance, shared state vocabulary, memory inspection
+  contracts, command execution eligibility, or retention policy — these are owned by SDK/runtime
+  contracts described in the cross-cutting transparent workflow spec
+- Does NOT own baseline workflow storage root resolution, repo-outside validation, category
+  contracts, or item deletion/disable semantics — these are owned by SDK storage contracts
+- Does NOT own user-local command behavior — `@robota-sdk/agent-command-user-local` owns the
+  provider-free `user-local` command behavior while CLI only routes direct product invocation and
+  prints command-owned output
+- Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
+  deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
+  be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions`; CLI keeps local duplicate UI adapter types and must not import `agent-sessions` in production source
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
@@ -55,6 +66,57 @@ The CLI is a pure TUI layer. All business logic (session lifecycle, slash comman
 3. Creates the provider instance by calling `definition.createProvider(config)`.
 4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files. Session persistence is passed only through SDK-owned facade types.
 5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+
+### Transparent Workflow Boundary
+
+Transparent workflow rules are defined in
+[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
+The CLI may render provenance, lifecycle state, memory/preference inspection, and disclosure fields
+only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
+workspace entry, but it must not infer command origin, replay remembered commands, define state
+transitions, choose retention policy, or inspect/delete memory outside SDK/command APIs.
+
+### User-Local Storage Boundary
+
+Baseline workflow storage rules are defined in
+[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The CLI
+may render the effective storage root, category summaries, and delete/disable actions only from SDK
+or command-module projections. It must not resolve baseline storage paths, write workflow
+preferences into project `.robota/`, or remember commands as executable preferences.
+
+Inspectable user-local memory and preference behavior is defined in
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The CLI
+may display remembered values, storage location, source, last-used time, and delete/disable actions
+only through SDK/command projections. It must not infer remembered items from repeated behavior or
+execute commands from remembered values.
+
+Existing CLI-owned operational cache such as `~/.robota/update-check.json` remains distribution UX,
+not baseline workflow state. Existing project-local sessions, logs, checkpoints, and memory are
+classified by the storage spec and must not be reused for new baseline workflow features without a
+separate migration PR.
+
+The direct product command `robota user-local storage list --format json` is provider-free. The CLI
+detects the `user-local` positional command before provider setup, delegates parsing and output
+formatting to `@robota-sdk/agent-command-user-local`, and exits without constructing an AI provider
+or opening the TUI.
+
+### Transparent Process Execution Boundary
+
+Transparent process execution rules are defined in
+[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The CLI
+may provide terminal-local process runner adapters and render command rows, output panes, and
+controls from SDK/runtime projections. It must not infer canonical repo commands, score command
+readiness, persist commands as executable preferences, interpret output as correctness evidence, or
+own process lifecycle state.
+
+### Repository Situational Awareness Boundary
+
+Passive repository context display is defined in
+[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
+The CLI may render cwd, repository root, branch, dirty summary, explicit references, and active
+background workspace context only from SDK/command projections. It must not walk the workspace,
+guess package managers, infer commands, score readiness, create setup profiles, or write repository
+files for context display.
 
 ### Provider Profile Creation
 
@@ -327,7 +389,9 @@ The CLI TUI renders structured session/runtime data. It must not parse assistant
 | Tool summaries               | `MessageList`                         | structured `tool-summary` event data   | Show compact one-line tool rows plus structured details such as diffs/output      |
 | Streaming assistant response | `StreamingIndicator`                  | SDK text deltas                        | Show current assistant text without persisting duplicate rendered state           |
 | Live tool execution          | `StreamingIndicator`                  | SDK tool state events                  | Show current tool state using the shared status marker set                        |
-| Background work              | `BackgroundTaskPanel`                 | SDK background task events             | Show a one-level tree of running and retained terminal jobs                       |
+| Background work              | `BackgroundTaskPanel`                 | SDK execution workspace entries        | Show SDK default-visible background task entries as a compact one-level tree      |
+| Execution workspace switcher | `ExecutionWorkspaceSwitcher`          | SDK execution workspace snapshot       | Switch between main-thread, background task, and group entries without mutation   |
+| Transparent workflow facts   | TUI surfaces                          | SDK/runtime projections                | Render provenance, state, memory, and disclosure fields without owning semantics  |
 | Status/activity              | `StatusBar` and `SessionStatusBar`    | session state, context state, settings | Show current activity and session metadata in the primary scan path               |
 | Diff blocks                  | `ToolDiffBlock` and markdown renderer | structured diff lines                  | Render diff bodies through fenced `diff` markdown; keep metadata outside the body |
 | Setup/permission prompts     | prompt components                     | CLI flow descriptors                   | Render generic interactions only; prompt semantics remain in flow modules         |
@@ -604,8 +668,8 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
 1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
-2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `background_task_event`) and converts them to React state.
+2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to React state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
 5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Command-specific follow-up prompts are handled by `ICommandInteraction` and command-specific host actions are handled by typed `TCommandEffect` values.
 6. Manages the permission queue (serialises concurrent permission requests).
@@ -1252,11 +1316,24 @@ When a user invokes a skill slash command with `context: fork`, the CLI still ca
 
 When a user asks in normal conversation to call or delegate to an agent, the request is handled through the model-invocable `/agent` built-in command module. The CLI only displays the resulting command/background events and final assistant response.
 
-Background agent task lifecycle and progress are projected into `TuiStateManager.backgroundTasks` through the runtime-owned event union exposed as the SDK `background_task_event` event. Text deltas are accumulated into a short preview, and tool start/end events update the current action. React components must render this state only; they must not own task transition or cancellation logic.
+Background agent task lifecycle and progress are projected by the SDK execution workspace APIs.
+`TuiStateManager` stores the latest SDK workspace snapshot and the currently selected entry id for
+rendering. React components may render this SDK state only; they must not own task transitions,
+retention, grouping, unread semantics, or cancellation logic.
 
-`TuiStateManager` owns presentation-only visibility policy. Clean completed tasks remain visible as an unread completion notice until the next accepted user turn, then leave the always-visible background panel without calling `closeBackgroundTask()`. Failed, cancelled, non-zero exit, signal-terminated, and worktree/branch-bearing terminal tasks remain visible until explicit close or acknowledge. `/background list` and `/background read` continue to use the SDK runtime registry, so tasks hidden from the panel remain inspectable until runtime close or session cleanup.
+The shared contract for switchable main-thread, process, agent, group, and skill-spawned work state
+is [../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+The CLI may render existing SDK fields and selection indicators now. Any future row fields such as
+elapsed time, input-needed reason, terminal result, archive, or clear controls must be introduced in
+SDK/runtime projections before TUI components display them.
 
-`BackgroundTaskPanel` renders active and recently completed background tasks as a one-level tree headed by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter and contains a compact status marker, human-readable agent/process label, secondary metadata such as idle time, timeout reason, or preserved worktree state, and a short whitespace-normalized preview. Preserved worktree rows prefer `worktreeNextAction` as the preview so users can review or delete the handoff path. The always-visible panel must not expose raw task IDs; task IDs remain available through `/background list` and `/background read`. The status marker uses the panel's existing status colors instead of rendering status words in the always-visible task list. User controls are routed through `@robota-sdk/agent-command-background`:
+`BackgroundTaskPanel` renders SDK default-visible background task entries as a one-level tree headed
+by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter from
+`IExecutionWorkspaceEntry` data and contains a compact status marker, human-readable task label,
+secondary metadata such as task kind/status/attention, and a short whitespace-normalized preview.
+The always-visible panel must not expose raw task IDs; task IDs remain available through
+`/background list` and `/background read`. User controls are routed through
+`@robota-sdk/agent-command-background`:
 
 | Command                               | Behavior                       |
 | ------------------------------------- | ------------------------------ |
@@ -1267,9 +1344,72 @@ Background agent task lifecycle and progress are projected into `TuiStateManager
 
 For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
 
-Background job groups are SDK-owned orchestration state. The TUI may render group view models derived from `background_job_group_event`, but it must not decide group completion, aggregate raw logs, trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through SDK APIs and `/agent wait` command behavior.
+Background job groups are SDK-owned orchestration state. The TUI may render group entries from the
+SDK execution workspace snapshot, but it must not decide group completion, aggregate raw logs,
+trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through
+SDK APIs and `/agent wait` command behavior.
+
+### Execution Workspace Switcher
+
+The execution workspace switcher is a TUI-only view over `InteractiveSession` execution workspace
+APIs. `agent-sdk` owns the snapshot entries, status, attention, visibility, origin metadata, detail
+pagination, and available controls. `agent-cli` owns only:
+
+- opening/closing the switcher with Ctrl+B;
+- arrow-key menu navigation while the switcher is open;
+- the currently selected entry id as ephemeral terminal view state;
+- rendering SDK-provided entries and detail records.
+
+The switcher list includes the main thread plus SDK-projected background task and background group
+entries. The active visible entry renders with `●`; inactive entries render with `○`. A separate
+highlight marker may indicate the currently focused menu row before Enter commits a selection. Enter
+changes only the selected view id; it must not cancel, close, pause, foreground, wait, or otherwise
+mutate execution.
+
+When the selected entry is not the main thread, the message pane is replaced by an execution detail
+pane populated through `InteractiveSession.readExecutionWorkspaceDetail(entryId)`. Main-thread
+selection renders the normal `MessageList`. Live updates come from `execution_workspace_event`
+snapshots emitted by the SDK; React components must not infer lifecycle, retention, or task grouping
+from raw `background_task_event` data when an SDK workspace entry exists.
+
+Completed, failed, cancelled, and grouped task visibility follows the SDK `visibility` field. The
+CLI may filter the always-visible compact panel to `visibility: default` background task entries,
+but it must not invent a separate retention timeout, close/dismiss policy, unread policy, or group
+completion rule. Explicit controls such as cancel, close, wait, send, or read-log remain SDK/command
+APIs and are not implied by view selection.
+
+When rendering user-facing workflow states, the CLI follows the transparent workflow vocabulary. It
+may display a debug/raw runtime status only in an explicitly labeled diagnostic context.
+
+### AI Workflow Control Surface
+
+Future AI workflow dashboards, task intake wizards, review/evidence screens, and workflow command
+menus are TUI-only surfaces. The CLI may render repository workflow state only through SDK/runtime
+or harness-owner projections defined by
+[../../../.agents/specs/ai-workflow-control-plane.md](../../../.agents/specs/ai-workflow-control-plane.md).
+
+The CLI must not parse workflow manifests, choose canonical harness commands, execute workflow hooks,
+write evidence artifacts, decide review gates, retain workflow runs, or infer workflow lifecycle from
+raw shell output. It may provide terminal-local runner adapters and render:
+
+- manifest readiness and setup gaps supplied by owner APIs;
+- workflow run list/detail projections;
+- command choices and hook decisions supplied by owner APIs;
+- evidence links and review decisions recorded through owner APIs.
 
 ## Memory Management
+
+### User-Local Memory And Preference Transparency
+
+User-local memory is display/navigation state only. The CLI may render inspection rows, disabled
+state, storage location, source, last-used time, and delete/disable actions returned by SDK or
+command APIs. It must not own storage shape, write user-local memory directly, write baseline memory
+inside the repository, or convert remembered values into command execution.
+
+Provider-free `user-local memory ...` commands are routed directly to
+`@robota-sdk/agent-command-user-local` before provider setup. CLI parsing may pass terminal options
+such as `--summary`, `--source`, and `--format`, but command behavior and persistence remain outside
+`agent-cli`.
 
 ### Project Memory Review Surface
 

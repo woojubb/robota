@@ -7,7 +7,9 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import open from 'open';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
+import { startWebSidecarServer } from '../../web-sidecar/web-sidecar-server.js';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -15,6 +17,8 @@ import type {
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TPermissionResultValue,
+  IExecutionDetailPage,
+  IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-sdk';
 import type {
   IAIProvider,
@@ -43,6 +47,8 @@ export interface IInteractiveSessionProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
+  webPort?: number;
+  noOpen?: boolean;
 }
 
 export interface IInteractiveSessionState {
@@ -57,13 +63,16 @@ export interface IInteractiveSessionState {
   isAborting: boolean;
   isShuttingDown: boolean;
   pendingPrompt: string | null;
-  backgroundTasks: import('../tui-state-manager.js').IBackgroundTaskViewModel[];
+  executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null;
+  selectedExecutionEntryId?: string;
   permissionRequest: IPermissionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
   handleShutdown: (reason?: TSessionEndReason) => Promise<void>;
+  selectExecutionWorkspaceEntry: (entryId: string) => void;
+  readExecutionWorkspaceDetail: (entryId: string) => Promise<IExecutionDetailPage>;
 }
 
 interface IInitState {
@@ -93,6 +102,21 @@ export function applySkillActivationEventToManager(
   manager: IHistorySyncManager,
 ): void {
   manager.syncHistory(interactiveSession.getFullHistory());
+}
+
+function syncExecutionWorkspaceFromSession(
+  interactiveSession: InteractiveSession,
+  manager: TuiStateManager,
+): void {
+  try {
+    manager.syncExecutionWorkspaceSnapshot(
+      interactiveSession.getExecutionWorkspaceSnapshot({
+        selectedEntryId: manager.selectedExecutionEntryId,
+      }),
+    );
+  } catch {
+    /* Session not initialized yet */
+  }
 }
 
 function initializeSession(
@@ -191,11 +215,42 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     }
   }
 
+  // Start web sidecar server if --web flag is set
+  useEffect(() => {
+    if (!props.webPort) return;
+    const port = props.webPort;
+    let stopped = false;
+    let stopFn: (() => Promise<void>) | null = null;
+
+    startWebSidecarServer(interactiveSession, port)
+      .then((server) => {
+        stopFn = server.stop;
+        if (stopped) {
+          server.stop().catch(() => undefined);
+          return; // allow-fallback: cleanup after unmount
+        }
+        const shouldOpen = !props.noOpen && !process.env['ROBOTA_NO_OPEN'];
+        const monitorUrl = process.env['ROBOTA_MONITOR_URL'] ?? 'http://localhost:7071/monitor';
+        if (shouldOpen) {
+          open(monitorUrl).catch(() => undefined);
+        }
+      })
+      .catch(() => undefined); // allow-fallback: sidecar bind failure is non-fatal; TUI continues
+
+    return () => {
+      stopped = true;
+      if (stopFn) stopFn().catch(() => undefined);
+    };
+  }, [interactiveSession, props.webPort, props.noOpen]);
+
   // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {
     const onCompact = (): void => applyCompactEventToManager(interactiveSession, manager);
     const onSkillActivation = (): void =>
       applySkillActivationEventToManager(interactiveSession, manager);
+    const onExecutionWorkspaceEvent = (
+      event: import('@robota-sdk/agent-sdk').IExecutionWorkspaceEvent,
+    ): void => manager.syncExecutionWorkspaceSnapshot(event.snapshot);
 
     interactiveSession.on('text_delta', manager.onTextDelta);
     interactiveSession.on('tool_start', manager.onToolStart);
@@ -207,7 +262,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('context_update', manager.onContextUpdate);
     interactiveSession.on('compact', onCompact);
     interactiveSession.on('skill_activation', onSkillActivation);
-    interactiveSession.on('background_task_event', manager.onBackgroundTaskEvent);
+    interactiveSession.on('execution_workspace_event', onExecutionWorkspaceEvent);
 
     // Sync context state and restored history after async initialization
     const initCheck = setInterval(() => {
@@ -223,6 +278,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
         if (restored.length > 0) {
           manager.syncHistory(restored);
         }
+        syncExecutionWorkspaceFromSession(interactiveSession, manager);
         clearInterval(initCheck);
       } catch {
         /* Not yet initialized */
@@ -241,7 +297,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       interactiveSession.off('context_update', manager.onContextUpdate);
       interactiveSession.off('compact', onCompact);
       interactiveSession.off('skill_activation', onSkillActivation);
-      interactiveSession.off('background_task_event', manager.onBackgroundTaskEvent);
+      interactiveSession.off('execution_workspace_event', onExecutionWorkspaceEvent);
     };
   }, [interactiveSession, manager]);
 
@@ -250,6 +306,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   // - thinking=false: complete/interrupted messages are in messages
   useEffect(() => {
     manager.syncHistory(interactiveSession.getFullHistory());
+    syncExecutionWorkspaceFromSession(interactiveSession, manager);
     if (!manager.isThinking) {
       manager.setPendingPrompt(interactiveSession.getPendingPrompt());
     }
@@ -278,6 +335,17 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     [interactiveSession, manager, isShuttingDown],
   );
 
+  const selectExecutionWorkspaceEntry = useCallback(
+    (entryId: string): void => manager.selectExecutionWorkspaceEntry(entryId),
+    [manager],
+  );
+
+  const readExecutionWorkspaceDetail = useCallback(
+    (entryId: string): Promise<IExecutionDetailPage> =>
+      interactiveSession.readExecutionWorkspaceDetail(entryId),
+    [interactiveSession],
+  );
+
   return {
     interactiveSession,
     registry,
@@ -290,12 +358,15 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     isAborting: manager.isAborting,
     isShuttingDown,
     pendingPrompt: manager.pendingPrompt,
-    backgroundTasks: manager.backgroundTasks,
+    executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
+    selectedExecutionEntryId: manager.selectedExecutionEntryId,
     permissionRequest,
     contextState: manager.contextState,
     handleSubmit,
     handleAbort,
     handleCancelQueue,
     handleShutdown,
+    selectExecutionWorkspaceEntry,
+    readExecutionWorkspaceDetail,
   };
 }

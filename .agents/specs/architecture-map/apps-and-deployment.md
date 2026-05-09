@@ -4,59 +4,44 @@ Application deployment topology, service boundaries, and documentation deploymen
 
 Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 
-## DAG Service Deployment Stack
+## Agent App Deployment Stack
 
-The DAG service deploys as three independent units. Keep this topology in this architecture slice;
-app-local docs only record the environment variables and runtime constraints owned by each app.
+The agent web app and API service deploy independently. Keep browser-visible UI concerns in the
+frontend shell and provider/API-key work in the server-side service.
 
 ```mermaid
 flowchart TD
   Browser["Browser"]
-  Studio["dag-studio\nNext.js frontend host"]
-  CLI["dag-cli / dag-mcp-server\noperational clients"]
-  Client["dag-orchestration-client"]
-  Orchestrator["dag-orchestrator-server\nlong-running Express + ws service"]
-  Runtime["ComfyUI-compatible runtime\ndag-runtime-server or GPU ComfyUI host"]
-  OrchestratorStorage["Persistent orchestrator storage\nDAG definitions, run drafts,\nassets, cost metadata"]
-  RuntimeStorage["Runtime/model storage\nprovider credentials + generated assets"]
+  AgentWeb["agent-web\nNext.js frontend host"]
+  AgentServer["agent-server\nprovider proxy + Playground WebSocket"]
+  Providers["AI providers\nOpenAI, Anthropic, Gemini, etc."]
+  SessionStorage["Session/runtime storage"]
 
-  Browser --> Studio
-  Studio -- "REST + WebSocket\nNEXT_PUBLIC_DAG_API_BASE_URL" --> Orchestrator
-  CLI --> Client
-  Client --> Orchestrator
-  Orchestrator -- "ComfyUI Prompt API + backend WS\nBACKEND_URL" --> Runtime
-  Orchestrator --> OrchestratorStorage
-  Runtime --> RuntimeStorage
+  Browser --> AgentWeb
+  AgentWeb -- "REST + WebSocket" --> AgentServer
+  AgentServer --> Providers
+  AgentServer --> SessionStorage
 ```
 
 Deployment ownership:
 
-| Deploy unit                 | Runtime shape                                             | Required contract                                                                                                       |
-| --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `dag-studio`                | Next.js frontend host                                     | Browser-visible `NEXT_PUBLIC_DAG_API_BASE_URL` points at `dag-orchestrator-server`; generic `API_CONFIG` remains local. |
-| `dag-orchestrator-server`   | Long-running Node process or container with WebSocket I/O | `ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, and persistent storage roots are configured by the host.            |
-| `dag-runtime-server`        | Local/dev ComfyUI-compatible Node runtime                 | Serves the Prompt API on `DAG_PORT` and owns node provider API keys for bundled node execution.                         |
-| External ComfyUI/GPU host   | Managed or self-hosted GPU runtime                        | Must expose the ComfyUI Prompt API and compatible WebSocket surface used by the orchestrator.                           |
-| Operational CLI/MCP clients | Local or agent-hosted processes                           | Use `dag-orchestration-client`; never import server route modules or route-local contracts.                             |
+| Deploy unit    | Runtime shape                       | Deploy platform    | Required contract                                                                    |
+| -------------- | ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| `agent-web`    | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. |
+| `agent-server` | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.  |
+| `apps/docs`    | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.            |
+| `apps/blog`    | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                             |
 
 Deployment decision:
 
-- Keep `dag-studio` deployable on a frontend platform such as Vercel or Cloudflare's Next.js
-  hosting path.
-- Keep `dag-orchestrator-server` off serverless function-only runtimes. It owns WebSocket upgrade
-  handling, ComfyUI proxying, and local/cloud persistence adapter wiring, so it belongs on a
-  long-running process/container host such as Railway, Fly.io, ECS, or an equivalent Node service
-  platform.
-- Do not collapse the orchestrator into Next.js API routes merely to share a deployment target with
-  `dag-studio`. That would move WebSocket, proxy, and persistence concerns into the frontend shell.
-- Keep `dag-runtime-server` or an external ComfyUI-compatible GPU backend separate from the
-  orchestrator. Production image/video workloads should choose a runtime host based on GPU,
-  cold-start, model-storage, and private-networking requirements.
-- When the frontend is served from HTTPS, run progress must use `wss://` to the orchestrator origin.
-  `dag-designer` derives this from `NEXT_PUBLIC_DAG_API_BASE_URL`.
-- Verify external ComfyUI compatibility locally with `docker-compose.dag-comfyui.yml` and
-  `pnpm dag:comfyui:verify`. This check is opt-in because the Docker build, model files, and GPU
-  policy are host-dependent.
+- Keep `agent-web` deployable on a frontend platform.
+- Keep provider credentials, provider API calls, and long-running WebSocket handling out of the
+  frontend shell.
+- Keep reusable Playground behavior in `agent-playground`; `agent-web` owns only the product route
+  and deployment host.
+- Remote execution contract ownership stays in `agent-remote-client` and reusable Playground
+  execution behavior stays in `agent-playground`; `agent-web` and `agent-server` compose those
+  packages without owning their contracts.
 
 ## Documentation Deployment Stack
 
@@ -88,3 +73,11 @@ Docs deployment ownership:
 | Production deploy              | Cloudflare Pages Git integration from `main`        |
 | Manual direct upload           | `scripts/docs/deploy-cloudflare-pages.mjs`          |
 | Release workflow docs behavior | Build verification only; no GitHub Pages deployment |
+
+Docs preservation rules:
+
+- **`content/v2.0.0/` must never be deleted.** This directory is permanently preserved. Any cleanup
+  script or deploy pipeline must explicitly exclude it.
+- **Three-layer sync required on every app change.** When any app or SDK change affects
+  user-visible behavior, update all three documentation layers in the same PR:
+  `packages/*/docs/SPEC.md` → `packages/*/README.md` → `content/` site pages.
