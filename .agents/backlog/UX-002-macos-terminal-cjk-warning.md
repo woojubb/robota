@@ -1,6 +1,6 @@
 ---
 title: 'UX-002: macOS Terminal.app CJK 크래시 런타임 경고 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon
@@ -78,4 +78,7 @@ TERM_PROGRAM=iTerm.app robota --version
 
 **Cleanup:** 없음
 
-**Evidence:** (구현 후 채울 것)
+**Evidence:** PR #361 (fix/ux-001-node-version-check-esm) — `bin/robota.cjs`에서 구현. 실행 결과:
+
+- `TERM_PROGRAM=Apple_Terminal node bin/robota.cjs --version` → 경고 출력 후 버전 표시 ✅
+- `TERM_PROGRAM=iTerm.app node bin/robota.cjs --version` → 경고 없이 버전만 출력 ✅
