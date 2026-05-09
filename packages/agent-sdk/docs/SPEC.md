@@ -313,6 +313,91 @@ agent-cli (Ink TUI — CLI-specific)
 - **Checkpoint common APIs**: `agent-sdk/command-api/checkpoint/` owns command-facing checkpoint metadata constants, subcommand projection helpers, and inspect/list/restore/rollback facades over `ICommandHostContext`. `rewind` command behavior lives in `@robota-sdk/agent-command-rewind` and consumes these APIs as an external command module.
 - **Boundary**: `command-api` may define contracts and reusable command-facing helpers. It must not own product UI, concrete settings file I/O, process restart/exit, provider construction, or command-specific flows that can live in `agent-command-*` packages.
 
+### Transparent Workflow Contract (SDK-Specific)
+
+The cross-cutting contract lives in
+[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md). The SDK
+is the designated owner for reusable transparent workflow contracts and projections:
+
+- any new action provenance types and execution eligibility helpers;
+- mapping runtime task states into the shared user-facing state vocabulary;
+- execution workspace read models for main-thread, background task, and background group switching;
+- any new memory and preference inspection/removal API shapes;
+- command-facing facades that let `agent-command-*` expose status and memory controls without
+  importing CLI code.
+
+`IExecutionOrigin` is the current task/workspace origin projection. It is not command authorization
+provenance by itself. Future transparent workflow implementation PRs must add or extend typed action
+provenance before new host command/process execution surfaces depend on it.
+
+User-local preferences, remembered values, and session state may influence display and navigation,
+but they must not execute commands. Shell/process/harness command execution must originate from
+direct user input or an assistant suggestion accepted through explicit UI approval or the current
+user-selected permission policy.
+
+### User-Local Storage Foundation (SDK-Specific)
+
+The cross-cutting storage policy lives in
+[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The SDK
+is the designated owner for baseline workflow storage root resolution, repo-outside validation,
+category contracts, and item inspection/removal projections.
+
+Existing `projectPaths(cwd)` helpers remain valid for explicit project-owned features such as
+project settings, session replay/debug logs, edit checkpoints, and current project memory. New
+baseline transparent workflow state must not use `projectPaths(cwd)` or ad hoc `.robota/` paths.
+It must use SDK-owned user-local storage contracts once those are implemented.
+
+Existing `userPaths()` helpers expose only current user settings and sessions paths. They are not
+yet the complete transparent workflow storage contract. Future implementation PRs must add tested
+user-local category APIs instead of having CLI or command modules assemble category paths
+themselves.
+
+### User-Local Memory Transparency (SDK-Specific)
+
+The baseline user-local memory contract lives in
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The SDK
+is the designated owner for memory item projection shapes, display/navigation disclosure rules,
+inspection APIs, delete/disable APIs, and disabled-item non-use.
+
+User-local memory may influence display and navigation only. It must not execute shell/process
+commands, select repository harness commands, grant permissions, inject hidden prompt behavior, or
+become the execution cwd for a new command by itself.
+
+Existing project memory under `.robota/memory/` remains a separate explicit project-memory feature.
+New baseline local preferences, last-view state, and task associations must use the SDK user-local
+storage contract instead of project memory paths.
+
+### Transparent Process Execution (SDK-Specific)
+
+The process execution contract lives in
+[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The SDK
+is the designated owner for process execution request/status projections that sit above runtime
+process tasks:
+
+- action provenance attached to user-directed process execution;
+- display-safe environment summaries;
+- working-directory projection;
+- foreground/background process status projection;
+- duration and terminal-result projection;
+- retention and transcript pointers consumed by command modules, transports, and CLIs.
+
+Existing `BackgroundProcess` and execution workspace APIs are the current building blocks. Future
+user-facing process-run commands must use SDK/runtime contracts and must not let CLI components
+assemble process semantics from raw child-process state.
+
+### Repository Situational Awareness (SDK-Specific)
+
+Passive repository context display is specified in
+[../../../.agents/specs/repository-situational-awareness.md](../../../.agents/specs/repository-situational-awareness.md).
+The SDK is the designated owner for context item projections, provenance fields, and bounded read
+contracts for cwd, repository root, branch, dirty summary, explicit context references, and active
+background workspace context.
+
+Situational awareness projections must not infer commands, package managers, CI mappings,
+repository readiness, setup profiles, or harness contracts. Existing context loading may continue to
+serve prompt construction, but passive display surfaces must use explicit projection APIs instead of
+reusing broad context-loading internals for repository interpretation.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`
@@ -454,6 +539,10 @@ Resolved provider fields:
 - **Audit trail**: `/memory approve`, `/memory reject`, and future explicit memory workflows append memory events to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
 - **Ownership**: SDK owns memory stores, memory policy primitives, and command-facing memory APIs. `@robota-sdk/agent-command-memory` owns command behavior. CLI only composes the module and renders command results/autocomplete metadata.
 - **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
+- **User-local memory boundary**: This project memory feature is not baseline user-local memory.
+  User-local display/navigation preferences are governed by
+  [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md) and
+  must not be stored in `.robota/memory/`.
 
 ### Context Window Management
 
@@ -1361,6 +1450,13 @@ may render entries, keep ephemeral selection state, and invoke explicit controls
 infer lifecycle, retention, origin, unread/attention semantics, or control availability from raw
 events when this projection is available.
 
+The cross-client background work state contract is defined in
+[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+The current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
+preview, current action, attention, visibility, updated time, and advisory controls. Future fields
+such as started time, elapsed time, input-needed reason, terminal result, retention state, archive,
+and clear controls must be added to the SDK projection before CLI or transport surfaces render them.
+
 Execution workspace entries use a common `IExecutionWorkspaceEntry` shape:
 
 - `main_thread` is an SDK projection backed by `InteractiveSession` history and current foreground
@@ -1369,7 +1465,8 @@ Execution workspace entries use a common `IExecutionWorkspaceEntry` shape:
 - `background_group` entries are projections of `BackgroundJobOrchestrator` groups.
 - `origin` is SDK-owned provenance. Runtime stores only opaque primitive metadata; the SDK maps it
   into `IExecutionOrigin` for commands, model commands, tool calls, skills, transports, and system
-  work.
+  work. This is presentation provenance; command execution eligibility for transparent workflow
+  features must follow the action provenance contract.
 - `controls` is presentation-neutral and advisory. Selecting an entry is never a lifecycle
   mutation; cancellation, close, send, read, wait, and group summary remain explicit APIs.
 
@@ -1377,6 +1474,10 @@ Default visibility keeps active, permission-blocked, failed, cancelled, and unre
 in the workspace list. Clean completed tasks remain queryable through runtime state until `close()`
 or session cleanup, but clients may choose a collapsed recent/history presentation from the SDK
 entry metadata instead of deleting records.
+
+The workspace state vocabulary follows the transparent workflow contract. Current runtime
+`waiting_permission` snapshots must be projected for clients as user-facing `waiting-for-input`
+state when the surface is not exposing raw runtime types for debugging.
 
 When session persistence is enabled, `InteractiveSession` must persist background task state as part of the project-local session record. Lifecycle, tool start/end, permission, completion, failure, cancellation, and close events update the session JSON with the latest task snapshots and durable event summaries. High-frequency `background_task_text_delta` events must not rewrite the main session JSON per chunk; they are written to append-only JSONL session logs and task/subagent transcript files so debugging data is available while streaming is still in progress without risking partial JSON writes.
 

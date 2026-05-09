@@ -174,6 +174,11 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 | `contextReferences`        | `unknown[]` | No       | SDK-owned context reference inventory for resume/debugging.                                                                                                       |
 | `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-sessions` stores this value opaquely and does not import sandbox packages.        |
 
+Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
+Inspectable user-local memory is governed by
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). Session
+records must not become a command source or hidden preference store.
+
 ### Session Data Migration
 
 `scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
