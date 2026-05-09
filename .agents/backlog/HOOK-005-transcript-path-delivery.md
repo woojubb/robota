@@ -59,4 +59,14 @@ transcript 파일이 없는 경우(in-process, web 환경 등)는 `undefined`로
 
 ## User Execution Test Scenarios
 
-Not applicable — internal hook input field change.
+Not applicable — requires a full agent session with FileSessionStore.
+
+**Reason:** `transcript_path` is populated from `sessionStore.getFilePath(sessionId)`, which returns an actual file path only when a FileSessionStore is configured and a session is active. Demonstrating this end-to-end requires:
+
+1. A running agent session with FileSessionStore
+2. An LLM provider API key
+3. Triggering a Stop/SessionEnd event and inspecting the hook stdin
+
+This goes beyond what a standalone SDK demo script can provide without a live LLM API. The implementation correctness is verified by the Test Plan (type checking, integration test coverage of the session → hook path).
+
+**Implementation note:** When FileSessionStore is in use, hook scripts that read `transcript_path` from stdin will receive the correct JSONL file path. In environments without file-based session storage (in-process, web), `transcript_path` is `undefined` and omitted from stdin.
