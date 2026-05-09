@@ -27,6 +27,7 @@ This skill owns orchestration only:
 - branch and PR sequencing;
 - owner-skill routing;
 - verification checkpoint ordering;
+- user test scenario gate enforcement;
 - PR summary requirements;
 - final handoff state.
 
@@ -42,19 +43,25 @@ or implementation details.
    - why it matches repo rules, layering, and ownership;
    - affected scope;
    - test and verification plan;
+   - user test scenario plan;
    - decisions that require the user.
-3. If the recommendation is coherent with rules and architecture, proceed. If not, stop and ask.
-4. Use `branch-guard` before commits or branch changes.
-5. For multi-backlog initiatives:
+3. Ensure the backlog or work unit includes a user-facing test scenario section when it changes
+   user-visible behavior, command behavior, workflow behavior, or user-facing docs.
+4. If the recommendation is coherent with rules and architecture, proceed. If not, stop and ask.
+5. Use `branch-guard` before commits or branch changes.
+6. For multi-backlog initiatives:
    - create or confirm the initiative base branch from `develop`;
    - create one child branch per backlog or split work unit;
    - open each child PR into the initiative base branch;
    - merge each child PR after checks pass;
    - open the final initiative PR into `develop`;
    - do not auto-merge the final `develop` PR.
-6. Route detailed work to owner skills.
-7. Ensure every PR body records recommendation, rationale, implementation summary, tests, and
-   residual risks.
+7. Route detailed work to owner skills.
+8. Run or coherently review the user test scenario as a final gate. If it passes, include the
+   scenario in the user handoff as something the user can execute. If it fails, keep working or ask
+   for a decision.
+9. Ensure every PR body records recommendation, rationale, implementation summary, tests, user
+   scenario gate result, and residual risks.
 
 ## Owner Skill Routing
 
@@ -80,12 +87,15 @@ Every child PR must include:
 - rationale against backlog intent and architecture;
 - implementation summary;
 - tests and verification commands;
+- user test scenario gate result;
 - residual risks or skipped checks;
 - next backlog or handoff note when relevant.
 
 ## Stop Conditions
 
 - No recommendation gate was presented.
+- A required user-facing backlog has no user test scenario section.
+- The user test scenario gate fails or cannot be coherently mapped to the completed behavior.
 - The recommendation conflicts with rules, ownership, architecture, or backlog intent.
 - The work combines unrelated backlogs in one PR.
 - A child branch targets `develop` instead of the initiative base branch during a multi-backlog

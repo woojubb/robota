@@ -15,6 +15,7 @@ The recommendation must include:
 - why it matches repository rules, layering, ownership, and architecture boundaries;
 - affected packages, docs, or commands;
 - the expected test and verification plan;
+- the expected user test scenario plan, separate from agent/CI verification;
 - any decisions that require the user instead of agent autonomy.
 
 If the recommendation is coherent with repository rules, layering, architecture, and the backlog
@@ -29,7 +30,37 @@ judgment, stop and ask the user for a decision.
   work unit must have its own recommendation gate.
 - Do not combine unrelated backlogs in one PR.
 - Every PR description must include the accepted recommendation, rationale, implementation summary,
-  tests run, and residual risks.
+  tests run, user scenario gate result, and residual risks.
+
+## User Test Scenario Rule
+
+Every backlog that changes user-visible behavior, command behavior, workflow behavior, or
+documentation for such behavior must include a user-facing test scenario section before
+implementation starts.
+
+User test scenarios are separate from the agent's engineering test plan:
+
+- The engineering test plan covers unit, integration, type, harness, CI, build, and internal
+  verification commands.
+- The user test scenario describes what a user can do manually after the work is complete to confirm
+  the feature behaves as intended.
+
+Each user test scenario must include:
+
+- prerequisite state or sample setup;
+- user actions in order;
+- expected visible result;
+- any cleanup or reset step;
+- whether the agent can verify the scenario directly, partially, or only by static/manual review.
+
+Before declaring a backlog or work unit complete, the agent must run or review the user test
+scenario as a final gate when feasible. If the scenario cannot be executed in the current
+environment, the agent must still validate it for coherence against the implemented behavior and
+state the limitation.
+
+When the user scenario gate passes, the final user-facing response must tell the user that the
+scenario is available to run and summarize the scenario briefly. If the scenario gate does not pass,
+the work is not complete and the agent must fix the issue or ask for a decision.
 
 ## Base Branch Workflow
 
@@ -71,6 +102,8 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 ## Stop Conditions
 
 - No recommendation gate was presented for the backlog or work unit.
+- A required user-facing backlog lacks a user test scenario section.
+- The user scenario gate fails or cannot be coherently mapped to the completed behavior.
 - The recommendation conflicts with repo rules, layering, package ownership, or backlog intent.
 - The work would combine unrelated backlogs into one PR.
 - The final initiative PR would be auto-merged into `develop`.
@@ -80,8 +113,12 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 ## Checklist
 
 - [ ] Recommendation gate presented before work begins.
-- [ ] Recommendation includes rationale, ownership, affected scope, tests, and open decisions.
+- [ ] Recommendation includes rationale, ownership, affected scope, engineering tests, user
+      scenarios, and open decisions.
+- [ ] Backlog includes user test scenarios when behavior is user-visible.
 - [ ] PR scope maps to exactly one backlog or explicitly split work unit.
+- [ ] User scenario gate was run or coherently reviewed before completion.
 - [ ] Child PR targets the initiative base branch.
 - [ ] Final initiative PR targets `develop` and is not auto-merged.
-- [ ] PR description records the accepted recommendation and verification evidence.
+- [ ] PR description records the accepted recommendation, verification evidence, and user scenario
+      gate result.
