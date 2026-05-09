@@ -202,7 +202,7 @@ export function ConversationView({
         ),
       )}
 
-      {isThinking && <ThinkingIndicator />}
+      {isThinking && !streamingText && <ThinkingIndicator />}
 
       {activeTools.map((tool) => (
         <ToolCard key={tool.id} tool={tool} />
