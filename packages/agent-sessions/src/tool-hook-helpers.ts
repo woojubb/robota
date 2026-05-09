@@ -37,6 +37,7 @@ export function buildHookInput(
   toolName: string,
   parameters: TToolParameters,
   permissionMode?: string,
+  transcriptPath?: string,
 ): IHookInput {
   return {
     session_id: sessionId,
@@ -45,6 +46,7 @@ export function buildHookInput(
     tool_name: toolName,
     tool_input: parameters as Record<string, string | number | boolean | object>,
     ...(permissionMode !== undefined && { permission_mode: permissionMode }),
+    ...(transcriptPath !== undefined && { transcript_path: transcriptPath }),
   };
 }
 
