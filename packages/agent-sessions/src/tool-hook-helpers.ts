@@ -66,9 +66,8 @@ export async function runPreToolHook(
     return {
       success: true,
       data: JSON.stringify({
-        success: false,
-        output: '',
-        error: `Blocked by hook: ${hookResult.reason}`,
+        blocked: true,
+        reason: hookResult.reason ?? 'Blocked by hook',
       }),
       metadata: {},
     };
