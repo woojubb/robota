@@ -92,6 +92,10 @@ Create the skill as a small procedural wrapper:
 - [x] The skill requires child PRs to merge into the initiative base branch.
 - [x] The skill requires the final `develop` PR to remain unmerged for the user.
 
+## User Execution Test Scenarios
+
+Not applicable — skill-only change. This backlog delivered `.agents/skills/backlog-execution-orchestrator/SKILL.md`, a process orchestration skill definition. It does not deliver runnable Robota product behavior (no CLI command, TUI action, browser UI, or public SDK API). Governance and skill-only changes do not require a product-surface user execution test scenario.
+
 ## Test Plan
 
 - Add a document/governance check only if the rule starts drifting or the skill is repeatedly
