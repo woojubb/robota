@@ -107,7 +107,7 @@ Create a design and contract PR before UI work:
 - Add tests proving context display does not create or modify repo files.
 - Add CLI rendering tests after SDK projections exist.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog produced a repository situational awareness contract document and did
 not deliver runnable Robota product behavior. Product-surface scenarios must be added by follow-up
@@ -127,7 +127,7 @@ implementation PRs that expose repository context through CLI/TUI/SDK behavior.
 - Expected result: The command prints allowed context items, command inference prohibition,
   file-listing restriction, and repository-write prohibition.
 - Evidence: Executed as process verification for the contract document. SDK projection APIs and CLI
-  rendering remain follow-up implementation work, where product-surface user scenarios must be
+  rendering remain follow-up implementation work, where product-surface user execution test scenarios must be
   added.
 
 ## Verification Plan

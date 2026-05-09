@@ -7,17 +7,17 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Process & Planning
 
-| Skill                                                                     | Description                                                      |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [spec-first-development](spec-first-development/SKILL.md)                 | Enforce spec-first workflow before touching contract boundaries  |
-| [spec-writing-standard](spec-writing-standard/SKILL.md)                   | Required sections and quality gates for SPEC.md authoring        |
-| [spec-code-conformance](spec-code-conformance/SKILL.md)                   | Verification loop to align code with spec after spec changes     |
-| [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                 | Kent Beck TDD cycle: Red → Green → Refactor                      |
-| [task-tracking](task-tracking/SKILL.md)                                   | Create and update task files in `.agents/tasks/`                 |
-| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Recommendation-gated backlog PR pipeline with user scenario gate |
-| [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Mandatory checklist after completing implementation work         |
-| [repo-change-loop](repo-change-loop/SKILL.md)                             | Standard change loop: impact → build → verify → summarize        |
-| [version-management](version-management/SKILL.md)                         | Coordinated version bumps with changesets across all packages    |
+| Skill                                                                     | Description                                                                     |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [spec-first-development](spec-first-development/SKILL.md)                 | Enforce spec-first workflow before touching contract boundaries                 |
+| [spec-writing-standard](spec-writing-standard/SKILL.md)                   | Required sections and quality gates for SPEC.md authoring                       |
+| [spec-code-conformance](spec-code-conformance/SKILL.md)                   | Verification loop to align code with spec after spec changes                    |
+| [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                 | Kent Beck TDD cycle: Red → Green → Refactor                                     |
+| [task-tracking](task-tracking/SKILL.md)                                   | Create and update task files in `.agents/tasks/`                                |
+| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Recommendation-gated backlog PR pipeline with user execution test scenario gate |
+| [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Mandatory checklist after completing implementation work                        |
+| [repo-change-loop](repo-change-loop/SKILL.md)                             | Standard change loop: impact → build → verify → summarize                       |
+| [version-management](version-management/SKILL.md)                         | Coordinated version bumps with changesets across all packages                   |
 
 ## Code Quality & Architecture
 

@@ -196,7 +196,7 @@ Each implementation PR should update the owning package specs before changing `a
 - Include at least one fixture repository with no Robota files and no Robota local state inside the
   repo to verify that the planned behavior remains repo-agnostic.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog is a planning umbrella and does not deliver runnable Robota product
 behavior. Product-surface scenarios must be added by the focused implementation backlogs that build

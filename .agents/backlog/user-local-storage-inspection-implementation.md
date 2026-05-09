@@ -31,7 +31,7 @@ Recommended approach:
   `robota user-local storage list --format json`.
 - Keep this command provider-free so users can inspect local Robota state without configuring an AI
   provider or opening the TUI.
-- Use the repository-local built CLI binary for user scenario verification:
+- Use the repository-local built CLI binary for user execution test scenario verification:
   `node packages/agent-cli/dist/node/bin.js ...`.
 
 Why this matches the backlog intent:
@@ -66,7 +66,7 @@ Open decisions:
 - [ ] The product command does not create tracked, ignored, or project `.robota/` baseline workflow
       state in the active repository.
 - [ ] Stored command strings are not exposed as reusable execution preferences.
-- [ ] The backlog is updated with User Test Scenario evidence after implementation.
+- [ ] The backlog is updated with User Execution Test Scenario evidence after implementation.
 
 ## Test Plan
 
@@ -79,7 +79,7 @@ Open decisions:
   provider setup flow.
 - Run `pnpm harness:scan`.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 ### Scenario: Inspect User-Local Storage From A Repository With No Robota Files
 

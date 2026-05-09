@@ -130,7 +130,7 @@ Create a design and contract PR before UI work:
 - Add CLI tests verifying users can see storage location, source, last-used time,
   display/navigation rule, and delete/disable actions.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog produced a user-local memory contract document and did not deliver
 runnable Robota product behavior. Product-surface scenarios must be added by follow-up
@@ -150,7 +150,7 @@ implementation PRs that expose memory inspection through CLI/TUI/SDK behavior.
 - Expected result: The command prints the display/navigation-only rule, restricted command
   memory, command execution effect, delete/disable fields, and project-memory boundary.
 - Evidence: Executed as process verification for the contract document. SDK storage APIs and CLI
-  rendering remain follow-up implementation work, where product-surface user scenarios must be
+  rendering remain follow-up implementation work, where product-surface user execution test scenarios must be
   added.
 
 ## Verification Plan

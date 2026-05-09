@@ -124,7 +124,7 @@ Create a design and contract PR before UI work:
 - Add CLI tests only after SDK contracts exist, verifying the effective storage root and stored item
   summaries are visible.
 
-## User Test Scenarios
+## User Execution Test Scenarios
 
 Not applicable. This backlog produced a user-local storage contract document and did not deliver
 runnable Robota product behavior. Product-surface scenarios must be added by follow-up
