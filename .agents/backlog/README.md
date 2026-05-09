@@ -102,3 +102,59 @@ agent-sdk 훅 시스템(`agent-core/src/hooks/`, `agent-sessions/`)의 Claude Co
 | [HOOK-005](HOOK-005-transcript-path-delivery.md)           | Stop/SessionEnd 훅에서 `transcript_path` 실제 전달              | medium   | HOOK-001  |
 | [HOOK-006](HOOK-006-stdout-json-response-parsing.md)       | hook-runner stdout JSON 응답 파싱 추가 (`additionalContext` 등) | medium   | HOOK-001  |
 | [HOOK-007](HOOK-007-command-executor-timeout.md)           | CommandExecutor 기본 타임아웃 10s → 600s 조정                   | medium   | HOOK-001  |
+
+### Pre-Launch Audit — Security (2026-05-10)
+
+QA 사전 출시 점검(qa-prelaunch-report-2026-05-10)에서 발견된 보안 이슈.
+
+| ID                                                 | 제목                                            | 우선순위 |
+| -------------------------------------------------- | ----------------------------------------------- | -------- |
+| [SEC-001](SEC-001-websocket-jwt-authentication.md) | WebSocket JWT 토큰 검증 구현 (인증 무력화 버그) | critical |
+| [SEC-002](SEC-002-api-key-secrets-management.md)   | 로컬 .env API 키 즉시 폐기 및 시크릿 관리 정책  | critical |
+
+### Pre-Launch Audit — Server Stability (2026-05-10)
+
+QA 사전 출시 점검에서 발견된 서버 안정성 이슈.
+
+| ID                                                           | 제목                                        | 우선순위 |
+| ------------------------------------------------------------ | ------------------------------------------- | -------- |
+| [SRV-001](SRV-001-graceful-shutdown.md)                      | agent-server Graceful Shutdown 구현         | high     |
+| [SRV-002](SRV-002-websocket-setinterval-memory-leak.md)      | WebSocket 정리 setInterval 메모리 누수 수정 | high     |
+| [SRV-003](SRV-003-remove-unimplemented-api-advertisement.md) | 루트 엔드포인트에서 미구현 API 광고 제거    | high     |
+| [SRV-004](SRV-004-unhandled-rejection-handler.md)            | agent-server unhandledRejection 핸들러 추가 | medium   |
+
+### Pre-Launch Audit — CLI Quality (2026-05-10)
+
+QA 사전 출시 점검에서 발견된 CLI 품질 이슈.
+
+| ID                                                         | 제목                                                  | 우선순위 |
+| ---------------------------------------------------------- | ----------------------------------------------------- | -------- |
+| [CLI-001](CLI-001-prompt-input-non-tty-guard.md)           | promptInput() 비-TTY 환경 크래시 방지 가드 추가       | high     |
+| [CLI-002](CLI-002-system-prompt-flag-hide-or-implement.md) | --system-prompt 플래그 미연결 처리 (숨기기 또는 구현) | low      |
+
+### Pre-Launch Audit — Testing (2026-05-10)
+
+QA 및 PM 사전 출시 점검에서 식별된 테스트 커버리지 부족.
+
+| ID                                                   | 제목                          | 우선순위 |
+| ---------------------------------------------------- | ----------------------------- | -------- |
+| [TST-001](TST-001-agent-server-integration-tests.md) | agent-server 통합 테스트 추가 | medium   |
+| [TST-002](TST-002-agent-web-smoke-tests.md)          | agent-web 스모크 테스트 추가  | medium   |
+
+### Pre-Launch Audit — UX & Onboarding (2026-05-10)
+
+PM 사전 출시 점검에서 식별된 사용자 경험 이슈.
+
+| ID                                               | 제목                                               | 우선순위 |
+| ------------------------------------------------ | -------------------------------------------------- | -------- |
+| [UX-001](UX-001-nodejs-version-error-message.md) | Node.js 22+ 요구사항 에러 메시지 개선 및 안내 강화 | high     |
+| [UX-002](UX-002-macos-terminal-cjk-warning.md)   | macOS Terminal.app CJK 크래시 런타임 경고 추가     | medium   |
+
+### Pre-Launch Audit — Documentation (2026-05-10)
+
+PM 사전 출시 점검에서 식별된 문서화 부족.
+
+| ID                                          | 제목                                         | 우선순위 |
+| ------------------------------------------- | -------------------------------------------- | -------- |
+| [DOC-001](DOC-001-getting-started-guide.md) | 공개 docs 사이트 Getting Started 가이드 추가 | high     |
+| [DOC-002](DOC-002-multilang-readme.md)      | 한국어 README 및 다국어 지원 추가            | medium   |
