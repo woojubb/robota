@@ -1406,6 +1406,11 @@ state, storage location, source, last-used time, and delete/disable actions retu
 command APIs. It must not own storage shape, write user-local memory directly, write baseline memory
 inside the repository, or convert remembered values into command execution.
 
+Provider-free `user-local memory ...` commands are routed directly to
+`@robota-sdk/agent-command-user-local` before provider setup. CLI parsing may pass terminal options
+such as `--summary`, `--source`, and `--format`, but command behavior and persistence remain outside
+`agent-cli`.
+
 ### Project Memory Review Surface
 
 Project memory storage and policy primitives are SDK-owned, while `/memory` command behavior is owned by `@robota-sdk/agent-command-memory`. The CLI and TUI must not extract memory candidates, select relevant topics, decide approval policy, or write `.robota/memory` files directly. They compose the memory command module, route `/memory` commands through `session.executeCommand()`, and render returned messages/data.

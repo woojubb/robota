@@ -52,4 +52,3 @@ the backlog, the user execution test scenario gate does not pass.
 ## Items
 
 - [Transparent Repo-Agnostic Workflow Client Planning](cli-ai-workflow-reviewer-harness-planning.md)
-- [User-Local Memory Inspection Implementation](user-local-memory-inspection-implementation.md)

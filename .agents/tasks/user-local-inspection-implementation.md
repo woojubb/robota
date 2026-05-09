@@ -14,7 +14,7 @@ preserving SDK/command ownership and keeping `agent-cli` as routing/UI only.
 
 - [x] Create initiative base branch from `develop`.
 - [x] Implement user-local storage inspection in one child PR.
-- [ ] Implement user-local memory inspection in one child PR.
+- [x] Implement user-local memory inspection in one child PR.
 - [ ] Complete the planning umbrella backlog after implementation evidence exists.
 - [ ] Merge the initiative into `develop`.
 
@@ -27,6 +27,9 @@ preserving SDK/command ownership and keeping `agent-cli` as routing/UI only.
 - Implemented user-local storage inspection on `feat/user-local-storage-inspection`.
 - Verified the storage User Execution Test Scenario with the built CLI and recorded evidence in the
   completed backlog.
+- Implemented user-local memory inspection on `feat/user-local-memory-inspection`.
+- Verified memory set/list/inspect/disable/delete User Execution Test Scenarios with the built CLI
+  and recorded evidence in the completed backlog.
 
 ## Decisions
 

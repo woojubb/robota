@@ -126,6 +126,8 @@ function baseArgs(): IParsedCliArgs {
     sessionName: undefined,
     outputFormat: undefined,
     format: undefined,
+    summary: undefined,
+    source: undefined,
     systemPrompt: undefined,
     appendSystemPrompt: undefined,
     taskFile: undefined,

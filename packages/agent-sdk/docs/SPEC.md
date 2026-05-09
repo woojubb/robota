@@ -155,7 +155,7 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── prompt-file-reference-*.ts ← `@file` prompt reference parser/resolver, path policy, formatting, and diagnostics
 │   └── task-context.ts         ← active `.agents/tasks/*.md` discovery, selection, formatting, and status updates
 ├── src/memory/                 ← project memory store, reusable capture policy, retrieval services
-├── src/user-local/             ← user-local storage root validation, category projections, and future baseline memory persistence
+├── src/user-local/             ← user-local storage root validation, category projections, and baseline memory persistence
 ├── src/checkpoints/            ← edit checkpoint store + Write/Edit tool snapshot wrapper
 ├── src/self-hosting/           ← self-hosting verification planner + lifecycle state machine
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
@@ -346,12 +346,11 @@ category contracts, and item inspection/removal projections.
 Existing `projectPaths(cwd)` helpers remain valid for explicit project-owned features such as
 project settings, session replay/debug logs, edit checkpoints, and current project memory. New
 baseline transparent workflow state must not use `projectPaths(cwd)` or ad hoc `.robota/` paths.
-It must use SDK-owned user-local storage contracts once those are implemented.
+It must use SDK-owned user-local storage contracts.
 
-Existing `userPaths()` helpers expose only current user settings and sessions paths. They are not
-yet the complete transparent workflow storage contract. Future implementation PRs must add tested
-user-local category APIs instead of having CLI or command modules assemble category paths
-themselves.
+Existing `userPaths()` helpers expose only current user settings and sessions paths. User-local
+workflow state uses the tested `src/user-local/` APIs instead of CLI or command modules assembling
+category paths themselves.
 
 ### User-Local Memory Transparency (SDK-Specific)
 
@@ -562,6 +561,25 @@ Resolved provider fields:
   direct product command before provider setup and prints the command-owned output.
 - **Repository independence**: SDK user-local APIs must not create repository `.robota/` baseline
   workflow state.
+
+### User-Local Memory
+
+- **Package**: `agent-sdk/user-local/`
+- **Purpose**: Persist explicit display/navigation memory items under the user-local storage root.
+- **Storage category**: `memory-projections`.
+- **Allowed categories**: `view-preference`, `last-visible-cwd`, `background-selection`,
+  `task-association`, `display-preference`, and `inspection-choice`.
+- **Projection fields**: category, key, summary, value summary, source, scope, storage location,
+  timestamps, enabled state, display/navigation rule, delete/disable availability, and
+  `commandExecutionEffect: "none"`.
+- **Mutation APIs**: SDK owns set, list, inspect, disable, delete, and enabled-item read behavior.
+- **Disabled-item rule**: disabled items remain inspectable but `readEnabledUserLocalMemoryItem`
+  returns `null`, so they cannot affect display/navigation defaults.
+- **Command boundary**: `@robota-sdk/agent-command-user-local` formats provider-free
+  `user-local memory ...` output from SDK projections. `agent-cli` only routes the product command
+  and passes terminal options such as `--summary`, `--source`, and `--format`.
+- **Repository independence**: user-local memory APIs must not write baseline memory inside the
+  active repository or project `.robota/`.
 
 ### Context Window Management
 

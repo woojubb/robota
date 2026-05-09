@@ -256,20 +256,35 @@ export type {
   TPromptInput,
 } from './commands/index.js';
 
-// ── User-local storage ─────────────────────────────────────
+// ── User-local storage and memory ──────────────────────────
 export {
+  USER_LOCAL_MEMORY_CATEGORIES,
   USER_LOCAL_STORAGE_CATEGORIES,
   USER_LOCAL_STORAGE_CATEGORY_DEFINITIONS,
+  deleteUserLocalMemoryItem,
+  disableUserLocalMemoryItem,
+  inspectUserLocalMemoryItem,
   inspectUserLocalStorage,
+  listUserLocalMemoryItems,
+  readEnabledUserLocalMemoryItem,
   resolveUserLocalStorageRoot,
+  setUserLocalMemoryItem,
 } from './user-local/index.js';
 export type {
   IInspectUserLocalStorageOptions,
   IResolveUserLocalStorageRootOptions,
+  IUserLocalMemoryDeleteResult,
+  IUserLocalMemoryItemOptions,
+  IUserLocalMemoryItemProjection,
+  IUserLocalMemoryListOptions,
+  IUserLocalMemoryListProjection,
+  IUserLocalMemorySetOptions,
   IUserLocalStorageCategoryDefinition,
   IUserLocalStorageCategoryProjection,
   IUserLocalStorageInspection,
   IUserLocalStorageItemSummary,
+  TUserLocalMemoryCategory,
+  TUserLocalMemoryCommandExecutionEffect,
   TUserLocalStorageCategory,
 } from './user-local/index.js';
 
