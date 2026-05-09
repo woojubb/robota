@@ -1,12 +1,16 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
 import { Server } from 'http';
+import * as jwt from 'jsonwebtoken';
 
 import type {
   IPlaygroundWebSocketMessage,
   TPlaygroundWebSocketMessageKind,
 } from '@robota-sdk/agent-playground';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+
+const JWT_PART_COUNT = 3;
+const CLEANUP_INTERVAL_MS = 30000;
 
 function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
   return (
@@ -43,6 +47,7 @@ export class PlaygroundWebSocketServer {
   private wss: WebSocketServer;
   private clients = new Map<string, IPlaygroundClient>();
   private userSessions = new Map<string, Set<string>>(); // userId -> Set<clientId>
+  private cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({
@@ -53,9 +58,20 @@ export class PlaygroundWebSocketServer {
     this.wss.on('connection', this.handleConnection.bind(this));
 
     // Cleanup inactive connections every 30 seconds
-    setInterval(this.cleanupInactiveConnections.bind(this), 30000);
+    this.cleanupInterval = setInterval(
+      this.cleanupInactiveConnections.bind(this),
+      CLEANUP_INTERVAL_MS,
+    );
 
-    console.log('🔌 PlaygroundWebSocketServer initialized on /ws/playground');
+    if (!process.env.JWT_SECRET) {
+      console.warn(
+        'WARNING: JWT_SECRET environment variable is not set. ' +
+          'JWT validation will use format-only checking (development mode). ' +
+          'Set JWT_SECRET for production use.',
+      );
+    }
+
+    console.log('PlaygroundWebSocketServer initialized on /ws/playground');
   }
 
   private handleConnection(ws: WebSocket, _req: IncomingMessage): void {
@@ -150,11 +166,29 @@ export class PlaygroundWebSocketServer {
       return;
     }
 
-    // TODO: Validate JWT token here
-    // For now, we'll accept any non-empty token
     if (!token) {
       this.sendError(clientId, 'Missing authentication token');
+      client.ws.close();
       return;
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (jwtSecret) {
+      try {
+        jwt.verify(token, jwtSecret);
+      } catch {
+        this.sendError(clientId, 'Invalid or expired authentication token');
+        client.ws.close();
+        return;
+      }
+    } else {
+      // Development fallback: verify JWT format (3 dot-separated parts)
+      const parts = token.split('.');
+      if (parts.length !== JWT_PART_COUNT) {
+        this.sendError(clientId, 'Invalid or expired authentication token');
+        client.ws.close();
+        return;
+      }
     }
 
     // Update client info
@@ -310,12 +344,13 @@ export class PlaygroundWebSocketServer {
    * Close all connections and cleanup
    */
   public close(): void {
+    clearInterval(this.cleanupInterval);
     for (const client of this.clients.values()) {
       client.ws.close();
     }
     this.clients.clear();
     this.userSessions.clear();
     this.wss.close();
-    console.log('🔌 PlaygroundWebSocketServer closed');
+    console.log('PlaygroundWebSocketServer closed');
   }
 }
