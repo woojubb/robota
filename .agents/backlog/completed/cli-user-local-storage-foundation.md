@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -103,14 +103,14 @@ Create a design and contract PR before UI work:
 
 ## Acceptance Criteria
 
-- [ ] The policy defines exactly one allowed persistent storage class for baseline workflow state:
+- [x] The policy defines exactly one allowed persistent storage class for baseline workflow state:
       user-local storage outside the repository.
-- [ ] The policy forbids repo-local baseline storage, including ignored files and project `.robota`
+- [x] The policy forbids repo-local baseline storage, including ignored files and project `.robota`
       caches.
-- [ ] The policy states that remembered commands cannot be stored as reusable execution preferences.
-- [ ] The policy defines inspect/delete/disable requirements for stored user-local items.
-- [ ] Existing `.robota` storage usage is audited and classified before implementation.
-- [ ] CLI UI depends on SDK storage contracts rather than owning path resolution or persistence
+- [x] The policy states that remembered commands cannot be stored as reusable execution preferences.
+- [x] The policy defines inspect/delete/disable requirements for stored user-local items.
+- [x] Existing `.robota` storage usage is audited and classified before implementation.
+- [x] CLI UI depends on SDK storage contracts rather than owning path resolution or persistence
       policy.
 
 ## Test Plan
@@ -131,3 +131,15 @@ Create a design and contract PR before UI work:
 - Implementation PRs must add SDK storage contract tests before TUI screens.
 - Tests must include fixture repositories with no Robota files and must prove no baseline storage is
   written inside the repo.
+
+## Result
+
+Completed by adding `.agents/specs/user-local-storage.md` and linking package ownership from
+`agent-sdk` and `agent-cli` SPEC files.
+
+- The policy defines user-local storage outside the active repository as the only allowed persistent
+  storage class for baseline workflow state.
+- Existing `.robota` uses are audited and classified so later implementation PRs can migrate or
+  avoid them deliberately.
+- The policy forbids remembered commands from becoming executable preferences.
+- SDK storage root/category/inspection contracts and tests are deferred to implementation PRs.

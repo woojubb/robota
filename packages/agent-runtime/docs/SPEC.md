@@ -124,6 +124,14 @@ Current runtime statuses are `queued`, `running`, `waiting_permission`, `complet
 tests. `archived` is a visibility/retention projection over terminal records, not a state that
 restarts execution. Runtime `close()` remains the mechanical terminal-record dismissal operation.
 
+## User-Local Storage Relationship
+
+Baseline workflow storage policy is defined in
+[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md).
+`agent-runtime` does not resolve storage roots, validate repository boundaries, or persist baseline
+workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
+storage contracts decide whether and how higher layers persist those associations.
+
 ## Error Taxonomy
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.

@@ -28,8 +28,8 @@ transport clients that render the same workflow state.
 - Inferring, ranking, or auto-selecting repository commands.
 - Replacing the provider/tool permission system.
 - Making `agent-cli` own durable workflow semantics.
-- Migrating existing project-local persistence. Storage migration and classification belong to the
-  user-local storage foundation backlog.
+- Migrating existing project-local persistence. Storage migration and classification are governed by
+  [user-local-storage.md](user-local-storage.md).
 
 ## Ownership
 
@@ -133,9 +133,10 @@ Robota must not silently convert repeated behavior into a persistent preference.
 candidate-capture flow must show the proposed memory item, source, storage location, and effect
 before it is enabled.
 
-Existing project memory remains a separate current feature. The user-local storage foundation
-backlog must audit and classify current project-local memory, settings, sessions, logs, checkpoints,
-and caches before changing storage behavior.
+Existing project memory remains a separate current feature. The
+[user-local storage foundation](user-local-storage.md) audits and classifies current project-local
+memory, settings, sessions, logs, checkpoints, and caches before implementation changes storage
+behavior.
 
 ## UI Disclosure
 
@@ -188,7 +189,7 @@ files and no Robota local state inside the repository.
 
 ## Follow-Up Backlogs
 
-- [User-local storage foundation](../backlog/cli-user-local-storage-foundation.md)
+- [User-local storage foundation](../backlog/completed/cli-user-local-storage-foundation.md)
 - [Transparent process execution](../backlog/cli-transparent-process-execution.md)
 - [Background work state management](../backlog/cli-background-work-state-management.md)
 - [User-local memory transparency](../backlog/cli-user-local-memory-transparency.md)
