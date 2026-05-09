@@ -166,3 +166,5 @@ Completed by adding `.agents/specs/user-local-storage.md` and linking package ow
   avoid them deliberately.
 - The policy forbids remembered commands from becoming executable preferences.
 - SDK storage root/category/inspection contracts and tests are deferred to implementation PRs.
+- Follow-up implementation backlog:
+  [User-Local Storage Inspection Implementation](../user-local-storage-inspection-implementation.md).

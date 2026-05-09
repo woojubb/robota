@@ -172,3 +172,5 @@ Completed by adding `.agents/specs/user-local-memory.md` and linking package own
   memory feature, not baseline user-local memory.
 - SDK storage APIs, delete/disable command behavior, migration from project memory, and CLI
   rendering tests remain follow-up implementation work.
+- Follow-up implementation backlog:
+  [User-Local Memory Inspection Implementation](../user-local-memory-inspection-implementation.md).
