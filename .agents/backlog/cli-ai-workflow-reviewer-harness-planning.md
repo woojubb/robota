@@ -1,4 +1,4 @@
-# CLI AI Workflow Reviewer and Harness Planning
+# Transparent Repo-Agnostic Workflow Client Planning for agent-cli
 
 ## Status
 
@@ -10,22 +10,42 @@ Backlog.
 
 ## Priority
 
-P0 - strategic planning for making `agent-cli` a complete AI agent assistant control surface while
-keeping reusable behavior below the CLI shell.
+P0 - umbrella planning backlog for making `agent-cli` a transparent, repo-agnostic workflow client
+without making user repositories depend on Robota.
 
 ## Request
 
-Plan how `agent-cli` should evolve so AI workflows run well inside a user's repository and can drive
-that repository's harness reliably.
+Plan how `agent-cli` should evolve so AI workflows run well inside a user's repository while the
+repository remains fully independent from `agent-cli`.
 
-The planning must:
+The core question is:
 
-- study Josh's newsletter article, "Y Combinator says the most reliable way to build an AI-native
-  company";
-- create an agent profile inspired by the article's operating principles;
-- compare relevant public behavior from major AI assistant tools;
-- propose how Robota `agent-cli` should evolve;
-- keep `agent-cli` as UI/TUI only, with workflow contracts implemented in lower owner packages.
+> If the user owns the harness and the repository must work without Robota, what basic repo context,
+> process execution, background state, and user-local memory infrastructure should `agent-cli`
+> provide so the user can predict what Robota will do and trust it to act on the user's intent?
+
+This umbrella backlog splits the work into focused backlog documents that keep the same backlog
+shape and can later become independent implementation PRs.
+
+## Non-Negotiable Product Principles
+
+- **Repo owns the harness.** Build, test, lint, typecheck, release, docs, smoke, visual, and custom
+  checks belong to the user repository.
+- **The repo must work without `agent-cli`.** A human, CI job, another agent, or a shell can run the
+  same harness without Robota being installed.
+- **`agent-cli` must not inject harness files.** No automatic Robota manifest, CI patch,
+  `.agents/`, `.robota/`, task file, script, package dependency, or hook installation is allowed as
+  part of basic operation.
+- **Command choice is user-directed.** `agent-cli` must not infer a repository harness contract,
+  rank likely commands, or present a guessed command catalog as default product behavior.
+- **Transparency is part of correctness.** A feature is incomplete if the user cannot tell what
+  Robota is doing, why a state changed, what source produced a shown item, or how to inspect/remove
+  remembered local state.
+- **Local memory is user-local only.** Baseline memory must be stored outside the repository. No
+  workspace-local ignored state, repo-side cache, or tracked repo file is allowed for baseline
+  memory.
+- **Advisory repo inspection is explicit.** If a user asks Robota to inspect docs, scripts, CI, or
+  failures, that is an explicit advisory task, not baseline CLI behavior.
 
 ## Source Article Summary
 
@@ -38,12 +58,17 @@ Important principles to carry into Robota:
 
 - AI should be treated as an operating layer for work, not a small productivity add-on.
 - Important work should become a closed loop: decide, execute, measure, learn, and adjust.
-- The repository must be legible and queryable by AI: instructions, specs, task history, commands,
-  evidence, and decisions must be durable artifacts.
-- Software-factory style work starts with human-authored specs and success tests, then agents
-  implement and iterate until the harness passes.
+- The repository must be legible and queryable by AI through repo-owned instructions, specs,
+  commands, evidence, and decisions.
 - Humans remain responsible for choosing goals and judging whether the result is good enough.
 - Token spend should be optimized as leverage and throughput, not only minimized as cost.
+
+Robota interpretation:
+
+- Robota should help the user operate a mature repo well, but should not become the source of the
+  repo's harness structure.
+- The primary product goal is predictable assistance. Robota should have strong basic capabilities,
+  but hidden automation and unclear state transitions are product failures.
 
 ## Prior Art To Study
 
@@ -63,131 +88,111 @@ Important principles to carry into Robota:
 - Jules Tools CLI: remote session list/new/status/pull style workflow for delegated agent sessions:
   <https://jules.google/docs/cli/reference/>
 
-## Agent Profile
+## Neutral Reviewer Profile
 
-Name: `AI Native Workflow Reviewer`
+Name: `Repo Workflow Client Reviewer`
 
 Important: this profile must not impersonate Josh, YC, Diana Hu, OpenAI, Anthropic, Cursor, Google,
 or any named person/company. It should be an original Robota reviewer inspired by the article's
-principles: closed loops, high context, software-factory discipline, token leverage, and
-founder/operator accountability.
+principles: closed loops, high context, software-factory discipline, token leverage, and operator
+accountability.
 
 Reviewer role:
 
-- Inspect a proposed Robota workflow or `agent-cli` feature.
-- Identify whether the repo is legible enough for an agent to operate.
-- Check whether the flow records artifacts that a later agent can query.
-- Check whether human goal-setting and result judgment remain explicit.
-- Reject designs that move durable workflow semantics into `agent-cli`.
-- Recommend the smallest owner-first implementation slice.
+- Inspect a proposed `agent-cli` workflow feature.
+- Reject designs that require the user's repo to depend on Robota.
+- Reject baseline designs that infer, rank, or own repo commands.
+- Reject baseline designs that perform evidence judgment, failure diagnosis, repair loops, review
+  gates, hook installation, or repo workflow orchestration.
+- Check whether command origin, background status, memory usage, and UI state are visible enough for
+  a user to predict behavior.
+- Recommend the smallest non-invasive client implementation slice.
 
-Output shape:
+## Split Backlog Items
 
-```text
-Findings:
-- [severity] owner: workflow risk or evidence gap
+- [Transparent workflow contract](cli-transparent-workflow-contract.md): action provenance, named
+  states, memory inspection, and UI disclosure rules shared by all baseline workflow features.
+- [User-local storage foundation](cli-user-local-storage-foundation.md): canonical user-local-only
+  storage root, category contracts, inspection/removal APIs, and repo-outside validation.
+- [Transparent process execution](cli-transparent-process-execution.md): running user-supplied
+  commands with visible origin, cwd, environment summary, output, cancellation, and terminal result.
+- [Background work state management](cli-background-work-state-management.md): switchable main
+  thread, shell job, and agent task state with transparent lifecycle and retention behavior.
+- [User-local memory transparency](cli-user-local-memory-transparency.md): cwd, view preference, and
+  task association storage that is inspectable, removable, and stored outside the repository.
+- [Repository situational awareness](cli-repository-situational-awareness.md): passive display of
+  current working context without command inference, repo scanning, or package-manager guessing.
 
-Required owner updates:
-- SPEC / architecture / manifest / harness contract changes
+## Expected Outcomes
 
-Recommended next slice:
-- smallest PR that improves the closed loop
-```
-
-## Planning Direction
-
-The recommended plan is to make `agent-cli` the local workflow cockpit, not the owner of workflow
-logic.
-
-Feature pillars:
-
-1. **Repository legibility bootstrap**
-   - Detect package manager, install/build/test/lint/typecheck/docs commands, CI config,
-     instructions, specs, task files, and harness entrypoints.
-   - Produce setup gaps as actionable tasks.
-
-2. **Workflow manifest and harness command registry**
-   - Let a repo declare canonical harness commands and evidence requirements.
-   - Commands must be parsed and executed by SDK/runtime/harness owner APIs, not CLI components.
-
-3. **Spec-and-test-first task intake**
-   - Turn a user request into goal, owner package, governing SPEC/API doc, success criteria,
-     failing-test plan, verification commands, and stop conditions.
-
-4. **Closed-loop execution workspace**
-   - Model plan, implement, verify, diagnose, retry, review, and archive as a structured workflow
-     run.
-   - Capture artifacts: plan, changed files, command evidence, failing signatures, fixes attempted,
-     final evidence, and open risks.
-
-5. **Background workflow dashboard**
-   - Show main thread, shell jobs, harness runs, and agent tasks in one switchable workspace list.
-   - Support status, latest output, elapsed time, cost/tokens, touched files, input-needed state,
-     cancellation, follow-up, takeover, and result pull/apply flows.
-
-6. **Deterministic workflow hooks**
-   - Support repo-defined session-start, prompt-submit, before-command, after-command,
-     before-commit, before-merge, after-verification, and stop/continue hooks.
-   - Hooks may inject context or block unsafe steps deterministically.
-
-7. **Review and evidence gate**
-   - Group diffs by owner package.
-   - Link every review section to verification evidence.
-   - Generate PR summaries from structured artifacts, not free-form chat memory.
-
-8. **Environment setup profiles**
-   - Let repos describe install/start/watch/test services.
-   - Show readiness before work begins.
-
-9. **Token and cost leverage telemetry**
-   - Track token spend, model choice, command time, retry loops, and evidence produced.
-   - Report cost as workflow leverage.
-
-10. **Workflow packaging**
-    - Let teams save repeated loops as repo-local skills/workflows: release prep, bug triage,
-      package audit, dependency upgrade, docs sync, code review, and security pass.
+- Work can be promoted as focused PRs instead of one oversized CLI feature.
+- Every focused backlog inherits the same repo-agnostic and transparent behavior rules.
+- `agent-cli` becomes more capable at the moment the user tries to act, while avoiding hidden repo
+  inference or Robota-owned harness structure.
+- SDK/runtime ownership is established before TUI work, reducing the risk that `agent-cli` becomes
+  the owner of workflow semantics.
+- Later review can evaluate each capability independently: transparency contract, process
+  execution, background state, user-local storage, local memory, and repo context display.
 
 ## Architecture Ownership Rule
 
-`agent-cli` owns only TUI screens, keyboard navigation, prompt intake, review UI, and local host
-adapter wiring.
+`agent-cli` owns only TUI screens, keyboard navigation, prompt intake, task list rendering, and local
+host adapter wiring.
 
 Lower owners must be established first:
 
-- `agent-sdk`: workflow session APIs, task intake contracts, command/hook facades, artifact readers,
-  review summary APIs.
-- `agent-runtime`: workflow/background task lifecycle, cancellation, runners, event streams, task
-  state machines.
-- harness owner package or cross-cutting spec: workflow manifest schema, harness command registry,
-  verification evidence model, hook contract.
-- `agent-command-*`: user-visible commands such as workflow status, harness run, review, task
-  intake, and workflow packaging.
+- `agent-runtime`: process lifecycle, background task lifecycle, cancellation, output streams,
+  named status transitions, retention windows, and task state machines.
+- `agent-sdk`: stable APIs for repo context display, process execution requests, background task
+  projections, action provenance, local preference inspection/removal, and session-state access.
+- `agent-command-*`: user-visible commands for run/status/task switching/preference inspection,
+  backed by SDK/runtime contracts.
 
-Do not implement durable workflow state, manifest parsing, command semantics, retention policy,
-artifact schema, or hook policy inside `agent-cli`.
+Do not implement durable workflow state, repo manifest parsing requirements, command semantics,
+retention policy, artifact schema, evidence judgment, review policy, or hook policy inside
+`agent-cli`.
+
+Do not require a Robota manifest or Robota package dependency in user repositories.
 
 ## Recommended First Slice
 
-Create a design and contract PR before UI work:
+Promote the split backlogs in this order:
 
-1. Confirm the `AI Native Workflow Reviewer` profile and reviewer output contract.
-2. Define the repository workflow manifest schema and harness command registry.
-3. Update the cross-cutting spec index and architecture map.
-4. Update `agent-cli`, `agent-sdk`, and `agent-runtime` SPEC files with ownership boundaries.
-5. Add follow-up backlog slices for parser tests, SDK projections, CLI dashboard, review/evidence
-   gate, hooks, environment profiles, telemetry, and workflow packaging.
+1. `cli-transparent-workflow-contract.md`
+2. `cli-user-local-storage-foundation.md`
+3. `cli-transparent-process-execution.md`
+4. `cli-background-work-state-management.md`
+5. `cli-user-local-memory-transparency.md`
+6. `cli-repository-situational-awareness.md`
+
+Each implementation PR should update the owning package specs before changing `agent-cli` UI.
 
 ## Acceptance Criteria
 
+- [ ] The umbrella backlog links every focused backlog item.
 - [ ] The planning document cites the source article and prior-art docs.
 - [ ] The reviewer profile is inspired by the article but does not impersonate a named person.
-- [ ] The plan clearly separates CLI UI from SDK/runtime/harness ownership.
-- [ ] The first implementation slice is small enough to land as a single PR.
-- [ ] Follow-up slices exist for manifest parsing, harness registry, workflow artifacts, hooks,
-      background dashboard, review evidence, and telemetry.
+- [ ] The plan clearly states that user repos own their harness and must not depend on Robota.
+- [ ] The plan clearly separates CLI UI from SDK/runtime ownership.
+- [ ] The plan forbids automatic repo injection of Robota manifests, hooks, scripts, package
+      dependencies, or CI changes.
+- [ ] The plan forbids baseline command discovery, evidence judgment, failure diagnosis, repair
+      loops, review gates, readiness scoring, and hook ownership.
+
+## Test Plan
+
+- Add document-link validation for every split backlog item referenced by the umbrella backlog and
+  `README.md`.
+- Add document authority checks that fail if implementation details are placed only in `agent-cli`
+  without SDK/runtime ownership.
+- For each focused backlog promoted to implementation, require package-level contract tests before
+  TUI rendering tests.
+- Include at least one fixture repository with no Robota files and no Robota local state inside the
+  repo to verify that the planned behavior remains repo-agnostic.
 
 ## Verification Plan
 
 - `pnpm harness:scan`
 - Document authority scan must pass when this backlog is later promoted.
 - Implementation PRs must add contract tests before TUI screens.
+- Tests must include repos without Robota files to prove the client remains repo-agnostic.
