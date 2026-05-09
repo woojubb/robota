@@ -12,5 +12,4 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 ## Items
 
 - [Transparent Repo-Agnostic Workflow Client Planning](cli-ai-workflow-reviewer-harness-planning.md)
-- [User-Local Memory Transparency for agent-cli](cli-user-local-memory-transparency.md)
 - [Repository Situational Awareness for agent-cli](cli-repository-situational-awareness.md)

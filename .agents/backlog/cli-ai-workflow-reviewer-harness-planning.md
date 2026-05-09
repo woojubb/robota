@@ -122,8 +122,9 @@ Reviewer role:
 - [Background work state management](completed/cli-background-work-state-management.md) (completed):
   switchable main thread, shell job, and agent task state with transparent lifecycle and retention
   behavior.
-- [User-local memory transparency](cli-user-local-memory-transparency.md): cwd, view preference, and
-  task association storage that is inspectable, removable, and stored outside the repository.
+- [User-local memory transparency](completed/cli-user-local-memory-transparency.md) (completed):
+  cwd, view preference, and task association storage that is inspectable, removable, and stored
+  outside the repository.
 - [Repository situational awareness](cli-repository-situational-awareness.md): passive display of
   current working context without command inference, repo scanning, or package-manager guessing.
 
@@ -166,7 +167,7 @@ Promote the split backlogs in this order:
 2. `completed/cli-user-local-storage-foundation.md`
 3. `completed/cli-transparent-process-execution.md`
 4. `completed/cli-background-work-state-management.md`
-5. `cli-user-local-memory-transparency.md`
+5. `completed/cli-user-local-memory-transparency.md`
 6. `cli-repository-situational-awareness.md`
 
 Each implementation PR should update the owning package specs before changing `agent-cli` UI.

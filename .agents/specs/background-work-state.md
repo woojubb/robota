@@ -149,5 +149,7 @@ Before adding additional TUI behavior beyond the existing switcher, implementati
   contracts projected into background entries.
 - [user-local-storage.md](user-local-storage.md) owns user-local storage rules for baseline
   preferences and retained inspectable metadata.
+- [user-local-memory.md](user-local-memory.md) owns remembered display/navigation preferences such
+  as the last selected background entry.
 - [background-task-layer.md](background-task-layer.md) owns generic background task lifecycle
   primitives.

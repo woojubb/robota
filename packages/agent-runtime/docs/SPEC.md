@@ -132,6 +132,14 @@ Baseline workflow storage policy is defined in
 workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
 storage contracts decide whether and how higher layers persist those associations.
 
+## User-Local Memory Relationship
+
+Inspectable user-local memory behavior is specified in
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md).
+`agent-runtime` may expose task ids, group ids, lifecycle state, and metadata that SDK projections
+use for user-local associations. Runtime must not read or write user-local memory, project memory,
+or command-history preferences, and remembered values must not influence runtime command execution.
+
 ## Process Execution Relationship
 
 Transparent process execution is specified in

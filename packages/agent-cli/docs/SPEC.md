@@ -81,6 +81,12 @@ may render the effective storage root, category summaries, and delete/disable ac
 or command-module projections. It must not resolve baseline storage paths, write workflow
 preferences into project `.robota/`, or remember commands as executable preferences.
 
+Inspectable user-local memory and preference behavior is defined in
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The CLI
+may display remembered values, storage location, source, last-used time, and delete/disable actions
+only through SDK/command projections. It must not infer remembered items from repeated behavior or
+execute commands from remembered values.
+
 Existing CLI-owned operational cache such as `~/.robota/update-check.json` remains distribution UX,
 not baseline workflow state. Existing project-local sessions, logs, checkpoints, and memory are
 classified by the storage spec and must not be reused for new baseline workflow features without a
@@ -1375,6 +1381,13 @@ raw shell output. It may provide terminal-local runner adapters and render:
 - evidence links and review decisions recorded through owner APIs.
 
 ## Memory Management
+
+### User-Local Memory And Preference Transparency
+
+User-local memory is display/navigation state only. The CLI may render inspection rows, disabled
+state, storage location, source, last-used time, and delete/disable actions returned by SDK or
+command APIs. It must not own storage shape, write user-local memory directly, write baseline memory
+inside the repository, or convert remembered values into command execution.
 
 ### Project Memory Review Surface
 
