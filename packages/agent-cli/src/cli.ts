@@ -407,5 +407,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     commandHostAdapters,
     startupUpdateNoticePromise,
     webPort: args.web ? args.webPort : undefined,
+    noOpen: args.noOpen,
   });
 }

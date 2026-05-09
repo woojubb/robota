@@ -45,6 +45,7 @@ export interface IParsedCliArgs {
   disableUpdateCheck: boolean;
   web: boolean;
   webPort: number;
+  noOpen: boolean;
 }
 
 /** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
@@ -108,6 +109,7 @@ export function parseCliArgs(): IParsedCliArgs {
       'disable-update-check': { type: 'boolean', default: false },
       web: { type: 'boolean', default: false },
       'web-port': { type: 'string' },
+      'no-open': { type: 'boolean', default: false },
     },
   });
 
@@ -148,6 +150,7 @@ export function parseCliArgs(): IParsedCliArgs {
     disableUpdateCheck: values['disable-update-check'] ?? false,
     web: values['web'] ?? false,
     webPort: parseWebPort(values['web-port']),
+    noOpen: values['no-open'] ?? false,
   };
 }
 

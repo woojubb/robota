@@ -7,6 +7,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import open from 'open';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
 import { startWebSidecarServer } from '../../web-sidecar/web-sidecar-server.js';
 import type {
@@ -47,6 +48,7 @@ export interface IInteractiveSessionProps {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   webPort?: number;
+  noOpen?: boolean;
 }
 
 export interface IInteractiveSessionState {
@@ -225,7 +227,13 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
         stopFn = server.stop;
         if (stopped) {
           server.stop().catch(() => undefined);
-        } // allow-fallback: cleanup after unmount
+          return; // allow-fallback: cleanup after unmount
+        }
+        const shouldOpen = !props.noOpen && !process.env['ROBOTA_NO_OPEN'];
+        const monitorUrl = process.env['ROBOTA_MONITOR_URL'] ?? 'http://localhost:7071/monitor';
+        if (shouldOpen) {
+          open(monitorUrl).catch(() => undefined);
+        }
       })
       .catch(() => undefined); // allow-fallback: sidecar bind failure is non-fatal; TUI continues
 
@@ -233,7 +241,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       stopped = true;
       if (stopFn) stopFn().catch(() => undefined);
     };
-  }, [interactiveSession, props.webPort]);
+  }, [interactiveSession, props.webPort, props.noOpen]);
 
   // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {
