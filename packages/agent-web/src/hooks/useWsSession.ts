@@ -46,73 +46,73 @@ export function useWsSession(url: string): IWsSessionState {
 
   const clientRef = useRef<ReturnType<typeof createWsSessionClient> | null>(null);
   const streamingIdRef = useRef<string | null>(null);
+  const streamingTextRef = useRef('');
 
-  const handleMessage = useCallback(
-    (msg: TServerMessage): void => {
-      switch (msg.type) {
-        case 'messages': {
-          const reconstructed: IConversationMessage[] = msg.messages.flatMap((m) => {
-            if (m.role !== 'user' && m.role !== 'assistant') return [];
-            const content = m.content ?? '';
-            return [{ id: nextId(), role: m.role as 'user' | 'assistant', content }];
-          });
-          setMessages(reconstructed);
-          break;
-        }
-        case 'text_delta': {
-          setStreamingText((prev) => {
-            const next = prev + msg.delta;
-            if (streamingIdRef.current === null) {
-              streamingIdRef.current = nextId();
-            }
-            return next;
-          });
-          break;
-        }
-        case 'thinking': {
-          setIsThinking(msg.isThinking);
-          break;
-        }
-        case 'tool_start': {
-          const { state } = msg;
-          const toolId = nextId();
-          setActiveTools((prev) => [
-            ...prev,
-            { id: toolId, name: state.toolName, status: 'running', input: state.firstArg },
-          ]);
-          break;
-        }
-        case 'tool_end': {
-          const { state } = msg;
-          setActiveTools((prev) =>
-            prev.map((t) =>
-              t.name === state.toolName && t.status === 'running'
-                ? { ...t, status: state.isRunning ? 'running' : 'done', result: state.result }
-                : t,
-            ),
-          );
-          break;
-        }
-        case 'complete':
-        case 'interrupted': {
-          const finalText = streamingText;
-          const sid = streamingIdRef.current;
-          streamingIdRef.current = null;
-          setStreamingText('');
-          setIsThinking(false);
-          setActiveTools([]);
-          if (finalText) {
-            setMessages((prev) => [
-              ...prev,
-              { id: sid ?? nextId(), role: 'assistant', content: finalText },
-            ]);
-          }
-          break;
-        }
+  const handleMessage = useCallback((msg: TServerMessage): void => {
+    switch (msg.type) {
+      case 'messages': {
+        const reconstructed: IConversationMessage[] = msg.messages.flatMap((m) => {
+          if (m.role !== 'user' && m.role !== 'assistant') return [];
+          const content = m.content ?? '';
+          return [{ id: nextId(), role: m.role as 'user' | 'assistant', content }];
+        });
+        setMessages(reconstructed);
+        break;
       }
-    },
-    [streamingText],
-  );
+      case 'text_delta': {
+        setStreamingText((prev) => {
+          const next = prev + msg.delta;
+          streamingTextRef.current = next;
+          if (streamingIdRef.current === null) {
+            streamingIdRef.current = nextId();
+          }
+          return next;
+        });
+        break;
+      }
+      case 'thinking': {
+        setIsThinking(msg.isThinking);
+        break;
+      }
+      case 'tool_start': {
+        const { state } = msg;
+        const toolId = nextId();
+        setActiveTools((prev) => [
+          ...prev,
+          { id: toolId, name: state.toolName, status: 'running', input: state.firstArg },
+        ]);
+        break;
+      }
+      case 'tool_end': {
+        const { state } = msg;
+        setActiveTools((prev) =>
+          prev.map((t) =>
+            t.name === state.toolName && t.status === 'running'
+              ? { ...t, status: state.isRunning ? 'running' : 'done', result: state.result }
+              : t,
+          ),
+        );
+        break;
+      }
+      case 'complete':
+      case 'interrupted': {
+        const finalText = streamingTextRef.current;
+        const sid = streamingIdRef.current;
+        streamingTextRef.current = '';
+        streamingIdRef.current = null;
+        setStreamingText('');
+        setIsThinking(false);
+        setActiveTools([]);
+        if (finalText) {
+          setMessages((prev) => [
+            ...prev,
+            { id: sid ?? nextId(), role: 'assistant', content: finalText },
+          ]);
+        }
+        break;
+      }
+    }
+  }, []);
 
   const send = useCallback((msg: TClientMessage): void => {
     clientRef.current?.send(msg);
