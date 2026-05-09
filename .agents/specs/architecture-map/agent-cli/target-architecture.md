@@ -43,7 +43,7 @@ agent-cli
   product-default command module selection, and concrete local host adapters
       |
       v
-agent-sdk
+agent-sdk  [React-free — React hooks belong in CLI packages only]
   owns InteractiveSession, command contracts/common APIs, provider-neutral facades,
   host adapter ports, prompt file-reference preprocessing, session orchestration,
   and SDK-specific safety layers

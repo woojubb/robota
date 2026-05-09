@@ -12,55 +12,38 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
            │                  │
            ▼                  ▼
 ┌──────────────────┐ ┌───────────────────────┐
-│   apps/web       │ │   apps/dag-studio     │
-│   Agent          │ │   DAG Designer        │
-│   Playground     │ │   (Next.js, port 3002)│
-│   (Next.js)      │ │                       │
-└──────┬───────────┘ └──────┬────────────────┘
-       │                    │
-       ▼                    ▼
-┌──────────────────┐ ┌───────────────────────┐
-│ apps/agent-server│ │ apps/dag-orchestrator- │
-│ AI Provider Proxy│ │ server                │
-│ + WebSocket      │ │ Robota API Gateway    │
-│ (Express)        │ │ (Express, cost/auth)  │
-└──────┬───────────┘ └──────┬────────────────┘
-       │                    │
-       │                    ▼
-       │             ┌───────────────────────┐
-       │             │ apps/dag-runtime-     │
-       │             │ server                │
-       │             │ ComfyUI-compatible    │
-       │             │ Prompt API (Express)  │
-       │             └───────────────────────┘
+│  apps/agent-web  │ │   apps/docs           │
+│  Agent           │ │   Documentation site  │
+│  Playground      │ │   (Cloudflare Pages)  │
+│  (Next.js)       │ │                       │
+└──────┬───────────┘ └───────────────────────┘
+       │
+       │              ┌───────────────────────┐
+       │              │   apps/blog           │
+       │              │   Blog site           │
+       │              │   (Cloudflare Pages)  │
+       │              └───────────────────────┘
+       ▼
+┌──────────────────┐
+│ apps/agent-server│
+│ AI Provider Proxy│
+│ + WebSocket      │
+│ (Express)        │
+└──────┬───────────┘
        │
        ▼
 ┌──────────────────────────────────────────┐
 │              SDK Packages                │
 │                                          │
-│  agents / anthropic / openai / google    │
-│  sessions / team / workflow / remote     │
-│  playground                              │
+│  agent-core / auth / credits             │
+│  agent-sessions / agent-runtime          │
+│  agent-sdk / agent-command-*             │
+│  agent-tools / agent-tool-mcp            │
+│  agent-transport-* / agent-provider-*    │
+│  agent-plugin-* / agent-team             │
+│  agent-playground / agent-remote-client  │
+│  agent-event-service                     │
 └──────────────────────────────────────────┘
-```
-
-## DAG Subsystem Architecture
-
-```
-dag-core          ← SSOT: interfaces, types, state machines, execution engine
-  ↑
-dag-cost          ← Cost domain: CEL evaluator, cost meta types, storage port
-dag-adapters-local← Local adapters: in-memory ports + file-based storage
-dag-node          ← Node infrastructure: base class, IO, registries, schemas
-  ↑
-dag-nodes/*       ← Concrete node implementations (10 packages)
-dag-orchestrator  ← Orchestration layer: cost, retry, auth policies
-dag-runtime       ← Runtime: execution engine, state transitions
-dag-worker        ← Worker: node execution, resource management
-dag-scheduler     ← Scheduler: execution ordering, parallelism
-dag-projection    ← Read-model: event projection, query views
-dag-api           ← Composition: API surface assembly
-dag-designer      ← Web designer: React Flow canvas, node catalog
 ```
 
 ## Key Architectural Decisions

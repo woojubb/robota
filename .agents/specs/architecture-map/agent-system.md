@@ -15,17 +15,19 @@ flowchart TD
   AgentCLI["agent-cli\nterminal UI + local adapters"]
   Headless["agent-transport-headless\nprint-mode transport"]
   Commands["agent-command-*\nuser-visible commands"]
-  SDK["agent-sdk\nInteractiveSession + command contracts/common APIs"]
+  SDK["agent-sdk\nassembly layer — InteractiveSession,\ncommand contracts/common APIs\n(React-free)"]
   Sessions["agent-sessions\nconversation lifecycle"]
-  Runtime["agent-runtime\nbackground/subagent lifecycle"]
-  Tools["agent-tools\ntools + sandbox ports"]
-  Core["agent-core\nprovider/history/permission contracts"]
+  Runtime["agent-runtime\nbackground task lifecycle"]
+  Tools["agent-tools + agent-tool-mcp\ntools + sandbox ports + MCP integration"]
+  Core["agent-core\nprovider/history/permission contracts\n(ZERO deps from other agent-* packages)"]
   Providers["agent-provider-*\nprovider definitions + transports"]
+  Plugins["agent-plugin-*\nplugin layer (event, logging, usage, etc.)"]
 
   AgentCLI --> SDK
   AgentCLI --> Commands
   AgentCLI --> Providers
   AgentCLI --> Headless
+  AgentCLI --> Plugins
   Headless --> SDK
   Commands --> SDK
   Commands --> Core
@@ -37,6 +39,7 @@ flowchart TD
   Sessions --> Core
   Runtime --> Core
   Tools --> Core
+  Plugins --> Core
 ```
 
 Agent stack ownership:
@@ -44,6 +47,7 @@ Agent stack ownership:
 | Concern                                            | Owner                                             | Notes                                                                                                                                                               |
 | -------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Terminal input/rendering and host adapters         | `agent-cli`                                       | Thin product shell only; visible CLI features still need reusable SDK/runtime/command/provider ownership for non-UI behavior.                                       |
+| SDK assembly layer                                 | `agent-sdk`                                       | Assembly layer — composes sessions, runtime, tools, and core into one SDK surface. Not a re-export layer. React-free; React hooks belong in CLI packages only.      |
 | Command contracts/common APIs                      | `agent-sdk`                                       | Command packages consume these like third-party modules.                                                                                                            |
 | Model command tool projection                      | `agent-sdk`                                       | Projects model-invocable command descriptors into provider-safe `robota_command_*` tools and reverse maps them to slash-free command ids.                           |
 | User-visible built-in command behavior             | `agent-command-*`                                 | CLI composes default modules; SDK must not import them.                                                                                                             |
@@ -61,6 +65,21 @@ Generated interactive setup keys are model-derived SDK suggestions with numeric 
 credential details must stay out of profile names. `agent-cli` may display the active profile key,
 provider type, and model in the status area, but profile creation and switching semantics stay in SDK
 common APIs and the `agent-command-provider` module.
+
+## API Boundary
+
+The agent system has two distinct API surfaces with different ownership and mutability rules.
+
+| Surface          | Owner    | Mutability | Purpose                                                                              |
+| ---------------- | -------- | ---------- | ------------------------------------------------------------------------------------ |
+| Runtime API      | External | Immutable  | ComfyUI-compatible prompt API. Robota must not modify or break this contract.        |
+| Orchestrator API | Robota   | Modifiable | Robota-owned orchestration layer. Cost, auth, retry policies, and routing live here. |
+
+Rules:
+
+- **Never modify the Runtime API.** It mirrors the ComfyUI prompt API contract. Any breaking change here breaks third-party compatibility.
+- **Only the Orchestrator API is Robota-owned.** All product-specific additions (cost controls, auth, retry) belong in the orchestration layer, not the runtime.
+- When adding a new policy or capability, verify which API surface it belongs to before choosing the owning package. Policy logic goes to the orchestrator layer; runtime-surface changes require external coordination.
 
 ## Agent CLI Detail Map
 

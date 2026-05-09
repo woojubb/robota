@@ -25,11 +25,12 @@ flowchart TD
 
 Deployment ownership:
 
-| Deploy unit    | Runtime shape                       | Required contract                                                                    |
-| -------------- | ----------------------------------- | ------------------------------------------------------------------------------------ |
-| `agent-web`    | Next.js frontend host               | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. |
-| `agent-server` | Node service with WebSocket support | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.  |
-| `apps/docs`    | Static docs site                    | Builds from repository docs/content and deploys through Cloudflare Pages.            |
+| Deploy unit    | Runtime shape                       | Deploy platform    | Required contract                                                                    |
+| -------------- | ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| `agent-web`    | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. |
+| `agent-server` | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.  |
+| `apps/docs`    | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.            |
+| `apps/blog`    | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                             |
 
 Deployment decision:
 
@@ -72,3 +73,11 @@ Docs deployment ownership:
 | Production deploy              | Cloudflare Pages Git integration from `main`        |
 | Manual direct upload           | `scripts/docs/deploy-cloudflare-pages.mjs`          |
 | Release workflow docs behavior | Build verification only; no GitHub Pages deployment |
+
+Docs preservation rules:
+
+- **`content/v2.0.0/` must never be deleted.** This directory is permanently preserved. Any cleanup
+  script or deploy pipeline must explicitly exclude it.
+- **Three-layer sync required on every app change.** When any app or SDK change affects
+  user-visible behavior, update all three documentation layers in the same PR:
+  `packages/*/docs/SPEC.md` → `packages/*/README.md` → `content/` site pages.

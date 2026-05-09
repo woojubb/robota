@@ -74,6 +74,7 @@ contract lives; the package SPEC says what the contract is.
 | Provider transport and vendor SDK behavior              | `agent-provider-*`, `agent-transport-*`, or server-side service packages              | Supply credentials through allowed adapters; never hardcode vendor logic.   |
 | Tool contracts, sandbox policy, MCP integration         | `agent-tools`, `agent-tool-mcp`, and `agent-core` contracts                           | Render tool progress/results and pass host adapters.                        |
 | Auth and credits policy                                 | `auth`, `credits`, and their package SPEC files                                       | Collect product-specific input and call owner APIs.                         |
+| Orchestration policies (cost, auth, retry, routing)     | Orchestrator layer — not the runtime API surface                                      | Call orchestrator APIs; never add policy to the immutable Runtime API.      |
 | Playground reusable behavior                            | `agent-playground`, `agent-remote-client`, `agent-sdk`, `agent-core`                  | `agent-web` owns routes and deployment host only.                           |
 | Server provider proxy, WebSocket, CORS, process host    | `agent-server` with contracts from provider, remote-client, playground, and SDK specs | Frontend shells call the API; they do not own server-side provider policy.  |
 | Documentation build/deploy                              | `apps/docs`, `apps/blog`, Cloudflare deployment docs                                  | Product docs render generated/source content and deploy through owner flow. |
@@ -84,7 +85,9 @@ contract lives; the package SPEC says what the contract is.
 2. Split behavior into UI, reusable contracts, lifecycle/state, policy, persistence, adapters, and
    transport projections.
 3. Pick the lowest reusable owner from the table above.
-4. Update the owner `docs/SPEC.md` or cross-cutting spec first.
+4. Update the owner `docs/SPEC.md` or cross-cutting spec first. Then run the conformance
+   verification loop from [../../rules/spec-workflow.md](../../rules/spec-workflow.md) until zero
+   gaps and regression pass before proceeding.
 5. Update the relevant architecture-map document for any cross-package boundary or dependency
    direction change.
 6. Add product-shell UI only after the owner API/projection exists.

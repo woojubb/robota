@@ -11,6 +11,10 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 - Does not own system prompt building. Accepts a pre-built `systemMessage` string.
 - Does not own configuration resolution or context loading. Those belong to `agent-sdk`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
+- **Owns the session persistence port.** `SessionStore` and `ISessionRecord` are the SSOT for
+  conversation session persistence contracts. Storage adapters implement these interfaces; the port
+  interface must not be duplicated in other packages. Consumers obtain a session store through SDK
+  facades (`createProjectSessionStore`) rather than constructing `SessionStore` directly.
 
 ## Architecture Overview
 
