@@ -60,6 +60,7 @@ function subscribeSessionEvents(
   session: InteractiveSession,
   send: (message: TServerMessage) => void,
 ): () => void {
+  const onUserMessage = (content: string): void => send({ type: 'user_message', content });
   const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta });
   const onToolStart = (state: IToolState): void => send({ type: 'tool_start', state });
   const onToolEnd = (state: IToolState): void => send({ type: 'tool_end', state });
@@ -72,6 +73,7 @@ function subscribeSessionEvents(
   const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
     send({ type: 'background_job_group_event', event });
 
+  session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
   session.on('tool_start', onToolStart);
   session.on('tool_end', onToolEnd);
@@ -83,6 +85,7 @@ function subscribeSessionEvents(
   session.on('background_job_group_event', onBackgroundJobGroupEvent);
 
   return (): void => {
+    session.off('user_message', onUserMessage);
     session.off('text_delta', onTextDelta);
     session.off('tool_start', onToolStart);
     session.off('tool_end', onToolEnd);

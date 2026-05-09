@@ -1352,6 +1352,7 @@ export class InteractiveSession {
   ): Promise<void> {
     this.executing = true;
     this.clearStreaming();
+    this.emit('user_message', displayInput ?? input);
     this.emit('thinking', true);
     this.history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
     this.emitExecutionWorkspaceUpdated('main_thread');

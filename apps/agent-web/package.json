@@ -4,7 +4,7 @@
   "private": true,
   "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 7071",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -19,6 +19,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-playground": "workspace:^",
+    "@robota-sdk/agent-web": "workspace:^",
     "next": "15.4.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
