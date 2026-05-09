@@ -97,11 +97,22 @@ function readVersion(): string {
 
 /** Prompt for input in raw mode. Mask with asterisks if masked=true. */
 function promptInput(label: string, masked = false): Promise<string> {
-  return new Promise<string>((resolve) => {
+  return new Promise<string>((resolve, reject) => {
     process.stdout.write(label);
     let input = '';
     const stdin = process.stdin;
     const wasRaw = stdin.isRaw;
+    if (!stdin.isTTY) {
+      reject(
+        new Error(
+          'Cannot prompt for input: stdin is not a TTY.\n' +
+            'Set your API key via environment variable instead:\n' +
+            '  ANTHROPIC_API_KEY=<key> robota\n' +
+            '  OPENAI_API_KEY=<key> robota',
+        ),
+      );
+      return;
+    }
     stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding('utf8');
@@ -338,6 +349,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     const appendSystemPrompt = appendParts.length > 0 ? appendParts.join('\n\n') : undefined;
 
     // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
+    if (args.systemPrompt) {
+      process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
+    }
 
     const session = new InteractiveSession({
       cwd,
