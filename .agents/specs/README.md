@@ -16,4 +16,5 @@ Package-specific specs are owned by each package at `packages/<name>/docs/SPEC.m
 | [command-inventory.md](command-inventory.md)                   | Built-in command ownership, lifecycle, model visibility, and host effect surfaces      |
 | [subagent-process-manager.md](subagent-process-manager.md)     | CLI subagent process management, parallel execution, and TUI lifecycle                 |
 | [transparent-workflow.md](transparent-workflow.md)             | Cross-client action provenance, state vocabulary, memory visibility, and UI disclosure |
+| [user-local-storage.md](user-local-storage.md)                 | User-local-only baseline workflow storage policy, category inspection, and path guards |
 | [verification-pipeline-plan.md](verification-pipeline-plan.md) | Local hooks, harness verification, CI, build, and release verification planning        |

@@ -26,6 +26,8 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own transparent workflow action provenance, shared state vocabulary, memory inspection
   contracts, command execution eligibility, or retention policy — these are owned by SDK/runtime
   contracts described in the cross-cutting transparent workflow spec
+- Does NOT own baseline workflow storage root resolution, repo-outside validation, category
+  contracts, or item deletion/disable semantics — these are owned by SDK storage contracts
 - Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
@@ -70,6 +72,19 @@ The CLI may render provenance, lifecycle state, memory/preference inspection, an
 only from SDK/runtime projections. It may keep ephemeral terminal view state such as the selected
 workspace entry, but it must not infer command origin, replay remembered commands, define state
 transitions, choose retention policy, or inspect/delete memory outside SDK/command APIs.
+
+### User-Local Storage Boundary
+
+Baseline workflow storage rules are defined in
+[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The CLI
+may render the effective storage root, category summaries, and delete/disable actions only from SDK
+or command-module projections. It must not resolve baseline storage paths, write workflow
+preferences into project `.robota/`, or remember commands as executable preferences.
+
+Existing CLI-owned operational cache such as `~/.robota/update-check.json` remains distribution UX,
+not baseline workflow state. Existing project-local sessions, logs, checkpoints, and memory are
+classified by the storage spec and must not be reused for new baseline workflow features without a
+separate migration PR.
 
 ### Provider Profile Creation
 

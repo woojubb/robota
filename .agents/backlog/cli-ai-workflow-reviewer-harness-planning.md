@@ -113,8 +113,9 @@ Reviewer role:
 - [Transparent workflow contract](completed/cli-transparent-workflow-contract.md) (completed):
   action provenance, named states, memory inspection, and UI disclosure rules shared by all
   baseline workflow features.
-- [User-local storage foundation](cli-user-local-storage-foundation.md): canonical user-local-only
-  storage root, category contracts, inspection/removal APIs, and repo-outside validation.
+- [User-local storage foundation](completed/cli-user-local-storage-foundation.md) (completed):
+  canonical user-local-only storage root, category contracts, inspection/removal APIs, and
+  repo-outside validation.
 - [Transparent process execution](cli-transparent-process-execution.md): running user-supplied
   commands with visible origin, cwd, environment summary, output, cancellation, and terminal result.
 - [Background work state management](cli-background-work-state-management.md): switchable main
@@ -160,7 +161,7 @@ Do not require a Robota manifest or Robota package dependency in user repositori
 Promote the split backlogs in this order:
 
 1. `completed/cli-transparent-workflow-contract.md`
-2. `cli-user-local-storage-foundation.md`
+2. `completed/cli-user-local-storage-foundation.md`
 3. `cli-transparent-process-execution.md`
 4. `cli-background-work-state-management.md`
 5. `cli-user-local-memory-transparency.md`

@@ -335,6 +335,23 @@ but they must not execute commands. Shell/process/harness command execution must
 direct user input or an assistant suggestion accepted through explicit UI approval or the current
 user-selected permission policy.
 
+### User-Local Storage Foundation (SDK-Specific)
+
+The cross-cutting storage policy lives in
+[../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md). The SDK
+is the designated owner for baseline workflow storage root resolution, repo-outside validation,
+category contracts, and item inspection/removal projections.
+
+Existing `projectPaths(cwd)` helpers remain valid for explicit project-owned features such as
+project settings, session replay/debug logs, edit checkpoints, and current project memory. New
+baseline transparent workflow state must not use `projectPaths(cwd)` or ad hoc `.robota/` paths.
+It must use SDK-owned user-local storage contracts once those are implemented.
+
+Existing `userPaths()` helpers expose only current user settings and sessions paths. They are not
+yet the complete transparent workflow storage contract. Future implementation PRs must add tested
+user-local category APIs instead of having CLI or command modules assemble category paths
+themselves.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`

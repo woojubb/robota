@@ -18,7 +18,7 @@ Define user-local memory and preference behavior for `agent-cli` so remembered v
 without becoming hidden automation, command reuse, or repo-owned configuration.
 
 This backlog depends on
-[User-Local Storage Foundation](cli-user-local-storage-foundation.md) for storage root resolution,
+[User-Local Storage Foundation](completed/cli-user-local-storage-foundation.md) for storage root resolution,
 repo-outside validation, inspection/removal APIs, and persistence policy.
 
 The feature must answer:
