@@ -25,6 +25,6 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gates, publish flow |
 | [documentation-sync.md](documentation-sync.md) | Document role, package README, and robota.io documentation gates   |
 | [research.md](research.md)                     | Research-first implementation and recommendation authority         |
-| [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, one-backlog PRs, initiative branches |
+| [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, user scenario gates, initiative PRs  |
 | [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation            |
 | [learning-loop.md](learning-loop.md)           | Lesson capture and mechanical enforcement preference               |
