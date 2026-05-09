@@ -83,6 +83,105 @@ Out of initial scope:
 Added `packages/agent-provider-deepseek` as a first-class provider package, wired it into the default
 CLI provider definition list, documented the provider contract, and added provider/CLI tests.
 
+## User Execution Test Scenarios
+
+**Prerequisites:** `pnpm build` (agent-provider-deepseek and agent-cli dist must exist)
+
+**Setup:** No API key required. Demo script uses `@robota-sdk/agent-provider-deepseek` public API and agent-cli compiled output directly.
+
+**Scenarios:**
+
+1. `createDeepSeekProviderDefinition()` returns correct type, displayName, defaults (model, apiKey env, baseURL), requiresApiKey, and model catalog entries (active + deprecated aliases)
+2. `DEFAULT_PROVIDER_DEFINITIONS` in agent-cli contains a DeepSeek entry as the last provider
+
+**Command:**
+
+```
+node scripts/examples/deepseek-provider-demo.mjs
+```
+
+**Expected observable result:**
+
+```
+=== Scenario 1: createDeepSeekProviderDefinition() returns correct definition ===
+
+  type: deepseek
+  displayName: DeepSeek
+  defaults.model: deepseek-v4-flash
+  defaults.apiKey: $ENV:DEEPSEEK_API_KEY
+  defaults.baseURL: https://api.deepseek.com
+  requiresApiKey: true
+  modelCatalog.entries: deepseek-v4-flash, deepseek-v4-pro, deepseek-chat, deepseek-reasoner
+  type === "deepseek": YES ✓
+  displayName === "DeepSeek": YES ✓
+  defaults.model === "deepseek-v4-flash": YES ✓
+  defaults.apiKey references DEEPSEEK_API_KEY: YES ✓
+  defaults.baseURL === "https://api.deepseek.com": YES ✓
+  requiresApiKey === true: YES ✓
+  model catalog has active deepseek-v4-flash: YES ✓
+  model catalog has active deepseek-v4-pro: YES ✓
+  deprecated alias deepseek-chat present: YES ✓
+  deprecated alias deepseek-reasoner present: YES ✓
+
+=== Scenario 2: DeepSeek is in CLI DEFAULT_PROVIDER_DEFINITIONS ===
+
+  provider types in DEFAULT_PROVIDER_DEFINITIONS: anthropic, openai, gemini, gemma, qwen, deepseek
+  DEFAULT_PROVIDER_DEFINITIONS exists: YES ✓
+  deepseek entry present in DEFAULT_PROVIDER_DEFINITIONS: YES ✓
+  deepseek is last in the list (after openai, gemini, qwen): YES ✓
+  deepseek displayName === "DeepSeek": YES ✓
+
+PASS — DeepSeek provider SDK package and CLI integration are correctly implemented.
+```
+
+**Cleanup:** No state to clean up.
+
+## Execution Evidence (2026-05-10)
+
+**Command executed:**
+
+```
+node scripts/examples/deepseek-provider-demo.mjs
+```
+
+**Actual output:**
+
+```
+=== Scenario 1: createDeepSeekProviderDefinition() returns correct definition ===
+
+  type: deepseek
+  displayName: DeepSeek
+  defaults.model: deepseek-v4-flash
+  defaults.apiKey: $ENV:DEEPSEEK_API_KEY
+  defaults.baseURL: https://api.deepseek.com
+  requiresApiKey: true
+  modelCatalog.entries: deepseek-v4-flash, deepseek-v4-pro, deepseek-chat, deepseek-reasoner
+  type === "deepseek": YES ✓
+  displayName === "DeepSeek": YES ✓
+  defaults.model === "deepseek-v4-flash": YES ✓
+  defaults.apiKey references DEEPSEEK_API_KEY: YES ✓
+  defaults.baseURL === "https://api.deepseek.com": YES ✓
+  requiresApiKey === true: YES ✓
+  model catalog has active deepseek-v4-flash: YES ✓
+  model catalog has active deepseek-v4-pro: YES ✓
+  deprecated alias deepseek-chat present: YES ✓
+  deprecated alias deepseek-reasoner present: YES ✓
+
+=== Scenario 2: DeepSeek is in CLI DEFAULT_PROVIDER_DEFINITIONS ===
+
+  provider types in DEFAULT_PROVIDER_DEFINITIONS: anthropic, openai, gemini, gemma, qwen, deepseek
+  DEFAULT_PROVIDER_DEFINITIONS exists: YES ✓
+  deepseek entry present in DEFAULT_PROVIDER_DEFINITIONS: YES ✓
+  deepseek is last in the list (after openai, gemini, qwen): YES ✓
+  deepseek displayName === "DeepSeek": YES ✓
+
+PASS — DeepSeek provider SDK package and CLI integration are correctly implemented.
+```
+
+**Exit code:** 0
+
+**Observed result matches expected:** YES
+
 ## Verification Plan
 
 - `pnpm --filter @robota-sdk/agent-provider-deepseek test`
