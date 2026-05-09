@@ -22,6 +22,7 @@ import { Toaster } from '../../components/ui/sonner';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { CreateAgentModal, AddToolModal } from './playground-modals';
+import { WorkflowVisualization } from '../../components/playground/workflow-visualization';
 
 export type TToolDraft = { name: string; description: string };
 
@@ -139,14 +140,29 @@ function PlaygroundContent(): React.ReactElement {
         </div>
       </header>
       <main className="flex-1 overflow-hidden flex">
-        <div className="flex-1 h-full overflow-hidden">
+        {/* Left: Chat */}
+        <div className="flex-1 h-full overflow-hidden border-r border-border">
           {state.isInitialized ? (
             <ChatInterface isAgentReady={canExecute} onSendMessage={handleSendMessage} />
           ) : (
             <div className="p-4 text-sm text-muted-foreground">Initializing playground...</div>
           )}
         </div>
-        <div className="w-80 h-full bg-card border-l border-border overflow-y-auto">
+
+        {/* Center: Workflow Visualization */}
+        <div className="flex-1 h-full overflow-hidden border-r border-border flex flex-col">
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Workflow
+            </span>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <WorkflowVisualization events={state.conversationHistory} />
+          </div>
+        </div>
+
+        {/* Right: Tools */}
+        <div className="w-64 h-full bg-card border-l border-border overflow-y-auto">
           <div className="p-4 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-3">
               <Wrench className="h-5 w-5 text-muted-foreground" />
