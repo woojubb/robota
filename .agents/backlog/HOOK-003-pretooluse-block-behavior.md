@@ -66,3 +66,37 @@ if (hookResult.blocked) {
 ## User Execution Test Scenarios
 
 실제 훅 스크립트를 연결하고 차단 시나리오를 테스트하여 AI 재계획 동작 확인.
+
+## Execution Evidence (2026-05-09)
+
+**Test file:** `packages/agent-sessions/src/__tests__/tool-hook-helpers.test.ts`
+
+**Command executed:**
+
+```
+pnpm --filter @robota-sdk/agent-sessions test
+```
+
+**Result:** 10/10 tests passed (48 total in package, all passing)
+
+**Key assertions verified:**
+
+| Scenario                                 | Expected                             | Result |
+| ---------------------------------------- | ------------------------------------ | ------ |
+| Hook exits code 2 → blocked format       | `{ blocked: true, reason: "..." }`   | PASS   |
+| Old format absent                        | No `success`, `error`, `output` keys | PASS   |
+| Empty stderr → fallback reason           | `reason === "Blocked by hook"`       | PASS   |
+| Hook exits code 0 → null (proceed)       | `null`                               | PASS   |
+| No hooks config → null                   | `null`                               | PASS   |
+| `result.success === true` (history-safe) | `true`                               | PASS   |
+
+**Full test output:**
+
+```
+ ✓ src/__tests__/tool-hook-helpers.test.ts  (10 tests) 11ms
+ Test Files  9 passed (9)
+      Tests  48 passed (48)
+   Duration  220ms
+```
+
+**Conclusion:** Option B (practical compatibility) is correctly implemented. When a PreToolUse hook exits with code 2, `runPreToolHook()` returns `IToolResult` with `data = JSON.stringify({ blocked: true, reason: "<stderr>" })`. The old `{ success: false, output: "", error: "Blocked by hook: ..." }` format is not present.
