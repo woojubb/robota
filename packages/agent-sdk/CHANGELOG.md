@@ -1,5 +1,15 @@
 # @robota-sdk/agent-sdk
 
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.62
+  - @robota-sdk/agent-runtime@3.0.0-beta.62
+  - @robota-sdk/agent-sessions@3.0.0-beta.62
+  - @robota-sdk/agent-tools@3.0.0-beta.62
+
 ## 3.0.0-beta.61
 
 ### Minor Changes

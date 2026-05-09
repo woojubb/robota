@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-user-local",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "description": "Composable user-local inspection command module for Robota",
   "type": "module",
   "main": "dist/node/index.js",
