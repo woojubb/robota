@@ -110,6 +110,20 @@ snapshots, and never interprets SDK-, command-, skill-, transport-, or UI-specif
 layers may use metadata for origin projection, grouping, or workspace read models, but lifecycle
 transitions, queueing, cancellation, and runner behavior must not depend on those keys.
 
+## Transparent Workflow Relationship
+
+The cross-cutting transparent workflow contract is defined in
+[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
+`agent-runtime` owns the mechanical background task lifecycle state machine and transition
+validation for agent/process work. It does not own command authorization provenance, user-local
+preference semantics, memory inspection, or TUI disclosure policy.
+
+Current runtime statuses are `queued`, `running`, `waiting_permission`, `completed`, `failed`, and
+`cancelled`. The transparent workflow user-facing vocabulary displays `waiting_permission` as
+`waiting-for-input`; a future API change may alias or rename this status only with compatibility
+tests. `archived` is a visibility/retention projection over terminal records, not a state that
+restarts execution. Runtime `close()` remains the mechanical terminal-record dismissal operation.
+
 ## Error Taxonomy
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.

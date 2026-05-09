@@ -313,6 +313,28 @@ agent-cli (Ink TUI — CLI-specific)
 - **Checkpoint common APIs**: `agent-sdk/command-api/checkpoint/` owns command-facing checkpoint metadata constants, subcommand projection helpers, and inspect/list/restore/rollback facades over `ICommandHostContext`. `rewind` command behavior lives in `@robota-sdk/agent-command-rewind` and consumes these APIs as an external command module.
 - **Boundary**: `command-api` may define contracts and reusable command-facing helpers. It must not own product UI, concrete settings file I/O, process restart/exit, provider construction, or command-specific flows that can live in `agent-command-*` packages.
 
+### Transparent Workflow Contract (SDK-Specific)
+
+The cross-cutting contract lives in
+[../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md). The SDK
+is the designated owner for reusable transparent workflow contracts and projections:
+
+- any new action provenance types and execution eligibility helpers;
+- mapping runtime task states into the shared user-facing state vocabulary;
+- execution workspace read models for main-thread, background task, and background group switching;
+- any new memory and preference inspection/removal API shapes;
+- command-facing facades that let `agent-command-*` expose status and memory controls without
+  importing CLI code.
+
+`IExecutionOrigin` is the current task/workspace origin projection. It is not command authorization
+provenance by itself. Future transparent workflow implementation PRs must add or extend typed action
+provenance before new host command/process execution surfaces depend on it.
+
+User-local preferences, remembered values, and session state may influence display and navigation,
+but they must not execute commands. Shell/process/harness command execution must originate from
+direct user input or an assistant suggestion accepted through explicit UI approval or the current
+user-selected permission policy.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`
@@ -1369,7 +1391,8 @@ Execution workspace entries use a common `IExecutionWorkspaceEntry` shape:
 - `background_group` entries are projections of `BackgroundJobOrchestrator` groups.
 - `origin` is SDK-owned provenance. Runtime stores only opaque primitive metadata; the SDK maps it
   into `IExecutionOrigin` for commands, model commands, tool calls, skills, transports, and system
-  work.
+  work. This is presentation provenance; command execution eligibility for transparent workflow
+  features must follow the action provenance contract.
 - `controls` is presentation-neutral and advisory. Selecting an entry is never a lifecycle
   mutation; cancellation, close, send, read, wait, and group summary remain explicit APIs.
 
@@ -1377,6 +1400,10 @@ Default visibility keeps active, permission-blocked, failed, cancelled, and unre
 in the workspace list. Clean completed tasks remain queryable through runtime state until `close()`
 or session cleanup, but clients may choose a collapsed recent/history presentation from the SDK
 entry metadata instead of deleting records.
+
+The workspace state vocabulary follows the transparent workflow contract. Current runtime
+`waiting_permission` snapshots must be projected for clients as user-facing `waiting-for-input`
+state when the surface is not exposing raw runtime types for debugging.
 
 When session persistence is enabled, `InteractiveSession` must persist background task state as part of the project-local session record. Lifecycle, tool start/end, permission, completion, failure, cancellation, and close events update the session JSON with the latest task snapshots and durable event summaries. High-frequency `background_task_text_delta` events must not rewrite the main session JSON per chunk; they are written to append-only JSONL session logs and task/subagent transcript files so debugging data is available while streaming is still in progress without risking partial JSON writes.
 
