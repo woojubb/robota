@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -112,12 +112,12 @@ Create a design and contract PR before UI work:
 
 ## Acceptance Criteria
 
-- [ ] Users can inspect remembered values, storage locations, sources, last-used time, and
+- [x] Users can inspect remembered values, storage locations, sources, last-used time, and
       display/navigation rules.
-- [ ] Users can delete or disable remembered values.
-- [ ] Remembered values cannot execute commands.
-- [ ] No repo-local files are written for baseline memory, including ignored files.
-- [ ] CLI UI depends on SDK/runtime memory contracts rather than owning storage policy.
+- [x] Users can delete or disable remembered values.
+- [x] Remembered values cannot execute commands.
+- [x] No repo-local files are written for baseline memory, including ignored files.
+- [x] CLI UI depends on SDK/runtime memory contracts rather than owning storage policy.
 
 ## Test Plan
 
@@ -137,3 +137,15 @@ Create a design and contract PR before UI work:
 - Add tests proving memory writes stay outside the repository entirely.
 - Add tests proving remembered values cannot execute commands.
 - Add CLI tests after memory contracts exist.
+
+## Result
+
+Completed by adding `.agents/specs/user-local-memory.md` and linking package ownership from
+`agent-sdk`, `agent-runtime`, `agent-cli`, `agent-command-memory`, and `agent-sessions` SPEC files.
+
+- The contract defines allowed display/navigation memory, restricted command/execution memory, item
+  projection fields, inspection, deletion, and disablement rules.
+- Existing project memory under `.robota/memory/` is documented as a separate explicit project
+  memory feature, not baseline user-local memory.
+- SDK storage APIs, delete/disable command behavior, migration from project memory, and CLI
+  rendering tests remain follow-up implementation work.

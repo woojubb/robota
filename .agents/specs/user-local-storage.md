@@ -156,3 +156,5 @@ Before a TUI screen or command stores baseline workflow state, implementation PR
 This storage policy implements the memory transparency and repo-independence requirements in
 [transparent-workflow.md](transparent-workflow.md). Transparent workflow features may display
 repository context, but their baseline stored state must use this user-local storage foundation.
+The detailed baseline memory and preference item model lives in
+[user-local-memory.md](user-local-memory.md).

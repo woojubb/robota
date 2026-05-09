@@ -352,6 +352,21 @@ yet the complete transparent workflow storage contract. Future implementation PR
 user-local category APIs instead of having CLI or command modules assemble category paths
 themselves.
 
+### User-Local Memory Transparency (SDK-Specific)
+
+The baseline user-local memory contract lives in
+[../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md). The SDK
+is the designated owner for memory item projection shapes, display/navigation disclosure rules,
+inspection APIs, delete/disable APIs, and disabled-item non-use.
+
+User-local memory may influence display and navigation only. It must not execute shell/process
+commands, select repository harness commands, grant permissions, inject hidden prompt behavior, or
+become the execution cwd for a new command by itself.
+
+Existing project memory under `.robota/memory/` remains a separate explicit project-memory feature.
+New baseline local preferences, last-view state, and task associations must use the SDK user-local
+storage contract instead of project memory paths.
+
 ### Transparent Process Execution (SDK-Specific)
 
 The process execution contract lives in
@@ -511,6 +526,10 @@ Resolved provider fields:
 - **Audit trail**: `/memory approve`, `/memory reject`, and future explicit memory workflows append memory events to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
 - **Ownership**: SDK owns memory stores, memory policy primitives, and command-facing memory APIs. `@robota-sdk/agent-command-memory` owns command behavior. CLI only composes the module and renders command results/autocomplete metadata.
 - **Prompt composition boundary**: The system prompt may include the neutral `Project Memory` startup index and the `/memory` descriptor under `Built-in Commands`; it must not include extra hardcoded memory behavior instructions outside descriptor data.
+- **User-local memory boundary**: This project memory feature is not baseline user-local memory.
+  User-local display/navigation preferences are governed by
+  [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md) and
+  must not be stored in `.robota/memory/`.
 
 ### Context Window Management
 
