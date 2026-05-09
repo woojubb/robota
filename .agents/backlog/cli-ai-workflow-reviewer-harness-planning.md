@@ -116,8 +116,9 @@ Reviewer role:
 - [User-local storage foundation](completed/cli-user-local-storage-foundation.md) (completed):
   canonical user-local-only storage root, category contracts, inspection/removal APIs, and
   repo-outside validation.
-- [Transparent process execution](cli-transparent-process-execution.md): running user-supplied
-  commands with visible origin, cwd, environment summary, output, cancellation, and terminal result.
+- [Transparent process execution](completed/cli-transparent-process-execution.md) (completed):
+  running user-supplied commands with visible origin, cwd, environment summary, output,
+  cancellation, and terminal result.
 - [Background work state management](cli-background-work-state-management.md): switchable main
   thread, shell job, and agent task state with transparent lifecycle and retention behavior.
 - [User-local memory transparency](cli-user-local-memory-transparency.md): cwd, view preference, and
@@ -162,7 +163,7 @@ Promote the split backlogs in this order:
 
 1. `completed/cli-transparent-workflow-contract.md`
 2. `completed/cli-user-local-storage-foundation.md`
-3. `cli-transparent-process-execution.md`
+3. `completed/cli-transparent-process-execution.md`
 4. `cli-background-work-state-management.md`
 5. `cli-user-local-memory-transparency.md`
 6. `cli-repository-situational-awareness.md`

@@ -132,6 +132,15 @@ Baseline workflow storage policy is defined in
 workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
 storage contracts decide whether and how higher layers persist those associations.
 
+## Process Execution Relationship
+
+Transparent process execution is specified in
+[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md).
+`agent-runtime` owns generic process task lifecycle, stdout/stderr log paging contracts, timeout,
+cancellation, send/read controls, exit code, signal code, and state transitions. Runtime does not
+own command selection, command meaning, environment-summary presentation, action provenance, or
+correctness interpretation.
+
 ## Error Taxonomy
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.

@@ -352,6 +352,24 @@ yet the complete transparent workflow storage contract. Future implementation PR
 user-local category APIs instead of having CLI or command modules assemble category paths
 themselves.
 
+### Transparent Process Execution (SDK-Specific)
+
+The process execution contract lives in
+[../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md). The SDK
+is the designated owner for process execution request/status projections that sit above runtime
+process tasks:
+
+- action provenance attached to user-directed process execution;
+- display-safe environment summaries;
+- working-directory projection;
+- foreground/background process status projection;
+- duration and terminal-result projection;
+- retention and transcript pointers consumed by command modules, transports, and CLIs.
+
+Existing `BackgroundProcess` and execution workspace APIs are the current building blocks. Future
+user-facing process-run commands must use SDK/runtime contracts and must not let CLI components
+assemble process semantics from raw child-process state.
+
 ### System Command System (SDK-Specific)
 
 - **Package**: `agent-sdk/commands/`
