@@ -1,6 +1,6 @@
 ---
 title: 'HOOK-004: IHookInput에 permission_mode 필드 추가'
-status: todo
+status: done
 created: 2026-05-09
 priority: medium
 urgency: later

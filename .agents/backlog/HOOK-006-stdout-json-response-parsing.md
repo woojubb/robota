@@ -1,6 +1,6 @@
 ---
 title: 'HOOK-006: hook-runner stdout JSON 응답 파싱 추가'
-status: todo
+status: done
 created: 2026-05-09
 priority: medium
 urgency: later

@@ -1,6 +1,6 @@
 ---
 title: 'HOOK-003: PreToolUse 차단 동작 Claude Code 호환 방식으로 수정'
-status: todo
+status: done
 created: 2026-05-09
 priority: high
 urgency: soon
