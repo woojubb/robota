@@ -26,6 +26,11 @@ Supported forms:
 - `/background cancel <task-id> [reason]`: cancel a task.
 - `/background close <task-id>`: dismiss a terminal task.
 
+Future switch, follow, archive, and clear commands must follow the shared background work state
+contract in [../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+They must route through SDK/runtime APIs and must not define lifecycle or retention behavior inside
+this command package.
+
 Aliases:
 
 - `read`: `log`, `open`
@@ -38,6 +43,8 @@ Aliases:
 - Background task state remains SDK/runtime owned.
 - This package must consume SDK command-facing APIs through `@robota-sdk/agent-sdk`.
 - CLI products compose this module; SDK core must not embed `/background` registration or execution.
+- Background state, selected entries, archive visibility, and clear/delete semantics remain
+  SDK/runtime owned and are only surfaced by this command module.
 - Any future process-run subcommand must follow
   [../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md): it
   may route an explicit user-directed command through SDK/runtime APIs, but it must not infer

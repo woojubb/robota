@@ -141,6 +141,18 @@ cancellation, send/read controls, exit code, signal code, and state transitions.
 own command selection, command meaning, environment-summary presentation, action provenance, or
 correctness interpretation.
 
+## Background Work State Relationship
+
+Switchable background work state is specified in
+[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+`agent-runtime` owns mechanical task lifecycle, events, cancellation, wait, send, close, and log
+read operations. It does not own selected workspace entry state, filled/empty UI indicators,
+presentation grouping, archive visibility, or TUI detail rendering.
+
+Runtime may expose retention metadata only as task lifecycle or registry state protected by
+state-machine tests. `archived` remains a visibility/retention projection over terminal records, not
+a status that restarts or resumes execution.
+
 ## Error Taxonomy
 
 `BackgroundTaskError` is the package error class for lifecycle and runner failures.

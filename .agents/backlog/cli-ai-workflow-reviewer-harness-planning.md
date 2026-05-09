@@ -119,8 +119,9 @@ Reviewer role:
 - [Transparent process execution](completed/cli-transparent-process-execution.md) (completed):
   running user-supplied commands with visible origin, cwd, environment summary, output,
   cancellation, and terminal result.
-- [Background work state management](cli-background-work-state-management.md): switchable main
-  thread, shell job, and agent task state with transparent lifecycle and retention behavior.
+- [Background work state management](completed/cli-background-work-state-management.md) (completed):
+  switchable main thread, shell job, and agent task state with transparent lifecycle and retention
+  behavior.
 - [User-local memory transparency](cli-user-local-memory-transparency.md): cwd, view preference, and
   task association storage that is inspectable, removable, and stored outside the repository.
 - [Repository situational awareness](cli-repository-situational-awareness.md): passive display of
@@ -164,7 +165,7 @@ Promote the split backlogs in this order:
 1. `completed/cli-transparent-workflow-contract.md`
 2. `completed/cli-user-local-storage-foundation.md`
 3. `completed/cli-transparent-process-execution.md`
-4. `cli-background-work-state-management.md`
+4. `completed/cli-background-work-state-management.md`
 5. `cli-user-local-memory-transparency.md`
 6. `cli-repository-situational-awareness.md`
 

@@ -191,6 +191,6 @@ files and no Robota local state inside the repository.
 
 - [User-local storage foundation](../backlog/completed/cli-user-local-storage-foundation.md)
 - [Transparent process execution](../backlog/completed/cli-transparent-process-execution.md)
-- [Background work state management](../backlog/cli-background-work-state-management.md)
+- [Background work state management](../backlog/completed/cli-background-work-state-management.md)
 - [User-local memory transparency](../backlog/cli-user-local-memory-transparency.md)
 - [Repository situational awareness](../backlog/cli-repository-situational-awareness.md)

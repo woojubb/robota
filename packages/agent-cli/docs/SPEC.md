@@ -1298,6 +1298,12 @@ Background agent task lifecycle and progress are projected by the SDK execution 
 rendering. React components may render this SDK state only; they must not own task transitions,
 retention, grouping, unread semantics, or cancellation logic.
 
+The shared contract for switchable main-thread, process, agent, group, and skill-spawned work state
+is [../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+The CLI may render existing SDK fields and selection indicators now. Any future row fields such as
+elapsed time, input-needed reason, terminal result, archive, or clear controls must be introduced in
+SDK/runtime projections before TUI components display them.
+
 `BackgroundTaskPanel` renders SDK default-visible background task entries as a one-level tree headed
 by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter from
 `IExecutionWorkspaceEntry` data and contains a compact status marker, human-readable task label,
