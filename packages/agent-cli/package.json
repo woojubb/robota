@@ -4,7 +4,7 @@
   "description": "AI coding assistant CLI built on Robota SDK",
   "type": "module",
   "bin": {
-    "robota": "./dist/node/bin.js"
+    "robota": "./bin/robota.cjs"
   },
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -34,12 +34,13 @@
     "node": ">=22.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --dts --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/bin.d.cts dist/node/subagents/child-process-subagent-worker.cjs dist/node/subagents/child-process-subagent-worker.d.cts",
-    "build:js": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --out-dir dist/node --clean && rm -f dist/node/bin.cjs dist/node/subagents/child-process-subagent-worker.cjs",
-    "build:types": "tsup src/index.ts src/bin.ts src/subagents/child-process-subagent-worker.ts --format esm,cjs --dts-only --out-dir dist/node && rm -f dist/node/bin.d.cts dist/node/subagents/child-process-subagent-worker.d.cts",
+    "build": "tsup",
+    "build:js": "tsup --no-dts",
+    "build:types": "tsup --dts-only",
     "dev": "tsx src/bin.ts",
     "start": "node dist/node/bin.js",
     "test": "vitest run --passWithNoTests",

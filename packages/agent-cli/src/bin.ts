@@ -3,6 +3,10 @@
  * Robota CLI binary entry point.
  *
  * Boots the CLI and handles any uncaught top-level errors gracefully.
+ *
+ * NOTE: Node.js version check and Terminal.app warning are injected as a
+ * build-time banner in tsup.config.ts, ensuring they execute before any
+ * ESM module is loaded (static imports are hoisted by the JS engine).
  */
 import { startCli } from './cli.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
@@ -25,29 +29,6 @@ process.on('uncaughtException', (err) => {
   // Re-throw non-IME errors — let them crash normally
   throw err;
 });
-
-// Node.js version check
-const REQUIRED_NODE_MAJOR = 22;
-const [nodeMajor] = process.versions.node.split('.').map(Number);
-if (nodeMajor < REQUIRED_NODE_MAJOR) {
-  process.stderr.write(
-    `\n  Robota requires Node.js ${REQUIRED_NODE_MAJOR} or higher.\n` +
-      `  Current version: ${process.versions.node}\n\n` +
-      `  Upgrade options:\n` +
-      `    nvm: nvm install ${REQUIRED_NODE_MAJOR} && nvm use ${REQUIRED_NODE_MAJOR}\n` +
-      `    Download: https://nodejs.org/en/download\n\n`,
-  );
-  process.exit(1);
-}
-
-// macOS Terminal.app CJK crash warning
-if (process.env.TERM_PROGRAM === 'Apple_Terminal') {
-  process.stderr.write(
-    `\n  ⚠️  Warning: macOS Terminal.app detected.\n` +
-      `  CJK input (Korean/Chinese/Japanese) may cause crashes.\n` +
-      `  Recommended: use iTerm2 or another terminal emulator.\n\n`,
-  );
-}
 
 startCli().catch((err: Error | TUniversalValue) => {
   const message = err instanceof Error ? err.message : String(err);
