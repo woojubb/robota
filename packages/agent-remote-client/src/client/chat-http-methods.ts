@@ -153,7 +153,7 @@ export async function executeChatRequest(
       assistantMessage.toolCalls = validateToolCallArray(responsePayload.toolCalls);
     }
 
-    return toResponseMessage(assistantMessage, undefined, undefined);
+    return toResponseMessage(assistantMessage, provider, model);
   } catch (error) {
     throw new Error(`Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
