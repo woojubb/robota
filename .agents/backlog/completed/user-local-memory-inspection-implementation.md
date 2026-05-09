@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -15,11 +15,11 @@ P0 - implementation of inspectable user-local memory and preference transparency
 ## Request
 
 Implement the user-local memory inspection, deletion, and disablement behavior defined by
-[user-local-memory.md](../specs/user-local-memory.md), using the storage foundation from
-[user-local-storage.md](../specs/user-local-storage.md).
+[user-local-memory.md](../../specs/user-local-memory.md), using the storage foundation from
+[user-local-storage.md](../../specs/user-local-storage.md).
 
 This backlog implements the follow-up work deferred by
-[User-Local Memory Transparency](completed/cli-user-local-memory-transparency.md).
+[User-Local Memory Transparency](cli-user-local-memory-transparency.md).
 
 ## Recommendation Gate
 
@@ -47,31 +47,33 @@ Affected scope:
 
 - `packages/agent-sdk`: memory item projection, persistence facade, delete/disable semantics,
   disabled-item non-use.
-- `packages/agent-command-memory` or another command owner: user-visible command behavior and output
-  formatting.
+- `@robota-sdk/agent-command-user-local`: user-visible command behavior and output formatting.
 - `packages/agent-cli`: provider-free command routing and terminal output only.
 - `packages/agent-sessions` only if session-local ids need to be referenced in projections.
 
-Open decisions:
+Decision:
 
-- Whether the command owner should extend `agent-command-memory` or use a dedicated user-local
-  command package should be decided during implementation. The decision must preserve the same SDK
-  ownership and product-surface scenario.
+- Use `@robota-sdk/agent-command-user-local` rather than `@robota-sdk/agent-command-memory`.
+  Rationale: existing `/memory` is explicit project memory under `.robota/memory`, while this
+  backlog implements baseline user-local display/navigation memory under the SDK user-local storage
+  contract.
+- Delete followed by inspect exits non-zero with `User-local memory item not found.`. Rationale:
+  the absence is script-detectable and user-readable.
 
 ## Acceptance Criteria
 
-- [ ] Users can create or seed an allowed display/navigation memory item through an explicit product
+- [x] Users can create or seed an allowed display/navigation memory item through an explicit product
       command for inspection/testing.
-- [ ] Users can list remembered user-local items with category, key, summary, scope, source,
+- [x] Users can list remembered user-local items with category, key, summary, scope, source,
       storage location, enabled state, last-used time, and display/navigation rule.
-- [ ] Users can inspect a single remembered item and see `commandExecutionEffect: "none"`.
-- [ ] Users can disable a remembered item without deleting it.
-- [ ] Disabled remembered items remain visible in inspection output and do not affect
+- [x] Users can inspect a single remembered item and see `commandExecutionEffect: "none"`.
+- [x] Users can disable a remembered item without deleting it.
+- [x] Disabled remembered items remain visible in inspection output and do not affect
       display/navigation.
-- [ ] Users can delete a remembered item.
-- [ ] No command strings are stored or exposed as reusable execution preferences.
-- [ ] No baseline user-local memory is written inside the active repository, including `.robota/`.
-- [ ] The backlog is updated with User Execution Test Scenario evidence after implementation.
+- [x] Users can delete a remembered item.
+- [x] No command strings are stored or exposed as reusable execution preferences.
+- [x] No baseline user-local memory is written inside the active repository, including `.robota/`.
+- [x] The backlog is updated with User Execution Test Scenario evidence after implementation.
 
 ## Test Plan
 
@@ -136,8 +138,30 @@ Open decisions:
   ```
 
 - Agent verification: Must be executed after implementation using the commands above.
-- Evidence: Pending until implementation. The backlog cannot be marked complete until the observed
-  command output and repository `find` result are recorded here.
+- Evidence:
+  - Executed after implementation from `/Users/jungyoun/Documents/dev/robota` against the built CLI.
+  - Product command sequence exited 0 through `set`, `list`, first `inspect`, `disable`, and second
+    `inspect`.
+  - `memory set` printed:
+    `Stored user-local memory item view-preference/last-panel at /var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.yb5Ivc89JG/.robota/memory-projections/view-preference__last-panel.json`
+  - `memory list --format json` printed `root:
+"/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.yb5Ivc89JG/.robota"` and one item with
+    category `view-preference`, key `last-panel`, summary `Open the background panel`, valueSummary
+    `background`, source `user-input`, scope `user`, enabled `true`, displayNavigationRule
+    `May affect UI panel, filter, density, or sorting display/navigation only.`, and
+    `commandExecutionEffect: "none"`.
+  - The first `memory inspect` printed the same item with `enabled: true`.
+  - `memory disable` printed: `Disabled user-local memory item view-preference/last-panel`.
+  - The second `memory inspect` printed the same item with `enabled: false` and
+    `commandExecutionEffect: "none"`.
+  - Repository-state command:
+
+    ```bash
+    find "$FIXTURE_REPO" -maxdepth 2 \( -name ".robota" -o -name "robota*" \) -print
+    ```
+
+    printed no output, confirming no project `.robota` or Robota baseline workflow state was
+    created inside the fixture repository.
 
 ### Scenario: Delete A User-Local Memory Item
 
@@ -155,9 +179,7 @@ Open decisions:
 
 - Expected observable result:
   - `memory delete` exits 0 and reports that `view-preference/last-panel` was deleted.
-  - The follow-up `memory inspect` exits non-zero with a user-readable “not found” message, or exits
-    0 with JSON that marks the item absent. The implementation must choose one behavior and update
-    this scenario before completion.
+  - The follow-up `memory inspect` exits non-zero with `User-local memory item not found.`.
 - Cleanup/reset:
 
   ```bash
@@ -165,8 +187,19 @@ Open decisions:
   ```
 
 - Agent verification: Must be executed after implementation.
-- Evidence: Pending until implementation. The implementation PR must record the chosen not-found
-  behavior and observed output here.
+- Evidence:
+  - Executed after the first scenario using the same `TMP_HOME` and `FIXTURE_REPO`.
+  - `memory delete` exited 0 and printed:
+    `Deleted user-local memory item view-preference/last-panel`.
+  - Follow-up `memory inspect view-preference last-panel --format json` exited non-zero with status
+    `1` and printed: `User-local memory item not found.`
+  - Cleanup executed with `rm -rf "$TMP_HOME" "$FIXTURE_REPO"`.
+
+## Result
+
+Implemented with SDK-owned user-local memory APIs, provider-free
+`@robota-sdk/agent-command-user-local` memory subcommands, thin `agent-cli` direct routing, and
+captured User Execution Test Scenario evidence.
 
 ## Implementation Notes
 

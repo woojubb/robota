@@ -20,6 +20,9 @@ export interface IParsedCliArgs {
   forkSession: boolean;
   sessionName: string | undefined;
   outputFormat: string | undefined;
+  format: string | undefined;
+  summary: string | undefined;
+  source: string | undefined;
   systemPrompt: string | undefined;
   appendSystemPrompt: string | undefined;
   taskFile: string | undefined;
@@ -78,6 +81,9 @@ export function parseCliArgs(): IParsedCliArgs {
       'fork-session': { type: 'boolean', default: false },
       name: { type: 'string', short: 'n' },
       'output-format': { type: 'string' },
+      format: { type: 'string' },
+      summary: { type: 'string' },
+      source: { type: 'string' },
       'system-prompt': { type: 'string' },
       'append-system-prompt': { type: 'string' },
       'task-file': { type: 'string' },
@@ -113,6 +119,9 @@ export function parseCliArgs(): IParsedCliArgs {
     forkSession: values['fork-session'] ?? false,
     sessionName: values['name'],
     outputFormat: values['output-format'],
+    format: values['format'],
+    summary: values['summary'],
+    source: values['source'],
     systemPrompt: values['system-prompt'],
     appendSystemPrompt: values['append-system-prompt'],
     taskFile: values['task-file'],

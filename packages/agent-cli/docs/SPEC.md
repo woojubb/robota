@@ -28,6 +28,9 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
   contracts described in the cross-cutting transparent workflow spec
 - Does NOT own baseline workflow storage root resolution, repo-outside validation, category
   contracts, or item deletion/disable semantics — these are owned by SDK storage contracts
+- Does NOT own user-local command behavior — `@robota-sdk/agent-command-user-local` owns the
+  provider-free `user-local` command behavior while CLI only routes direct product invocation and
+  prints command-owned output
 - Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
@@ -91,6 +94,11 @@ Existing CLI-owned operational cache such as `~/.robota/update-check.json` remai
 not baseline workflow state. Existing project-local sessions, logs, checkpoints, and memory are
 classified by the storage spec and must not be reused for new baseline workflow features without a
 separate migration PR.
+
+The direct product command `robota user-local storage list --format json` is provider-free. The CLI
+detects the `user-local` positional command before provider setup, delegates parsing and output
+formatting to `@robota-sdk/agent-command-user-local`, and exits without constructing an AI provider
+or opening the TUI.
 
 ### Transparent Process Execution Boundary
 
@@ -1397,6 +1405,11 @@ User-local memory is display/navigation state only. The CLI may render inspectio
 state, storage location, source, last-used time, and delete/disable actions returned by SDK or
 command APIs. It must not own storage shape, write user-local memory directly, write baseline memory
 inside the repository, or convert remembered values into command execution.
+
+Provider-free `user-local memory ...` commands are routed directly to
+`@robota-sdk/agent-command-user-local` before provider setup. CLI parsing may pass terminal options
+such as `--summary`, `--source`, and `--format`, but command behavior and persistence remain outside
+`agent-cli`.
 
 ### Project Memory Review Surface
 

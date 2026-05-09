@@ -76,6 +76,26 @@ describe('parseCliArgs', () => {
     expect(args.outputFormat).toBe('json');
   });
 
+  it('parses user-local passthrough metadata flags', () => {
+    process.argv = [
+      'node',
+      'cli',
+      'user-local',
+      'memory',
+      'set',
+      'view-preference',
+      'last-panel',
+      'background',
+      '--summary',
+      'Open the background panel',
+      '--source',
+      'user-input',
+    ];
+    const args = parseCliArgs();
+    expect(args.summary).toBe('Open the background panel');
+    expect(args.source).toBe('user-input');
+  });
+
   it('parses --system-prompt flag', () => {
     process.argv = ['node', 'cli', '-p', '--system-prompt', 'You are helpful', 'test'];
     const args = parseCliArgs();
