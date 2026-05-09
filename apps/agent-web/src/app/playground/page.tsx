@@ -11,5 +11,5 @@ const PlaygroundApp = dynamic(
 );
 
 export default function PlaygroundPage() {
-  return <PlaygroundApp />;
+  return <PlaygroundApp defaultServerUrl={process.env.NEXT_PUBLIC_PLAYGROUND_WS_URL} />;
 }
