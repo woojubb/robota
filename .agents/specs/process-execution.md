@@ -148,5 +148,7 @@ Before adding a user-facing process-run UI, implementation PRs must add:
   vocabulary.
 - [user-local-storage.md](user-local-storage.md) forbids remembered commands as executable
   preferences.
+- [background-work-state.md](background-work-state.md) owns how process tasks appear in switchable
+  main-thread/background work views.
 - [background-task-layer.md](background-task-layer.md) owns generic background process task
   lifecycle primitives.

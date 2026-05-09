@@ -2,7 +2,7 @@
 
 ## Status
 
-Backlog.
+Completed.
 
 ## Created
 
@@ -98,13 +98,13 @@ Create a design and contract PR before UI work:
 
 ## Acceptance Criteria
 
-- [ ] The main thread, shell jobs, and agent tasks share one background task projection model.
-- [ ] The TUI can render selected and unselected entries without owning lifecycle state.
-- [ ] Each entry exposes origin, status, latest output, elapsed time, input-needed state,
+- [x] The main thread, shell jobs, and agent tasks share one background task projection model.
+- [x] The TUI can render selected and unselected entries without owning lifecycle state.
+- [x] Each entry exposes origin, status, latest output, elapsed time, input-needed state,
       cancelability, and terminal result.
-- [ ] Completed tasks have explicit retention/archive/clear behavior.
-- [ ] Skill-spawned agent tasks can fit the same model without CLI-specific special cases.
-- [ ] Skill-spawned agent tasks register through SDK/runtime task contracts, not CLI UI state.
+- [x] Completed tasks have explicit retention/archive/clear behavior.
+- [x] Skill-spawned agent tasks can fit the same model without CLI-specific special cases.
+- [x] Skill-spawned agent tasks register through SDK/runtime task contracts, not CLI UI state.
 
 ## Test Plan
 
@@ -127,3 +127,16 @@ Create a design and contract PR before UI work:
 - Add runtime tests for task state transitions and retention.
 - Add SDK contract tests for background task projections.
 - Add CLI rendering tests after lower contracts exist.
+
+## Result
+
+Completed by adding `.agents/specs/background-work-state.md` and linking package ownership from
+`agent-runtime`, `agent-sdk`, `agent-cli`, `agent-command-background`, `agent-command-agent`, and
+`agent-command-skills` SPEC files.
+
+- The contract defines one switchable projection model for main-thread, process, agent, grouped,
+  and skill-spawned work.
+- Existing SDK/CLI execution workspace capabilities are audited separately from missing archive,
+  clear, elapsed, input-needed, and terminal-result projection fields.
+- Runtime retention APIs, SDK projection fields, command controls, and CLI rendering tests remain
+  follow-up implementation work.

@@ -1418,6 +1418,13 @@ may render entries, keep ephemeral selection state, and invoke explicit controls
 infer lifecycle, retention, origin, unread/attention semantics, or control availability from raw
 events when this projection is available.
 
+The cross-client background work state contract is defined in
+[../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
+The current `IExecutionWorkspaceEntry` shape covers stable ids, entry kind, origin, status, labels,
+preview, current action, attention, visibility, updated time, and advisory controls. Future fields
+such as started time, elapsed time, input-needed reason, terminal result, retention state, archive,
+and clear controls must be added to the SDK projection before CLI or transport surfaces render them.
+
 Execution workspace entries use a common `IExecutionWorkspaceEntry` shape:
 
 - `main_thread` is an SDK projection backed by `InteractiveSession` history and current foreground
