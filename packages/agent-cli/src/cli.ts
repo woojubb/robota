@@ -131,6 +131,9 @@ function promptInput(label: string, masked = false): Promise<string> {
             process.stdout.write('\b \b');
           }
         } else if (ch === '\x03') {
+          stdin.removeListener('data', onData);
+          stdin.setRawMode(wasRaw ?? false);
+          stdin.pause();
           process.stdout.write('\n');
           process.exit(0);
         } else if (ch.charCodeAt(0) >= 32) {
@@ -396,7 +399,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version,
-    sessionStore,
+    sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,

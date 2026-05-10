@@ -1,6 +1,6 @@
 ---
 title: 'CLI-004: --web 모니터에서 사용자 프롬프트가 실시간으로 표시되지 않음'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
