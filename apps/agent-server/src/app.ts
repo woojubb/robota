@@ -50,7 +50,7 @@ export function createApp(): express.Application {
   // Rate limiting
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX || '100'),
+    max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
     message: {
       error: 'Too many requests',
       retryAfter: '15 minutes',
@@ -79,9 +79,9 @@ export function createApp(): express.Application {
     });
   }
 
-  if (process.env.GOOGLE_API_KEY) {
+  if (process.env.GEMINI_API_KEY) {
     providers.google = new GoogleProvider({
-      apiKey: process.env.GOOGLE_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY,
     });
   }
 
