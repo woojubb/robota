@@ -58,10 +58,9 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   res.end('Web UI not found. Rebuild: pnpm --filter @robota-sdk/agent-cli build');
 }
 
-export function startWebSidecarServer(
-  session: InteractiveSession,
-  port: number,
-): Promise<IWebSidecarServer> {
+const MAX_PORT_RETRIES = 20;
+
+function tryListen(session: InteractiveSession, startPort: number): Promise<IWebSidecarServer> {
   return new Promise((resolve, reject) => {
     const httpServer: Server = createServer(serveStatic);
     const wss = new WebSocketServer({ server: httpServer });
@@ -84,11 +83,15 @@ export function startWebSidecarServer(
       send({ type: 'messages', messages });
     });
 
-    httpServer.on('error', reject);
+    httpServer.on('error', (err: NodeJS.ErrnoException) => {
+      wss.close();
+      httpServer.close();
+      reject(err);
+    });
 
-    httpServer.listen(port, '127.0.0.1', () => {
+    httpServer.listen(startPort, '127.0.0.1', () => {
       resolve({
-        port,
+        port: startPort,
         stop: () =>
           new Promise<void>((res) => {
             wss.close(() => {
@@ -98,4 +101,19 @@ export function startWebSidecarServer(
       });
     });
   });
+}
+
+export function startWebSidecarServer(
+  session: InteractiveSession,
+  port: number,
+): Promise<IWebSidecarServer> {
+  const attempt = (currentPort: number, triesLeft: number): Promise<IWebSidecarServer> =>
+    tryListen(session, currentPort).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE' && triesLeft > 0) {
+        return attempt(currentPort + 1, triesLeft - 1);
+      }
+      throw err;
+    });
+
+  return attempt(port, MAX_PORT_RETRIES);
 }
