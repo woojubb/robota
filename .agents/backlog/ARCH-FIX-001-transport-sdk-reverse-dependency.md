@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-001: agent-transport-ws/http의 agent-sdk 역방향 의존 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: critical
 urgency: next
