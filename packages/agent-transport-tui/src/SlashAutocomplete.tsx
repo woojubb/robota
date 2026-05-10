@@ -14,6 +14,11 @@ interface IProps {
 }
 
 const MAX_VISIBLE = 8;
+const MAX_DESC_LENGTH = 60;
+
+function truncate(text: string): string {
+  return text.length > MAX_DESC_LENGTH ? `${text.slice(0, MAX_DESC_LENGTH)}\u2026` : text;
+}
 
 /** Render a single command row */
 function CommandRow(props: {
@@ -25,12 +30,13 @@ function CommandRow(props: {
   const indicator = isSelected ? '\u25b8 ' : '  ';
   const nameColor = isSelected ? 'cyan' : undefined;
   const dimmed = !isSelected;
+  const description = truncate(cmd.description ?? '');
 
   return (
     <Box>
       <Text color={nameColor} dimColor={dimmed}>
         {indicator}
-        {showSlash ? `/${cmd.name}  ${cmd.description}` : cmd.description}
+        {showSlash ? `/${cmd.name}  ${description}` : description}
       </Text>
     </Box>
   );
