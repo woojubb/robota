@@ -10,13 +10,9 @@ import type { ISession } from '@robota-sdk/agent-sessions';
 import type {
   IConfigurableTransport,
   ITransportConfig,
+  ITransportEntry,
 } from '@robota-sdk/agent-interface-transport';
 import { readSettings, writeSettings, type TSettingsData } from '../utils/settings-io.js';
-
-export interface ITransportEntry {
-  transport: IConfigurableTransport;
-  config: ITransportConfig;
-}
 
 export class TransportRegistry {
   private readonly entries = new Map<string, IConfigurableTransport>();
