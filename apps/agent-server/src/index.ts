@@ -10,27 +10,33 @@ import { createApp } from './app';
 const app = createApp();
 
 // Export as Firebase Function
-export const api = onRequest({
-    cors: true,
+export const api = onRequest(
+  {
+    cors: false,
     region: 'us-central1',
     memory: '1GiB',
     timeoutSeconds: 540,
-    maxInstances: 100
-}, app);
+    maxInstances: 100,
+  },
+  app,
+);
 
 // Health check function (lightweight)
-export const health = onRequest({
-    cors: true,
+export const health = onRequest(
+  {
+    cors: false,
     region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 60,
-    maxInstances: 10
-}, (req: any, res: any) => {
+    maxInstances: 10,
+  },
+  (_req, res) => {
     res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        service: 'robota-agent-server',
-        version: '1.0.0',
-        environment: process.env.NODE_ENV || 'production'
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'robota-agent-server',
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'production',
     });
-}); 
+  },
+);
