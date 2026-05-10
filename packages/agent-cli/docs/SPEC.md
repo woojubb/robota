@@ -2,7 +2,7 @@
 
 ## Scope
 
-Interactive terminal AI coding assistant. A React + Ink-based TUI, corresponding to Claude Code.
+Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
 A **thin CLI layer** built on top of agent-sdk, responsible only for the terminal UI.
 
 ## Boundaries
@@ -262,7 +262,6 @@ Flow ownership:
 bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createAgentCommandModule()      (from @robota-sdk/agent-command-agent)
               ├── createModelCommandModule()      (from @robota-sdk/agent-command-model)
-              ├── createModeCommandModule()       (from @robota-sdk/agent-command-mode)
               ├── createLanguageCommandModule()   (from @robota-sdk/agent-command-language)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
@@ -737,12 +736,12 @@ interface ICommand {
 
 Skills are discovered at session start from directories scanned by `SkillCommandSource` (agent-sdk), in priority order (highest first, deduplicated by name). Paths are defined in agent-sdk's SPEC.md; the CLI uses them as-is:
 
-| Priority | Path                          | Scope                            |
-| -------- | ----------------------------- | -------------------------------- |
-| 1        | `.claude/skills/*/SKILL.md`   | Project (Claude Code native)     |
-| 2        | `.claude/commands/*.md`       | Project (Claude Code compatible) |
-| 3        | `~/.robota/skills/*/SKILL.md` | User global (Robota native)      |
-| 4        | `.agents/skills/*/SKILL.md`   | Project (Robota native)          |
+| Priority | Path                          | Scope                                           |
+| -------- | ----------------------------- | ----------------------------------------------- |
+| 1        | `.claude/skills/*/SKILL.md`   | Project (hook-compatible, `.claude` convention) |
+| 2        | `.claude/commands/*.md`       | Project (hook-compatible, `.claude` convention) |
+| 3        | `~/.robota/skills/*/SKILL.md` | User global (Robota native)                     |
+| 4        | `.agents/skills/*/SKILL.md`   | Project (Robota native)                         |
 
 ### Skill Frontmatter Schema
 

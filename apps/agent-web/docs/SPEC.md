@@ -25,6 +25,10 @@ Next.js App Router application with the following route structure:
 - `/` -- redirects to `/playground`.
 - `/playground` -- Playground main page.
 - `/playground/demo` -- Playground demo mode.
+- `/monitor` -- CLI second-screen browser monitor. Connects to a running CLI session via WebSocket
+  (default port 7070) and renders live conversation output. Implemented by `MonitorClient`
+  (`src/app/monitor/MonitorClient.tsx`), which uses `SessionMonitor` from `@robota-sdk/agent-web`
+  (the published browser component library).
 
 The app composes workspace packages as React components and configures API access via `API_CONFIG`
 (versioned base URL, timeout, retry, rate limiting). Client-side caching is provided by

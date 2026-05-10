@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-019: CLI-AUDIT-003 partially resolved 후속 작업 백로그화'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

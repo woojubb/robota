@@ -1277,10 +1277,10 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 
 agent-sdk provides two additional `IHookTypeExecutor` implementations that extend the hook system beyond agent-core's built-in `command` and `http` executors:
 
-| Executor         | Hook Type | Description                                                                                     |
-| ---------------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `PromptExecutor` | `prompt`  | Injects the hook's prompt text into the session context as a system-level instruction           |
-| `AgentExecutor`  | `agent`   | Creates a sub-agent session (via `createSession`) to process the hook input and return a result |
+| Executor         | Hook Type | Description                                                                                        |
+| ---------------- | --------- | -------------------------------------------------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Injects the hook's prompt text into the session context as a system-level instruction              |
+| `AgentExecutor`  | `agent`   | Creates a nested agent session (via `createSession`) to process the hook input and return a result |
 
 These executors are registered with `runHooks` via the `executors` map during session creation in `createSession()`.
 
