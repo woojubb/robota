@@ -87,7 +87,8 @@ export class TuiStateManager {
   };
 
   onToolEnd = (state: IToolState): void => {
-    const idx = this.activeTools.findIndex((t) => t.toolName === state.toolName && t.isRunning);
+    // findLastIndex: when same tool runs concurrently, match the most recently started instance
+    const idx = this.activeTools.findLastIndex((t) => t.toolName === state.toolName && t.isRunning);
     if (idx !== -1) {
       const updated = [...this.activeTools];
       updated[idx] = state;

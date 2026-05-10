@@ -27,6 +27,7 @@ import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusl
 import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
 import { createUserLocalCommandModule } from '@robota-sdk/agent-command-user-local';
+import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -193,6 +194,7 @@ export function createDefaultCliCommandModules({
       },
     }),
     createPermissionsCommandModule(),
+    createModeCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createMemoryCommandModule(),
