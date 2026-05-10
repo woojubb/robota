@@ -49,11 +49,11 @@ async function startServer() {
     // Graceful shutdown
     const shutdown = (signal: string) => {
       console.log(`${signal} received, shutting down gracefully`);
+      wsServer.close();
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
       });
-      wsServer.close();
       // Force exit after timeout if graceful shutdown stalls
       setTimeout(() => {
         console.warn('Graceful shutdown timeout, forcing exit');
