@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-012: 슬래시 자동완성 행 잘림을 Ink wrap="truncate-end"로 교체'
-status: todo
+status: done
 created: 2026-05-11
 priority: medium
 urgency: normal
@@ -83,5 +83,5 @@ pnpm --filter @robota-sdk/agent-transport-tui test SlashAutocomplete
 
 **증거 필드** (구현 후 기입):
 
-- 관찰 결과: \_
-- 종료 코드: \_
+- 관찰 결과: `pnpm --filter @robota-sdk/agent-transport-tui test SlashAutocomplete` — 8개 테스트 PASS. ink-testing-library에서 Box width={72} + wrap="truncate-end" 정상 동작 확인. 전체 38파일 319테스트 회귀 없음.
+- 종료 코드: 0
