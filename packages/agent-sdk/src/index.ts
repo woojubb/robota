@@ -26,6 +26,8 @@ export type {
   TInteractiveEventName,
   IInteractiveSessionEvents,
   ITransportAdapter,
+  IConfigurableTransport,
+  ITransportConfig,
 } from './interactive/index.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
