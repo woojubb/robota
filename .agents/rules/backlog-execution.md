@@ -66,22 +66,47 @@ User execution test scenarios are separate from the agent's engineering test pla
   documented procedure itself. It must not inspect the document to prove the document is well
   written.
 
+### Agent Executability Requirement — MANDATORY
+
+**Before writing a scenario, the agent must ask: "Can I execute this via Bash right now?"**
+
+This question must be answered before the scenario is written, not after. The answer determines how
+the scenario is written:
+
+- **Yes — agent-executable:** Write the scenario with the exact Bash command. This is the default.
+  Agent-executable scenarios use non-interactive CLI flags (`--version`, `--check-update`, `-p`,
+  `--no-session-persistence`), pipe-friendly invocations, or scripted HTTP/file operations.
+- **No — not agent-executable:** The scenario must be redesigned to be agent-executable before
+  writing it. If a scenario requires interactive TTY (Ink raw mode), browser UI, hardware input, or
+  another agent-inaccessible surface, the agent must first attempt to find an equivalent
+  agent-executable path that exercises the same implemented code. Example: interactive TUI cannot be
+  automated, but `--version` (module load), `-p` (CLI assembly), and `--check-update` (startup +
+  shutdown) together cover the same code paths without requiring interactive input.
+- **Genuinely not redesignable:** Only when no agent-executable equivalent exists may a scenario be
+  labeled `manual-only:` with a specific technical reason (e.g., "Ink requires TTY raw mode which
+  is unavailable in non-interactive agent execution"). This is the exception, not the default.
+
+**Writing scenarios that the agent cannot execute is a process violation.** An unexecutable scenario
+that is not labeled `manual-only:` at write time means the agent already knows the Done Gate Stage 2
+will fail before implementation even begins. That is not acceptable — the scenario must be redesigned
+first.
+
 Each user execution test scenario must include:
 
+- the agent-executability decision (`agent-executable` or `manual-only: <reason>`);
 - prerequisite state, sample setup, fixture data, server startup, environment variables, or other
   test environment requirements;
-- exact command lines, UI actions, or browser/TUI interactions in order;
+- exact Bash command (for agent-executable) or exact UI steps (for manual-only) in order;
 - expected observable result, including exit code, output substring, visible UI state, or file
   change;
 - any cleanup or reset step;
-- whether the agent can verify the scenario directly, partially, or only by manual UI review;
 - the evidence field that must be updated after implementation when the agent runs the scenario.
 
 The planned user execution test scenario is part of the backlog before implementation starts. If
 the scenario requires a test fixture, demo command, local server, test project, seed data, or other
 environment that does not exist yet, the agent must either build that environment as part of the
 backlog, propose it in the recommendation gate, or ask the user for a decision before proceeding. A
-scenario that cannot realistically be run by the user after completion is not acceptable.
+scenario that the agent cannot execute and has not labeled `manual-only:` is not acceptable.
 
 Before declaring a backlog or work unit complete, the agent must execute the user execution test
 scenario as a final gate whenever the scenario is command-line, file-system, HTTP, browser, or
