@@ -1,0 +1,341 @@
+openapi: 3.1.0
+info:
+  title: Robota Agent Server API
+  version: 1.0.0
+  description: |
+    Remote AI provider proxy server with Playground WebSocket support.
+    Deployable standalone or as Firebase Functions.
+
+    WebSocket endpoint `WS /ws/playground` is not described here; see the
+    `PlaygroundWebSocketServer` class contract in `docs/SPEC.md` for the
+    auth/message protocol.
+
+servers:
+  - url: http://localhost:{port}
+    description: Local development server
+    variables:
+      port:
+        default: '3000'
+        description: Server port (set via PORT environment variable)
+
+paths:
+  /:
+    get:
+      operationId: getServerInfo
+      summary: Server info
+      description: Returns server name, version, available endpoints, and registered providers.
+      responses:
+        '200':
+          description: Server info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerInfo'
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Global health check
+      description: Returns server liveness status and environment metadata.
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/remote/health:
+    get:
+      operationId: getRemoteHealth
+      summary: Remote provider health check
+      description: Returns OK status and the list of registered AI provider names.
+      responses:
+        '200':
+          description: Providers available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteHealthResponse'
+
+  /api/v1/remote/chat:
+    post:
+      operationId: postRemoteChat
+      summary: Provider chat proxy
+      description: |
+        Proxy a chat-completion request to a registered AI provider.
+        The provider must be registered server-side via a corresponding `*_API_KEY` environment
+        variable. Returns the raw provider response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Provider response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request (missing provider, unknown provider, or invalid messages)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '500':
+          description: Provider or internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/remote/ws/status:
+    get:
+      operationId: getWsStatus
+      summary: WebSocket server status
+      description: Returns connection statistics for the Playground WebSocket server.
+      responses:
+        '200':
+          description: WebSocket status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsStatusResponse'
+
+components:
+  schemas:
+    ServerInfo:
+      type: object
+      required: [name, version, description, environment, timestamp, endpoints, providers]
+      properties:
+        name:
+          type: string
+          example: Robota SDK API Server
+        version:
+          type: string
+          example: '1.0.0'
+        description:
+          type: string
+        environment:
+          type: string
+          example: development
+        timestamp:
+          type: string
+          format: date-time
+        endpoints:
+          type: object
+          properties:
+            health:
+              type: string
+              example: /api/v1/remote/health
+            chat:
+              type: string
+              example: /api/v1/remote/chat
+        providers:
+          type: array
+          items:
+            type: string
+          example: [openai, anthropic]
+
+    HealthResponse:
+      type: object
+      required: [status, timestamp, service, version, environment]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: robota-agent-server
+        version:
+          type: string
+          example: '1.0.0'
+        environment:
+          type: string
+          example: production
+
+    RemoteHealthResponse:
+      type: object
+      required: [status, providers, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        providers:
+          type: array
+          items:
+            type: string
+          example: [openai, anthropic, google]
+        timestamp:
+          type: string
+          format: date-time
+
+    UniversalMessage:
+      type: object
+      required: [role]
+      description: Universal message format (agent-core TUniversalMessage).
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system, tool]
+        content:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+        tool_calls:
+          type: array
+          items:
+            type: object
+        tool_call_id:
+          type: string
+
+    ChatRequest:
+      type: object
+      required: [provider, messages]
+      properties:
+        provider:
+          type: string
+          description: Registered provider name (e.g. "openai", "anthropic", "google")
+          example: openai
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UniversalMessage'
+          description: Non-empty message array in universal message format
+        model:
+          type: string
+          description: Optional model override. Defaults to provider package default.
+          example: gpt-4o
+
+    TokenUsage:
+      type: object
+      required: [promptTokens, completionTokens, totalTokens]
+      properties:
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+
+    ChatResponse:
+      type: object
+      required: [content]
+      description: Raw provider response (agent-core IRawProviderResponse).
+      properties:
+        content:
+          type: string
+          nullable: true
+          description: Generated text content, or null for tool-call-only responses
+        toolCalls:
+          type: array
+          items:
+            type: object
+          description: Tool calls requested by the model
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+        finishReason:
+          type: string
+          example: stop
+        model:
+          type: string
+          description: Model used for the response as reported by the provider
+        metadata:
+          type: object
+          additionalProperties: true
+
+    WsStatusEnabled:
+      type: object
+      required: [websocket]
+      properties:
+        websocket:
+          type: object
+          required:
+            [
+              enabled,
+              endpoint,
+              totalConnections,
+              authenticatedConnections,
+              uniqueUsers,
+              uniqueSessions,
+            ]
+          properties:
+            enabled:
+              type: boolean
+              enum: [true]
+            endpoint:
+              type: string
+              example: /ws/playground
+            totalConnections:
+              type: integer
+            authenticatedConnections:
+              type: integer
+            uniqueUsers:
+              type: integer
+            uniqueSessions:
+              type: integer
+
+    WsStatusDisabled:
+      type: object
+      required: [websocket]
+      properties:
+        websocket:
+          type: object
+          required: [enabled, message]
+          properties:
+            enabled:
+              type: boolean
+              enum: [false]
+            message:
+              type: string
+              example: WebSocket server not initialized
+
+    WsStatusResponse:
+      oneOf:
+        - $ref: '#/components/schemas/WsStatusEnabled'
+        - $ref: '#/components/schemas/WsStatusDisabled'
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          oneOf:
+            - type: string
+              description: Simple error message string (400 responses)
+            - type: object
+              required: [message, status, timestamp]
+              properties:
+                message:
+                  type: string
+                status:
+                  type: integer
+                timestamp:
+                  type: string
+                  format: date-time
+
+    RateLimitError:
+      type: object
+      required: [error, retryAfter]
+      properties:
+        error:
+          type: string
+          example: Too many requests
+        retryAfter:
+          type: string
+          example: 15 minutes

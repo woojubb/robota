@@ -34,7 +34,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
-- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions`; CLI keeps local duplicate UI adapter types and must not import `agent-sessions` in production source
+- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core` (domain port); CLI re-exports from `@robota-sdk/agent-core` and must not import `agent-sessions` in production source
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Terminal UI command effect application and local command host adapters
@@ -298,8 +298,33 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            ├─→ agent-tools ────────────→ agent-core
   │            └─────────────────────────→ agent-core  (direct: types, utilities)
   ├──────────────────────────────────────→ agent-core  (direct: public types only)
-  └──────────────────────────────────────→ agent-provider-* (provider definitions)
+  ├──────────────────────────────────────→ agent-provider-* (provider definitions)
+  └──────────────────────────────────────→ agent-transport-ws (--web sidecar only)
 ```
+
+### WebSocket Sidecar Mode (`--web`)
+
+When `--web` is set, `useInteractiveSession` starts a local HTTP + WebSocket sidecar server
+alongside the interactive TUI. The sidecar exposes the running `InteractiveSession` to browser
+clients via the `agent-transport-ws` protocol.
+
+| Flag                 | Default                       | Description                                     |
+| -------------------- | ----------------------------- | ----------------------------------------------- |
+| `--web`              | false                         | Enable WebSocket sidecar server                 |
+| `--web-port N`       | 7070                          | Port to bind the sidecar server on 127.0.0.1    |
+| `--no-open`          | false                         | Skip auto-opening the browser monitor           |
+| `ROBOTA_NO_OPEN`     | —                             | Environment variable; also suppresses auto-open |
+| `ROBOTA_MONITOR_URL` | http://localhost:7071/monitor | Override the monitor URL opened in browser      |
+
+Ownership rules:
+
+- CLI OWNS: `startWebSidecarServer()` and `IWebSidecarServer` — CLI-local adapter in
+  `src/web-sidecar/web-sidecar-server.ts`; this is a concrete host adapter, not a reusable contract.
+- CLI does NOT own WebSocket protocol framing — delegated to `@robota-sdk/agent-transport-ws`
+  `createWsHandler()`.
+- CLI does NOT own the browser monitor UI — that is `@robota-sdk/agent-web`, an independent package.
+- Sidecar bind failure is non-fatal; the TUI continues if the port cannot be bound.
+- The sidecar does not affect session lifecycle, history ownership, or command routing.
 
 ## StatusBar Display
 

@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-008: agent-server 외부 HTTP API OpenAPI 스펙 파일 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
