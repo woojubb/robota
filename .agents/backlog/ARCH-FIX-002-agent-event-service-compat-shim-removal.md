@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-002: agent-event-service compat shim 소비자 마이그레이션 및 패키지 삭제'
-status: todo
+status: done
 created: 2026-05-10
 priority: critical
 urgency: next

@@ -1,5 +1,5 @@
 import type { ILogger } from '@robota-sdk/agent-core';
-import { DefaultEventService } from '@robota-sdk/agent-event-service';
+import { DefaultEventService } from '@robota-sdk/agent-core';
 import { useEffect } from 'react';
 
 import { PlaygroundExecutor } from '../../lib/playground/robota-executor';

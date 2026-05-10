@@ -62,7 +62,6 @@
     "@radix-ui/react-tabs": "^1.1.12",
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-provider-anthropic": "workspace:^",
-    "@robota-sdk/agent-event-service": "workspace:^",
     "@robota-sdk/agent-provider-openai": "workspace:^",
     "@robota-sdk/agent-remote-client": "workspace:*",
     "@robota-sdk/agent-team": "workspace:^",
