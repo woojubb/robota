@@ -59,6 +59,7 @@
     "@robota-sdk/agent-command-help": "workspace:*",
     "@robota-sdk/agent-command-language": "workspace:*",
     "@robota-sdk/agent-command-memory": "workspace:*",
+    "@robota-sdk/agent-command-mode": "workspace:*",
     "@robota-sdk/agent-command-model": "workspace:*",
     "@robota-sdk/agent-command-permissions": "workspace:*",
     "@robota-sdk/agent-command-plugin": "workspace:*",

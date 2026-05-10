@@ -63,6 +63,7 @@ function checkBidirectionalDeps(packages) {
 
   for (const [name, pkg] of packages) {
     for (const dep of pkg.dependencies) {
+      if (dep === name) continue; // skip self-ref from duplicate package names in packages/ vs apps/
       if (!workspaceNames.has(dep)) continue;
       const depPkg = packages.get(dep);
       if (depPkg.dependencies.includes(name)) {

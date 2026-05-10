@@ -6,11 +6,14 @@ AI provider proxy server with Playground WebSocket support. Deployable standalon
 
 Key endpoints:
 
-- `POST /api/v1/remote/chat` -- chat completion proxy
-- `POST /api/v1/remote/stream` -- SSE streaming proxy
-- `GET /api/v1/remote/health` -- health check
-- `GET /api/v1/remote/providers/:provider/capabilities` -- provider capabilities
-- `WS /ws/playground` -- WebSocket for playground real-time
+- `GET /` -- server info
+- `GET /health` -- global liveness check
+- `GET /api/v1/remote/health` -- remote health check with provider list
+- `POST /api/v1/remote/chat` -- provider chat proxy
+- `GET /api/v1/remote/ws/status` -- WebSocket connection stats
+- `WS /ws/playground` -- Playground WebSocket (auth + broadcast)
+
+Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
 
 ## Boundaries
 
@@ -74,6 +77,28 @@ This is a private app with no published package surface. Internal exports:
 | ----------------------- | ------------------------------------ | ------------ |
 | `RemoteServer` (remote) | `createApp`                          | `src/app.ts` |
 | `IAIProvider` (agents)  | Provider registration in `createApp` | `src/app.ts` |
+
+## Graceful Shutdown
+
+Signal handling is implemented in `src/server.ts`. The process must shut down cleanly on the
+following signals:
+
+| Signal  | Handler      |
+| ------- | ------------ |
+| SIGTERM | `shutdown()` |
+| SIGINT  | `shutdown()` |
+
+Shutdown sequence:
+
+1. `server.close()` — stop accepting new HTTP connections; wait for in-flight requests to drain.
+2. `wsServer.close()` — close the WebSocket server and tear down all active WebSocket connections.
+3. `process.exit(0)` — exit cleanly after HTTP server close callback fires.
+
+Timeout: if the drain does not complete within **30 seconds** (`GRACEFUL_SHUTDOWN_TIMEOUT_MS`),
+force-exit with `process.exit(1)`.
+
+Abnormal exit: if the server fails to start (`startServer()` throws), log the error and call
+`process.exit(1)` immediately without attempting graceful shutdown.
 
 ## Test Strategy
 

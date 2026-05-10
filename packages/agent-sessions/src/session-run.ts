@@ -67,7 +67,11 @@ export async function executeRun(
   // This prevents compaction from interfering with the current response stream.
   ctx.contextTracker.updateFromHistory(ctx.robota.getHistory());
   if (ctx.contextTracker.shouldAutoCompact()) {
-    // Temporarily disable onTextDelta to prevent summary text from streaming to UI
+    // Providers store onTextDelta as an instance property for their own internal streaming.
+    // Compaction calls provider.chat() without passing onTextDelta in options, so the
+    // provider falls back to this.onTextDelta. Temporarily clearing it prevents compaction
+    // summary text from streaming to the UI. This workaround stays until provider packages
+    // remove the instance-level onTextDelta property.
     const provider = ctx.aiProvider as { onTextDelta?: unknown };
     const savedDelta = provider.onTextDelta;
     provider.onTextDelta = undefined;

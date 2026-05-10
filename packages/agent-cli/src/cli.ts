@@ -27,6 +27,7 @@ import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusl
 import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
 import { createUserLocalCommandModule } from '@robota-sdk/agent-command-user-local';
+import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -131,6 +132,9 @@ function promptInput(label: string, masked = false): Promise<string> {
             process.stdout.write('\b \b');
           }
         } else if (ch === '\x03') {
+          stdin.removeListener('data', onData);
+          stdin.setRawMode(wasRaw ?? false);
+          stdin.pause();
           process.stdout.write('\n');
           process.exit(0);
         } else if (ch.charCodeAt(0) >= 32) {
@@ -190,6 +194,7 @@ export function createDefaultCliCommandModules({
       },
     }),
     createPermissionsCommandModule(),
+    createModeCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createMemoryCommandModule(),
@@ -396,7 +401,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version,
-    sessionStore,
+    sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,

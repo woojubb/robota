@@ -220,7 +220,7 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 | -------------------- | ---- | --------------------------------------------------- |
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
-This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. Higher-level callers should prefer `IRunOptions.onTextDelta` for per-run streaming output so multiple sessions can share a provider instance without overwriting mutable provider callback state.
+This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
 
 ### Provider-Native Replay Payloads
 
@@ -395,12 +395,12 @@ The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Ho
 
 `IHookDefinition` is a discriminated union on the `type` field:
 
-| Type      | Fields                               | Description                                      |
-| --------- | ------------------------------------ | ------------------------------------------------ |
-| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes) |
-| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint             |
-| `prompt`  | `prompt: string`                     | LLM prompt injection into session context        |
-| `agent`   | `agent: string`, `config?`           | Delegate to a sub-agent for processing           |
+| Type      | Fields                               | Description                                         |
+| --------- | ------------------------------------ | --------------------------------------------------- |
+| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes)    |
+| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint                |
+| `prompt`  | `prompt: string`                     | LLM prompt injection into session context           |
+| `agent`   | `agent: string`, `config?`           | Delegate to a nested agent execution for processing |
 
 ### Hook Type Executors (Strategy Pattern)
 
@@ -424,10 +424,10 @@ interface IHookTypeExecutor {
 
 **Extended executors (agent-sdk):**
 
-| Executor         | Hook Type | Behavior                                                |
-| ---------------- | --------- | ------------------------------------------------------- |
-| `PromptExecutor` | `prompt`  | Injects prompt text into session context                |
-| `AgentExecutor`  | `agent`   | Delegates to a sub-agent session for complex processing |
+| Executor         | Hook Type | Behavior                                                   |
+| ---------------- | --------- | ---------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Injects prompt text into session context                   |
+| `AgentExecutor`  | `agent`   | Delegates to a nested agent session for complex processing |
 
 ### Exit Code Protocol
 

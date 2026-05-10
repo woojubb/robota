@@ -139,8 +139,11 @@ export class PlaygroundWebSocketServer {
 
       case 'playground_update':
         if (client.isAuthenticated) {
-          // Broadcast to other clients in the same session
-          this.broadcastToSession(client.sessionId!, message, clientId);
+          if (!client.sessionId) {
+            this.sendError(clientId, 'Session not established');
+            return;
+          }
+          this.broadcastToSession(client.sessionId, message, clientId);
         } else {
           this.sendError(clientId, 'Authentication required');
         }
@@ -197,10 +200,12 @@ export class PlaygroundWebSocketServer {
     client.isAuthenticated = true;
 
     // Track user sessions
-    if (!this.userSessions.has(userId)) {
-      this.userSessions.set(userId, new Set());
+    let sessionSet = this.userSessions.get(userId);
+    if (!sessionSet) {
+      sessionSet = new Set();
+      this.userSessions.set(userId, sessionSet);
     }
-    this.userSessions.get(userId)!.add(clientId);
+    sessionSet.add(clientId);
 
     // Send authentication success
     this.sendMessage(clientId, {
@@ -222,11 +227,13 @@ export class PlaygroundWebSocketServer {
     const client = this.clients.get(clientId);
     if (client) {
       // Remove from user sessions
-      if (client.userId && this.userSessions.has(client.userId)) {
-        const userSessions = this.userSessions.get(client.userId)!;
-        userSessions.delete(clientId);
-        if (userSessions.size === 0) {
-          this.userSessions.delete(client.userId);
+      if (client.userId) {
+        const userSessions = this.userSessions.get(client.userId);
+        if (userSessions) {
+          userSessions.delete(clientId);
+          if (userSessions.size === 0) {
+            this.userSessions.delete(client.userId);
+          }
         }
       }
 
@@ -249,7 +256,7 @@ export class PlaygroundWebSocketServer {
 
   private sendError(clientId: string, error: string): void {
     this.sendMessage(clientId, {
-      type: 'auth',
+      type: 'error',
       timestamp: new Date().toISOString(),
       data: {
         success: false,
@@ -294,7 +301,7 @@ export class PlaygroundWebSocketServer {
   }
 
   private generateClientId(): string {
-    return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `client_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 
   // Public API for external integration

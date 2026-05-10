@@ -64,7 +64,7 @@ function createPluginInCache(
   }
 
   if (options?.mcpConfig) {
-    writeJson(join(metaDir, 'mcp.json'), options.mcpConfig);
+    writeJson(join(pluginDir, '.mcp.json'), options.mcpConfig);
   }
 
   return pluginDir;

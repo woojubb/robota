@@ -49,6 +49,7 @@ export interface IInteractiveSessionProps {
   commandHostAdapters?: ICommandHostAdapters;
   webPort?: number;
   noOpen?: boolean;
+  language?: string;
 }
 
 export interface IInteractiveSessionState {
@@ -137,6 +138,7 @@ function initializeSession(
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
     commandHostAdapters: props.commandHostAdapters,
+    language: props.language,
   });
 
   const registry = new CommandRegistry();
@@ -197,12 +199,9 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     [processNextPermission],
   );
 
-  // Initialize once
-  const stateRef = useRef<IInitState | null>(null);
-  if (stateRef.current === null) {
-    stateRef.current = initializeSession(props, permissionHandler);
-  }
-  const { interactiveSession, registry, manager, commandEffectQueue } = stateRef.current;
+  // Initialize once — useState lazy initializer runs exactly once per mount, safe for Concurrent Mode
+  const [initState] = useState<IInitState>(() => initializeSession(props, permissionHandler));
+  const { interactiveSession, registry, manager, commandEffectQueue } = initState;
 
   // Connect TuiStateManager to React re-renders
   manager.onChange = () => forceRender((n) => n + 1);

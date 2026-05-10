@@ -20,6 +20,30 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never assume `main` as the default merge target. Always check the actual fork point.
 - See [`branch-guard`](../skills/branch-guard/SKILL.md) skill for detailed procedures including protected branch checks and deployment.
 
+### One-Branch-At-A-Time Rule (mandatory, zero exceptions)
+
+**Before creating any new branch, check for unmerged branches:**
+
+```bash
+git branch --merged develop   # branches already merged into develop
+git branch --no-merged develop # branches NOT yet merged into develop
+```
+
+- If any feature branch is open (not merged into its fork origin), **stop**.
+- **Do not create a new branch.**
+- Ask the user explicitly: "Branch `<name>` is still open and not merged. Should I merge it first, or abandon it?"
+- Wait for the user's answer before proceeding.
+
+This rule applies even when:
+
+- Switching back to `develop` to start new work
+- The existing branch "looks complete"
+- The new task seems unrelated to the open branch
+
+**Why:** Creating a second branch while one is still open causes silent divergence. By the time the second branch is rebased, the first branch's content is already in develop (via a separate merge), producing mass conflicts with no clear resolution path. This has caused repeated incidents.
+
+**The only exception:** The user explicitly says "create a new branch anyway" or "abandon the old branch."
+
 ### Feature Branch Workflow (mandatory)
 
 **Never commit directly to `main` or release branches.** Always create a feature branch for work.
