@@ -43,8 +43,15 @@ function findPackageRoot(startDir: string): string {
 
 export const WEB_DIST = join(findPackageRoot(__dirname), 'dist', 'web');
 
+const LOADING_PLACEHOLDER =
+  `<div style="min-height:100vh;background:#1e1e2e;display:flex;align-items:center;` +
+  `justify-content:center;color:#8b8ba3;font-family:monospace;font-size:12px;` +
+  `letter-spacing:0.1em;text-transform:uppercase">Initializing…</div>`;
+
 function injectWsUrl(html: string, wsUrl: string): string {
-  return html.replace('<head>', `<head>\n    <meta name="ws-url" content="${wsUrl}" />`);
+  return html
+    .replace('<head>', `<head>\n    <meta name="ws-url" content="${wsUrl}" />`)
+    .replace('<div id="root"></div>', `<div id="root">${LOADING_PLACEHOLDER}</div>`);
 }
 
 function serveHtml(res: ServerResponse, filePath: string, wsUrl: string): void {
