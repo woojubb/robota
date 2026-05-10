@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-003: agent-cli의 agent-core 직접 의존 감사 및 SDK 경유로 정규화'
-status: todo
+status: wontfix
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -26,10 +26,10 @@ related: [V-DEP-002]
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-cli build` 통과
-- `pnpm typecheck` 전체 통과
-- `agent-cli/package.json`에 `agent-core` 직접 의존성 없음 확인 (또는 예외 근거 SPEC 기록)
-- `pnpm harness:verify -- --scope packages/agent-cli`
+**Closed as wontfix**: "SDK is not a re-export layer" 피드백에 따라 CLI가 core/provider/plugin에서
+자유롭게 import하는 것이 허용됨. agent-core 직접 import는 설계상 허용된 패턴이며 위반이 아님.
+감사 에이전트가 agent-system.md의 다이어그램 기반으로 위반으로 분류했으나,
+실제 프로젝트 규칙과 충돌함.
 
 ## User Execution Test Scenarios
 

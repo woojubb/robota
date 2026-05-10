@@ -3,8 +3,10 @@
  */
 
 import type { IToolWithEventService, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { IHookTypeExecutor, ISpinner, ITerminalOutput } from '@robota-sdk/agent-core';
 import type { ISessionLogger } from './session-logger.js';
+
+export type { ISpinner, ITerminalOutput };
 
 /**
  * Permission handler result:
@@ -22,28 +24,6 @@ export type TPermissionHandler = (
   toolName: string,
   toolArgs: TToolArgs,
 ) => Promise<TPermissionResult>;
-
-/**
- * Spinner handle returned by ITerminalOutput.spinner()
- */
-export interface ISpinner {
-  stop(): void;
-  update(message: string): void;
-}
-
-/**
- * Terminal output abstraction — injected into all components that need I/O
- */
-export interface ITerminalOutput {
-  write(text: string): void;
-  writeLine(text: string): void;
-  writeMarkdown(md: string): void;
-  writeError(text: string): void;
-  prompt(question: string): Promise<string>;
-  /** Arrow-key selector. Returns the index of the chosen option. */
-  select(options: string[], initialIndex?: number): Promise<number>;
-  spinner(message: string): ISpinner;
-}
 
 export interface IPermissionEnforcerOptions {
   sessionId: string;
