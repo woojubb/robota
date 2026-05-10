@@ -33,7 +33,28 @@ const MIME: Record<string, string> = {
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const WEB_DIST = join(__dirname, '..', 'web');
+
+// Walk up from the current file to find the package root (dir containing package.json).
+// Works in all execution contexts:
+//   tsx dev:   src/web-sidecar/ → src/ → packages/agent-cli/
+//   built:     dist/node/       → dist/ → packages/agent-cli/
+//   installed: node_modules/@robota-sdk/agent-cli/dist/node/ → ...
+const HTTP_OK = 200;
+const HTTP_NOT_FOUND = 404;
+
+function findPackageRoot(startDir: string): string {
+  let dir = startDir;
+  let parent = dirname(dir);
+  while (parent !== dir) {
+    if (existsSync(join(dir, 'package.json'))) return dir;
+    dir = parent;
+    parent = dirname(dir);
+  }
+  if (existsSync(join(dir, 'package.json'))) return dir;
+  throw new Error('Cannot locate package root from ' + startDir);
+}
+
+const WEB_DIST = join(findPackageRoot(__dirname), 'dist', 'web');
 
 function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   const urlPath = req.url ?? '/';
@@ -41,7 +62,7 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   const ext = extname(fsPath);
 
   if (existsSync(fsPath) && ext) {
-    res.writeHead(200, { 'Content-Type': MIME[ext] ?? 'text/plain' });
+    res.writeHead(HTTP_OK, { 'Content-Type': MIME[ext] ?? 'text/plain' });
     res.end(readFileSync(fsPath));
     return;
   }
@@ -49,12 +70,12 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   // SPA fallback — serve index.html for any unknown path
   const index = join(WEB_DIST, 'index.html');
   if (existsSync(index)) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(HTTP_OK, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(readFileSync(index));
     return;
   }
 
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.writeHead(HTTP_NOT_FOUND, { 'Content-Type': 'text/plain' });
   res.end('Web UI not found. Rebuild: pnpm --filter @robota-sdk/agent-cli build');
 }
 
