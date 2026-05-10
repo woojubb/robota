@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-010: 슬래시 자동완성 설명 텍스트 한 줄 말줄임표 처리'
-status: todo
+status: done
 created: 2026-05-11
 priority: medium
 urgency: normal
@@ -78,5 +78,5 @@ node packages/agent-cli/dist/node/bin.js -p "TRUNCATION_CHECK_CLI2010" --no-sess
 
 **증거 필드** (구현 후 기입):
 
-- 관찰 결과: \_
-- 종료 코드: \_
+- 관찰 결과: `pnpm --filter @robota-sdk/agent-transport-tui test SlashAutocomplete` — 8개 테스트 PASS. truncate 헬퍼: 60자 초과 → `…` 잘림, 60자 이하 → 변경 없음. 전체 38파일 319테스트 회귀 없음.
+- 종료 코드: 0
