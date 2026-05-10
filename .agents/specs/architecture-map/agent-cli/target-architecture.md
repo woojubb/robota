@@ -110,12 +110,14 @@ flowchart TD
   Runtime["@robota-sdk/agent-runtime\nbackground tasks, subagents"]
   Providers["@robota-sdk/agent-provider-*\nprovider definitions and transports"]
   Headless["@robota-sdk/agent-transport-headless\nnon-interactive transport"]
+  WsTransport["@robota-sdk/agent-transport-ws\nWebSocket protocol handler (--web sidecar)"]
 
   CLI --> SDK
   CLI --> Commands
   CLI --> Providers
   CLI --> Core
   CLI --> Headless
+  CLI --> WsTransport
 
   Commands --> SDK
   Commands --> Core
@@ -130,16 +132,18 @@ flowchart TD
   Tools --> Core
   Runtime --> Core
   Headless --> SDK
+  WsTransport --> SDK
 ```
 
-| Edge                                     | Status                | Rule                                                                                                                                        |
-| ---------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| CLI -> SDK                               | Allowed               | CLI consumes `InteractiveSession`, command registries, command contracts, SDK path helpers, and SDK-owned session persistence facade types. |
-| CLI -> command packages                  | Allowed               | Product composition root selects default command modules.                                                                                   |
-| CLI -> provider packages                 | Allowed               | CLI owns provider definition composition and provider instance creation.                                                                    |
-| CLI -> agent-core public types           | Allowed               | CLI may use public provider, permission, history, and message types.                                                                        |
-| CLI -> headless transport                | Allowed               | Print mode attaches a transport to `InteractiveSession`.                                                                                    |
-| CLI -> agent-sessions                    | Forbidden by CLI SPEC | No production source or package dependency should exist; harness command layering scan enforces this edge.                                  |
-| SDK -> command packages                  | Forbidden             | SDK owns contracts/common APIs and must not import command implementations. No source edge found.                                           |
-| command packages -> CLI/TUI              | Forbidden             | Commands consume SDK contracts and host adapters only. No source edge found.                                                                |
-| provider packages -> Robota commands/TUI | Forbidden             | Providers translate provider wire formats only. No source edge found in this audit.                                                         |
+| Edge                                     | Status                | Rule                                                                                                                                                              |
+| ---------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI -> SDK                               | Allowed               | CLI consumes `InteractiveSession`, command registries, command contracts, SDK path helpers, and SDK-owned session persistence facade types.                       |
+| CLI -> command packages                  | Allowed               | Product composition root selects default command modules.                                                                                                         |
+| CLI -> provider packages                 | Allowed               | CLI owns provider definition composition and provider instance creation.                                                                                          |
+| CLI -> agent-core public types           | Allowed               | CLI may use public provider, permission, history, and message types.                                                                                              |
+| CLI -> headless transport                | Allowed               | Print mode attaches a transport to `InteractiveSession`.                                                                                                          |
+| CLI -> agent-transport-ws                | Allowed               | `--web` sidecar mode: CLI creates `IWebSidecarServer` via `startWebSidecarServer` inside `useInteractiveSession`; WS protocol handler owned by transport package. |
+| CLI -> agent-sessions                    | Forbidden by CLI SPEC | No production source or package dependency should exist; harness command layering scan enforces this edge.                                                        |
+| SDK -> command packages                  | Forbidden             | SDK owns contracts/common APIs and must not import command implementations. No source edge found.                                                                 |
+| command packages -> CLI/TUI              | Forbidden             | Commands consume SDK contracts and host adapters only. No source edge found.                                                                                      |
+| provider packages -> Robota commands/TUI | Forbidden             | Providers translate provider wire formats only. No source edge found in this audit.                                                                               |
