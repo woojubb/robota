@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-015: apps/agent-web /monitor 라우트를 아키텍처 맵 및 SPEC에 등재'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

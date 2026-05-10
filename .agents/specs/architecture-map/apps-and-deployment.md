@@ -25,12 +25,12 @@ flowchart TD
 
 Deployment ownership:
 
-| Deploy unit      | Runtime shape                       | Deploy platform    | Required contract                                                                    |
-| ---------------- | ----------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
-| `apps/agent-web` | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. |
-| `agent-server`   | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.  |
-| `apps/docs`      | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.            |
-| `apps/blog`      | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                             |
+| Deploy unit      | Runtime shape                       | Deploy platform    | Required contract                                                                                                                                                                      |
+| ---------------- | ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/agent-web` | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. Routes: `/` (→ `/playground`), `/playground`, `/playground/demo`, `/monitor` (CLI second-screen). |
+| `agent-server`   | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.                                                                                                    |
+| `apps/docs`      | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.                                                                                                              |
+| `apps/blog`      | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                                                                                                                               |
 
 `packages/agent-web` vs `apps/agent-web` disambiguation:
 

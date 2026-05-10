@@ -4,11 +4,18 @@ Resolved architecture audit findings, durable lessons, and the architecture-map 
 
 Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 
+> **Evidence policy**: An item may not be marked "resolved" without a verification artifact — a
+> commit hash, PR number, or grep-output confirming the fix is present in the codebase. Items
+> marked resolved without evidence must be reverted to open and re-resolved with evidence.
+
 ## Architecture Audit
 
 ### SYS-AUDIT-001: No Repository-Wide Architecture Router Existed
 
 Status: resolved by this document.
+
+Evidence: PR #313 (`2d6a4f569`) — "docs(architecture): split architecture map tree". The
+`architecture-map/` subtree and `ARCHITECTURE-MAP.md` entrypoint were introduced in that PR.
 
 Problem:
 
@@ -26,12 +33,18 @@ architecture. The CLI package map remains a stable entrypoint for terminal produ
 
 Status: resolved by `INFRA-BL-006`.
 
+Evidence: commit `f9e388fd7` — "infra(docs): migrate docs deploy to cloudflare pages". Task file
+archived at `.agents/tasks/completed/INFRA-BL-006-docs-cloudflare-migration.md`.
+
 The source tree now points docs production deployment to Cloudflare Pages. `docs:deploy` is a manual
 Wrangler direct upload helper, and release workflow docs handling is build verification only.
 
 ### SYS-AUDIT-006: Capability Placement Was Too CLI-Centered
 
 Status: resolved by [capability-placement.md](capability-placement.md) with follow-up backlog.
+
+Evidence: PR #315 (`eb658beb4`) — "chore(harness): add capability placement scan". The
+`capability-placement.md` architecture slice and harness scan were introduced in that PR.
 
 Problem:
 
