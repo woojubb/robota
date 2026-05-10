@@ -60,6 +60,16 @@ Branch: `feat/plg-003-web-monitor-spa`
 - HTTP 통합 테스트: GET /, assets/\*, SPA fallback 4/4 ✓
 - `dist/web/index.html` + JS/CSS 번들 생성 확인
 
+## Test Plan
+
+- [x] `packages/agent-web` typecheck passes
+- [x] `packages/agent-cli` typecheck passes
+- [x] `apps/agent-web` typecheck passes
+- [x] Unit tests: 53 files, 449 tests pass
+- [x] HTTP integration: GET /, assets/\*, SPA fallback 4/4 pass
+- [x] `dist/web/index.html` + JS/CSS bundle generated
+- [x] WS + HTTP served on single port 7070
+
 ## Result
 
 PLG-002 (WS sidecar + packages/agent-web) + PLG-003 (SPA 내장) 완료.
