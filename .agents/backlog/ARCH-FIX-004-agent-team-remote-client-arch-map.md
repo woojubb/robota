@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-004: agent-team, agent-remote-client 아키텍처 맵 레이어 등재'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
