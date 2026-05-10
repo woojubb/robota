@@ -304,6 +304,7 @@ export class InteractiveSession {
       bare: options.bare,
       allowedTools: options.allowedTools,
       appendSystemPrompt: options.appendSystemPrompt,
+      language: options.language,
       backgroundTaskRunners: options.backgroundTaskRunners,
       subagentRunnerFactory: options.subagentRunnerFactory,
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
@@ -600,6 +601,9 @@ export class InteractiveSession {
   }
   getActiveTools(): IToolState[] {
     return this.activeTools;
+  }
+  get isInitialized(): boolean {
+    return this.initialized;
   }
   getContextState(): IContextWindowState {
     return this.getSessionOrThrow().getContextState();

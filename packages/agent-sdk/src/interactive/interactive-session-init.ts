@@ -63,6 +63,8 @@ export interface IInteractiveSessionStandardOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
+  language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. */
@@ -140,6 +142,8 @@ export interface IInitOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
+  language?: string;
   /** Runtime-composed background task runners. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. */
@@ -184,19 +188,23 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
       : detectProject(cwd),
   ]);
 
+  // Apply runtime language override before plugin merge
+  let mergedConfig: IResolvedConfig = options.language
+    ? { ...config, language: options.language }
+    : config;
+
   // Load plugin hooks and merge into config
   const pluginsDir = join(homedir(), '.robota', 'plugins');
   const pluginLoader = new BundlePluginLoader(pluginsDir);
-  let mergedConfig = config;
   if (!options.bare) {
     try {
       const plugins = pluginLoader.loadPluginsSync();
       if (plugins.length > 0) {
         const pluginHooks = mergePluginHooks(plugins);
         mergedConfig = {
-          ...config,
+          ...mergedConfig,
           hooks: mergeHooksIntoConfig(
-            config.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
+            mergedConfig.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
             pluginHooks as Record<string, Array<Record<string, unknown>>>,
           ),
         };

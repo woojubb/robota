@@ -43,6 +43,7 @@ interface IProps {
   providerProfileName?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
+  language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
@@ -122,6 +123,7 @@ function AppInner(
     commandHostAdapters: props.commandHostAdapters,
     webPort: props.webPort,
     noOpen: props.noOpen,
+    language: props.language,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);
