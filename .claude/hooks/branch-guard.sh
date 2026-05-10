@@ -56,7 +56,8 @@ if [[ "$IS_COMMIT" == "true" ]]; then
 fi
 
 # Block push on main/master only (develop push after merge is allowed)
-if [[ "$IS_PUSH" == "true" ]]; then
+# Exception: BRANCH_GUARD_ALLOW_MAIN_MERGE=1 for explicitly user-approved release pushes
+if [[ "$IS_PUSH" == "true" && "${BRANCH_GUARD_ALLOW_MAIN_MERGE:-0}" != "1" ]]; then
   for branch in main master; do
     if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
       echo "[branch-guard] Blocked: cannot git push on protected branch '${branch}'." >&2
