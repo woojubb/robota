@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-011: streaming callback fallback 패턴 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

@@ -345,25 +345,13 @@ Just content, no frontmatter.
     expect(plugins[0].skills[0].skillContent).toContain('# Simple Skill');
   });
 
-  it('should skip plugins with invalid plugin.json', async () => {
-    // Valid plugin
-    createPluginInCache(pluginsDir, 'market', 'good-plugin', '1.0.0', {
-      name: 'good-plugin',
-      version: '1.0.0',
-      description: 'Good',
-      features: {},
-    });
-
-    // Plugin with invalid JSON
+  it('should throw when a plugin.json contains invalid JSON', async () => {
     const badDir = join(pluginsDir, 'cache', 'market', 'bad-plugin', '1.0.0', '.claude-plugin');
     setupDir(badDir);
     writeFile(join(badDir, 'plugin.json'), '{ invalid json }');
 
     const loader = new BundlePluginLoader(pluginsDir);
-    const plugins = await loader.loadAll();
-
-    expect(plugins).toHaveLength(1);
-    expect(plugins[0].manifest.name).toBe('good-plugin');
+    await expect(loader.loadAll()).rejects.toThrow();
   });
 
   it('should load MCP config from .mcp.json at plugin root (primary location)', async () => {
@@ -395,22 +383,22 @@ Just content, no frontmatter.
     });
   });
 
-  it('should fall back to .claude-plugin/mcp.json when .mcp.json is absent', async () => {
+  it('should not load MCP config from legacy .claude-plugin/mcp.json location', async () => {
     const manifest: IBundlePluginManifest = {
-      name: 'mcp-fallback-plugin',
+      name: 'mcp-legacy-plugin',
       version: '1.0.0',
-      description: 'Plugin with legacy mcp.json location',
+      description: 'Plugin with only legacy mcp.json location',
       features: { mcp: true },
     };
     const pluginDir = createPluginInCache(
       pluginsDir,
       'market',
-      'mcp-fallback-plugin',
+      'mcp-legacy-plugin',
       '1.0.0',
       manifest,
     );
 
-    // Write mcp.json at legacy location (.claude-plugin/mcp.json)
+    // Write mcp.json at legacy location only — must NOT be loaded
     writeJson(join(pluginDir, '.claude-plugin', 'mcp.json'), {
       mcpServers: { 'legacy-server': { command: 'python', args: ['serve.py'] } },
     });
@@ -419,29 +407,25 @@ Just content, no frontmatter.
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
-    expect(plugins[0].mcpConfig).toEqual({
-      mcpServers: { 'legacy-server': { command: 'python', args: ['serve.py'] } },
-    });
+    expect(plugins[0].mcpConfig).toBeUndefined();
   });
 
-  it('should prefer .mcp.json over .claude-plugin/mcp.json when both exist', async () => {
+  it('should load .mcp.json at plugin root', async () => {
     const manifest: IBundlePluginManifest = {
-      name: 'mcp-both-plugin',
+      name: 'mcp-root-plugin',
       version: '1.0.0',
-      description: 'Plugin with both MCP config locations',
+      description: 'Plugin with .mcp.json at root',
       features: { mcp: true },
     };
     const pluginDir = createPluginInCache(
       pluginsDir,
       'market',
-      'mcp-both-plugin',
+      'mcp-root-plugin',
       '1.0.0',
       manifest,
     );
 
-    // Write both locations
     writeJson(join(pluginDir, '.mcp.json'), { primary: true });
-    writeJson(join(pluginDir, '.claude-plugin', 'mcp.json'), { primary: false });
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
