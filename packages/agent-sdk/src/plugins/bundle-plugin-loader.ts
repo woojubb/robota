@@ -90,15 +90,11 @@ export class BundlePluginLoader {
     return results;
   }
 
-  /** Read and validate a plugin.json manifest. Returns null on failure. */
+  /** Read and validate a plugin.json manifest. Returns null if the manifest structure is invalid. */
   private readManifest(path: string): IBundlePluginManifest | null {
-    try {
-      const raw = readFileSync(path, 'utf-8');
-      const data: unknown = JSON.parse(raw);
-      return validateManifest(data);
-    } catch {
-      return null;
-    }
+    const raw = readFileSync(path, 'utf-8');
+    const data: unknown = JSON.parse(raw);
+    return validateManifest(data);
   }
 
   /**
@@ -196,33 +192,21 @@ export class BundlePluginLoader {
     const hooksPath = join(pluginDir, 'hooks', 'hooks.json');
     if (!existsSync(hooksPath)) return {};
 
-    try {
-      const raw = readFileSync(hooksPath, 'utf-8');
-      const data: unknown = JSON.parse(raw);
-      if (typeof data === 'object' && data !== null) {
-        return data as Record<string, unknown>;
-      }
-      return {};
-    } catch {
-      return {};
+    const raw = readFileSync(hooksPath, 'utf-8');
+    const data: unknown = JSON.parse(raw);
+    if (typeof data === 'object' && data !== null) {
+      return data as Record<string, unknown>;
     }
+    return {};
   }
 
-  /** Load MCP server configuration if present. Checks `.mcp.json` at plugin root first. */
+  /** Load MCP server configuration from `.mcp.json` at the plugin root if present. */
   private loadMcpConfig(pluginDir: string): unknown | undefined {
-    // Primary location: .mcp.json at plugin root (Claude Code standard)
-    const primaryPath = join(pluginDir, '.mcp.json');
-    // Fallback: .claude-plugin/mcp.json (legacy location)
-    const fallbackPath = join(pluginDir, '.claude-plugin', 'mcp.json');
-    const mcpPath = existsSync(primaryPath) ? primaryPath : fallbackPath;
+    const mcpPath = join(pluginDir, '.mcp.json');
     if (!existsSync(mcpPath)) return undefined;
 
-    try {
-      const raw = readFileSync(mcpPath, 'utf-8');
-      return JSON.parse(raw) as unknown;
-    } catch {
-      return undefined;
-    }
+    const raw = readFileSync(mcpPath, 'utf-8');
+    return JSON.parse(raw) as unknown;
   }
 
   /** Load agent definitions from agents/ directory if present. */
@@ -230,13 +214,9 @@ export class BundlePluginLoader {
     const agentsDir = join(pluginDir, 'agents');
     if (!existsSync(agentsDir)) return [];
 
-    try {
-      const entries = readdirSync(agentsDir, { withFileTypes: true });
-      return entries
-        .filter((e) => e.isDirectory() || e.name.endsWith('.md'))
-        .map((e) => e.name.replace(/\.md$/, ''));
-    } catch {
-      return [];
-    }
+    const entries = readdirSync(agentsDir, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isDirectory() || e.name.endsWith('.md'))
+      .map((e) => e.name.replace(/\.md$/, ''));
   }
 }

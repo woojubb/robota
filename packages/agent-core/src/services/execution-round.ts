@@ -216,9 +216,7 @@ export async function executeRound(
     return true;
   }
 
-  const runTextDelta =
-    fullContext.onTextDelta ??
-    (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
+  const runTextDelta = fullContext.onTextDelta;
 
   // Round separator for streaming UI
   if (currentRound > 1) {

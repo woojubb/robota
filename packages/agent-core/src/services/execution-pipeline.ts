@@ -155,11 +155,8 @@ export async function forceSummaryCall(
     const chatOptions: { model: string; onTextDelta?: (delta: string) => void } = {
       model: resolved.aiProviderInfo.model,
     };
-    const runTextDelta =
-      fullContext.onTextDelta ??
-      (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
-    if (runTextDelta) {
-      chatOptions.onTextDelta = runTextDelta;
+    if (fullContext.onTextDelta) {
+      chatOptions.onTextDelta = fullContext.onTextDelta;
     }
 
     const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);

@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-010: bundle-plugin-loader.ts 제품명 및 fallback 경로 패턴 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog
