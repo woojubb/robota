@@ -86,7 +86,9 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
       {/* Main content: conversation + optional agent panel */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: conversation */}
-        <div className={`flex flex-col overflow-hidden ${hasAgents ? 'flex-[2]' : 'flex-1'}`}>
+        <div
+          className={`flex flex-col overflow-hidden min-w-0 ${hasAgents ? 'flex-[2]' : 'flex-1'}`}
+        >
           <div className="flex-1 overflow-hidden">
             {status === 'disconnected' || status === 'connecting' ? (
               <div className="flex h-full items-center justify-center">
