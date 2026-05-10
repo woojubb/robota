@@ -8,7 +8,6 @@ import {
   readSettings,
   writeSettings,
 } from '../../utils/settings-io.js';
-import type { ISideEffects } from './side-effects-types.js';
 
 export interface ICommandEffectHandlerDeps {
   addEntry: (entry: IHistoryEntry) => void;
@@ -22,7 +21,6 @@ export interface ICommandEffectHandlerDeps {
 
 export function applyCommandEffects(
   effects: readonly TCommandEffect[],
-  sideEffects: ISideEffects,
   deps: ICommandEffectHandlerDeps,
 ): boolean {
   for (const effect of effects) {
@@ -63,8 +61,7 @@ export function applyCommandEffects(
     }
     if (effect.type === 'statusline-settings-patch') {
       if (isStatusLineCommandSettingsPatch(effect.patch)) {
-        sideEffects._statusLinePatch = effect.patch;
-        if (deps.applyStatusLinePatch(effect.patch)) return true;
+        return deps.applyStatusLinePatch(effect.patch);
       }
     }
   }
