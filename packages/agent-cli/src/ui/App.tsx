@@ -24,6 +24,7 @@ import InteractivePrompt from './InteractivePrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
+import TransportTUI from './TransportTUI.js';
 import SessionPicker from './SessionPicker.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
@@ -35,6 +36,7 @@ import {
   countActiveBackgroundWorkspaceEntries,
   getDefaultBackgroundWorkspaceEntries,
 } from './execution-workspace-view-model.js';
+import type { TransportRegistry } from '../transports/transport-registry.js';
 
 interface IProps {
   cwd: string;
@@ -59,6 +61,7 @@ interface IProps {
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
   webPort?: number;
   noOpen?: boolean;
+  transportRegistry?: TransportRegistry;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -121,8 +124,7 @@ function AppInner(
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
     commandHostAdapters: props.commandHostAdapters,
-    webPort: props.webPort,
-    noOpen: props.noOpen,
+    transportRegistry: props.transportRegistry,
     language: props.language,
   });
 
@@ -155,8 +157,10 @@ function AppInner(
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
+    showTransportTUI,
     setShowPluginTUI,
     setShowSessionPicker,
+    setShowTransportTUI,
     handleModelConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
@@ -203,7 +207,13 @@ function AppInner(
   // ESC abort
   useInput((_input: string, key: { escape: boolean }) => {
     if (!key.escape || !isThinking) return;
-    if (permissionRequest || showPluginTUI || showSessionPicker || showExecutionWorkspaceSwitcher) {
+    if (
+      permissionRequest ||
+      showPluginTUI ||
+      showTransportTUI ||
+      showSessionPicker ||
+      showExecutionWorkspaceSwitcher
+    ) {
       return;
     }
     handleAbort();
@@ -343,6 +353,12 @@ function AppInner(
           addMessage={(msg) => addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))}
         />
       )}
+      {showTransportTUI && props.transportRegistry && (
+        <TransportTUI
+          registry={props.transportRegistry}
+          onClose={() => setShowTransportTUI(false)}
+        />
+      )}
       {showSessionPicker && (
         <SessionPicker
           sessions={listResumableSessionSummaries(props.sessionStore, props.cwd)}
@@ -377,6 +393,7 @@ function AppInner(
         isDisabled={
           !!permissionRequest ||
           showPluginTUI ||
+          showTransportTUI ||
           showSessionPicker ||
           showExecutionWorkspaceSwitcher ||
           isShuttingDown ||

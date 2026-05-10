@@ -374,6 +374,9 @@ importers:
       '@robota-sdk/agent-command-session':
         specifier: workspace:*
         version: link:../agent-command-session
+      '@robota-sdk/agent-command-settings':
+        specifier: workspace:*
+        version: link:../agent-command-settings
       '@robota-sdk/agent-command-skills':
         specifier: workspace:*
         version: link:../agent-command-skills
@@ -386,6 +389,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
@@ -407,6 +413,9 @@ importers:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
+      '@robota-sdk/agent-sessions':
+        specifier: workspace:*
+        version: link:../agent-sessions
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
         version: link:../agent-transport-headless
@@ -788,6 +797,25 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/agent-command-settings:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/agent-command-skills:
     dependencies:
       '@robota-sdk/agent-sdk':
@@ -883,6 +911,28 @@ importers:
         version: 5.8.3
       vitest:
         specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-interface-transport:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-sessions':
+        specifier: workspace:*
+        version: link:../agent-sessions
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-playground:
@@ -1526,6 +1576,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-runtime':
         specifier: workspace:*
         version: link:../agent-runtime
@@ -1669,9 +1722,15 @@ importers:
 
   packages/agent-transport-headless:
     dependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
+      '@robota-sdk/agent-sessions':
+        specifier: workspace:*
+        version: link:../agent-sessions
     devDependencies:
       '@robota-sdk/agent-command-skills':
         specifier: workspace:*
@@ -1738,10 +1797,25 @@ importers:
 
   packages/agent-transport-ws:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
+      '@robota-sdk/agent-sessions':
+        specifier: workspace:*
+        version: link:../agent-sessions
+      ws:
+        specifier: ^8.18.3
+        version: 8.20.0
     devDependencies:
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10

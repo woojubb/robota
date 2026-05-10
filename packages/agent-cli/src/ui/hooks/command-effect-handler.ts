@@ -15,6 +15,7 @@ export interface ICommandEffectHandlerDeps {
   requestModelChange: (modelId: string) => void;
   openPluginTUI: () => void;
   openSessionPicker: () => void;
+  openTransportTUI: () => void;
   renameSession: (name: string) => void;
   applyStatusLinePatch: (patch: TStatusLineCommandSettingsPatch) => boolean;
 }
@@ -49,6 +50,10 @@ export function applyCommandEffects(
     }
     if (effect.type === 'plugin-tui-requested') {
       deps.openPluginTUI();
+      return true;
+    }
+    if (effect.type === 'settings-tui-requested') {
+      deps.openTransportTUI();
       return true;
     }
     if (effect.type === 'session-picker-requested') {

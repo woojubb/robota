@@ -7,10 +7,8 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import open from 'open';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
-import { startWsServer } from '../../web-sidecar/ws-server.js';
-import { startHttpServer } from '../../web-sidecar/http-server.js';
+import type { TransportRegistry } from '../../transports/transport-registry.js';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -48,8 +46,7 @@ export interface IInteractiveSessionProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
-  webPort?: number;
-  noOpen?: boolean;
+  transportRegistry?: TransportRegistry;
   language?: string;
 }
 
@@ -215,44 +212,15 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     }
   }
 
-  // Start web monitor servers if --web flag is set.
-  // Step 1: WS server (session streaming) → get wsPort
-  // Step 2: HTTP server (SPA + wsUrl injected via <meta>) → get httpPort
-  // Step 3: Open browser to http://localhost:${httpPort}
+  // Start transports (settings-driven: WS + web-monitor based on registry config).
   useEffect(() => {
-    if (!props.webPort) return;
-    let stopped = false;
-    let stopWs: (() => Promise<void>) | null = null;
-    let stopHttp: (() => Promise<void>) | null = null;
-
-    startWsServer(interactiveSession, props.webPort)
-      .then((ws) => {
-        stopWs = ws.stop;
-        if (stopped) {
-          ws.stop().catch(() => undefined);
-          return;
-        }
-        const wsUrl = `ws://127.0.0.1:${ws.port}`;
-        return startHttpServer({ wsUrl, port: ws.port + 1 }).then((http) => {
-          stopHttp = http.stop;
-          if (stopped) {
-            http.stop().catch(() => undefined);
-            return;
-          }
-          const shouldOpen = !props.noOpen && !process.env['ROBOTA_NO_OPEN'];
-          if (shouldOpen) {
-            open(`http://localhost:${http.port}`).catch(() => undefined);
-          }
-        });
-      })
-      .catch(() => undefined); // allow-fallback: monitor failure is non-fatal; TUI continues
-
+    if (!props.transportRegistry) return;
+    const registry = props.transportRegistry;
+    registry.startAll(interactiveSession).catch(() => undefined);
     return () => {
-      stopped = true;
-      stopHttp?.().catch(() => undefined);
-      stopWs?.().catch(() => undefined);
+      registry.stopAll().catch(() => undefined);
     };
-  }, [interactiveSession, props.webPort, props.noOpen]);
+  }, [interactiveSession, props.transportRegistry]);
 
   // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {

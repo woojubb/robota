@@ -10,6 +10,7 @@ function createDeps() {
     requestShutdown: vi.fn(),
     requestModelChange: vi.fn(),
     openPluginTUI: vi.fn(),
+    openTransportTUI: vi.fn(),
     openSessionPicker: vi.fn(),
     renameSession: vi.fn(),
     applyStatusLinePatch: vi.fn(),

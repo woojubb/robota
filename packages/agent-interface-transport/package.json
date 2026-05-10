@@ -1,13 +1,14 @@
 {
-  "name": "@robota-sdk/agent-transport-ws",
+  "name": "@robota-sdk/agent-interface-transport",
   "version": "3.0.0-beta.62",
-  "description": "WebSocket transport adapter for exposing InteractiveSession over real-time connections",
+  "description": "Transport contract interfaces for the Robota SDK (ITransportAdapter, IConfigurableTransport, ITransportConfig)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
@@ -42,13 +43,9 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-sdk": "workspace:*",
-    "@robota-sdk/agent-sessions": "workspace:*",
-    "ws": "^8.18.3"
+    "@robota-sdk/agent-sessions": "workspace:*"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.10",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
