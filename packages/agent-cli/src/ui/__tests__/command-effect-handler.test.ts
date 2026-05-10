@@ -28,11 +28,7 @@ describe('applyCommandEffects', () => {
   it('applies session rename effects through the UI dependency boundary', () => {
     const deps = createDeps();
 
-    const handled = applyCommandEffects(
-      [{ type: 'session-renamed', name: 'my-session' }],
-      {},
-      deps,
-    );
+    const handled = applyCommandEffects([{ type: 'session-renamed', name: 'my-session' }], deps);
 
     expect(handled).toBe(true);
     expect(deps.renameSession).toHaveBeenCalledWith('my-session');
@@ -42,7 +38,7 @@ describe('applyCommandEffects', () => {
   it('applies session picker effects through the UI dependency boundary', () => {
     const deps = createDeps();
 
-    const handled = applyCommandEffects([{ type: 'session-picker-requested' }], {}, deps);
+    const handled = applyCommandEffects([{ type: 'session-picker-requested' }], deps);
 
     expect(handled).toBe(true);
     expect(deps.openSessionPicker).toHaveBeenCalledTimes(1);
@@ -58,7 +54,7 @@ describe('applyCommandEffects', () => {
     vi.stubEnv('HOME', home);
     const deps = createDeps();
 
-    const handled = applyCommandEffects([{ type: 'settings-reset-requested' }], {}, deps);
+    const handled = applyCommandEffects([{ type: 'settings-reset-requested' }], deps);
 
     expect(handled).toBe(true);
     expect(existsSync(settingsPath)).toBe(false);
@@ -72,7 +68,7 @@ describe('applyCommandEffects', () => {
     vi.stubEnv('HOME', home);
     const deps = createDeps();
 
-    const handled = applyCommandEffects([{ type: 'settings-reset-requested' }], {}, deps);
+    const handled = applyCommandEffects([{ type: 'settings-reset-requested' }], deps);
 
     expect(handled).toBe(true);
     expect(deps.addEntry).toHaveBeenCalledTimes(1);

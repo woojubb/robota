@@ -1,6 +1,6 @@
 ---
 title: 'CLI-003: --web 플래그 진입 시 브라우저 자동 오픈'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon
