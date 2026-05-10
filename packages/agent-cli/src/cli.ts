@@ -42,6 +42,7 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-sdk';
 import { parseCliArgs } from './utils/cli-args.js';
+import type { IParsedCliArgs } from './utils/cli-args.js';
 import {
   getUserSettingsPath,
   deleteSettings,
@@ -62,18 +63,27 @@ import {
 import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { TuiTransport } from '@robota-sdk/agent-transport-tui';
+import type { ITuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { TransportRegistry } from './transports/transport-registry.js';
-import { renderApp } from './ui/render.js';
 import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 import {
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
+  formatCliUpdateNotice,
   getStartupCliUpdateNotice,
   shouldRunStartupCliUpdateCheck,
 } from './utils/update-check.js';
+import type { ICliUpdateNotice } from './utils/update-check.js';
+import { applyStatusLineSettings } from './utils/statusline-settings.js';
+import { applyActiveModelChange } from './utils/provider-configuration.js';
+import { resolveGitBranch } from './utils/git-branch.js';
+import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
+
+const PRINTABLE_ASCII_START = 32;
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -140,7 +150,7 @@ function promptInput(label: string, masked = false): Promise<string> {
           stdin.pause();
           process.stdout.write('\n');
           process.exit(0);
-        } else if (ch.charCodeAt(0) >= 32) {
+        } else if (ch.charCodeAt(0) >= PRINTABLE_ASCII_START) {
           input += ch;
           process.stdout.write(masked ? '*' : ch);
         }
@@ -224,6 +234,120 @@ export function createDefaultCliCommandModules({
   ];
 }
 
+interface ICliSetup {
+  commandHostAdapters: ICommandHostAdapters;
+  providerDefinitions: readonly IProviderDefinition[];
+  commandModules: readonly ICommandModule[];
+  startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
+}
+
+function buildCommandSetup(
+  cwd: string,
+  args: IParsedCliArgs,
+  options: IStartCliOptions,
+  version: string,
+): ICliSetup {
+  const commandHostAdapters: ICommandHostAdapters = {
+    settings: {
+      read: () => readSettings(getUserSettingsPath()),
+      write: (settings) => writeSettings(getUserSettingsPath(), settings),
+    },
+    plugin: createCliPluginCommandAdapter(cwd),
+  };
+  const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const commandModules: readonly ICommandModule[] = [
+    ...createDefaultCliCommandModules({ cwd, providerDefinitions }),
+    ...(options.commandModules ?? []),
+  ];
+  const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
+    ? getStartupCliUpdateNotice({ currentVersion: version })
+    : undefined;
+  return { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise };
+}
+
+function buildAppendSystemPrompt(cwd: string, args: IParsedCliArgs): string | undefined {
+  const appendParts: string[] = [];
+  if (args.appendSystemPrompt) appendParts.push(args.appendSystemPrompt);
+  if (args.taskFile) {
+    try {
+      appendParts.push(readTaskFilePrompt(cwd, args.taskFile));
+    } catch (error) {
+      // allow-fallback: terminal failure — task file read failure exits process
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exit(1);
+    }
+  }
+  if (args.jsonSchema)
+    appendParts.push(
+      `Respond with valid JSON only, matching this JSON schema:\n${args.jsonSchema}`,
+    );
+  return appendParts.length > 0 ? appendParts.join('\n\n') : undefined;
+}
+
+async function runPrintMode(
+  cwd: string,
+  args: IParsedCliArgs,
+  provider: IAIProvider,
+  sessionStore: ReturnType<typeof createProjectSessionStore>,
+  backgroundTaskRunners: ReturnType<typeof createManagedShellProcessRunner>[],
+  subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
+  commandModules: readonly ICommandModule[],
+  commandHostAdapters: ICommandHostAdapters,
+): Promise<void> {
+  let prompt = args.positional.join(' ').trim();
+
+  // Stdin pipe: read from stdin if no positional args and stdin is piped
+  if (!prompt && !process.stdin.isTTY) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) {
+      chunks.push(chunk as Buffer);
+    }
+    prompt = Buffer.concat(chunks).toString('utf-8').trim();
+  }
+
+  if (!prompt) {
+    process.stderr.write('Print mode (-p) requires a prompt argument.\n');
+    process.exit(1);
+  }
+
+  const appendSystemPrompt = buildAppendSystemPrompt(cwd, args);
+
+  // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
+  if (args.systemPrompt) {
+    process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
+  }
+
+  const session = new InteractiveSession({
+    cwd,
+    provider,
+    permissionMode: args.permissionMode ?? 'bypassPermissions',
+    maxTurns: args.maxTurns,
+    sessionStore: args.noSessionPersistence ? undefined : sessionStore,
+    sessionName: args.sessionName,
+    bare: args.bare || undefined,
+    allowedTools: args.allowedTools
+      ? args.allowedTools
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : undefined,
+    appendSystemPrompt,
+    backgroundTaskRunners,
+    subagentRunnerFactory,
+    commandModules,
+    commandHostAdapters,
+  });
+
+  const transport = createHeadlessTransport({
+    outputFormat: (args.outputFormat as 'text' | 'json' | 'stream-json') ?? 'text',
+    prompt,
+  });
+  session.attachTransport(transport);
+  await transport.start();
+  await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
+  process.exit(transport.getExitCode());
+}
+
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
   const version = readVersion();
@@ -255,21 +379,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     return;
   }
 
-  const commandHostAdapters: ICommandHostAdapters = {
-    settings: {
-      read: () => readSettings(getUserSettingsPath()),
-      write: (settings) => writeSettings(getUserSettingsPath(), settings),
-    },
-    plugin: createCliPluginCommandAdapter(cwd),
-  };
-  const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
-  const commandModules: readonly ICommandModule[] = [
-    ...createDefaultCliCommandModules({ cwd, providerDefinitions }),
-    ...(options.commandModules ?? []),
-  ];
-  const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
-    ? getStartupCliUpdateNotice({ currentVersion: version })
-    : undefined;
+  const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
+    buildCommandSetup(cwd, args, options, version);
 
   if (args.configure) {
     await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
@@ -283,6 +394,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   try {
     await ensureConfig(cwd, args, promptInput, providerDefinitions);
   } catch (error) {
+    // allow-fallback: terminal failure — not a silent fallback
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
@@ -322,79 +434,22 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
-  // Print mode (-p): one-shot prompt via headless transport, then exit
   if (args.printMode) {
-    let prompt = args.positional.join(' ').trim();
-
-    // Stdin pipe: read from stdin if no positional args and stdin is piped
-    if (!prompt && !process.stdin.isTTY) {
-      const chunks: Buffer[] = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(chunk as Buffer);
-      }
-      prompt = Buffer.concat(chunks).toString('utf-8').trim();
-    }
-
-    if (!prompt) {
-      process.stderr.write('Print mode (-p) requires a prompt argument.\n');
-      process.exit(1);
-    }
-
-    // Build appendSystemPrompt from --append-system-prompt and --json-schema
-    const appendParts: string[] = [];
-    if (args.appendSystemPrompt) appendParts.push(args.appendSystemPrompt);
-    if (args.taskFile) {
-      try {
-        appendParts.push(readTaskFilePrompt(cwd, args.taskFile));
-      } catch (error) {
-        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-        process.exit(1);
-      }
-    }
-    if (args.jsonSchema)
-      appendParts.push(
-        `Respond with valid JSON only, matching this JSON schema:\n${args.jsonSchema}`,
-      );
-    const appendSystemPrompt = appendParts.length > 0 ? appendParts.join('\n\n') : undefined;
-
-    // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
-    if (args.systemPrompt) {
-      process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
-    }
-
-    const session = new InteractiveSession({
+    await runPrintMode(
       cwd,
+      args,
       provider,
-      permissionMode: args.permissionMode ?? 'bypassPermissions',
-      maxTurns: args.maxTurns,
-      sessionStore: args.noSessionPersistence ? undefined : sessionStore,
-      sessionName: args.sessionName,
-      bare: args.bare || undefined,
-      allowedTools: args.allowedTools
-        ? args.allowedTools
-            .split(',')
-            .map((t) => t.trim())
-            .filter((t) => t.length > 0)
-        : undefined,
-      appendSystemPrompt,
+      sessionStore,
       backgroundTaskRunners,
       subagentRunnerFactory,
       commandModules,
       commandHostAdapters,
-    });
-
-    const transport = createHeadlessTransport({
-      outputFormat: (args.outputFormat as 'text' | 'json' | 'stream-json') ?? 'text',
-      prompt,
-    });
-    session.attachTransport(transport);
-    await transport.start();
-    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
-    process.exit(transport.getExitCode());
+    );
+    return;
   }
 
   // Interactive TUI mode (Ink)
-  renderApp({
+  const tuiTransport = new TuiTransport({
     cwd,
     provider,
     providerOverride: args.provider,
@@ -414,9 +469,33 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     subagentRunnerFactory,
     commandModules,
     commandHostAdapters,
-    startupUpdateNoticePromise,
+    startupUpdateNotice: startupUpdateNoticePromise
+      ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
+      : undefined,
     transportRegistry: createTransportRegistry(),
+    cliAdapter: createTuiCliAdapter(),
+    reloadPluginCommandSource,
   });
+  await tuiTransport.start();
+  process.exit(0);
+}
+
+function createTuiCliAdapter(): ITuiCliAdapter {
+  return {
+    getUserSettingsPath: () => getUserSettingsPath(),
+    readSettings: (path) => readSettings(path),
+    writeSettings: (path, settings) => writeSettings(path, settings),
+    deleteSettings: (path) => deleteSettings(path),
+    applyStatusLineSettings: (path, patch) => applyStatusLineSettings(path, patch),
+    reloadPluginCommandSource: (registry) => {
+      reloadPluginCommandSource(registry);
+    },
+    applyActiveModelChange: (cwd, modelId, options) => {
+      applyActiveModelChange(cwd, modelId, options);
+      return { applied: true };
+    },
+    getGitBranch: (cwd) => resolveGitBranch(cwd),
+  };
 }
 
 function createTransportRegistry(): TransportRegistry {

@@ -18,3 +18,15 @@ export interface IConfigurableTransport extends ITransportAdapter {
   >;
   validateOptions?(options: Record<string, TUniversalValue>): boolean;
 }
+
+export interface ITransportEntry {
+  transport: IConfigurableTransport;
+  config: ITransportConfig;
+}
+
+export interface ITransportRegistryView {
+  getAll(): ITransportEntry[];
+  setEnabled(name: string, enabled: boolean): Promise<void>;
+  startAll(session: import('@robota-sdk/agent-sessions').ISession): Promise<void>;
+  stopAll(): Promise<void>;
+}

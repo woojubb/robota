@@ -1,0 +1,63 @@
+{
+  "name": "@robota-sdk/agent-transport-tui",
+  "version": "3.0.0-beta.62",
+  "description": "Terminal UI transport for InteractiveSession — Ink/React TUI as an I/O adapter",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "build:js": "tsup src/index.ts --format esm,cjs --out-dir dist/node --clean",
+    "build:types": "tsup src/index.ts --format esm,cjs --dts-only --out-dir dist/node",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-sdk": "workspace:*",
+    "@robota-sdk/agent-sessions": "workspace:*",
+    "chalk": "^5.3.0",
+    "ink": "^7.0.1",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "marked": "^9.1.5",
+    "marked-terminal": "^7.3.0",
+    "react": "19.2.4",
+    "string-width": "^8.2.0"
+  },
+  "devDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
+    "@types/react": "^19.2.14",
+    "ink-testing-library": "^4.0.0",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.1"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
