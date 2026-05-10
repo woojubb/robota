@@ -31,14 +31,21 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
   },
 };
 
+function defaultWsUrl(): string {
+  if (typeof window !== 'undefined') {
+    return `ws://${window.location.host}`;
+  }
+  return 'ws://localhost:7070';
+}
+
 interface ISessionMonitorProps {
-  /** WebSocket URL of the agent-cli sidecar. Default: ws://localhost:7070 */
+  /** WebSocket URL of the agent-cli sidecar. Defaults to current page host. */
   defaultUrl?: string;
   className?: string;
 }
 
 export function SessionMonitor({
-  defaultUrl = 'ws://localhost:7070',
+  defaultUrl = defaultWsUrl(),
   className,
 }: ISessionMonitorProps): React.ReactElement {
   const [url, setUrl] = useState(defaultUrl);
@@ -86,7 +93,7 @@ export function SessionMonitor({
               <div className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center">
                 <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
               </div>
-              <p className="text-xs font-mono text-muted-foreground/45 max-w-[260px] leading-relaxed">
+              <p className="text-xs font-mono text-muted-foreground max-w-[260px] leading-relaxed">
                 {status === 'connecting'
                   ? `Connecting to ${url}…`
                   : `Run robota --web to start the sidecar.`}
