@@ -220,7 +220,7 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 | -------------------- | ---- | --------------------------------------------------- |
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
-This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. Higher-level callers should prefer `IRunOptions.onTextDelta` for per-run streaming output so multiple sessions can share a provider instance without overwriting mutable provider callback state.
+This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
 
 ### Provider-Native Replay Payloads
 
