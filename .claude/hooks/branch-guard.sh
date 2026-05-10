@@ -41,13 +41,18 @@ if [[ -z "$CURRENT_BRANCH" ]]; then
 fi
 
 # Block commit on all protected branches
+# Exception: allow merge commits (when .git/MERGE_HEAD exists — completing a git merge)
 if [[ "$IS_COMMIT" == "true" ]]; then
-  for branch in main master develop; do
-    if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
-      echo "[branch-guard] Blocked: cannot git commit on protected branch '${branch}'. Create a feature branch first." >&2
-      exit 2
-    fi
-  done
+  MERGE_IN_PROGRESS=false
+  [[ -f "$PROJECT_DIR/.git/MERGE_HEAD" ]] && MERGE_IN_PROGRESS=true
+  if [[ "$MERGE_IN_PROGRESS" == "false" ]]; then
+    for branch in main master develop; do
+      if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
+        echo "[branch-guard] Blocked: cannot git commit on protected branch '${branch}'. Create a feature branch first." >&2
+        exit 2
+      fi
+    done
+  fi
 fi
 
 # Block push on main/master only (develop push after merge is allowed)
