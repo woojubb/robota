@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-012: SPEC.md에서 금지된 sub-agent 명칭 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

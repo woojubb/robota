@@ -87,10 +87,14 @@ Static fallback catalog data is staleable by design. The CLI/TUI should not comp
 hardcoding model lists or provider branches. Remaining work is cache/generation policy expansion for
 providers beyond the first live adapter.
 
-Tracked follow-up:
+Tracked follow-up backlog:
 
-- provider-specific generated catalog refresh and cache invalidation work after the initial adapter
-  layer.
+- [PROV-001](../../../../.agents/backlog/PROV-001-model-catalog-cache-policy-expansion.md) — provider
+  model catalog cache/generation policy expansion beyond OpenAI (cache invalidation TTL, live adapters
+  for non-OpenAI providers, `lastVerifiedAt` propagation).
+
+This audit item can be marked "resolved" once all acceptance criteria in PROV-001 are met and
+verification evidence is recorded.
 
 ### CLI-AUDIT-004: Legacy assembly architecture doc was stale
 

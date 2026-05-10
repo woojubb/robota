@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-018: 아키텍처 맵 다이어그램 과잉 엣지 수정'
-status: todo
+status: done
 created: 2026-05-10
 priority: low
 urgency: backlog

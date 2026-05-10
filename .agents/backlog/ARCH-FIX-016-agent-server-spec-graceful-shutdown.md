@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-016: agent-server SPEC.md에 Graceful Shutdown 요건 섹션 추가'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

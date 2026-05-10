@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-014: agent-cli SPEC.md에서 경쟁 제품명(Claude Code) 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

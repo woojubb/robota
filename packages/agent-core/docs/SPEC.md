@@ -395,12 +395,12 @@ The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Ho
 
 `IHookDefinition` is a discriminated union on the `type` field:
 
-| Type      | Fields                               | Description                                      |
-| --------- | ------------------------------------ | ------------------------------------------------ |
-| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes) |
-| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint             |
-| `prompt`  | `prompt: string`                     | LLM prompt injection into session context        |
-| `agent`   | `agent: string`, `config?`           | Delegate to a sub-agent for processing           |
+| Type      | Fields                               | Description                                         |
+| --------- | ------------------------------------ | --------------------------------------------------- |
+| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes)    |
+| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint                |
+| `prompt`  | `prompt: string`                     | LLM prompt injection into session context           |
+| `agent`   | `agent: string`, `config?`           | Delegate to a nested agent execution for processing |
 
 ### Hook Type Executors (Strategy Pattern)
 
@@ -424,10 +424,10 @@ interface IHookTypeExecutor {
 
 **Extended executors (agent-sdk):**
 
-| Executor         | Hook Type | Behavior                                                |
-| ---------------- | --------- | ------------------------------------------------------- |
-| `PromptExecutor` | `prompt`  | Injects prompt text into session context                |
-| `AgentExecutor`  | `agent`   | Delegates to a sub-agent session for complex processing |
+| Executor         | Hook Type | Behavior                                                   |
+| ---------------- | --------- | ---------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Injects prompt text into session context                   |
+| `AgentExecutor`  | `agent`   | Delegates to a nested agent session for complex processing |
 
 ### Exit Code Protocol
 
