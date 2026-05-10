@@ -20,7 +20,7 @@ function makeWebDist(): string {
 }
 
 describe('startHttpServer', () => {
-  it('injects <meta name="ws-url"> into index.html', async () => {
+  it('injects <meta name="ws-url"> and loading placeholder into index.html', async () => {
     const dist = makeWebDist();
     const http = await startHttpServer({ wsUrl: WS_URL, port: 19300, webDistPath: dist });
     try {
@@ -28,6 +28,7 @@ describe('startHttpServer', () => {
       const html = await res.text();
       expect(res.status).toBe(200);
       expect(html).toContain(`<meta name="ws-url" content="${WS_URL}"`);
+      expect(html).toContain('Initializing');
     } finally {
       await http.stop();
       rmSync(dist, { recursive: true, force: true });
@@ -47,7 +48,7 @@ describe('startHttpServer', () => {
     }
   });
 
-  it('falls back to index.html for unknown SPA routes (with ws-url injected)', async () => {
+  it('falls back to index.html for unknown SPA routes (with ws-url + placeholder injected)', async () => {
     const dist = makeWebDist();
     const http = await startHttpServer({ wsUrl: WS_URL, port: 19302, webDistPath: dist });
     try {
@@ -55,6 +56,7 @@ describe('startHttpServer', () => {
       const html = await res.text();
       expect(res.status).toBe(200);
       expect(html).toContain(`<meta name="ws-url" content="${WS_URL}"`);
+      expect(html).toContain('Initializing');
     } finally {
       await http.stop();
       rmSync(dist, { recursive: true, force: true });

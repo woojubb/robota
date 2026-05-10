@@ -188,7 +188,7 @@ export function ConversationView({
     <div className="flex flex-col gap-3 p-4 overflow-y-auto h-full">
       {isEmpty && (
         <div className="flex h-full items-center justify-center">
-          <p className="text-xs font-mono text-muted-foreground/30 tracking-widest uppercase">
+          <p className="text-xs font-mono text-muted-foreground/50 tracking-widest uppercase">
             No messages yet
           </p>
         </div>
