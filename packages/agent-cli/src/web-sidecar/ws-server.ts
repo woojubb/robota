@@ -48,6 +48,10 @@ function tryBindWs(session: InteractiveSession, port: number): Promise<IWsServer
         // Send full history on connect so client can restore prior context
         const messages = session.getMessages();
         send({ type: 'messages', messages });
+        send({
+          type: 'execution_workspace_event',
+          snapshot: session.getExecutionWorkspaceSnapshot(),
+        });
       });
 
       resolve({

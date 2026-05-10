@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
-import type { TServerMessage } from '@robota-sdk/agent-transport-ws';
+import type { TServerMessage, IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-transport-ws';
 
 export interface IConversationMessage {
   id: string;
@@ -29,6 +29,7 @@ export interface IWsSessionState {
   activeTools: IActiveTool[];
   streamingText: string;
   isThinking: boolean;
+  executionWorkspace: IExecutionWorkspaceSnapshot | null;
   send: (msg: TClientMessage) => void;
 }
 
@@ -43,6 +44,9 @@ export function useWsSession(url: string): IWsSessionState {
   const [activeTools, setActiveTools] = useState<IActiveTool[]>([]);
   const [streamingText, setStreamingText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [executionWorkspace, setExecutionWorkspace] = useState<IExecutionWorkspaceSnapshot | null>(
+    null,
+  );
 
   const clientRef = useRef<ReturnType<typeof createWsSessionClient> | null>(null);
   const streamingIdRef = useRef<string | null>(null);
@@ -98,6 +102,10 @@ export function useWsSession(url: string): IWsSessionState {
         );
         break;
       }
+      case 'execution_workspace_event': {
+        setExecutionWorkspace(msg.snapshot);
+        break;
+      }
       case 'complete':
       case 'interrupted': {
         const finalText = streamingTextRef.current;
@@ -135,5 +143,5 @@ export function useWsSession(url: string): IWsSessionState {
     };
   }, [url, handleMessage]);
 
-  return { status, messages, activeTools, streamingText, isThinking, send };
+  return { status, messages, activeTools, streamingText, isThinking, executionWorkspace, send };
 }
