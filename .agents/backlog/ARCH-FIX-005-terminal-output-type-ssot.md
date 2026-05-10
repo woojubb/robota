@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-005: ITerminalOutput/ISpinner 타입 SSOT 위반 수정'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
