@@ -17,6 +17,7 @@ packages/
 ├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
+├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
 ├── agent-transport-*/           # Transports: headless, http, mcp, ws
 └── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
@@ -38,3 +39,18 @@ apps/
 ## Command Package Rule
 
 User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-sdk` command contracts. `agent-sdk` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
+
+## Interface Package Rule
+
+`agent-interface-*` packages contain **only type contracts and interfaces — no implementation**.
+They are the SSOT for cross-cutting contracts shared between implementation families.
+
+- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`)
+- Future: `agent-interface-provider`, `agent-interface-plugin` if those families need isolated contracts
+
+Rules:
+
+- An `agent-interface-*` package must not contain classes or runtime logic.
+- Implementation packages (`agent-transport-*`, `agent-provider-*`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-sdk`, for interface types.
+- `agent-sdk` depends on `agent-interface-*` packages to consume the contracts it needs.
+- Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
