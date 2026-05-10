@@ -17,31 +17,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 14 events in the last 7 days
+- Frequency: 17 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
 - First seen: 2026-05-09T13:32:49.000Z
-- Last seen: 2026-05-10T12:20:36.000Z
+- Last seen: 2026-05-10T14:40:53.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 3342 events in the last 7 days
+- Frequency: 3803 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-001-architecture-md-stale-apps.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-002-repository-overview-package-families.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-005-agent-plugin-spec-sweep.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-006-implementation-conformance-sweep.md`
+- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-001-architecture-md-stale-apps.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-002-repository-overview-package-families.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-005-agent-plugin-spec-sweep.md`
 - First seen: 2026-05-09T07:35:07.000Z
-- Last seen: 2026-05-10T14:13:22.000Z
+- Last seen: 2026-05-10T14:41:19.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 107 events in the last 7 days
+- Frequency: 114 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-09T09:16:51.000Z
-- Last seen: 2026-05-10T14:13:22.000Z
+- Last seen: 2026-05-10T14:41:19.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
