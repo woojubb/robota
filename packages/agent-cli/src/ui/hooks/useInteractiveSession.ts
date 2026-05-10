@@ -9,7 +9,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import open from 'open';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
-import { startWebSidecarServer } from '../../web-sidecar/web-sidecar-server.js';
+import { startWsServer } from '../../web-sidecar/ws-server.js';
+import { startHttpServer } from '../../web-sidecar/http-server.js';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -214,31 +215,42 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     }
   }
 
-  // Start web sidecar server if --web flag is set
+  // Start web monitor servers if --web flag is set.
+  // Step 1: WS server (session streaming) → get wsPort
+  // Step 2: HTTP server (SPA + wsUrl injected via <meta>) → get httpPort
+  // Step 3: Open browser to http://localhost:${httpPort}
   useEffect(() => {
     if (!props.webPort) return;
-    const port = props.webPort;
     let stopped = false;
-    let stopFn: (() => Promise<void>) | null = null;
+    let stopWs: (() => Promise<void>) | null = null;
+    let stopHttp: (() => Promise<void>) | null = null;
 
-    startWebSidecarServer(interactiveSession, port)
-      .then((server) => {
-        stopFn = server.stop;
+    startWsServer(interactiveSession, props.webPort)
+      .then((ws) => {
+        stopWs = ws.stop;
         if (stopped) {
-          server.stop().catch(() => undefined);
-          return; // allow-fallback: cleanup after unmount
+          ws.stop().catch(() => undefined);
+          return;
         }
-        const shouldOpen = !props.noOpen && !process.env['ROBOTA_NO_OPEN'];
-        const monitorUrl = `http://localhost:${server.port}`;
-        if (shouldOpen) {
-          open(monitorUrl).catch(() => undefined);
-        }
+        const wsUrl = `ws://127.0.0.1:${ws.port}`;
+        return startHttpServer({ wsUrl, port: ws.port + 1 }).then((http) => {
+          stopHttp = http.stop;
+          if (stopped) {
+            http.stop().catch(() => undefined);
+            return;
+          }
+          const shouldOpen = !props.noOpen && !process.env['ROBOTA_NO_OPEN'];
+          if (shouldOpen) {
+            open(`http://localhost:${http.port}`).catch(() => undefined);
+          }
+        });
       })
-      .catch(() => undefined); // allow-fallback: sidecar bind failure is non-fatal; TUI continues
+      .catch(() => undefined); // allow-fallback: monitor failure is non-fatal; TUI continues
 
     return () => {
       stopped = true;
-      if (stopFn) stopFn().catch(() => undefined);
+      stopHttp?.().catch(() => undefined);
+      stopWs?.().catch(() => undefined);
     };
   }, [interactiveSession, props.webPort, props.noOpen]);
 
