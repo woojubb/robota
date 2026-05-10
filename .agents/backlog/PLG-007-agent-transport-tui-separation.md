@@ -259,43 +259,84 @@ process.exit(0);
 
 ## User Execution Test Scenarios
 
+> **Done Gate — ABSOLUTE RULE**
+> Build / typecheck / lint / unit tests are COMPLETELY UNRELATED to this gate and must never be cited as evidence.
+> Both stages below must pass before `status: done`.
+
+### Done Gate Stage 1 — Written
+
+- [x] Scenario 1 fully written (steps, prerequisites, expected result, evidence field)
+- [x] Scenario 2 fully written (steps, prerequisites, expected result, evidence field)
+- [x] Scenario 3 fully written (steps, prerequisites, expected result, evidence field)
+
+### Done Gate Stage 2 — Executed
+
+- [ ] Scenario 1 directly executed against completed implementation; observed result matched expected
+- [ ] Scenario 2 directly executed against completed implementation; observed result matched expected
+- [ ] Scenario 3 directly executed against completed implementation; observed result matched
+      OR `manual-only:` label with documented reason
+
+---
+
 ### Scenario 1: 기본 TUI 동작 유지
+
+**Prerequisites:** `pnpm build` 완료, `robota` binary 사용 가능
 
 **Steps:**
 
 1. `robota` 실행
-2. 프롬프트 입력 → 에이전트 응답 수신
+2. 임의 프롬프트 입력 → 에이전트 응답 수신 확인
 3. Ctrl+C로 종료
 
-**Expected:** 기존과 동일한 TUI 동작. 패키지 분리가 사용자에게 투명하게 이루어짐.
+**Expected observable result:**
+
+- TUI가 정상 렌더링됨 (입력창, 상태바 등 기존과 동일)
+- 프롬프트 제출 → 에이전트 응답이 스트리밍됨
+- Ctrl+C → "Shutting down..." 메시지 → 프로세스 정상 종료
+
+**Evidence:**
+_(미실행 — Done Gate Stage 2 미통과)_
 
 ---
 
 ### Scenario 2: Ctrl+C lifecycle 흐름
 
+**Prerequisites:** `robota` binary 사용 가능, AI provider 설정 완료
+
 **Steps:**
 
 1. `robota` 실행
-2. 에이전트 응답 중 Ctrl+C
+2. 프롬프트 입력으로 에이전트 응답 진행 중
+3. 응답 스트리밍 중 Ctrl+C 입력
 
-**Expected:**
+**Expected observable result:**
 
-- "Shutting down..." 메시지 표시
-- session graceful shutdown
-- `process.exit(0)`으로 정상 종료
-- CLI가 TUI의 종료 요청을 수신하고 결정함
+- "Shutting down..." 메시지가 TUI에 표시됨
+- session graceful shutdown 완료
+- `process.exit(0)`으로 정상 종료 (exit code 0)
+- CLI 레벨에서 종료 결정이 이루어짐 (TUI가 직접 exit 하지 않음)
+
+**Evidence:**
+_(미실행 — Done Gate Stage 2 미통과)_
 
 ---
 
 ### Scenario 3: WS + TUI 동시 실행
 
+**Prerequisites:** `robota` binary 사용 가능, WS transport settings에서 enabled: true로 설정
+
 **Steps:**
 
 1. WS transport enabled 상태로 `robota` 실행
-2. 브라우저에서 WS 연결 확인
+2. 브라우저에서 `ws://127.0.0.1:<port>` 연결 확인
 3. CLI에서 Ctrl+C
 
-**Expected:**
+**Expected observable result:**
 
-- TUI 종료 요청 → CLI → `registry.stopAll()` → WS 서버도 종료
-- 두 transport가 CLI lifecycle에 의해 함께 관리됨
+- TUI 종료 요청 → CLI → `registry.stopAll()` → WS 서버도 함께 종료
+- 두 transport가 CLI lifecycle에 의해 통합 관리됨
+
+**manual-only:** WS transport enable 설정은 settings.json 직접 수정이 필요하며 브라우저 WS 연결 확인은 에이전트가 자동 검증 불가. 사용자가 직접 실행해야 함.
+
+**Evidence:**
+_(미실행 — 사용자 직접 실행 필요)_

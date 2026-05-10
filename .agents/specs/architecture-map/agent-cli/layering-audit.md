@@ -1,6 +1,6 @@
 # Agent CLI Layering Audit
 
-Source-verified against `develop` on 2026-05-09.
+Source-verified against `develop` on 2026-05-11.
 
 This document owns CLI-specific layer audit findings, resolved lessons, and mechanical guard
 candidates.
@@ -14,10 +14,10 @@ Status: resolved in PR #205.
 Former files:
 
 - `packages/agent-cli/src/cli.ts`
-- `packages/agent-cli/src/ui/render.tsx`
-- `packages/agent-cli/src/ui/App.tsx`
-- `packages/agent-cli/src/ui/hooks/useInteractiveSession.ts`
-- `packages/agent-cli/src/ui/SessionPicker.tsx`
+- `packages/agent-transport-tui/src/render.tsx`
+- `packages/agent-transport-tui/src/App.tsx`
+- `packages/agent-transport-tui/src/hooks/useInteractiveSession.ts`
+- `packages/agent-transport-tui/src/SessionPicker.tsx`
 - `packages/agent-cli/package.json`
 
 Problem:
@@ -44,10 +44,10 @@ Status: resolved in `fix/cli-command-effect-boundary`.
 
 Current files:
 
-- `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`
-- `packages/agent-cli/src/ui/hooks/useSideEffects.ts`
-- `packages/agent-cli/src/ui/hooks/side-effects-types.ts`
-- `packages/agent-cli/src/ui/__tests__/slash-routing-effects.test.ts`
+- `packages/agent-transport-tui/src/hooks/useSlashRouting.ts`
+- `packages/agent-transport-tui/src/hooks/useSideEffects.ts`
+- `packages/agent-transport-tui/src/hooks/side-effects-types.ts`
+- `packages/agent-transport-tui/src/__tests__/slash-routing-effects.test.ts`
 
 Former problem:
 
@@ -203,8 +203,8 @@ Current files:
 - `packages/agent-sdk/src/context/prompt-file-reference-paths.ts`
 - `packages/agent-sdk/src/context/context-reference-inventory.ts`
 - `packages/agent-sdk/src/interactive/interactive-session.ts`
-- `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`
-- `packages/agent-cli/src/ui/flows/input-area-flow.ts`
+- `packages/agent-transport-tui/src/hooks/useSlashRouting.ts`
+- `packages/agent-transport-tui/src/flows/input-area-flow.ts`
 
 Risk:
 
@@ -257,8 +257,8 @@ components, or decide completed-task retention independently from SDK/runtime po
 
 Mechanical guard candidates:
 
-- Extend command-layering or a new architecture scan to flag new CLI-owned background task registry
-  classes, lifecycle transition helpers, or command behavior under `packages/agent-cli/src/ui`.
+- Extend command-layering or a new architecture scan to flag new TUI-owned background task registry
+  classes, lifecycle transition helpers, or command behavior under `packages/agent-transport-tui/src`.
 - Flag React/Ink components that import runtime task transition helpers directly instead of using
   SDK projection APIs once those APIs exist.
 - Require package SPEC and architecture-map updates when a CLI PR introduces new non-UI behavior.
