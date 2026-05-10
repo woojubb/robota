@@ -31,25 +31,15 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
   },
 };
 
-function defaultWsUrl(): string {
-  if (typeof window !== 'undefined') {
-    return `ws://${window.location.host}`;
-  }
-  return 'ws://localhost:7070';
-}
-
 interface ISessionMonitorProps {
-  /** WebSocket URL of the agent-cli sidecar. Defaults to current page host. */
-  defaultUrl?: string;
+  /** WebSocket URL. Injected by the HTTP server via <meta name="ws-url">. */
+  wsUrl: string;
   className?: string;
 }
 
-export function SessionMonitor({
-  defaultUrl = defaultWsUrl(),
-  className,
-}: ISessionMonitorProps): React.ReactElement {
-  const [url, setUrl] = useState(defaultUrl);
-  const [inputUrl, setInputUrl] = useState(defaultUrl);
+export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): React.ReactElement {
+  const [url, setUrl] = useState(wsUrl);
+  const [inputUrl, setInputUrl] = useState(wsUrl);
 
   const { status, messages, activeTools, streamingText, isThinking, send } = useWsSession(url);
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
