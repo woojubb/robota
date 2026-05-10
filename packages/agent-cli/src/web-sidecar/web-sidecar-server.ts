@@ -60,38 +60,46 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
 
 const MAX_PORT_RETRIES = 20;
 
-function tryListen(session: InteractiveSession, startPort: number): Promise<IWebSidecarServer> {
+function attachWss(session: InteractiveSession, httpServer: Server): WebSocketServer {
+  const wss = new WebSocketServer({ server: httpServer });
+
+  wss.on('connection', (ws: WebSocket) => {
+    const send = (message: TServerMessage): void => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      }
+    };
+
+    const { onMessage, cleanup } = createWsHandler({ session, send });
+
+    ws.on('message', (data) => onMessage(String(data)));
+    ws.on('close', cleanup);
+    ws.on('error', cleanup);
+
+    // Send full history immediately on connect so client can restore prior context
+    const messages = session.getMessages();
+    send({ type: 'messages', messages });
+  });
+
+  return wss;
+}
+
+function tryListen(session: InteractiveSession, port: number): Promise<IWebSidecarServer> {
   return new Promise((resolve, reject) => {
     const httpServer: Server = createServer(serveStatic);
-    const wss = new WebSocketServer({ server: httpServer });
 
-    wss.on('connection', (ws: WebSocket) => {
-      const send = (message: TServerMessage): void => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(message));
-        }
-      };
-
-      const { onMessage, cleanup } = createWsHandler({ session, send });
-
-      ws.on('message', (data) => onMessage(String(data)));
-      ws.on('close', cleanup);
-      ws.on('error', cleanup);
-
-      // Send full history immediately on connect so client can restore prior context
-      const messages = session.getMessages();
-      send({ type: 'messages', messages });
-    });
-
+    // Register error handler before listen so EADDRINUSE is caught here, not thrown globally.
+    // WSS is created only after successful bind to avoid the ws library forwarding
+    // httpServer 'error' events to an unhandled WSS 'error' emitter.
     httpServer.on('error', (err: NodeJS.ErrnoException) => {
-      wss.close();
       httpServer.close();
       reject(err);
     });
 
-    httpServer.listen(startPort, '127.0.0.1', () => {
+    httpServer.listen(port, '127.0.0.1', () => {
+      const wss = attachWss(session, httpServer);
       resolve({
-        port: startPort,
+        port,
         stop: () =>
           new Promise<void>((res) => {
             wss.close(() => {
