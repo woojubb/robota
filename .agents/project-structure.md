@@ -12,6 +12,7 @@ packages/
 ├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-command-*/             # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, skills, statusline, user-local
 ├── agent-cli/                   # Terminal UI and local runtime adapters
+├── agent-web/                   # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider-*/            # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
 ├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package

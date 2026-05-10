@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-007: CLI 웹 사이드카 기능을 아키텍처 맵 및 SPEC에 등재'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
