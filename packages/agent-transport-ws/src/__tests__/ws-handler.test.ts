@@ -8,10 +8,13 @@ import type { TServerMessage } from '../ws-protocol.js';
 import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
+  IExecutionWorkspaceEvent,
+  IExecutionWorkspaceSnapshot,
   InteractiveSession,
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
+  TExecutionWorkspaceUpdateCause,
 } from '@robota-sdk/agent-sdk';
 
 const backgroundTask: IBackgroundTaskState = {
@@ -33,6 +36,12 @@ const backgroundTaskLogPage: IBackgroundTaskLogPage = {
   taskId: 'task_1',
   cursor: { offset: 0 },
   lines: ['line one'],
+};
+
+const executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot = {
+  sessionId: 'session_1',
+  entries: [],
+  updatedAt: '2026-05-01T00:00:00.000Z',
 };
 
 const backgroundJobGroup: IBackgroundJobGroupState = {
@@ -72,6 +81,7 @@ function createMockSession() {
     closeBackgroundTask: vi.fn().mockResolvedValue(undefined),
     sendBackgroundTask: vi.fn().mockResolvedValue(undefined),
     readBackgroundTaskLog: vi.fn().mockResolvedValue(backgroundTaskLogPage),
+    getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue(executionWorkspaceSnapshot),
     executeCommand: vi.fn().mockResolvedValue({ message: 'done', success: true, data: {} }),
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
@@ -354,9 +364,44 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]).toEqual({ type: 'background_job_group_event', event });
   });
 
+  it('forwards execution_workspace_event to the client', () => {
+    const { session, sent } = setup();
+    const event: IExecutionWorkspaceEvent = {
+      type: 'execution_workspace_updated',
+      cause: 'main_thread',
+      snapshot: executionWorkspaceSnapshot,
+    };
+    (session as unknown as { _emit: (e: string, ...args: unknown[]) => void })._emit(
+      'execution_workspace_event',
+      event,
+    );
+
+    expect(sent[0]).toEqual({
+      type: 'execution_workspace_event',
+      snapshot: executionWorkspaceSnapshot,
+    });
+  });
+
+  it('get-execution-workspace sends current snapshot', () => {
+    const { onMessage, sent, session } = setup();
+    onMessage(JSON.stringify({ type: 'get-execution-workspace' }));
+
+    expect(sent[0]).toEqual({
+      type: 'execution_workspace_event',
+      snapshot: executionWorkspaceSnapshot,
+    });
+    expect(
+      (
+        session as unknown as {
+          getExecutionWorkspaceSnapshot: ReturnType<typeof vi.fn>;
+        }
+      ).getExecutionWorkspaceSnapshot,
+    ).toHaveBeenCalled();
+  });
+
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(10);
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(11);
   });
 });
