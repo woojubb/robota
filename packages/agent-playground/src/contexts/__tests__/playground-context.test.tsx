@@ -80,11 +80,8 @@ vi.mock('../../lib/playground/robota-executor', () => ({
   PlaygroundExecutor: executorMocks.MockPlaygroundExecutor,
 }));
 
-vi.mock('@robota-sdk/agent-event-service', () => ({
-  DefaultEventService: eventServiceMocks.DefaultEventService,
-}));
-
 vi.mock('@robota-sdk/agent-core', () => ({
+  DefaultEventService: eventServiceMocks.DefaultEventService,
   SilentLogger: loggerMocks,
 }));
 

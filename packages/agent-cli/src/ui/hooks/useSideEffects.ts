@@ -1,20 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
-import type {
-  ICommandInteraction,
-  ICommandResult,
-  InteractiveSession,
-} from '@robota-sdk/agent-sdk';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-sdk';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TInteractivePrompt } from '../../utils/interactive-prompt.js';
-import type {
-  ISideEffects,
-  IUseSideEffectsOptions,
-  IUseSideEffectsResult,
-} from './side-effects-types.js';
-import { applyPendingStatusLinePatch } from './statusline-side-effect.js';
+import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
 import { applyCommandEffects } from './command-effect-handler.js';
+import { getUserSettingsPath } from '../../utils/settings-io.js';
+import { applyStatusLineSettings } from '../../utils/statusline-settings.js';
 import {
   addModelChangeCancelledMessage,
   applyConfirmedModelChange,
@@ -53,8 +46,8 @@ export function useSideEffects({
   );
 
   const applyEffects = useCallback(
-    (effects: Parameters<typeof applyCommandEffects>[0], sideEffects: ISideEffects): boolean =>
-      applyCommandEffects(effects, sideEffects, {
+    (effects: Parameters<typeof applyCommandEffects>[0]): boolean =>
+      applyCommandEffects(effects, {
         addEntry,
         requestShutdown,
         requestModelChange: (modelId) => {
@@ -67,7 +60,10 @@ export function useSideEffects({
           interactiveSession.setName(name);
           setSessionName(name);
         },
-        applyStatusLinePatch: () => applyPendingStatusLinePatch(sideEffects, setStatusLineSettings),
+        applyStatusLinePatch: (patch) => {
+          setStatusLineSettings(applyStatusLineSettings(getUserSettingsPath(), patch));
+          return true;
+        },
       }),
     [addEntry, interactiveSession, requestShutdown, setSessionName, setStatusLineSettings],
   );
@@ -85,78 +81,32 @@ export function useSideEffects({
       commandInteractionRef.current = null;
       setPendingInteractionPrompt(null);
       if (result.effects !== undefined && result.effects.length > 0) {
-        applyEffects(result.effects, getHostSideEffects(interactiveSession));
+        applyEffects(result.effects);
       }
     },
-    [addEntry, applyEffects, interactiveSession],
+    [addEntry, applyEffects],
   );
 
-  const applyQueuedCommandState = useCallback(
-    (sideEffects: ISideEffects): boolean => {
-      const queued = commandEffectQueue.drain();
-      if (queued === undefined) {
-        return false;
-      }
-      if (queued.type === 'interaction') {
-        const { interaction } = queued;
-        commandInteractionRef.current = interaction;
-        setPendingInteractionPrompt(interaction.prompt);
-        return true;
-      }
-      return applyEffects(queued.effects, sideEffects);
-    },
-    [applyEffects, commandEffectQueue],
-  );
+  const applyQueuedCommandState = useCallback((): boolean => {
+    const queued = commandEffectQueue.drain();
+    if (queued === undefined) {
+      return false;
+    }
+    if (queued.type === 'interaction') {
+      const { interaction } = queued;
+      commandInteractionRef.current = interaction;
+      setPendingInteractionPrompt(interaction.prompt);
+      return true;
+    }
+    return applyEffects(queued.effects);
+  }, [applyEffects, commandEffectQueue]);
 
   const handleSubmit = useCallback(
     async (input: string): Promise<void> => {
       await baseHandleSubmit(input);
-
-      const sideEffects = getHostSideEffects(interactiveSession);
-      if (applyQueuedCommandState(sideEffects)) return;
-
-      if (sideEffects._pendingModelId) {
-        const modelId = sideEffects._pendingModelId as string;
-        delete sideEffects._pendingModelId;
-        pendingModelChangeRef.current = modelId;
-        setPendingModelId(modelId);
-        return;
-      }
-
-      if (sideEffects._resetRequested) {
-        delete sideEffects._resetRequested;
-        applyEffects([{ type: 'settings-reset-requested' }], sideEffects);
-        return;
-      }
-
-      if (sideEffects._exitRequested) {
-        delete sideEffects._exitRequested;
-        applyEffects([{ type: 'session-exit-requested' }], sideEffects);
-        return;
-      }
-
-      if (sideEffects._triggerResumePicker) {
-        delete sideEffects._triggerResumePicker;
-        applyEffects([{ type: 'session-picker-requested' }], sideEffects);
-        return;
-      }
-
-      if (sideEffects._sessionName) {
-        const name = sideEffects._sessionName as string;
-        delete sideEffects._sessionName;
-        applyEffects([{ type: 'session-renamed', name }], sideEffects);
-        return;
-      }
-
-      if (applyPendingStatusLinePatch(sideEffects, setStatusLineSettings)) return;
+      applyQueuedCommandState();
     },
-    [
-      interactiveSession,
-      baseHandleSubmit,
-      applyQueuedCommandState,
-      applyEffects,
-      setStatusLineSettings,
-    ],
+    [baseHandleSubmit, applyQueuedCommandState],
   );
 
   const handleModelConfirm = useCallback(
@@ -187,9 +137,11 @@ export function useSideEffects({
         return;
       }
       try {
+        // allow-fallback: user-facing error display for plugin interaction submit
         const result = await interaction.submit(value);
         applyCommandResult(result);
       } catch (err) {
+        // allow-fallback: user-facing error display for plugin interaction submit
         commandInteractionRef.current = null;
         setPendingInteractionPrompt(null);
         addEntry(
@@ -234,8 +186,4 @@ export function useSideEffects({
     handleInteractionSubmit,
     handleInteractionCancel,
   };
-}
-
-function getHostSideEffects(interactiveSession: InteractiveSession): ISideEffects {
-  return interactiveSession as unknown as ISideEffects;
 }

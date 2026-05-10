@@ -24,6 +24,7 @@ SPEC or cross-cutting spec.
 | Event contracts                        | [../../../packages/agent-core/docs/SPEC.md](../../../packages/agent-core/docs/SPEC.md)         | Agent lifecycle events owned by `agent-core`. `agent-event-service` is a compat re-export shim only.   |
 | Session contracts                      | [../../../packages/agent-sessions/docs/SPEC.md](../../../packages/agent-sessions/docs/SPEC.md) | Conversation lifecycle, persistence, and compaction contracts owned by `agent-sessions`.               |
 | Storage port contracts                 | [../../../packages/agent-sessions/docs/SPEC.md](../../../packages/agent-sessions/docs/SPEC.md) | Storage port interfaces owned by `agent-sessions`; adapters implement without cross-package contracts. |
+| Agent server HTTP API                  | [../../../apps/agent-server/openapi.yaml](../../../apps/agent-server/openapi.yaml)             | OpenAPI 3.1 spec for all HTTP endpoints (`/`, `/health`, `/api/v1/remote/*`).                          |
 | Auth contracts                         | [../../../packages/auth/docs/SPEC.md](../../../packages/auth/docs/SPEC.md)                     | Auth verifier ports and scope policy.                                                                  |
 | Credits contracts                      | [../../../packages/credits/docs/SPEC.md](../../../packages/credits/docs/SPEC.md)               | Credit account, reservation, and settlement contracts.                                                 |
 

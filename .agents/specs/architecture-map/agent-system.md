@@ -30,17 +30,27 @@ flowchart TD
   AgentCLI --> Plugins
   Headless --> SDK
   Commands --> SDK
-  Commands --> Core
+  %% Only agent-command-provider has a direct agent-core dependency; other command packages use SDK APIs only
+  Commands -. "agent-command-provider only" .-> Core
   SDK --> Sessions
   SDK --> Runtime
   SDK --> Tools
   SDK --> Core
+  SDK --> Plugins
   Providers --> Core
   Sessions --> Core
   Runtime --> Core
   Tools --> Core
   Plugins --> Core
 ```
+
+Diagram notes:
+
+- `AgentCLI` does not depend on `agent-plugin-*` packages directly. Plugins are composed by SDK or by
+  end-user application code, not by the CLI shell.
+- The dashed `Commands --> Core` edge represents only `agent-command-provider`, the single command
+  package that imports `agent-core` contracts directly. All other `agent-command-*` packages consume
+  SDK APIs only.
 
 Agent stack ownership:
 

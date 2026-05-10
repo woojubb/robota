@@ -9,7 +9,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { FunctionTool } from '@robota-sdk/agent-tools';
 import { RelayMcpTool } from '@robota-sdk/agent-tool-mcp';
-import { bindWithOwnerPath } from '@robota-sdk/agent-event-service';
+import { bindWithOwnerPath } from '@robota-sdk/agent-core';
 import templates from './templates.json';
 
 interface ITemplateEntry {

@@ -71,12 +71,14 @@ export function applySystemCommandResult(
     commandEffectQueue.enqueueEffects(pendingEffects);
   }
 
-  const ctx = interactiveSession.getContextState();
-  manager.setContextState({
-    percentage: ctx.usedPercentage,
-    usedTokens: ctx.usedTokens,
-    maxTokens: ctx.maxTokens,
-  });
+  if (interactiveSession.isInitialized) {
+    const ctx = interactiveSession.getContextState();
+    manager.setContextState({
+      percentage: ctx.usedPercentage,
+      usedTokens: ctx.usedTokens,
+      maxTokens: ctx.maxTokens,
+    });
+  }
 }
 
 function applyImmediateCommandEffects(

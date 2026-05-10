@@ -226,3 +226,47 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- | -------- |
 | [DEP-001](DEP-001-unused-dependencies-agent-server.md) | agent-server 미사용 의존성 — express-winston, winston, @robota-sdk/agent-provider-bytedance | medium   |
 | [DEP-002](DEP-002-google-api-key-env-name-mismatch.md) | agent-server의 GoogleProvider가 GOOGLE_API_KEY를 읽으나 실제 키는 GEMINI_API_KEY            | medium   |
+
+### Architecture Fix — Rule Violation Remediation (2026-05-10)
+
+아키텍처 맵을 개발 규칙에 대조 감사하여 발견된 위반 사항 수정 작업.
+4개 영역(의존 방향, 에이전트 시스템, CLI 아키텍처, 크로스커팅 계약)에서 총 22건 발견.
+
+#### Critical
+
+| ID                                                                      | 제목                                                        | 우선순위 |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------- | -------- |
+| [ARCH-FIX-001](ARCH-FIX-001-transport-sdk-reverse-dependency.md)        | agent-transport-ws/http의 agent-sdk 역방향 의존 제거        | critical |
+| [ARCH-FIX-002](ARCH-FIX-002-agent-event-service-compat-shim-removal.md) | agent-event-service compat shim 소비자 마이그레이션 및 삭제 | critical |
+
+#### High
+
+| ID                                                                     | 제목                                                       | 우선순위 |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------- | -------- |
+| [ARCH-FIX-003](ARCH-FIX-003-agent-cli-core-direct-dependency.md)       | agent-cli의 agent-core 직접 의존 감사 및 SDK 경유로 정규화 | high     |
+| [ARCH-FIX-004](ARCH-FIX-004-agent-team-remote-client-arch-map.md)      | agent-team, agent-remote-client 아키텍처 맵 레이어 등재    | high     |
+| [ARCH-FIX-005](ARCH-FIX-005-terminal-output-type-ssot.md)              | ITerminalOutput/ISpinner 타입 SSOT 위반 수정               | high     |
+| [ARCH-FIX-006](ARCH-FIX-006-resolve-legacy-provider-fallback.md)       | resolveLegacyProvider() fallback 패턴 제거                 | high     |
+| [ARCH-FIX-007](ARCH-FIX-007-cli-web-sidecar-arch-spec-registration.md) | CLI 웹 사이드카 기능을 아키텍처 맵 및 SPEC에 등재          | high     |
+| [ARCH-FIX-008](ARCH-FIX-008-agent-server-openapi-spec.md)              | agent-server 외부 HTTP API OpenAPI 스펙 파일 추가          | high     |
+| [ARCH-FIX-009](ARCH-FIX-009-agent-web-pkg-spec-registration.md)        | packages/agent-web SPEC.md 작성 및 project-structure 등재  | high     |
+
+#### Medium
+
+| ID                                                                         | 제목                                                        | 우선순위 |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------- | -------- |
+| [ARCH-FIX-010](ARCH-FIX-010-bundle-plugin-loader-product-name-fallback.md) | bundle-plugin-loader.ts 제품명 및 fallback 경로 패턴 제거   | medium   |
+| [ARCH-FIX-011](ARCH-FIX-011-streaming-callback-fallback.md)                | streaming callback fallback 패턴 제거                       | medium   |
+| [ARCH-FIX-012](ARCH-FIX-012-sub-agent-naming-violation.md)                 | SPEC.md에서 금지된 sub-agent 명칭 제거                      | medium   |
+| [ARCH-FIX-013](ARCH-FIX-013-create-mode-command-module-spec-mismatch.md)   | createModeCommandModule SPEC-코드-맵 3자 불일치 해소        | medium   |
+| [ARCH-FIX-014](ARCH-FIX-014-spec-product-name-claude-code.md)              | agent-cli SPEC.md에서 경쟁 제품명(Claude Code) 제거         | medium   |
+| [ARCH-FIX-015](ARCH-FIX-015-monitor-route-arch-spec-registration.md)       | apps/agent-web /monitor 라우트를 아키텍처 맵 및 SPEC에 등재 | medium   |
+| [ARCH-FIX-016](ARCH-FIX-016-agent-server-spec-graceful-shutdown.md)        | agent-server SPEC.md에 Graceful Shutdown 요건 섹션 추가     | medium   |
+| [ARCH-FIX-017](ARCH-FIX-017-resolved-audit-verification-evidence.md)       | architecture-lessons.md 해결된 감사 항목에 검증 증거 등록   | medium   |
+| [ARCH-FIX-019](ARCH-FIX-019-cli-audit-003-followup-backlog.md)             | CLI-AUDIT-003 partially resolved 후속 작업 백로그화         | medium   |
+
+#### Low
+
+| ID                                                               | 제목                                  | 우선순위 |
+| ---------------------------------------------------------------- | ------------------------------------- | -------- |
+| [ARCH-FIX-018](ARCH-FIX-018-arch-map-diagram-edge-correction.md) | 아키텍처 맵 다이어그램 과잉 엣지 수정 | low      |

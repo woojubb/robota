@@ -10,10 +10,12 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 flowchart TD
   ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
   Assembly["Assembly/API layers\nagent-sdk, apps/agent-server"]
+  TransportShells["Transport shells\nagent-transport-ws, agent-transport-http,\nagent-transport-headless, agent-transport-mcp"]
+  Orchestration["Orchestration\nagent-team, agent-remote-client"]
   Sessions["Session services\nagent-sessions"]
   Runtime["Runtime services\nagent-runtime"]
   Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth, credits"]
-  Adapters["Adapters and providers\nagent-provider-*, agent-tools, agent-tool-mcp,\nagent-transport-*, agent-plugin-*"]
+  Adapters["Adapters and providers\nagent-provider-*, agent-tools, agent-tool-mcp,\nagent-plugin-*"]
 
   ProductShells --> Assembly
   Assembly --> Sessions
@@ -24,6 +26,11 @@ flowchart TD
   Assembly --> Adapters
   ProductShells --> Adapters
   Adapters --> Domain
+  TransportShells --> Assembly
+  Assembly --> TransportShells
+  Orchestration --> Domain
+  Orchestration --> Adapters
+  Assembly --> Orchestration
 ```
 
 The `ProductShells --> Adapters` edge is composition-root wiring only. A product shell may construct
@@ -36,10 +43,17 @@ Layer rules:
 | ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Product shells      | UI, CLI flags, process entrypoints, concrete host adapters                 | Domain rules, reusable contracts, provider semantics                      |
 | Assembly/API layers | Session assembly, command contracts, HTTP/API composition, request mapping | Product-specific rendering, vendor SDK behavior                           |
+| Transport shells    | Protocol framing, WebSocket/HTTP exposure of InteractiveSession            | Session state, domain logic, provider semantics                           |
+| Orchestration       | Multi-agent task delegation, remote-agent HTTP client                      | Session persistence, UI, provider semantics                               |
 | Session services    | Conversation lifecycle, persistence, compaction                            | UI, command contracts, provider semantics                                 |
 | Runtime services    | Background task state machines, subagent lifecycle ports                   | Session persistence, UI, command contracts                                |
 | Domain contracts    | Types, pure rules, ports, error shapes                                     | Concrete I/O, runtime process management, deps on other agent-\* packages |
-| Adapters/providers  | Vendor transports, filesystem/network implementations, plugins             | Cross-package contracts they merely implement                             |
+| Adapters/providers  | Vendor implementations, filesystem/network adapters, plugins               | Cross-package contracts they merely implement                             |
+
+`Transport shells` may depend on `Assembly/API layers` because they expose `InteractiveSession`
+(an assembly-level object) over a protocol. This is bidirectional: `Assembly` registers transport
+adapters; `TransportShells` consume the session API. Do not move `InteractiveSession` to a lower
+layer to satisfy a spurious no-upward-dep rule — the current direction is correct.
 
 ## Composition Root Rule
 
