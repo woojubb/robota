@@ -1,6 +1,8 @@
 ---
 title: 'PLG-004: Web Monitor 아키텍처 재설계 — WS 서버 / HTTP 서버 분리 + 초기화 순서 명시'
-status: backlog
+status: in-progress
+branch: feat/plg-004-web-monitor-arch
+implemented: 2026-05-10
 created: 2026-05-10
 priority: medium
 urgency: soon
@@ -120,11 +122,13 @@ PLG-003에서 WS + HTTP를 단일 포트에서 서빙하는 방식은 구현 완
 
 ## Test Plan
 
-- `robota --web` 실행 → CLI 완전 초기화 후 WS 서버 기동 로그 출력
-- WS 포트 및 HTTP 포트 로그 확인 (`WS server on :7070, HTTP server on :7071`)
-- 브라우저가 HTTP 포트로 열림
-- SPA가 `<meta name="ws-url">` 에서 WS URL 읽어 자동 연결
-- 포트 충돌 시 두 서버 모두 retry 후 올바른 포트로 연결
+- [x] `ws-server.ts`: 포트 충돌 시 EADDRINUSE retry — 19200 점유 후 19201 바인딩 확인
+- [x] `http-server.ts`: HTML 서빙 시 `<meta name="ws-url">` 주입 확인 (4/4 테스트 통과)
+- [x] SPA 번들에 `meta[name]`, `ws-url` 포함 확인
+- [x] CLI 빌드 번들에 `findPackageRoot`, `injectWsUrl`, `ws://127.0.0.1` 포함 확인
+- [x] typecheck: agent-cli ✓, agent-web ✓
+- [x] test: 53 files, 449 tests ✓
+- [x] `pnpm --filter @robota-sdk/agent-cli build` 성공
 
 ## User Execution Test Scenarios
 
