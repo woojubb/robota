@@ -91,7 +91,7 @@ pnpm build
 pnpm test
 ```
 
-Node.js 18+ required. See [Development Guide](https://robota.io/development/) for details.
+Node.js 22+ required. See [Development Guide](https://robota.io/development/) for details.
 
 ## License
 
