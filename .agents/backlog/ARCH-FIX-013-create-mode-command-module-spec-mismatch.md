@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-013: createModeCommandModule SPEC-코드-맵 3자 불일치 해소'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog

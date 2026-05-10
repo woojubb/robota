@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-017: architecture-lessons.md 해결된 감사 항목에 검증 증거 등록'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: backlog
