@@ -68,9 +68,6 @@ async function startServer() {
   }
 }
 
-// Start server if this file is run directly
-if (require.main === module) {
-  startServer();
-}
+startServer();
 
 export { startServer };
