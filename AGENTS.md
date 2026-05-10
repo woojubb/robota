@@ -23,22 +23,22 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 **Document tree:**
 
-| Document                                                                 | Purpose                                                                            |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| [.agents/rules/index.md](.agents/rules/index.md)                         | Rule group listing and routing                                                     |
-| [.agents/rules/code-quality.md](.agents/rules/code-quality.md)           | Type system, imports, dev patterns                                                 |
-| [.agents/rules/process.md](.agents/rules/process.md)                     | Routing file → spec-workflow, tdd-and-planning, verification, publish, operational |
-| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API specs and application lifecycle                                                |
-| [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                           |
-| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops and branch policy                                                          |
-| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | Observed failure patterns                                                          |
-| [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                               |
-| [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                     |
-| [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                              |
-| [.agents/templates/spec-template.md](.agents/templates/spec-template.md) | SPEC.md authoring template                                                         |
-| [.agents/specs/README.md](.agents/specs/README.md)                       | Cross-cutting specs that span multiple packages                                    |
-| [.agents/evals/README.md](.agents/evals/README.md)                       | Agent quality evaluation datasets and metrics                                      |
-| `packages/*/docs/SPEC.md`                                                | Package-level contracts (SSOT) — one per package                                   |
+| Document                                                                 | Purpose                                                                                                           |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| [.agents/rules/index.md](.agents/rules/index.md)                         | Rule group listing and routing                                                                                    |
+| [.agents/rules/code-quality.md](.agents/rules/code-quality.md)           | Type system, imports, dev patterns                                                                                |
+| [.agents/rules/process.md](.agents/rules/process.md)                     | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational |
+| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API specs and application lifecycle                                                                               |
+| [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                                                          |
+| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops and branch policy                                                                                         |
+| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | Observed failure patterns                                                                                         |
+| [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                                                              |
+| [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                                                    |
+| [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                                                             |
+| [.agents/templates/spec-template.md](.agents/templates/spec-template.md) | SPEC.md authoring template                                                                                        |
+| [.agents/specs/README.md](.agents/specs/README.md)                       | Cross-cutting specs that span multiple packages                                                                   |
+| [.agents/evals/README.md](.agents/evals/README.md)                       | Agent quality evaluation datasets and metrics                                                                     |
+| `packages/*/docs/SPEC.md`                                                | Package-level contracts (SSOT) — one per package                                                                  |
 
 ## Project Overview
 
@@ -84,15 +84,15 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
-| Group                | Document                                                       | Key rules                                                                           |
-| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                             |
-| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, feature docs |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | External API specs and graceful application shutdown                                |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                      |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy and conventional commits                                              |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                 |
-| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                   |
+| Group                | Document                                                       | Key rules                                                                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                                                                                                                                                |
+| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, **backlog done gate** (user execution scenarios — see [backlog-execution.md](.agents/rules/backlog-execution.md)), feature docs |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | External API specs and graceful application shutdown                                                                                                                                                   |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                                                                                                                                         |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy and conventional commits                                                                                                                                                                 |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                                                                                                                                    |
+| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                                                                                                                                      |
 
 ## Skills Reference
 
