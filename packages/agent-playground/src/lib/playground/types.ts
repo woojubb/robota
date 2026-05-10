@@ -7,7 +7,12 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
  * Consumers: apps/agent-server (server), @robota-sdk/agent-playground (client).
  */
 /** Discriminant values for playground WebSocket message types. */
-export type TPlaygroundWebSocketMessageKind = 'playground_update' | 'auth' | 'ping' | 'pong';
+export type TPlaygroundWebSocketMessageKind =
+  | 'playground_update'
+  | 'auth'
+  | 'ping'
+  | 'pong'
+  | 'error';
 
 /** Structure of a WebSocket message exchanged between the playground client and API server. */
 export interface IPlaygroundWebSocketMessage {
