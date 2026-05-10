@@ -11,6 +11,7 @@ flowchart TD
   ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
   Assembly["Assembly/API layers\nagent-sdk, apps/agent-server"]
   TransportShells["Transport shells\nagent-transport-ws, agent-transport-http,\nagent-transport-headless, agent-transport-mcp"]
+  Orchestration["Orchestration\nagent-team, agent-remote-client"]
   Sessions["Session services\nagent-sessions"]
   Runtime["Runtime services\nagent-runtime"]
   Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth, credits"]
@@ -27,6 +28,9 @@ flowchart TD
   Adapters --> Domain
   TransportShells --> Assembly
   Assembly --> TransportShells
+  Orchestration --> Domain
+  Orchestration --> Adapters
+  Assembly --> Orchestration
 ```
 
 The `ProductShells --> Adapters` edge is composition-root wiring only. A product shell may construct
@@ -40,6 +44,7 @@ Layer rules:
 | Product shells      | UI, CLI flags, process entrypoints, concrete host adapters                 | Domain rules, reusable contracts, provider semantics                      |
 | Assembly/API layers | Session assembly, command contracts, HTTP/API composition, request mapping | Product-specific rendering, vendor SDK behavior                           |
 | Transport shells    | Protocol framing, WebSocket/HTTP exposure of InteractiveSession            | Session state, domain logic, provider semantics                           |
+| Orchestration       | Multi-agent task delegation, remote-agent HTTP client                      | Session persistence, UI, provider semantics                               |
 | Session services    | Conversation lifecycle, persistence, compaction                            | UI, command contracts, provider semantics                                 |
 | Runtime services    | Background task state machines, subagent lifecycle ports                   | Session persistence, UI, command contracts                                |
 | Domain contracts    | Types, pure rules, ports, error shapes                                     | Concrete I/O, runtime process management, deps on other agent-\* packages |

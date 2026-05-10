@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-009: packages/agent-web SPEC.md 작성 및 project-structure 등재'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon

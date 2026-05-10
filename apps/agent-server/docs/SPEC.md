@@ -6,11 +6,14 @@ AI provider proxy server with Playground WebSocket support. Deployable standalon
 
 Key endpoints:
 
-- `POST /api/v1/remote/chat` -- chat completion proxy
-- `POST /api/v1/remote/stream` -- SSE streaming proxy
-- `GET /api/v1/remote/health` -- health check
-- `GET /api/v1/remote/providers/:provider/capabilities` -- provider capabilities
-- `WS /ws/playground` -- WebSocket for playground real-time
+- `GET /` -- server info
+- `GET /health` -- global liveness check
+- `GET /api/v1/remote/health` -- remote health check with provider list
+- `POST /api/v1/remote/chat` -- provider chat proxy
+- `GET /api/v1/remote/ws/status` -- WebSocket connection stats
+- `WS /ws/playground` -- Playground WebSocket (auth + broadcast)
+
+Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
 
 ## Boundaries
 
