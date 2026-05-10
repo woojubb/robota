@@ -229,7 +229,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           return; // allow-fallback: cleanup after unmount
         }
         const shouldOpen = !props.noOpen && !process.env['ROBOTA_NO_OPEN'];
-        const monitorUrl = process.env['ROBOTA_MONITOR_URL'] ?? 'http://localhost:7071/monitor';
+        const monitorUrl = `http://localhost:${server.port}`;
         if (shouldOpen) {
           open(monitorUrl).catch(() => undefined);
         }

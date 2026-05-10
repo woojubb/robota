@@ -1,6 +1,6 @@
 # PLG-002: CLI Second Screen — Browser Monitor
 
-- **Status**: in-progress
+- **Status**: done
 - **Created**: 2026-05-10
 - **Branch**: feat/plg-002-cli-web-monitor
 - **Scope**: packages/agent-cli, packages/agent-web (신규), apps/agent-web
@@ -41,6 +41,27 @@ Phase 1: 읽기 전용 모니터. Phase 2: 양방향 입력 지원.
 
 - (없음)
 
+## PLG-003 Implementation (2026-05-10)
+
+Branch: `feat/plg-003-web-monitor-spa`
+
+### Implemented
+
+- `packages/agent-web/spa/`: Vite SPA 엔트리 (index.html, main.tsx, main.css + Tailwind v4 dark theme)
+- `packages/agent-web/vite.spa.config.ts`: `spa/` → `dist/spa/` 빌드
+- `packages/agent-cli/scripts/copy-web-assets.mjs`: `dist/spa/` → `dist/web/` 복사
+- `packages/agent-cli/package.json` build 스크립트: `build:spa → copy → tsup` 직렬 실행
+- `packages/agent-cli/src/web-sidecar/web-sidecar-server.ts`: `serveStatic` 추가, WS + HTTP 단일 포트 7070
+
+### Verification
+
+- typecheck: agent-web ✓, agent-cli ✓
+- test: 53 files, 449 tests ✓
+- HTTP 통합 테스트: GET /, assets/\*, SPA fallback 4/4 ✓
+- `dist/web/index.html` + JS/CSS 번들 생성 확인
+
 ## Result
 
-(완료 후 기록)
+PLG-002 (WS sidecar + packages/agent-web) + PLG-003 (SPA 내장) 완료.
+`robota --web` 실행 시 포트 7070 단일 포트에서 WS + 정적 파일 서빙.
+Next.js 별도 서버 불필요. 브라우저 확인 시나리오 대기 중.

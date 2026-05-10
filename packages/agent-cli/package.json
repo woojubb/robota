@@ -38,7 +38,7 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm --filter @robota-sdk/agent-web build:spa && node scripts/copy-web-assets.mjs && tsup",
     "build:js": "tsup --no-dts",
     "build:types": "tsup --dts-only",
     "dev": "tsx src/bin.ts",
