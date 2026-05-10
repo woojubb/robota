@@ -46,7 +46,7 @@ function parseJsonObject(output: string): Record<string, unknown> {
 }
 
 describe('default CLI command composition', () => {
-  it('exposes permissions mode subcommands without composing legacy mode', () => {
+  it('exposes permissions mode subcommands and standalone mode command', () => {
     const registry = new CommandRegistry();
 
     for (const module of createDefaultCliCommandModules({
@@ -56,7 +56,7 @@ describe('default CLI command composition', () => {
       registry.addModule(module);
     }
 
-    expect(registry.getCommands().map((command) => command.name)).not.toContain('mode');
+    expect(registry.getCommands().map((command) => command.name)).toContain('mode');
     expect(registry.getCommands().map((command) => command.name)).toContain('user-local');
     expect(registry.getSubcommands('permissions').map((command) => command.name)).toEqual([
       'plan',
