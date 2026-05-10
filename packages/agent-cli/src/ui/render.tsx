@@ -15,6 +15,7 @@ import type {
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-sdk';
 import type { ICliUpdateNotice } from '../utils/update-check.js';
+import type { TransportRegistry } from '../transports/transport-registry.js';
 
 export interface IRenderOptions {
   cwd: string;
@@ -37,8 +38,7 @@ export interface IRenderOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   startupUpdateNoticePromise?: Promise<ICliUpdateNotice | undefined>;
-  webPort?: number;
-  noOpen?: boolean;
+  transportRegistry?: TransportRegistry;
 }
 
 export function renderApp(options: IRenderOptions): void {

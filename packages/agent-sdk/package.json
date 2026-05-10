@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-runtime": "workspace:*",
     "@robota-sdk/agent-sessions": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",

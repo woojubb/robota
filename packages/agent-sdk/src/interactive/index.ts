@@ -25,5 +25,9 @@ export type {
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
-  ITransportAdapter,
 } from './types.js';
+export type {
+  ITransportAdapter,
+  IConfigurableTransport,
+  ITransportConfig,
+} from '@robota-sdk/agent-interface-transport';

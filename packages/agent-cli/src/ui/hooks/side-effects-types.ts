@@ -22,9 +22,11 @@ export interface IUseSideEffectsResult {
   pendingInteractionPrompt: TInteractivePrompt | null;
   showPluginTUI: boolean;
   showSessionPicker: boolean;
+  showTransportTUI: boolean;
   setPendingModelId: (id: string | null) => void;
   setShowPluginTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
+  setShowTransportTUI: (show: boolean) => void;
   handleModelConfirm: (index: number) => void;
   handleInteractionSubmit: (value: string) => Promise<void>;
   handleInteractionCancel: () => void;
