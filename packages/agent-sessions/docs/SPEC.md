@@ -50,21 +50,22 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                                                           |
-| ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
-| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                       |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                          |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                             |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                           |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
-| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy             |
-| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields) |
+| Type                         | Kind      | File                         | Description                                                                                                                                                                                                   |
+| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ISession`                   | Interface | `session-interface.ts`       | Minimal session abstraction: `{ readonly sessionId: string }`. Used by `agent-interface-transport` to break the circular dep with `agent-sdk`. `InteractiveSession` in `agent-sdk` implements this interface. |
+| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId)                                                                                                         |
+| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                                                                                                                               |
+| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                                                                                                                           |
+| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                                                                                                                                  |
+| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                                                                                                                                     |
+| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                                                                                                                        |
+| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                                                                                                                                   |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                                                                                                                               |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                                                                                                                                      |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)                                                                                                                   |
+| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy                                                                                                                     |
+| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                                                                                                                        |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields)                                                                                                         |
 
 Types consumed from other packages (not owned here):
 
@@ -88,6 +89,7 @@ Types consumed from other packages (not owned here):
 
 | Export                           | Kind                 | Description                                                                                                    |
 | -------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ISession`                       | Interface            | Minimal session abstraction `{ readonly sessionId: string }` used by `agent-interface-transport`               |
 | `Session`                        | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                         |
 | `PermissionEnforcer`             | Class                | Tool permission checking, hook execution, output truncation                                                    |
 | `ContextWindowTracker`           | Class                | Token usage tracking and auto-compact threshold                                                                |

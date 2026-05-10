@@ -28,6 +28,7 @@ import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
 import { createUserLocalCommandModule } from '@robota-sdk/agent-command-user-local';
 import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
+import { createSettingsCommandModule } from '@robota-sdk/agent-command-settings';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -60,6 +61,8 @@ import {
 } from './utils/provider-setup.js';
 import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
+import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { TransportRegistry } from './transports/transport-registry.js';
 import { renderApp } from './ui/render.js';
 import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
@@ -207,6 +210,7 @@ export function createDefaultCliCommandModules({
     createRewindCommandModule(),
     createStatusLineCommandModule(),
     createPluginCommandModule(),
+    createSettingsCommandModule(),
     createProviderCommandModule({
       providerDefinitions,
       settings: {
@@ -411,7 +415,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     commandModules,
     commandHostAdapters,
     startupUpdateNoticePromise,
-    webPort: args.web ? args.webPort : undefined,
-    noOpen: args.noOpen,
+    transportRegistry: createTransportRegistry(),
   });
+}
+
+function createTransportRegistry(): TransportRegistry {
+  const registry = new TransportRegistry(getUserSettingsPath());
+  registry.register(new WsTransport());
+  return registry;
 }

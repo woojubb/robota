@@ -34,6 +34,7 @@ export function useSideEffects({
   const commandInteractionRef = useRef<ICommandInteraction | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(showSessionPickerOnStart ?? false);
+  const [showTransportTUI, setShowTransportTUI] = useState(false);
 
   const requestShutdown = useCallback(
     (reason: TSessionEndReason, message: string): void => {
@@ -56,6 +57,7 @@ export function useSideEffects({
         },
         openPluginTUI: () => setShowPluginTUI(true),
         openSessionPicker: () => setShowSessionPicker(true),
+        openTransportTUI: () => setShowTransportTUI(true),
         renameSession: (name) => {
           interactiveSession.setName(name);
           setSessionName(name);
@@ -179,9 +181,11 @@ export function useSideEffects({
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
+    showTransportTUI,
     setPendingModelId,
     setShowPluginTUI,
     setShowSessionPicker,
+    setShowTransportTUI,
     handleModelConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,

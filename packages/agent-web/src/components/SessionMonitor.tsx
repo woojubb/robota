@@ -99,7 +99,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                   <p className="text-xs font-mono text-muted-foreground max-w-[260px] leading-relaxed">
                     {status === 'connecting'
                       ? `Connecting to ${url}…`
-                      : `Run robota --web to start the sidecar.`}
+                      : `Run robota to start the CLI (WS transport starts automatically).`}
                   </p>
                 </div>
               </div>
