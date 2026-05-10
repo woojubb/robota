@@ -662,7 +662,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
         },
       ],
     };
-    createFile(join(pluginDir, '.claude-plugin', 'mcp.json'), JSON.stringify(mcpConfig, null, 2));
+    createFile(join(pluginDir, '.mcp.json'), JSON.stringify(mcpConfig, null, 2));
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
