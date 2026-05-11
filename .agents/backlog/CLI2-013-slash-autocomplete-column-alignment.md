@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-013: 슬래시 자동완성 name/description 컬럼 정렬'
-status: todo
+status: done
 created: 2026-05-11
 priority: low
 urgency: normal
@@ -77,5 +77,5 @@ pnpm --filter @robota-sdk/agent-transport-tui test SlashAutocomplete
 
 **증거 필드** (구현 후 기입):
 
-- 관찰 결과: \_
-- 종료 코드: \_
+- 관찰 결과: `pnpm --filter @robota-sdk/agent-transport-tui test SlashAutocomplete` — 10개 테스트 PASS. name 컬럼 정렬, 20자 캡 + ellipsis, padEnd 동작 확인. 전체 38파일 321테스트 회귀 없음.
+- 종료 코드: 0
