@@ -1,6 +1,6 @@
 ---
 title: 'DEP-001: agent-server 미사용 의존성 — express-winston, winston, @robota-sdk/agent-provider-bytedance'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon
