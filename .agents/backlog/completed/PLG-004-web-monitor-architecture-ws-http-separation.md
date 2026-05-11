@@ -1,6 +1,6 @@
 ---
 title: 'PLG-004: Web Monitor 아키텍처 재설계 — WS 서버 / HTTP 서버 분리 + 초기화 순서 명시'
-status: in-progress
+status: done
 branch: feat/plg-004-web-monitor-arch
 implemented: 2026-05-10
 created: 2026-05-10

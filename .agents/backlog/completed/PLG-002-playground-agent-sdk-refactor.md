@@ -1,7 +1,7 @@
 ---
 id: PLG-002
 title: 'agent-web 패키지 — CLI 세션 브라우저 모니터 (Phase 1) + 양방향 제어 (Phase 2)'
-status: backlog
+status: done
 priority: medium
 created: 2026-05-10
 area: packages/agent-web, packages/agent-cli, apps/agent-web

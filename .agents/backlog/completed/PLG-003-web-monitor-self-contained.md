@@ -1,6 +1,6 @@
 ---
 title: 'PLG-003: --web 모니터 자급 실행 — Next.js 외부 서버 의존성 제거'
-status: in-progress
+status: done
 created: 2026-05-10
 implemented: 2026-05-10
 branch: feat/plg-003-web-monitor-spa
