@@ -5,11 +5,8 @@ import SlashAutocomplete from '../SlashAutocomplete.js';
 import type { ICommand } from '@robota-sdk/agent-sdk';
 
 // ink-testing-library fixes stdout.columns = 100
-// outer box chrome = 4 (border×2 + paddingX×2)
-// → rowWidth = 96 in tests
-const TEST_COLUMNS = 100;
-const OUTER_CHROME = 4;
-const ROW_WIDTH = TEST_COLUMNS - OUTER_CHROME; // 96
+// outer box chrome = 4 → rowWidth = 96 in tests
+const NAME_COL_MAX = 20;
 
 function makeCmd(name: string, description: string): ICommand {
   return { name, description } as ICommand;
@@ -34,39 +31,78 @@ describe('SlashAutocomplete', () => {
     expect(lastFrame()).toBe('');
   });
 
-  it('renders short description unchanged', () => {
+  it('aligns descriptions to the same column across all rows', () => {
     const { lastFrame } = render(
       <SlashAutocomplete
-        commands={[makeCmd('help', 'Short description')]}
+        commands={[
+          makeCmd('go', 'Short'),
+          makeCmd('session-persistence', 'Manage sessions'),
+          makeCmd('help', 'Show help'),
+        ]}
         selectedIndex={0}
         visible={true}
       />,
     );
-    expect(lastFrame()).toContain('Short description');
-    expect(lastFrame()).not.toContain('…');
+    const frame = lastFrame()!;
+    const lines = frame
+      .split('\n')
+      .filter((l) => l.includes('Short') || l.includes('Manage') || l.includes('Show help'));
+    // All description texts should start at the same column index
+    const descPositions = lines.map((l) => {
+      // find position after the two-space separator following the name
+      const match = /  \S/.exec(l.slice(l.indexOf('/') + 1));
+      return match ? l.indexOf('/') + 1 + match.index + 2 : -1;
+    });
+    expect(new Set(descPositions).size).toBe(1);
   });
 
-  it('truncates row that exceeds terminal-derived row width', () => {
-    // name='cmd'(3) → prefix = indicator(2)+slash(1)+name(3)+sep(2) = 8
-    // rowWidth=96, so description > 88 chars triggers truncation
-    const name = 'cmd';
-    const longDesc = 'A'.repeat(ROW_WIDTH); // 96 chars — definitely overflows with prefix
+  it('pads short names to match the longest name in visible set', () => {
     const { lastFrame } = render(
-      <SlashAutocomplete commands={[makeCmd(name, longDesc)]} selectedIndex={0} visible={true} />,
+      <SlashAutocomplete
+        commands={[makeCmd('go', 'Run'), makeCmd('help', 'Show help')]}
+        selectedIndex={0}
+        visible={true}
+      />,
+    );
+    const frame = lastFrame()!;
+    // 'go' should be padded to 4 chars (length of 'help')
+    expect(frame).toContain('/go  ');
+  });
+
+  it('caps name column at NAME_COL_MAX and truncates with ellipsis', () => {
+    const longName = 'a'.repeat(NAME_COL_MAX + 5);
+    const { lastFrame } = render(
+      <SlashAutocomplete
+        commands={[makeCmd(longName, 'Description'), makeCmd('go', 'Short')]}
+        selectedIndex={0}
+        visible={true}
+      />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain('…');
+    expect(frame).not.toContain(longName);
+  });
+
+  it('does not truncate name exactly at NAME_COL_MAX', () => {
+    const exactName = 'b'.repeat(NAME_COL_MAX);
+    const { lastFrame } = render(
+      <SlashAutocomplete
+        commands={[makeCmd(exactName, 'Desc'), makeCmd('go', 'Short')]}
+        selectedIndex={0}
+        visible={true}
+      />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain(exactName);
+  });
+
+  it('truncates long row text with ellipsis via Ink wrap', () => {
+    const longDesc = 'X'.repeat(100);
+    const { lastFrame } = render(
+      <SlashAutocomplete commands={[makeCmd('cmd', longDesc)]} selectedIndex={0} visible={true} />,
     );
     expect(lastFrame()).toContain('…');
     expect(lastFrame()).not.toContain(longDesc);
-  });
-
-  it('does not truncate when total row fits within width', () => {
-    const name = 'go';
-    // prefix = 2+1+2+2 = 7, keep description short enough
-    const shortDesc = 'B'.repeat(10);
-    const { lastFrame } = render(
-      <SlashAutocomplete commands={[makeCmd(name, shortDesc)]} selectedIndex={0} visible={true} />,
-    );
-    expect(lastFrame()).toContain(shortDesc);
-    expect(lastFrame()).not.toContain('…');
   });
 
   it('handles undefined description gracefully', () => {
