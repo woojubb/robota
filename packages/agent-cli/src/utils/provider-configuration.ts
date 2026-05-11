@@ -30,7 +30,6 @@ export interface IActiveModelChangeResult {
   settingsPath: string;
   settings: TProviderSettingsDocument;
   profileName?: string;
-  legacyProvider?: boolean;
 }
 
 export function resolveProviderSettingsWriteTargetPath(
@@ -86,11 +85,13 @@ export function applyActiveModelChange(
   const merged = readMergedProviderSettingsFromPaths(settingsPaths);
   const activeProfileName = options.providerOverride ?? merged.currentProvider;
 
-  if (typeof activeProfileName === 'string') {
-    return updateActiveProviderProfileModel(settingsPaths, activeProfileName, modelId);
+  if (typeof activeProfileName !== 'string') {
+    throw new Error(
+      'Cannot update model: no active provider profile. Set "currentProvider" in settings.',
+    );
   }
 
-  return updateLegacyProviderModel(settingsPaths, modelId);
+  return updateActiveProviderProfileModel(settingsPaths, activeProfileName, modelId);
 }
 
 function updateActiveProviderProfileModel(
@@ -121,27 +122,6 @@ function updateActiveProviderProfileModel(
   return { settingsPath, settings: next, profileName };
 }
 
-function updateLegacyProviderModel(
-  settingsPaths: readonly string[],
-  modelId: string,
-): IActiveModelChangeResult {
-  const settingsPath = findLastPathWithLegacyProvider(settingsPaths) ?? settingsPaths[0];
-  if (settingsPath === undefined) {
-    throw new Error('No settings path available for model update');
-  }
-
-  const settings = readProviderDocument(settingsPath);
-  const next: TProviderSettingsDocument = {
-    ...settings,
-    provider: {
-      ...(settings.provider ?? {}),
-      model: modelId,
-    },
-  };
-  writeSettings(settingsPath, next);
-  return { settingsPath, settings: next, legacyProvider: true };
-}
-
 function findLastPathWithProviderProfile(
   settingsPaths: readonly string[],
   profileName: string,
@@ -151,16 +131,6 @@ function findLastPathWithProviderProfile(
     if (settingsPath === undefined) continue;
     const settings = readProviderDocument(settingsPath);
     if (settings.providers?.[profileName] !== undefined) return settingsPath;
-  }
-  return undefined;
-}
-
-function findLastPathWithLegacyProvider(settingsPaths: readonly string[]): string | undefined {
-  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
-    const settingsPath = settingsPaths[index];
-    if (settingsPath === undefined) continue;
-    const settings = readProviderDocument(settingsPath);
-    if (settings.provider !== undefined) return settingsPath;
   }
   return undefined;
 }

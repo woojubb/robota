@@ -252,7 +252,7 @@ describe('provider configuration writes', () => {
     expect(readProviderSettings(cwd).model).toBe('claude-opus-4-6');
   });
 
-  it('updates the legacy provider model resolved by the next session without losing fields', () => {
+  it('throws when trying to update model without currentProvider configured', () => {
     const cwd = join(TMP_BASE, 'project');
     const settingsPath = join(cwd, '.robota', 'settings.json');
     mkdirSync(join(cwd, '.robota'), { recursive: true });
@@ -269,15 +269,6 @@ describe('provider configuration writes', () => {
       'utf8',
     );
 
-    applyActiveModelChange(cwd, 'gpt-4.1');
-
-    const settings = readJson(settingsPath);
-    expect(settings.provider).toMatchObject({
-      name: 'openai',
-      model: 'gpt-4.1',
-      apiKey: 'lm-studio',
-      baseURL: 'http://localhost:1234/v1',
-    });
-    expect(readProviderSettings(cwd).model).toBe('gpt-4.1');
+    expect(() => applyActiveModelChange(cwd, 'gpt-4.1')).toThrow('no active provider profile');
   });
 });
