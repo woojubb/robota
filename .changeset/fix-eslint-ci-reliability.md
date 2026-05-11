@@ -6,7 +6,6 @@
 '@robota-sdk/agent-team': patch
 '@robota-sdk/agent-tools': patch
 '@robota-sdk/agent-tool-mcp': patch
-'@robota-sdk/agent-event-service': patch
 '@robota-sdk/agent-remote-client': patch
 '@robota-sdk/agent-provider-anthropic': patch
 '@robota-sdk/agent-provider-bytedance': patch

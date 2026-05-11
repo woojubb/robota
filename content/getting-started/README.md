@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Node.js**: 18.0.0 or higher (recommended: 22.14.0)
+- **Node.js 22 or higher** — required for Robota CLI; SDK supports Node.js 18+ (22 recommended)
 - **AI Provider API key**: Anthropic, OpenAI, DeepSeek, Gemini, Qwen, or another configured
   provider
 
