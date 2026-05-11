@@ -1,6 +1,6 @@
 ---
 title: 'DEV-008: agent-server 종료 시 HTTP server.close() 후 wsServer.close() 순서 역전 — 활성 WebSocket이 30s 타임아웃 강제 종료 유발'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon

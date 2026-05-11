@@ -1,6 +1,6 @@
 ---
 title: 'DEV-009: useInteractiveSession이 렌더 본문에서 세션 초기화 — React strict mode 이중 초기화 위험'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: later
