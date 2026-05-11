@@ -55,6 +55,7 @@ export function createApp(): express.Application {
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: rateLimitMax,
+    validate: { trustProxy: false }, // trust proxy is intentionally true for Firebase Functions
     message: {
       error: 'Too many requests',
       retryAfter: '15 minutes',
