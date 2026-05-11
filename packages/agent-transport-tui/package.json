@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-tui",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "description": "Terminal UI transport for InteractiveSession — Ink/React TUI as an I/O adapter",
   "type": "module",
   "main": "dist/node/index.js",

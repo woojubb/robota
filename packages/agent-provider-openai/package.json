@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-openai",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "description": "OpenAI integration for Robota SDK using the Responses API, structured outputs, streaming, and tool calling",
   "type": "module",
   "main": "dist/node/index.js",

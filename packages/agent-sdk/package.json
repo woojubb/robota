@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-sdk",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "description": "Programmatic SDK for building AI agents with Robota — provides InteractiveSession, createQuery(), command APIs, permissions, hooks, and context loading",
   "type": "module",
   "main": "dist/node/index.js",
