@@ -42,8 +42,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-sessions": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^5.0.5",
