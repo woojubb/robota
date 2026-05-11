@@ -59,7 +59,10 @@
     "@robota-sdk/agent-provider-deepseek": "3.0.0-beta.60",
     "@robota-sdk/auth": "3.0.0-beta.60",
     "@robota-sdk/credits": "3.0.0-beta.60",
-    "@robota-sdk/agent-command-user-local": "3.0.0-beta.61"
+    "@robota-sdk/agent-command-user-local": "3.0.0-beta.61",
+    "@robota-sdk/agent-command-settings": "3.0.0-beta.62",
+    "@robota-sdk/agent-interface-transport": "3.0.0-beta.62",
+    "@robota-sdk/agent-transport-tui": "3.0.0-beta.62"
   },
   "changesets": [
     "add-cli-provider-usage-visibility",
@@ -72,6 +75,7 @@
     "cli-sdk-agent-feedback",
     "cli-status-bar-cleanup",
     "cli-web-monitor",
+    "cli2-001-help-flag",
     "collapse-command-transcripts",
     "deepseek-provider",
     "edit-checkpointing",

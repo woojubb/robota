@@ -1,5 +1,12 @@
 # @robota-sdk/agent-tool-mcp
 
+## 3.0.0-beta.63
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.63
+- @robota-sdk/agent-tools@3.0.0-beta.63
+
 ## 3.0.0-beta.62
 
 ### Patch Changes
