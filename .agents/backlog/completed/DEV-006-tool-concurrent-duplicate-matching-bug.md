@@ -1,6 +1,6 @@
 ---
 title: 'DEV-006: onToolEnd 중복 도구 이름 매칭 버그 — 동시 동일 도구 실행 시 상태 불일치'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
