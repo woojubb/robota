@@ -8,6 +8,9 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
+const VALID_OUTPUT_FORMATS = ['text', 'json', 'stream-json'] as const;
+export type TOutputFormat = (typeof VALID_OUTPUT_FORMATS)[number];
+
 export interface IParsedCliArgs {
   positional: string[];
   printMode: boolean;
@@ -19,7 +22,7 @@ export interface IParsedCliArgs {
   maxTurns: number | undefined;
   forkSession: boolean;
   sessionName: string | undefined;
-  outputFormat: string | undefined;
+  outputFormat: TOutputFormat | undefined;
   format: string | undefined;
   summary: string | undefined;
   source: string | undefined;
@@ -43,6 +46,18 @@ export interface IParsedCliArgs {
   settingsScope: string | undefined;
   checkUpdate: boolean;
   disableUpdateCheck: boolean;
+}
+
+/** Validate and return a TOutputFormat from a raw CLI string, or exit on error. */
+export function parseOutputFormat(raw: string | undefined): TOutputFormat | undefined {
+  if (raw === undefined) return undefined;
+  if (!(VALID_OUTPUT_FORMATS as readonly string[]).includes(raw)) {
+    process.stderr.write(
+      `Invalid --output-format "${raw}". Valid: ${VALID_OUTPUT_FORMATS.join(' | ')}\n`,
+    );
+    process.exit(1);
+  }
+  return raw as TOutputFormat;
 }
 
 /** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
@@ -118,7 +133,7 @@ export function parseCliArgs(): IParsedCliArgs {
     maxTurns: parseMaxTurns(values['max-turns']),
     forkSession: values['fork-session'] ?? false,
     sessionName: values['name'],
-    outputFormat: values['output-format'],
+    outputFormat: parseOutputFormat(values['output-format']),
     format: values['format'],
     summary: values['summary'],
     source: values['source'],

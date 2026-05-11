@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { parsePermissionMode, parseMaxTurns, parseCliArgs } from '../cli-args.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  parsePermissionMode,
+  parseMaxTurns,
+  parseOutputFormat,
+  parseCliArgs,
+} from '../cli-args.js';
 
 describe('parsePermissionMode', () => {
   it('returns undefined for undefined input', () => {
@@ -11,6 +16,30 @@ describe('parsePermissionMode', () => {
     expect(parsePermissionMode('default')).toBe('default');
     expect(parsePermissionMode('acceptEdits')).toBe('acceptEdits');
     expect(parsePermissionMode('bypassPermissions')).toBe('bypassPermissions');
+  });
+});
+
+describe('parseOutputFormat', () => {
+  it('returns undefined for undefined input', () => {
+    expect(parseOutputFormat(undefined)).toBeUndefined();
+  });
+
+  it('returns valid output formats', () => {
+    expect(parseOutputFormat('text')).toBe('text');
+    expect(parseOutputFormat('json')).toBe('json');
+    expect(parseOutputFormat('stream-json')).toBe('stream-json');
+  });
+
+  it('exits with error for invalid format', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    parseOutputFormat('xml');
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Invalid --output-format "xml". Valid: text | json | stream-json\n',
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    stderrSpy.mockRestore();
+    exitSpy.mockRestore();
   });
 });
 
