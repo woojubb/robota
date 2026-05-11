@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-005: promptInput Ctrl+C 경로에서 stdin 리스너 누수'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon

@@ -1,6 +1,6 @@
 ---
 title: 'DEV-001: useSideEffects.ts의 as unknown as ISideEffects 이중 캐스팅 — 사이드 이펙트 경로 dead code'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: now

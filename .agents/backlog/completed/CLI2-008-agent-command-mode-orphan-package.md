@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-008: agent-command-mode 패키지가 CLI에 등록되지 않은 orphan 상태'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon
