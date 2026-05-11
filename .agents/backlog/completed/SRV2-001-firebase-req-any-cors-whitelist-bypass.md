@@ -1,6 +1,6 @@
 ---
 title: 'SRV2-001: Firebase handler req:any 타입 오류 및 cors:true CORS 화이트리스트 무력화'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: now
@@ -80,4 +80,4 @@ curl -s -I -H "Origin: https://robota.io" http://localhost:5001/<project>/us-cen
 
 **Expected observable result**: evil.com origin은 CORS 거부, robota.io는 허용
 
-**Evidence**: (구현 후 기록)
+**Evidence**: 이미 구현됨. `apps/agent-server/src/index.ts`: `cors: false`로 설정됨, 핸들러는 `(_req, res)` 추론 타입 사용 (any 없음).
