@@ -30,6 +30,7 @@ flowchart TD
   AgentCLI --> Providers
   AgentCLI --> Headless
   TuiTransport --> SDK
+  AgentCLI --> Plugins
   Headless --> SDK
   Commands --> SDK
   %% Only agent-command-provider has a direct agent-core dependency; other command packages use SDK APIs only
