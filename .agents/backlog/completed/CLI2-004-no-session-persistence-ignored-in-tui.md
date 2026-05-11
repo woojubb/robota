@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-004: --no-session-persistence 플래그가 인터랙티브 TUI 모드에서 무시됨'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon

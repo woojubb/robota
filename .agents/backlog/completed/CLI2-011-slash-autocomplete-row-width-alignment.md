@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-011: 슬래시 자동완성 행 전체 폭 기준 말줄임표 처리'
-status: todo
+status: superseded-by-CLI2-012
 created: 2026-05-11
 priority: medium
 urgency: normal
