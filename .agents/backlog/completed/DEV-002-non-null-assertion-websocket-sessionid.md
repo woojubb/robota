@@ -1,6 +1,6 @@
 ---
 title: 'DEV-002: WebSocket handler client.sessionId! non-null assertion — 런타임 크래시 위험'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: now
