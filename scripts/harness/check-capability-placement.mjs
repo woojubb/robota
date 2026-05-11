@@ -70,6 +70,8 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-provider-[^/]+$/, textPattern: /agent-provider-\*/ },
   { pathPattern: /^packages\/agent-transport-[^/]+$/, textPattern: /agent-transport-\*/ },
   { pathPattern: /^packages\/agent-plugin-[^/]+$/, textPattern: /agent-plugin-\*/ },
+  { pathPattern: /^packages\/agent-interface-[^/]+$/, textPattern: /agent-interface-\*/ },
+  { pathPattern: /^packages\/agent-web$/, textPattern: /agent-web/ },
   { pathPattern: /^packages\/agent-tool-mcp$/, textPattern: /agent-tool-mcp/ },
   { pathPattern: /^packages\/agent-tools$/, textPattern: /agent-tools/ },
   { pathPattern: /^packages\/agent-runtime$/, textPattern: /agent-runtime/ },
@@ -143,7 +145,7 @@ async function readJsonFile(root, relativePath) {
 
 async function listWorkspacePackages(root) {
   const packages = new Map();
-  for (const workspaceDir of ['packages', 'apps']) {
+  for (const workspaceDir of ['apps', 'packages']) {
     const absoluteDir = path.join(root, workspaceDir);
     if (!(await pathExists(absoluteDir))) {
       continue;
