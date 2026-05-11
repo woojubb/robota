@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { parsePermissionMode, parseMaxTurns, parseCliArgs } from '../cli-args.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {
+  parsePermissionMode,
+  parseMaxTurns,
+  parseOutputFormat,
+  parseCliArgs,
+  printHelp,
+} from '../cli-args.js';
 
 describe('parsePermissionMode', () => {
   it('returns undefined for undefined input', () => {
@@ -11,6 +17,30 @@ describe('parsePermissionMode', () => {
     expect(parsePermissionMode('default')).toBe('default');
     expect(parsePermissionMode('acceptEdits')).toBe('acceptEdits');
     expect(parsePermissionMode('bypassPermissions')).toBe('bypassPermissions');
+  });
+});
+
+describe('parseOutputFormat', () => {
+  it('returns undefined for undefined input', () => {
+    expect(parseOutputFormat(undefined)).toBeUndefined();
+  });
+
+  it('returns valid output formats', () => {
+    expect(parseOutputFormat('text')).toBe('text');
+    expect(parseOutputFormat('json')).toBe('json');
+    expect(parseOutputFormat('stream-json')).toBe('stream-json');
+  });
+
+  it('exits with error for invalid format', () => {
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    parseOutputFormat('xml');
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Invalid --output-format "xml". Valid: text | json | stream-json\n',
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    stderrSpy.mockRestore();
+    exitSpy.mockRestore();
   });
 });
 
@@ -206,5 +236,43 @@ describe('new non-interactive flags', () => {
   it('defaults jsonSchema to undefined', () => {
     process.argv = ['node', 'cli'];
     expect(parseCliArgs().jsonSchema).toBeUndefined();
+  });
+});
+
+describe('help flag', () => {
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('parses --help flag', () => {
+    process.argv = ['node', 'cli', '--help'];
+    expect(parseCliArgs().help).toBe(true);
+  });
+
+  it('parses -h short flag', () => {
+    process.argv = ['node', 'cli', '-h'];
+    expect(parseCliArgs().help).toBe(true);
+  });
+
+  it('defaults help to false', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().help).toBe(false);
+  });
+
+  it('printHelp writes to stdout', () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    printHelp();
+    expect(stdoutSpy).toHaveBeenCalledOnce();
+    const output = stdoutSpy.mock.calls[0][0] as string;
+    expect(output).toContain('--help');
+    expect(output).toContain('--version');
+    expect(output).toContain('-p');
+    stdoutSpy.mockRestore();
   });
 });

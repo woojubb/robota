@@ -1,5 +1,43 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.63
+
+### Patch Changes
+
+- Add --help / -h CLI flag to print usage information and exit
+  - @robota-sdk/agent-core@3.0.0-beta.63
+  - @robota-sdk/agent-sdk@3.0.0-beta.63
+  - @robota-sdk/agent-command-agent@3.0.0-beta.63
+  - @robota-sdk/agent-command-background@3.0.0-beta.63
+  - @robota-sdk/agent-command-compact@3.0.0-beta.63
+  - @robota-sdk/agent-command-context@3.0.0-beta.63
+  - @robota-sdk/agent-command-exit@3.0.0-beta.63
+  - @robota-sdk/agent-command-help@3.0.0-beta.63
+  - @robota-sdk/agent-command-language@3.0.0-beta.63
+  - @robota-sdk/agent-command-memory@3.0.0-beta.63
+  - @robota-sdk/agent-command-mode@3.0.0-beta.63
+  - @robota-sdk/agent-command-model@3.0.0-beta.63
+  - @robota-sdk/agent-command-permissions@3.0.0-beta.63
+  - @robota-sdk/agent-command-plugin@3.0.0-beta.63
+  - @robota-sdk/agent-command-provider@3.0.0-beta.63
+  - @robota-sdk/agent-command-reset@3.0.0-beta.63
+  - @robota-sdk/agent-command-rewind@3.0.0-beta.63
+  - @robota-sdk/agent-command-session@3.0.0-beta.63
+  - @robota-sdk/agent-command-statusline@3.0.0-beta.63
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.63
+  - @robota-sdk/agent-provider-deepseek@3.0.0-beta.63
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.63
+  - @robota-sdk/agent-provider-gemma@3.0.0-beta.63
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.63
+  - @robota-sdk/agent-transport-ws@3.0.0-beta.63
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.63
+  - @robota-sdk/agent-command-settings@3.0.0-beta.63
+  - @robota-sdk/agent-command-skills@3.0.0-beta.63
+  - @robota-sdk/agent-command-user-local@3.0.0-beta.63
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.63
+  - @robota-sdk/agent-provider-qwen@3.0.0-beta.63
+  - @robota-sdk/agent-transport-tui@3.0.0-beta.63
+
 ## 3.0.0-beta.62
 
 ### Patch Changes
