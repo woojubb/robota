@@ -25,9 +25,11 @@ What actually happened. Include error output, stack traces, or screenshots where
 
 ## Environment
 
+- Robota version: (run `robota --version`)
+- Node.js version: (run `node --version`)
 - OS: [e.g. macOS 14, Ubuntu 22.04]
-- Node.js version: [e.g. 22.14.0]
-- Package version: [e.g. 3.0.0-beta.62]
+- Terminal: [e.g. iTerm2, Terminal.app, Windows Terminal]
+- AI Provider: [e.g. Anthropic, OpenAI, Google, local]
 - Shell: [e.g. zsh, bash]
 
 ## Additional context

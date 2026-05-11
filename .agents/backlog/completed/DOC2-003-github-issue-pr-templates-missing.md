@@ -1,6 +1,6 @@
 ---
 title: 'DOC2-003: GitHub 이슈/PR 템플릿 없음 — 베타 출시 후 커뮤니티 지원 준비 미완'
-status: todo
+status: done
 created: 2026-05-10
 priority: low
 urgency: soon
@@ -87,4 +87,4 @@ ls .github/ISSUE_TEMPLATE/
 # Expected: bug_report.md  feature_request.md
 ```
 
-**Evidence:** (구현 후 기록)
+**Evidence:** `.github/ISSUE_TEMPLATE/` 확인 — `bug_report.md`(기존, Robota version/Terminal/AI Provider 필드 추가) + `feature_request.md`(신규 생성). `PULL_REQUEST_TEMPLATE.md`는 이미 존재.
