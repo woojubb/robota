@@ -5,8 +5,7 @@
  *   { "ws": { "enabled": true, "options": { "port": 7070 } } }
  */
 
-import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { ISession } from '@robota-sdk/agent-sessions';
+import type { TUniversalValue, ISession } from '@robota-sdk/agent-core';
 import type {
   IConfigurableTransport,
   ITransportConfig,

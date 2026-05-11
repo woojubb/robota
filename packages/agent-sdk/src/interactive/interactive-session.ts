@@ -9,7 +9,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { Session, ISession } from '@robota-sdk/agent-sessions';
+import type { Session } from '@robota-sdk/agent-sessions';
+import type { ISession } from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type {

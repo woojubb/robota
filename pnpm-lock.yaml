@@ -413,9 +413,6 @@ importers:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:*
-        version: link:../agent-sessions
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
         version: link:../agent-transport-headless
@@ -900,9 +897,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:*
-        version: link:../agent-sessions
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -1704,15 +1698,15 @@ importers:
 
   packages/agent-transport-headless:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:*
-        version: link:../agent-sessions
     devDependencies:
       '@robota-sdk/agent-command-skills':
         specifier: workspace:*
@@ -1855,9 +1849,6 @@ importers:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:*
-        version: link:../agent-sessions
       ws:
         specifier: ^8.18.3
         version: 8.20.0

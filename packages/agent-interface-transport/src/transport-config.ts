@@ -27,6 +27,6 @@ export interface ITransportEntry {
 export interface ITransportRegistryView {
   getAll(): ITransportEntry[];
   setEnabled(name: string, enabled: boolean): Promise<void>;
-  startAll(session: import('@robota-sdk/agent-sessions').ISession): Promise<void>;
+  startAll(session: import('@robota-sdk/agent-core').ISession): Promise<void>;
   stopAll(): Promise<void>;
 }

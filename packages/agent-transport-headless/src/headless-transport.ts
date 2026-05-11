@@ -6,7 +6,7 @@
  */
 
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { ISession } from '@robota-sdk/agent-sessions';
+import type { ISession } from '@robota-sdk/agent-core';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import { createHeadlessRunner } from './headless-runner.js';
 import type { TOutputFormat } from './headless-runner.js';
