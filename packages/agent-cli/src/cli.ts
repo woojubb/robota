@@ -339,7 +339,7 @@ async function runPrintMode(
   });
 
   const transport = createHeadlessTransport({
-    outputFormat: (args.outputFormat as 'text' | 'json' | 'stream-json') ?? 'text',
+    outputFormat: args.outputFormat ?? 'text',
     prompt,
   });
   session.attachTransport(transport);
