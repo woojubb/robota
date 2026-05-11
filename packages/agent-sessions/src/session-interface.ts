@@ -1,8 +1,2 @@
-/**
- * Minimal session abstraction used by transport contracts.
- * Keeps agent-interface-transport free of agent-sdk circular dependencies.
- */
-
-export interface ISession {
-  readonly sessionId: string;
-}
+// ISession lives in agent-core (Domain layer). Re-exported here for backwards compatibility.
+export type { ISession } from '@robota-sdk/agent-core';
