@@ -1,6 +1,6 @@
 ---
 title: 'DEV-007: websocket-server.ts의 substr deprecated — slice로 교체'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: later
