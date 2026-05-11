@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-021: project-structure.md 커맨드 모듈 목록에 agent-command-settings 누락'
-status: todo
+status: done
 created: 2026-05-11
 priority: low
 urgency: normal
@@ -56,5 +56,5 @@ pnpm harness:scan
 
 **증거 필드** (구현 후 기입):
 
-- 관찰 결과: \_
-- 종료 코드: \_
+- 관찰 결과: `.agents/project-structure.md` 커맨드 모듈 목록에 `settings` 추가 완료. `pnpm harness:scan` PASS.
+- 종료 코드: 0

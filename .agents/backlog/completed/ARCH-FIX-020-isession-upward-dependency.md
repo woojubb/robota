@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-020: ISession 타입을 agent-core로 이동해 agent-interface-transport 상향 의존 제거'
-status: todo
+status: done
 created: 2026-05-11
 priority: high
 urgency: soon
@@ -88,5 +88,5 @@ grep -r "agent-sessions" packages/agent-interface-transport/package.json
 
 **증거 필드** (구현 후 기입):
 
-- 관찰 결과: \_
-- 종료 코드: \_
+- 관찰 결과: `pnpm typecheck` + `pnpm test` 전체 통과. `grep` 결과 없음(agent-interface-transport에 agent-sessions 의존 없음). ISession이 agent-core에서 정의되고 agent-sessions/agent-cli/agent-transport-tui/agent-transport-headless/agent-transport-ws/agent-sdk 등 전 패키지에서 agent-core로부터 import. 브랜치: `fix/arch-020-isession-to-agent-core`.
+- 종료 코드: 0
