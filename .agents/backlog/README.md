@@ -9,6 +9,25 @@ Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/
 2. When prioritized, move to `.agents/tasks/` and update status.
 3. When done, archive to `.agents/tasks/completed/`.
 
+## File Format
+
+Every backlog file **must** use YAML frontmatter for all metadata fields. The following fields are
+required at the top of each file:
+
+```markdown
+---
+title: '<ID>: <short description>'
+status: todo | in-progress | done | wontfix | backlog
+created: YYYY-MM-DD
+priority: critical | high | medium | low
+urgency: now | soon | later | backlog
+area: <affected packages or apps>
+---
+```
+
+Inline markdown (`- **Status**: value`) is **not acceptable** for metadata. Frontmatter is the
+single source of truth for status tracking — grep-based tooling and harness scripts rely on it.
+
 ## Backlog Entry Requirements
 
 Backlogs that change runnable user-facing behavior, command behavior, TUI/browser behavior, or

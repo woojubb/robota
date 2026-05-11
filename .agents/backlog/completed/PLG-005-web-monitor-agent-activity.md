@@ -1,6 +1,6 @@
 # PLG-005: Web Monitor — 에이전트 활동 패널
 
-- **Status**: backlog
+- **Status**: done
 - **Created**: 2026-05-10
 - **Area**: packages/agent-transport-ws, packages/agent-web, packages/agent-cli (spa)
 - **Priority**: high

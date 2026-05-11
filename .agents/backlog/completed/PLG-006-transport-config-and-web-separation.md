@@ -1,6 +1,6 @@
 # PLG-006: Transport Config Interface + WS/Web UI 분리
 
-- **Status**: backlog
+- **Status**: done
 - **Created**: 2026-05-10
 - **Area**: packages/agent-interface-transport (신규), packages/agent-sessions, packages/agent-sdk, packages/agent-transport-ws, packages/agent-cli, packages/agent-web
 - **Priority**: high
