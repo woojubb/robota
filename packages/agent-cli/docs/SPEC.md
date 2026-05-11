@@ -35,9 +35,10 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core` (domain port); CLI re-exports from `@robota-sdk/agent-core` and must not import `agent-sessions` in production source
-- OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
+- Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-transport-tui`
+- OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: Terminal UI command effect application and local command host adapters
+- OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
 
@@ -239,7 +240,7 @@ model; when only model metadata is available, it falls back to the model label.
 
 Provider setup prompt semantics must live outside Ink components and outside reusable CLI/TUI hooks. The provider command module owns provider setup steps, setup help descriptions, defaults, required-field validation, environment-reference validation, masked-field metadata, and final provider settings patch construction. Interactive rendering components must not import provider setup modules or provider definitions; they may only render generic SDK interaction descriptors and pass submitted values back to the active command interaction.
 
-TUI input semantics must live outside Ink components. `src/ui/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
+TUI input semantics must live outside Ink components. `agent-transport-tui/src/flows/*` owns prompt and input state transitions, shortcut meaning, selection bounds, slash autocomplete command selection, paste label insertion, and CJK cursor movement. Components may only translate `useInput` key data into flow actions, apply returned state, render the result, and call external callbacks.
 
 Prompt file-reference semantics are not TUI input semantics. `@file` tokens in ordinary prompts are
 passed through as user input; SDK-owned prompt preprocessing decides whether a token is a path-like
@@ -271,23 +272,24 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createResetCommandModule()      (from @robota-sdk/agent-command-reset)
               ├── createRewindCommandModule()     (from @robota-sdk/agent-command-rewind)
               ├── createStatusLineCommandModule() (from @robota-sdk/agent-command-statusline)
-              └── ui/render.tsx → App.tsx (Ink TUI)
-                    ├── useInteractiveSession (ONLY React↔SDK bridge)
-                    │   ├── InteractiveSession({ cwd, provider })
-                    │   │   (from @robota-sdk/agent-sdk; config/context loaded internally)
-                    │   ├── TuiStateManager    (owned by agent-cli)
-                    │   │   holds history: IHistoryEntry[]  ← primary state for message list
-                    │   │   syncs from interactiveSession.getFullHistory() on each update
-                    │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
-                    │   │   ├── command modules        (including @robota-sdk/agent-command-skills)
-                    │   │   └── PluginCommandSource    (from @robota-sdk/agent-sdk)
-                    │   └── session.executeCommand()  (slash commands routed through injected command modules)
-                    ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
-                    ├── InputArea.tsx          (bottom input area, slash detection)
-                    ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
-                    ├── StatusBar.tsx          (pure status bar renderer, shows primary activity state)
-                    ├── PermissionPrompt.tsx   (arrow-key selection)
-                    └── SlashAutocomplete.tsx  (command popup with scroll)
+              └── new TuiTransport({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
+                    └── tuiTransport.start() → renderApp() → App.tsx (Ink TUI, owned by agent-transport-tui)
+                          ├── useInteractiveSession (ONLY React↔SDK bridge)
+                          │   ├── InteractiveSession({ cwd, provider })
+                          │   │   (from @robota-sdk/agent-sdk; config/context loaded internally)
+                          │   ├── TuiStateManager    (owned by agent-transport-tui)
+                          │   │   holds history: IHistoryEntry[]  ← primary state for message list
+                          │   │   syncs from interactiveSession.getFullHistory() on each update
+                          │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
+                          │   │   ├── command modules        (including @robota-sdk/agent-command-skills)
+                          │   │   └── PluginCommandSource    (from @robota-sdk/agent-sdk)
+                          │   └── session.executeCommand()  (slash commands routed through injected command modules)
+                          ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
+                          ├── InputArea.tsx          (bottom input area, slash detection)
+                          ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
+                          ├── StatusBar.tsx          (pure status bar renderer, shows primary activity state)
+                          ├── PermissionPrompt.tsx   (arrow-key selection)
+                          └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
 
 Dependency chain:
@@ -298,32 +300,25 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            └─────────────────────────→ agent-core  (direct: types, utilities)
   ├──────────────────────────────────────→ agent-core  (direct: public types only)
   ├──────────────────────────────────────→ agent-provider-* (provider definitions)
-  └──────────────────────────────────────→ agent-transport-ws (--web sidecar only)
+  ├──────────────────────────────────────→ agent-transport-tui (TUI I/O adapter)
+  ├──────────────────────────────────────→ agent-transport-headless (print mode)
+  └──────────────────────────────────────→ agent-transport-ws (settings-based WebSocket transport)
 ```
 
-### WebSocket Sidecar Mode (`--web`)
+### Transport Registry
 
-When `--web` is set, `useInteractiveSession` starts a local HTTP + WebSocket sidecar server
-alongside the interactive TUI. The sidecar exposes the running `InteractiveSession` to browser
-clients via the `agent-transport-ws` protocol.
+The CLI assembles a `TransportRegistry` (`src/transports/transport-registry.ts`) and passes it to
+`TuiTransport` for the interactive session. `TuiTransport` forwards the registry to
+`useInteractiveSession`, which starts all enabled transports against the active `InteractiveSession`.
 
-| Flag                 | Default                       | Description                                     |
-| -------------------- | ----------------------------- | ----------------------------------------------- |
-| `--web`              | false                         | Enable WebSocket sidecar server                 |
-| `--web-port N`       | 7070                          | Port to bind the sidecar server on 127.0.0.1    |
-| `--no-open`          | false                         | Skip auto-opening the browser monitor           |
-| `ROBOTA_NO_OPEN`     | —                             | Environment variable; also suppresses auto-open |
-| `ROBOTA_MONITOR_URL` | http://localhost:7071/monitor | Override the monitor URL opened in browser      |
+Registered transports:
 
-Ownership rules:
+| Transport     | Package                          | Default enabled | Purpose                                           |
+| ------------- | -------------------------------- | --------------- | ------------------------------------------------- |
+| `WsTransport` | `@robota-sdk/agent-transport-ws` | false           | Expose session over WebSocket for browser monitor |
 
-- CLI OWNS: `startWebSidecarServer()` and `IWebSidecarServer` — CLI-local adapter in
-  `src/web-sidecar/web-sidecar-server.ts`; this is a concrete host adapter, not a reusable contract.
-- CLI does NOT own WebSocket protocol framing — delegated to `@robota-sdk/agent-transport-ws`
-  `createWsHandler()`.
-- CLI does NOT own the browser monitor UI — that is `@robota-sdk/agent-web`, an independent package.
-- Sidecar bind failure is non-fatal; the TUI continues if the port cannot be bound.
-- The sidecar does not affect session lifecycle, history ownership, or command routing.
+Transport enabled/disabled state and options are persisted in `settings.json` under the `transports`
+key. The CLI does not own WebSocket protocol framing or browser monitor UI.
 
 ## StatusBar Display
 
@@ -706,10 +701,10 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 ### App.tsx
 
-`App.tsx` is a thin JSX shell (~220 lines). It:
+`App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`src/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useInteractiveSession` and `usePluginCallbacks`.
-- Wraps `handleSubmit` only to render generic command interactions and apply typed command effects that require the local host shell (`useApp().exit`, settings writes already performed by command adapters, App remounts, PluginTUI, or SessionPicker).
+- Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
 - Contains no queue logic, no abort logic, no session business logic.
 
 ### Tool List Visibility
@@ -833,13 +828,13 @@ used is not treated as skill activation unless a `skill_activation` event exists
 
 ## Type Ownership
 
-| Type               | Location                | Purpose                                                        |
-| ------------------ | ----------------------- | -------------------------------------------------------------- |
-| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
-| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-sessions)            |
-| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
-| ICommand           | `@robota-sdk/agent-sdk` | SDK-owned command palette and slash command entry              |
-| ICommandSource     | `@robota-sdk/agent-sdk` | SDK-owned command source contract                              |
+| Type               | Location                           | Purpose                                                        |
+| ------------------ | ---------------------------------- | -------------------------------------------------------------- |
+| ITerminalOutput    | `src/types.ts`                     | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
+| ISpinner           | `src/types.ts`                     | Spinner handle (duplicate — SSOT is agent-sessions)            |
+| IPermissionRequest | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)   |
+| ICommand           | `@robota-sdk/agent-sdk`            | SDK-owned command palette and slash command entry              |
+| ICommandSource     | `@robota-sdk/agent-sdk`            | SDK-owned command source contract                              |
 
 ## Public API Surface
 
@@ -855,59 +850,49 @@ Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The C
 
 ```
 src/
-├── bin.ts                           ← Binary entry point
-├── cli.ts                           ← Config loading, Ink render invocation
-├── print-terminal.ts                ← ITerminalOutput for print mode (-p)
-├── types.ts                         ← ITerminalOutput, ISpinner
-├── index.ts                         ← Public CLI entry exports
+├── bin.ts                                        ← Binary entry point
+├── cli.ts                                        ← Lifecycle owner: arg parsing, assembly, TuiTransport startup
+├── index.ts                                      ← Public CLI entry exports
+├── print-terminal.ts                             ← ITerminalOutput for print mode (-p)
+├── types.ts                                      ← ITerminalOutput, ISpinner
+├── user-local-direct-command.ts                  ← Direct user-local command handler (no provider)
 ├── plugins/
-│   └── plugin-command-adapter.ts    ← CLI implementation of ICommandPluginAdapter
-├── utils/
-│   ├── cli-args.ts                  ← CLI argument parsing and validation
-│   ├── settings-io.ts               ← Settings file read/write/update/delete
-│   ├── provider-factory.ts          ← AI provider resolution from injected definitions
-│   ├── interactive-prompt.ts        ← Re-export shim for SDK command interaction prompt descriptor types
-│   ├── tool-call-extractor.ts       ← Tool call display extraction from history
-│   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
-│   └── edit-diff.ts                 ← Edit diff computation and formatting for display
-└── ui/
-    ├── App.tsx                      ← Thin JSX shell (~220 lines); no queue/abort/session logic
-    ├── hooks/
-    │   ├── useInteractiveSession.ts ← ONLY React↔SDK bridge; delegates to TuiStateManager for
-    │   │                              history: IHistoryEntry[] state; converts InteractiveSession
-    │   │                              events to React state (streamingText, activeTools, etc.)
-    │   ├── TuiStateManager.ts       ← Holds history: IHistoryEntry[]; syncs from getFullHistory();
-    │   │                              manages windowing (MAX_RENDERED_MESSAGES) and local event entries
-    │   └── usePluginCallbacks.ts    ← Plugin TUI adapter memoization
-    ├── flows/
-    │   ├── text-prompt-flow.ts      ← Text prompt editing, validation, submit/cancel effects
-    │   ├── selection-flow.ts        ← Shared bounded/wrapping selection state machine
-    │   ├── confirm-prompt-flow.ts   ← Confirmation shortcuts and option selection
-    │   ├── permission-prompt-flow.ts← Permission shortcuts and decision mapping
-    │   ├── input-area-flow.ts       ← Slash autocomplete, prompt history, and paste-label input flow
-    │   └── cjk-text-input-flow.ts   ← CJK-aware text editing and paste flow
-    ├── render.tsx                   ← Ink render() invocation
-    ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
-    ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
-    ├── SessionStatusBar.tsx         ← Statusline settings + git branch adapter
-    ├── StatusBar.tsx                ← Activity, conditional mode, model, git branch, context %
-    ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
-    ├── StreamingIndicator.tsx       ← Real-time Tools:/Robota: display during run()
-    ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
-    ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
-    ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
-    ├── WaveText.tsx                 ← Wave color animation for waiting indicator
-    ├── ListPicker.tsx               ← Generic list picker overlay (session resume, etc.)
-    ├── InteractivePrompt.tsx        ← Generic choice/text prompt renderer for CLI interactions
-    ├── ToolDiffBlock.tsx            ← Tool diff metadata shell with Markdown diff body rendering
-    ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
-    ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)
-    ├── TextPrompt.tsx               ← Text input prompt component (Plugin TUI)
-    ├── plugin-tui-handlers.ts       ← Plugin TUI action handlers (install, uninstall, etc.)
-    ├── render-markdown.ts           ← Markdown rendering for terminal output
-    ├── InkTerminal.ts               ← No-op ITerminalOutput
-    └── types.ts                     ← IPermissionRequest
+│   ├── plugin-command-adapter.ts                 ← CLI implementation of ICommandPluginAdapter
+│   └── plugin-command-source-loader.ts           ← Plugin command source discovery and loading
+├── transports/
+│   └── transport-registry.ts                     ← Settings-backed IConfigurableTransport registry
+├── background/
+│   └── managed-shell-process-runner.ts           ← Node spawn-based background task runner
+├── subagents/
+│   ├── child-process-subagent-runner.ts          ← Child-process subagent spawner
+│   ├── child-process-subagent-runner-result.ts   ← Result orchestration and timeout cleanup
+│   ├── child-process-subagent-transport.ts       ← IPC send/cancel mechanics
+│   ├── child-process-subagent-ipc.ts             ← Serializable worker IPC protocol
+│   ├── child-process-subagent-worker.ts          ← Child-process SDK session reconstruction
+│   ├── git-worktree-isolation-adapter.ts         ← Git worktree isolation for subagents
+│   └── index.ts                                  ← Subagents barrel export
+└── utils/
+    ├── cli-args.ts                               ← CLI argument parsing and validation
+    ├── settings-io.ts                            ← Settings file read/write/update/delete
+    ├── settings-check.ts                         ← Settings validation helpers
+    ├── statusline-settings.ts                    ← Statusline settings read/apply
+    ├── provider-factory.ts                       ← AI provider resolution from injected definitions
+    ├── provider-settings.ts                      ← Provider settings read/write helpers
+    ├── provider-configuration.ts                 ← Provider configuration utilities
+    ├── provider-definition.ts                    ← IProviderDefinition helpers
+    ├── provider-default-definitions.ts           ← Default provider definitions registry
+    ├── provider-setup.ts                         ← Provider setup flow entry helpers
+    ├── provider-setup-flow.ts                    ← Step-by-step provider setup state machine
+    ├── interactive-prompt.ts                     ← Re-export shim for SDK command interaction types
+    ├── git-branch.ts                             ← Git branch resolution for status bar
+    ├── env-ref.ts                                ← Environment variable reference utilities
+    ├── semver-compare.ts                         ← Semver comparison for update check
+    └── update-check.ts                           ← CLI version update check and cache
 ```
+
+**Note:** All Ink TUI components, hooks, flows, `TuiStateManager`, and TUI-specific utilities are owned by
+`@robota-sdk/agent-transport-tui`. The CLI's `src/` contains only the lifecycle assembly, local host
+adapters, and settings/provider utilities.
 
 **Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 

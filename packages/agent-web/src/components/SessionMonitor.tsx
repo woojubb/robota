@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useWsSession } from '../hooks/useWsSession.js';
 import { ConversationView } from './ConversationView.js';
+import { AgentActivityPanel } from './AgentActivityPanel.js';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; glow: string }> = {
   connected: {
@@ -32,20 +33,24 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; 
 };
 
 interface ISessionMonitorProps {
-  /** WebSocket URL of the agent-cli sidecar. Default: ws://localhost:7070 */
-  defaultUrl?: string;
+  /** WebSocket URL. Injected by the HTTP server via <meta name="ws-url">. */
+  wsUrl: string;
   className?: string;
 }
 
-export function SessionMonitor({
-  defaultUrl = 'ws://localhost:7070',
-  className,
-}: ISessionMonitorProps): React.ReactElement {
-  const [url, setUrl] = useState(defaultUrl);
-  const [inputUrl, setInputUrl] = useState(defaultUrl);
+export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): React.ReactElement {
+  const [url, setUrl] = useState(wsUrl);
+  const [inputUrl, setInputUrl] = useState(wsUrl);
 
-  const { status, messages, activeTools, streamingText, isThinking, send } = useWsSession(url);
+  const { status, messages, activeTools, streamingText, isThinking, executionWorkspace, send } =
+    useWsSession(url);
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.disconnected;
+
+  const backgroundTasks =
+    executionWorkspace?.entries.filter(
+      (e) => e.kind === 'background_task' && e.visibility !== 'collapsed',
+    ) ?? [];
+  const hasAgents = backgroundTasks.length > 0;
 
   return (
     <div className={`flex flex-col h-full overflow-hidden bg-background ${className ?? ''}`}>
@@ -78,36 +83,50 @@ export function SessionMonitor({
         </div>
       </div>
 
-      {/* Conversation */}
-      <div className="flex-1 overflow-hidden">
-        {status === 'disconnected' || status === 'connecting' ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="flex flex-col items-center gap-3 text-center px-8">
-              <div className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center">
-                <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
+      {/* Main content: conversation + optional agent panel */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: conversation */}
+        <div
+          className={`flex flex-col overflow-hidden min-w-0 ${hasAgents ? 'flex-[2]' : 'flex-1'}`}
+        >
+          <div className="flex-1 overflow-hidden">
+            {status === 'disconnected' || status === 'connecting' ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="flex flex-col items-center gap-3 text-center px-8">
+                  <div className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center">
+                    <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
+                  </div>
+                  <p className="text-xs font-mono text-muted-foreground max-w-[260px] leading-relaxed">
+                    {status === 'connecting'
+                      ? `Connecting to ${url}…`
+                      : `Run robota to start the CLI (WS transport starts automatically).`}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs font-mono text-muted-foreground/45 max-w-[260px] leading-relaxed">
-                {status === 'connecting'
-                  ? `Connecting to ${url}…`
-                  : `Run robota --web to start the sidecar.`}
-              </p>
-            </div>
+            ) : (
+              <ConversationView
+                messages={messages}
+                activeTools={activeTools}
+                streamingText={streamingText}
+                isThinking={isThinking}
+              />
+            )}
           </div>
-        ) : (
-          <ConversationView
-            messages={messages}
-            activeTools={activeTools}
-            streamingText={streamingText}
-            isThinking={isThinking}
+
+          <SessionInput
+            enabled={status === 'connected'}
+            onSubmit={(prompt) => send({ type: 'submit', prompt })}
+          />
+        </div>
+
+        {/* Right: agent activity panel (conditional) */}
+        {hasAgents && (
+          <AgentActivityPanel
+            tasks={backgroundTasks}
+            className="flex-1 border-l border-border/50"
           />
         )}
       </div>
-
-      {/* Input */}
-      <SessionInput
-        enabled={status === 'connected'}
-        onSubmit={(prompt) => send({ type: 'submit', prompt })}
-      />
     </div>
   );
 }

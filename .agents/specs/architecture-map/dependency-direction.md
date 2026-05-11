@@ -10,7 +10,7 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 flowchart TD
   ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
   Assembly["Assembly/API layers\nagent-sdk, apps/agent-server"]
-  TransportShells["Transport shells\nagent-transport-ws, agent-transport-http,\nagent-transport-headless, agent-transport-mcp"]
+  TransportShells["Transport shells\nagent-transport-tui, agent-transport-ws, agent-transport-http,\nagent-transport-headless, agent-transport-mcp"]
   Orchestration["Orchestration\nagent-team, agent-remote-client"]
   Sessions["Session services\nagent-sessions"]
   Runtime["Runtime services\nagent-runtime"]

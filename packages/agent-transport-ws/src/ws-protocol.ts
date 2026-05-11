@@ -8,6 +8,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   IExecutionResult,
+  IExecutionWorkspaceSnapshot,
   IToolState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
@@ -25,6 +26,7 @@ export type TClientMessage =
   | { type: 'get-context' }
   | { type: 'get-executing' }
   | { type: 'get-pending' }
+  | { type: 'get-execution-workspace' }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }
@@ -56,6 +58,7 @@ export type TServerMessage =
   | { type: 'context'; state: ReturnType<InteractiveSession['getContextState']> }
   | { type: 'executing'; executing: boolean }
   | { type: 'pending'; pending: string | null }
+  | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
   | { type: 'background_tasks'; tasks: IBackgroundTaskState[] }

@@ -66,22 +66,47 @@ User execution test scenarios are separate from the agent's engineering test pla
   documented procedure itself. It must not inspect the document to prove the document is well
   written.
 
+### Agent Executability Requirement — MANDATORY
+
+**Before writing a scenario, the agent must ask: "Can I execute this via Bash right now?"**
+
+This question must be answered before the scenario is written, not after. The answer determines how
+the scenario is written:
+
+- **Yes — agent-executable:** Write the scenario with the exact Bash command. This is the default.
+  Agent-executable scenarios use non-interactive CLI flags (`--version`, `--check-update`, `-p`,
+  `--no-session-persistence`), pipe-friendly invocations, or scripted HTTP/file operations.
+- **No — not agent-executable:** The scenario must be redesigned to be agent-executable before
+  writing it. If a scenario requires interactive TTY (Ink raw mode), browser UI, hardware input, or
+  another agent-inaccessible surface, the agent must first attempt to find an equivalent
+  agent-executable path that exercises the same implemented code. Example: interactive TUI cannot be
+  automated, but `--version` (module load), `-p` (CLI assembly), and `--check-update` (startup +
+  shutdown) together cover the same code paths without requiring interactive input.
+- **Genuinely not redesignable:** Only when no agent-executable equivalent exists may a scenario be
+  labeled `manual-only:` with a specific technical reason (e.g., "Ink requires TTY raw mode which
+  is unavailable in non-interactive agent execution"). This is the exception, not the default.
+
+**Writing scenarios that the agent cannot execute is a process violation.** An unexecutable scenario
+that is not labeled `manual-only:` at write time means the agent already knows the Done Gate Stage 2
+will fail before implementation even begins. That is not acceptable — the scenario must be redesigned
+first.
+
 Each user execution test scenario must include:
 
+- the agent-executability decision (`agent-executable` or `manual-only: <reason>`);
 - prerequisite state, sample setup, fixture data, server startup, environment variables, or other
   test environment requirements;
-- exact command lines, UI actions, or browser/TUI interactions in order;
+- exact Bash command (for agent-executable) or exact UI steps (for manual-only) in order;
 - expected observable result, including exit code, output substring, visible UI state, or file
   change;
 - any cleanup or reset step;
-- whether the agent can verify the scenario directly, partially, or only by manual UI review;
 - the evidence field that must be updated after implementation when the agent runs the scenario.
 
 The planned user execution test scenario is part of the backlog before implementation starts. If
 the scenario requires a test fixture, demo command, local server, test project, seed data, or other
 environment that does not exist yet, the agent must either build that environment as part of the
 backlog, propose it in the recommendation gate, or ask the user for a decision before proceeding. A
-scenario that cannot realistically be run by the user after completion is not acceptable.
+scenario that the agent cannot execute and has not labeled `manual-only:` is not acceptable.
 
 Before declaring a backlog or work unit complete, the agent must execute the user execution test
 scenario as a final gate whenever the scenario is command-line, file-system, HTTP, browser, or
@@ -95,27 +120,59 @@ changed-file diff, or another concrete artifact that proves the expected observa
 After running the scenario, the agent must update the backlog item with the observed evidence before
 the backlog can be considered complete.
 
-**Done gate.** A backlog item with a `## User Execution Test Scenarios` section must not have its
-status set to `done` (or equivalent completion marker) until all of the following are true:
+**Done gate — ABSOLUTE RULE.** A backlog item with a `## User Execution Test Scenarios` section
+must not have its status set to `done` (or equivalent completion marker) until BOTH gate stages
+below pass. Setting `status: done` before both stages pass is a process violation with no exception
+other than the explicit `manual-only` or `not-writable` exception documented in the scenario itself.
 
-1. The scenario has been executed — not reviewed, not inspected, not summarized.
-2. Concrete evidence (command output, exit code, screenshot, log excerpt, diff, or another artifact)
-   has been recorded in the backlog file under the evidence field of the scenario.
-3. The observed result matches the expected observable result stated in the scenario.
+### Done Gate Stage 1 — Scenario Written
 
-Setting `status: done` without meeting all three conditions is a process violation. If the scenario
-cannot be executed (genuinely manual-only), the item must be labeled `manual-only` with the reason
-before the status is set to `done`, and the PR description must not claim the gate passed by
-execution.
+```
+[ ] Every scenario is written with exact commands/steps, prerequisites,
+    expected observable result, and an evidence field
+```
 
-Static review may not be used as a passing user execution test scenario gate when an executable
-command, browser flow, TUI flow, or local script can reasonably be run. If a scenario is genuinely
-manual-only, it must be labeled `manual-only`, explain why it cannot be executed by the agent, and
-the PR must not claim it passed by execution.
+Gate passes when every scenario is fully written.
+Gate passes by exception only when writing is genuinely impossible AND a valid reason is recorded
+explicitly under each unwritten scenario. An unwritten scenario with no stated reason does not pass.
 
-Document inspection, rule inspection, backlog inspection, source inspection, `rg` checks, harness
-commands, unit tests, and other internal repository checks are engineering or governance
-verification only. They must not be presented to the user as a user execution test scenario.
+### Done Gate Stage 2 — Scenario Executed
+
+```
+[ ] The agent directly executed every scenario against the completed implementation
+[ ] The observed result matched the expected observable result for every scenario
+[ ] Concrete evidence (command output, exit code, screenshot, log excerpt, diff, or another
+    artifact) was recorded in the backlog file under the evidence field of every scenario
+```
+
+All three checkboxes must be `[x]` for the gate to pass.
+
+Gate passes by exception only when execution is genuinely impossible AND a valid, specific reason
+is stated explicitly under the scenario that could not be executed.
+
+**The following are NEVER valid exception reasons and must not be cited as gate evidence:**
+
+- Build succeeds
+- Typecheck passes
+- Lint passes
+- Unit tests pass (any count)
+- Harness checks pass
+- CI checks pass
+- Source inspection confirms the code is correct
+
+**Why:** Build, typecheck, lint, and unit tests are completely unrelated to User Execution Test
+Scenarios. They belong in `## Test Plan`. They verify that code compiles and internal logic is
+correct. They have zero influence on whether a user can run the product and observe the expected
+behavior. They must never be mentioned as User Execution gate evidence and they must not influence
+whether the gate is considered passed.
+
+If the scenario cannot be executed (genuinely manual-only or terminal-interactive-only), the item
+must be labeled `manual-only` with the specific reason before status is set to `done`, and the PR
+description must not claim the gate passed by execution.
+
+Static review, document inspection, rule inspection, backlog inspection, source inspection, `rg`
+checks, harness commands, unit tests, and other internal repository checks are engineering or
+governance verification only. They must not be presented as user execution test scenario evidence.
 
 When the user execution test scenario gate passes, the final user-facing response must tell the user
 that the scenario was verified, provide the concrete command or UI steps the user can run, state the
@@ -205,13 +262,26 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
       and expected observable results.
 - [ ] Missing test environment for the user execution test scenario was built, proposed, or
       explicitly decided.
-- [ ] User execution test scenario gate was executed by the agent against the completed work when
-      executable.
-- [ ] User execution test scenario gate includes captured evidence; no evidence means no pass.
-- [ ] Backlog item records the observed user execution test scenario evidence after execution.
-- [ ] `status: done` (or equivalent) was not set until evidence was recorded and the observed result
-      matched the expected observable result — or the scenario was labeled `manual-only` with reason.
+
+**Done Gate — must verify both stages before `status: done`:**
+
+Stage 1 — Written:
+
+- [ ] Every scenario is fully written (commands, prerequisites, expected result, evidence field)
+      OR each unwritten scenario has a documented valid reason for why it could not be written
+
+Stage 2 — Executed:
+
+- [ ] The agent directly executed every scenario against the completed implementation
+- [ ] The observed result matched the expected observable result for every scenario
+- [ ] Concrete evidence was recorded in the backlog under each scenario's evidence field
+      OR each unexecuted scenario has a `manual-only:` label with a documented valid reason
+
+**NEVER cite as gate evidence:** build output, typecheck results, lint results, unit test counts,
+harness results, CI results, source inspection. These are Test Plan items, completely unrelated
+to User Execution Test Scenarios and have no influence on whether the gate passes.
+
 - [ ] Child PR targets the initiative base branch.
 - [ ] Final initiative PR targets `develop` and is not auto-merged.
-- [ ] PR description records the accepted recommendation, verification evidence, and user execution test scenario
-      gate result or not-applicable reason.
+- [ ] PR description records the accepted recommendation, verification evidence, and user execution
+      test scenario gate result (both stages) or not-applicable reason.

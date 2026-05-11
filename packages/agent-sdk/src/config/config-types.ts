@@ -123,6 +123,11 @@ const MarketplaceSourceSchema = z.object({
 const ExtraKnownMarketplacesSchema = z.record(MarketplaceSourceSchema).optional().catch(undefined);
 const AutoCompactThresholdSchema = z.union([z.number().gt(0).lte(1), z.literal(false)]).optional();
 
+const TransportSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  options: z.record(UniversalValueSchema).optional(),
+});
+
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
   defaultTrustLevel: z.enum(['safe', 'moderate', 'full']).optional(),
@@ -143,6 +148,8 @@ export const SettingsSchema = z.object({
   extraKnownMarketplaces: ExtraKnownMarketplacesSchema,
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
   autoCompactThreshold: AutoCompactThresholdSchema,
+  /** Transport enable/disable + options: transport name -> config */
+  transports: z.record(TransportSettingsSchema).optional(),
 });
 
 export type TSettings = z.infer<typeof SettingsSchema>;
@@ -181,4 +188,6 @@ export interface IResolvedConfig {
   >;
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
   autoCompactThreshold?: number | false;
+  /** Transport enable/disable + options: transport name -> { enabled, options } */
+  transports?: Record<string, { enabled?: boolean; options?: Record<string, unknown> }>;
 }

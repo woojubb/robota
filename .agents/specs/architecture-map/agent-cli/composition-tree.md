@@ -1,6 +1,6 @@
 # Agent CLI Composition Tree
 
-Source-verified against `develop` on 2026-05-09.
+Source-verified against `develop` on 2026-05-11.
 
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
@@ -54,8 +54,9 @@ packages/agent-cli/src/bin.ts
    |  |- session.attachTransport(transport)
    |  `- transport.start(); session.shutdown()
    `- otherwise interactive mode
-      `- renderApp()
-         `- App.tsx
+      |- new TuiTransport({ cwd, provider, ..., transportRegistry, cliAdapter })
+      `- tuiTransport.start() -> renderApp()  (agent-transport-tui)
+         `- App.tsx  (agent-transport-tui)
             |- useInteractiveSession()
             |  |- new InteractiveSession({ cwd, provider, commandModules, commandHostAdapters, ... })
             |  |- CommandRegistry
@@ -69,7 +70,7 @@ packages/agent-cli/src/bin.ts
             |  |- non-slash input -> interactiveSession.submit()
             |  `- slash input -> interactiveSession.executeCommand()
             |- useSideEffects()
-            |  |- render generic ICommandInteraction prompts
+            |  |- render generic ICommandInteraction prompts via ITuiCliAdapter
             |  `- apply typed TCommandEffect values
             `- Ink renderers
                |- MessageList

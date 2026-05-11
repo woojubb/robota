@@ -12,7 +12,8 @@ grouped CLI startup path, class inventory, TUI hooks, and command-layer audit.
 
 ```mermaid
 flowchart TD
-  AgentCLI["agent-cli\nterminal UI + local adapters"]
+  AgentCLI["agent-cli\nlifecycle owner + assembly"]
+  TuiTransport["agent-transport-tui\nTUI I/O adapter (terminal)"]
   Headless["agent-transport-headless\nprint-mode transport"]
   Commands["agent-command-*\nuser-visible commands"]
   SDK["agent-sdk\nassembly layer — InteractiveSession,\ncommand contracts/common APIs\n(React-free)"]
@@ -23,10 +24,12 @@ flowchart TD
   Providers["agent-provider-*\nprovider definitions + transports"]
   Plugins["agent-plugin-*\nplugin layer (event, logging, usage, etc.)"]
 
+  AgentCLI --> TuiTransport
   AgentCLI --> SDK
   AgentCLI --> Commands
   AgentCLI --> Providers
   AgentCLI --> Headless
+  TuiTransport --> SDK
   AgentCLI --> Plugins
   Headless --> SDK
   Commands --> SDK
@@ -56,7 +59,8 @@ Agent stack ownership:
 
 | Concern                                            | Owner                                             | Notes                                                                                                                                                               |
 | -------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Terminal input/rendering and host adapters         | `agent-cli`                                       | Thin product shell only; visible CLI features still need reusable SDK/runtime/command/provider ownership for non-UI behavior.                                       |
+| Terminal input/rendering (Ink/React TUI)           | `agent-transport-tui`                             | I/O adapter only — implements `IConfigurableTransport`. Owns Ink render loop, TUI hooks, and React components. Does not own session lifecycle or `process.exit()`.  |
+| CLI lifecycle, assembly, and host adapters         | `agent-cli`                                       | Lifecycle owner + assembly layer. Composes TuiTransport and other transports; owns `process.exit()`, SIGINT/SIGTERM handling, and provider/session wiring.          |
 | SDK assembly layer                                 | `agent-sdk`                                       | Assembly layer — composes sessions, runtime, tools, and core into one SDK surface. Not a re-export layer. React-free; React hooks belong in CLI packages only.      |
 | Command contracts/common APIs                      | `agent-sdk`                                       | Command packages consume these like third-party modules.                                                                                                            |
 | Model command tool projection                      | `agent-sdk`                                       | Projects model-invocable command descriptors into provider-safe `robota_command_*` tools and reverse maps them to slash-free command ids.                           |

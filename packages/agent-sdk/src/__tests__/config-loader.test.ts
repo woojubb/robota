@@ -96,7 +96,8 @@ describe('loadConfig', () => {
   it('loads project settings from .robota/settings.json', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
-      provider: { model: 'claude-3-5-sonnet-20241022' },
+      currentProvider: 'anthropic',
+      providers: { anthropic: { type: 'anthropic', model: 'claude-3-5-sonnet-20241022' } },
     });
     const config = await loadConfig(cwd);
     expect(config.defaultTrustLevel).toBe('safe');
@@ -142,14 +143,15 @@ describe('loadConfig', () => {
   it('project settings take precedence over user settings', async () => {
     writeJson(join(userDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
-      provider: { model: 'claude-3-haiku-20240307' },
+      currentProvider: 'anthropic',
+      providers: { anthropic: { type: 'anthropic', model: 'claude-3-haiku-20240307' } },
     });
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'moderate',
     });
     const config = await loadConfig(cwd);
     expect(config.defaultTrustLevel).toBe('moderate');
-    // model from user settings is still inherited when not overridden
+    // provider profile from user settings is still inherited when not overridden
     expect(config.provider.model).toBe('claude-3-haiku-20240307');
   });
 
@@ -194,7 +196,8 @@ describe('loadConfig', () => {
   it('resolves $ENV: prefix in apiKey', async () => {
     process.env.TEST_API_KEY_XYZ = 'sk-test-value';
     writeJson(join(projectDir, 'settings.json'), {
-      provider: { apiKey: '$ENV:TEST_API_KEY_XYZ' },
+      currentProvider: 'anthropic',
+      providers: { anthropic: { type: 'anthropic', apiKey: '$ENV:TEST_API_KEY_XYZ' } },
     });
     const config = await loadConfig(cwd);
     expect(config.provider.apiKey).toBe('sk-test-value');
@@ -326,7 +329,7 @@ describe('loadConfig', () => {
     });
   });
 
-  it('falls back to legacy provider when currentProvider is not configured', async () => {
+  it('throws when legacy flat provider settings are used without currentProvider', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       provider: {
         name: 'anthropic',
@@ -343,11 +346,9 @@ describe('loadConfig', () => {
       },
     });
 
-    const config = await loadConfig(cwd);
-
-    expect(config.provider.name).toBe('anthropic');
-    expect(config.provider.model).toBe('claude-sonnet-4-6');
-    expect(config.provider.apiKey).toBe('sk-ant-test');
+    await expect(loadConfig(cwd)).rejects.toThrow(
+      'Legacy flat "provider" settings are not supported',
+    );
   });
 
   it('throws when currentProvider does not exist in providers', async () => {
@@ -389,7 +390,8 @@ describe('loadConfig', () => {
   it('.claude/ paths win over legacy .robota/ paths', async () => {
     writeJson(join(projectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
-      provider: { model: 'legacy-model' },
+      currentProvider: 'anthropic',
+      providers: { anthropic: { type: 'anthropic', model: 'robota-model' } },
     });
     writeJson(join(claudeProjectDir, 'settings.json'), {
       defaultTrustLevel: 'full',
@@ -397,8 +399,8 @@ describe('loadConfig', () => {
     const config = await loadConfig(cwd);
     // .claude/ wins for trust level
     expect(config.defaultTrustLevel).toBe('full');
-    // .robota/ model is inherited since .claude/ didn't set it
-    expect(config.provider.model).toBe('legacy-model');
+    // .robota/ provider profile is inherited since .claude/ didn't set it
+    expect(config.provider.model).toBe('robota-model');
   });
 
   it('full 6-file precedence: .claude/settings.local.json wins over all', async () => {

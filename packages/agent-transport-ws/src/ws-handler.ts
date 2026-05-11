@@ -11,6 +11,7 @@
 import type {
   InteractiveSession,
   IExecutionResult,
+  IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
   IToolState,
@@ -72,6 +73,8 @@ function subscribeSessionEvents(
     send({ type: 'background_task_event', event });
   const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
     send({ type: 'background_job_group_event', event });
+  const onExecutionWorkspace = (event: IExecutionWorkspaceEvent): void =>
+    send({ type: 'execution_workspace_event', snapshot: event.snapshot });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -83,6 +86,7 @@ function subscribeSessionEvents(
   session.on('error', onError);
   session.on('background_task_event', onBackgroundTaskEvent);
   session.on('background_job_group_event', onBackgroundJobGroupEvent);
+  session.on('execution_workspace_event', onExecutionWorkspace);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -95,6 +99,7 @@ function subscribeSessionEvents(
     session.off('error', onError);
     session.off('background_task_event', onBackgroundTaskEvent);
     session.off('background_job_group_event', onBackgroundJobGroupEvent);
+    session.off('execution_workspace_event', onExecutionWorkspace);
   };
 }
 
@@ -160,17 +165,23 @@ function isSessionControlMessage(
   );
 }
 
-function isSessionQueryMessage(
-  msg: TClientMessage,
-): msg is Extract<
+function isSessionQueryMessage(msg: TClientMessage): msg is Extract<
   TClientMessage,
-  { type: 'get-messages' | 'get-context' | 'get-executing' | 'get-pending' }
+  {
+    type:
+      | 'get-messages'
+      | 'get-context'
+      | 'get-executing'
+      | 'get-pending'
+      | 'get-execution-workspace';
+  }
 > {
   return (
     msg.type === 'get-messages' ||
     msg.type === 'get-context' ||
     msg.type === 'get-executing' ||
-    msg.type === 'get-pending'
+    msg.type === 'get-pending' ||
+    msg.type === 'get-execution-workspace'
   );
 }
 
@@ -241,7 +252,14 @@ function handleSessionQueryMessage(
   send: (message: TServerMessage) => void,
   msg: Extract<
     TClientMessage,
-    { type: 'get-messages' | 'get-context' | 'get-executing' | 'get-pending' }
+    {
+      type:
+        | 'get-messages'
+        | 'get-context'
+        | 'get-executing'
+        | 'get-pending'
+        | 'get-execution-workspace';
+    }
   >,
 ): void {
   if (msg.type === 'get-messages') {
@@ -250,6 +268,11 @@ function handleSessionQueryMessage(
     send({ type: 'context', state: session.getContextState() });
   } else if (msg.type === 'get-executing') {
     send({ type: 'executing', executing: session.isExecuting() });
+  } else if (msg.type === 'get-execution-workspace') {
+    send({
+      type: 'execution_workspace_event',
+      snapshot: session.getExecutionWorkspaceSnapshot(),
+    });
   } else {
     send({ type: 'pending', pending: session.getPendingPrompt() });
   }

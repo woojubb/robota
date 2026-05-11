@@ -1,5 +1,8 @@
 // @robota-sdk/agent-sessions
 
+// Session abstraction (used by agent-interface-transport)
+export type { ISession } from './session-interface.js';
+
 // Session
 export { Session } from './session.js';
 export type {

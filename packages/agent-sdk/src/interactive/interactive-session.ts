@@ -10,7 +10,9 @@
 
 import { randomUUID } from 'node:crypto';
 import type { Session } from '@robota-sdk/agent-sessions';
+import type { ISession } from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type {
   TUniversalMessage,
   IContextWindowState,
@@ -48,12 +50,7 @@ import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
-import type {
-  IToolState,
-  TInteractiveEventName,
-  IInteractiveSessionEvents,
-  ITransportAdapter,
-} from './types.js';
+import type { IToolState, TInteractiveEventName, IInteractiveSessionEvents } from './types.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -174,7 +171,7 @@ function getBackgroundTaskEventEntryId(event: TBackgroundTaskEvent): string | un
   return undefined;
 }
 
-export class InteractiveSession {
+export class InteractiveSession implements ISession {
   private session: Session | null = null;
   private readonly commandExecutor: SystemCommandExecutor;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -342,6 +339,10 @@ export class InteractiveSession {
     if (!this.session)
       throw new Error('InteractiveSession not initialized. Call submit() or await initialization.');
     return this.session;
+  }
+
+  get sessionId(): string {
+    return this.session?.getSessionId() ?? '';
   }
 
   on<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void {
