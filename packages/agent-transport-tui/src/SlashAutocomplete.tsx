@@ -17,6 +17,7 @@ const MAX_VISIBLE = 8;
 // border(1×2) + paddingX(1×2) consumed by outer box
 const OUTER_CHROME = 4;
 const MIN_ROW_WIDTH = 40;
+const NAME_COL_MAX = 20;
 
 function useRowWidth(): number {
   const { stdout } = useStdout();
@@ -34,20 +35,26 @@ function useRowWidth(): number {
   return width;
 }
 
+function capName(name: string, colWidth: number): string {
+  return name.length > colWidth ? `${name.slice(0, colWidth - 1)}…` : name.padEnd(colWidth);
+}
+
 /** Render a single command row */
 function CommandRow(props: {
   cmd: ICommand;
   isSelected: boolean;
   showSlash: boolean;
   rowWidth: number;
+  nameColWidth: number;
 }): React.ReactElement {
-  const { cmd, isSelected, showSlash, rowWidth } = props;
+  const { cmd, isSelected, showSlash, rowWidth, nameColWidth } = props;
   const indicator = isSelected ? '▸ ' : '  ';
   const nameColor = isSelected ? 'cyan' : undefined;
   const dimmed = !isSelected;
+  const namePart = capName(cmd.name, nameColWidth);
   const text = showSlash
-    ? `${indicator}/${cmd.name}  ${cmd.description ?? ''}`
-    : `${indicator}${cmd.name}  ${cmd.description ?? ''}`;
+    ? `${indicator}/${namePart}  ${cmd.description ?? ''}`
+    : `${indicator}${namePart}  ${cmd.description ?? ''}`;
 
   return (
     <Box width={rowWidth}>
@@ -72,6 +79,11 @@ export default function SlashAutocomplete({
   const scrollOffset = computeScrollOffset(selectedIndex, commands.length);
   const visibleCommands = commands.slice(scrollOffset, scrollOffset + MAX_VISIBLE);
 
+  const nameColWidth = Math.min(
+    NAME_COL_MAX,
+    Math.max(...visibleCommands.map((c) => c.name.length)),
+  );
+
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
       {visibleCommands.map((cmd, i) => (
@@ -81,6 +93,7 @@ export default function SlashAutocomplete({
           isSelected={scrollOffset + i === selectedIndex}
           showSlash={!isSubcommandMode}
           rowWidth={rowWidth}
+          nameColWidth={nameColWidth}
         />
       ))}
     </Box>
