@@ -1,6 +1,6 @@
 ---
 title: 'DEV-003: server.ts의 require.main === module — ESM 전환 시 startServer() 미실행 위험'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
