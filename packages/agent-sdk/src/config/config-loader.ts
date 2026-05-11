@@ -165,8 +165,12 @@ function resolveProvider(merged: TSettings): IResolvedConfig['provider'] {
   if (merged.currentProvider !== undefined) {
     return resolveActiveProviderProfile(merged);
   }
-
-  return resolveLegacyProvider(merged);
+  if (merged.provider !== undefined) {
+    throw new Error(
+      'Legacy flat "provider" settings are not supported. Migrate to "currentProvider" + "providers" format.',
+    );
+  }
+  return { ...DEFAULTS.provider };
 }
 
 function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provider'] {
@@ -188,17 +192,6 @@ function resolveActiveProviderProfile(merged: TSettings): IResolvedConfig['provi
     ...(profile.baseURL !== undefined && { baseURL: profile.baseURL }),
     ...(profile.timeout !== undefined && { timeout: profile.timeout }),
     ...(profile.options !== undefined && { options: profile.options }),
-  };
-}
-
-function resolveLegacyProvider(merged: TSettings): IResolvedConfig['provider'] {
-  return {
-    name: merged.provider?.name ?? DEFAULTS.provider.name,
-    model: merged.provider?.model ?? DEFAULTS.provider.model,
-    apiKey: merged.provider?.apiKey ?? DEFAULTS.provider.apiKey,
-    ...(merged.provider?.baseURL !== undefined && { baseURL: merged.provider.baseURL }),
-    ...(merged.provider?.timeout !== undefined && { timeout: merged.provider.timeout }),
-    ...(merged.provider?.options !== undefined && { options: merged.provider.options }),
   };
 }
 
