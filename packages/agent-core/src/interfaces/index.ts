@@ -190,3 +190,5 @@ export type {
 export type { ICacheKey, ICacheEntry, ICacheStorage, ICacheStats, ICacheOptions } from './cache';
 
 export type { ISpinner, ITerminalOutput } from './terminal-output';
+
+export type { ISession } from './session';

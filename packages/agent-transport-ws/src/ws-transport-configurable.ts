@@ -6,7 +6,7 @@
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { ISession } from '@robota-sdk/agent-sessions';
+import type { ISession } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import { createWsHandler } from './ws-handler.js';

@@ -6,7 +6,7 @@
  */
 
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { ISession } from '@robota-sdk/agent-sessions';
+import type { ISession } from '@robota-sdk/agent-core';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import { createWsHandler } from './ws-handler.js';
 import type { TServerMessage } from './ws-protocol.js';

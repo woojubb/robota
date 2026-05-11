@@ -221,7 +221,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     if (!props.transportRegistry) return;
     const reg = props.transportRegistry;
     reg
-      .startAll(interactiveSession as import('@robota-sdk/agent-sessions').ISession)
+      .startAll(interactiveSession as import('@robota-sdk/agent-core').ISession)
       .catch(() => undefined);
     return () => {
       reg.stopAll().catch(() => undefined);
