@@ -1,6 +1,6 @@
 ---
 title: 'PLG-001: Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가'
-status: todo
+status: done
 created: 2026-05-10
 priority: critical
 urgency: now
@@ -86,4 +86,4 @@ export default function PlaygroundPage() {
 
 **Cleanup:** `.env.local` 파일 삭제
 
-**Evidence:** (구현 후 기록)
+**Evidence:** 이미 구현됨. `apps/agent-web/src/app/playground/page.tsx`가 `process.env.NEXT_PUBLIC_PLAYGROUND_WS_URL`을 `defaultServerUrl`로 전달. `apps/agent-web/.env.example`에 `NEXT_PUBLIC_PLAYGROUND_WS_URL` 주석 문서화 완료.
