@@ -1,6 +1,6 @@
 ---
 title: 'DOC2-001: Node.js 버전 요구사항 3중 불일치 — README/docs/CLI 간 다른 메시지'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: now
@@ -84,4 +84,4 @@ rg -n "22" README.md content/getting-started/README.md packages/agent-cli/README
 # Expected: 모든 문서에서 Node.js 22+ 요구사항 확인
 ```
 
-**Evidence:** (구현 후 기록)
+**Evidence:** `content/getting-started/README.md:5` 수정 — "18.0.0 or higher (recommended: 22.14.0)" → "Node.js 22 or higher — required for Robota CLI; SDK supports Node.js 18+ (22 recommended)". 루트 README.md는 이미 "Node.js 22+ required"로 올바름. 3개 문서 모두 Node.js 22+ 일관 표기 확인.
