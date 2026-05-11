@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-003: 슬래시 커맨드 실행 직후 미초기화 세션에서 throw'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
