@@ -41,7 +41,7 @@ import type {
   ICommandModule,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-sdk';
-import { parseCliArgs } from './utils/cli-args.js';
+import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import {
   getUserSettingsPath,
@@ -351,6 +351,11 @@ async function runPrintMode(
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const args = parseCliArgs();
   const version = readVersion();
+
+  if (args.help) {
+    printHelp();
+    return;
+  }
 
   if (args.version) {
     process.stdout.write(`robota ${version}\n`);

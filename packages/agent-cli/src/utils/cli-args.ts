@@ -13,6 +13,7 @@ export type TOutputFormat = (typeof VALID_OUTPUT_FORMATS)[number];
 
 export interface IParsedCliArgs {
   positional: string[];
+  help: boolean;
   printMode: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
@@ -46,6 +47,39 @@ export interface IParsedCliArgs {
   settingsScope: string | undefined;
   checkUpdate: boolean;
   disableUpdateCheck: boolean;
+}
+
+/** Print CLI usage help to stdout. */
+export function printHelp(): void {
+  process.stdout.write(`
+Usage: robota [options] [-p <prompt>]
+
+Options:
+  -p <prompt>                Run in print (headless) mode with the given prompt
+  --output-format <format>   Output format: text | json | stream-json (default: text)
+  --system-prompt <text>     Override the system prompt for this session
+  --append-system-prompt <t> Append text to the system prompt
+  --language <lang>          Language preference (e.g. ko, en)
+  --no-session-persistence   Disable session persistence for this run
+  --model <model>            Override model for this session
+  --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
+  --max-turns <n>            Maximum agent turns before stopping
+  -c, --continue             Continue the most recent session
+  -r, --resume <id>          Resume a session by ID or name
+  -n, --name <name>          Name for the new session
+  --fork-session             Fork the current session
+  --configure                Run interactive provider configuration
+  --configure-provider <n>   Configure a specific provider
+  --check-update             Check for CLI updates
+  --version                  Show version number
+  -h, --help                 Show this help message
+
+Examples:
+  robota                           Start interactive TUI session
+  robota -p "Hello"                Print mode: send prompt and exit
+  robota -p "Hello" --output-format json
+  robota --continue                Resume the last session
+`);
 }
 
 /** Validate and return a TOutputFormat from a raw CLI string, or exit on error. */
@@ -86,6 +120,7 @@ export function parseCliArgs(): IParsedCliArgs {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
+      help: { type: 'boolean', short: 'h', default: false },
       p: { type: 'boolean', short: 'p', default: false },
       continue: { type: 'boolean', short: 'c', default: false },
       resume: { type: 'string', short: 'r' },
@@ -124,6 +159,7 @@ export function parseCliArgs(): IParsedCliArgs {
 
   return {
     positional: positionals,
+    help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],

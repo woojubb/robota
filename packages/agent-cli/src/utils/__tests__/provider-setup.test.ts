@@ -115,6 +115,7 @@ const providerDefinitions: readonly IProviderDefinition[] = [
 function baseArgs(): IParsedCliArgs {
   return {
     positional: [],
+    help: false,
     printMode: false,
     continueMode: false,
     resumeId: undefined,
