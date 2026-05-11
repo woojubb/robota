@@ -1,6 +1,6 @@
 ---
 title: 'DEV-005: parseInt 기수 누락 — RATE_LIMIT_MAX 잘못된 값 시 rate limiting 비활성화'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
