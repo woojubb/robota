@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command-reset",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "description": "Composable reset command module for Robota hosts",
   "type": "module",
   "main": "dist/node/index.js",
