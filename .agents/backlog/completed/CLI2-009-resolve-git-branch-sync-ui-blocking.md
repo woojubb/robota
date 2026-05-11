@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-009: SessionStatusBar의 resolveGitBranch()가 동기 execSync로 UI 차단 가능'
-status: todo
+status: done
 created: 2026-05-10
 priority: low
 urgency: later
