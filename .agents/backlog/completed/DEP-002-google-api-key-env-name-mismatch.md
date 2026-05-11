@@ -1,6 +1,6 @@
 ---
 title: 'DEP-002: agent-server app.ts의 GoogleProvider가 GOOGLE_API_KEY를 읽으나 실제 키는 GEMINI_API_KEY로 저장'
-status: todo
+status: done
 created: 2026-05-10
 priority: medium
 urgency: soon
