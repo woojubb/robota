@@ -1,6 +1,6 @@
 ---
 title: 'DEV-004: sendError가 모든 에러에 type:auth 전송 — 잘못된 WebSocket 프로토콜'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
