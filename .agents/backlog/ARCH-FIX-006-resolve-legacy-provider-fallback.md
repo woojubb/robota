@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-006: resolveLegacyProvider() fallback 패턴 제거'
-status: todo
+status: done
 created: 2026-05-10
 priority: high
 urgency: soon
@@ -43,4 +43,4 @@ robota --provider nonexistent
 
 **기대 결과**: silent fallback 없이 "provider not found" 또는 유사한 명시적 에러 메시지 출력.
 
-**증거**: (구현 후 기록)
+**증거**: `resolveProvider()` 함수가 flat `provider` 설정 감지 시 `'Legacy flat "provider" settings are not supported. Migrate to "currentProvider" + "providers" format.'` 에러를 throw함. `config-loader.test.ts` 31개 테스트 + `provider-configuration.test.ts` 9개 테스트 포함 전체 통과. `resolveLegacyProvider()`, `updateLegacyProviderModel()`, `findLastPathWithLegacyProvider()` 함수 삭제 완료. 브랜치: `fix/arch-006-remove-legacy-provider-fallback`.

@@ -444,10 +444,8 @@ describe('Filesystem smoke: hook config loading', () => {
       join(projectDir, '.claude', 'settings.json'),
       JSON.stringify(
         {
-          provider: {
-            name: 'openai',
-            model: 'gpt-4o',
-          },
+          currentProvider: 'openai',
+          providers: { openai: { type: 'openai', model: 'gpt-4o' } },
         },
         null,
         2,
