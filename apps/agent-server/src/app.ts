@@ -48,9 +48,13 @@ export function createApp(): express.Application {
   );
 
   // Rate limiting
+  const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX ?? '100', 10);
+  if (!Number.isFinite(rateLimitMax) || rateLimitMax <= 0) {
+    throw new Error(`Invalid RATE_LIMIT_MAX: "${process.env.RATE_LIMIT_MAX}"`);
+  }
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+    max: rateLimitMax,
     message: {
       error: 'Too many requests',
       retryAfter: '15 minutes',
