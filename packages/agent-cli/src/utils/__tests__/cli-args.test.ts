@@ -4,6 +4,7 @@ import {
   parseMaxTurns,
   parseOutputFormat,
   parseCliArgs,
+  printHelp,
 } from '../cli-args.js';
 
 describe('parsePermissionMode', () => {
@@ -235,5 +236,43 @@ describe('new non-interactive flags', () => {
   it('defaults jsonSchema to undefined', () => {
     process.argv = ['node', 'cli'];
     expect(parseCliArgs().jsonSchema).toBeUndefined();
+  });
+});
+
+describe('help flag', () => {
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('parses --help flag', () => {
+    process.argv = ['node', 'cli', '--help'];
+    expect(parseCliArgs().help).toBe(true);
+  });
+
+  it('parses -h short flag', () => {
+    process.argv = ['node', 'cli', '-h'];
+    expect(parseCliArgs().help).toBe(true);
+  });
+
+  it('defaults help to false', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().help).toBe(false);
+  });
+
+  it('printHelp writes to stdout', () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    printHelp();
+    expect(stdoutSpy).toHaveBeenCalledOnce();
+    const output = stdoutSpy.mock.calls[0][0] as string;
+    expect(output).toContain('--help');
+    expect(output).toContain('--version');
+    expect(output).toContain('-p');
+    stdoutSpy.mockRestore();
   });
 });

@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-001: --help 플래그 미구현 — 첫 탐색 경험 차단'
-status: todo
+status: done
 created: 2026-05-10
 priority: critical
 urgency: now
@@ -81,8 +81,8 @@ robota --help
 
 **증거 필드** (구현 후 기입):
 
-- 명령 출력: \_
-- exit code: \_
+- 명령 출력: `node packages/agent-cli/dist/node/bin.js --help` — Usage 헤더 + 전체 플래그 목록(`-p`, `--output-format`, `--help`, `--version` 포함) + Examples 출력
+- exit code: 0
 
 ### 시나리오 2: -h 단축 플래그 동작 확인
 
@@ -96,4 +96,4 @@ robota -h
 
 **증거 필드** (구현 후 기입):
 
-- 명령 출력: \_
+- 명령 출력: `node packages/agent-cli/dist/node/bin.js -h` — --help와 동일한 출력 확인
