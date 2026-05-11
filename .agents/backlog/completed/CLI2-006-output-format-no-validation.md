@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-006: --output-format 인수 유효성 검사 없이 as 캐스팅 — 잘못된 값이 stream-json으로 무음 폴백'
-status: todo
+status: done
 created: 2026-05-10
 priority: critical
 urgency: now
