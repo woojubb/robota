@@ -8,7 +8,6 @@ interface IProps {
   cwd: string;
   permissionMode: TPermissionMode;
   modelId?: string;
-  providerProfileName?: string | undefined;
   providerType?: string | undefined;
   sessionId: string;
   isThinking: boolean;
@@ -24,7 +23,6 @@ export default function SessionStatusBar({
   cwd,
   permissionMode,
   modelId,
-  providerProfileName,
   providerType,
   sessionId,
   isThinking,
@@ -37,14 +35,18 @@ export default function SessionStatusBar({
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
   const gitBranch = useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd]);
+  const providerDisplayName = useMemo(
+    () =>
+      providerType !== undefined ? cliAdapter.getProviderDisplayName(providerType) : undefined,
+    [cliAdapter, providerType],
+  );
   if (!settings.enabled) return null;
 
   return (
     <StatusBar
       permissionMode={permissionMode}
       modelName={modelId ?? ''}
-      providerProfileName={providerProfileName}
-      providerType={providerType}
+      providerDisplayName={providerDisplayName}
       sessionId={sessionId}
       isThinking={isThinking}
       activeToolCount={activeToolCount}
