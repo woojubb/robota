@@ -1,6 +1,6 @@
 ---
 title: 'CLI2-014: status bar model display — model ID와 model name 병행 표기 정리'
-status: todo
+status: done
 created: 2026-05-12
 priority: low
 urgency: later
