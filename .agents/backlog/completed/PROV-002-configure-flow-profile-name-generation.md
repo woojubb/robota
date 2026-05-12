@@ -1,6 +1,6 @@
 ---
 title: 'PROV-002: configure flow — 중복 provider 추가 시 프로필 이름 생성 로직 개선'
-status: todo
+status: done
 created: 2026-05-12
 priority: medium
 urgency: soon
