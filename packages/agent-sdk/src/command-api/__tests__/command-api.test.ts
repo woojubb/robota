@@ -209,16 +209,18 @@ describe('command-api contracts', () => {
     expect(() => validateProviderProfile('openai-main', profile)).not.toThrow();
   });
 
-  it('suggests provider profile names from models and disambiguates duplicates', () => {
-    expect(suggestProviderProfileName({ type: 'anthropic', model: 'Claude Sonnet 4.6' })).toBe(
-      'claude-sonnet-4-6',
-    );
+  it('suggests provider profile names from type and disambiguates duplicates', () => {
+    expect(suggestProviderProfileName({ type: 'anthropic' })).toBe('anthropic');
+    expect(suggestProviderProfileName({ type: 'openai' })).toBe('openai');
+    expect(
+      suggestProviderProfileName({ type: 'anthropic' }, { existingProfileNames: ['anthropic'] }),
+    ).toBe('anthropic-2');
     expect(
       suggestProviderProfileName(
-        { type: 'anthropic', model: 'claude-sonnet-4-6' },
-        { existingProfileNames: ['claude-sonnet-4-6', 'claude-sonnet-4-6-2'] },
+        { type: 'anthropic' },
+        { existingProfileNames: ['anthropic', 'anthropic-2'] },
       ),
-    ).toBe('claude-sonnet-4-6-3');
+    ).toBe('anthropic-3');
   });
 
   it('exposes auto compact common APIs without command implementation imports', () => {

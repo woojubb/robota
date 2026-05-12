@@ -294,7 +294,7 @@ function buildProviderSetupInput(state: IProviderSetupFlowState): IProviderSetup
   const profile =
     state.profileName ??
     suggestProviderProfileName(
-      { type: state.type, model: state.values.model },
+      { type: state.type },
       { existingProfileNames: state.existingProfileNames },
     );
   const apiKey = state.values.apiKey;
