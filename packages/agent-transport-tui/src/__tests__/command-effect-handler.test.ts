@@ -47,6 +47,7 @@ function createCliAdapter(settingsPath: string): ITuiCliAdapter {
     reloadPluginCommandSource: vi.fn(),
     applyActiveModelChange: vi.fn().mockReturnValue({ applied: true }),
     getGitBranch: vi.fn().mockReturnValue(undefined),
+    getProviderDisplayName: vi.fn((type: string) => type),
   };
 }
 

@@ -21,4 +21,5 @@ export interface ITuiCliAdapter {
     options?: { providerOverride?: string },
   ): { applied: boolean };
   getGitBranch(cwd: string): string | undefined;
+  getProviderDisplayName(type: string): string;
 }

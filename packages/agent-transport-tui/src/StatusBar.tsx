@@ -11,8 +11,7 @@ const CONTEXT_RED_THRESHOLD = 90;
 interface IProps {
   permissionMode: TPermissionMode;
   modelName: string;
-  providerProfileName?: string | undefined;
-  providerType?: string | undefined;
+  providerDisplayName?: string | undefined;
   sessionId: string;
   isThinking: boolean;
   activeToolCount?: number;
@@ -29,8 +28,7 @@ interface IProps {
 interface IStatusLeftProps {
   permissionMode: TPermissionMode;
   modelName: string;
-  providerProfileName?: string | undefined;
-  providerType?: string | undefined;
+  providerDisplayName?: string | undefined;
   isThinking: boolean;
   activeToolCount: number;
   activeBackgroundTaskCount: number;
@@ -107,17 +105,15 @@ function shouldShowPermissionMode(permissionMode: TPermissionMode): boolean {
 
 function ProviderText({
   modelName,
-  providerProfileName,
-  providerType,
+  providerDisplayName,
 }: {
   modelName: string;
-  providerProfileName?: string | undefined;
-  providerType?: string | undefined;
+  providerDisplayName?: string | undefined;
 }): React.ReactElement {
-  if (providerProfileName !== undefined && providerType !== undefined) {
+  if (providerDisplayName !== undefined) {
     return (
       <Text dimColor>
-        {providerProfileName} ({providerType}) {modelName}
+        {providerDisplayName} {modelName}
       </Text>
     );
   }
@@ -155,11 +151,7 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
         </>
       )}
       {'  |  '}
-      <ProviderText
-        modelName={props.modelName}
-        providerProfileName={props.providerProfileName}
-        providerType={props.providerType}
-      />
+      <ProviderText modelName={props.modelName} providerDisplayName={props.providerDisplayName} />
       {'  |  '}
       <ContextText
         percentage={props.contextPercentage}
@@ -173,8 +165,7 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
 export default function StatusBar({
   permissionMode,
   modelName,
-  providerProfileName,
-  providerType,
+  providerDisplayName,
   sessionId: _sessionId,
   isThinking,
   activeToolCount = 0,
@@ -198,8 +189,7 @@ export default function StatusBar({
       <StatusLeft
         permissionMode={permissionMode}
         modelName={modelName}
-        providerProfileName={providerProfileName}
-        providerType={providerType}
+        providerDisplayName={providerDisplayName}
         isThinking={isThinking}
         activeToolCount={activeToolCount}
         activeBackgroundTaskCount={activeBackgroundTaskCount}
