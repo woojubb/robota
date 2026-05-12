@@ -3,7 +3,6 @@ const FIRST_DUPLICATE_SUFFIX = 2;
 
 export interface IProviderProfileNameSuggestionInput {
   type: string;
-  model?: string;
 }
 
 export interface IProviderProfileNameSuggestionOptions {
@@ -14,10 +13,7 @@ export function suggestProviderProfileName(
   input: IProviderProfileNameSuggestionInput,
   options: IProviderProfileNameSuggestionOptions = {},
 ): string {
-  const baseName =
-    sanitizeProviderProfileName(input.model) ??
-    sanitizeProviderProfileName(input.type) ??
-    FALLBACK_PROFILE_NAME;
+  const baseName = sanitizeProviderProfileName(input.type) ?? FALLBACK_PROFILE_NAME;
   const existing = new Set(options.existingProfileNames ?? []);
   if (!existing.has(baseName)) {
     return baseName;
