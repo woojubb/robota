@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getModelName } from '@robota-sdk/agent-core';
 import type { IStatusLineCommandSettings } from '@robota-sdk/agent-sdk';
 import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
 import StatusBar from './StatusBar.js';
@@ -43,7 +42,7 @@ export default function SessionStatusBar({
   return (
     <StatusBar
       permissionMode={permissionMode}
-      modelName={modelId ? getModelName(modelId) : ''}
+      modelName={modelId ?? ''}
       providerProfileName={providerProfileName}
       providerType={providerType}
       sessionId={sessionId}
