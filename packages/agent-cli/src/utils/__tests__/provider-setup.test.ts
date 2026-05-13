@@ -197,9 +197,9 @@ describe('provider setup', () => {
 
     const settings = readUserSettings(home);
     const providers = settings.providers as Record<string, Record<string, unknown>>;
-    expect(settings.currentProvider).toBe('gpt-4o');
+    expect(settings.currentProvider).toBe('openai');
     expect(settings.language).toBe('ko');
-    expect(providers['gpt-4o']).toMatchObject({
+    expect(providers['openai']).toMatchObject({
       type: 'openai',
       model: 'gpt-4o',
       apiKey: openaiDefaults.apiKey,
@@ -229,9 +229,9 @@ describe('provider setup', () => {
     const providers = settings.providers as Record<string, Record<string, unknown>>;
     expect(prompts[0]).toContain('Select provider');
     expect(prompts[0]).toContain('Qwen (qwen)');
-    expect(settings.currentProvider).toBe('qwen-plus');
+    expect(settings.currentProvider).toBe('qwen');
     expect(settings.language).toBe('ko');
-    expect(providers['qwen-plus']).toMatchObject({
+    expect(providers['qwen']).toMatchObject({
       type: 'qwen',
       model: 'qwen-plus',
       apiKey: '$ENV:DASHSCOPE_API_KEY',
@@ -260,9 +260,9 @@ describe('provider setup', () => {
     const settings = readUserSettings(home);
     const providers = settings.providers as Record<string, Record<string, unknown>>;
     expect(prompts[0]).toContain('DeepSeek (deepseek)');
-    expect(settings.currentProvider).toBe('deepseek-v4-flash');
+    expect(settings.currentProvider).toBe('deepseek');
     expect(settings.language).toBe('ko');
-    expect(providers['deepseek-v4-flash']).toMatchObject({
+    expect(providers['deepseek']).toMatchObject({
       type: 'deepseek',
       model: 'deepseek-v4-flash',
       apiKey: '$ENV:DEEPSEEK_API_KEY',
@@ -357,9 +357,9 @@ describe('provider setup', () => {
       language?: string;
       providers?: Record<string, Record<string, unknown>>;
     };
-    expect(settings.currentProvider).toBe('claude-sonnet-4-6');
+    expect(settings.currentProvider).toBe('anthropic');
     expect(settings.language).toBe('ko');
-    expect(settings.providers?.['claude-sonnet-4-6']).toMatchObject({
+    expect(settings.providers?.['anthropic']).toMatchObject({
       type: 'anthropic',
       model: 'claude-sonnet-4-6',
       apiKey: 'sk-ant-project',
