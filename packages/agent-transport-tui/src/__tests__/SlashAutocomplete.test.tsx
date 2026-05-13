@@ -50,7 +50,7 @@ describe('SlashAutocomplete', () => {
     // All description texts should start at the same column index
     const descPositions = lines.map((l) => {
       // find position after the two-space separator following the name
-      const match = /  \S/.exec(l.slice(l.indexOf('/') + 1));
+      const match = / {2}\S/.exec(l.slice(l.indexOf('/') + 1));
       return match ? l.indexOf('/') + 1 + match.index + 2 : -1;
     });
     expect(new Set(descPositions).size).toBe(1);
