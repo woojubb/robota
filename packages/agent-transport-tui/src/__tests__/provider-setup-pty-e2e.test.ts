@@ -56,7 +56,7 @@ describe('provider setup interaction PTY E2E', () => {
       expect(await harness.waitForExit()).toBe(0);
       harness.dispose();
       expect(readResult(outputPath)).toEqual({
-        profile: 'gpt-4o',
+        profile: 'openai',
         type: 'openai',
         model: openaiDefaults.model,
         apiKey: openaiDefaults.apiKey,
@@ -79,7 +79,7 @@ describe('provider setup interaction PTY E2E', () => {
       expect(await harness.waitForExit()).toBe(0);
       harness.dispose();
       expect(readResult(outputPath)).toEqual({
-        profile: 'claude-test',
+        profile: 'anthropic',
         type: 'anthropic',
         model: 'claude-test',
         apiKey: 'sk-test',
