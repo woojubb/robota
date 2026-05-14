@@ -4,12 +4,13 @@ import {
   type IProviderModelCatalogEntry,
 } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from './provider';
+import { refreshAnthropicModelCatalog } from './model-catalog-refresh';
 
 export const DEFAULT_ANTHROPIC_PROVIDER_MODEL = 'claude-sonnet-4-6';
 export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV = 'ANTHROPIC_API_KEY';
 export const DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_ANTHROPIC_PROVIDER_API_KEY_ENV}`;
-const ANTHROPIC_MODEL_SOURCE_URL = 'https://platform.claude.com/docs/en/api/models/list';
-const ANTHROPIC_MODEL_LAST_VERIFIED_AT = '2026-05-04';
+export const ANTHROPIC_MODEL_SOURCE_URL = 'https://platform.claude.com/docs/en/api/models/list';
+export const ANTHROPIC_MODEL_LAST_VERIFIED_AT = '2026-05-04';
 const ANTHROPIC_API_KEY_URL = 'https://platform.claude.com/settings/keys';
 const ANTHROPIC_SETUP_SOURCE_URL = 'https://platform.claude.com/docs/en/api/overview';
 const ANTHROPIC_SETUP_LAST_VERIFIED_AT = '2026-05-08';
@@ -52,6 +53,8 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
         defaultValue: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       },
     ],
+    refreshModelCatalog: ({ profile }) => refreshAnthropicModelCatalog(profile),
+    modelCatalogCacheTtlSeconds: 86400,
     requiresApiKey: true,
     createProvider: (config) =>
       new AnthropicProvider({
