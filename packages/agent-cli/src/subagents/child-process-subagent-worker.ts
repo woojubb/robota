@@ -4,14 +4,14 @@ import {
   createSubagentSession,
 } from '@robota-sdk/agent-sdk';
 import { createProviderFromProfile } from '@robota-sdk/agent-runtime';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
-import type { ITerminalOutput } from '../types.js';
 import {
   isSubagentWorkerParentMessage,
   type ISubagentWorkerStartPayload,
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
-} from './child-process-subagent-ipc.js';
+} from '@robota-sdk/agent-sdk';
+import type { ITerminalOutput } from '../types.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 
 const CANCEL_EXIT_CODE = 130;
 

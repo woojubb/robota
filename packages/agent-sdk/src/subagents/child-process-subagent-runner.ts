@@ -1,23 +1,24 @@
 import { fork } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { IProviderConfig } from '@robota-sdk/agent-core';
 import {
   BackgroundTaskError,
   createBackgroundTaskLogPage,
-  getBuiltInAgent,
+  createGitWorktreeIsolationAdapter,
   createWorktreeSubagentRunner,
-  type IAgentDefinition,
-  type IInProcessSubagentRunnerDeps,
-  type ISerializableProviderProfile,
   type IBackgroundTaskLogCursor,
   type IBackgroundTaskLogPage,
+  type ISerializableProviderProfile,
   type ISubagentJobHandle,
   type ISubagentJobStart,
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
-  type TSubagentRunnerFactory,
-} from '@robota-sdk/agent-sdk';
-import type { IProviderConfig } from '../utils/provider-factory.js';
+} from '@robota-sdk/agent-runtime';
+import type { TSubagentRunnerFactory } from './in-process-subagent-runner.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import { getBuiltInAgent } from '../agents/built-in-agents.js';
+import type { IInProcessSubagentRunnerDeps } from './in-process-subagent-runner.js';
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import {
   createCancellationResult,
@@ -28,7 +29,6 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
-import { createGitWorktreeIsolationAdapter } from './git-worktree-isolation-adapter.js';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
 

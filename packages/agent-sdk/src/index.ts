@@ -520,8 +520,13 @@ export {
   SubagentManager,
   WorktreeSubagentRunner,
   createWorktreeSubagentRunner,
+  ChildProcessSubagentRunner,
+  createChildProcessSubagentRunnerFactory,
+  isSubagentWorkerChildMessage,
+  isSubagentWorkerParentMessage,
 } from './subagents/index.js';
 export type {
+  IChildProcessSubagentRunnerOptions,
   IInProcessSubagentRunnerDeps,
   IPreparedSubagentWorktree,
   ISubagentJobHandle,
@@ -532,10 +537,14 @@ export type {
   ISubagentManagerOptions,
   ISubagentRunner,
   ISubagentSpawnRequest,
+  ISubagentWorkerStartPayload,
   ISubagentWorktreeAdapter,
   ISubagentWorktreePrepareRequest,
   IWorktreeSubagentRunnerOptions,
   TSubagentRunnerFactory,
+  TSubagentWorkerChildMessage,
+  TSubagentWorkerParentMessage,
+  TSubagentWorkerWireValue,
   TSubagentJobMode,
   TSubagentJobStatus,
 } from './subagents/index.js';
