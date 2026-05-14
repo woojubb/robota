@@ -7,6 +7,7 @@
 
 import { createSession } from '../assembly/index.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
+import type { IContextFileEntry } from '../context/context-loader.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
@@ -172,17 +173,37 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
 }
 
+/** Return value of createInteractiveSession — session plus staleness tracking data. */
+export interface ICreatedInteractiveSession {
+  session: Session;
+  /** Per-file entries for AGENTS.md files loaded at startup. Used for staleness detection. */
+  agentsFileEntries: IContextFileEntry[];
+  /** Per-file entries for CLAUDE.md files loaded at startup. Used for staleness detection. */
+  claudeFileEntries: IContextFileEntry[];
+  /** Rebuilds the system message given updated agentsMd and claudeMd strings. */
+  rebuildSystemMessage: (agentsMd: string, claudeMd: string) => string;
+}
+
 /**
  * Create and return a fully initialized Session.
  *
  * Loads config, context, project info in parallel, merges plugin hooks,
  * then constructs the session via createSession().
  */
-export async function createInteractiveSession(options: IInitOptions): Promise<Session> {
+export async function createInteractiveSession(
+  options: IInitOptions,
+): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
   const [config, context, projectInfo] = await Promise.all([
     options.config ? Promise.resolve(options.config) : loadConfig(cwd),
-    options.bare ? Promise.resolve({ agentsMd: '', claudeMd: '' }) : loadContext(cwd),
+    options.bare
+      ? Promise.resolve({
+          agentsMd: '',
+          claudeMd: '',
+          agentsFileEntries: [],
+          claudeFileEntries: [],
+        })
+      : loadContext(cwd),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
       : detectProject(cwd),
@@ -225,7 +246,7 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
   const sessionId =
     options.resumeSessionId && !options.forkSession ? options.resumeSessionId : undefined;
 
-  return createSession({
+  const { session, rebuildSystemMessage } = createSession({
     config: mergedConfig,
     cwd,
     context,
@@ -264,6 +285,13 @@ export async function createInteractiveSession(options: IInitOptions): Promise<S
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
   });
+
+  return {
+    session,
+    agentsFileEntries: context.agentsFileEntries ?? [],
+    claudeFileEntries: context.claudeFileEntries ?? [],
+    rebuildSystemMessage,
+  };
 }
 
 async function applyInteractiveWorkspaceManifest(
