@@ -1,6 +1,6 @@
 ---
 title: 'SDK-005: Remove chalk from agent-sdk'
-status: backlog
+status: done
 created: 2026-05-15
 priority: low
 urgency: later
