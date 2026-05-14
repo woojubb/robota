@@ -1,6 +1,6 @@
 ---
 title: 'SDK-006: Separate agent-sdk/src/index.ts internal exports to subpath'
-status: backlog
+status: done
 created: 2026-05-15
 priority: low
 urgency: later
