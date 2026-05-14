@@ -5,7 +5,8 @@
  * while exposing the underlying MCP Server via getServer().
  */
 
-import type { InteractiveSession, ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createAgentMcpServer } from './mcp-server.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
