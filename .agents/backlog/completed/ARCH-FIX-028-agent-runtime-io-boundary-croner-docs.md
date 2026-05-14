@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-028: Clarify agent-runtime concrete I/O boundary + document croner in SPEC'
-status: backlog
+status: done
 created: 2026-05-15
 priority: medium
 urgency: later
