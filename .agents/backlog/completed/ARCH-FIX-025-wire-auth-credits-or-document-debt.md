@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-025: Wire auth/credits packages or formally document as forward-declared debt'
-status: backlog
+status: done
 created: 2026-05-15
 priority: high
 urgency: soon

@@ -1,5 +1,19 @@
 # Auth Specification
 
+## Status
+
+**Forward-declared contract — not yet wired in production (as of 2026-05-15).**
+
+`@robota-sdk/auth` is a correct, complete contract package. It has no production consumers:
+`apps/agent-server` performs inline JWT verification using `jsonwebtoken` directly
+(`websocket-server.ts` lines 4, 66, 178–191) instead of using this package's verifier port.
+
+This is acknowledged technical debt. The migration path is:
+
+1. Add `@robota-sdk/auth` as a dependency of `apps/agent-server`
+2. Replace inline `jsonwebtoken` calls with `IAuthVerifier` from this package
+3. Track this work as a separate backlog item when auth enforcement becomes a priority
+
 ## Scope
 
 `@robota-sdk/auth` owns authentication contracts and pure authorization policy helpers for Robota runtimes. It defines credential, principal, auth context, verifier port, error, and scope policy types.
