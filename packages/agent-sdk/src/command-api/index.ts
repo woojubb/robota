@@ -108,6 +108,8 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
+export { checkSettingsDocument } from './provider/settings-check.js';
+export type { TSettingsCheck } from './provider/settings-check.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,
