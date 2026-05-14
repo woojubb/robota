@@ -3,7 +3,8 @@ import {
   createSubagentLogger,
   createSubagentSession,
 } from '@robota-sdk/agent-sdk';
-import { createProviderFromProfile } from '../utils/provider-factory.js';
+import { createProviderFromProfile } from '@robota-sdk/agent-runtime';
+import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 import type { ITerminalOutput } from '../types.js';
 import {
   isSubagentWorkerParentMessage,
@@ -40,7 +41,11 @@ function sendChildMessage(message: TSubagentWorkerChildMessage): void {
 
 async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<void> {
   try {
-    const provider = createProviderFromProfile(payload.providerProfile, payload.request.model);
+    const provider = createProviderFromProfile(
+      payload.providerProfile,
+      payload.request.model,
+      DEFAULT_PROVIDER_DEFINITIONS,
+    );
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.jobId, payload.logsDir)
       : undefined;
