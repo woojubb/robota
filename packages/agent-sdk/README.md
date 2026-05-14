@@ -409,6 +409,29 @@ Manages plugin installation and uninstallation:
 - Tracks installed plugins in a registry file
 - Handles enable/disable state per plugin
 
+## Plugins
+
+`agent-plugin-*` packages are **consumer opt-in** — they are not built into the CLI or SDK by default. Application consumers register plugins at composition time by passing plugin instances to the SDK assembly API.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin-conversation-history';
+import { LoggingPlugin } from '@robota-sdk/agent-plugin-logging';
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  config,
+  context,
+  plugins: [
+    new ConversationHistoryPlugin({ maxMessages: 100 }),
+    new LoggingPlugin({ level: 'info' }),
+  ],
+});
+```
+
+Each plugin implements `AbstractPlugin` from `@robota-sdk/agent-core` and depends only on `agent-core`. Available plugins: `agent-plugin-conversation-history`, `agent-plugin-error-handling`, `agent-plugin-event-emitter`, `agent-plugin-execution-analytics`, `agent-plugin-limits`, `agent-plugin-logging`, `agent-plugin-performance`, `agent-plugin-usage`, `agent-plugin-webhook`.
+
 ## Configuration
 
 Settings are merged from lowest to highest priority:
