@@ -1,6 +1,9 @@
 export {
   BackgroundTaskError,
   BackgroundTaskManager,
+  createDefaultBackgroundTaskRunners,
+  createManagedShellProcessRunner,
+  createScheduledTaskRunner,
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
@@ -25,7 +28,10 @@ export type {
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   IBackgroundTaskState,
+  IManagedShellProcessRunnerOptions,
   IProcessBackgroundTaskRequest,
+  IScheduledBackgroundTaskRequest,
+  IScheduledTaskRunnerOptions,
   ISerializableProviderProfile,
   TBackgroundPermissionPolicy,
   TBackgroundPrimitive,
@@ -44,11 +50,20 @@ export type {
   ILimitedOutputCapture,
 } from './background-tasks/index.js';
 export {
+  createProviderFromConfig,
+  createProviderFromProfile,
+  normalizeProviderConfig,
+  resolveProfileApiKey,
+} from './providers/index.js';
+export {
   SubagentManager,
   WorktreeSubagentRunner,
   createWorktreeSubagentRunner,
+  GitWorktreeIsolationAdapter,
+  createGitWorktreeIsolationAdapter,
 } from './subagents/index.js';
 export type {
+  IGitWorktreeIsolationAdapterOptions,
   IPreparedSubagentWorktree,
   ISubagentJobHandle,
   ISubagentJobResult,

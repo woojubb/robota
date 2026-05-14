@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { GitWorktreeIsolationAdapter } from '../git-worktree-isolation-adapter.js';
+import { GitWorktreeIsolationAdapter } from '@robota-sdk/agent-runtime';
 
 const TEST_TIMEOUT_MS = 20_000;
 const tempRepos: string[] = [];

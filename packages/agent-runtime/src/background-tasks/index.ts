@@ -1,5 +1,14 @@
 export { BackgroundTaskManager } from './background-task-manager.js';
 export {
+  createDefaultBackgroundTaskRunners,
+  createManagedShellProcessRunner,
+  createScheduledTaskRunner,
+} from './runners/index.js';
+export type {
+  IManagedShellProcessRunnerOptions,
+  IScheduledTaskRunnerOptions,
+} from './runners/index.js';
+export {
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
   transitionBackgroundTaskStatus,
@@ -30,6 +39,7 @@ export {
   type IBackgroundTaskStart,
   type IBackgroundTaskState,
   type IProcessBackgroundTaskRequest,
+  type IScheduledBackgroundTaskRequest,
   type ISerializableProviderProfile,
   type TBackgroundPermissionPolicy,
   type TBackgroundPrimitive,

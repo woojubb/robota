@@ -121,6 +121,15 @@ export type {
   IRemoteExecutorConfig,
 } from './interfaces/executor';
 
+// Environment reference utilities
+export {
+  ENV_REFERENCE_PREFIX,
+  isEnvReference,
+  formatEnvReference,
+  resolveEnvReference,
+  hasUsableSecretReference,
+} from './utils/env-ref.js';
+
 // Logger
 export { logger, SilentLogger, createLogger, type ILogger } from './utils/logger';
 

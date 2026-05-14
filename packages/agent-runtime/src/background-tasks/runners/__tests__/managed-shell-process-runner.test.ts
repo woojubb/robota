@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createManagedShellProcessRunner } from '../managed-shell-process-runner.js';
-import type { IBackgroundTaskHandle, IBackgroundTaskStart } from '@robota-sdk/agent-sdk';
+import type { IBackgroundTaskHandle, IBackgroundTaskStart } from '../../types.js';
 
 const TEST_PROCESS_TIMEOUT_MS = 30_000;
 const VITEST_PROCESS_TEST_TIMEOUT_MS = 20_000;
