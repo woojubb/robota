@@ -26,7 +26,7 @@ flowchart TD
   AgentCLI --> Providers
   AgentCLI --> Headless
   TuiTransport --> SDK
-  AgentCLI --> Plugins
+  AgentCLI -. "consumer opt-in" .-> Plugins
   Headless --> SDK
   Commands --> SDK
   Commands -. "agent-command-provider only" .-> Core
@@ -34,7 +34,7 @@ flowchart TD
   SDK --> Runtime
   SDK --> Tools
   SDK --> Core
-  SDK --> Plugins
+  SDK -. "consumer opt-in" .-> Plugins
   Providers --> Core
   Sessions --> Core
   Runtime --> Core
@@ -57,6 +57,8 @@ Agent stack ownership:
 | Background workspace/read model                   | `agent-sdk` + `agent-runtime`       | CLI renders SDK projections; keeps only ephemeral UI selection state. |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness. See [commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) for profile switching semantics.
+
+**Plugin consumer opt-in**: `agent-plugin-*` packages are not imported by `agent-cli` or `agent-sdk` production source. Plugins are registered by consuming applications at composition time. The dashed edges above (`consumer opt-in`) reflect this: no plugin imports exist in the CLI or SDK assembly paths. Application consumers pass plugin instances to the SDK assembly API.
 
 ## API Boundary
 
