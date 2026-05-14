@@ -1,5 +1,20 @@
 # Credits Specification
 
+## Status
+
+**Forward-declared contract — not yet wired in production (as of 2026-05-15).**
+
+`@robota-sdk/credits` is a correct, complete contract package. It has no production consumers:
+no production package or app depends on `@robota-sdk/credits`. Credit accounting policy
+documented in this specification is not enforced at runtime anywhere.
+
+This is acknowledged technical debt. The migration path is:
+
+1. Decide the enforcement point (agent-server, agent-sdk, or a future billing adapter)
+2. Add `@robota-sdk/credits` as a dependency at that enforcement point
+3. Implement the `ICreditAccount` and `ICreditReservation` ports at that layer
+4. Track this work as a separate backlog item when credit enforcement becomes a priority
+
 ## Scope
 
 `@robota-sdk/credits` owns credit account, reservation, ledger, and settlement contracts for Robota runtimes. It provides pure policy helpers for reservation, release, and settlement decisions using integer credit units.
