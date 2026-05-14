@@ -1,6 +1,6 @@
 ---
 title: 'SDK-004: Replace bare object type in TCommandResultDataValue'
-status: backlog
+status: done
 created: 2026-05-15
 priority: medium
 urgency: later
