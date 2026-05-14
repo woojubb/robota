@@ -8,6 +8,7 @@
 export * from './provider';
 export * from './types';
 export * from './provider-definition';
+export * from './model-catalog-refresh';
 
 import type { IAnthropicProviderOptions } from './types';
 
