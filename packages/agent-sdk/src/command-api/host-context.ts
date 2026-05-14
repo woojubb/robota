@@ -1,11 +1,15 @@
 import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-sessions';
 import type {
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
+  TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
+import type { ISubagentJobState } from '../subagents/index.js';
 import type { ICommandHostAdapters } from './host-adapters.js';
 import type {
   IEditCheckpointInspection,
@@ -106,4 +110,28 @@ export interface ICommandHostContext {
   ): Promise<IBackgroundTaskLogPage>;
   cancelBackgroundTask(taskId: string, reason?: string): Promise<void>;
   closeBackgroundTask(taskId: string): Promise<void>;
+}
+
+export interface IAgentJobHostContext {
+  listAgentDefinitions(): Array<{ name: string; description: string }>;
+  listAgentJobs(): ISubagentJobState[];
+  spawnAgentJob(input: {
+    agentType: string;
+    label: string;
+    mode: 'foreground' | 'background';
+    prompt: string;
+    model?: string;
+    isolation?: TBackgroundTaskIsolation;
+  }): Promise<ISubagentJobState>;
+  sendAgentJob(jobId: string, prompt: string): Promise<void>;
+  cancelAgentJob(jobId: string, reason?: string): Promise<void>;
+  closeAgentJob(jobId: string): Promise<void>;
+  createBackgroundJobGroup(
+    input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
+  ): IBackgroundJobGroupState;
+  waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState>;
+  readBackgroundTaskLog(
+    taskId: string,
+    cursor?: IBackgroundTaskLogCursor,
+  ): Promise<IBackgroundTaskLogPage>;
 }

@@ -1,4 +1,5 @@
 export { InteractiveSession } from './interactive-session.js';
+export type { IInteractiveSession } from './i-interactive-session.js';
 export {
   createProjectSessionStore,
   listResumableSessionSummaries,

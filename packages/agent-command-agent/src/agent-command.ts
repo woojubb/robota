@@ -1,5 +1,9 @@
 import { summarizeBackgroundJobGroup } from '@robota-sdk/agent-sdk';
-import type { ICommandResult, InteractiveSession } from '@robota-sdk/agent-sdk';
+import type {
+  IAgentJobHostContext,
+  ICommandResult,
+  ISubagentJobState,
+} from '@robota-sdk/agent-sdk';
 import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
 import type { IAgentRunRequest } from './agent-command-parser.js';
 
@@ -7,12 +11,12 @@ function formatError<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function getAvailableAgentNames(session: InteractiveSession): ReadonlySet<string> {
+function getAvailableAgentNames(session: IAgentJobHostContext): ReadonlySet<string> {
   return new Set(session.listAgentDefinitions().map((agent) => agent.name));
 }
 
 function validateAgentType(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   agentType: string,
 ): ICommandResult | undefined {
   const agents = session.listAgentDefinitions();
@@ -24,9 +28,9 @@ function validateAgentType(
 }
 
 async function spawnAgentJob(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   request: IAgentRunRequest,
-): Promise<ICommandResult | { state: Awaited<ReturnType<InteractiveSession['spawnAgentJob']>> }> {
+): Promise<ICommandResult | { state: ISubagentJobState }> {
   const invalid = validateAgentType(session, request.agentType);
   if (invalid) return invalid;
   try {
@@ -40,7 +44,7 @@ function executeOpenSwitcher(): ICommandResult {
   return { message: '', effects: [{ type: 'agent-switcher-requested' }], success: true };
 }
 
-async function executeList(session: InteractiveSession): Promise<ICommandResult> {
+async function executeList(session: IAgentJobHostContext): Promise<ICommandResult> {
   const agents = session.listAgentDefinitions();
   const jobs = session.listAgentJobs();
   const lines = [
@@ -57,7 +61,7 @@ async function executeList(session: InteractiveSession): Promise<ICommandResult>
   };
 }
 
-function formatAgentJobLine(job: ReturnType<InteractiveSession['listAgentJobs']>[number]): string {
+function formatAgentJobLine(job: ISubagentJobState): string {
   const worktree = [
     job.worktreePath ? `worktree=${job.worktreePath}` : undefined,
     job.branchName ? `branch=${job.branchName}` : undefined,
@@ -67,7 +71,7 @@ function formatAgentJobLine(job: ReturnType<InteractiveSession['listAgentJobs']>
 }
 
 async function executeRun(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const request = parseRunRequest(tokens, getAvailableAgentNames(session));
@@ -90,7 +94,7 @@ async function executeRun(
 }
 
 async function executeParallel(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const wait = tokens.includes('--wait') || !tokens.includes('--detach');
@@ -109,7 +113,7 @@ async function executeParallel(
     .find((result): result is ICommandResult => result !== undefined);
   if (invalid) return invalid;
 
-  let states: Array<Awaited<ReturnType<InteractiveSession['spawnAgentJob']>>>;
+  let states: ISubagentJobState[];
   try {
     states = await Promise.all(jobs.map((job) => session.spawnAgentJob(job)));
   } catch (error) {
@@ -141,7 +145,7 @@ async function executeParallel(
 }
 
 async function executeWait(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [groupId] = tokens;
@@ -156,7 +160,7 @@ async function executeWait(
 }
 
 async function executeRead(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId, offset] = tokens;
@@ -172,7 +176,7 @@ async function executeRead(
 }
 
 async function executeSend(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId, ...promptParts] = tokens;
@@ -185,7 +189,7 @@ async function executeSend(
 }
 
 async function executeStop(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId, ...reasonParts] = tokens;
@@ -195,7 +199,7 @@ async function executeStop(
 }
 
 async function executeClose(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   tokens: readonly string[],
 ): Promise<ICommandResult> {
   const [agentId] = tokens;
@@ -205,7 +209,7 @@ async function executeClose(
 }
 
 export async function executeAgentCommand(
-  session: InteractiveSession,
+  session: IAgentJobHostContext,
   args: string,
 ): Promise<ICommandResult> {
   try {

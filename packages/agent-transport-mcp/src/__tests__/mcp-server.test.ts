@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
 function createMockSession(commands?: Array<{ name: string; description: string }>) {
   return {
@@ -26,7 +26,7 @@ function createMockSession(commands?: Array<{ name: string; description: string 
     ),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 describe('createAgentMcpServer', () => {
