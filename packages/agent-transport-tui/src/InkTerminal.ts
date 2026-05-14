@@ -7,7 +7,7 @@
  */
 
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-sessions';
+import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
 
 export type TPermissionResolver = (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
 

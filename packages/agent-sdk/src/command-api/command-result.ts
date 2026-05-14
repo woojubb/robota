@@ -14,7 +14,7 @@ export interface ICommandResult {
   /** Command completed successfully */
   success: boolean;
   /** Additional structured data (command-specific diagnostics only) */
-  data?: Record<string, TCommandResultDataValue>;
+  data?: Record<string, unknown>;
   /** Typed host effects requested by the command */
   effects?: readonly TCommandEffect[];
   /** Command-owned follow-up prompt and continuation */
