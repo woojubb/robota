@@ -1,5 +1,10 @@
 export { SubagentManager } from './subagent-manager.js';
 export {
+  GitWorktreeIsolationAdapter,
+  createGitWorktreeIsolationAdapter,
+} from './git-worktree-isolation-adapter.js';
+export type { IGitWorktreeIsolationAdapterOptions } from './git-worktree-isolation-adapter.js';
+export {
   WorktreeSubagentRunner,
   createWorktreeSubagentRunner,
 } from './worktree-subagent-runner.js';

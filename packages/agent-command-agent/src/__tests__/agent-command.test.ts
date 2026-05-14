@@ -470,4 +470,33 @@ describe('agent command module', () => {
         .waitBackgroundJobGroup,
     ).toHaveBeenCalledWith('group_1');
   });
+
+  it('opens agent switcher when called with no args', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, '');
+
+    expect(result?.success).toBe(true);
+    expect(result?.effects).toEqual([{ type: 'agent-switcher-requested' }]);
+  });
+
+  it('shows text list when agent list subcommand is used explicitly', async () => {
+    const module = createAgentCommandModule();
+    const executor = new SystemCommandExecutor([
+      ...createSystemCommands(),
+      ...(module.systemCommands ?? []),
+    ]);
+    const session = createMockSession();
+
+    const result = await executor.execute('agent', session, 'list');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('Available agents:');
+    expect(result?.effects).toBeUndefined();
+  });
 });

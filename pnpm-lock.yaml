@@ -410,6 +410,9 @@ importers:
       '@robota-sdk/agent-provider-qwen':
         specifier: workspace:*
         version: link:../agent-provider-qwen
+      '@robota-sdk/agent-runtime':
+        specifier: workspace:3.0.0-beta.63
+        version: link:../agent-runtime
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -1530,6 +1533,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      croner:
+        specifier: ^10.0.1
+        version: 10.0.1
     devDependencies:
       eslint:
         specifier: ^8.56.0
@@ -11403,6 +11409,14 @@ packages:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
+    dev: false
+
+  /croner@10.0.1:
+    resolution:
+      {
+        integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==,
+      }
+    engines: { node: '>=18.0' }
     dev: false
 
   /cross-spawn@7.0.6:

@@ -8,11 +8,11 @@ import type {
   ISubagentJobStart,
   TBackgroundTaskRunnerEvent,
 } from '@robota-sdk/agent-sdk';
-import { ChildProcessSubagentRunner } from '../child-process-subagent-runner.js';
 import {
+  ChildProcessSubagentRunner,
   isSubagentWorkerChildMessage,
   isSubagentWorkerParentMessage,
-} from '../child-process-subagent-ipc.js';
+} from '@robota-sdk/agent-sdk';
 
 const FIXTURE_WORKER = fileURLToPath(
   new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url),

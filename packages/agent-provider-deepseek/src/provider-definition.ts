@@ -66,6 +66,7 @@ export function createDeepSeekProviderDefinition(): IProviderDefinition {
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
     refreshModelCatalog: ({ profile }) => refreshDeepSeekModelCatalog(profile),
+    modelCatalogCacheTtlSeconds: 86400,
     createProvider: (config) => {
       const options = parseDeepSeekProviderOptions(config.options);
       return new DeepSeekProvider({

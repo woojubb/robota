@@ -71,7 +71,7 @@ export class Session {
   private readonly sessionStore?: ISessionStore;
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
-  private readonly systemMessage: string;
+  private systemMessage: string;
   private readonly toolSchemas: IToolSchema[];
   private model: string;
   private readonly hooks?: Record<string, unknown>;
@@ -278,6 +278,19 @@ export class Session {
   /** Return the exact system prompt used by this session. */
   getSystemMessage(): string {
     return this.systemMessage;
+  }
+
+  /**
+   * Replace the active system message and propagate the change to the underlying agent.
+   * Used by staleness detection to refresh context files between turns.
+   */
+  updateSystemMessage(newMessage: string): void {
+    this.systemMessage = newMessage;
+    this.robota.setModel({
+      provider: this.aiProvider.name,
+      model: this.model,
+      systemMessage: newMessage,
+    });
   }
 
   /** Return tool schemas registered for this session. */

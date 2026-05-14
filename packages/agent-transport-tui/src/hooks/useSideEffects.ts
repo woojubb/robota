@@ -24,6 +24,7 @@ export function useSideEffects({
   setSessionName,
   setStatusLineSettings,
   showSessionPickerOnStart,
+  openAgentSwitcher,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const cliAdapter = useTuiCliAdapter();
@@ -58,6 +59,7 @@ export function useSideEffects({
         openPluginTUI: () => setShowPluginTUI(true),
         openSessionPicker: () => setShowSessionPicker(true),
         openTransportTUI: () => setShowTransportTUI(true),
+        openAgentSwitcher: () => openAgentSwitcher?.(),
         renameSession: (name) => {
           interactiveSession.setName(name);
           setSessionName(name);

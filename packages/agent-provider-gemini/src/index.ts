@@ -5,6 +5,7 @@
  */
 
 // Main exports
+export * from './model-catalog-refresh';
 export * from './provider';
 export * from './provider-definition';
 export * from './types';
