@@ -103,11 +103,19 @@ export {
   hasUsableSecretReference,
   isEnvReference,
   resolveEnvReference,
-} from './provider/provider-env-ref.js';
+} from '@robota-sdk/agent-core';
 export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
+export { checkSettingsDocument } from './provider/settings-check.js';
+export type { TSettingsCheck } from './provider/settings-check.js';
+export {
+  mergeProviders,
+  mergeSettings,
+  readMergedProviderSettingsFromPaths,
+  resolveActiveProvider,
+} from './provider/provider-merge.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,

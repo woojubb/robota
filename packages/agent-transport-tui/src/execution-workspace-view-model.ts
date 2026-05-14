@@ -10,6 +10,7 @@ const ACTIVE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
   'queued',
   'running',
   'waiting_permission',
+  'sleeping',
 ];
 const DETAIL_RECORD_TEXT_LIMIT = 160;
 const PREVIEW_WHITESPACE = /\s+/g;
@@ -78,6 +79,7 @@ function formatEntryTitle(entry: IExecutionWorkspaceEntry): string {
   if (entry.kind === 'background_group') return `${entry.title} group`;
   if (entry.taskKind === 'agent') return `${entry.title} agent`;
   if (entry.taskKind === 'process') return entry.title || 'Process';
+  if (entry.taskKind === 'scheduled') return entry.title || 'Scheduled';
   return entry.title;
 }
 

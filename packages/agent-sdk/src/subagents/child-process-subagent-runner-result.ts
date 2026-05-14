@@ -2,7 +2,7 @@ import {
   BackgroundTaskError,
   type ISubagentJobResult,
   type ISubagentJobStart,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-runtime';
 import {
   isSubagentWorkerChildMessage,
   type ISubagentWorkerStartPayload,

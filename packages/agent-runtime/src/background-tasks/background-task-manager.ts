@@ -247,6 +247,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private handleRunnerEvent(task: ITrackedBackgroundTask, event: TBackgroundTaskRunnerEvent): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.applyRunnerEventToState(task, event);
+    if (event.type === 'background_task_sleeping' || event.type === 'background_task_waking') {
+      return;
+    }
     this.emit({ ...event, taskId: task.state.id });
     if (event.type === 'background_task_text_delta') {
       this.watchdogs.applyTextGuards(task, event.delta);

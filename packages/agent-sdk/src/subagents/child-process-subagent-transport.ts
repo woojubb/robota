@@ -1,10 +1,10 @@
 import type { ChildProcess } from 'node:child_process';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 import {
   BackgroundTaskError,
   type ISubagentJobStart,
   type TBackgroundTaskRunnerEvent,
-} from '@robota-sdk/agent-sdk';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+} from '@robota-sdk/agent-runtime';
 import type {
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
