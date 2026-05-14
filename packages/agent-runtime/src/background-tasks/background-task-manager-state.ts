@@ -118,6 +118,18 @@ export function applyBackgroundTaskRunnerStateEvent(
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);
   }
+  if (event.type === 'background_task_sleeping') {
+    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'SLEEP');
+    task.state.nextFireAt = event.nextFireAt;
+    task.state.updatedAt = now;
+    return cloneBackgroundTaskState(task.state);
+  }
+  if (event.type === 'background_task_waking') {
+    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'WAKE');
+    task.state.nextFireAt = undefined;
+    task.state.updatedAt = now;
+    return cloneBackgroundTaskState(task.state);
+  }
   return undefined;
 }
 
