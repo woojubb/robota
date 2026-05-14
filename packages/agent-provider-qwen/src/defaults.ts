@@ -20,3 +20,7 @@ export const DEFAULT_QWEN_PROVIDER_API_KEY_ENV = 'DASHSCOPE_API_KEY';
 export const DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_QWEN_PROVIDER_API_KEY_ENV}`;
 export const DEFAULT_QWEN_PROVIDER_BASE_URL = QWEN_PROVIDER_BASE_URLS.singapore;
 export const DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL = QWEN_PROVIDER_RESPONSES_BASE_URLS.singapore;
+
+export const QWEN_MODEL_SOURCE_URL =
+  'https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope';
+export const QWEN_MODEL_LAST_VERIFIED_AT = '2026-05-04';

@@ -155,6 +155,76 @@ describe('model command common API', () => {
     expect(state?.catalog?.message).toBe('OpenAI models should be discovered live.');
   });
 
+  it('auto-refreshes stale catalog when modelCatalogCacheTtlSeconds is set', async () => {
+    const staleDate = new Date(Date.now() - 2 * 86400 * 1000).toISOString();
+    const staleProviderDefs: readonly IProviderDefinition[] = [
+      {
+        type: 'openai',
+        modelCatalog: {
+          status: 'fallback',
+          lastVerifiedAt: staleDate,
+          entries: [{ id: 'old-model', displayName: 'Old Model', lifecycle: 'active' }],
+        },
+        modelCatalogCacheTtlSeconds: 86400,
+        refreshModelCatalog: async () => ({
+          status: 'live',
+          sourceUrl: 'https://platform.openai.com/docs/api-reference/models/list',
+          lastVerifiedAt: new Date().toISOString(),
+          entries: [{ id: 'fresh-model', displayName: 'Fresh Model', lifecycle: 'active' }],
+        }),
+        createProvider: () => {
+          throw new Error('not used');
+        },
+      },
+    ];
+
+    const state = await resolveActiveProviderModelCatalogState({
+      providerDefinitions: staleProviderDefs,
+      settings: {
+        currentProvider: 'openai',
+        providers: { openai: { type: 'openai', apiKey: 'sk-test' } },
+      },
+    });
+
+    expect(state?.refreshAttempted).toBe(true);
+    expect(state?.catalog?.status).toBe('live');
+    expect(state?.catalog?.entries?.[0]?.id).toBe('fresh-model');
+  });
+
+  it('does not auto-refresh when catalog is within TTL', async () => {
+    const freshDate = new Date().toISOString();
+    const refreshFn = async (): Promise<never> => {
+      throw new Error('should not be called');
+    };
+    const freshProviderDefs: readonly IProviderDefinition[] = [
+      {
+        type: 'openai',
+        modelCatalog: {
+          status: 'fallback',
+          lastVerifiedAt: freshDate,
+          entries: [{ id: 'current-model', displayName: 'Current Model', lifecycle: 'active' }],
+        },
+        modelCatalogCacheTtlSeconds: 86400,
+        refreshModelCatalog: refreshFn,
+        createProvider: () => {
+          throw new Error('not used');
+        },
+      },
+    ];
+
+    const state = await resolveActiveProviderModelCatalogState({
+      providerDefinitions: freshProviderDefs,
+      settings: {
+        currentProvider: 'openai',
+        providers: { openai: { type: 'openai', apiKey: 'sk-test' } },
+      },
+    });
+
+    expect(state?.refreshAttempted).toBe(false);
+    expect(state?.catalog?.status).toBe('fallback');
+    expect(state?.catalog?.entries?.[0]?.id).toBe('current-model');
+  });
+
   it('formats refreshed catalog freshness in model usage', async () => {
     const usage = await formatModelCommandUsageMessageAsync({
       refresh: true,

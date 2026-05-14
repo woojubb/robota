@@ -92,7 +92,10 @@ export async function resolveActiveProviderModelCatalogState(
     options.providerDefinitions,
   );
   if (snapshot === undefined) return undefined;
-  if (options.refresh !== true || snapshot.definition?.refreshModelCatalog === undefined) {
+  const shouldRefresh =
+    options.refresh === true ||
+    isCatalogStale(snapshot.catalog, snapshot.definition?.modelCatalogCacheTtlSeconds);
+  if (!shouldRefresh || snapshot.definition?.refreshModelCatalog === undefined) {
     return toCatalogState(snapshot);
   }
 
@@ -197,6 +200,17 @@ function toCatalogState(
     ...(snapshot.catalog !== undefined ? { catalog: snapshot.catalog } : {}),
     refreshAttempted: false,
   };
+}
+
+function isCatalogStale(
+  catalog: IProviderModelCatalog | undefined,
+  ttlSeconds: number | undefined,
+): boolean {
+  if (catalog === undefined || ttlSeconds === undefined || catalog.lastVerifiedAt === undefined) {
+    return false;
+  }
+  const ageMs = Date.now() - new Date(catalog.lastVerifiedAt).getTime();
+  return ageMs > ttlSeconds * 1000;
 }
 
 function resolveRefreshProfile(
