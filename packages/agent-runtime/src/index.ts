@@ -59,8 +59,11 @@ export {
   SubagentManager,
   WorktreeSubagentRunner,
   createWorktreeSubagentRunner,
+  GitWorktreeIsolationAdapter,
+  createGitWorktreeIsolationAdapter,
 } from './subagents/index.js';
 export type {
+  IGitWorktreeIsolationAdapterOptions,
   IPreparedSubagentWorktree,
   ISubagentJobHandle,
   ISubagentJobResult,
