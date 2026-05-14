@@ -8,6 +8,7 @@ import {
   getProviderSettingsPaths,
   readProviderSettings,
 } from '../provider-factory.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from '../provider-default-definitions.js';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
@@ -403,13 +404,17 @@ describe('provider-factory', () => {
   });
 
   it('creates a provider from a serialized worker profile', () => {
-    createProviderFromProfile({
-      type: 'openai',
-      model: 'worker-model',
-      apiKey: 'worker-key',
-      baseURL: 'http://localhost:1234/v1',
-      timeout: 12_000,
-    });
+    createProviderFromProfile(
+      {
+        type: 'openai',
+        model: 'worker-model',
+        apiKey: 'worker-key',
+        baseURL: 'http://localhost:1234/v1',
+        timeout: 12_000,
+      },
+      undefined,
+      DEFAULT_PROVIDER_DEFINITIONS,
+    );
 
     expect(OpenAIProvider).toHaveBeenCalledWith({
       apiKey: 'worker-key',
@@ -420,13 +425,17 @@ describe('provider-factory', () => {
   });
 
   it('creates GemmaProvider from a serialized worker profile', () => {
-    createProviderFromProfile({
-      type: 'gemma',
-      model: 'worker-gemma',
-      apiKey: 'worker-key',
-      baseURL: 'http://localhost:1234/v1',
-      timeout: 12_000,
-    });
+    createProviderFromProfile(
+      {
+        type: 'gemma',
+        model: 'worker-gemma',
+        apiKey: 'worker-key',
+        baseURL: 'http://localhost:1234/v1',
+        timeout: 12_000,
+      },
+      undefined,
+      DEFAULT_PROVIDER_DEFINITIONS,
+    );
 
     expect(GemmaProvider).toHaveBeenCalledWith({
       apiKey: 'worker-key',

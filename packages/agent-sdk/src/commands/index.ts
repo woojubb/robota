@@ -35,6 +35,12 @@ export {
 } from '../command-api/provider/provider-command-probe.js';
 export { checkSettingsDocument } from '../command-api/provider/settings-check.js';
 export type { TSettingsCheck } from '../command-api/provider/settings-check.js';
+export {
+  mergeProviders,
+  mergeSettings,
+  readMergedProviderSettingsFromPaths,
+  resolveActiveProvider,
+} from '../command-api/provider/provider-merge.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
