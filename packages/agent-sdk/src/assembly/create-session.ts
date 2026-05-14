@@ -183,13 +183,23 @@ export interface ICreateSessionOptions {
   sandboxClient?: ISandboxClient;
 }
 
+/** Result of createSession — session instance plus a system-message rebuilder for context refresh. */
+export interface ICreateSessionResult {
+  session: Session;
+  /**
+   * Rebuild the system message using updated context strings.
+   * Called by staleness detection when AGENTS.md or CLAUDE.md files change between turns.
+   */
+  rebuildSystemMessage: (agentsMd: string, claudeMd: string) => string;
+}
+
 /**
  * Create a fully-configured Session instance.
  *
  * Assembles provider, tools, and system prompt, then passes them
  * to Session as pre-constructed dependencies.
  */
-export function createSession(options: ICreateSessionOptions): Session {
+export function createSession(options: ICreateSessionOptions): ICreateSessionResult {
   if (!options.provider) {
     throw new Error(
       'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
@@ -356,19 +366,20 @@ export function createSession(options: ICreateSessionOptions): Session {
         )
       : []),
   ];
-  const systemMessage = buildPrompt({
+  const resolvedToolDescriptions =
+    options.toolDescriptions ??
+    (backgroundProcessToolDeps
+      ? [
+          ...defaultToolDescriptions,
+          'BackgroundProcess — start long-running shell commands as managed background tasks',
+        ]
+      : defaultToolDescriptions);
+  const staticPromptParams: ISystemPromptParams = {
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
     memoryMd: options.context.memoryMd,
     taskContext: options.context.taskContext,
-    toolDescriptions:
-      options.toolDescriptions ??
-      (backgroundProcessToolDeps
-        ? [
-            ...defaultToolDescriptions,
-            'BackgroundProcess — start long-running shell commands as managed background tasks',
-          ]
-        : defaultToolDescriptions),
+    toolDescriptions: resolvedToolDescriptions,
     trustLevel: options.config.defaultTrustLevel,
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
@@ -387,10 +398,20 @@ export function createSession(options: ICreateSessionOptions): Session {
         }
       : {}),
     commandDescriptors: options.commandDescriptors ?? [],
-  });
+  };
+  const systemMessage = buildPrompt(staticPromptParams);
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
     : systemMessage;
+
+  const rebuildSystemMessage = (newAgentsMd: string, newClaudeMd: string): string => {
+    const rebuilt = buildPrompt({
+      ...staticPromptParams,
+      agentsMd: newAgentsMd,
+      claudeMd: newClaudeMd,
+    });
+    return options.appendSystemPrompt ? `${rebuilt}\n\n${options.appendSystemPrompt}` : rebuilt;
+  };
 
   // Merge default allow patterns for config folders with user-configured permissions
   const defaultAllow = [
@@ -442,7 +463,7 @@ export function createSession(options: ICreateSessionOptions): Session {
   if (backgroundTaskManager) storeSessionBackgroundTaskManager(session, backgroundTaskManager);
   if (agentToolDeps) storeAgentToolDeps(session, agentToolDeps);
 
-  return session;
+  return { session, rebuildSystemMessage };
 }
 
 function createSessionId(): string {

@@ -194,7 +194,7 @@ describe('createInteractiveSession — bare mode', () => {
 
     // Should return a valid session object with getSessionId
     expect(session).toBeDefined();
-    expect(typeof session.getSessionId).toBe('function');
+    expect(typeof session.session.getSessionId).toBe('function');
   });
 
   it('bare=true: loadConfig IS still called (config loading is not skipped)', async () => {
