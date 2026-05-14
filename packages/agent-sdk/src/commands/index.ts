@@ -114,7 +114,7 @@ export {
   hasUsableSecretReference,
   isEnvReference,
   resolveEnvReference,
-} from '../command-api/provider/provider-env-ref.js';
+} from '@robota-sdk/agent-core';
 export {
   formatCommandHelpMessage,
   HELP_COMMAND_DESCRIPTION,

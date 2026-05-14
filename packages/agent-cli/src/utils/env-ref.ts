@@ -3,4 +3,4 @@ export {
   hasUsableSecretReference,
   isEnvReference,
   resolveEnvReference,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-core';

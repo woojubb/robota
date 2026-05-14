@@ -1,4 +1,4 @@
-const ENV_REFERENCE_PREFIX = '$ENV:';
+export const ENV_REFERENCE_PREFIX = '$ENV:';
 
 export function isEnvReference(value: string): boolean {
   return value.startsWith(ENV_REFERENCE_PREFIX);

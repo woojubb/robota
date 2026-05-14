@@ -103,7 +103,7 @@ export {
   hasUsableSecretReference,
   isEnvReference,
   resolveEnvReference,
-} from './provider/provider-env-ref.js';
+} from '@robota-sdk/agent-core';
 export {
   probeProviderProfile,
   testProviderProfileCommand,

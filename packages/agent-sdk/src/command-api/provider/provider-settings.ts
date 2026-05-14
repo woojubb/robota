@@ -6,7 +6,7 @@ import type {
   TUniversalValue,
 } from '@robota-sdk/agent-core';
 import { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
-import { formatEnvReference, hasUsableSecretReference } from './provider-env-ref.js';
+import { formatEnvReference, hasUsableSecretReference } from '@robota-sdk/agent-core';
 
 export interface IProviderProfileSettings extends IProviderProfileConfig {
   [key: string]: TUniversalValue;
