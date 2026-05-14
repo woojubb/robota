@@ -84,6 +84,13 @@ export interface IInteractiveSessionEvents {
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
   execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
   user_message: (content: string) => void;
+  /** Emitted when a context file (AGENTS.md or CLAUDE.md) is refreshed due to staleness. */
+  context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
+}
+
+/** Emitted when a context file is found stale and re-read before a turn. */
+export interface IContextFileRefreshedEvent {
+  filePath: string;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

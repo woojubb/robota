@@ -25,6 +25,7 @@ export type {
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
+  IContextFileRefreshedEvent,
 } from './types.js';
 export type {
   ITransportAdapter,

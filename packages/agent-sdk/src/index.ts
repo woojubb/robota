@@ -25,6 +25,7 @@ export type {
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
+  IContextFileRefreshedEvent,
   ITransportAdapter,
   IConfigurableTransport,
   ITransportConfig,
