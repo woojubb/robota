@@ -3,16 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type {
-  IInProcessSubagentRunnerDeps,
-  ISubagentJobStart,
-  TBackgroundTaskRunnerEvent,
-} from '@robota-sdk/agent-sdk';
+import type { IInProcessSubagentRunnerDeps, ISubagentJobStart } from '@robota-sdk/agent-sdk';
+import type { TBackgroundTaskRunnerEvent } from '@robota-sdk/agent-runtime';
+import { ChildProcessSubagentRunner } from '../child-process-subagent-runner.js';
 import {
-  ChildProcessSubagentRunner,
   isSubagentWorkerChildMessage,
   isSubagentWorkerParentMessage,
-} from '@robota-sdk/agent-sdk';
+} from '../child-process-subagent-ipc.js';
 
 const FIXTURE_WORKER = fileURLToPath(
   new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url),
