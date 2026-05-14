@@ -18,6 +18,7 @@ export interface IUseSideEffectsOptions {
   setSessionName: (name: string) => void;
   setStatusLineSettings: (settings: IStatusLineSettings) => void;
   showSessionPickerOnStart?: boolean;
+  openAgentSwitcher?: () => void;
 }
 
 export interface IUseSideEffectsResult {

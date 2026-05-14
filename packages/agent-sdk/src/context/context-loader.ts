@@ -3,10 +3,14 @@
  * AGENTS.md and CLAUDE.md files, then concatenates them root-first
  * so that more-specific (closer) instructions appear last.
  */
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { ProjectMemoryStore } from '../memory/project-memory-store.js';
 import { loadTaskContext } from './task-context.js';
+import { loadFileWithHash } from './context-file-tracker.js';
+import type { IContextFileEntry } from './context-file-tracker.js';
+
+export type { IContextFileEntry };
 
 export interface ILoadedContext {
   /** Concatenated content of all AGENTS.md files found (root-first) */
@@ -19,6 +23,10 @@ export interface ILoadedContext {
   taskContext?: string;
   /** Extracted "Compact Instructions" section from CLAUDE.md, if present */
   compactInstructions?: string;
+  /** Per-file entries for all AGENTS.md files, root-first. Present for staleness detection. */
+  agentsFileEntries?: IContextFileEntry[];
+  /** Per-file entries for all CLAUDE.md files, root-first. Present for staleness detection. */
+  claudeFileEntries?: IContextFileEntry[];
 }
 
 const AGENTS_FILENAME = 'AGENTS.md';
@@ -93,9 +101,11 @@ export async function loadContext(cwd: string): Promise<ILoadedContext> {
   const agentsPaths = collectFilesWalkingUp(cwd, AGENTS_FILENAME);
   const claudePaths = collectFilesWalkingUp(cwd, CLAUDE_FILENAME);
 
-  const agentsMd = agentsPaths.map((p) => readFileSync(p, 'utf-8')).join('\n\n');
+  const agentsEntries = agentsPaths.map((p) => loadFileWithHash(p));
+  const claudeEntries = claudePaths.map((p) => loadFileWithHash(p));
 
-  const claudeMd = claudePaths.map((p) => readFileSync(p, 'utf-8')).join('\n\n');
+  const agentsMd = agentsEntries.map((e) => e.content).join('\n\n');
+  const claudeMd = claudeEntries.map((e) => e.content).join('\n\n');
 
   const compactInstructions = extractCompactInstructions(claudeMd);
   const startupMemory = new ProjectMemoryStore(cwd).loadStartupMemory();
@@ -103,5 +113,13 @@ export async function loadContext(cwd: string): Promise<ILoadedContext> {
   const loadedTaskContext = loadTaskContext(cwd);
   const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;
 
-  return { agentsMd, claudeMd, memoryMd, taskContext, compactInstructions };
+  return {
+    agentsMd,
+    claudeMd,
+    memoryMd,
+    taskContext,
+    compactInstructions,
+    agentsFileEntries: agentsEntries,
+    claudeFileEntries: claudeEntries,
+  };
 }

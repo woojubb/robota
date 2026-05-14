@@ -36,6 +36,10 @@ async function spawnAgentJob(
   }
 }
 
+function executeOpenSwitcher(): ICommandResult {
+  return { message: '', effects: [{ type: 'agent-switcher-requested' }], success: true };
+}
+
 async function executeList(session: InteractiveSession): Promise<ICommandResult> {
   const agents = session.listAgentDefinitions();
   const jobs = session.listAgentJobs();
@@ -205,6 +209,7 @@ export async function executeAgentCommand(
   args: string,
 ): Promise<ICommandResult> {
   try {
+    if (args.trim() === '') return executeOpenSwitcher();
     const [action = 'list', ...tokens] = tokenizeArgs(args);
     if (action === 'list' && tokens.length === 0) return executeList(session);
     if (action === 'run') return executeRun(session, tokens);

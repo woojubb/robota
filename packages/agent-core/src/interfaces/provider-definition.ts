@@ -102,6 +102,8 @@ export interface IProviderDefinition {
   defaults?: IProviderProfileDefaults;
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
+  /** Maximum age in seconds before the model catalog is considered stale and auto-refreshed. */
+  modelCatalogCacheTtlSeconds?: number;
   setupHelpLinks?: readonly IProviderSetupHelpLink[];
   setupSteps?: readonly IProviderSetupStepDefinition[];
   credentialRequirement?: IProviderCredentialRequirement;

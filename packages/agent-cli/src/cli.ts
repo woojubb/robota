@@ -67,7 +67,10 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { TuiTransport } from '@robota-sdk/agent-transport-tui';
 import type { ITuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { TransportRegistry } from './transports/transport-registry.js';
-import { createManagedShellProcessRunner } from './background/managed-shell-process-runner.js';
+import {
+  createDefaultBackgroundTaskRunners,
+  type IBackgroundTaskRunner,
+} from '@robota-sdk/agent-runtime';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 import {
   checkForCliUpdate,
@@ -290,7 +293,7 @@ async function runPrintMode(
   args: IParsedCliArgs,
   provider: IAIProvider,
   sessionStore: ReturnType<typeof createProjectSessionStore>,
-  backgroundTaskRunners: ReturnType<typeof createManagedShellProcessRunner>[],
+  backgroundTaskRunners: IBackgroundTaskRunner[],
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
@@ -414,7 +417,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
-  const backgroundTaskRunners = [createManagedShellProcessRunner()];
+  const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
     providerConfig: { ...providerSettings, model: modelId },

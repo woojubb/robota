@@ -14,6 +14,7 @@ export type TSubagentJobStatus =
   | 'queued'
   | 'running'
   | 'waiting_permission'
+  | 'sleeping'
   | 'completed'
   | 'failed'
   | 'cancelled';

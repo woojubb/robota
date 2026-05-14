@@ -140,13 +140,29 @@ function createTaskControls(state: IBackgroundTaskState): readonly TExecutionCon
   const controls: TExecutionControl[] = ['select'];
   if (isTerminalBackgroundTaskStatus(state.status)) controls.push('close');
   else controls.push('cancel');
+  if (state.kind === 'agent' && state.status === 'running') controls.push('send');
   if (state.logPath || state.transcriptPath) controls.push('read_log');
   return controls;
 }
 
 function createTaskSubtitle(state: IBackgroundTaskState): string | undefined {
   if (state.kind === 'agent') return state.agentType ?? state.cwd;
+  if (state.status === 'sleeping' && state.nextFireAt !== undefined) {
+    return `next: ${formatNextFireAt(state.nextFireAt)}`;
+  }
   return state.cwd;
+}
+
+function formatNextFireAt(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  if (diffMs <= 0) return 'now';
+  const diffSec = Math.round(diffMs / 1000);
+  if (diffSec < 60) return `${diffSec}s`;
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  return `${Math.round(diffMin / 60)}h`;
 }
 
 function createTaskPreview(state: IBackgroundTaskState): string | undefined {

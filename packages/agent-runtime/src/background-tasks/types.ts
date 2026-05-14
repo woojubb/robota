@@ -1,6 +1,6 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
-export type TBackgroundTaskKind = 'agent' | 'process';
+export type TBackgroundTaskKind = 'agent' | 'process' | 'scheduled';
 
 export type TBackgroundTaskMode = 'foreground' | 'background';
 
@@ -10,6 +10,7 @@ export type TBackgroundTaskStatus =
   | 'queued'
   | 'running'
   | 'waiting_permission'
+  | 'sleeping'
   | 'completed'
   | 'failed'
   | 'cancelled';
@@ -103,7 +104,19 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
   outputLimitBytes?: number;
 }
 
-export type IBackgroundTaskRequest = IAgentBackgroundTaskRequest | IProcessBackgroundTaskRequest;
+export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
+  kind: 'scheduled';
+  cronExpression: string;
+  command: string;
+  shell?: string;
+  env?: Record<string, string>;
+  outputLimitBytes?: number;
+}
+
+export type IBackgroundTaskRequest =
+  | IAgentBackgroundTaskRequest
+  | IProcessBackgroundTaskRequest
+  | IScheduledBackgroundTaskRequest;
 
 export interface IBackgroundTaskResult {
   taskId: string;
@@ -146,6 +159,7 @@ export interface IBackgroundTaskState {
   worktreeBaseRevision?: string;
   parentWorktreeStatus?: string;
   timeoutReason?: TBackgroundTaskTimeoutReason;
+  nextFireAt?: string;
   metadata?: Record<string, TBackgroundPrimitive>;
 }
 
@@ -186,7 +200,9 @@ export type TBackgroundTaskRunnerEvent =
       requestId: string;
       toolName: string;
       toolArgs: Record<string, TBackgroundPrimitive>;
-    };
+    }
+  | { type: 'background_task_sleeping'; nextFireAt: string }
+  | { type: 'background_task_waking' };
 
 export interface IBackgroundTaskStart {
   taskId: string;

@@ -14,4 +14,5 @@ export type TCommandEffect =
   | { type: 'session-renamed'; name: string }
   | { type: 'conversation-history-cleared' }
   | { type: 'session-execution-started' }
-  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
+  | { type: 'agent-switcher-requested' };

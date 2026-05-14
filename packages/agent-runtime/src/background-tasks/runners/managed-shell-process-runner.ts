@@ -1,9 +1,12 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import {
-  BackgroundTaskError,
   appendPrefixedLogLines,
   createBackgroundTaskLogPage,
   createLimitedOutputCapture,
+  type ILimitedOutputCapture,
+} from '../log-pages.js';
+import {
+  BackgroundTaskError,
   type IBackgroundTaskHandle,
   type IBackgroundTaskInput,
   type IBackgroundTaskLogCursor,
@@ -11,9 +14,8 @@ import {
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,
-  type ILimitedOutputCapture,
   type IProcessBackgroundTaskRequest,
-} from '@robota-sdk/agent-sdk';
+} from '../types.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 const DEFAULT_KILL_GRACE_MS = 2_000;

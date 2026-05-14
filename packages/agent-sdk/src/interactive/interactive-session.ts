@@ -114,6 +114,7 @@ import {
 import type {
   IInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
+  ICreatedInteractiveSession,
 } from './interactive-session-init.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
@@ -132,6 +133,8 @@ import {
   recordInteractiveContextReferences,
 } from './interactive-session-context-references.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import { refreshContextEntries } from '../context/context-file-tracker.js';
+import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type {
   IEditCheckpointInspection,
@@ -213,6 +216,9 @@ export class InteractiveSession implements ISession {
   private readonly sandboxClient?: ISandboxClient;
   private sandboxSnapshotId?: string;
   private commandInvocationSource: TCommandInvocationSource = 'user';
+  private agentsFileEntries: IContextFileEntry[] = [];
+  private claudeFileEntries: IContextFileEntry[] = [];
+  private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
 
   constructor(options: IInteractiveSessionOptions) {
     this.commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];
@@ -285,7 +291,7 @@ export class InteractiveSession implements ISession {
     this.autoCompactThresholdSource =
       config.autoCompactThreshold === undefined ? 'default' : 'settings';
     this.editCheckpointStore = new EditCheckpointStore({ cwd: options.cwd });
-    this.session = await createInteractiveSession({
+    const created = await createInteractiveSession({
       cwd: options.cwd,
       provider: options.provider,
       config,
@@ -321,6 +327,10 @@ export class InteractiveSession implements ISession {
           }
         : {}),
     });
+    this.session = created.session;
+    this.agentsFileEntries = created.agentsFileEntries;
+    this.claudeFileEntries = created.claudeFileEntries;
+    this.rebuildSystemMessage = created.rebuildSystemMessage;
 
     if (this.pendingRestoreMessages) {
       for (const msg of this.pendingRestoreMessages) injectSavedMessage(this.session, msg);
@@ -1350,11 +1360,34 @@ export class InteractiveSession implements ISession {
     }
   }
 
+  private async checkAndRefreshContextIfStale(): Promise<void> {
+    if (!this.rebuildSystemMessage) return;
+    const allEntries = [...this.agentsFileEntries, ...this.claudeFileEntries];
+    if (allEntries.length === 0) return;
+
+    const agentsCount = this.agentsFileEntries.length;
+    const { updated, refreshed } = await refreshContextEntries(allEntries);
+    if (refreshed.length === 0) return;
+
+    this.agentsFileEntries = updated.slice(0, agentsCount);
+    this.claudeFileEntries = updated.slice(agentsCount);
+
+    const newAgentsMd = this.agentsFileEntries.map((e) => e.content).join('\n\n');
+    const newClaudeMd = this.claudeFileEntries.map((e) => e.content).join('\n\n');
+    const newSystemMessage = this.rebuildSystemMessage(newAgentsMd, newClaudeMd);
+    this.getSessionOrThrow().updateSystemMessage(newSystemMessage);
+
+    for (const filePath of refreshed) {
+      this.emit('context_file_refreshed', { filePath });
+    }
+  }
+
   private async executePrompt(
     input: string,
     displayInput?: string,
     rawInput?: string,
   ): Promise<void> {
+    await this.checkAndRefreshContextIfStale();
     this.executing = true;
     this.clearStreaming();
     this.emit('user_message', displayInput ?? input);

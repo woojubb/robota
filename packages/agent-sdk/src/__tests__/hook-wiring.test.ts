@@ -322,7 +322,7 @@ describe('Hook wiring via createSession', () => {
     expect(sessionStartCalls[0].config).toBe(SAMPLE_HOOKS);
 
     // Verify session was created successfully
-    expect(session.getSessionId()).toBeDefined();
+    expect(session.session.getSessionId()).toBeDefined();
   });
 
   it('should wire SDK hook executors (prompt, agent) when factories provided', async () => {
