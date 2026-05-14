@@ -23,6 +23,7 @@ interface IProps {
   sessionName?: string;
   gitBranch?: string;
   showGitBranch?: boolean;
+  activeAgentLabel?: string;
 }
 
 interface IStatusLeftProps {
@@ -177,6 +178,7 @@ export default function StatusBar({
   sessionName,
   gitBranch,
   showGitBranch = true,
+  activeAgentLabel,
 }: IProps): React.ReactElement {
   return (
     <Box
@@ -201,6 +203,11 @@ export default function StatusBar({
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
       />
+      {activeAgentLabel !== undefined && (
+        <Text color="yellow" bold>
+          [{activeAgentLabel}]
+        </Text>
+      )}
     </Box>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
@@ -178,7 +178,38 @@ function AppInner(
     setSessionName,
     setStatusLineSettings,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
+    openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
   });
+
+  const isSelectedEntryInteractive =
+    !selectedExecutionEntry ||
+    selectedExecutionEntry.kind === 'main_thread' ||
+    selectedExecutionEntry.controls.includes('send');
+
+  const activeAgentLabel =
+    selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread'
+      ? selectedExecutionEntry.title
+      : undefined;
+
+  const mainThreadEntryId = useMemo(
+    () => executionWorkspaceSnapshot?.entries.find((e) => e.kind === 'main_thread')?.id,
+    [executionWorkspaceSnapshot],
+  );
+
+  const handleSubmitWithRouting = useCallback(
+    async (input: string): Promise<void> => {
+      if (
+        selectedExecutionEntry &&
+        selectedExecutionEntry.kind !== 'main_thread' &&
+        selectedExecutionEntry.controls.includes('send')
+      ) {
+        await interactiveSession.sendAgentJob(selectedExecutionEntry.sourceId, input);
+      } else {
+        await handleSubmit(input);
+      }
+    },
+    [selectedExecutionEntry, handleSubmit, interactiveSession],
+  );
 
   // Sync session name from InteractiveSession when resuming
   useEffect(() => {
@@ -228,6 +259,27 @@ function AppInner(
     if (!key.ctrl || input !== 'b') return;
     if (permissionRequest || showPluginTUI || showSessionPicker || isShuttingDown) return;
     setShowExecutionWorkspaceSwitcher((shown) => !shown);
+  });
+
+  // ESC returns to main thread when a background entry is selected (and not thinking).
+  useInput((_input: string, key: { escape: boolean }) => {
+    if (!key.escape || isThinking) return;
+    if (
+      permissionRequest ||
+      showPluginTUI ||
+      showTransportTUI ||
+      showSessionPicker ||
+      showExecutionWorkspaceSwitcher
+    ) {
+      return;
+    }
+    if (
+      selectedExecutionEntry &&
+      selectedExecutionEntry.kind !== 'main_thread' &&
+      mainThreadEntryId !== undefined
+    ) {
+      selectExecutionWorkspaceEntry(mainThreadEntryId);
+    }
   });
 
   // Ctrl+C graceful shutdown
@@ -391,9 +443,10 @@ function AppInner(
         contextState={contextState}
         sessionName={sessionName}
         settings={statusLineSettings}
+        activeAgentLabel={activeAgentLabel}
       />
       <InputArea
-        onSubmit={handleSubmit}
+        onSubmit={handleSubmitWithRouting}
         onCancelQueue={handleCancelQueue}
         isDisabled={
           !!permissionRequest ||
@@ -403,7 +456,8 @@ function AppInner(
           showExecutionWorkspaceSwitcher ||
           isShuttingDown ||
           pendingInteractionPrompt !== null ||
-          (isThinking && !!pendingPrompt)
+          (isThinking && !!pendingPrompt) ||
+          !isSelectedEntryInteractive
         }
         isAborting={isAborting}
         pendingPrompt={pendingPrompt}
