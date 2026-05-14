@@ -199,6 +199,19 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 | `IPermissionLists`      | type     | Allow/deny pattern lists                                                   |
 | `TKnownToolName`        | type     | Known tool names: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch |
 
+### Environment Reference Utilities
+
+Zero-dependency utilities for the `$ENV:<name>` environment variable reference format. This is the
+canonical location for env-ref logic; all higher layers import from here.
+
+| Export                     | Kind     | Description                                                               |
+| -------------------------- | -------- | ------------------------------------------------------------------------- |
+| `ENV_REFERENCE_PREFIX`     | const    | `'$ENV:'` — the canonical prefix for environment variable references      |
+| `isEnvReference`           | function | Return true when a string starts with `$ENV:`                             |
+| `formatEnvReference`       | function | Return the `$ENV:<name>` formatted string for the given variable name     |
+| `resolveEnvReference`      | function | Resolve `$ENV:<name>` → `process.env[name]`; return value or `undefined`  |
+| `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value |
+
 ### Hooks
 
 | Export              | Kind      | Description                                                                                                                      |
