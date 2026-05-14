@@ -17,6 +17,7 @@ interface IProps {
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   sessionName?: string;
   settings: IStatusLineCommandSettings;
+  activeAgentLabel?: string;
 }
 
 export default function SessionStatusBar({
@@ -32,6 +33,7 @@ export default function SessionStatusBar({
   contextState,
   sessionName,
   settings,
+  activeAgentLabel,
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
   const gitBranch = useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd]);
@@ -58,6 +60,7 @@ export default function SessionStatusBar({
       sessionName={sessionName}
       gitBranch={gitBranch}
       showGitBranch={settings.gitBranch}
+      activeAgentLabel={activeAgentLabel}
     />
   );
 }

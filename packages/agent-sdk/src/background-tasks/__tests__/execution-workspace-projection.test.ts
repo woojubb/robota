@@ -82,7 +82,7 @@ describe('execution workspace projection', () => {
       kind: 'background_task',
       groupId: createBackgroundGroupExecutionEntryId('group_1'),
       origin: { kind: 'skill', skillId: 'security-review' },
-      controls: ['select', 'cancel', 'read_log'],
+      controls: ['select', 'cancel', 'send', 'read_log'],
     });
   });
 
@@ -113,5 +113,29 @@ describe('execution workspace projection', () => {
       visibility: 'collapsed',
       controls: ['select', 'close'],
     });
+  });
+
+  it('adds send control to running agent tasks but not process tasks', () => {
+    const snapshot = createExecutionWorkspaceSnapshot({
+      sessionId: 'session_parent',
+      mainThread: {
+        sessionId: 'session_parent',
+        isExecuting: false,
+        hasPendingPrompt: false,
+        historyLength: 0,
+        updatedAt: '2026-05-09T00:00:00.000Z',
+      },
+      groups: [],
+      tasks: [
+        createTask({ id: 'agent_1', kind: 'agent', status: 'running' }),
+        createTask({ id: 'proc_1', kind: 'process', status: 'running' }),
+        createTask({ id: 'agent_done', kind: 'agent', status: 'completed', unread: true }),
+      ],
+    });
+
+    const taskById = Object.fromEntries(snapshot.entries.map((e) => [e.sourceId, e]));
+    expect(taskById['agent_1'].controls).toContain('send');
+    expect(taskById['proc_1'].controls).not.toContain('send');
+    expect(taskById['agent_done'].controls).not.toContain('send');
   });
 });

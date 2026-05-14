@@ -11,6 +11,7 @@ export interface ICommandEffectHandlerDeps {
   openPluginTUI: () => void;
   openSessionPicker: () => void;
   openTransportTUI: () => void;
+  openAgentSwitcher: () => void;
   renameSession: (name: string) => void;
   applyStatusLinePatch: (patch: TStatusLineCommandSettingsPatch) => boolean;
   cliAdapter: ITuiCliAdapter;
@@ -50,6 +51,10 @@ export function applyCommandEffects(
     }
     if (effect.type === 'settings-tui-requested') {
       deps.openTransportTUI();
+      return true;
+    }
+    if (effect.type === 'agent-switcher-requested') {
+      deps.openAgentSwitcher();
       return true;
     }
     if (effect.type === 'session-picker-requested') {
