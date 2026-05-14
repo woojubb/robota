@@ -6,12 +6,12 @@ import {
   DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE,
   DEFAULT_QWEN_PROVIDER_BASE_URL,
   DEFAULT_QWEN_PROVIDER_MODEL,
+  QWEN_MODEL_LAST_VERIFIED_AT,
+  QWEN_MODEL_SOURCE_URL,
 } from './defaults';
 import type { IQwenBuiltInWebToolsOptions } from './types';
+import { refreshQwenModelCatalog } from './model-catalog-refresh';
 
-const QWEN_MODEL_SOURCE_URL =
-  'https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope';
-const QWEN_MODEL_LAST_VERIFIED_AT = '2026-05-04';
 const QWEN_API_KEY_URL = 'https://modelstudio.console.alibabacloud.com/?tab=api#/api-key';
 const QWEN_SETUP_SOURCE_URL = 'https://www.alibabacloud.com/help/en/model-studio/get-api-key';
 const QWEN_SETUP_LAST_VERIFIED_AT = '2026-05-08';
@@ -78,6 +78,8 @@ export function createQwenProviderDefinition(): IProviderDefinition {
       baseURL: DEFAULT_QWEN_PROVIDER_BASE_URL,
     },
     modelCatalog: QWEN_MODEL_CATALOG,
+    refreshModelCatalog: ({ profile }) => refreshQwenModelCatalog(profile),
+    modelCatalogCacheTtlSeconds: 86400,
     setupHelpLinks: QWEN_SETUP_HELP_LINKS,
     setupSteps: [
       {

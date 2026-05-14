@@ -50,6 +50,7 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
     refreshModelCatalog: ({ profile }) => refreshOpenAIModelCatalog(profile),
+    modelCatalogCacheTtlSeconds: 86400,
     createProvider: (config) => {
       const apiSurface = readApiSurface(config.options);
       const nativeWebTools = readNativeWebTools(config.options);
