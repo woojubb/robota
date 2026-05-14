@@ -1732,6 +1732,9 @@ importers:
 
   packages/agent-transport-http:
     dependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -1757,6 +1760,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.28.0
         version: 1.28.0(zod@3.25.76)
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
