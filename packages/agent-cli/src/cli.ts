@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
 import { createBackgroundCommandModule } from '@robota-sdk/agent-command-background';
 import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
@@ -458,7 +459,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     cwd,
     provider,
     providerOverride: args.provider,
-    providerProfileName,
     providerType: providerSettings.name,
     modelId,
     language: args.language,
@@ -478,14 +478,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
       : undefined,
     transportRegistry: createTransportRegistry(),
-    cliAdapter: createTuiCliAdapter(),
+    cliAdapter: createTuiCliAdapter(providerDefinitions),
     reloadPluginCommandSource,
   });
   await tuiTransport.start();
   process.exit(0);
 }
 
-function createTuiCliAdapter(): ITuiCliAdapter {
+function createTuiCliAdapter(providerDefinitions: readonly IProviderDefinition[]): ITuiCliAdapter {
   return {
     getUserSettingsPath: () => getUserSettingsPath(),
     readSettings: (path) => readSettings(path),
@@ -500,6 +500,8 @@ function createTuiCliAdapter(): ITuiCliAdapter {
       return { applied: true };
     },
     getGitBranch: (cwd) => resolveGitBranch(cwd),
+    getProviderDisplayName: (type) =>
+      findProviderDefinition(providerDefinitions, type)?.displayName ?? type,
   };
 }
 
