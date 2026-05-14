@@ -140,6 +140,7 @@ function createTaskControls(state: IBackgroundTaskState): readonly TExecutionCon
   const controls: TExecutionControl[] = ['select'];
   if (isTerminalBackgroundTaskStatus(state.status)) controls.push('close');
   else controls.push('cancel');
+  if (state.kind === 'agent' && state.status === 'running') controls.push('send');
   if (state.logPath || state.transcriptPath) controls.push('read_log');
   return controls;
 }

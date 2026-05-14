@@ -59,6 +59,7 @@ function createDeps(settingsPath: string) {
     openPluginTUI: vi.fn(),
     openTransportTUI: vi.fn(),
     openSessionPicker: vi.fn(),
+    openAgentSwitcher: vi.fn(),
     renameSession: vi.fn(),
     applyStatusLinePatch: vi.fn(),
     cliAdapter: createCliAdapter(settingsPath),
