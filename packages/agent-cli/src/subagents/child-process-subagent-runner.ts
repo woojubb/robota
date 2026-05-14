@@ -15,10 +15,12 @@ import {
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
 } from '@robota-sdk/agent-runtime';
-import type { TSubagentRunnerFactory } from './in-process-subagent-runner.js';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import { getBuiltInAgent } from '../agents/built-in-agents.js';
-import type { IInProcessSubagentRunnerDeps } from './in-process-subagent-runner.js';
+import type {
+  TSubagentRunnerFactory,
+  IAgentDefinition,
+  IInProcessSubagentRunnerDeps,
+} from '@robota-sdk/agent-sdk';
+import { getBuiltInAgent } from '@robota-sdk/agent-sdk';
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import {
   createCancellationResult,
