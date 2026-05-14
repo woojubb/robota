@@ -20,6 +20,32 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - `packages/<pkg>/README.md` is the npm/GitHub package README.
 - `apps/docs/.temp/` and `apps/docs/.vitepress/dist/` are generated outputs. Do not edit them directly.
 
+### Architecture Map Content Policy
+
+Architecture map files (`.agents/specs/architecture-map/`) own _relationships_ between layers and elements, and the brief contract at each boundary. They do not own verbose explanations, rationale, ownership rationale, or capability inventories.
+
+**Content rules — what belongs:**
+
+- Each entry states: what the element is, what it connects to, and the brief contract at that boundary. Nothing more.
+- A relationship table or layer listing must be readable at a glance, like a connection diagram rendered in prose/tables.
+- A single-line reference pointer to the owning SPEC or spec doc is sufficient when detail is needed.
+
+**Content rules — what does not belong:**
+
+- Verbose rationale, design notes, and usage guidance belong in the owning package `SPEC.md` or a cross-cutting spec doc.
+- Ownership narrative paragraphs that restate what the layer table already shows must be removed.
+- Diagram note blocks that repeat structural facts visible in the diagram itself must be removed.
+
+**Removal gate — always re-home before deleting:**
+
+- Before removing any content from an architecture map file, identify the correct target document (package `SPEC.md`, cross-cutting spec, or design doc) and absorb the content there first.
+- After re-homing, replace the removed content with a one-line reference pointer only if the relationship itself is still architecture-relevant; otherwise delete entirely.
+- Never delete architecture map content without a corresponding absorption commit. Losing durable knowledge is a bug.
+
+**Weight gate:**
+
+- If an architecture map file requires more than one read to understand its structural relationships, it is too heavy. Strip it until each relationship is one line or one row.
+
 ### Document Role Sync Gate
 
 - Architecture maps own stable structural boundaries. Update them when ownership, layer direction,

@@ -1,14 +1,10 @@
 # Agent CLI Commands and Provider Flow
 
-Source-verified against `develop` on 2026-05-09.
+Source-verified against `develop` on 2026-05-15.
 
-This document owns command-layer boundaries, provider setup, profile switching, and model catalog
-flow for the CLI product shell.
+Command-layer boundaries, provider setup, profile switching, and model catalog flow.
 
 ## Built-in Command Layer
-
-Built-in commands are product-default command modules. They are not SDK-owned
-business logic and they are not CLI/TUI feature code.
 
 ```mermaid
 flowchart LR
@@ -36,7 +32,7 @@ flowchart LR
 | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Slash prefix detection and unknown-command rendering                   | `agent-cli`                                                 |
 | Command metadata, subcommands, lifecycle policy, interactions, effects | Owning `agent-command-*` package                            |
-| Command contracts, registry, executor, effect/interactions types       | `agent-sdk`                                                 |
+| Command contracts, registry, executor, effect/interaction types        | `agent-sdk`                                                 |
 | Reusable command common APIs and ports                                 | `agent-sdk/src/command-api/*`                               |
 | Prompt `@file` parsing, workspace-bound resolution, diagnostics        | `agent-sdk/src/context/prompt-file-reference-*.ts`          |
 | Context reference inventory and manual reference state                 | `agent-sdk/src/context/context-reference-inventory.ts`      |
@@ -44,12 +40,9 @@ flowchart LR
 | Provider setup semantics for `/provider`                               | `agent-command-provider` consuming SDK provider common APIs |
 | Model-change request semantics for `/model`                            | `agent-command-model` consuming SDK model common APIs       |
 
-Forbidden shortcuts:
-
-- A command package must not import `agent-cli` or React/Ink code.
-- `agent-sdk` must not import or special-case `agent-command-*` packages.
-- CLI hooks must not reimplement command-specific setup flows when a command module can own them.
-- Provider packages must not know slash commands, command names, TUI behavior, or Robota workflow semantics.
+Forbidden: command packages must not import `agent-cli` or React/Ink code; `agent-sdk` must not
+import `agent-command-*`; CLI hooks must not reimplement command-specific setup flows; provider
+packages must not know slash commands or TUI behavior.
 
 ## Provider and Model State Flow
 
@@ -84,23 +77,7 @@ Settings ownership:
 
 - `agent-cli` owns concrete settings file paths and provider instance construction.
 - `agent-command-provider` owns `/provider` command semantics and settings patches.
-- `agent-sdk` owns common provider settings/setup/probe APIs used by command modules, including
-  generated profile-key suggestions for interactive setup.
-- Provider packages own defaults, setup metadata, validation requirements, aliases, probes, options, and `createProvider()`.
-- Profile identity is the settings profile key. It must not be inferred from provider type/model
-  uniqueness because multiple profiles may share both fields.
-- `--provider <profile>` is a one-shot startup override unless paired with `--set-current`.
-- Status rendering may show profile key, provider type, and model, but it must not own switching or
-  setup semantics.
-
-Current model catalog state:
-
-- `/model` is supplied by `@robota-sdk/agent-command-model`.
-- The command consumes SDK model command common APIs.
-- Active-provider model choices resolve through provider-owned `IProviderDefinition.modelCatalog`
-  fallback metadata and optional provider-owned `refreshModelCatalog` hooks orchestrated by the SDK
-  model command common API.
-- Provider definitions include conservative fallback catalog metadata with source URLs and
-  verification timestamps where the provider has known defaults.
-- Live/generated catalog refresh adapters are provider-package responsibilities. The CLI/TUI must
-  only render freshness state returned by command results.
+- `agent-sdk` owns common provider settings/setup/probe APIs and generated profile-key suggestions.
+- Provider packages own defaults, setup metadata, validation, aliases, probes, options, and `createProvider()`.
+- Profile identity is the settings profile key — not provider type/model uniqueness.
+- Model catalog refresh: provider packages own `refreshModelCatalog` and `modelCatalogCacheTtlSeconds`; SDK model command common APIs orchestrate TTL-based auto-refresh; CLI/TUI renders freshness state only.

@@ -19,8 +19,12 @@ and LLM agents can read only the architecture slice relevant to the change.
 
 ## Update Policy
 
-- Keep [../ARCHITECTURE-MAP.md](../ARCHITECTURE-MAP.md) short. It is a router, not a place to append subsystem details.
-- Update the smallest relevant subdocument for architecture-affecting changes.
-- Link to package-owned `packages/*/docs/SPEC.md` files instead of duplicating detailed contracts.
-- Add a new subdocument only when an existing architecture slice becomes too large or mixes unrelated ownership areas.
-- Preserve package-local architecture map entrypoints by turning them into routers when their content moves here.
+Content policy for all files in this folder is defined in
+[../../rules/documentation-sync.md — Architecture Map Content Policy](../../rules/documentation-sync.md).
+The short version:
+
+- Each file owns _relationships_ between layers/elements and the brief contract at each boundary. Nothing more.
+- No verbose rationale, narrative paragraphs, or capability inventories — those belong in the owning `SPEC.md`.
+- Before removing content, absorb it into the correct target document first.
+- Keep [../ARCHITECTURE-MAP.md](../ARCHITECTURE-MAP.md) as the stable router. Never append subsystem detail there.
+- Link to `packages/*/docs/SPEC.md` instead of duplicating package-local contracts.
