@@ -12,6 +12,28 @@ Owns the Robota Playground UI package: React components, hooks, executor logic, 
   contracts in `src/lib/playground/types.ts`.
 - Does not define deployment or hosting behavior; that belongs to `apps/agent-web`.
 
+## Architecture Decision: No agent-sdk Session Stack
+
+The playground intentionally does not depend on `@robota-sdk/agent-sdk`,
+`@robota-sdk/agent-sessions`, or `@robota-sdk/agent-runtime`. This is a deliberate
+lightweight client design, not architectural drift.
+
+**Rationale**: The playground is a browser UI that delegates agent execution to
+`apps/agent-server` via `@robota-sdk/agent-remote-client`. Session management,
+conversation persistence, compaction, permission enforcement, context loading, and
+command APIs all run on the server side. The playground renders the results without
+running a local session stack.
+
+**Dependency boundary**:
+
+- Allowed: `@robota-sdk/agent-core` (type contracts), `@robota-sdk/agent-remote-client`
+  (remote execution), provider packages for type references only.
+- Not allowed: `@robota-sdk/agent-sdk`, `@robota-sdk/agent-sessions`,
+  `@robota-sdk/agent-runtime`.
+
+If the playground needs to support local (offline) execution in the future, that work
+must go through a dedicated backlog item and explicit architectural review.
+
 ## Architecture Overview
 
 Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Executor internals are a directory module under `src/lib/playground/robota-executor/` with `PlaygroundAgentSession`, remote provider construction, tool normalization, plugin factories, result shaping, and statistics recording split from the stateful facade while preserving the previous import path. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) are standalone classes that collect conversation events and UX metrics.
