@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-001: Add /settings and /user-local to command-inventory.md'
-status: backlog
+status: done
 created: 2026-05-15
 priority: medium
 urgency: later
