@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getModelName } from '@robota-sdk/agent-core';
 import type { IStatusLineCommandSettings } from '@robota-sdk/agent-sdk';
 import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
 import StatusBar from './StatusBar.js';
@@ -9,7 +8,6 @@ interface IProps {
   cwd: string;
   permissionMode: TPermissionMode;
   modelId?: string;
-  providerProfileName?: string | undefined;
   providerType?: string | undefined;
   sessionId: string;
   isThinking: boolean;
@@ -25,7 +23,6 @@ export default function SessionStatusBar({
   cwd,
   permissionMode,
   modelId,
-  providerProfileName,
   providerType,
   sessionId,
   isThinking,
@@ -38,14 +35,18 @@ export default function SessionStatusBar({
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
   const gitBranch = useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd]);
+  const providerDisplayName = useMemo(
+    () =>
+      providerType !== undefined ? cliAdapter.getProviderDisplayName(providerType) : undefined,
+    [cliAdapter, providerType],
+  );
   if (!settings.enabled) return null;
 
   return (
     <StatusBar
       permissionMode={permissionMode}
-      modelName={modelId ? getModelName(modelId) : ''}
-      providerProfileName={providerProfileName}
-      providerType={providerType}
+      modelName={modelId ?? ''}
+      providerDisplayName={providerDisplayName}
       sessionId={sessionId}
       isThinking={isThinking}
       activeToolCount={activeToolCount}

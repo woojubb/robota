@@ -17,39 +17,39 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 17 events in the last 7 days
+- Frequency: 22 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
 - First seen: 2026-05-09T13:32:49.000Z
-- Last seen: 2026-05-10T14:40:53.000Z
+- Last seen: 2026-05-11T16:27:39.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 3803 events in the last 7 days
+- Frequency: 6551 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-001-architecture-md-stale-apps.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-002-repository-overview-package-families.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-005-agent-plugin-spec-sweep.md`
 - First seen: 2026-05-09T07:35:07.000Z
-- Last seen: 2026-05-10T14:41:19.000Z
+- Last seen: 2026-05-13T17:58:21.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 114 events in the last 7 days
+- Frequency: 178 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-09T09:16:51.000Z
-- Last seen: 2026-05-10T14:41:19.000Z
+- Last seen: 2026-05-12T14:24:07.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 6 events in the last 7 days
+- Frequency: 11 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/ui/hooks/useSideEffects.ts`, `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`, `packages/agent-cli/src/web-sidecar/web-sidecar-server.ts`, `packages/agent-core/src/hooks/hook-runner.ts`, `packages/agent-sdk/src/plugins/bundle-plugin-loader.ts`
+- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/ui/hooks/useSideEffects.ts`, `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`, `packages/agent-cli/src/web-sidecar/web-sidecar-server.ts`, `packages/agent-core/src/hooks/hook-runner.ts`
 - First seen: 2026-05-09T14:16:03.000Z
-- Last seen: 2026-05-10T07:49:45.000Z
+- Last seen: 2026-05-10T16:50:58.000Z
 - Status: candidate; human review is required before promotion.

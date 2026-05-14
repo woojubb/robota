@@ -398,9 +398,9 @@ describe('createProviderCommandModule', () => {
     const completed = await third?.interaction?.submit('');
 
     expect(readTarget()).toMatchObject({
-      currentProvider: 'supergemma4-26b-uncensored-v2',
+      currentProvider: 'openai',
       providers: {
-        'supergemma4-26b-uncensored-v2': {
+        openai: {
           type: 'openai',
           baseURL: 'http://localhost:1234/v1',
           model: 'supergemma4-26b-uncensored-v2',
@@ -417,12 +417,12 @@ describe('createProviderCommandModule', () => {
     ]);
   });
 
-  it('creates another profile when provider type and model already exist', async () => {
+  it('creates another profile when provider type already exists', async () => {
     const { adapter, readTarget } = createSettingsAdapter(
       {
-        currentProvider: 'supergemma4-26b-uncensored-v2',
+        currentProvider: 'openai',
         providers: {
-          'supergemma4-26b-uncensored-v2': {
+          openai: {
             type: 'openai',
             baseURL: 'http://localhost:1234/v1',
             model: 'supergemma4-26b-uncensored-v2',
@@ -439,9 +439,9 @@ describe('createProviderCommandModule', () => {
     await third?.interaction?.submit('');
 
     expect(readTarget()).toMatchObject({
-      currentProvider: 'supergemma4-26b-uncensored-v2-2',
+      currentProvider: 'openai-2',
       providers: {
-        'supergemma4-26b-uncensored-v2-2': {
+        'openai-2': {
           type: 'openai',
           baseURL: 'http://localhost:1234/v1',
           model: 'supergemma4-26b-uncensored-v2',
