@@ -4,10 +4,10 @@ import {
   SystemCommandExecutor,
   createSystemCommands,
 } from '@robota-sdk/agent-sdk';
-import type { IAgentJobHostContext } from '@robota-sdk/agent-sdk';
+import type { IAgentJobHostContext, ICommandHostContext } from '@robota-sdk/agent-sdk';
 import { createAgentCommandModule } from '../agent-command-module.js';
 
-function createMockSession(overrides?: Record<string, unknown>): IAgentJobHostContext {
+function createMockSession(overrides?: Record<string, unknown>): ICommandHostContext {
   const session = {
     listAgentDefinitions: vi.fn().mockReturnValue([
       { name: 'general-purpose', description: 'General-purpose task execution agent.' },
@@ -67,7 +67,7 @@ function createMockSession(overrides?: Record<string, unknown>): IAgentJobHostCo
     closeAgentJob: vi.fn(),
     ...overrides,
   };
-  return session as unknown as IAgentJobHostContext;
+  return session as unknown as ICommandHostContext;
 }
 
 describe('agent command module', () => {

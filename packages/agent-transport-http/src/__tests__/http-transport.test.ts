@@ -38,7 +38,7 @@ describe('createHttpTransport', () => {
 
   it('creates a Hono app after attach + start', async () => {
     const transport = createHttpTransport();
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     const app = transport.getApp();
     expect(app).toBeDefined();
@@ -47,7 +47,7 @@ describe('createHttpTransport', () => {
 
   it('nullifies app after stop()', async () => {
     const transport = createHttpTransport();
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     await transport.stop();
     expect(() => transport.getApp()).toThrow('Transport not started');

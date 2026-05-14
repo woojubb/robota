@@ -120,7 +120,7 @@ describe('createHeadlessTransport', () => {
 
     try {
       const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
-      transport.attach(mockSession);
+      transport.attach(mockSession as never);
       await transport.start();
 
       expect(transport.getExitCode()).toBe(0);
@@ -148,7 +148,7 @@ describe('createHeadlessTransport (json adapter)', () => {
     });
 
     const transport = createHeadlessTransport({ outputFormat: 'json', prompt: 'test prompt' });
-    transport.attach(mockSession);
+    transport.attach(mockSession as never);
     await transport.start();
 
     expect(transport.getExitCode()).toBe(0);
@@ -186,7 +186,7 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
       outputFormat: 'stream-json',
       prompt: 'test prompt',
     });
-    transport.attach(mockSession);
+    transport.attach(mockSession as never);
     await transport.start();
 
     expect(transport.getExitCode()).toBe(0);
@@ -247,7 +247,7 @@ describe('createHeadlessTransport (error and interrupted)', () => {
     const mockSession = createEventDrivenMockSession('error');
 
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
-    transport.attach(mockSession);
+    transport.attach(mockSession as never);
     await transport.start();
 
     expect(transport.getExitCode()).toBe(1);
@@ -259,7 +259,7 @@ describe('createHeadlessTransport (error and interrupted)', () => {
     });
 
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
-    transport.attach(mockSession);
+    transport.attach(mockSession as never);
     await transport.start();
 
     expect(transport.getExitCode()).toBe(0);

@@ -38,14 +38,14 @@ describe('createWsTransport', () => {
 
   it('provides onMessage after attach + start', async () => {
     const transport = createWsTransport({ send: vi.fn() });
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     expect(typeof transport.onMessage).toBe('function');
   });
 
   it('clears onMessage after stop()', async () => {
     const transport = createWsTransport({ send: vi.fn() });
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     await transport.stop();
     expect(transport.onMessage).toBeNull();

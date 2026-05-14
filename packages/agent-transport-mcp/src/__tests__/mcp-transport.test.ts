@@ -38,7 +38,7 @@ describe('createMcpTransport', () => {
 
   it('creates an MCP server after attach + start', async () => {
     const transport = createMcpTransport({ name: 'test', version: '1.0.0' });
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     const server = transport.getServer();
     expect(server).toBeDefined();

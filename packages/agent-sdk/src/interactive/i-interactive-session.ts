@@ -21,6 +21,9 @@ import type {
 
 /** Minimal session surface consumed by transport adapters and test factories. */
 export interface IInteractiveSession {
+  /** True once the underlying session has been initialized. */
+  readonly isInitialized?: boolean;
+
   // Submission
   submit(input: string, displayInput?: string, rawInput?: string): Promise<void>;
   abort(): void;
