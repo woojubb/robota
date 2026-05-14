@@ -5,7 +5,8 @@
  * while exposing the underlying Hono app via getApp().
  */
 
-import type { InteractiveSession, ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createAgentRoutes } from './routes.js';
 import type { Hono } from 'hono';
 

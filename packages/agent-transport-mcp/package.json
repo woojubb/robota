@@ -41,6 +41,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "zod": "^3.24.4"

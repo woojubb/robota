@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-027: Fix agent-transport-http/mcp to import from agent-interface-transport'
-status: backlog
+status: done
 created: 2026-05-15
 priority: medium
 urgency: later
