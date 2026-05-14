@@ -9,7 +9,7 @@ import {
   type ISubagentWorkerStartPayload,
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
-} from '@robota-sdk/agent-sdk';
+} from './child-process-subagent-ipc.js';
 import type { ITerminalOutput } from '../types.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 
