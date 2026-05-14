@@ -260,17 +260,24 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 
 #### High
 
-| ID                                                                     | 제목                                                       | 우선순위 |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------- | -------- |
-| [ARCH-FIX-003](ARCH-FIX-003-agent-cli-core-direct-dependency.md)       | agent-cli의 agent-core 직접 의존 감사 및 SDK 경유로 정규화 | high     |
-| [ARCH-FIX-004](ARCH-FIX-004-agent-team-remote-client-arch-map.md)      | agent-team, agent-remote-client 아키텍처 맵 레이어 등재    | high     |
-| [ARCH-FIX-005](ARCH-FIX-005-terminal-output-type-ssot.md)              | ITerminalOutput/ISpinner 타입 SSOT 위반 수정               | high     |
-| [ARCH-FIX-006](ARCH-FIX-006-resolve-legacy-provider-fallback.md)       | resolveLegacyProvider() fallback 패턴 제거                 | high     |
-| [ARCH-FIX-007](ARCH-FIX-007-cli-web-sidecar-arch-spec-registration.md) | CLI 웹 사이드카 기능을 아키텍처 맵 및 SPEC에 등재          | high     |
-| [ARCH-FIX-008](ARCH-FIX-008-agent-server-openapi-spec.md)              | agent-server 외부 HTTP API OpenAPI 스펙 파일 추가          | high     |
-| [ARCH-FIX-009](ARCH-FIX-009-agent-web-pkg-spec-registration.md)        | packages/agent-web SPEC.md 작성 및 project-structure 등재  | high     |
+| ID                                                                        | 제목                                                                                                      | 우선순위 |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------- |
+| [ARCH-FIX-003](ARCH-FIX-003-agent-cli-core-direct-dependency.md)          | agent-cli의 agent-core 직접 의존 감사 및 SDK 경유로 정규화                                                | high     |
+| [ARCH-FIX-004](ARCH-FIX-004-agent-team-remote-client-arch-map.md)         | agent-team, agent-remote-client 아키텍처 맵 레이어 등재                                                   | high     |
+| [ARCH-FIX-005](ARCH-FIX-005-terminal-output-type-ssot.md)                 | ITerminalOutput/ISpinner 타입 SSOT 위반 수정                                                              | high     |
+| [ARCH-FIX-006](ARCH-FIX-006-resolve-legacy-provider-fallback.md)          | resolveLegacyProvider() fallback 패턴 제거                                                                | high     |
+| [ARCH-FIX-007](ARCH-FIX-007-cli-web-sidecar-arch-spec-registration.md)    | CLI 웹 사이드카 기능을 아키텍처 맵 및 SPEC에 등재                                                         | high     |
+| [ARCH-FIX-008](ARCH-FIX-008-agent-server-openapi-spec.md)                 | agent-server 외부 HTTP API OpenAPI 스펙 파일 추가                                                         | high     |
+| [ARCH-FIX-009](ARCH-FIX-009-agent-web-pkg-spec-registration.md)           | packages/agent-web SPEC.md 작성 및 project-structure 등재                                                 | high     |
+| [ARCH-FIX-020](ARCH-FIX-020-agent-cli-subagent-runner-layer-violation.md) | agent-cli의 ChildProcessSubagentRunner→agent-sdk, GitWorktreeIsolationAdapter→agent-runtime으로 분산 이동 | high     |
+| [ARCH-FIX-021](ARCH-FIX-021-provider-factory-logic-to-sdk.md)             | agent-cli의 provider 해석·인스턴스 생성 로직을 agent-runtime/agent-sdk로 분산 이동 (ARCH-FIX-023 선행)    | high     |
+| [ARCH-FIX-023](ARCH-FIX-023-env-ref-utilities-to-agent-core.md)           | agent-sdk의 $ENV: 참조 유틸리티(env-ref)를 zero-dep agent-core로 이동 — ARCH-FIX-021·022 선행 조건        | high     |
 
 #### Medium
+
+| ID                                                               | 제목                                                                                               | 우선순위 |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------- |
+| [ARCH-FIX-022](ARCH-FIX-022-settings-check-validation-to-sdk.md) | agent-cli의 provider 설정 검증 로직(checkSettingsDocument)을 agent-core로 이동 (ARCH-FIX-023 선행) | medium   |
 
 | ID                                                                         | 제목                                                        | 우선순위 |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------- | -------- |
@@ -301,3 +308,9 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | ID                                                         | 제목                                                                                  | 우선순위 |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------- |
 | [MULTI-001](MULTI-001-agent-multiplexer-tui-navigation.md) | TUI 멀티에이전트 멀티플렉서 — 방향키로 main·백그라운드 에이전트 전환 및 프롬프트 입력 | high     |
+
+### Background Task Infrastructure (2026-05-14)
+
+| ID                                                            | 제목                                                                                    | 우선순위 |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------- |
+| [BGTASK-001](BGTASK-001-long-term-background-task-manager.md) | Long-term background task manager — 서버·스케줄러·에이전트를 CLI 세션과 독립적으로 실행 | high     |
