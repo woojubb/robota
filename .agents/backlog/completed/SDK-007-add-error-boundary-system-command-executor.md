@@ -1,6 +1,6 @@
 ---
 title: 'SDK-007: Add error boundary in SystemCommandExecutor'
-status: backlog
+status: wontfix
 created: 2026-05-15
 priority: low
 urgency: later
