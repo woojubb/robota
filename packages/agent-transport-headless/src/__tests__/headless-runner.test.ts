@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IExecutionResult } from '@robota-sdk/agent-sdk';
 import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-sdk';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-sdk';
@@ -42,7 +42,7 @@ function createMockSession(behavior: 'complete' | 'interrupted' | 'error', respo
     }),
     executeCommand: vi.fn().mockResolvedValue(null),
     getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 describe('createHeadlessRunner (text format)', () => {
@@ -113,7 +113,7 @@ describe('createHeadlessRunner (text format)', () => {
         success: true,
         data: { agentId: 'agent_1' },
       }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const runner = createHeadlessRunner({ session, outputFormat: 'text' });
 
     const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
@@ -154,7 +154,7 @@ describe('createHeadlessRunner (text format)', () => {
         };
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const runner = createHeadlessRunner({ session, outputFormat: 'text' });
 
     const exitCode = await runner.run('/audit src/index.ts');
@@ -261,7 +261,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
         }
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
 
     const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
     const exitCode = await runner.run('test prompt');
@@ -326,7 +326,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
         }
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
 
     const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
     const exitCode = await runner.run('test prompt');
@@ -382,7 +382,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
         };
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
 
     const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
     const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
@@ -451,7 +451,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
         };
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
 
     const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
     const exitCode = await runner.run('/agent wait group_1');

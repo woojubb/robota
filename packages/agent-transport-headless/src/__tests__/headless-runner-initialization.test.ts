@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import { createHeadlessRunner } from '../headless-runner.js';
 
 describe('createHeadlessRunner initialization', () => {
@@ -28,7 +28,7 @@ describe('createHeadlessRunner initialization', () => {
         }
         return { getSessionId: () => 'initialized-session' };
       }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
 
     try {
       const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });

@@ -5,7 +5,7 @@
  * After start() completes, getExitCode() returns the runner's exit code.
  */
 
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import { createHeadlessRunner } from './headless-runner.js';
@@ -21,13 +21,13 @@ export interface IHeadlessTransportOptions {
 export function createHeadlessTransport(
   options: IHeadlessTransportOptions,
 ): ITransportAdapter & { getExitCode(): number } {
-  let session: InteractiveSession | null = null;
+  let session: IInteractiveSession | null = null;
   let exitCode = 0;
 
   return {
     name: 'headless',
     attach(s: ISession) {
-      session = s as InteractiveSession;
+      session = s as unknown as IInteractiveSession;
     },
     async start() {
       if (!session) throw new Error('No session attached. Call attach() first.');

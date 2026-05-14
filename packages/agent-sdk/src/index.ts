@@ -10,6 +10,7 @@ export {
   resolveSessionIdByIdOrName,
 } from './interactive/index.js';
 export type {
+  IInteractiveSession,
   IInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
   ISkillActivationEvent,
@@ -53,6 +54,7 @@ export type {
   TCapabilitySafety,
 } from './capabilities/types.js';
 export type {
+  IAgentJobHostContext,
   ICommand,
   ICommandHostAdapters,
   ICommandHostContext,
@@ -606,6 +608,9 @@ export type {
 
 // ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
+
+// ── Testing utilities ────────────────────────────────────────
+export { createTestInteractiveSession } from './testing/create-test-interactive-session.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

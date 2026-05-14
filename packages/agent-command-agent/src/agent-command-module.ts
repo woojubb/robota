@@ -1,10 +1,16 @@
 import type {
+  IAgentJobHostContext,
   ICommand,
+  ICommandHostContext,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-sdk';
 import { executeAgentCommand } from './agent-command.js';
+
+function asAgentHostContext(context: ICommandHostContext): IAgentJobHostContext {
+  return context as unknown as IAgentJobHostContext;
+}
 
 function createAgentSubcommands(): ICommand[] {
   return [
@@ -45,7 +51,7 @@ export function createAgentSystemCommand(): ISystemCommand {
   return {
     name: entry.name,
     description: entry.description,
-    execute: executeAgentCommand,
+    execute: (context, args) => executeAgentCommand(asAgentHostContext(context), args),
     ...(entry.modelInvocable !== undefined ? { modelInvocable: entry.modelInvocable } : {}),
     ...(entry.userInvocable !== undefined ? { userInvocable: entry.userInvocable } : {}),
     ...(entry.argumentHint !== undefined ? { argumentHint: entry.argumentHint } : {}),

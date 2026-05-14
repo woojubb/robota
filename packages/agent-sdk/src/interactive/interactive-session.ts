@@ -26,7 +26,9 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from './i-interactive-session.js';
 import type {
+  IAgentJobHostContext,
   ICommand,
   ICommandHostAdapters,
   ICommandModule,
@@ -174,7 +176,7 @@ function getBackgroundTaskEventEntryId(event: TBackgroundTaskEvent): string | un
   return undefined;
 }
 
-export class InteractiveSession implements ISession {
+export class InteractiveSession implements ISession, IAgentJobHostContext, IInteractiveSession {
   private session: Session | null = null;
   private readonly commandExecutor: SystemCommandExecutor;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
