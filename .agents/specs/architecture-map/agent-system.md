@@ -98,3 +98,8 @@ Playground ownership:
 | Browser-safe React package entry       | `agent-playground/client` | Must not expose Node-only services.                                                                                                                     |
 | Executor, hooks, components, context   | `agent-playground`        | Internal modules under `src/lib/` and `src/components/`; see [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md). |
 | Secure provider execution from browser | `agent-remote-client`     | API keys stay server-side through `RemoteExecutor`.                                                                                                     |
+
+**No agent-sdk session stack (intentional)**: `agent-playground` does not depend on
+`agent-sdk`, `agent-sessions`, or `agent-runtime`. Session management and all server-side
+policy run in `apps/agent-server`; the playground is a lightweight client UI only.
+See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md).
