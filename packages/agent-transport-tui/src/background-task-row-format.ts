@@ -46,6 +46,7 @@ function isActiveEntry(entry: IExecutionWorkspaceEntry): boolean {
     entry.status === 'active' ||
     entry.status === 'queued' ||
     entry.status === 'running' ||
-    entry.status === 'waiting_permission'
+    entry.status === 'waiting_permission' ||
+    entry.status === 'sleeping'
   );
 }

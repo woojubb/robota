@@ -8,7 +8,9 @@ export type TBackgroundTaskTransitionEvent =
   | 'PERMISSION_DENIED'
   | 'COMPLETE'
   | 'FAIL'
-  | 'CANCEL';
+  | 'CANCEL'
+  | 'SLEEP'
+  | 'WAKE';
 
 interface IBackgroundTaskTransition {
   from: TBackgroundTaskStatus;
@@ -25,9 +27,12 @@ const TRANSITIONS: readonly IBackgroundTaskTransition[] = [
   { from: 'running', event: 'COMPLETE', to: 'completed' },
   { from: 'running', event: 'FAIL', to: 'failed' },
   { from: 'running', event: 'CANCEL', to: 'cancelled' },
+  { from: 'running', event: 'SLEEP', to: 'sleeping' },
   { from: 'waiting_permission', event: 'PERMISSION_ALLOWED', to: 'running' },
   { from: 'waiting_permission', event: 'PERMISSION_DENIED', to: 'failed' },
   { from: 'waiting_permission', event: 'CANCEL', to: 'cancelled' },
+  { from: 'sleeping', event: 'WAKE', to: 'running' },
+  { from: 'sleeping', event: 'CANCEL', to: 'cancelled' },
 ];
 
 export function isTerminalBackgroundTaskStatus(status: TBackgroundTaskStatus): boolean {
