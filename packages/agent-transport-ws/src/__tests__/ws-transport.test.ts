@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWsTransport } from '../ws-transport.js';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
-function createMockSession(): InteractiveSession {
+function createMockSession(): IInteractiveSession {
   return {
     submit: vi.fn(),
     abort: vi.fn(),
@@ -17,7 +17,7 @@ function createMockSession(): InteractiveSession {
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 describe('createWsTransport', () => {

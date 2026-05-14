@@ -5,7 +5,7 @@
 
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
@@ -32,7 +32,7 @@ export class WsTransport implements IConfigurableTransport {
     },
   };
 
-  private session: InteractiveSession | null = null;
+  private session: IInteractiveSession | null = null;
   private stopFn: (() => Promise<void>) | null = null;
   private readonly port: number;
   private readonly maxRetries: number;
@@ -43,7 +43,7 @@ export class WsTransport implements IConfigurableTransport {
   }
 
   attach(session: ISession): void {
-    this.session = session as InteractiveSession;
+    this.session = session as unknown as IInteractiveSession;
   }
 
   async start(): Promise<void> {
@@ -66,7 +66,7 @@ export class WsTransport implements IConfigurableTransport {
   }
 
   private bindWithRetry(
-    session: InteractiveSession,
+    session: IInteractiveSession,
     port: number,
     retriesLeft: number,
   ): Promise<{ stop: () => Promise<void> }> {
@@ -78,7 +78,7 @@ export class WsTransport implements IConfigurableTransport {
   }
 
   private tryBind(
-    session: InteractiveSession,
+    session: IInteractiveSession,
     port: number,
   ): Promise<{ stop: () => Promise<void> }> {
     return new Promise((resolve, reject) => {

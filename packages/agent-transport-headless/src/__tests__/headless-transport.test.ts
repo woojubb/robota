@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IExecutionResult } from '@robota-sdk/agent-sdk';
 
-function createMockSession(): InteractiveSession {
+function createMockSession(): IInteractiveSession {
   return {
     submit: vi.fn(),
     abort: vi.fn(),
@@ -19,13 +19,13 @@ function createMockSession(): InteractiveSession {
     getSession: vi.fn().mockReturnValue({ getSessionId: () => 'test-session-id' }),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 function createEventDrivenMockSession(
   behavior: 'complete' | 'error' | 'interrupted' = 'complete',
   options?: { response?: string; textDeltas?: string[] },
-): InteractiveSession {
+): IInteractiveSession {
   const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
   const response = options?.response ?? 'test output';
   const textDeltas = options?.textDeltas;
@@ -88,7 +88,7 @@ function createEventDrivenMockSession(
         if (idx >= 0) handlers.splice(idx, 1);
       }
     }),
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 describe('createHeadlessTransport', () => {

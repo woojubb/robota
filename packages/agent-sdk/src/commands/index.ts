@@ -1,4 +1,5 @@
 export type {
+  IAgentJobHostContext,
   ICommand,
   ICommandChoicePromptOption,
   ICommandHostAdapters,
