@@ -308,3 +308,47 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | ID                                                         | 제목                                                                                  | 우선순위 |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------- |
 | [MULTI-001](MULTI-001-agent-multiplexer-tui-navigation.md) | TUI 멀티에이전트 멀티플렉서 — 방향키로 main·백그라운드 에이전트 전환 및 프롬프트 입력 | high     |
+
+### Architecture Refactoring — 2026-05-15 Independent Dual Review
+
+시스템 아키텍트 + 시니어 개발자 병렬 리뷰에서 발견된 구조적 위반 및 코드 품질 개선 항목.
+리뷰 보고서: [.design/arch-review-combined-2026-05-15.md](../../.design/arch-review-combined-2026-05-15.md)
+
+#### High Priority
+
+| ID                                                                     | 제목                                                                  | 우선순위 |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------- | -------- |
+| [REFACTOR-001](REFACTOR-001-interactive-session-god-class.md)          | InteractiveSession 1,578줄 God Class 분해                             | high     |
+| [REFACTOR-002](REFACTOR-002-agent-sdk-pass-through-reexport.md)        | agent-sdk pass-through re-export 제거 (agent-runtime 심벌)            | high     |
+| [REFACTOR-003](REFACTOR-003-agent-sdk-concrete-io-adapter-split.md)    | agent-sdk concrete I/O adapter 분리 (execSync/child_process)          | high     |
+| [REFACTOR-004](REFACTOR-004-event-emitter-plugin-dedup.md)             | EventEmitterPlugin 중복 제거 + Robota hard-instantiation 수정         | high     |
+| [REFACTOR-005](REFACTOR-005-transport-attach-contract-gap.md)          | Transport attach() 계약 불일치 해결 — ISession vs IInteractiveSession | high     |
+| [REFACTOR-006](REFACTOR-006-icommand-host-context-capability-split.md) | ICommandHostContext capability sub-interfaces 분리                    | high     |
+| [REFACTOR-024](REFACTOR-024-package-rename-core-layers.md)             | 핵심 레이어 패키지 이름 변경 4개 (framework/executor/session/web-ui)  | high     |
+
+#### Medium Priority
+
+| ID                                                                     | 제목                                                               | 우선순위 |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------ | -------- |
+| [REFACTOR-007](REFACTOR-007-provider-setup-flow-to-command-module.md)  | provider setup flow state machine → agent-command-provider 이동    | medium   |
+| [REFACTOR-008](REFACTOR-008-anti-monolith-300-line-split.md)           | Anti-monolith: 300줄 초과 파일 분할 (14개)                         | medium   |
+| [REFACTOR-009](REFACTOR-009-agent-sdk-fs-injection.md)                 | agent-sdk node:fs 직접 사용 → IFileSystem port + adapter injection | medium   |
+| [REFACTOR-010](REFACTOR-010-marketplace-source-execfn-ssot.md)         | IMarketplaceSource + ExecFn SSOT 위반 정리                         | medium   |
+| [REFACTOR-011](REFACTOR-011-i-prefix-type-alias-rename.md)             | I-prefix type alias → T-prefix 일괄 rename (8개)                   | medium   |
+| [REFACTOR-012](REFACTOR-012-deprecated-cleanup.md)                     | @deprecated 제거 — agent-provider-google, agent-playground         | medium   |
+| [REFACTOR-013](REFACTOR-013-robota-cli-hardcoded-product-name.md)      | agent-sessions 하드코딩된 'robota-cli' 제품명 제거                 | medium   |
+| [REFACTOR-014](REFACTOR-014-build-failure-result-dishonest-type.md)    | buildFailureResult 부정직한 타입 수정 (undefined as unknown as)    | medium   |
+| [REFACTOR-015](REFACTOR-015-auto-compact-threshold-optionality.md)     | getAutoCompactThreshold optionality 일관화                         | medium   |
+| [REFACTOR-016](REFACTOR-016-agent-tools-izodschema-cast-centralize.md) | agent-tools IZodSchema cast 중앙화 (8개 파일 반복 제거)            | medium   |
+
+#### Low Priority
+
+| ID                                                                        | 제목                                                   | 우선순위 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------ | -------- |
+| [REFACTOR-017](REFACTOR-017-agent-cli-find-provider-definition-bypass.md) | agent-cli findProviderDefinition → agent-sdk 경유      | low      |
+| [REFACTOR-018](REFACTOR-018-agent-interface-transport-minimal-deps.md)    | agent-interface-transport agent-core 의존 최소화       | low      |
+| [REFACTOR-019](REFACTOR-019-auth-credits-decision.md)                     | auth/credits 패키지 소비자 연결 또는 삭제 결정         | low      |
+| [REFACTOR-020](REFACTOR-020-agent-server-di-logger.md)                    | agent-server console.\* → DI logger                    | low      |
+| [REFACTOR-021](REFACTOR-021-getcwd-fallback-removal.md)                   | getCwd() process.cwd() silent fallback 제거            | low      |
+| [REFACTOR-022](REFACTOR-022-remote-client-emoji-logger.md)                | agent-remote-client 이모지 + 진단 로거 정리            | low      |
+| [REFACTOR-023](REFACTOR-023-tmodelconfig-interface-rename.md)             | TModelConfig / TConfigurationSnapshot → interface 변환 | low      |

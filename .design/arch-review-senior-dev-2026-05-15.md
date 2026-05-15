@@ -1,228 +1,288 @@
 # Architecture Review — Senior Developer Perspective
 
 Date: 2026-05-15
+Reviewer: Senior TypeScript Engineer (automated code-level scan)
+
+---
 
 ## Executive Summary
 
-The Robota monorepo has strong foundations: clean provider/plugin isolation, well-enforced
-`agent-core` zero-dependency invariant, and a reasonably clear session/runtime/SDK separation. The
-most urgent implementation-level gap is that `agent-command-agent` bypasses `ICommandHostContext`
-entirely and reaches directly into the concrete `InteractiveSession`, which breaks the command
-module contract. The second critical gap is the absence of `IInteractiveSession`: transports and
-tests resort to `as unknown as InteractiveSession` casts throughout the codebase. The
-`ICommandHostContext` contract itself has become ambiguous through accumulated optional methods,
-and agent job control surface (`spawnAgentJob`, `sendAgentJob`, etc.) is not declared on the
-interface at all.
+Overall code quality is high. Strict TypeScript is enforced with zero `any` usage and no `@ts-ignore` annotations across all production source files. The layered architecture is correctly implemented, command modules consistently depend only on `@robota-sdk/agent-sdk`, and all 57 workspace packages have `docs/SPEC.md`. The main open issues are: (1) `InteractiveSession` at 1,578 lines severely violates the 300-line anti-monolith rule; (2) six `as unknown as` escape hatches exist in transport adapter `attach()` implementations, caused by an `ISession` vs `IInteractiveSession` contract gap in `agent-interface-transport`; (3) `IMarketplaceSource` is duplicated verbatim between two files in the same package; (4) several I-prefixed `type` aliases violate the naming convention (interface ↔ type prefix rule); (5) the `@deprecated` rule is violated in `agent-provider-google` and `agent-playground`; and (6) the `agent-sessions` package hard-codes the product name `'robota-cli'` as the agent name, violating the no-product-names-in-code rule.
 
 ---
 
 ## Findings
 
-### [ARCH-SD-001] `agent-command-agent` bypasses `ICommandHostContext`, uses concrete `InteractiveSession`
+### [ARCH-SD-001] InteractiveSession 1,578 lines — Severe Anti-Monolith Violation
 
 - **Severity**: High
-- **Area**: Command modules / `agent-command-agent`
-- **Problem**: `executeAgentCommand` in `agent-command-agent/src/agent-command.ts` line 207 declares
-  its parameter as `session: InteractiveSession`, not `ICommandHostContext`. This violates the
-  command module contract (all command modules must interact with the host exclusively through
-  `ICommandHostContext`) and couples the command module directly to the assembly-layer class.
-- **Evidence**: `agent-command-agent/src/agent-command.ts` line 207:
-  `async function executeAgentCommand(session: InteractiveSession, ...)`. The package has
-  `@robota-sdk/agent-sdk` as a production dependency where `ICommandHostContext` from
-  `@robota-sdk/agent-core` would suffice.
-- **Recommendation**: Change `executeAgentCommand` signature to accept `ICommandHostContext`.
-  Remove the direct `agent-sdk` production dependency from `agent-command-agent`. Add a harness
-  check that `agent-command-*` packages must not import from `@robota-sdk/agent-sdk`.
+- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts`
+- **Problem**: The class is 1,578 lines and implements `ISession`, `IAgentJobHostContext`, and `IInteractiveSession` simultaneously. It owns state management, streaming accumulation, tool tracking, skill routing, checkpoint management, background task subscriptions, persistence, fork execution, and system message rebuilding in one file. This is 5× the 300-line limit.
+- **Rule violation**: Anti-monolith rule — file ≤ 300 lines, function ≤ 50 lines. The single function `executePrompt` (delegated via `executePromptInner`) plus the constructor are alone above the limit.
+- **Recommendation**: Decompose into focused collaborators. The class already references several helpers (`interactive-session-execution.ts`, `interactive-session-streaming.ts`, `interactive-session-init.ts`, `interactive-session-persistence.ts`). What remains in the class body is still a god class. Extract: `InteractiveSessionCommandRouter` (skill/command routing), `InteractiveSessionBackgroundTaskAdapter` (background task subscriptions and state), `InteractiveSessionHistoryAdapter` (history + edit checkpoints). The class itself should be a thin coordinator ≤ 350 lines.
 
 ---
 
-### [ARCH-SD-002] No `IInteractiveSession` interface — concrete class used as contract boundary
+### [ARCH-SD-002] `as unknown as IInteractiveSession` in Three Transport Adapters — Contract Gap
 
 - **Severity**: High
-- **Area**: Assembly layer / transports / tests
-- **Problem**: `InteractiveSession` in `agent-sdk` is a concrete 1,576-line class. Transport
-  packages (`agent-transport-tui`, `agent-transport-ws`, `agent-transport-headless`) consume it
-  via `as unknown as InteractiveSession` type casts rather than against an interface. This makes
-  the transport-to-assembly boundary un-testable and brittle.
-- **Evidence**: Multiple transport files use `as unknown as InteractiveSession` to satisfy type
-  checking. There is no exported `IInteractiveSession` in `agent-sdk/src/index.ts`.
-  15+ test files construct mock sessions with the same unsafe cast pattern.
-- **Recommendation**: Define `IInteractiveSession` in `agent-sdk/src/interactive/` exposing only
-  the surface transports and tests legitimately consume. Transport packages should depend on
-  `IInteractiveSession`. Export from `agent-sdk/src/index.ts`.
+- **Area**:
+  - `packages/agent-transport-headless/src/headless-transport.ts:30`
+  - `packages/agent-transport-ws/src/ws-transport-configurable.ts:46`
+  - `packages/agent-transport-http/src/http-transport.ts:27`
+- **Problem**: All three transport `attach(session: ISession)` implementations immediately cast the `ISession` parameter to `IInteractiveSession` via `as unknown as IInteractiveSession`. This is not a trust boundary — it is a structural gap in the contract.
+- **Rule violation**: `as unknown as` in production code is a type-safety escape hatch that signals a contract design issue. The `ITransportAdapter.attach()` signature accepts `ISession` (from `agent-core`), but all callers pass an `IInteractiveSession` (from `agent-sdk`). The two types are not structurally compatible without the cast.
+- **Current code** (headless-transport.ts:30):
+  ```typescript
+  session = s as unknown as IInteractiveSession;
+  ```
+- **Recommendation**: Either (a) make `ITransportAdapter.attach()` in `agent-interface-transport` generic — `attach(session: TSession): void` — so each transport can declare its own session type, or (b) widen the `ISession` interface in `agent-core`/`agent-interface-transport` to include the methods the transports actually need (e.g., `getMessages()`, `on()`, `off()`). Option (a) is preferred as it keeps the contract honest without widening the base interface.
 
 ---
 
-### [ARCH-SD-003] `InteractiveSession` god class — 1,576 lines, 45 fields, 60+ methods
+### [ARCH-SD-003] `ICommandHostContext` Has 10 Optional Members — Weak Interface Contract
+
+- **Severity**: High
+- **Area**: `packages/agent-sdk/src/command-api/host-context.ts:75–113`
+- **Problem**: `ICommandHostContext` has 10 optional method members (marked `?`): `clearConversationHistory`, `validateCurrentSessionReplayLog`, `getAutoCompactThresholdSource`, `setAutoCompactThreshold`, `getCommandHostAdapters`, `listContextReferences`, `addContextReference`, `removeContextReference`, `clearContextReferences`, `getCommandInvocationSource`, `listCommands`, `listSkills`, `inspectEditCheckpoint`. Callers in command modules must guard every call with `?.`, making the contract meaningless as a guarantee. The interface is essentially a partial duck type with required methods as the exception, not the rule.
+- **Rule violation**: Interface contracts should guarantee what is available. Optional members on a command-host context interface undermine the command isolation pattern — command modules cannot rely on the host providing key capabilities.
+- **Recommendation**: Separate `ICommandHostContext` into a required base (`ICommandHostContext`) covering methods all command modules need, and optional capability interfaces (`ICompactCapable`, `IMemoryCapable`, `IContextReferenceCapable`, `ICheckpointCapable`) that individual command modules can `import type` and narrow to via `in` checks. Each command module declares which capabilities it requires via its `ICommandModule.sessionRequirements` array.
+
+---
+
+### [ARCH-SD-004] `agent-command-agent` Uses `as unknown as` to Cast `ICommandHostContext` → `IAgentJobHostContext`
+
+- **Severity**: High
+- **Area**: `packages/agent-command-agent/src/agent-command-module.ts:12`
+- **Problem**: The `asAgentHostContext()` helper function performs `context as unknown as IAgentJobHostContext` to obtain the extended agent job interface. At runtime, `InteractiveSession` does implement `IAgentJobHostContext`, but the type system is blind to this.
+- **Rule violation**: `as unknown as` in production code. This cast masks a structural mismatch that should be resolved at the contract level.
+- **Current code**:
+  ```typescript
+  function asAgentHostContext(context: ICommandHostContext): IAgentJobHostContext {
+    return context as unknown as IAgentJobHostContext;
+  }
+  ```
+- **Recommendation**: `IAgentJobHostContext` should be exposed as an optional capability on `ICommandHostContext` (or via the capability split recommended in ARCH-SD-003). For example, `ICommandHostContext` could expose `getAgentJobCapabilities?(): IAgentJobHostContext | undefined`, and `agent-command-agent` calls that method and throws a `sessionRequirements` error if absent.
+
+---
+
+### [ARCH-SD-005] `IMarketplaceSource` Type Duplicated Verbatim in Same Package
 
 - **Severity**: Medium
-- **Area**: Assembly layer / `agent-sdk`
-- **Problem**: `agent-sdk/src/interactive/interactive-session.ts` is 1,576 lines spanning prompt
-  queuing, skill activation, background task lifecycle, agent job lifecycle, context references,
-  edit checkpoints, sandbox snapshots, fork-skill execution, and streaming. The 300-line
-  anti-monolith rule is violated by more than 5×.
-- **Evidence**: Lines 178–219: 45 private fields. Methods spanning fundamentally unrelated
-  lifecycle concerns in a single class.
-- **Recommendation**: Extract `BackgroundTaskState`, `ContextReferenceState`,
-  `EditCheckpointState` as focused sub-objects. `InteractiveSession` becomes a thin coordinator.
-  Introduce `IInteractiveSession` at the same time (see ARCH-SD-002).
+- **Area**:
+  - `packages/agent-sdk/src/plugins/marketplace-types.ts:6–10` (SSOT)
+  - `packages/agent-sdk/src/plugins/plugin-settings-store.ts:11–15` (duplicate)
+- **Problem**: `IMarketplaceSource` is defined identically in both files:
+  ```typescript
+  export type IMarketplaceSource =
+    | { type: 'github'; repo: string; ref?: string }
+    | { type: 'git'; url: string; ref?: string }
+    | { type: 'local'; path: string }
+    | { type: 'url'; url: string };
+  ```
+  This is a direct SSOT violation. Additionally, `IKnownMarketplaceEntry` in `marketplace-types.ts` and `IPersistedMarketplaceSource` in `plugin-settings-store.ts` both describe `{ source: IMarketplaceSource }` with differing names and additional fields.
+- **Rule violation**: No cross-package type duplication (applies equally within a package — one owner per fact).
+- **Recommendation**: Remove the duplicate from `plugin-settings-store.ts` and import from `marketplace-types.ts`. Unify or at minimum `extend`/compose `IPersistedMarketplaceSource` from `IKnownMarketplaceEntry` if they differ intentionally.
 
 ---
 
-### [ARCH-SD-004] Bare `object` type in `TCommandResultDataValue`
+### [ARCH-SD-006] `ExecFn` Naming Violates T/I Prefix Convention + Duplicate Definition
 
 - **Severity**: Medium
-- **Area**: Command API / `agent-sdk`
-- **Problem**: `agent-sdk/src/command-api/command-result.ts` line 5 defines
-  `TCommandResultDataValue` with `object` as one of its union members. Bare `object` is
-  effectively `Record<string, unknown>` minus type safety — it prevents the caller from accessing
-  any properties without casting.
-- **Evidence**: `agent-sdk/src/command-api/command-result.ts` line 5:
-  `type TCommandResultDataValue = string | number | boolean | object | ...`.
-- **Recommendation**: Replace `object` with `Record<string, unknown>`. If structured payloads are
-  needed, define a named discriminated union instead.
+- **Area**:
+  - `packages/agent-sdk/src/plugins/marketplace-types.ts:39` (exported as `ExecFn`)
+  - `packages/agent-sdk/src/plugins/bundle-plugin-installer.ts:27` (private redefinition)
+- **Problem**: `ExecFn` has no `T` prefix despite being a type alias for a function type. It is also privately redefined in `bundle-plugin-installer.ts` despite `marketplace-types.ts` already exporting the same shape.
+- **Rule violation**: `T*` prefix for type aliases. No type duplication.
+- **Recommendation**: Rename to `TExecFn` in `marketplace-types.ts`. Remove the duplicate private definition in `bundle-plugin-installer.ts` and import `TExecFn` from `marketplace-types.ts`.
 
 ---
 
-### [ARCH-SD-005] 9 `agent-plugin-*` packages have zero active consumers in production paths
+### [ARCH-SD-007] I-Prefixed `type` Aliases — Naming Convention Violations
 
 - **Severity**: Medium
-- **Area**: Plugin layer / `agent-plugin-*`
-- **Problem**: All nine `agent-plugin-*` packages are correctly isolated (depend only on
-  `agent-core`) but none is registered or used in any production assembly path (no production
-  `agent-sdk`, `agent-cli`, or `apps/agent-server` imports them). This means the plugin
-  architecture is proven at the contract level but unproven at integration.
-- **Evidence**: No `agent-cli` or `agent-sdk` production source imports any `@robota-sdk/agent-plugin-*`.
-  `agent-cli/src/plugins/` does not exist or contains no plugin registrations.
-- **Recommendation**: Either wire at least one plugin into the default CLI assembly (demonstrating
-  the integration path) or add an explicit architecture note that plugins are application-consumer
-  responsibility, not built into the CLI by default.
+- **Area**: Multiple files
+  - `packages/agent-sdk/src/plugins/marketplace-types.ts:6` — `export type IMarketplaceSource`
+  - `packages/agent-sdk/src/plugins/marketplace-types.ts:36` — `export type IKnownMarketplacesRegistry`
+  - `packages/agent-sdk/src/plugins/bundle-plugin-installer.ts:24` — `export type IInstalledPluginsRegistry`
+  - `packages/agent-sdk/src/interactive/interactive-session-init.ts:116` — `export type IInteractiveSessionOptions`
+  - `packages/agent-runtime/src/background-tasks/types.ts:116` — `export type IBackgroundTaskRequest`
+  - `packages/agent-core/src/hooks/types.ts:61` — `export type IHookDefinition`
+  - `packages/agent-cli/src/utils/statusline-settings.ts:10` — `export type IStatusLineSettings`
+  - `packages/agent-transport-http/src/routes.ts:14` — `export type ISessionFactory`
+- **Problem**: All the above use the `I*` prefix on `type` aliases. Per the naming convention, `I*` is reserved for `interface` declarations; `type` aliases must use `T*`.
+- **Rule violation**: Interface naming rule: `I*` = `interface` only, `T*` = type alias only.
+- **Recommendation**: Rename all `type I*` aliases to `T*`. This is a breaking rename across the codebase; do it in one PR with a search-and-replace pass. Key renames: `IMarketplaceSource` → `TMarketplaceSource`, `IInteractiveSessionOptions` → `TInteractiveSessionOptions`, `IBackgroundTaskRequest` → `TBackgroundTaskRequest`, `IHookDefinition` → `THookDefinition`, `ISessionFactory` → `TSessionFactory`.
 
 ---
 
-### [ARCH-SD-006] `command-inventory.md` is missing `/settings` and `/user-local` commands
+### [ARCH-SD-008] `@deprecated` Annotations in `agent-provider-google` and `agent-playground`
 
 - **Severity**: Medium
-- **Area**: Architecture docs / `command-inventory.md`
-- **Problem**: The canonical command inventory at `.agents/specs/command-inventory.md` does not
-  list the `/settings` and `/user-local` commands, both of which are implemented in
-  `agent-command-settings` and routed via the CLI slash-routing layer. The inventory is meant to
-  be the authoritative record of all built-in commands.
-- **Evidence**: `agent-command-settings/src/` exists and exports `/settings` and `/user-local`
-  handlers. Neither command appears in `.agents/specs/command-inventory.md`.
-- **Recommendation**: Add `/settings` and `/user-local` to `command-inventory.md` with owner,
-  host effects, and model visibility fields. Add a harness check to detect command module packages
-  without corresponding inventory entries.
+- **Area**:
+  - `packages/agent-provider-google/src/types.ts:7,12`
+  - `packages/agent-provider-google/src/provider.ts:5`
+  - `packages/agent-playground/src/contexts/playground-context/types.ts:31`
+- **Problem**: `@deprecated` JSDoc annotations are present on exported types and a class.
+
+  ```typescript
+  // types.ts
+  /** @deprecated Use `TGeminiProviderOptionValue` from `@robota-sdk/agent-provider-gemini`. */
+  export type TGoogleProviderOptionValue = TGeminiProviderOptionValue;
+
+  // provider.ts
+  /** @deprecated Import `GeminiProvider` from `@robota-sdk/agent-provider-gemini`. */
+  export class GoogleProvider extends GeminiProvider { ... }
+
+  // playground types.ts
+  /** @deprecated Use usePlaygroundState() or usePlaygroundActions() for better performance. */
+  ```
+
+- **Rule violation**: No deprecated — delete or migrate within the same PR. `agent-provider-google` is an undistributed package; its consumers are internal and can be migrated.
+- **Recommendation**: For `agent-provider-google`: verify no external consumers, remove the package or fold its redirect exports into a single barrel in `agent-provider-gemini`. For `agent-playground`: migrate callers of the deprecated context type to `usePlaygroundState()`/`usePlaygroundActions()`, then delete the deprecated type.
 
 ---
 
-### [ARCH-SD-007] `ICommandHostContext` has 10+ optional methods — contract is ambiguous
+### [ARCH-SD-009] Hard-coded Product Name `'robota-cli'` in `agent-sessions` — Foundation Layer
 
 - **Severity**: Medium
-- **Area**: Domain contracts / `agent-core`
-- **Problem**: `ICommandHostContext` in `agent-core/src/interfaces/` has grown to include 10 or
-  more optional (`?:`) methods. Optional interface methods are a design smell: they cannot be
-  safely called without null-checks, they allow partial implementations that silently skip
-  behavior, and they prevent compile-time enforcement of the contract.
-- **Evidence**: `agent-core/src/interfaces/command-host-context.ts`: multiple optional fields
-  (`spawnAgentJob?`, `sendAgentJob?`, `getContextReferences?`, etc.).
-- **Recommendation**: Split `ICommandHostContext` into a required base interface and one or more
-  capability sub-interfaces (e.g., `IAgentJobHostContext`, `IContextReferenceHostContext`).
-  Command modules that need agent job controls should declare `IAgentJobHostContext` in their
-  parameter type. This removes optional fields from the base contract.
+- **Area**: `packages/agent-sessions/src/session.ts:167`
+- **Problem**: The `Session` constructor hard-codes `name: 'robota-cli'` in the `IAgentConfig` it builds:
+  ```typescript
+  const agentConfig: IAgentConfig = {
+    name: 'robota-cli',
+    ...
+  };
+  ```
+  `agent-sessions` is a foundation package consumed by SDK, transports, and potentially any host. The agent name is an internal implementation detail of the CLI, not the session layer.
+- **Rule violation**: No product names in code (feedback rule). Foundation packages must not reference specific consumer names.
+- **Recommendation**: Add an optional `agentName?: string` field to `ISessionOptions` (or infer from the provider name). Default to a generic string like `'session-agent'` or the provider name. The CLI can pass `'robota-cli'` if it needs to.
 
 ---
 
-### [ARCH-SD-008] No `createTestInteractiveSession` factory — 15+ test files use unsafe cast
+### [ARCH-SD-010] `IWorkflowConversionResult.data` Non-Optional But Bypassed with `undefined as unknown as TOutput`
 
 - **Severity**: Medium
-- **Area**: Test infrastructure / `agent-sdk`
-- **Problem**: Tests across 15+ files construct mock sessions via `{} as unknown as InteractiveSession`
-  or similar. There is no official test factory, making tests fragile: any new required method on
-  `InteractiveSession` silently produces `undefined` rather than a type error.
-- **Evidence**: Grep for `as unknown as InteractiveSession` yields 15+ hits in test files across
-  `agent-command-*` packages.
-- **Recommendation**: Export `createTestInteractiveSession(overrides?: Partial<IInteractiveSession>)`
-  from a test-utilities package or from `agent-sdk/src/testing/`. This ties to ARCH-SD-002:
-  once `IInteractiveSession` exists, the factory can implement it explicitly.
+- **Area**: `packages/agent-core/src/abstracts/workflow-converter-helpers.ts:91`
+- **Problem**: `IWorkflowConversionResult<TOutput>.data` is typed as the required non-optional `TOutput`. The `buildFailureResult` helper sets it to `undefined as unknown as TOutput` to satisfy the shape on failure paths:
+  ```typescript
+  data: undefined as unknown as TOutput,
+  success: false,
+  ```
+  This is a dishonest type that allows callers to dereference `result.data` even when `result.success === false`, producing a runtime error.
+- **Rule violation**: `as unknown as` bypass; dishonest contract.
+- **Recommendation**: Change `IWorkflowConversionResult` to `data: TOutput | undefined` (or `data?: TOutput`). Callers should narrow on `result.success` before using `result.data`. Alternatively, use a discriminated union: `{ success: true; data: TOutput } | { success: false; data?: never }`.
 
 ---
 
-### [ARCH-SD-009] `chalk` is a production dependency of `agent-sdk`
+### [ARCH-SD-011] `ICommandSessionRuntime.getAutoCompactThreshold` Optional vs Required Inconsistency
+
+- **Severity**: Medium
+- **Area**: `packages/agent-sdk/src/command-api/host-context.ts:64,79`
+- **Problem**: `getAutoCompactThreshold` appears twice with different optionality:
+  - In `ICommandSessionRuntime` (line 64): `getAutoCompactThreshold?(): number | false` (optional)
+  - In `ICommandHostContext` (line 79): `getAutoCompactThreshold(): TAutoCompactThreshold` (required)
+    The two interfaces form a composition (`ICommandHostContext.getSession()` returns `ICommandSessionRuntime`), so the same operation has two different contracts depending on which interface you call it through.
+- **Rule violation**: Inconsistent contract between related interfaces. Callers of `ICommandSessionRuntime` must guard with `?.`, while callers of `ICommandHostContext` do not.
+- **Recommendation**: Decide the canonical optionality. If `getAutoCompactThreshold` is always available on the session, make it required in `ICommandSessionRuntime`. If not, make it optional in `ICommandHostContext` too and update all callers.
+
+---
+
+### [ARCH-SD-012] `agent-tools` Built-in Tools Use Repeated `as unknown as IZodSchema` Pattern
+
+- **Severity**: Medium
+- **Area**:
+  - `packages/agent-tools/src/builtins/web-fetch-tool.ts:104`
+  - `packages/agent-tools/src/builtins/write-tool.ts:51`
+  - `packages/agent-tools/src/builtins/glob-tool.ts:103`
+  - `packages/agent-tools/src/builtins/read-tool.ts:164`
+  - `packages/agent-tools/src/builtins/edit-tool.ts:115`
+  - `packages/agent-tools/src/builtins/web-search-tool.ts:101`
+  - `packages/agent-tools/src/builtins/grep-tool.ts:228`
+  - `packages/agent-tools/src/builtins/bash-tool.ts:144`
+- **Problem**: Every built-in tool must cast its Zod schema to `IZodSchema` via `as unknown as IZodSchema`. This is an 8-instance systematic cast that indicates the `IZodSchema` interface (in `implementations/function-tool/types.ts`) does not correctly structurally type Zod schemas.
+- **Rule violation**: `as unknown as` in production code — 8 occurrences in this domain alone.
+- **Recommendation**: Widen `IZodSchema` to be structurally compatible with `z.ZodObject<...>`, or replace `IZodSchema` with a proper type that Zod schemas implement without a cast. The comment in `types.ts` admits type assertions as a trade-off; this is an accepted but unsatisfactory resolution. At minimum, the cast should be centralized to one location (inside `createZodFunctionTool`) rather than repeated at every call site.
+
+---
+
+### [ARCH-SD-013] `process.cwd()` Fallback in `InteractiveSession.getCwd()` Masks Missing `cwd`
 
 - **Severity**: Low
-- **Area**: Assembly layer / `agent-sdk`
-- **Problem**: Same as ARCH-SA-007. `chalk` in `agent-sdk` violates the SDK's platform-neutral
-  contract. Any Node.js environment importing `agent-sdk` gets ANSI escape sequences injected
-  into terminal output regardless of whether it runs in a CLI or a server.
-- **Evidence**: `agent-sdk/package.json`: `"chalk": "^5.3.0"`.
-  `agent-sdk/src/permissions/permission-prompt.ts` lines 7, 36–37: direct `chalk` import.
-- **Recommendation**: Remove chalk from `agent-sdk`. Route styled output through `ITerminalOutput`
-  and let the CLI adapter apply ANSI styling.
+- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts:655`
+- **Problem**: `getCwd()` returns `this.cwd ?? process.cwd()`. This is a silent fallback that masks the case where no `cwd` was provided — a condition that should be an error for tools that write files.
+- **Rule violation**: No fallback — if value is absent, treat it as a bug. `process.cwd()` varies between test environments and production contexts, making behavior non-deterministic.
+- **Recommendation**: Make `cwd` required in `IInteractiveSessionStandardOptions` (it already is). For the `IInteractiveSessionInjectedOptions` path where `cwd` is optional, throw explicitly if `getCwd()` is called and `cwd` is undefined rather than silently falling back to `process.cwd()`.
 
 ---
 
-### [ARCH-SD-010] Agent job controls not declared on `ICommandHostContext`
-
-- **Severity**: Medium
-- **Area**: Domain contracts / `agent-core`
-- **Problem**: Agent job operations (`spawnAgentJob`, `sendAgentJob`, `waitForAgentJob`,
-  `cancelAgentJob`) are either missing from `ICommandHostContext` entirely or declared as optional
-  fields (see ARCH-SD-007). Command modules that invoke agent jobs must either cast the context to
-  a concrete type or null-check optional fields at every call site.
-- **Evidence**: `agent-command-agent/src/agent-command.ts` reaches into `InteractiveSession`
-  methods that are not on `ICommandHostContext`.
-- **Recommendation**: Define `IAgentJobHostContext` in `agent-core/src/interfaces/` with the full
-  required agent job surface. `ICommandHostContext` can extend it. Command modules declare
-  `IAgentJobHostContext` when they need job controls.
-
----
-
-### [ARCH-SD-011] `agent-sdk/src/index.ts` publicly exports SDK-internal assembly helpers
+### [ARCH-SD-014] `agent-remote-client` Debug Logger Calls with Emoji Prefixes and Verbose Diagnostics
 
 - **Severity**: Low
-- **Area**: Assembly layer / `agent-sdk`
-- **Problem**: `agent-sdk/src/index.ts` exports several symbols that are internal assembly
-  utilities (session factory helpers, private command executors) not documented in the SDK SPEC
-  Public API Surface table. These become frozen public API once consumers depend on them.
-- **Evidence**: Symbols exported from `agent-sdk/src/index.ts` but absent from
-  `agent-sdk/docs/SPEC.md` Public API Surface section.
-- **Recommendation**: Audit `agent-sdk/src/index.ts` exports against SPEC.md. Move internal
-  helpers to a `src/internal/` subpath and remove them from the public barrel. Document the
-  remaining public surface explicitly in SPEC.md.
+- **Area**: `packages/agent-remote-client/src/client/chat-http-methods.ts:105,181,198,202,249`
+- **Problem**: The file contains 6 logger calls with emoji prefixes (`🔧`, `🌐`, `❌`, `🔍`) and debug-level diagnostic strings like `'🔧 [HTTP-CLIENT] Request tools:'` that appear to be leftover development scaffolding rather than structured log events.
+- **Rule violation**: Production files should use structured logging via DI, not ad-hoc emoji strings as message prefixes. While these use the injected `logger` (not `console.*`), the message format is not structured and the info-level calls emit on every request.
+- **Recommendation**: Remove emoji prefixes. Reduce info-level tool-count logging to debug. Add a structured fields object (not the message string) for queryable log events.
 
 ---
 
-### [ARCH-SD-012] `SystemCommandExecutor.executeCommand` has no error boundary
+### [ARCH-SD-015] `TModelConfig` and `TConfigurationSnapshot` Are Private `type` Shapes in `robota.ts` — Should Be `interface`
 
 - **Severity**: Low
-- **Area**: Assembly layer / `agent-sdk`
-- **Problem**: `agent-sdk/src/commands/system-command-executor.ts` dispatches to command handlers
-  without a top-level try/catch. An unhandled error in any command handler propagates out of
-  `executeCommand` and can crash the active session rather than returning a structured error result.
-- **Evidence**: `agent-sdk/src/commands/system-command-executor.ts`: no try/catch wrapping the
-  handler dispatch call path.
-- **Recommendation**: Wrap the command dispatch in a try/catch that catches `Error` and returns
-  a structured `CommandResult` with `success: false` and the error message. Log the stack trace
-  via `ITerminalOutput` for diagnostics.
+- **Area**: `packages/agent-core/src/core/robota.ts:63,73`
+- **Problem**: Two type aliases define object shapes with multiple named properties:
+  ```typescript
+  type TModelConfig = { provider: string; model: string; temperature?: number; ... };
+  type TConfigurationSnapshot = { version: number; tools: Array<...>; updatedAt: number; };
+  ```
+  Both are shapes (not unions or mapped types), so the correct declaration form is `interface`.
+- **Rule violation**: Object shapes must use `interface`, not `type` alias.
+- **Recommendation**: Convert to `interface IModelConfig` and `interface IConfigurationSnapshot` (or keep private with `interface` by removing `export` if not needed externally).
+
+---
+
+### [ARCH-SD-016] `provider-command-execution.ts` at 713 Lines — Anti-Monolith
+
+- **Severity**: Low
+- **Area**: `packages/agent-command-provider/src/provider-command-execution.ts`
+- **Problem**: This file is 713 lines, 2.4× the 300-line limit. It contains the complete provider command execution logic including profile picker, profile edit, test, duplicate, delete, and switch flows in a single file.
+- **Rule violation**: Anti-monolith rule — file ≤ 300 lines.
+- **Recommendation**: Split into sub-files by flow: `provider-command-picker.ts`, `provider-command-edit.ts`, `provider-command-test.ts`, with a thin `provider-command-execution.ts` that delegates to each.
 
 ---
 
 ## Positive Findings
 
-- **Provider/plugin isolation** is correct — all provider and plugin packages depend only on `agent-core`.
-- **Command module isolation** mostly works — `agent-command-*` packages are decoupled from `agent-cli`.
-- **`agent-core` zero-dependency invariant** is rigorously enforced.
-- **`agent-sdk` React-free guard** is mechanically checked via `check-sdk-react-free.mjs`.
-- **Session/runtime split** is structurally clean — `agent-sessions` owns persistence, `agent-runtime` owns background tasks.
-- **`agent-interface-transport`** correctly used by TUI, headless, and WS transports.
+1. **Zero `any` usage**: `grep ": any\|as any\|<any>"` across all `src/` directories returns no results. Strict TypeScript is fully enforced.
+2. **No `@ts-ignore` or `@ts-nocheck`**: Zero occurrences across the entire monorepo source.
+3. **No React in `agent-sdk`**: No `from 'react'` imports in `packages/agent-sdk/src/`.
+4. **No `console.*` in production `src/` files**: All logging routes through the injected `ILogger` DI interface. The only `console` match is a URL constant in a provider definition (not a log call).
+5. **All 57 packages have SPEC.md**: Complete coverage — no package is missing its contract document.
+6. **Command module dependency isolation is clean**: All `agent-command-*` packages depend only on `@robota-sdk/agent-sdk` (and `agent-core` for `agent-command-provider`). None import from peer command modules.
+7. **`ICommandHostContext` is the sole injection point**: Command module `execute()` callbacks consistently receive only `ICommandHostContext` — no direct `InteractiveSession` references in command packages.
+8. **Named constants for magic numbers**: `STREAMING_FLUSH_INTERVAL_MS`, `MAX_COMPLETED_TOOLS`, `DEFAULT_MAX_TURNS`, `CONTEXT_HARD_BLOCK_THRESHOLD`, `GIT_TIMEOUT_MS` — magic numbers are promoted to named constants in their respective files.
+9. **No cross-layer dependency violations**: `agent-core` → `agent-sessions` → `agent-sdk` direction is respected. `agent-interface-transport` is correctly isolated with no dependency on `agent-sdk`.
+10. **`IInteractiveSession` interface exists and is correct**: The transport-facing interface is properly defined and structurally sound. The issue (ARCH-SD-002) is the `ISession` vs `IInteractiveSession` structural gap in the transport attach contract, not a missing abstraction.
 
 ---
 
-## Priority Recommendations
+## Summary Table
 
-1. Fix `agent-command-agent` to use `ICommandHostContext` (ARCH-SD-001) — command contract violation.
-2. Introduce `IInteractiveSession` interface (ARCH-SD-002) — enables safe transport/test patterns.
-3. Split `ICommandHostContext` optional methods into capability sub-interfaces (ARCH-SD-007 + ARCH-SD-010) — restores contract clarity.
-4. Extract sub-objects from `InteractiveSession` (ARCH-SD-003) — prerequisite for long-term maintainability.
-5. Add `createTestInteractiveSession` factory (ARCH-SD-008) — removes unsafe casts from 15+ test files.
+| ID          | Title                                                                                                | Severity | Area                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| ARCH-SD-001 | InteractiveSession 1,578 lines — anti-monolith                                                       | High     | `agent-sdk/src/interactive/interactive-session.ts`                       |
+| ARCH-SD-002 | `as unknown as IInteractiveSession` in 3 transport adapters                                          | High     | `agent-transport-headless`, `agent-transport-ws`, `agent-transport-http` |
+| ARCH-SD-003 | `ICommandHostContext` has 10 optional members — weak contract                                        | High     | `agent-sdk/src/command-api/host-context.ts`                              |
+| ARCH-SD-004 | `agent-command-agent` casts ICommandHostContext via `as unknown as`                                  | High     | `agent-command-agent/src/agent-command-module.ts`                        |
+| ARCH-SD-005 | `IMarketplaceSource` duplicated verbatim in same package                                             | Medium   | `agent-sdk/src/plugins/`                                                 |
+| ARCH-SD-006 | `ExecFn` naming violation + duplicate definition                                                     | Medium   | `agent-sdk/src/plugins/`                                                 |
+| ARCH-SD-007 | I-prefixed `type` aliases violate naming convention (8 files)                                        | Medium   | Multiple packages                                                        |
+| ARCH-SD-008 | `@deprecated` annotations present in production source                                               | Medium   | `agent-provider-google`, `agent-playground`                              |
+| ARCH-SD-009 | Hard-coded `'robota-cli'` product name in `agent-sessions` foundation                                | Medium   | `agent-sessions/src/session.ts`                                          |
+| ARCH-SD-010 | `buildFailureResult` uses `undefined as unknown as TOutput` to satisfy non-optional field            | Medium   | `agent-core/src/abstracts/workflow-converter-helpers.ts`                 |
+| ARCH-SD-011 | `getAutoCompactThreshold` optional in `ICommandSessionRuntime` but required in `ICommandHostContext` | Medium   | `agent-sdk/src/command-api/host-context.ts`                              |
+| ARCH-SD-012 | Built-in tools repeat `as unknown as IZodSchema` 8 times                                             | Medium   | `agent-tools/src/builtins/`                                              |
+| ARCH-SD-013 | `process.cwd()` silent fallback in `getCwd()`                                                        | Low      | `agent-sdk/src/interactive/interactive-session.ts:655`                   |
+| ARCH-SD-014 | Emoji + diagnostic logger calls in `agent-remote-client`                                             | Low      | `agent-remote-client/src/client/chat-http-methods.ts`                    |
+| ARCH-SD-015 | `TModelConfig` / `TConfigurationSnapshot` are object shapes — should be `interface`                  | Low      | `agent-core/src/core/robota.ts:63,73`                                    |
+| ARCH-SD-016 | `provider-command-execution.ts` at 713 lines — anti-monolith                                         | Low      | `agent-command-provider/src/provider-command-execution.ts`               |
