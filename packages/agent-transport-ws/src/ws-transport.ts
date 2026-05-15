@@ -5,8 +5,7 @@
  * After start(), the consumer must wire onMessage to their WebSocket.
  */
 
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { ISession } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import { createWsHandler } from './ws-handler.js';
 import type { TServerMessage } from './ws-protocol.js';
@@ -18,15 +17,15 @@ export interface IWsTransportOptions {
 
 export function createWsTransport(
   options: IWsTransportOptions,
-): ITransportAdapter & { onMessage: ((data: string) => void) | null } {
-  let session: InteractiveSession | null = null;
+): ITransportAdapter<IInteractiveSession> & { onMessage: ((data: string) => void) | null } {
+  let session: IInteractiveSession | null = null;
   let cleanup: (() => void) | null = null;
 
   return {
     name: 'ws',
     onMessage: null,
-    attach(s: ISession) {
-      session = s as InteractiveSession;
+    attach(s: IInteractiveSession) {
+      session = s;
     },
     async start() {
       if (!session) throw new Error('No session attached. Call attach() first.');

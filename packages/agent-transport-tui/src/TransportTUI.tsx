@@ -10,11 +10,12 @@ import type {
   ITransportEntry,
   ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
 const TRANSPORT_NAME_WIDTH = 18;
 
 interface IEntryRowProps {
-  entry: ITransportEntry;
+  entry: ITransportEntry<IInteractiveSession>;
   selected: boolean;
 }
 
@@ -36,10 +37,10 @@ function TransportEntryRow({ entry, selected }: IEntryRowProps): React.ReactElem
 type TKey = { upArrow: boolean; downArrow: boolean; escape: boolean; return: boolean };
 
 function useTransportInput(
-  entries: ITransportEntry[],
+  entries: ITransportEntry<IInteractiveSession>[],
   cursor: number,
   saving: boolean,
-  registry: ITransportRegistryView,
+  registry: ITransportRegistryView<IInteractiveSession>,
   setCursor: (fn: (c: number) => number) => void,
   setSaving: (v: boolean) => void,
   onClose: () => void,
@@ -80,7 +81,7 @@ function useTransportInput(
 }
 
 interface IProps {
-  registry: ITransportRegistryView;
+  registry: ITransportRegistryView<IInteractiveSession>;
   onClose: () => void;
 }
 

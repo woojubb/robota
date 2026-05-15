@@ -10,7 +10,8 @@ export interface ITransportConfig {
   options?: Record<string, TUniversalValue>;
 }
 
-export interface IConfigurableTransport extends ITransportAdapter {
+export interface IConfigurableTransport<TSession = import('@robota-sdk/agent-core').ISession>
+  extends ITransportAdapter<TSession> {
   readonly defaultEnabled: boolean;
   readonly optionsSchema?: Record<
     string,
@@ -19,14 +20,14 @@ export interface IConfigurableTransport extends ITransportAdapter {
   validateOptions?(options: Record<string, TUniversalValue>): boolean;
 }
 
-export interface ITransportEntry {
-  transport: IConfigurableTransport;
+export interface ITransportEntry<TSession = import('@robota-sdk/agent-core').ISession> {
+  transport: IConfigurableTransport<TSession>;
   config: ITransportConfig;
 }
 
-export interface ITransportRegistryView {
-  getAll(): ITransportEntry[];
+export interface ITransportRegistryView<TSession = import('@robota-sdk/agent-core').ISession> {
+  getAll(): ITransportEntry<TSession>[];
   setEnabled(name: string, enabled: boolean): Promise<void>;
-  startAll(session: import('@robota-sdk/agent-core').ISession): Promise<void>;
+  startAll(session: TSession): Promise<void>;
   stopAll(): Promise<void>;
 }
