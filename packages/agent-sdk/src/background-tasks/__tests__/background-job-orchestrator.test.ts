@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BackgroundTaskManager } from '../index.js';
+import { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
 import {
   BackgroundJobOrchestrator,
   summarizeBackgroundJobGroup,

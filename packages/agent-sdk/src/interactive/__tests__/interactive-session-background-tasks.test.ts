@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Session } from '@robota-sdk/agent-sessions';
-import { BackgroundTaskManager } from '../../background-tasks/index.js';
+import { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskLogPage,
