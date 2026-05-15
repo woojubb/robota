@@ -28,7 +28,6 @@ export interface IPlaygroundActionsValue {
   getConnectionStatus: () => { connected: boolean; url: string };
 }
 
-/** @deprecated Use usePlaygroundState() or usePlaygroundActions() for better performance. */
 export interface IPlaygroundContextValue extends IPlaygroundActionsValue {
   state: IPlaygroundState;
 }
