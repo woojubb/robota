@@ -32,6 +32,7 @@ export function initializeSession(
     commandHostAdapters: props.commandHostAdapters,
     shellExec: props.shellExec,
     language: props.language,
+    agentName: props.agentName,
   });
 
   const registry = new CommandRegistry();
