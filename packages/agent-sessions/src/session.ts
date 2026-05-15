@@ -1,16 +1,5 @@
-/**
- * Session — wraps a Robota agent instance with project context, permission state,
- * and optional session persistence.
- *
- * Design notes:
- * - Generic: accepts pre-constructed tools and provider (no hardcoded dependencies).
- * - Assembly (wiring tools, provider, system prompt) is done by the caller (agent-sdk).
- * - Internal concerns delegated to PermissionEnforcer, ContextWindowTracker, CompactionOrchestrator.
- */
-
-import { Robota, TRUST_TO_MODE } from '@robota-sdk/agent-core';
+import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type {
-  IAgentConfig,
   IAIProvider,
   IContextWindowState,
   IToolSchema,
@@ -41,6 +30,13 @@ import {
   fireSessionEndHook,
   fireSessionStartHook,
 } from './session-lifecycle.js';
+import { SessionBase } from './session-base.js';
+import {
+  buildPermissionEnforcer,
+  buildRobota,
+  buildSessionTrackers,
+} from './session-components.js';
+import type { Robota } from '@robota-sdk/agent-core';
 
 export type {
   ICompactEvent,
@@ -57,23 +53,22 @@ export type { TAutoCompactThreshold } from './context-window-tracker.js';
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
 
-/**
- * Session class.
- *
- * Maintains conversation history by keeping the same Robota agent across multiple
- * run() calls.  The session ID is stable for the lifetime of the object.
- */
-export class Session {
-  private readonly robota: Robota;
-  private readonly sessionId: string;
-  private permissionMode: TPermissionMode;
+/** Wraps a Robota agent with project context, permission state, and optional persistence. */
+export class Session extends SessionBase {
+  protected readonly robota: Robota;
+  protected readonly permissionEnforcer: PermissionEnforcer;
+  protected readonly contextTracker: ContextWindowTracker;
+  protected permissionMode: TPermissionMode;
+  protected readonly sessionId: string;
+  protected readonly aiProvider: IAIProvider;
+  protected readonly toolSchemas: IToolSchema[];
+  protected readonly model: string;
+  protected systemMessage: string;
+  protected messageCount = 0;
+  protected abortController: AbortController | null = null;
   private readonly terminal: ITerminalOutput;
   private readonly sessionStore?: ISessionStore;
   private readonly cwd: string;
-  private readonly aiProvider: IAIProvider;
-  private systemMessage: string;
-  private readonly toolSchemas: IToolSchema[];
-  private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
@@ -83,11 +78,7 @@ export class Session {
   private readonly onCompactEventCallback?: ISessionOptions['onCompactEvent'];
   private readonly sessionLogger?: ISessionLogger;
   private readonly maxTurns?: number;
-  private readonly permissionEnforcer: PermissionEnforcer;
-  private readonly contextTracker: ContextWindowTracker;
   private readonly compactionOrchestrator: CompactionOrchestrator;
-  private messageCount = 0;
-  private abortController: AbortController | null = null;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
@@ -95,10 +86,11 @@ export class Session {
   private readonly transcriptPath: string | undefined;
 
   constructor(options: ISessionOptions) {
-    const { tools, provider, systemMessage, terminal, sessionStore, permissionHandler } = options;
+    super();
+    const { tools, provider, systemMessage } = options;
 
-    this.terminal = terminal;
-    this.sessionStore = sessionStore;
+    this.terminal = options.terminal;
+    this.sessionStore = options.sessionStore;
     this.systemMessage = systemMessage;
     this.toolSchemas = tools.map((tool) => tool.schema);
     this.cwd = process.cwd();
@@ -115,12 +107,11 @@ export class Session {
     this.sessionId =
       options.sessionId ??
       `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
-
     this.permissionMode =
       options.permissionMode ??
       (options.defaultTrustLevel ? TRUST_TO_MODE[options.defaultTrustLevel] : undefined) ??
       'default';
-    this.transcriptPath = sessionStore?.getFilePath?.(this.sessionId);
+    this.transcriptPath = options.sessionStore?.getFilePath?.(this.sessionId);
     this.log('session_init', {
       cwd: this.cwd,
       systemPromptLength: systemMessage.length,
@@ -131,106 +122,45 @@ export class Session {
     });
     this.aiProvider = provider;
     configureProvider(provider, options, (event, data) => this.log(event, data));
-    this.permissionEnforcer = new PermissionEnforcer({
-      sessionId: this.sessionId,
-      cwd: this.cwd,
-      getPermissionMode: () => this.permissionMode,
-      config: {
-        permissions: options.permissions ?? { allow: [], deny: [] },
-        hooks: options.hooks,
-      },
-      terminal,
-      permissionHandler,
-      promptForApprovalFn: options.promptForApproval,
-      sessionLogger: options.sessionLogger,
-      onToolExecution: options.onToolExecution,
-      hookTypeExecutors: options.hookTypeExecutors,
-      transcriptPath: this.transcriptPath,
-    });
-
-    this.contextTracker = new ContextWindowTracker(
-      this.model,
-      options.contextMaxTokens,
-      options.autoCompactThreshold,
+    this.permissionEnforcer = buildPermissionEnforcer(
+      options,
+      this.sessionId,
+      this.cwd,
+      () => this.permissionMode,
+      this.transcriptPath,
     );
-    this.compactionOrchestrator = new CompactionOrchestrator({
-      sessionId: this.sessionId,
-      cwd: this.cwd,
-      model: this.model,
-      hooks: options.hooks,
-      compactInstructions: options.compactInstructions,
-      hookTypeExecutors: options.hookTypeExecutors,
-    });
-
-    const wrappedTools = this.permissionEnforcer.wrapTools(tools);
-    const agentConfig: IAgentConfig = {
-      name: 'robota-cli',
-      aiProviders: [provider],
-      defaultModel: {
-        provider: provider.name,
-        model: this.model,
-        systemMessage,
-      },
+    const { contextTracker, compactionOrchestrator } = buildSessionTrackers(
+      options,
+      this.model,
+      this.sessionId,
+      this.cwd,
+    );
+    this.contextTracker = contextTracker;
+    this.compactionOrchestrator = compactionOrchestrator;
+    this.robota = buildRobota(
+      options,
+      this.permissionEnforcer,
+      tools,
+      provider,
+      this.model,
       systemMessage,
-      tools: wrappedTools,
-      logging: { enabled: false },
-      ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
-    };
-
-    this.robota = new Robota(agentConfig);
+    );
     fireSessionStartHook(
       this.sessionId,
       this.cwd,
       this.hooks,
       this.hookTypeExecutors,
-      (stdout) => {
-        this.sessionStartStdout = stdout;
-      },
+      (stdout) => void (this.sessionStartStdout = stdout),
       this.permissionMode,
       this.transcriptPath,
     );
   }
 
-  /**
-   * Send a message to the agent and return the response.
-   * @param message - The processed message to send to the AI
-   * @param rawInput - Optional raw user input (used for hook prompt field)
-   */
   async run(message: string, rawInput?: string): Promise<string> {
     this.abortController = new AbortController();
     const { signal } = this.abortController;
-
     try {
-      const response = await executeRun(
-        message,
-        rawInput,
-        {
-          sessionId: this.sessionId,
-          cwd: this.cwd,
-          model: this.model,
-          robota: this.robota,
-          aiProvider: this.aiProvider,
-          contextTracker: this.contextTracker,
-          hooks: this.hooks,
-          hookTypeExecutors: this.hookTypeExecutors,
-          sessionStartStdout: this.sessionStartStdout,
-          log: (event, data) => this.log(event, data),
-          compact: () => this.compact(undefined, 'auto'),
-          persistSession: () => this.persistSessionInternal(),
-          getSessionStore: () => !!this.sessionStore,
-          clearSessionStartStdout: () => {
-            this.sessionStartStdout = '';
-          },
-          permissionMode: this.permissionMode,
-          transcriptPath: this.transcriptPath,
-          ...(this.maxTurns !== undefined ? { maxTurns: this.maxTurns } : {}),
-          onTextDelta: this.onTextDeltaCallback,
-          onContextUpdate: this.onContextUpdateCallback,
-          onToolExecution: this.onToolExecutionCallback,
-          knownToolNames: this.toolSchemas.map((tool) => tool.name),
-        },
-        signal,
-      );
+      const response = await executeRun(message, rawInput, this.buildRunContext(), signal);
       this.messageCount += 1;
       return response;
     } finally {
@@ -238,12 +168,10 @@ export class Session {
     }
   }
 
-  /** Delegate session event to the injected logger. */
   private log(event: string, data: TSessionLogData): void {
     this.sessionLogger?.log(this.sessionId, event, data);
   }
 
-  /** Persist the current session to the store */
   private persistSessionInternal(): void {
     if (!this.sessionStore) return;
     persistSession({
@@ -255,70 +183,6 @@ export class Session {
       robota: this.robota,
       getFullHistory: () => this.getFullHistory(),
     });
-  }
-
-  /** Return the active permission mode */
-  getPermissionMode(): TPermissionMode {
-    return this.permissionMode;
-  }
-
-  /**
-   * Change the active permission mode.
-   * Future tool calls will be evaluated against the new mode.
-   */
-  setPermissionMode(mode: TPermissionMode): void {
-    this.permissionMode = mode;
-  }
-
-  /** Return the stable session identifier */
-  getSessionId(): string {
-    return this.sessionId;
-  }
-
-  /** Return the exact system prompt used by this session. */
-  getSystemMessage(): string {
-    return this.systemMessage;
-  }
-
-  /**
-   * Replace the active system message and propagate the change to the underlying agent.
-   * Used by staleness detection to refresh context files between turns.
-   */
-  updateSystemMessage(newMessage: string): void {
-    this.systemMessage = newMessage;
-    this.robota.setModel({
-      provider: this.aiProvider.name,
-      model: this.model,
-      systemMessage: newMessage,
-    });
-  }
-
-  /** Return tool schemas registered for this session. */
-  getToolSchemas(): IToolSchema[] {
-    return this.toolSchemas;
-  }
-
-  /** Return the number of run() calls completed */
-  getMessageCount(): number {
-    return this.messageCount;
-  }
-
-  /** Get tools that have been session-approved (via "Allow always" choice). */
-  getSessionAllowedTools(): string[] {
-    return this.permissionEnforcer.getSessionAllowedTools();
-  }
-
-  /** Clear all session-scoped allow rules. */
-  clearSessionAllowedTools(): void {
-    this.permissionEnforcer.clearSessionAllowedTools();
-  }
-
-  /** Abort the currently running execution. No-op if nothing is running. */
-  abort(): void {
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
   }
 
   /** Gracefully end the session and fire SessionEnd hooks once. */
@@ -342,30 +206,6 @@ export class Session {
     return this.shutdownPromise;
   }
 
-  /** Whether a run() call is currently in progress. */
-  isRunning(): boolean {
-    return this.abortController !== null;
-  }
-
-  /** Get current context window state */
-  getContextState() {
-    return this.contextTracker.getContextState();
-  }
-
-  /** Get this session's automatic context compaction threshold policy. */
-  getAutoCompactThreshold() {
-    return this.contextTracker.getAutoCompactThreshold();
-  }
-
-  /** Change this session's automatic context compaction threshold policy. */
-  setAutoCompactThreshold(threshold: number | false): void {
-    this.contextTracker.setAutoCompactThreshold(threshold);
-  }
-
-  /**
-   * Run compaction — summarize the conversation to free context space.
-   * @param instructions - Optional focus instructions for the summary
-   */
   async compact(instructions?: string, trigger: TCompactTrigger = 'manual'): Promise<void> {
     await compact(instructions, {
       sessionId: this.sessionId,
@@ -384,49 +224,29 @@ export class Session {
     });
   }
 
-  /**
-   * Inject a message into the underlying Robota conversation history
-   * without triggering execution. Used for session restore (replaying
-   * prior messages so the AI provider has full context).
-   */
-  injectMessage(
-    role: 'user' | 'assistant' | 'system' | 'tool',
-    content: string,
-    options?: { toolCallId?: string; name?: string },
-  ): void {
-    this.robota.injectMessage(role, content, options);
-  }
-
-  /** Clear conversation history */
-  clearHistory(): void {
-    this.robota.clearHistory();
-    this.contextTracker.reset();
-  }
-
-  /** Get conversation history (chat messages only, backward compatible) */
-  getHistory() {
-    return this.robota.getHistory();
-  }
-
-  /** Get full history timeline including events */
-  getFullHistory(): Array<{
-    id: string;
-    timestamp: Date;
-    category: string;
-    type: string;
-    data?: unknown;
-  }> {
-    return this.robota.getFullHistory();
-  }
-
-  /** Add an event entry to history (not a chat message) */
-  addHistoryEntry(entry: {
-    id: string;
-    timestamp: Date;
-    category: string;
-    type: string;
-    data?: unknown;
-  }): void {
-    this.robota.addHistoryEntry(entry);
+  private buildRunContext() {
+    return {
+      sessionId: this.sessionId,
+      cwd: this.cwd,
+      model: this.model,
+      robota: this.robota,
+      aiProvider: this.aiProvider,
+      contextTracker: this.contextTracker,
+      hooks: this.hooks,
+      hookTypeExecutors: this.hookTypeExecutors,
+      sessionStartStdout: this.sessionStartStdout,
+      log: (event: string, data: TSessionLogData) => this.log(event, data),
+      compact: () => this.compact(undefined, 'auto'),
+      persistSession: () => this.persistSessionInternal(),
+      getSessionStore: () => !!this.sessionStore,
+      clearSessionStartStdout: () => void (this.sessionStartStdout = ''),
+      permissionMode: this.permissionMode,
+      transcriptPath: this.transcriptPath,
+      maxTurns: this.maxTurns,
+      onTextDelta: this.onTextDeltaCallback,
+      onContextUpdate: this.onContextUpdateCallback,
+      onToolExecution: this.onToolExecutionCallback,
+      knownToolNames: this.toolSchemas.map((tool) => tool.name),
+    };
   }
 }

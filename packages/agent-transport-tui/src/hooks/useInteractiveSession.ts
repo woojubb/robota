@@ -1,14 +1,4 @@
-/**
- * Hook: thin React bridge over TuiStateManager + InteractiveSession.
- *
- * TuiStateManager owns all rendering state and event→state logic (testable).
- * This hook only connects TuiStateManager to React re-renders and handles
- * slash command routing (TUI-specific input processing).
- */
-
-import { useState, useRef, useCallback, useEffect } from 'react';
-
-const SESSION_INIT_POLL_MS = 200;
+import { useState, useCallback, useEffect } from 'react';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type {
@@ -18,7 +8,6 @@ import type {
   IInteractiveSession,
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
-  TPermissionResultValue,
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   TShellExecFn,
@@ -26,7 +15,6 @@ import type {
 import type {
   IAIProvider,
   TPermissionMode,
-  TToolArgs,
   IHistoryEntry,
   TSessionEndReason,
 } from '@robota-sdk/agent-core';
@@ -35,6 +23,10 @@ import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { useSlashRouting } from './useSlashRouting.js';
 import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
+import { usePermissionQueue } from './usePermissionQueue.js';
+import { initializeSession, type IInitState } from './use-interactive-session-init.js';
+
+const SESSION_INIT_POLL_MS = 200;
 
 export interface IInteractiveSessionProps {
   cwd: string;
@@ -79,13 +71,6 @@ export interface IInteractiveSessionState {
   readExecutionWorkspaceDetail: (entryId: string) => Promise<IExecutionDetailPage>;
 }
 
-interface IInitState {
-  interactiveSession: InteractiveSession;
-  registry: CommandRegistry;
-  commandEffectQueue: ICommandEffectQueue;
-  manager: TuiStateManager;
-}
-
 interface IHistoryReadableSession {
   getFullHistory(): IHistoryEntry[];
 }
@@ -113,7 +98,6 @@ function syncExecutionWorkspaceFromSession(
   manager: TuiStateManager,
 ): void {
   try {
-    // allow-fallback: session may not be initialized yet; swallow until ready
     manager.syncExecutionWorkspaceSnapshot(
       interactiveSession.getExecutionWorkspaceSnapshot({
         selectedEntryId: manager.selectedExecutionEntryId,
@@ -125,91 +109,15 @@ function syncExecutionWorkspaceFromSession(
   }
 }
 
-function initializeSession(
-  props: IInteractiveSessionProps,
-  permissionHandler: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResultValue>,
-): IInitState {
-  const interactiveSession = new InteractiveSession({
-    cwd: props.cwd,
-    provider: props.provider,
-    permissionMode: props.permissionMode,
-    maxTurns: props.maxTurns,
-    permissionHandler,
-    sessionStore: props.sessionStore,
-    resumeSessionId: props.resumeSessionId,
-    forkSession: props.forkSession,
-    sessionName: props.sessionName,
-    backgroundTaskRunners: props.backgroundTaskRunners,
-    subagentRunnerFactory: props.subagentRunnerFactory,
-    commandModules: props.commandModules,
-    commandHostAdapters: props.commandHostAdapters,
-    shellExec: props.shellExec,
-    language: props.language,
-  });
-
-  const registry = new CommandRegistry();
-  for (const module of props.commandModules ?? []) {
-    registry.addModule(module);
-  }
-
-  props.reloadPluginCommandSource?.(registry);
-
-  const manager = new TuiStateManager();
-  const commandEffectQueue = new CommandEffectQueue();
-
-  return { interactiveSession, registry, manager, commandEffectQueue };
-}
-
 export function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState {
   const [, forceRender] = useState(0);
-  const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
-
-  // Permission queue (TUI-specific — needs React state for UI)
-  const permissionQueueRef = useRef<
-    Array<{
-      toolName: string;
-      toolArgs: TToolArgs;
-      resolve: (result: TPermissionResultValue) => void;
-    }>
-  >([]);
-  const processingRef = useRef(false);
-
-  const processNextPermission = useCallback(() => {
-    if (processingRef.current) return;
-    const next = permissionQueueRef.current[0];
-    if (!next) {
-      setPermissionRequest(null);
-      return;
-    }
-    processingRef.current = true;
-    setPermissionRequest({
-      toolName: next.toolName,
-      toolArgs: next.toolArgs,
-      resolve: (result: TPermissionResultValue) => {
-        permissionQueueRef.current.shift();
-        processingRef.current = false;
-        setPermissionRequest(null);
-        next.resolve(result);
-        setTimeout(() => processNextPermission(), 0);
-      },
-    });
-  }, []);
-
-  const permissionHandler = useCallback(
-    (toolName: string, toolArgs: TToolArgs): Promise<TPermissionResultValue> =>
-      new Promise<TPermissionResultValue>((resolve) => {
-        permissionQueueRef.current.push({ toolName, toolArgs, resolve });
-        processNextPermission();
-      }),
-    [processNextPermission],
-  );
+  const { permissionHandler, permissionRequest } = usePermissionQueue();
 
   // Initialize once — useState lazy initializer runs exactly once per mount, safe for Concurrent Mode
   const [initState] = useState<IInitState>(() => initializeSession(props, permissionHandler));
   const { interactiveSession, registry, manager, commandEffectQueue } = initState;
 
-  // Connect TuiStateManager to React re-renders
   manager.onChange = () => forceRender((n) => n + 1);
 
   // Sync restored history immediately (session resume restores history in constructor)
@@ -254,14 +162,12 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     // Sync context state and restored history after async initialization
     const initCheck = setInterval(() => {
       try {
-        // allow-fallback: session initializes asynchronously; poll until ready
         const ctx = interactiveSession.getContextState();
         manager.setContextState({
           percentage: ctx.usedPercentage,
           usedTokens: ctx.usedTokens,
           maxTokens: ctx.maxTokens,
         });
-        // Sync restored history (from session resume) on first init
         const restored = interactiveSession.getFullHistory();
         if (restored.length > 0) {
           manager.syncHistory(restored);
@@ -301,7 +207,6 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     }
   }, [manager.isThinking, interactiveSession, manager]);
 
-  // Slash command routing (delegated to useSlashRouting)
   const handleSubmit = useSlashRouting(
     interactiveSession,
     registry,

@@ -16,6 +16,7 @@ import {
 import { hasQwenBuiltInWebTools } from './responses-converter';
 import { chatStreamWithQwenResponsesApi, chatWithQwenResponsesApi } from './responses-chat';
 import { getQwenProviderCapabilities } from './provider-capabilities';
+import { qwenChatWithStreamingAssembly } from './provider-streaming-assembly';
 import type { IQwenProviderOptions } from './types';
 
 export class QwenProvider extends AbstractAIProvider {
@@ -118,7 +119,8 @@ export class QwenProvider extends AbstractAIProvider {
       const requestParams = this.buildRequestParams(messages, options);
       const textDeltaCb = options?.onTextDelta ?? this.onTextDelta;
       if (textDeltaCb) {
-        return await this.chatWithStreamingAssembly(
+        return qwenChatWithStreamingAssembly(
+          client,
           { ...requestParams, stream: true },
           { ...options, onTextDelta: textDeltaCb },
         );
@@ -287,43 +289,5 @@ export class QwenProvider extends AbstractAIProvider {
     }
 
     return this.responsesClient;
-  }
-
-  private async chatWithStreamingAssembly(
-    requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming,
-    options: IChatOptions,
-  ): Promise<TUniversalMessage> {
-    if (!this.client) {
-      throw new Error(
-        'Qwen client not available. Either provide a client/apiKey or use an executor.',
-      );
-    }
-
-    try {
-      options.onProviderNativeRawPayload?.({
-        provider: 'qwen',
-        apiSurface: 'chat-completions',
-        payloadKind: 'request',
-        payload: requestParams,
-      });
-      const stream = await this.client.chat.completions.create(
-        requestParams,
-        options.signal ? { signal: options.signal } : undefined,
-      );
-
-      return assembleOpenAICompatibleStream({
-        stream: observeProviderNativeRawPayloadStream(stream, {
-          provider: 'qwen',
-          apiSurface: 'chat-completions',
-          onProviderNativeRawPayload: options.onProviderNativeRawPayload,
-        }),
-        onTextDelta: options.onTextDelta,
-        signal: options.signal,
-      });
-    } catch (error) {
-      const qwenError = error as IOpenAICompatibleError;
-      const errorMessage = qwenError.message || 'Qwen streaming request failed';
-      throw new Error(`Qwen stream failed: ${errorMessage}`);
-    }
   }
 }
