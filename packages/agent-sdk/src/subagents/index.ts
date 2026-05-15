@@ -1,6 +1,4 @@
-export { SubagentManager } from '@robota-sdk/agent-runtime';
 export { createInProcessSubagentRunner } from './in-process-subagent-runner.js';
-export { WorktreeSubagentRunner, createWorktreeSubagentRunner } from '@robota-sdk/agent-runtime';
 export type {
   IInProcessSubagentRunnerDeps,
   TSubagentRunnerFactory,
