@@ -8,7 +8,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
-import type { IZodSchema } from '../implementations/function-tool/types';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 
@@ -161,7 +160,7 @@ export function createReadTool(options: ISandboxToolOptions = {}) {
   return createZodFunctionTool(
     'Read',
     'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',
-    ReadSchema as unknown as IZodSchema,
+    ReadSchema,
     async (params) => {
       return readFileTool(params as TReadArgs, options);
     },
