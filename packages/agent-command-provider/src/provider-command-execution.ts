@@ -4,25 +4,27 @@ import type {
   ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
-  IProviderSetupFlowState,
   IProviderSetupInput,
   TCommandInteractionPrompt,
 } from '@robota-sdk/agent-sdk';
 import {
   buildProviderSetupPatch,
-  createProviderSetupFlow,
   deleteProviderProfile,
-  formatProviderSetupChoiceLabel,
-  formatProviderSetupHelpLinks,
-  getProviderSetupStep,
   mergeProviderPatch,
   sanitizeProviderProfileName,
   setCurrentProvider,
-  submitProviderSetupValue,
   upsertProviderProfile,
   testProviderProfileCommand,
-  validateProviderSetupValue,
 } from '@robota-sdk/agent-sdk';
+import type { IProviderSetupFlowState } from './provider-setup-flow.js';
+import {
+  createProviderSetupFlow,
+  formatProviderSetupChoiceLabel,
+  formatProviderSetupHelpLinks,
+  getProviderSetupStep,
+  submitProviderSetupValue,
+  validateProviderSetupValue,
+} from './provider-setup-flow.js';
 
 const YES = 'yes';
 const ACTION_SWITCH = 'switch';

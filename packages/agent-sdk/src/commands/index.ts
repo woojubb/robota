@@ -99,26 +99,6 @@ export type {
   IProviderProfileNameSuggestionOptions,
 } from '../command-api/provider/provider-profile-names.js';
 export {
-  createProviderSetupFlow,
-  formatProviderSetupChoiceLabel,
-  formatProviderSetupHelpLinks,
-  formatProviderSetupPromptLabel,
-  formatProviderSetupSelectionPrompt,
-  getProviderSetupStep,
-  resolveProviderSetupSelection,
-  runProviderSetupPromptFlow,
-  submitProviderSetupValue,
-  validateProviderSetupValue,
-} from '../command-api/provider/provider-setup-flow.js';
-export type {
-  IProviderSetupFlowOptions,
-  IProviderSetupFlowState,
-  IProviderSetupPromptStep,
-  TProviderSetupFlowSubmitResult,
-  TProviderSetupType,
-  TPromptInput,
-} from '../command-api/provider/provider-setup-flow.js';
-export {
   formatEnvReference,
   hasUsableSecretReference,
   isEnvReference,

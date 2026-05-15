@@ -1804,6 +1804,9 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.13.1
         version: 0.13.1
+      '@robota-sdk/agent-command-provider':
+        specifier: workspace:*
+        version: link:../agent-command-provider
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14

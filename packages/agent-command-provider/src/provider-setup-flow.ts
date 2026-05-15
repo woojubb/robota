@@ -5,8 +5,8 @@ import type {
   TProviderSetupField,
 } from '@robota-sdk/agent-core';
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
-import type { IProviderSetupInput } from './provider-settings.js';
-import { suggestProviderProfileName } from './provider-profile-names.js';
+import type { IProviderSetupInput } from '@robota-sdk/agent-sdk';
+import { suggestProviderProfileName } from '@robota-sdk/agent-sdk';
 
 export type TProviderSetupType = string;
 export type TPromptInput = (label: string, masked?: boolean) => Promise<string>;
