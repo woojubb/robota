@@ -17,6 +17,7 @@ import type {
   ISystemCommand,
 } from '../commands/index.js';
 import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
+import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { ICommandHostContext } from '../command-api/index.js';
@@ -78,6 +79,7 @@ export class SessionSkillRouter {
     private readonly onBlockingCommand: (
       execute: () => Promise<ICommandResult>,
     ) => Promise<ICommandResult>,
+    private readonly shellExec?: TShellExecFn,
   ) {
     this.commandExecutor = new SystemCommandExecutor(
       commandModules.flatMap((module) => module.systemCommands ?? []),
@@ -248,7 +250,10 @@ export class SessionSkillRouter {
       const result = await executeSkill(
         skill,
         args,
-        { runInFork: (content, options) => this.runSkillInFork(content, options) },
+        {
+          runInFork: (content, options) => this.runSkillInFork(content, options),
+          ...(this.shellExec ? { shellExec: this.shellExec } : {}),
+        },
         { sessionId: this.getSessionId() },
       );
       this.emitSkillActivation(skill, invocation, 'completed', qualifiedName, {

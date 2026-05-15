@@ -8,6 +8,7 @@ import type {
   ICommandModule,
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
+  TShellExecFn,
   IExecutionDetailPage,
 } from '@robota-sdk/agent-sdk';
 import { listResumableSessionSummaries } from '@robota-sdk/agent-sdk';
@@ -59,6 +60,7 @@ interface IProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
+  shellExec?: TShellExecFn;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView;
   cliAdapter: ITuiCliAdapter;
@@ -127,6 +129,7 @@ function AppInner(
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
     commandHostAdapters: props.commandHostAdapters,
+    shellExec: props.shellExec,
     transportRegistry: props.transportRegistry,
     language: props.language,
     reloadPluginCommandSource: props.reloadPluginCommandSource,

@@ -35,8 +35,8 @@ export interface IKnownMarketplaceEntry {
 /** Shape of known_marketplaces.json. */
 export type IKnownMarketplacesRegistry = Record<string, IKnownMarketplaceEntry>;
 
-/** Exec function type for running shell commands. */
-export type ExecFn = (
+/** Exec function type for running shell commands. Injected at composition root. */
+export type TExecFn = (
   command: string,
   options: { timeout: number; stdio?: string },
 ) => string | Buffer;
@@ -45,6 +45,6 @@ export type ExecFn = (
 export interface IMarketplaceClientOptions {
   /** Base plugins directory (e.g., `~/.robota/plugins`). */
   pluginsDir: string;
-  /** Custom exec function for testing (replaces child_process.execSync). */
-  exec?: ExecFn;
+  /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
+  exec: TExecFn;
 }

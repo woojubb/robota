@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
 import { MarketplaceClient } from '../marketplace-client.js';
+import type { TExecFn } from '../marketplace-types.js';
 import { PluginSettingsStore } from '../plugin-settings-store.js';
 
 const TMP_BASE = join(tmpdir(), 'robota-installer-test-' + process.pid);
@@ -21,7 +22,6 @@ describe('BundlePluginInstaller', () => {
   let settingsPath: string;
   let installer: BundlePluginInstaller;
   let marketplaceClient: MarketplaceClient;
-  type ExecFn = (command: string, options: { timeout: number; stdio?: string }) => string | Buffer;
   let mockExec: Mock;
 
   beforeEach(() => {
@@ -32,13 +32,13 @@ describe('BundlePluginInstaller', () => {
 
     mockExec = vi.fn().mockReturnValue('');
 
-    marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as ExecFn });
+    marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as TExecFn });
 
     installer = new BundlePluginInstaller({
       pluginsDir,
       settingsStore: new PluginSettingsStore(settingsPath),
       marketplaceClient,
-      exec: mockExec as ExecFn,
+      exec: mockExec as TExecFn,
     });
   });
 

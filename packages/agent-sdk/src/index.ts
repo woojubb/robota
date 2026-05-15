@@ -301,7 +301,7 @@ export type {
 
 // ── Skill prompt utilities ───────────────────────────────────
 export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
-export type { SkillPromptContext } from './utils/skill-prompt.js';
+export type { SkillPromptContext, TShellExecFn } from './utils/skill-prompt.js';
 
 // ── Project memory ─────────────────────────────────────────
 export {
