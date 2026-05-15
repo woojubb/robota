@@ -7,6 +7,7 @@ import {
   preprocessShellCommands,
   substituteVariables,
   type SkillPromptContext,
+  type TShellExecFn,
 } from '../utils/skill-prompt.js';
 import type { ICommand } from '../command-api/types.js';
 
@@ -26,6 +27,8 @@ export interface ISkillExecutionCallbacks {
    * Returns the subagent's response.
    */
   runInFork?: (content: string, options: IForkExecutionOptions) => Promise<string>;
+  /** Shell exec function for preprocessing `` !`cmd` `` patterns — injected from composition root. */
+  shellExec?: TShellExecFn;
 }
 
 /** Result of skill execution */
@@ -45,10 +48,11 @@ export interface ISkillExecutionResult {
 async function buildProcessedContent(
   skill: ICommand,
   args: string,
+  callbacks: ISkillExecutionCallbacks,
   context?: SkillPromptContext,
 ): Promise<string | null> {
   if (!skill.skillContent) return null;
-  const preprocessed = await preprocessShellCommands(skill.skillContent);
+  const preprocessed = await preprocessShellCommands(skill.skillContent, callbacks.shellExec);
   return substituteVariables(preprocessed, args, context);
 }
 
@@ -59,9 +63,10 @@ async function buildProcessedContent(
 async function buildInjectPrompt(
   skill: ICommand,
   args: string,
+  callbacks: ISkillExecutionCallbacks,
   context?: SkillPromptContext,
 ): Promise<string> {
-  const processed = await buildProcessedContent(skill, args, context);
+  const processed = await buildProcessedContent(skill, args, callbacks, context);
   if (processed) {
     const userInstruction = args || skill.description;
     return `<skill name="${skill.name}">\n${processed}\n</skill>\n\nExecute the "${skill.name}" skill: ${userInstruction}`;
@@ -91,7 +96,7 @@ export async function executeSkill(
       );
     }
 
-    const content = await buildProcessedContent(skill, args, context);
+    const content = await buildProcessedContent(skill, args, callbacks, context);
     const prompt = content ?? `Use the "${skill.name}" skill: ${args || skill.description}`;
 
     const options: IForkExecutionOptions = {};
@@ -103,6 +108,6 @@ export async function executeSkill(
   }
 
   // Inject execution: return prompt for current session
-  const prompt = await buildInjectPrompt(skill, args, context);
+  const prompt = await buildInjectPrompt(skill, args, callbacks, context);
   return { mode: 'inject', prompt };
 }

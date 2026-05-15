@@ -6,7 +6,6 @@
  * in `known_marketplaces.json`.
  */
 
-import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -19,7 +18,7 @@ import type {
   IMarketplacePluginEntry,
   IMarketplaceManifest,
   IMarketplaceClientOptions,
-  ExecFn,
+  TExecFn,
 } from './marketplace-types.js';
 
 export type {
@@ -27,7 +26,7 @@ export type {
   IMarketplacePluginEntry,
   IMarketplaceManifest,
   IMarketplaceClientOptions,
-  ExecFn,
+  TExecFn,
 } from './marketplace-types.js';
 export type { IKnownMarketplaceEntry, IKnownMarketplacesRegistry } from './marketplace-types.js';
 
@@ -37,13 +36,13 @@ const GIT_TIMEOUT_MS = 60_000;
 /** Manages marketplace registries via shallow git clones. */
 export class MarketplaceClient {
   private readonly pluginsDir: string;
-  private readonly exec: ExecFn;
+  private readonly exec: TExecFn;
   private readonly marketplacesDir: string;
   private readonly registryPath: string;
 
   constructor(options: IMarketplaceClientOptions) {
     this.pluginsDir = options.pluginsDir;
-    this.exec = options.exec ?? this.defaultExec;
+    this.exec = options.exec;
     this.marketplacesDir = join(this.pluginsDir, 'marketplaces');
     this.registryPath = join(this.pluginsDir, 'known_marketplaces.json');
   }
@@ -281,10 +280,5 @@ export class MarketplaceClient {
     }
 
     return data as IMarketplaceManifest;
-  }
-
-  /** Default exec implementation using child_process. */
-  private defaultExec(command: string, options: { timeout: number }): string | Buffer {
-    return execSync(command, { timeout: options.timeout, stdio: 'pipe' });
   }
 }

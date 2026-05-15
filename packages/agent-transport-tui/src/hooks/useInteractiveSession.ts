@@ -20,6 +20,7 @@ import type {
   TPermissionResultValue,
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
+  TShellExecFn,
 } from '@robota-sdk/agent-sdk';
 import type {
   IAIProvider,
@@ -47,6 +48,7 @@ export interface IInteractiveSessionProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
+  shellExec?: TShellExecFn;
   transportRegistry?: ITransportRegistryView;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
@@ -140,6 +142,7 @@ function initializeSession(
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
     commandHostAdapters: props.commandHostAdapters,
+    shellExec: props.shellExec,
     language: props.language,
   });
 

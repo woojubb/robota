@@ -106,6 +106,7 @@ export class InteractiveSession
     const commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];
     const commandHostAdapters =
       'commandHostAdapters' in options ? options.commandHostAdapters : undefined;
+    const shellExec = 'shellExec' in options ? options.shellExec : undefined;
 
     this.skillRouter = new SessionSkillRouter(
       commandModules,
@@ -128,6 +129,7 @@ export class InteractiveSession
         ),
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (p, d, r) => this.submit(p, d, r)),
+      shellExec,
     );
 
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
