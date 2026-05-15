@@ -67,7 +67,7 @@ export function buildRobota(
 ): Robota {
   const wrappedTools = permissionEnforcer.wrapTools(tools);
   const agentConfig: IAgentConfig = {
-    name: 'robota-cli',
+    name: options.agentName ?? 'agent',
     aiProviders: [provider],
     defaultModel: {
       provider: provider.name,
