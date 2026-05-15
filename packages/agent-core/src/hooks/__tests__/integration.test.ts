@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { runHooks } from '../hook-runner.js';
 import { CommandExecutor } from '../executors/command-executor.js';
 import { HttpExecutor } from '../executors/http-executor.js';
-import type { THooksConfig, IHookInput, IHookTypeExecutor, IHookDefinition } from '../types.js';
+import type { THooksConfig, IHookInput, IHookTypeExecutor, THookDefinition } from '../types.js';
 
 describe('Hook flow integration', () => {
   const baseInput: IHookInput = {
@@ -217,7 +217,7 @@ describe('Hook flow integration', () => {
   });
 
   it('should support custom executor injection', async () => {
-    let executedDefinition: IHookDefinition | undefined;
+    let executedDefinition: THookDefinition | undefined;
 
     const customExecutor: IHookTypeExecutor = {
       type: 'command',

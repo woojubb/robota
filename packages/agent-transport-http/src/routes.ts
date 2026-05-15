@@ -11,11 +11,11 @@ import type { Context } from 'hono';
 import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
 /** Callback that resolves an IInteractiveSession from the request context. */
-export type ISessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
+export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
 
 export interface IAgentRoutesOptions {
   /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
-  sessionFactory: ISessionFactory;
+  sessionFactory: TSessionFactory;
 }
 
 /**

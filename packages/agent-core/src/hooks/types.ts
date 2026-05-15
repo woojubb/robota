@@ -58,7 +58,7 @@ export interface IAgentHookDefinition {
 }
 
 /** Discriminated union of all hook definition types */
-export type IHookDefinition =
+export type THookDefinition =
   | ICommandHookDefinition
   | IHttpHookDefinition
   | IPromptHookDefinition
@@ -68,7 +68,7 @@ export type IHookDefinition =
 export interface IHookGroup {
   /** Regex pattern to match tool name (empty string = match all) */
   matcher: string;
-  hooks: IHookDefinition[];
+  hooks: THookDefinition[];
   /** Environment variables injected into hook child processes for this group */
   env?: Record<string, string>;
 }
@@ -125,7 +125,7 @@ export interface IHookResult {
 /** Strategy interface for hook type executors */
 export interface IHookTypeExecutor {
   /** The hook type this executor handles */
-  type: IHookDefinition['type'];
+  type: THookDefinition['type'];
   /** Execute a hook definition with the given input */
-  execute(definition: IHookDefinition, input: IHookInput): Promise<IHookResult>;
+  execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult>;
 }

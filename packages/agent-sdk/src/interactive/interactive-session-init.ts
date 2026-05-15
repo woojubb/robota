@@ -35,7 +35,7 @@ import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 export type {
   IInteractiveSessionStandardOptions,
   IInteractiveSessionInjectedOptions,
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   IInitOptions,
 } from './interactive-session-options.js';
 export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';

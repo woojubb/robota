@@ -4,7 +4,7 @@ import {
   type IAgentBackgroundTaskRequest,
   type IBackgroundTaskHandle,
   type IBackgroundTaskManager,
-  type IBackgroundTaskRequest,
+  type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,
@@ -96,7 +96,7 @@ export class SubagentManager implements ISubagentManager {
     });
   }
 
-  private nextTaskId(request: IBackgroundTaskRequest): string {
+  private nextTaskId(request: TBackgroundTaskRequest): string {
     if (request.kind === 'agent') {
       this.sequence += 1;
       return `agent_${this.sequence}`;
