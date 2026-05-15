@@ -1,25 +1,15 @@
-/**
- * FunctionTool - Type definitions for Facade pattern implementation
- *
- * REASON: Complex Zod schema type compatibility requires separation of concerns
- * ALTERNATIVES_CONSIDERED:
- * 1. Fix all Zod undefined issues in single file (creates maintenance burden)
- * 2. Use any types strategically (reduces type safety)
- * 3. Remove Zod support entirely (breaks existing functionality)
- * 4. Create complex conditional types (adds cognitive overhead)
- * 5. Use type assertions everywhere (increases runtime risk)
- * NOTE: Tool functionality is now integrated into @robota-sdk/agent-tools package
- */
-
 import type { TToolParameters, TUniversalValue } from '@robota-sdk/agent-core';
 
 /**
  * Zod schema compatibility types
+ *
+ * Widened to `unknown` so that actual Zod schemas (ZodObject<...>) are structurally
+ * assignable without `as unknown as IZodSchema` casts at call sites.
  */
 export interface IZodParseResult {
   success: boolean;
-  data?: TToolParameters;
-  error?: string | Error;
+  data?: unknown;
+  error?: unknown;
 }
 
 export interface IZodSchemaDef {
@@ -35,8 +25,8 @@ export interface IZodSchemaDef {
 }
 
 export interface IZodSchema {
-  parse(value: TToolParameters): TToolParameters;
-  safeParse(value: TToolParameters): IZodParseResult;
+  parse(value: unknown): unknown;
+  safeParse(value: unknown): IZodParseResult;
   _def?: IZodSchemaDef;
 }
 
