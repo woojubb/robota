@@ -345,6 +345,7 @@ async function runPrintMode(
     commandModules,
     commandHostAdapters,
     shellExec,
+    agentName: 'robota-cli',
   });
 
   const transport = createHeadlessTransport({
@@ -490,6 +491,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry: createTransportRegistry(),
     cliAdapter: createTuiCliAdapter(providerDefinitions),
     reloadPluginCommandSource,
+    agentName: 'robota-cli',
   });
   await tuiTransport.start();
   process.exit(0);
