@@ -1,24 +1,4 @@
-/**
- * Core Robota agent class.
- *
- * Heavy logic is delegated to extracted helpers:
- * - {@link RobotaModuleManager} — module lifecycle
- * - {@link RobotaPluginManager} — plugin lifecycle
- * - {@link RobotaConfigManager} — config/tool/model management
- * - {@link performAsyncInitialization} — async boot sequence
- * - {@link robotaRun}, {@link robotaRunStream} — execution turns
- * - {@link buildAgentStats}, {@link destroyAgent} — stats and teardown
- * @public
- */
-import { AbstractAgent } from '../abstracts/abstract-agent';
 import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
-import type {
-  IPluginContract,
-  IPluginHooks,
-  IPluginOptions,
-  IPluginStats,
-} from '../abstracts/abstract-plugin';
-import type { IModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { AIProviders } from '../managers/ai-provider-manager';
@@ -30,12 +10,10 @@ import type { IEventService, IAgentEventData } from '../interfaces/event-service
 import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
-import type { IModuleResultData } from '../abstracts/abstract-module';
 import type { IHistoryEntry } from '../interfaces/messages';
+import type { TModelConfig, TConfigurationSnapshot } from './robota-types';
 import { validateAgentConfig } from './robota-config-manager';
 import { createRobotaDelegates } from './robota-delegate-factory';
-import type { RobotaModuleManager } from './robota-module-manager';
-import type { RobotaPluginManager } from './robota-plugin-manager';
 import type { RobotaConfigManager } from './robota-config-manager';
 import { performDoAsyncInit } from './robota-initializer';
 import { robotaRun, robotaRunStream, type IRobotaExecutionDeps } from './robota-execution';
@@ -53,50 +31,16 @@ import {
   buildOwnerPath,
   createModuleEventEmitter,
 } from './robota-events';
+import { RobotaBase } from './robota-base';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
 
 export type { TAgentStatsMetadata } from './robota-config-manager';
 
-/** Shared model configuration shape used in setModel / getModel. */
-type TModelConfig = {
-  provider: string;
-  model: string;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  systemMessage?: string;
-};
-
-/** Return shape of getConfiguration(). */
-type TConfigurationSnapshot = {
-  version: number;
-  tools: Array<{ name: string; parameters?: string[] }>;
-  updatedAt: number;
-};
-
-/** Return shape of getModuleStats(). */
-type TModuleStats =
-  | {
-      totalExecutions: number;
-      successfulExecutions: number;
-      failedExecutions: number;
-      averageExecutionTime: number;
-      lastExecutionTime?: Date;
-    }
-  | undefined;
-
-/** Shorthand for the plugin contract type used throughout this class. */
-type TPlugin = IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks;
-
-/**
- * Core AI agent integrating multiple AI providers, tools, and plugins
- * into a unified conversational interface.
- * @public
- */
+/** @public */
 export class Robota
-  extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalMessage>
+  extends RobotaBase
   implements IAgent<IAgentConfig, IRunOptions, TUniversalMessage>
 {
   public readonly name: string;
@@ -119,8 +63,6 @@ export class Robota
   private startTime: number;
   private configVersion: number = 1;
   private configUpdatedAt: number = Date.now();
-  private moduleManager!: RobotaModuleManager;
-  private pluginManager!: RobotaPluginManager;
   private configManager!: RobotaConfigManager;
 
   constructor(config: IAgentConfig) {
@@ -182,8 +124,6 @@ export class Robota
     emitCreatedEvent(this.config, (t, d) => this.emitAgentEvent(t, d));
   }
 
-  // --- Execution ---
-
   async run(input: string, options: IRunOptions = {}): Promise<string> {
     await this.ensureFullyInitialized();
     return robotaRun(this.executionDeps(), input, options);
@@ -208,8 +148,6 @@ export class Robota
     };
   }
 
-  // --- History ---
-
   override getHistory(): TUniversalMessage[] {
     return getHistory(this.conversationHistory, this.conversationId);
   }
@@ -229,8 +167,6 @@ export class Robota
   ): void {
     injectMessage(this.conversationHistory, this.conversationId, role, content, options);
   }
-
-  // --- Config / Model / Tools (delegated) ---
 
   async updateTools(next: Array<IToolWithEventService>): Promise<{ version: number }> {
     return this.configManager.updateTools(next);
@@ -256,67 +192,6 @@ export class Robota
   getConfig(): IAgentConfig {
     return { ...this.config };
   }
-
-  // --- Plugins (delegated) ---
-
-  addPlugin(plugin: TPlugin): void {
-    this.pluginManager.addPlugin(plugin);
-  }
-  removePlugin(pluginName: string): boolean {
-    return this.pluginManager.removePlugin(pluginName);
-  }
-  getPlugin(pluginName: string): TPlugin | undefined {
-    return this.pluginManager.getPlugin(pluginName);
-  }
-  getPlugins(): TPlugin[] {
-    return this.pluginManager.getPlugins();
-  }
-  getPluginNames(): string[] {
-    return this.pluginManager.getPluginNames();
-  }
-
-  // --- Modules (delegated) ---
-
-  async registerModule(
-    module: IModule,
-    options?: { autoInitialize?: boolean; validateDependencies?: boolean },
-  ): Promise<void> {
-    return this.moduleManager.registerModule(module, options);
-  }
-  async unregisterModule(moduleName: string): Promise<boolean> {
-    return this.moduleManager.unregisterModule(moduleName);
-  }
-  getModule(moduleName: string): IModule | undefined {
-    return this.moduleManager.getModule(moduleName);
-  }
-  getModulesByType(moduleType: string): IModule[] {
-    return this.moduleManager.getModulesByType(moduleType);
-  }
-  getModules(): IModule[] {
-    return this.moduleManager.getModules();
-  }
-  getModuleNames(): string[] {
-    return this.moduleManager.getModuleNames();
-  }
-  hasModule(moduleName: string): boolean {
-    return this.moduleManager.hasModule(moduleName);
-  }
-  async executeModule(
-    moduleName: string,
-    context: {
-      executionId?: string;
-      sessionId?: string;
-      userId?: string;
-      metadata?: Record<string, string | number | boolean | Date>;
-    },
-  ): Promise<{ success: boolean; data?: IModuleResultData; error?: Error; duration?: number }> {
-    return this.moduleManager.executeModule(moduleName, context);
-  }
-  getModuleStats(moduleName: string): TModuleStats {
-    return this.moduleManager.getModuleStats(moduleName);
-  }
-
-  // --- Stats, Lifecycle & Initialization ---
 
   getStats() {
     return buildAgentStats({

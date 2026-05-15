@@ -31,40 +31,11 @@ import {
   handleExecutionError,
   generateExecutionId,
   requireConversationId,
+  buildFullExecutionContext,
 } from './execution-service-helpers';
 import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
 
-function buildFullExecutionContext(
-  messages: TUniversalMessage[],
-  config: IAgentConfig,
-  startTime: Date,
-  executionId: string,
-  conversationId: string,
-  context?: Partial<IExecutionContext>,
-): IExecutionContext {
-  return {
-    messages,
-    config,
-    startTime,
-    executionId,
-    conversationId,
-    ...(context?.sessionId && { sessionId: context.sessionId }),
-    ...(context?.userId && { userId: context.userId }),
-    ...(context?.metadata && { metadata: context.metadata }),
-    ...(context?.signal && { signal: context.signal }),
-    ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
-    ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
-    ...(context?.maxExecutionRounds !== undefined && {
-      maxExecutionRounds: context.maxExecutionRounds,
-    }),
-  };
-}
-
-/**
- * Service that orchestrates the entire execution pipeline.
- * Coordinates AI provider execution, tool execution service, and plugin lifecycle.
- * Uses centralized conversation history management.
- */
+/** Orchestrates the execution pipeline: AI provider, tool execution, and plugin lifecycle. */
 export class ExecutionService {
   private toolExecutionService: ToolExecutionService;
   private aiProviders: IAIProviderManager;
@@ -105,14 +76,7 @@ export class ExecutionService {
     } else {
       this.plugins.splice(insertIndex, 0, plugin);
     }
-    this.logger.debug('Plugin registered', {
-      pluginName: plugin.name,
-      priority: pluginPriority,
-      hasBeforeRun: typeof plugin.beforeRun,
-      hasAfterRun: typeof plugin.afterRun,
-      hasBeforeProviderCall: typeof plugin.beforeProviderCall,
-      hasAfterProviderCall: typeof plugin.afterProviderCall,
-    });
+    this.logger.debug('Plugin registered', { pluginName: plugin.name, priority: pluginPriority });
   }
 
   /** Remove a plugin */

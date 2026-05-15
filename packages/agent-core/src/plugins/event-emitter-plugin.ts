@@ -12,6 +12,7 @@ import type { TTimerId } from '../utils';
 import {
   EVENT_EMITTER_EVENTS,
   type IEventEmitterEventData,
+  type TEventDataValue,
   type TEventName,
   type TEventEmitterListener,
 } from './event-emitter/types';
@@ -28,6 +29,7 @@ import {
   buildEventEmitterStats,
   registerHandler,
   unregisterHandler,
+  buildToolCallEmitData,
 } from './event-emitter-helpers';
 
 // Re-export types that were originally exported from this file
@@ -46,12 +48,7 @@ export type { IEventEmitterEventData, TEventEmitterListener };
 
 const DEFAULT_MAX_LISTENERS = 100;
 
-/**
- * Provides pub/sub event coordination during the agent execution lifecycle.
- * @extends AbstractPlugin
- * @see IEventEmitterPluginOptions
- * @see EVENT_EMITTER_EVENTS
- */
+/** Provides pub/sub event coordination during the agent execution lifecycle. */
 export class EventEmitterPlugin extends AbstractPlugin<
   IEventEmitterPluginOptions,
   IEventEmitterPluginStats
@@ -142,19 +139,7 @@ export class EventEmitterPlugin extends AbstractPlugin<
           content: msg.content || '',
           timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString(),
         })),
-        config: context.config as Record<
-          string,
-          | string
-          | number
-          | boolean
-          | Date
-          | string[]
-          | number[]
-          | boolean[]
-          | Record<string, string | number | boolean | null>
-          | null
-          | undefined
-        >,
+        config: context.config as Record<string, TEventDataValue>,
       },
     });
   }
@@ -207,18 +192,7 @@ export class EventEmitterPlugin extends AbstractPlugin<
         toolCall.result === null
           ? EVENT_EMITTER_EVENTS.TOOL_ERROR
           : EVENT_EMITTER_EVENTS.TOOL_SUCCESS;
-      const baseData = {
-        executionId: context.executionId,
-        sessionId: context.sessionId,
-        userId: context.userId,
-        data: {
-          toolName: toolCall.name || '',
-          toolId: toolCall.id || '',
-          toolResult: toolCall.result !== null ? String(toolCall.result) : undefined,
-          duration: toolResults.duration,
-          success: toolCall.result !== null,
-        },
-      };
+      const baseData = buildToolCallEmitData(context, toolCall, toolResults.duration);
       await this.emit(eventType, baseData);
       await this.emit(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, {
         ...baseData,
