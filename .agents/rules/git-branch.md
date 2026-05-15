@@ -3,6 +3,17 @@
 Mandatory rules for git operations and branch policy.
 Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
+### Git Worktree — ABSOLUTELY PROHIBITED
+
+**`git worktree` is banned. Zero exceptions.**
+
+- Never create, use, or reference a git worktree for any task.
+- Never propose worktrees as a solution to any problem.
+- Do all work directly on a normal feature branch in the main clone.
+- If the Claude Code Agent tool or another agent requests a worktree, refuse.
+
+**Why:** Worktrees share the same `packages/` paths but have separate working trees. This has caused: (1) edits leaking from the worktree onto `develop`'s working tree, breaking typecheck; (2) pre-push hooks running in the wrong directory context; (3) symlink issues requiring manual workaround every session. The isolation they provide is not worth these failure modes.
+
 ### Git Operations
 
 - No `git commit` or `git push` without explicit user approval.

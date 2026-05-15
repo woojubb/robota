@@ -5,11 +5,10 @@
  * cache directory, and tracks installations in `installed_plugins.json`.
  */
 
-import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { PluginSettingsStore } from './plugin-settings-store.js';
-import type { MarketplaceClient, IMarketplacePluginEntry } from './marketplace-client.js';
+import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
 
 /** Record of an installed plugin in installed_plugins.json. */
 export interface IInstalledPluginRecord {
@@ -23,9 +22,6 @@ export interface IInstalledPluginRecord {
 /** Shape of installed_plugins.json. */
 export type IInstalledPluginsRegistry = Record<string, IInstalledPluginRecord>;
 
-/** Exec function type for running shell commands. */
-type ExecFn = (command: string, options: { timeout: number; stdio?: string }) => string | Buffer;
-
 /** Options for constructing a BundlePluginInstaller. */
 export interface IBundlePluginInstallerOptions {
   /** Base plugins directory (e.g., `~/.robota/plugins`). */
@@ -34,8 +30,8 @@ export interface IBundlePluginInstallerOptions {
   settingsStore: PluginSettingsStore;
   /** MarketplaceClient for reading marketplace manifests. */
   marketplaceClient: MarketplaceClient;
-  /** Custom exec function for testing (replaces child_process.execSync). */
-  exec?: ExecFn;
+  /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
+  exec: TExecFn;
 }
 
 /** Default git clone timeout in milliseconds (60 seconds). */
@@ -48,7 +44,7 @@ export class BundlePluginInstaller {
   private readonly registryPath: string;
   private readonly settingsStore: PluginSettingsStore;
   private readonly marketplaceClient: MarketplaceClient;
-  private readonly exec: ExecFn;
+  private readonly exec: TExecFn;
 
   constructor(options: IBundlePluginInstallerOptions) {
     this.pluginsDir = options.pluginsDir;
@@ -56,7 +52,7 @@ export class BundlePluginInstaller {
     this.registryPath = join(this.pluginsDir, 'installed_plugins.json');
     this.settingsStore = options.settingsStore;
     this.marketplaceClient = options.marketplaceClient;
-    this.exec = options.exec ?? this.defaultExec;
+    this.exec = options.exec;
   }
 
   /**
@@ -264,10 +260,5 @@ export class BundlePluginInstaller {
       mkdirSync(dir, { recursive: true });
     }
     writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
-  }
-
-  /** Default exec implementation using child_process. */
-  private defaultExec(command: string, options: { timeout: number }): string | Buffer {
-    return execSync(command, { timeout: options.timeout, stdio: 'pipe' });
   }
 }

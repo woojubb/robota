@@ -12,6 +12,7 @@ import type { IAIProvider, IContextWindowState, TToolArgs } from '@robota-sdk/ag
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
+import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -48,6 +49,8 @@ export interface IInteractiveSessionStandardOptions {
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
   commandHostAdapters?: ICommandHostAdapters;
+  /** Shell exec function for preprocessing `` !`cmd` `` patterns in skills — injected from composition root. */
+  shellExec?: TShellExecFn;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Model command execution bridge. */

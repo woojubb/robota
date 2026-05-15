@@ -16,7 +16,11 @@ import { tmpdir } from 'node:os';
 
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
+import { execSync } from 'node:child_process';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
+
+const testShellExec = (cmd: string) =>
+  execSync(cmd, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
 import { loadConfig } from '../config/config-loader.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 
@@ -313,7 +317,7 @@ describe('Filesystem smoke: variable substitution', () => {
     const skill = source.getCommands().find((c) => c.name === 'version-check');
 
     expect(skill).toBeDefined();
-    const processed = await preprocessShellCommands(skill!.skillContent!);
+    const processed = await preprocessShellCommands(skill!.skillContent!, testShellExec);
     // node --version outputs something like "v22.14.0"
     expect(processed).toMatch(/Node version: v\d+\.\d+\.\d+/);
     expect(processed).not.toContain('!`');
