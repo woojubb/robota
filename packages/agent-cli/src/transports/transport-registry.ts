@@ -5,7 +5,8 @@
  *   { "ws": { "enabled": true, "options": { "port": 7070 } } }
  */
 
-import type { TUniversalValue, ISession } from '@robota-sdk/agent-core';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type {
   IConfigurableTransport,
   ITransportConfig,
@@ -14,18 +15,18 @@ import type {
 import { readSettings, writeSettings, type TSettingsData } from '../utils/settings-io.js';
 
 export class TransportRegistry {
-  private readonly entries = new Map<string, IConfigurableTransport>();
+  private readonly entries = new Map<string, IConfigurableTransport<IInteractiveSession>>();
   private readonly settingsPath: string;
 
   constructor(settingsPath: string) {
     this.settingsPath = settingsPath;
   }
 
-  register(transport: IConfigurableTransport): void {
+  register(transport: IConfigurableTransport<IInteractiveSession>): void {
     this.entries.set(transport.name, transport);
   }
 
-  getAll(): ITransportEntry[] {
+  getAll(): ITransportEntry<IInteractiveSession>[] {
     const saved = this.readTransportSettings();
     return Array.from(this.entries.values()).map((transport) => ({
       transport,
@@ -33,7 +34,7 @@ export class TransportRegistry {
     }));
   }
 
-  getEnabled(): IConfigurableTransport[] {
+  getEnabled(): IConfigurableTransport<IInteractiveSession>[] {
     return this.getAll()
       .filter((e) => e.config.enabled)
       .map((e) => e.transport);
@@ -57,7 +58,7 @@ export class TransportRegistry {
     writeSettings(this.settingsPath, settings);
   }
 
-  async startAll(session: ISession): Promise<void> {
+  async startAll(session: IInteractiveSession): Promise<void> {
     const enabled = this.getEnabled();
     for (const transport of enabled) {
       transport.attach(session);
@@ -72,7 +73,7 @@ export class TransportRegistry {
   }
 
   private resolveConfig(
-    transport: IConfigurableTransport,
+    transport: IConfigurableTransport<IInteractiveSession>,
     saved?: TSettingsData,
   ): ITransportConfig {
     const enabled = (saved?.enabled as boolean | undefined) ?? transport.defaultEnabled;

@@ -334,7 +334,7 @@ export class InteractiveSession
     return this.sessionName;
   }
 
-  attachTransport(transport: ITransportAdapter): void {
+  attachTransport(transport: ITransportAdapter<IInteractiveSession>): void {
     transport.attach(this);
   }
 

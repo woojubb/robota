@@ -6,7 +6,6 @@
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
-import type { ISession } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import { createWsHandler } from './ws-handler.js';
@@ -20,7 +19,7 @@ export interface IWsTransportConfig {
   maxRetries?: number;
 }
 
-export class WsTransport implements IConfigurableTransport {
+export class WsTransport implements IConfigurableTransport<IInteractiveSession> {
   readonly name = 'ws';
   readonly defaultEnabled = true;
   readonly optionsSchema = {
@@ -42,8 +41,8 @@ export class WsTransport implements IConfigurableTransport {
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
-  attach(session: ISession): void {
-    this.session = session as unknown as IInteractiveSession;
+  attach(session: IInteractiveSession): void {
+    this.session = session;
   }
 
   async start(): Promise<void> {
