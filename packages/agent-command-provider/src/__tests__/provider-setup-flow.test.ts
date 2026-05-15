@@ -5,7 +5,7 @@ import {
   formatProviderSetupHelpLinks,
   formatProviderSetupPromptLabel,
   getProviderSetupStep,
-} from './provider-setup-flow.js';
+} from '../provider-setup-flow.js';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
