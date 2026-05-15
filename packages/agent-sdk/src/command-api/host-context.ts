@@ -74,6 +74,7 @@ export interface ICommandSessionReplayValidationReport {
 export interface ICommandHostContext {
   clearConversationHistory?(): void;
   validateCurrentSessionReplayLog?(): ICommandSessionReplayValidationReport;
+  getAgentJobCapability?(): IAgentJobHostContext | undefined;
   getSession(): ICommandSessionRuntime;
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;

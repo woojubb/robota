@@ -313,6 +313,10 @@ export class InteractiveSession
     return this.getSessionOrThrow();
   }
 
+  getAgentJobCapability(): IAgentJobHostContext {
+    return this;
+  }
+
   setAutoCompactThreshold(
     threshold: TAutoCompactThreshold,
     source: TAutoCompactThresholdSource = 'session',
