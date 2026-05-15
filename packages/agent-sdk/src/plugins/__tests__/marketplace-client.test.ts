@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { MarketplaceClient } from '../marketplace-client.js';
-import type { IMarketplaceSource } from '../marketplace-client.js';
+import type { TMarketplaceSource } from '../marketplace-client.js';
 
 const TMP_BASE = join(tmpdir(), 'robota-marketplace-test-' + process.pid);
 
@@ -40,7 +40,7 @@ describe('MarketplaceClient', () => {
 
   describe('addMarketplace', () => {
     it('should clone a GitHub repo and register the marketplace', () => {
-      const source: IMarketplaceSource = { type: 'github', repo: 'owner/marketplace-repo' };
+      const source: TMarketplaceSource = { type: 'github', repo: 'owner/marketplace-repo' };
 
       // Mock exec to simulate git clone by creating the directory with a manifest
       mockExec.mockImplementation((cmd: string) => {
@@ -76,7 +76,7 @@ describe('MarketplaceClient', () => {
     });
 
     it('should clone a git URL source', () => {
-      const source: IMarketplaceSource = { type: 'git', url: 'https://example.com/repo.git' };
+      const source: TMarketplaceSource = { type: 'git', url: 'https://example.com/repo.git' };
 
       mockExec.mockImplementation((cmd: string) => {
         if (cmd.includes('git clone')) {
@@ -100,7 +100,7 @@ describe('MarketplaceClient', () => {
     });
 
     it('should throw when clone fails', () => {
-      const source: IMarketplaceSource = { type: 'github', repo: 'bad/repo' };
+      const source: TMarketplaceSource = { type: 'github', repo: 'bad/repo' };
 
       mockExec.mockImplementation(() => {
         throw new Error('git clone failed');
@@ -110,7 +110,7 @@ describe('MarketplaceClient', () => {
     });
 
     it('should throw when cloned repo has no marketplace.json', () => {
-      const source: IMarketplaceSource = { type: 'github', repo: 'owner/repo' };
+      const source: TMarketplaceSource = { type: 'github', repo: 'owner/repo' };
 
       mockExec.mockImplementation((cmd: string) => {
         if (cmd.includes('git clone')) {
@@ -128,7 +128,7 @@ describe('MarketplaceClient', () => {
     });
 
     it('should throw when marketplace name already exists', () => {
-      const source: IMarketplaceSource = { type: 'github', repo: 'owner/repo' };
+      const source: TMarketplaceSource = { type: 'github', repo: 'owner/repo' };
 
       mockExec.mockImplementation((cmd: string) => {
         if (cmd.includes('git clone')) {
@@ -155,7 +155,7 @@ describe('MarketplaceClient', () => {
       const source = {
         type: 'url',
         url: 'https://example.com/manifest.json',
-      } as IMarketplaceSource;
+      } as TMarketplaceSource;
 
       expect(() => client.addMarketplace(source)).toThrow(
         'URL marketplace source is not yet supported',
@@ -171,7 +171,7 @@ describe('MarketplaceClient', () => {
         plugins: [],
       });
 
-      const source: IMarketplaceSource = { type: 'local', path: localDir };
+      const source: TMarketplaceSource = { type: 'local', path: localDir };
       const name = client.addMarketplace(source);
 
       expect(name).toBe('local-mp');
@@ -189,7 +189,7 @@ describe('MarketplaceClient', () => {
     });
 
     it('should throw when local source path does not exist', () => {
-      const source: IMarketplaceSource = { type: 'local', path: '/nonexistent/path' };
+      const source: TMarketplaceSource = { type: 'local', path: '/nonexistent/path' };
 
       expect(() => client.addMarketplace(source)).toThrow(
         'Local marketplace path does not exist: /nonexistent/path',
@@ -200,7 +200,7 @@ describe('MarketplaceClient', () => {
       const localDir = join(pluginsDir, '_local_no_manifest');
       setupDir(localDir);
 
-      const source: IMarketplaceSource = { type: 'local', path: localDir };
+      const source: TMarketplaceSource = { type: 'local', path: localDir };
 
       expect(() => client.addMarketplace(source)).toThrow(
         'Local directory does not contain .claude-plugin/marketplace.json',

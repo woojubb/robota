@@ -90,7 +90,7 @@ export interface IInteractiveSessionInjectedOptions {
 }
 
 /** Union of standard and injected construction options. */
-export type IInteractiveSessionOptions =
+export type TInteractiveSessionOptions =
   | IInteractiveSessionStandardOptions
   | IInteractiveSessionInjectedOptions;
 

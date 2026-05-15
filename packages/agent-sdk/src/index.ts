@@ -11,7 +11,7 @@ export {
 } from './interactive/index.js';
 export type {
   IInteractiveSession,
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
   ISkillActivationEvent,
   IInteractiveSessionRecord,
@@ -351,16 +351,16 @@ export { BundlePluginInstaller } from './plugins/index.js';
 export type {
   IBundlePluginInstallerOptions,
   IInstalledPluginRecord,
-  IInstalledPluginsRegistry,
+  TInstalledPluginsRegistry,
 } from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';
 export type {
-  IMarketplaceSource,
+  TMarketplaceSource,
   IMarketplaceManifest,
   IMarketplacePluginEntry,
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
-  IKnownMarketplacesRegistry,
+  TKnownMarketplacesRegistry,
 } from './plugins/index.js';
 export type {
   IBundlePluginManifest,
@@ -432,7 +432,7 @@ export type {
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskManagerOptions,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
