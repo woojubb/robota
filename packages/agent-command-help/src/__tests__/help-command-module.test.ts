@@ -18,6 +18,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getSessionId: () => 'session_1',
     getMessageCount: () => 0,
     getSessionAllowedTools: () => [],
+    getAutoCompactThreshold: () => false,
   };
 }
 
