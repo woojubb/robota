@@ -88,7 +88,6 @@ export function buildFailureResult<TInput extends IWorkflowData, TOutput extends
   const now = new Date();
   const processingTime = now.getTime() - startTime;
   return {
-    data: undefined as unknown as TOutput,
     success: false,
     errors,
     warnings,
