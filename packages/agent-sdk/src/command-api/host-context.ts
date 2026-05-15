@@ -61,7 +61,7 @@ export interface ICommandSessionRuntime {
   getSessionId(): string;
   getMessageCount(): number;
   getSessionAllowedTools(): readonly string[];
-  getAutoCompactThreshold?(): number | false;
+  getAutoCompactThreshold(): number | false;
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
 }
 
