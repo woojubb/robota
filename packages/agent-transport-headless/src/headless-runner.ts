@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  InteractiveSession,
+  IInteractiveSession,
   IExecutionResult,
   ICommandResult,
   TBackgroundJobGroupEvent,
@@ -10,7 +10,7 @@ import type {
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 
 export interface IHeadlessRunnerOptions {
-  session: InteractiveSession;
+  session: IInteractiveSession;
   outputFormat: TOutputFormat;
 }
 
@@ -73,7 +73,7 @@ function parseSlashCommand(prompt: string): { name: string; args: string } | nul
 }
 
 async function executeSlashCommandIfPresent(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   prompt: string,
 ): Promise<TSlashCommandExecution> {
   const command = parseSlashCommand(prompt);
@@ -96,7 +96,7 @@ async function executeSlashCommandIfPresent(
   };
 }
 
-function getSessionId(session: InteractiveSession): string {
+function getSessionId(session: IInteractiveSession): string {
   try {
     return session.getSession().getSessionId();
   } catch {
@@ -104,7 +104,7 @@ function getSessionId(session: InteractiveSession): string {
   }
 }
 
-function writeStreamJsonEvent(session: InteractiveSession, event: TStreamJsonEvent): void {
+function writeStreamJsonEvent(session: IInteractiveSession, event: TStreamJsonEvent): void {
   const output = JSON.stringify({
     type: 'stream_event',
     event,
@@ -114,7 +114,7 @@ function writeStreamJsonEvent(session: InteractiveSession, event: TStreamJsonEve
   process.stdout.write(output + '\n');
 }
 
-function runJsonFormat(session: InteractiveSession, prompt: string): Promise<number> {
+function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
     const cleanup = (): void => {
       session.off('complete', onComplete);
@@ -163,7 +163,7 @@ function runJsonFormat(session: InteractiveSession, prompt: string): Promise<num
   });
 }
 
-function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promise<number> {
+function runStreamJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
     const cleanup = subscribeStreamJsonEvents(session, resolve);
 
@@ -187,7 +187,7 @@ function runStreamJsonFormat(session: InteractiveSession, prompt: string): Promi
 }
 
 function subscribeStreamJsonEvents(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   resolve: (exitCode: number) => void,
 ): () => void {
   const onTextDelta = (text: string): void => {
@@ -241,7 +241,7 @@ interface IStreamJsonHandlers {
 }
 
 function unsubscribeStreamJsonEvents(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   handlers: IStreamJsonHandlers,
 ): void {
   session.off('text_delta', handlers.onTextDelta);
@@ -253,7 +253,7 @@ function unsubscribeStreamJsonEvents(
 }
 
 function completeStream(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   cleanup: () => void,
   result: IExecutionResult,
   resolve: (exitCode: number) => void,
@@ -263,7 +263,7 @@ function completeStream(
   resolve(0);
 }
 
-function runTextFormat(session: InteractiveSession, prompt: string): Promise<number> {
+function runTextFormat(session: IInteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
     const cleanup = (): void => {
       session.off('complete', onComplete);

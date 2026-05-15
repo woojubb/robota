@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-024: Move child-process subagent runner from agent-sdk to agent-cli'
-status: backlog
+status: done
 created: 2026-05-15
 priority: high
 urgency: soon

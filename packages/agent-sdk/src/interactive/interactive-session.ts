@@ -9,7 +9,12 @@ import type { ISession } from '@robota-sdk/agent-core';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { TUniversalMessage, TSessionEndReason } from '@robota-sdk/agent-core';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { TAutoCompactThresholdSource, TAutoCompactThreshold } from '../commands/index.js';
+import type { IInteractiveSession } from './i-interactive-session.js';
+import type {
+  IAgentJobHostContext,
+  TAutoCompactThresholdSource,
+  TAutoCompactThreshold,
+} from '../commands/index.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import type { TInteractiveEventName, IInteractiveSessionEvents } from './types.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
@@ -39,7 +44,10 @@ export interface IInteractiveSessionShutdownOptions {
   message?: string;
 }
 
-export class InteractiveSession extends InteractiveSessionBase implements ISession {
+export class InteractiveSession
+  extends InteractiveSessionBase
+  implements ISession, IAgentJobHostContext, IInteractiveSession
+{
   private session: Session | null = null;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   private initialized = false;

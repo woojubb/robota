@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-026: Fix ITerminalOutput/ISpinner import chain — source from agent-core'
-status: backlog
+status: done
 created: 2026-05-15
 priority: medium
 urgency: later

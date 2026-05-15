@@ -1,4 +1,3 @@
-export { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
 export {
   BackgroundJobOrchestrator,
   summarizeBackgroundJobGroup,
@@ -14,16 +13,6 @@ export {
   parseExecutionWorkspaceEntryId,
   EXECUTION_ORIGIN_METADATA_KEYS,
 } from './execution-workspace-types.js';
-export {
-  getBackgroundTaskTransitions,
-  isTerminalBackgroundTaskStatus,
-  transitionBackgroundTaskStatus,
-  appendPrefixedLogLines,
-  createBackgroundTaskLogPage,
-  createLimitedOutputCapture,
-  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
-} from '@robota-sdk/agent-runtime';
-export { BackgroundTaskError } from '@robota-sdk/agent-runtime';
 export type {
   IAgentBackgroundTaskRequest,
   IBaseBackgroundTaskRequest,

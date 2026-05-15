@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createHttpTransport } from '../http-transport.js';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
-function createMockSession(): InteractiveSession {
+function createMockSession(): IInteractiveSession {
   return {
     submit: vi.fn(),
     abort: vi.fn(),
@@ -17,7 +17,7 @@ function createMockSession(): InteractiveSession {
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn(),
     off: vi.fn(),
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 describe('createHttpTransport', () => {
@@ -38,7 +38,7 @@ describe('createHttpTransport', () => {
 
   it('creates a Hono app after attach + start', async () => {
     const transport = createHttpTransport();
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     const app = transport.getApp();
     expect(app).toBeDefined();
@@ -47,7 +47,7 @@ describe('createHttpTransport', () => {
 
   it('nullifies app after stop()', async () => {
     const transport = createHttpTransport();
-    transport.attach(createMockSession());
+    transport.attach(createMockSession() as never);
     await transport.start();
     await transport.stop();
     expect(() => transport.getApp()).toThrow('Transport not started');

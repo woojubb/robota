@@ -1,5 +1,12 @@
 # agent-plugin-event-emitter Specification
 
+## Status
+
+**Consumer opt-in — not built into the CLI or SDK by default (as of 2026-05-15).**
+
+This plugin is not imported by any `agent-cli` or `agent-sdk` production assembly path. Application
+consumers register this plugin at composition time by passing an instance to the SDK assembly API.
+
 ## Scope
 
 Event emitter plugin for Robota SDK. This is a private package (not published to npm).

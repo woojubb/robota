@@ -1570,9 +1570,6 @@ importers:
       '@robota-sdk/agent-tools':
         specifier: workspace:*
         version: link:../agent-tools
-      chalk:
-        specifier: ^5.3.0
-        version: 5.6.2
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -1732,6 +1729,9 @@ importers:
 
   packages/agent-transport-http:
     dependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -1757,6 +1757,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.28.0
         version: 1.28.0(zod@3.25.76)
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -1788,9 +1791,6 @@ importers:
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:*
-        version: link:../agent-sessions
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
