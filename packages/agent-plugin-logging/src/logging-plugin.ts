@@ -13,6 +13,7 @@ import {
 import {
   TLogLevel,
   ILogEntry,
+  ILoggingContextData,
   ILoggingPluginOptions,
   ILoggingPluginStats,
   ILogStorage,
@@ -28,51 +29,13 @@ import {
   logToolExecutionHelper,
 } from './logging-helpers';
 
+export type { ILoggingContextData } from './types';
+
 const DEFAULT_MAX_LOGS = 10000;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 30000;
 
-/**
- * Logging context data - structured data for log entries
- */
-export interface ILoggingContextData
-  extends Record<string, string | number | boolean | Date | undefined> {
-  userInput?: string;
-  duration?: number;
-  toolName?: string;
-  success?: boolean;
-  executionId?: string;
-  operation?: string;
-  errorMessage?: string;
-  errorStack?: string;
-  inputLength?: number;
-  responseLength?: number;
-  hasOptions?: boolean;
-  modelName?: string;
-}
-
-/**
- * Logs agent operations using configurable storage backends.
- *
- * Supports console, file, remote, and silent strategies with configurable log
- * levels and optional formatting via {@link ILogFormatter} implementations.
- *
- * Lifecycle hooks used: {@link AbstractPlugin.onModuleEvent | onModuleEvent}
- *
- * @extends AbstractPlugin
- * @see ILogStorage - storage backend contract
- * @see ILogFormatter - log formatting contract
- * @see ILoggingPluginOptions - configuration options
- *
- * @example
- * ```ts
- * const plugin = new LoggingPlugin({
- *   strategy: 'console',
- *   level: 'info',
- * });
- * await plugin.info('Agent started');
- * ```
- */
+/** Logs agent operations using configurable storage backends (console/file/remote/silent). */
 export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggingPluginStats> {
   name = 'LoggingPlugin';
   version = '1.0.0';
