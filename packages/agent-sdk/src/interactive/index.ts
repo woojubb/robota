@@ -7,7 +7,7 @@ export {
   resolveSessionIdByIdOrName,
 } from './session-persistence.js';
 export type {
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
 } from './interactive-session.js';
 export type { ISkillActivationEvent } from '../commands/index.js';

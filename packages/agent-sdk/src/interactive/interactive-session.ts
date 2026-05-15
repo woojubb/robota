@@ -19,7 +19,7 @@ import { loadSessionRecord } from './interactive-session-restore.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
@@ -31,7 +31,7 @@ import { SessionHistoryTracker } from './interactive-session-history-tracker.js'
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
-export type { IInteractiveSessionOptions } from './interactive-session-options.js';
+export type { TInteractiveSessionOptions } from './interactive-session-options.js';
 
 export interface IInteractiveSessionShutdownOptions {
   reason?: TSessionEndReason;
@@ -64,7 +64,7 @@ export class InteractiveSession
   protected readonly skillRouter: SessionSkillRouter;
   protected readonly execCtrl: SessionExecutionController;
 
-  constructor(options: IInteractiveSessionOptions) {
+  constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
@@ -148,7 +148,7 @@ export class InteractiveSession
     if (this.initialized) this.persistCurrentSession();
   }
 
-  private configureInjectedSession(options: IInteractiveSessionOptions): boolean {
+  private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
     if (!('session' in options && options.session)) return false;
     this.session = options.session;
     this.autoCompactThresholdSource = 'session';
@@ -156,7 +156,7 @@ export class InteractiveSession
     return true;
   }
 
-  private restoreSessionRecordIfNeeded(options: IInteractiveSessionOptions): void {
+  private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
     if (!options.resumeSessionId || !this.sessionStore) return;
     const restored = loadSessionRecord(
       this.sessionStore,
@@ -183,7 +183,7 @@ export class InteractiveSession
   }
 
   private startAsyncInitializationIfNeeded(
-    options: IInteractiveSessionOptions,
+    options: TInteractiveSessionOptions,
     hasInjectedSession: boolean,
   ): void {
     if (hasInjectedSession) return;

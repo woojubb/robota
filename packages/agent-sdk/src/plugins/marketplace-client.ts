@@ -14,7 +14,7 @@ import {
   removeInstalledPluginsForMarketplace,
 } from './marketplace-registry.js';
 import type {
-  IMarketplaceSource,
+  TMarketplaceSource,
   IMarketplacePluginEntry,
   IMarketplaceManifest,
   IMarketplaceClientOptions,
@@ -22,13 +22,13 @@ import type {
 } from './marketplace-types.js';
 
 export type {
-  IMarketplaceSource,
+  TMarketplaceSource,
   IMarketplacePluginEntry,
   IMarketplaceManifest,
   IMarketplaceClientOptions,
   TExecFn,
 } from './marketplace-types.js';
-export type { IKnownMarketplaceEntry, IKnownMarketplacesRegistry } from './marketplace-types.js';
+export type { IKnownMarketplaceEntry, TKnownMarketplacesRegistry } from './marketplace-types.js';
 
 /** Default git operation timeout in milliseconds (60 seconds). */
 const GIT_TIMEOUT_MS = 60_000;
@@ -56,7 +56,7 @@ export class MarketplaceClient {
    *
    * Returns the registered marketplace name from the manifest.
    */
-  addMarketplace(source: IMarketplaceSource): string {
+  addMarketplace(source: TMarketplaceSource): string {
     // Clone to a temp name first, then read the manifest to get the real name
     const tempName = 'temp-' + Date.now().toString(36);
     const tempDir = join(this.marketplacesDir, tempName);
@@ -176,7 +176,7 @@ export class MarketplaceClient {
   }
 
   /** List all registered marketplaces. */
-  listMarketplaces(): Array<{ name: string; source: IMarketplaceSource; lastUpdated: string }> {
+  listMarketplaces(): Array<{ name: string; source: TMarketplaceSource; lastUpdated: string }> {
     const registry = readRegistry(this.registryPath);
     return Object.entries(registry).map(([name, entry]) => ({
       name,
@@ -252,7 +252,7 @@ export class MarketplaceClient {
   // --- Private helpers ---
 
   /** Resolve a marketplace source to a git clone URL. */
-  private resolveCloneUrl(source: IMarketplaceSource): string {
+  private resolveCloneUrl(source: TMarketplaceSource): string {
     switch (source.type) {
       case 'github':
         return `https://github.com/${source.repo}.git`;

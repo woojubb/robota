@@ -20,7 +20,7 @@ export interface IInstalledPluginRecord {
 }
 
 /** Shape of installed_plugins.json. */
-export type IInstalledPluginsRegistry = Record<string, IInstalledPluginRecord>;
+export type TInstalledPluginsRegistry = Record<string, IInstalledPluginRecord>;
 
 /** Options for constructing a BundlePluginInstaller. */
 export interface IBundlePluginInstallerOptions {
@@ -135,7 +135,7 @@ export class BundlePluginInstaller {
   }
 
   /** Get all installed plugins. */
-  getInstalledPlugins(): IInstalledPluginsRegistry {
+  getInstalledPlugins(): TInstalledPluginsRegistry {
     return this.readRegistry();
   }
 
@@ -237,7 +237,7 @@ export class BundlePluginInstaller {
   }
 
   /** Read the installed_plugins.json registry. */
-  private readRegistry(): IInstalledPluginsRegistry {
+  private readRegistry(): TInstalledPluginsRegistry {
     if (!existsSync(this.registryPath)) {
       return {};
     }
@@ -245,7 +245,7 @@ export class BundlePluginInstaller {
       const raw = readFileSync(this.registryPath, 'utf-8');
       const data: unknown = JSON.parse(raw);
       if (typeof data === 'object' && data !== null) {
-        return data as IInstalledPluginsRegistry;
+        return data as TInstalledPluginsRegistry;
       }
       return {};
     } catch {
@@ -254,7 +254,7 @@ export class BundlePluginInstaller {
   }
 
   /** Write the installed_plugins.json registry. */
-  private writeRegistry(registry: IInstalledPluginsRegistry): void {
+  private writeRegistry(registry: TInstalledPluginsRegistry): void {
     const dir = dirname(this.registryPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
