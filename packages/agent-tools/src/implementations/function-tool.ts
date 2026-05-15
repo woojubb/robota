@@ -202,7 +202,7 @@ export function createZodFunctionTool(
       throw new ValidationError(`Zod validation failed: ${parseResult.error}`);
     }
 
-    const result = await fn(parseResult.data || parameters, context);
+    const result = await fn((parseResult.data as TToolParameters) || parameters, context);
     // Ensure result is always a string for consistency with core package
     return typeof result === 'string' ? result : JSON.stringify(result);
   };
