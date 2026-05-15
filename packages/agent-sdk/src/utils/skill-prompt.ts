@@ -1,4 +1,5 @@
-import { execSync } from 'node:child_process';
+/** Shell exec function for skill preprocessing — injected from composition root. */
+export type TShellExecFn = (command: string) => string;
 
 /** Context variables available during skill prompt processing */
 export interface SkillPromptContext {
@@ -52,9 +53,12 @@ export function substituteVariables(
 /**
  * Preprocess shell commands in skill content.
  * Matches `` !`...` `` patterns and replaces them with command output.
- * Commands have a 5-second timeout.
+ * If no exec function is provided, shell patterns are replaced with empty string.
  */
-export async function preprocessShellCommands(content: string): Promise<string> {
+export async function preprocessShellCommands(
+  content: string,
+  exec?: TShellExecFn,
+): Promise<string> {
   const shellPattern = /!`([^`]+)`/g;
 
   if (!shellPattern.test(content)) {
@@ -75,15 +79,12 @@ export async function preprocessShellCommands(content: string): Promise<string> 
 
   for (const { full, command } of matches) {
     let output = '';
-    try {
-      output = execSync(command, {
-        timeout: 5000,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trimEnd();
-    } catch {
-      // On failure, substitute empty string
-      output = '';
+    if (exec) {
+      try {
+        output = exec(command);
+      } catch {
+        output = '';
+      }
     }
     result = result.replace(full, output);
   }

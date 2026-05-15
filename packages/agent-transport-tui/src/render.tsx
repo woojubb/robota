@@ -13,6 +13,7 @@ import type {
   ICommandModule,
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
+  TShellExecFn,
   CommandRegistry,
 } from '@robota-sdk/agent-sdk';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
@@ -37,6 +38,7 @@ export interface IRenderOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
+  shellExec?: TShellExecFn;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView;
   cliAdapter: ITuiCliAdapter;
