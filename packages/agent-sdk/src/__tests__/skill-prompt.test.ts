@@ -66,13 +66,15 @@ describe('substituteVariables', () => {
 });
 
 describe('preprocessShellCommands', () => {
-  it('should execute !`command` and substitute output', async () => {
-    const result = await preprocessShellCommands('Version: !`echo 1.0.0`');
+  it('should execute !`command` and substitute output via injected exec', async () => {
+    const exec = (cmd: string) => (cmd === 'echo 1.0.0' ? '1.0.0' : '');
+    const result = await preprocessShellCommands('Version: !`echo 1.0.0`', exec);
     expect(result).toBe('Version: 1.0.0');
   });
 
-  it('should handle multiple shell substitutions', async () => {
-    const result = await preprocessShellCommands('!`echo a` and !`echo b`');
+  it('should handle multiple shell substitutions via injected exec', async () => {
+    const exec = (cmd: string) => (cmd === 'echo a' ? 'a' : cmd === 'echo b' ? 'b' : '');
+    const result = await preprocessShellCommands('!`echo a` and !`echo b`', exec);
     expect(result).toBe('a and b');
   });
 
@@ -81,14 +83,16 @@ describe('preprocessShellCommands', () => {
     expect(result).toBe('No commands here');
   });
 
-  it('should trim trailing newline from command output', async () => {
-    const result = await preprocessShellCommands('Val: !`printf "hello\\n"`');
-    expect(result).toBe('Val: hello');
+  it('should substitute empty string when exec is not provided', async () => {
+    const result = await preprocessShellCommands('Version: !`echo 1.0.0`');
+    expect(result).toBe('Version: ');
   });
 
-  it('should handle command failure gracefully', async () => {
-    const result = await preprocessShellCommands('Val: !`nonexistent_command_xyz 2>/dev/null`');
-    // On failure, substitute empty string
+  it('should handle exec failure gracefully', async () => {
+    const exec = (_cmd: string): string => {
+      throw new Error('command not found');
+    };
+    const result = await preprocessShellCommands('Val: !`bad_command`', exec);
     expect(result).toBe('Val: ');
   });
 });

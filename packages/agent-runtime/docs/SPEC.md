@@ -85,13 +85,35 @@ Hook event types and hook execution are owned by `agent-core`.
 | `appendPrefixedLogLines`         | function | Append source-prefixed non-empty log lines           |
 | `createBackgroundTaskLogPage`    | function | Cursor-based log pagination helper                   |
 
+### Background Task Runners (Concrete — default implementations)
+
+The following are concrete `IBackgroundTaskRunner` implementations provided by this package.
+They depend on Node.js `child_process`. CLI and SDK shells use them as default runners;
+test environments may substitute no-op runners through the `IBackgroundTaskRunner` port.
+
+| Export                            | Kind     | Description                                                                          |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `createManagedShellProcessRunner` | function | Spawns a shell command via `node:child_process.spawn`; streams stdout/stderr as logs |
+| `createScheduledTaskRunner`       | function | Schedules cron-pattern tasks via `croner`; triggers a child runner on each firing    |
+
+**`croner` production dependency**: `croner@^10.0.1` is used by `createScheduledTaskRunner`
+to parse cron expressions and fire scheduled background tasks. It has no Node.js native
+bindings and is safe for any Node.js runtime target.
+
 ### Subagents
 
-| Export                         | Kind     | Description                                                     |
-| ------------------------------ | -------- | --------------------------------------------------------------- |
-| `SubagentManager`              | class    | Subagent facade over `BackgroundTaskManager`                    |
-| `WorktreeSubagentRunner`       | class    | Decorates an `ISubagentRunner` with worktree isolation behavior |
-| `createWorktreeSubagentRunner` | function | Factory for `WorktreeSubagentRunner`                            |
+| Export                              | Kind     | Description                                                        |
+| ----------------------------------- | -------- | ------------------------------------------------------------------ |
+| `SubagentManager`                   | class    | Subagent facade over `BackgroundTaskManager`                       |
+| `WorktreeSubagentRunner`            | class    | Decorates an `ISubagentRunner` with worktree isolation behavior    |
+| `createWorktreeSubagentRunner`      | function | Factory for `WorktreeSubagentRunner`                               |
+| `GitWorktreeIsolationAdapter`       | class    | Concrete `ISubagentWorktreeAdapter` using `execFileSync` + Git CLI |
+| `createGitWorktreeIsolationAdapter` | function | Factory for `GitWorktreeIsolationAdapter`                          |
+
+**Note on `GitWorktreeIsolationAdapter`**: This is a concrete CLI adapter (calls
+`execFileSync`, performs Git operations) that lives in `agent-runtime` for historical
+reasons. CLI-AUDIT-006 classified it as a CLI adapter; it should eventually move to
+`agent-cli/src/subagents/` when ARCH-FIX-024 is executed.
 
 The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK compatibility barrels may re-export the same symbols, but they must not redefine the contracts.
 

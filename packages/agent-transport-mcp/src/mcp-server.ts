@@ -1,5 +1,5 @@
 /**
- * MCP transport adapter — exposes InteractiveSession as an MCP server.
+ * MCP transport adapter — exposes IInteractiveSession as an MCP server.
  *
  * Uses the low-level MCP Server class to avoid TypeScript depth issues
  * with McpServer.registerTool() generics. Registers tools/list and
@@ -8,21 +8,21 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import type { InteractiveSession, IExecutionResult } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession, IExecutionResult } from '@robota-sdk/agent-sdk';
 
 export interface IAgentMcpOptions {
   /** Name for the MCP server. */
   name: string;
   /** Version string. */
   version: string;
-  /** InteractiveSession to expose. */
-  session: InteractiveSession;
+  /** IInteractiveSession to expose. */
+  session: IInteractiveSession;
   /** If true, register each system command as a separate MCP tool. Default: true. */
   exposeCommands?: boolean;
 }
 
 /**
- * Create an MCP server that exposes InteractiveSession over Model Context Protocol.
+ * Create an MCP server that exposes IInteractiveSession over Model Context Protocol.
  *
  * Usage:
  * ```typescript
@@ -126,7 +126,10 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
 /**
  * Submit a prompt and wait for the complete/interrupted/error event.
  */
-function waitForCompletion(session: InteractiveSession, prompt: string): Promise<IExecutionResult> {
+function waitForCompletion(
+  session: IInteractiveSession,
+  prompt: string,
+): Promise<IExecutionResult> {
   return new Promise((resolve, reject) => {
     const onComplete = (result: IExecutionResult): void => {
       cleanup();

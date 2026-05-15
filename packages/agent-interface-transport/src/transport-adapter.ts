@@ -6,9 +6,9 @@
 
 import type { ISession } from '@robota-sdk/agent-core';
 
-export interface ITransportAdapter {
+export interface ITransportAdapter<TSession = ISession> {
   readonly name: string;
-  attach(session: ISession): void;
+  attach(session: TSession): void;
   start(): Promise<void>;
   stop(): Promise<void>;
 }

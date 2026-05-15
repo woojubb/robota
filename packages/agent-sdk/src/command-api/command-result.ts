@@ -2,7 +2,10 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { TCommandEffect } from './effects.js';
 import type { ICommandInteraction } from './interactions.js';
 
-export type TCommandResultDataValue = TUniversalValue | object | readonly object[];
+export type TCommandResultDataValue =
+  | TUniversalValue
+  | Record<string, unknown>
+  | readonly Record<string, unknown>[];
 
 /** Result of a system command execution. */
 export interface ICommandResult {
@@ -11,7 +14,7 @@ export interface ICommandResult {
   /** Command completed successfully */
   success: boolean;
   /** Additional structured data (command-specific diagnostics only) */
-  data?: Record<string, TCommandResultDataValue>;
+  data?: Record<string, unknown>;
   /** Typed host effects requested by the command */
   effects?: readonly TCommandEffect[];
   /** Command-owned follow-up prompt and continuation */

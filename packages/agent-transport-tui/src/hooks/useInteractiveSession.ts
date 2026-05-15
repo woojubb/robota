@@ -15,11 +15,13 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSession,
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TPermissionResultValue,
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
+  TShellExecFn,
 } from '@robota-sdk/agent-sdk';
 import type {
   IAIProvider,
@@ -47,7 +49,8 @@ export interface IInteractiveSessionProps {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
-  transportRegistry?: ITransportRegistryView;
+  shellExec?: TShellExecFn;
+  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
 }
@@ -140,6 +143,7 @@ function initializeSession(
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
     commandHostAdapters: props.commandHostAdapters,
+    shellExec: props.shellExec,
     language: props.language,
   });
 
@@ -220,9 +224,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   useEffect(() => {
     if (!props.transportRegistry) return;
     const reg = props.transportRegistry;
-    reg
-      .startAll(interactiveSession as import('@robota-sdk/agent-core').ISession)
-      .catch(() => undefined);
+    reg.startAll(interactiveSession).catch(() => undefined);
     return () => {
       reg.stopAll().catch(() => undefined);
     };

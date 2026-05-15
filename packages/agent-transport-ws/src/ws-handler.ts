@@ -1,15 +1,15 @@
 /**
- * WebSocket transport adapter — exposes InteractiveSession over WebSocket.
+ * WebSocket transport adapter — exposes IInteractiveSession over WebSocket.
  *
  * Framework-agnostic: works with any WebSocket implementation via
  * send/onMessage callbacks. No dependency on ws, uWebSockets, etc.
  *
  * Protocol: JSON messages with { type, ...payload } structure.
- * Server pushes InteractiveSession events to client in real-time.
+ * Server pushes IInteractiveSession events to client in real-time.
  */
 
 import type {
-  InteractiveSession,
+  IInteractiveSession,
   IExecutionResult,
   IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
@@ -23,14 +23,14 @@ import {
 } from './ws-background-messages.js';
 
 export interface IWsHandlerOptions {
-  /** InteractiveSession to expose. */
-  session: InteractiveSession;
+  /** IInteractiveSession to expose. */
+  session: IInteractiveSession;
   /** Send a JSON message to the client. */
   send: (message: TServerMessage) => void;
 }
 
 /**
- * Create a WebSocket message handler for an InteractiveSession.
+ * Create a WebSocket message handler for an IInteractiveSession.
  *
  * Returns:
  * - `onMessage(data)`: call this when the WebSocket receives a message
@@ -58,7 +58,7 @@ export function createWsHandler(options: IWsHandlerOptions): {
 }
 
 function subscribeSessionEvents(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   send: (message: TServerMessage) => void,
 ): () => void {
   const onUserMessage = (content: string): void => send({ type: 'user_message', content });
@@ -104,7 +104,7 @@ function subscribeSessionEvents(
 }
 
 function createWsMessageHandler(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   send: (message: TServerMessage) => void,
 ): (data: string) => void {
   return (data: string): void => {
@@ -127,7 +127,7 @@ function parseClientMessage(
 }
 
 function handleClientMessage(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   send: (message: TServerMessage) => void,
   msg: TClientMessage,
 ): void {
@@ -216,7 +216,7 @@ function isBackgroundControlMessage(
 }
 
 function handleSessionControlMessage(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
 ): void {
@@ -248,7 +248,7 @@ function handleSessionControlMessage(
 }
 
 function handleSessionQueryMessage(
-  session: InteractiveSession,
+  session: IInteractiveSession,
   send: (message: TServerMessage) => void,
   msg: Extract<
     TClientMessage,

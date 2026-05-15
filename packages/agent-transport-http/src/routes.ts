@@ -1,20 +1,20 @@
 /**
- * HTTP transport adapter — exposes InteractiveSession over REST API.
+ * HTTP transport adapter — exposes IInteractiveSession over REST API.
  *
  * Built on Hono for Cloudflare Workers + Node.js + AWS Lambda compatibility.
- * Each endpoint maps 1:1 to an InteractiveSession API method.
+ * Each endpoint maps 1:1 to an IInteractiveSession API method.
  */
 
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Context } from 'hono';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
-/** Callback that resolves an InteractiveSession from the request context. */
-export type ISessionFactory = (c: Context) => InteractiveSession | Promise<InteractiveSession>;
+/** Callback that resolves an IInteractiveSession from the request context. */
+export type ISessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
 
 export interface IAgentRoutesOptions {
-  /** Resolve an InteractiveSession per request (e.g., by auth token, session ID). */
+  /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
   sessionFactory: ISessionFactory;
 }
 

@@ -1,15 +1,17 @@
 export {
   ChildProcessSubagentRunner,
   createChildProcessSubagentRunnerFactory,
+} from './child-process-subagent-runner.js';
+export type { IChildProcessSubagentRunnerOptions } from './child-process-subagent-runner.js';
+export {
   isSubagentWorkerChildMessage,
   isSubagentWorkerParentMessage,
-} from '@robota-sdk/agent-sdk';
+} from './child-process-subagent-ipc.js';
 export type {
-  IChildProcessSubagentRunnerOptions,
   ISubagentWorkerStartPayload,
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
-} from '@robota-sdk/agent-sdk';
+} from './child-process-subagent-ipc.js';
 export {
   GitWorktreeIsolationAdapter,
   createGitWorktreeIsolationAdapter,

@@ -2,31 +2,16 @@
  * Session initialization helpers for InteractiveSession.
  *
  * Handles async config/context loading, plugin merging, and session creation.
- * Also provides session-restore (resume/fork) logic.
+ * Option interfaces live in interactive-session-options.ts.
+ * Session restore logic lives in interactive-session-restore.ts.
  */
 
 import { createSession } from '../assembly/index.js';
-import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { ICompactEvent } from '@robota-sdk/agent-sessions';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IContextWindowState } from '@robota-sdk/agent-core';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import type {
-  IBackgroundJobGroupState,
-  IBackgroundTaskRunner,
-  IBackgroundTaskState,
-  TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
-  TBackgroundTaskStatus,
-} from '../background-tasks/index.js';
-import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -36,142 +21,24 @@ import { BundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { TInteractivePermissionHandler } from './types.js';
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
-import type { IInteractiveSessionStore } from './session-persistence.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
-import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
-import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
-import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
+import type { ICommandResult } from '../commands/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type {
+  IInteractiveSessionStandardOptions,
+  IInitOptions,
+} from './interactive-session-options.js';
+import { injectSavedMessage } from './interactive-session-restore.js';
+import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 
-/** Standard construction: cwd + provider. Config/context loaded internally. */
-export interface IInteractiveSessionStandardOptions {
-  cwd: string;
-  provider: IAIProvider;
-  permissionMode?: ICreateSessionOptions['permissionMode'];
-  maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: IInteractiveSessionStore;
-  sessionName?: string;
-  resumeSessionId?: string;
-  forkSession?: boolean;
-  /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
-  bare?: boolean;
-  /** Pre-approved tool names passed to createSession. */
-  allowedTools?: string[];
-  /** Text to append to the system prompt. */
-  appendSystemPrompt?: string;
-  /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
-  language?: string;
-  /** Runtime-composed background task runners. */
-  backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** Runtime shell override for subagent execution. */
-  subagentRunnerFactory?: TSubagentRunnerFactory;
-  /** Optional command modules composed into this session. */
-  commandModules?: readonly ICommandModule[];
-  /** Host adapters available to composed command modules. */
-  commandHostAdapters?: ICommandHostAdapters;
-  /** Model-visible command descriptors derived from the composed command executor. */
-  commandDescriptors?: readonly ICapabilityDescriptor[];
-  /** Model command execution bridge. */
-  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
-  /** Predicate for commands allowed through the model command execution bridge. */
-  isModelCommandInvocable?: (command: string) => boolean;
-  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
-  config?: IResolvedConfig;
-  /** Opt-in local-first reversible execution policy for write/shell tools. */
-  reversibleExecution?: IReversibleExecutionOptions;
-  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
-  sandboxClient?: ISandboxClient;
-  /** Fresh-session workspace manifest applied through the sandbox client. */
-  workspaceManifest?: IWorkspaceManifest;
-  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
-  sandboxWorkspaceRoot?: string;
-  /** Provider sandbox snapshot id to restore before replaying saved messages. */
-  sandboxSnapshotId?: string;
-}
-
-/** Test/advanced construction: inject pre-built session directly. */
-export interface IInteractiveSessionInjectedOptions {
-  session: Session;
-  cwd?: string;
-  provider?: IAIProvider;
-  permissionMode?: ICreateSessionOptions['permissionMode'];
-  maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
-  sessionStore?: IInteractiveSessionStore;
-  sessionName?: string;
-  resumeSessionId?: string;
-  forkSession?: boolean;
-  /** Optional command modules composed into this injected session. */
-  commandModules?: readonly ICommandModule[];
-  /** Host adapters available to composed command modules. */
-  commandHostAdapters?: ICommandHostAdapters;
-}
-
-/** Union of standard and injected construction options. */
-export type IInteractiveSessionOptions =
-  | IInteractiveSessionStandardOptions
-  | IInteractiveSessionInjectedOptions;
-
-/** Internal async init options (not re-exported). */
-export interface IInitOptions {
-  cwd: string;
-  provider: IAIProvider;
-  permissionMode?: ICreateSessionOptions['permissionMode'];
-  maxTurns?: number;
-  permissionHandler?: TInteractivePermissionHandler;
-  resumeSessionId?: string;
-  forkSession?: boolean;
-  onTextDelta: (delta: string) => void;
-  onContextUpdate?: (state: IContextWindowState) => void;
-  onCompactEvent?: (event: ICompactEvent) => void;
-  onToolExecution: (event: {
-    type: 'start' | 'end';
-    toolName: string;
-    toolArgs?: TToolArgs;
-    success?: boolean;
-    denied?: boolean;
-    toolResultData?: string;
-  }) => void;
-  /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
-  bare?: boolean;
-  /** Pre-approved tool names passed to createSession. */
-  allowedTools?: string[];
-  /** Text to append to the system prompt. */
-  appendSystemPrompt?: string;
-  /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
-  language?: string;
-  /** Runtime-composed background task runners. */
-  backgroundTaskRunners?: IBackgroundTaskRunner[];
-  /** Runtime shell override for subagent execution. */
-  subagentRunnerFactory?: TSubagentRunnerFactory;
-  /** Optional command modules composed into this session. */
-  commandModules?: readonly ICommandModule[];
-  /** Model-visible command descriptors derived from the composed command executor. */
-  commandDescriptors?: readonly ICapabilityDescriptor[];
-  /** Model command execution bridge. */
-  modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
-  /** Predicate for commands allowed through the model command execution bridge. */
-  isModelCommandInvocable?: (command: string) => boolean;
-  /** Preloaded config to avoid duplicate discovery when caller needs it too. */
-  config?: IResolvedConfig;
-  /** Recorder used to snapshot files before Write/Edit tools mutate them. */
-  editCheckpointRecorder?: IEditCheckpointRecorder;
-  /** Opt-in local-first reversible execution policy for write/shell tools. */
-  reversibleExecution?: IReversibleExecutionOptions;
-  /** Optional provider sandbox client used by sandbox-aware built-in tools. */
-  sandboxClient?: ISandboxClient;
-  /** Fresh-session workspace manifest applied through the sandbox client. */
-  workspaceManifest?: IWorkspaceManifest;
-  /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
-  sandboxWorkspaceRoot?: string;
-  /** Provider sandbox snapshot id to restore before replaying saved messages. */
-  sandboxSnapshotId?: string;
-}
+export type {
+  IInteractiveSessionStandardOptions,
+  IInteractiveSessionInjectedOptions,
+  IInteractiveSessionOptions,
+  IInitOptions,
+} from './interactive-session-options.js';
+export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';
 
 /** Return value of createInteractiveSession — session plus staleness tracking data. */
 export interface ICreatedInteractiveSession {
@@ -209,12 +76,10 @@ export async function createInteractiveSession(
       : detectProject(cwd),
   ]);
 
-  // Apply runtime language override before plugin merge
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
     : config;
 
-  // Load plugin hooks and merge into config
   const pluginsDir = join(homedir(), '.robota', 'plugins');
   const pluginLoader = new BundlePluginLoader(pluginsDir);
   if (!options.bare) {
@@ -242,7 +107,6 @@ export async function createInteractiveSession(
     await applyInteractiveWorkspaceManifest(options, cwd);
   }
 
-  // For non-fork resume, reuse the original session ID so saves update the same file
   const sessionId =
     options.resumeSessionId && !options.forkSession ? options.resumeSessionId : undefined;
 
@@ -317,135 +181,102 @@ async function restoreInteractiveSandboxSnapshot(options: IInitOptions): Promise
   return true;
 }
 
-/** Inject a saved message into a session, supporting all roles including 'tool'. */
-export function injectSavedMessage(session: Session, msg: TUniversalMessage): void {
-  if (typeof msg.content !== 'string') return;
-  if (msg.role === 'tool') {
-    session.injectMessage('tool', msg.content, {
-      toolCallId: msg.toolCallId,
-      ...(msg.name !== undefined ? { name: msg.name } : {}),
-    });
-  } else {
-    session.injectMessage(msg.role, msg.content);
-  }
+/** Dependencies injected into initializeInteractiveSessionAsync from the class. */
+export interface IAsyncInitDeps {
+  /** Currently stored sandbox snapshot ID (may be set by restore). */
+  sandboxSnapshotId: string | undefined;
+  /** Session ID to resume (may be set by restore). */
+  resumeSessionId: string | undefined;
+  /** Messages deferred until the session is created (set during restore). */
+  pendingRestoreMessages: TUniversalMessage[] | null;
+  /** Callbacks for handling events during initialization. */
+  onTextDelta: (delta: string) => void;
+  onContextUpdate: (state: IContextWindowState) => void;
+  onCompactEvent: (event: ICompactEvent) => void;
+  onToolExecution: (event: {
+    type: 'start' | 'end';
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
+  }) => void;
+  executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;
+  isModelCommandInvocable: (command: string) => boolean;
+  commandDescriptors: readonly ICapabilityDescriptor[];
+  setEditCheckpointStore: (store: EditCheckpointStore) => void;
+}
+
+/** Result returned from initializeInteractiveSessionAsync. */
+export interface IAsyncInitResult {
+  session: Session;
+  agentsFileEntries: IContextFileEntry[];
+  claudeFileEntries: IContextFileEntry[];
+  rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'];
+  autoCompactThresholdSource: 'default' | 'settings';
 }
 
 /**
- * Restore session history and messages from a persisted session record.
- * Returns the loaded history and any pending messages that need injection once session is ready.
+ * Async initialization flow extracted from InteractiveSession.initializeAsync.
+ *
+ * Loads config, creates the session, injects pending restore messages, and
+ * returns the initialized session plus metadata. The caller is responsible
+ * for wiring the result back into the class (bgTracker.subscribe, persist, etc.).
  */
-export function loadSessionRecord(
-  sessionStore: IInteractiveSessionStore,
-  resumeSessionId: string,
-  forkSession: boolean,
-  existingSession: Session | null,
-): {
-  history: IHistoryEntry[];
-  sessionName: string | undefined;
-  pendingRestoreMessages: TUniversalMessage[] | null;
-  backgroundTasks: IBackgroundTaskState[];
-  backgroundTaskEvents: TBackgroundTaskEvent[];
-  backgroundJobGroups: IBackgroundJobGroupState[];
-  backgroundJobGroupEvents: TBackgroundJobGroupEvent[];
-  skillActivationEvents: ISkillActivationEvent[];
-  memoryEvents: IMemoryEvent[];
-  usedMemoryReferences: IMemoryReference[];
-  contextReferences: IContextReferenceItem[];
-  sandboxSnapshotId: string | undefined;
-} {
-  const record = sessionStore.load(resumeSessionId);
-  if (!record) {
-    return {
-      history: [],
-      sessionName: undefined,
-      pendingRestoreMessages: null,
-      backgroundTasks: [],
-      backgroundTaskEvents: [],
-      backgroundJobGroups: [],
-      backgroundJobGroupEvents: [],
-      skillActivationEvents: [],
-      memoryEvents: [],
-      usedMemoryReferences: [],
-      contextReferences: [],
-      sandboxSnapshotId: undefined,
-    };
-  }
+export async function initializeInteractiveSessionAsync(
+  options: IInteractiveSessionStandardOptions,
+  deps: IAsyncInitDeps,
+): Promise<IAsyncInitResult> {
+  const config = options.config ?? (await loadConfig(options.cwd));
+  const autoCompactThresholdSource =
+    config.autoCompactThreshold === undefined ? 'default' : 'settings';
+  const checkpointStore = new EditCheckpointStore({ cwd: options.cwd });
+  deps.setEditCheckpointStore(checkpointStore);
 
-  const history = record.history ?? [];
-  const restoredBackgroundTasks = record.backgroundTasks ?? [];
-  const restoredBackgroundTaskEvents = record.backgroundTaskEvents ?? [];
-  const backgroundJobGroups = record.backgroundJobGroups ?? [];
-  const backgroundJobGroupEvents = record.backgroundJobGroupEvents ?? [];
-  const skillActivationEvents = record.skillActivationEvents ?? [];
-  const memoryEvents = record.memoryEvents ?? [];
-  const usedMemoryReferences = record.usedMemoryReferences ?? [];
-  const contextReferences = record.contextReferences ?? [];
-  const sandboxSnapshotId = record.sandboxSnapshotId;
-  const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
-    restoredBackgroundTasks,
-    restoredBackgroundTaskEvents,
-  );
-  const sessionName = record.name;
-  let pendingRestoreMessages: TUniversalMessage[] | null = null;
-
-  if (!forkSession && record.messages) {
-    if (existingSession) {
-      // Injected-session path: session is already available
-      for (const msg of record.messages) {
-        injectSavedMessage(existingSession, msg);
-      }
-    } else {
-      // Standard path: session not yet created, defer injection
-      pendingRestoreMessages = record.messages;
-    }
-  }
-
-  return {
-    history,
-    sessionName,
-    pendingRestoreMessages,
-    backgroundTasks,
-    backgroundTaskEvents,
-    backgroundJobGroups,
-    backgroundJobGroupEvents,
-    skillActivationEvents,
-    memoryEvents,
-    usedMemoryReferences,
-    contextReferences,
-    sandboxSnapshotId,
-  };
-}
-
-function reconcileRestoredBackgroundTasks(
-  tasks: IBackgroundTaskState[],
-  events: TBackgroundTaskEvent[],
-): { backgroundTasks: IBackgroundTaskState[]; backgroundTaskEvents: TBackgroundTaskEvent[] } {
-  const now = new Date().toISOString();
-  const syntheticEvents: TBackgroundTaskEvent[] = [];
-  const backgroundTasks = tasks.map((task) => {
-    if (isRestoredTerminalStatus(task.status)) return task;
-    const reconciled: IBackgroundTaskState = {
-      ...task,
-      status: 'failed',
-      timeoutReason: 'stale_worker',
-      error: {
-        category: 'timeout',
-        message: 'Restored background task is stale; worker cannot be reattached',
-        recoverable: true,
-      },
-      unread: true,
-      completedAt: now,
-      updatedAt: now,
-    };
-    syntheticEvents.push({ type: 'background_task_failed', task: reconciled });
-    return reconciled;
+  const created = await createInteractiveSession({
+    cwd: options.cwd,
+    provider: options.provider,
+    config,
+    permissionMode: options.permissionMode,
+    maxTurns: options.maxTurns,
+    permissionHandler: options.permissionHandler,
+    resumeSessionId: deps.resumeSessionId,
+    forkSession: options.forkSession,
+    onTextDelta: deps.onTextDelta,
+    onContextUpdate: deps.onContextUpdate,
+    onCompactEvent: deps.onCompactEvent,
+    onToolExecution: deps.onToolExecution,
+    bare: options.bare,
+    allowedTools: options.allowedTools,
+    appendSystemPrompt: options.appendSystemPrompt,
+    language: options.language,
+    backgroundTaskRunners: options.backgroundTaskRunners,
+    subagentRunnerFactory: options.subagentRunnerFactory,
+    ...(options.commandModules ? { commandModules: options.commandModules } : {}),
+    editCheckpointRecorder: checkpointStore,
+    ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
+    ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
+    ...(options.workspaceManifest ? { workspaceManifest: options.workspaceManifest } : {}),
+    ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
+    ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
+    commandDescriptors: deps.commandDescriptors,
+    ...(deps.commandDescriptors.length > 0
+      ? {
+          modelCommandExecutor: deps.executeModelCommand,
+          isModelCommandInvocable: deps.isModelCommandInvocable,
+        }
+      : {}),
   });
-  return {
-    backgroundTasks,
-    backgroundTaskEvents: [...events, ...syntheticEvents],
-  };
-}
 
-function isRestoredTerminalStatus(status: TBackgroundTaskStatus): boolean {
-  return status === 'completed' || status === 'failed' || status === 'cancelled';
+  if (deps.pendingRestoreMessages) {
+    for (const msg of deps.pendingRestoreMessages) injectSavedMessage(created.session, msg);
+  }
+
+  return {
+    session: created.session,
+    agentsFileEntries: created.agentsFileEntries,
+    claudeFileEntries: created.claudeFileEntries,
+    rebuildSystemMessage: created.rebuildSystemMessage,
+    autoCompactThresholdSource,
+  };
 }

@@ -9,6 +9,7 @@ export type {
 export type { TCommandEffect } from './effects.js';
 export type { ICommandResult, TCommandResultDataValue } from './command-result.js';
 export type {
+  IAgentJobHostContext,
   ICommandHostContext,
   ICommandListEntry,
   ICommandSessionReplayValidationReport,

@@ -5,7 +5,8 @@ import type {
   TPermissionMode,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type { TPermissionHandler } from '@robota-sdk/agent-sessions';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';

@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -28,12 +29,19 @@ function createCliPluginServices(cwd: string): ICliPluginServices {
   const pluginsDir = join(home, '.robota', 'plugins');
   const userSettingsPath = join(home, '.robota', 'settings.json');
 
+  const exec = (command: string, options: { timeout: number; stdio?: string }) =>
+    execSync(command, {
+      timeout: options.timeout,
+      stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
+    });
+
   const settingsStore = new PluginSettingsStore(userSettingsPath);
-  const marketplace = new MarketplaceClient({ pluginsDir });
+  const marketplace = new MarketplaceClient({ pluginsDir, exec });
   const installer = new BundlePluginInstaller({
     pluginsDir,
     settingsStore,
     marketplaceClient: marketplace,
+    exec,
   });
   const loader = new BundlePluginLoader(pluginsDir);
 
@@ -96,10 +104,16 @@ async function installPlugin(
   }
   if (scope === 'project') {
     const projectPluginsDir = join(services.cwd, '.robota', 'plugins');
+    const projectExec = (command: string, options: { timeout: number; stdio?: string }) =>
+      execSync(command, {
+        timeout: options.timeout,
+        stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
+      });
     const projectInstaller = new BundlePluginInstaller({
       pluginsDir: projectPluginsDir,
       settingsStore: services.settingsStore,
       marketplaceClient: services.marketplace,
+      exec: projectExec,
     });
     await projectInstaller.install(name, marketplaceName);
     return;

@@ -866,18 +866,19 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       session: mockSession as never,
     } as never);
 
-    // Manually trigger tool events to simulate what happens during run
-    // Access handleToolExecution through the session object
-    const handler = (
-      session as unknown as { handleToolExecution: (e: Record<string, unknown>) => void }
-    ).handleToolExecution;
-    if (handler) {
-      handler.call(session, {
+    // Manually trigger tool events via the execution controller
+    const execCtrl = (
+      session as unknown as {
+        execCtrl: { handleToolExecution: (e: Record<string, unknown>) => void };
+      }
+    ).execCtrl;
+    if (execCtrl) {
+      execCtrl.handleToolExecution({
         type: 'start',
         toolName: 'Read',
         toolArgs: { file_path: '/test.ts' },
       });
-      handler.call(session, { type: 'end', toolName: 'Read', success: true });
+      execCtrl.handleToolExecution({ type: 'end', toolName: 'Read', success: true });
     }
 
     const history = session.getFullHistory();

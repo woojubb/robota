@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 import type {
-  InteractiveSession,
+  IInteractiveSession,
   CommandRegistry,
   ICommandResult,
   TCommandEffect,
@@ -15,7 +15,7 @@ import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ICommandEffectQueue } from './command-effect-queue.js';
 
 export function useSlashRouting(
-  interactiveSession: InteractiveSession,
+  interactiveSession: IInteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
   commandEffectQueue: ICommandEffectQueue,
@@ -63,7 +63,7 @@ export function useSlashRouting(
 
 export function applySystemCommandResult(
   result: ICommandResult,
-  interactiveSession: InteractiveSession,
+  interactiveSession: IInteractiveSession,
   registry: CommandRegistry,
   manager: TuiStateManager,
   commandEffectQueue: ICommandEffectQueue,

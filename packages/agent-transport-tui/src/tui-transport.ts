@@ -1,9 +1,9 @@
-import type { ISession } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import { renderApp, type IRenderOptions } from './render.js';
 
-export class TuiTransport implements IConfigurableTransport {
+export class TuiTransport implements IConfigurableTransport<IInteractiveSession> {
   readonly name = 'tui';
   readonly defaultEnabled = true;
   readonly optionsSchema = {};
@@ -14,9 +14,8 @@ export class TuiTransport implements IConfigurableTransport {
     this.options = options;
   }
 
-  attach(_session: ISession): void {
+  attach(_session: IInteractiveSession): void {
     // TuiTransport creates its own InteractiveSession internally via useInteractiveSession.
-    // The attach() hook is a no-op for now.
   }
 
   async start(): Promise<void> {

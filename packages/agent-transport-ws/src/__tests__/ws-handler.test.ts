@@ -10,7 +10,7 @@ import type {
   IBackgroundTaskState,
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
-  InteractiveSession,
+  IInteractiveSession,
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
@@ -94,7 +94,7 @@ function createMockSession() {
     _emit: (event: string, ...args: unknown[]) => {
       listeners.get(event)?.forEach((h) => h(...args));
     },
-  } as unknown as InteractiveSession & { _emit: (event: string, ...args: unknown[]) => void };
+  } as unknown as IInteractiveSession & { _emit: (event: string, ...args: unknown[]) => void };
 }
 
 describe('WebSocket Transport Handler', () => {
@@ -102,7 +102,7 @@ describe('WebSocket Transport Handler', () => {
     const session = createMockSession();
     const sent: TServerMessage[] = [];
     const { onMessage, cleanup } = createWsHandler({
-      session: session as unknown as InteractiveSession,
+      session: session as unknown as IInteractiveSession,
       send: (msg) => sent.push(msg),
     });
     return { session, sent, onMessage, cleanup };

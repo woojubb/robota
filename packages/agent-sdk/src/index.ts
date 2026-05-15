@@ -10,6 +10,7 @@ export {
   resolveSessionIdByIdOrName,
 } from './interactive/index.js';
 export type {
+  IInteractiveSession,
   IInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
   ISkillActivationEvent,
@@ -53,6 +54,7 @@ export type {
   TCapabilitySafety,
 } from './capabilities/types.js';
 export type {
+  IAgentJobHostContext,
   ICommand,
   ICommandHostAdapters,
   ICommandHostContext,
@@ -299,7 +301,7 @@ export type {
 
 // ── Skill prompt utilities ───────────────────────────────────
 export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
-export type { SkillPromptContext } from './utils/skill-prompt.js';
+export type { SkillPromptContext, TShellExecFn } from './utils/skill-prompt.js';
 
 // ── Project memory ─────────────────────────────────────────
 export {
@@ -422,11 +424,7 @@ export type { IBackgroundProcessToolDeps } from './tools/background-process-tool
 
 // ── Background task runtime contracts ──────────────────────
 export {
-  BackgroundTaskError,
   BackgroundJobOrchestrator,
-  BackgroundTaskManager,
-  appendPrefixedLogLines,
-  createBackgroundTaskLogPage,
   createBackgroundGroupExecutionEntryId,
   createBackgroundTaskExecutionEntryId,
   createExecutionOriginMetadata,
@@ -435,14 +433,9 @@ export {
   createLineDetailPage,
   createMainThreadDetailPage,
   createMainThreadExecutionEntryId,
-  createLimitedOutputCapture,
-  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
   EXECUTION_ORIGIN_METADATA_KEYS,
-  getBackgroundTaskTransitions,
-  isTerminalBackgroundTaskStatus,
   parseExecutionWorkspaceEntryId,
   summarizeBackgroundJobGroup,
-  transitionBackgroundTaskStatus,
 } from './background-tasks/index.js';
 export type {
   IAgentBackgroundTaskRequest,
@@ -517,17 +510,8 @@ export type {
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
-export {
-  SubagentManager,
-  WorktreeSubagentRunner,
-  createWorktreeSubagentRunner,
-  ChildProcessSubagentRunner,
-  createChildProcessSubagentRunnerFactory,
-  isSubagentWorkerChildMessage,
-  isSubagentWorkerParentMessage,
-} from './subagents/index.js';
+export { createInProcessSubagentRunner } from './subagents/index.js';
 export type {
-  IChildProcessSubagentRunnerOptions,
   IInProcessSubagentRunnerDeps,
   IPreparedSubagentWorktree,
   ISubagentJobHandle,
@@ -538,14 +522,10 @@ export type {
   ISubagentManagerOptions,
   ISubagentRunner,
   ISubagentSpawnRequest,
-  ISubagentWorkerStartPayload,
   ISubagentWorktreeAdapter,
   ISubagentWorktreePrepareRequest,
   IWorktreeSubagentRunnerOptions,
   TSubagentRunnerFactory,
-  TSubagentWorkerChildMessage,
-  TSubagentWorkerParentMessage,
-  TSubagentWorkerWireValue,
   TSubagentJobMode,
   TSubagentJobStatus,
 } from './subagents/index.js';
@@ -615,6 +595,9 @@ export type {
 
 // ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
+
+// ── Testing utilities ────────────────────────────────────────
+export { createTestInteractiveSession } from './testing/create-test-interactive-session.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
