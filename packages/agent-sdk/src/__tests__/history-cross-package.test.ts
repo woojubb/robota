@@ -69,15 +69,19 @@ describe('IHistoryEntry cross-package integration', () => {
       session: mockSession as never,
     } as never);
 
-    // Simulate tool execution
-    const handler = (
+    // Simulate tool execution via the execution controller
+    const execCtrl = (
       session as unknown as {
-        handleToolExecution: (e: Record<string, unknown>) => void;
+        execCtrl: { handleToolExecution: (e: Record<string, unknown>) => void };
       }
-    ).handleToolExecution;
+    ).execCtrl;
 
-    handler.call(session, { type: 'start', toolName: 'Read', toolArgs: { file_path: '/a.ts' } });
-    handler.call(session, { type: 'end', toolName: 'Read', success: true });
+    execCtrl.handleToolExecution({
+      type: 'start',
+      toolName: 'Read',
+      toolArgs: { file_path: '/a.ts' },
+    });
+    execCtrl.handleToolExecution({ type: 'end', toolName: 'Read', success: true });
 
     const history = session.getFullHistory();
     const starts = history.filter((e: IHistoryEntry) => e.type === 'tool-start');
