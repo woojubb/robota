@@ -7,7 +7,6 @@
 
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
-import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -101,6 +100,6 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
 export const webFetchTool = createZodFunctionTool(
   'WebFetch',
   'Fetch a URL and return its content as text. HTML pages are converted to plain text.',
-  WebFetchSchema as unknown as IZodSchema,
+  WebFetchSchema,
   async (params) => runWebFetch(params as TWebFetchArgs),
 );
