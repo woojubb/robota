@@ -65,7 +65,7 @@ describe('AbstractWorkflowConverter', () => {
     it('converts input to output successfully', async () => {
       const result = await converter.convert({ nodes: [{ id: 'n1' }, { id: 'n2' }] });
       expect(result.success).toBe(true);
-      expect(result.data.items).toHaveLength(2);
+      expect(result.data?.items).toHaveLength(2);
       expect(result.errors).toEqual([]);
     });
 
