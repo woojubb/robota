@@ -124,6 +124,8 @@ export interface ICreateSessionOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
+  agentName?: string;
 }
 
 /** Result of createSession — session instance plus a system-message rebuilder for context refresh. */

@@ -98,4 +98,6 @@ export interface ISessionOptions {
   sessionLogger?: ISessionLogger;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
+  /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */
+  agentName?: string;
 }

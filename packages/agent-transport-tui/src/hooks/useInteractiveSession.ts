@@ -45,6 +45,7 @@ export interface IInteractiveSessionProps {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
+  agentName?: string;
 }
 
 export interface IInteractiveSessionState {
