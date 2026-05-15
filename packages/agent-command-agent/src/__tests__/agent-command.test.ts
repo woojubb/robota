@@ -67,6 +67,8 @@ function createMockSession(overrides?: Record<string, unknown>): ICommandHostCon
     closeAgentJob: vi.fn(),
     ...overrides,
   };
+  (session as Record<string, unknown>)['getAgentJobCapability'] = () =>
+    session as unknown as IAgentJobHostContext;
   return session as unknown as ICommandHostContext;
 }
 
