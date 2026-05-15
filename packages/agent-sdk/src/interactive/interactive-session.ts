@@ -1,9 +1,3 @@
-/**
- * InteractiveSession — thin coordinator for all SDK consumers.
- * Extends InteractiveSessionBase for delegating public methods.
- * Manages initialization, core execution, lifecycle, and session state.
- */
-
 import type { Session } from '@robota-sdk/agent-sessions';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
