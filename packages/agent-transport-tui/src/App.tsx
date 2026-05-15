@@ -6,6 +6,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IInteractiveSession,
   IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TShellExecFn,
@@ -62,7 +63,7 @@ interface IProps {
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
   startupUpdateNotice?: Promise<string | undefined>;
-  transportRegistry?: ITransportRegistryView;
+  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
 }
