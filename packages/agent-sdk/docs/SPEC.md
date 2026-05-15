@@ -1206,6 +1206,33 @@ import {
 import { evaluatePermission } from '@robota-sdk/agent-core';
 ```
 
+`promptForApproval` is exported from `agent-sdk` for CLI and transport adapters that implement a non-TUI permission flow:
+
+| Export              | Kind     | Description                                                                                  |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `promptForApproval` | function | Prompts the user for allow/deny approval before a tool runs using `ITerminalOutput.select()` |
+
+### Skill Prompt Utilities
+
+`substituteVariables` and `preprocessShellCommands` are pure helpers for skill prompt processing:
+
+| Export                    | Kind     | Description                                                                        |
+| ------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `substituteVariables`     | function | Substitutes `$VAR` / `${VAR}` placeholders in a skill prompt string from a context |
+| `preprocessShellCommands` | function | Extracts shell commands embedded in skill prompt text for pre-execution            |
+| `SkillPromptContext`      | type     | Variable substitution context shape for `substituteVariables`                      |
+
+### Path Helpers
+
+`projectPaths` and `userPaths` are SDK-owned path helpers for project-local and user-local file resolution:
+
+| Export         | Kind     | Description                                                                         |
+| -------------- | -------- | ----------------------------------------------------------------------------------- |
+| `projectPaths` | function | Returns structured project-local paths under `.robota/` for a given `cwd`           |
+| `userPaths`    | function | Returns structured user-local paths under `~/.robota/` (settings, sessions, memory) |
+
+These helpers are used by SDK assembly and command modules. Transparent workflow baseline storage must not use `projectPaths(cwd)` or ad hoc `.robota/` paths — use the user-local storage root resolver instead.
+
 ## Import Rules
 
 These rules define which packages each layer is allowed to import from. Violations break the layered architecture.

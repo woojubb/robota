@@ -5,6 +5,7 @@
  * (config, context, session, tools).
  */
 
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -321,6 +322,9 @@ async function runPrintMode(
     process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
   }
 
+  const shellExec = (command: string) =>
+    execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
+
   const session = new InteractiveSession({
     cwd,
     provider,
@@ -340,6 +344,7 @@ async function runPrintMode(
     subagentRunnerFactory,
     commandModules,
     commandHostAdapters,
+    shellExec,
   });
 
   const transport = createHeadlessTransport({
@@ -477,6 +482,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     subagentRunnerFactory,
     commandModules,
     commandHostAdapters,
+    shellExec: (command: string) =>
+      execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),
     startupUpdateNotice: startupUpdateNoticePromise
       ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
       : undefined,

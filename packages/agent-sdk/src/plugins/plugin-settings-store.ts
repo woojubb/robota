@@ -7,12 +7,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-/** Source type for a marketplace registry. */
-export type IMarketplaceSource =
-  | { type: 'github'; repo: string; ref?: string }
-  | { type: 'git'; url: string; ref?: string }
-  | { type: 'local'; path: string }
-  | { type: 'url'; url: string };
+import type { IMarketplaceSource } from './marketplace-types.js';
 
 /** Persisted marketplace source entry. */
 export interface IPersistedMarketplaceSource {

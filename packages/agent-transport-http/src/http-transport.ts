@@ -5,7 +5,9 @@
  * while exposing the underlying Hono app via getApp().
  */
 
-import type { InteractiveSession, ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
+
 import { createAgentRoutes } from './routes.js';
 import type { Hono } from 'hono';
 
@@ -16,13 +18,13 @@ export interface IHttpTransportOptions {
 
 export function createHttpTransport(
   options?: IHttpTransportOptions,
-): ITransportAdapter & { getApp(): Hono } {
-  let session: InteractiveSession | null = null;
+): ITransportAdapter<IInteractiveSession> & { getApp(): Hono } {
+  let session: IInteractiveSession | null = null;
   let app: Hono | null = null;
 
   return {
     name: 'http',
-    attach(s: InteractiveSession) {
+    attach(s: IInteractiveSession) {
       session = s;
     },
     async start() {

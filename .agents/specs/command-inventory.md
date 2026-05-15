@@ -37,7 +37,9 @@ not mean the implementation lives in `agent-sdk` or `agent-cli`.
 | `/reset`          | `@robota-sdk/agent-command-reset`       | inline    | no              | `settings-reset-requested` effect                         |
 | `/resume`         | `@robota-sdk/agent-command-session`     | inline    | no              | `session-picker-requested` effect                         |
 | `/rewind`         | `@robota-sdk/agent-command-rewind`      | inline    | no              | checkpoint list/restore/rollback APIs                     |
+| `/settings`       | `@robota-sdk/agent-command-settings`    | inline    | no              | `settings-tui-requested` effect                           |
 | `/statusline`     | `@robota-sdk/agent-command-statusline`  | inline    | no              | `statusline-settings-patch` effect                        |
+| `/user-local`     | `@robota-sdk/agent-command-user-local`  | inline    | no              | user-local storage reads/writes (memory, storage inspect) |
 
 ## Retired Sources
 

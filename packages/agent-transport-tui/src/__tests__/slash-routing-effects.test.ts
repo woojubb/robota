@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { afterEach, vi } from 'vitest';
 import { CommandRegistry, BundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-sdk';
-import type { ICommandInteraction, InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { ICommandInteraction, IInteractiveSession } from '@robota-sdk/agent-sdk';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/useSlashRouting.js';
 import { CommandEffectQueue } from '../hooks/command-effect-queue.js';
@@ -45,7 +45,7 @@ describe('applySystemCommandResult', () => {
   it('stores statusline settings patch as a CLI side effect', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const manager = new TuiStateManager();
     const queue = new CommandEffectQueue();
 
@@ -71,7 +71,7 @@ describe('applySystemCommandResult', () => {
   it('stores generic command interactions without interpreting command-specific data', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const manager = new TuiStateManager();
     const queue = new CommandEffectQueue();
     const interaction: ICommandInteraction = {
@@ -105,7 +105,7 @@ describe('applySystemCommandResult', () => {
   it('stores host command side effects', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const manager = new TuiStateManager();
     const queue = new CommandEffectQueue();
 
@@ -131,7 +131,7 @@ describe('applySystemCommandResult', () => {
   it('applies conversation history clearing immediately before adding the command result', () => {
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const manager = new TuiStateManager();
     const queue = new CommandEffectQueue();
     manager.addEntry({
@@ -192,7 +192,7 @@ describe('applySystemCommandResult', () => {
     vi.stubEnv('HOME', home);
     const session = {
       getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as InteractiveSession;
+    } as unknown as IInteractiveSession;
     const registry = createRegistry();
     const queue = new CommandEffectQueue();
     registry.addSource({

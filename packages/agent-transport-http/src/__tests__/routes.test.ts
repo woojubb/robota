@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentRoutes } from '../routes.js';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 
 function createMockSession(overrides?: Record<string, unknown>) {
   return {
@@ -31,11 +31,11 @@ function createMockSession(overrides?: Record<string, unknown>) {
     on: vi.fn(),
     off: vi.fn(),
     ...overrides,
-  } as unknown as InteractiveSession;
+  } as unknown as IInteractiveSession;
 }
 
 describe('HTTP Transport Routes', () => {
-  function createApp(session?: InteractiveSession) {
+  function createApp(session?: IInteractiveSession) {
     const mockSession = session ?? createMockSession();
     const app = createAgentRoutes({
       sessionFactory: () => mockSession,

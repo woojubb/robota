@@ -5,7 +5,8 @@
  * while exposing the underlying MCP Server via getServer().
  */
 
-import type { InteractiveSession, ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import { createAgentMcpServer } from './mcp-server.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
@@ -20,13 +21,13 @@ export interface IMcpTransportOptions {
 
 export function createMcpTransport(
   options: IMcpTransportOptions,
-): ITransportAdapter & { getServer(): Server } {
-  let session: InteractiveSession | null = null;
+): ITransportAdapter<IInteractiveSession> & { getServer(): Server } {
+  let session: IInteractiveSession | null = null;
   let server: Server | null = null;
 
   return {
     name: 'mcp',
-    attach(s: InteractiveSession) {
+    attach(s: IInteractiveSession) {
       session = s;
     },
     async start() {

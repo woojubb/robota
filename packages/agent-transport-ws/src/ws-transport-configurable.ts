@@ -5,8 +5,7 @@
 
 import { createServer, type Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { ISession } from '@robota-sdk/agent-core';
+import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import { createWsHandler } from './ws-handler.js';
@@ -20,7 +19,7 @@ export interface IWsTransportConfig {
   maxRetries?: number;
 }
 
-export class WsTransport implements IConfigurableTransport {
+export class WsTransport implements IConfigurableTransport<IInteractiveSession> {
   readonly name = 'ws';
   readonly defaultEnabled = true;
   readonly optionsSchema = {
@@ -32,7 +31,7 @@ export class WsTransport implements IConfigurableTransport {
     },
   };
 
-  private session: InteractiveSession | null = null;
+  private session: IInteractiveSession | null = null;
   private stopFn: (() => Promise<void>) | null = null;
   private readonly port: number;
   private readonly maxRetries: number;
@@ -42,8 +41,8 @@ export class WsTransport implements IConfigurableTransport {
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
-  attach(session: ISession): void {
-    this.session = session as InteractiveSession;
+  attach(session: IInteractiveSession): void {
+    this.session = session;
   }
 
   async start(): Promise<void> {
@@ -66,7 +65,7 @@ export class WsTransport implements IConfigurableTransport {
   }
 
   private bindWithRetry(
-    session: InteractiveSession,
+    session: IInteractiveSession,
     port: number,
     retriesLeft: number,
   ): Promise<{ stop: () => Promise<void> }> {
@@ -78,7 +77,7 @@ export class WsTransport implements IConfigurableTransport {
   }
 
   private tryBind(
-    session: InteractiveSession,
+    session: IInteractiveSession,
     port: number,
   ): Promise<{ stop: () => Promise<void> }> {
     return new Promise((resolve, reject) => {

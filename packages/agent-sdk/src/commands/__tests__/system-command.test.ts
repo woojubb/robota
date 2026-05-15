@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 import { formatCommandHelpMessage } from '../../command-api/help/help-command-api.js';
-import type { InteractiveSession } from '../../interactive/interactive-session.js';
+import type { ICommandHostContext } from '../../command-api/index.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 
 function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
@@ -71,7 +71,7 @@ function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspac
     ...overrides,
     _underlying: underlying,
     getCwd: () => cwd,
-  } as unknown as InteractiveSession;
+  } as unknown as ICommandHostContext;
 }
 
 describe('SystemCommandExecutor', () => {
