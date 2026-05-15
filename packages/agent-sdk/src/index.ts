@@ -424,11 +424,7 @@ export type { IBackgroundProcessToolDeps } from './tools/background-process-tool
 
 // ── Background task runtime contracts ──────────────────────
 export {
-  BackgroundTaskError,
   BackgroundJobOrchestrator,
-  BackgroundTaskManager,
-  appendPrefixedLogLines,
-  createBackgroundTaskLogPage,
   createBackgroundGroupExecutionEntryId,
   createBackgroundTaskExecutionEntryId,
   createExecutionOriginMetadata,
@@ -437,14 +433,9 @@ export {
   createLineDetailPage,
   createMainThreadDetailPage,
   createMainThreadExecutionEntryId,
-  createLimitedOutputCapture,
-  DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
   EXECUTION_ORIGIN_METADATA_KEYS,
-  getBackgroundTaskTransitions,
-  isTerminalBackgroundTaskStatus,
   parseExecutionWorkspaceEntryId,
   summarizeBackgroundJobGroup,
-  transitionBackgroundTaskStatus,
 } from './background-tasks/index.js';
 export type {
   IAgentBackgroundTaskRequest,
@@ -519,11 +510,7 @@ export type {
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
-export {
-  SubagentManager,
-  WorktreeSubagentRunner,
-  createWorktreeSubagentRunner,
-} from './subagents/index.js';
+export { createInProcessSubagentRunner } from './subagents/index.js';
 export type {
   IInProcessSubagentRunnerDeps,
   IPreparedSubagentWorktree,
