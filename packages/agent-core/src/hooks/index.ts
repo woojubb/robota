@@ -11,7 +11,7 @@ export type {
   IHttpHookDefinition,
   IPromptHookDefinition,
   IAgentHookDefinition,
-  IHookDefinition,
+  THookDefinition,
   IHookInput,
   IHookResult,
   IHookTypeExecutor,

@@ -3,7 +3,7 @@ import {
   type IBackgroundTaskError,
   type IBackgroundTaskHandle,
   type IBackgroundTaskListFilter,
-  type IBackgroundTaskRequest,
+  type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskState,
   type TBackgroundPrimitive,
@@ -12,7 +12,7 @@ import {
 
 export interface ITrackedBackgroundTask {
   state: IBackgroundTaskState;
-  request: IBackgroundTaskRequest;
+  request: TBackgroundTaskRequest;
   completion: Promise<IBackgroundTaskResult>;
   resolve: (result: IBackgroundTaskResult) => void;
   reject: (error: BackgroundTaskError) => void;
@@ -139,7 +139,7 @@ export function hasRepeatedSentence(text: string, threshold: number): boolean {
 
 export function createQueuedBackgroundTaskState(
   id: string,
-  request: IBackgroundTaskRequest,
+  request: TBackgroundTaskRequest,
   now: string,
   previewLength: number,
 ): IBackgroundTaskState {

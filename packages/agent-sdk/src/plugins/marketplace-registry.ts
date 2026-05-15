@@ -7,10 +7,10 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import type { IKnownMarketplacesRegistry } from './marketplace-types.js';
+import type { TKnownMarketplacesRegistry } from './marketplace-types.js';
 
 /** Read the known_marketplaces.json registry. Returns empty object if missing or corrupt. */
-export function readRegistry(registryPath: string): IKnownMarketplacesRegistry {
+export function readRegistry(registryPath: string): TKnownMarketplacesRegistry {
   if (!existsSync(registryPath)) {
     return {};
   }
@@ -18,7 +18,7 @@ export function readRegistry(registryPath: string): IKnownMarketplacesRegistry {
     const raw = readFileSync(registryPath, 'utf-8');
     const data: unknown = JSON.parse(raw);
     if (typeof data === 'object' && data !== null) {
-      return data as IKnownMarketplacesRegistry;
+      return data as TKnownMarketplacesRegistry;
     }
     return {};
   } catch {
@@ -27,7 +27,7 @@ export function readRegistry(registryPath: string): IKnownMarketplacesRegistry {
 }
 
 /** Write the known_marketplaces.json registry, creating parent dirs if needed. */
-export function writeRegistry(registryPath: string, registry: IKnownMarketplacesRegistry): void {
+export function writeRegistry(registryPath: string, registry: TKnownMarketplacesRegistry): void {
   const dir = dirname(registryPath);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

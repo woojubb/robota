@@ -15,7 +15,7 @@ import type {
   IHookInput,
   IHookResult,
   IHookTypeExecutor,
-  IHookDefinition,
+  THookDefinition,
 } from '@robota-sdk/agent-core';
 
 /** Default maximum turns for the sub-agent session. */
@@ -55,7 +55,7 @@ export class AgentExecutor implements IHookTypeExecutor {
     this.sessionFactory = options.sessionFactory;
   }
 
-  async execute(definition: IHookDefinition, input: IHookInput): Promise<IHookResult> {
+  async execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult> {
     const agentDef = definition as IAgentHookDefinition;
     const maxTurns = agentDef.maxTurns ?? DEFAULT_MAX_TURNS;
     const timeout = agentDef.timeout ?? DEFAULT_TIMEOUT_SECONDS;

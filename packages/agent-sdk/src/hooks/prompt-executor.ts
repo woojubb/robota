@@ -15,7 +15,7 @@ import type {
   IHookInput,
   IHookResult,
   IHookTypeExecutor,
-  IHookDefinition,
+  THookDefinition,
 } from '@robota-sdk/agent-core';
 
 /** A minimal provider interface for single-turn completion. */
@@ -52,7 +52,7 @@ export class PromptExecutor implements IHookTypeExecutor {
     this.defaultModel = options.defaultModel;
   }
 
-  async execute(definition: IHookDefinition, input: IHookInput): Promise<IHookResult> {
+  async execute(definition: THookDefinition, input: IHookInput): Promise<IHookResult> {
     const promptDef = definition as IPromptHookDefinition;
     const model = promptDef.model ?? this.defaultModel;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { THookEvent, IHookDefinition, IHookTypeExecutor } from '../types.js';
+import type { THookEvent, THookDefinition, IHookTypeExecutor } from '../types.js';
 
 describe('Hook types', () => {
   it('should include all supported hook events', () => {
@@ -22,10 +22,10 @@ describe('Hook types', () => {
   });
 
   it('should support discriminated union for hook definitions', () => {
-    const commandHook: IHookDefinition = { type: 'command', command: 'echo test', timeout: 10 };
-    const httpHook: IHookDefinition = { type: 'http', url: 'https://example.com', timeout: 5 };
-    const promptHook: IHookDefinition = { type: 'prompt', prompt: 'Is this safe?' };
-    const agentHook: IHookDefinition = {
+    const commandHook: THookDefinition = { type: 'command', command: 'echo test', timeout: 10 };
+    const httpHook: THookDefinition = { type: 'http', url: 'https://example.com', timeout: 5 };
+    const promptHook: THookDefinition = { type: 'prompt', prompt: 'Is this safe?' };
+    const agentHook: THookDefinition = {
       type: 'agent',
       agent: 'Explore',
       maxTurns: 10,

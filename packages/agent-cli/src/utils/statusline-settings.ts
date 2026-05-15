@@ -7,14 +7,14 @@ import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-sdk';
 import type { TSettingsData } from './settings-io.js';
 import { readSettings, writeSettings } from './settings-io.js';
 
-export type IStatusLineSettings = IStatusLineCommandSettings;
+export type TStatusLineSettings = IStatusLineCommandSettings;
 export type TStatusLineSettingsPatch = TStatusLineCommandSettingsPatch;
 
-const DEFAULT_STATUS_LINE_SETTINGS: IStatusLineSettings = {
+const DEFAULT_STATUS_LINE_SETTINGS: TStatusLineSettings = {
   ...DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
 };
 
-export function readStatusLineSettings(settings: TSettingsData): IStatusLineSettings {
+export function readStatusLineSettings(settings: TSettingsData): TStatusLineSettings {
   const raw = settings.statusline;
   if (!isRecord(raw)) {
     return { ...DEFAULT_STATUS_LINE_SETTINGS };
@@ -30,7 +30,7 @@ export function readStatusLineSettings(settings: TSettingsData): IStatusLineSett
 export function applyStatusLineSettings(
   settingsPath: string,
   patch: TStatusLineSettingsPatch,
-): IStatusLineSettings {
+): TStatusLineSettings {
   const settings = readSettings(settingsPath);
   const next = {
     ...readStatusLineSettings(settings),
