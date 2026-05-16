@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: fix/cli-command-effect-boundary
-- **Scope**: packages/agent-cli, packages/agent-sdk command result integration docs
+- **Scope**: packages/agent-cli, packages/agent-framework command result integration docs
 
 ## Objective
 

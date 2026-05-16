@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import { formatTokenCount } from '@robota-sdk/agent-core';
-import type { IUsageSnapshot } from '@robota-sdk/agent-sdk';
+import type { IUsageSnapshot } from '@robota-sdk/agent-framework';
 
 const TOKEN_COMPACT_THRESHOLD = 1000;
 

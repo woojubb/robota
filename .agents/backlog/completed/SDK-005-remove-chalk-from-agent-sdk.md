@@ -4,7 +4,7 @@ status: done
 created: 2026-05-15
 priority: low
 urgency: later
-area: packages/agent-sdk, packages/agent-cli
+area: packages/agent-framework, packages/agent-cli
 ---
 
 ## Problem
@@ -32,7 +32,7 @@ regardless of whether a TTY is present.
 ## Test Plan
 
 - `chalk` absent from `agent-sdk/package.json`
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - `pnpm test` passes for `agent-sdk`
 - Permission prompt output is still readable in CLI (visual regression check)
 - `pnpm typecheck` clean

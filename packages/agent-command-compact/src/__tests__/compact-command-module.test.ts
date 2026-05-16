@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-sdk';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
+import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createCompactCommandModule } from '../compact-command-module.js';
 
 type TContextWindowState = ReturnType<ICommandHostContext['getContextState']>;

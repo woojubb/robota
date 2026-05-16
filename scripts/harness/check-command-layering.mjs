@@ -63,7 +63,7 @@ const CLI_FORBIDDEN_PATTERNS = [
     type: 'cli-agent-sessions-import',
     pattern: /from\s+['"]@robota-sdk\/agent-sessions['"]/,
     detail:
-      'agent-cli must not import @robota-sdk/agent-sessions; use SDK-owned session persistence APIs.',
+      'agent-cli must not import @robota-sdk/agent-session; use SDK-owned session persistence APIs.',
   },
 ];
 
@@ -172,7 +172,7 @@ async function findCliCommandShimSurfaceFindings(root) {
       file,
       type: 'cli-command-shim-surface',
       detail:
-        'agent-cli must not expose command infrastructure under src/commands; import SDK-owned command APIs from @robota-sdk/agent-sdk.',
+        'agent-cli must not expose command infrastructure under src/commands; import SDK-owned command APIs from @robota-sdk/agent-framework.',
     });
   }
   return findings;
@@ -189,7 +189,7 @@ function findSdkPackageDependencyFindings(packageJson) {
   return Object.keys(dependencies)
     .filter((name) => name.startsWith('@robota-sdk/agent-command-'))
     .map((name) => ({
-      file: 'packages/agent-sdk/package.json',
+      file: 'packages/agent-framework/package.json',
       type: 'sdk-command-package-dependency',
       detail: `agent-sdk must not depend on command implementation package ${name}.`,
     }));
@@ -204,11 +204,11 @@ function findCliPackageDependencyFindings(packageJson) {
   };
 
   return Object.keys(dependencies)
-    .filter((name) => name === '@robota-sdk/agent-sessions')
+    .filter((name) => name === '@robota-sdk/agent-session')
     .map((name) => ({
       file: 'packages/agent-cli/package.json',
       type: 'cli-agent-sessions-dependency',
-      detail: `agent-cli must not depend on ${name}; use @robota-sdk/agent-sdk facade APIs.`,
+      detail: `agent-cli must not depend on ${name}; use @robota-sdk/agent-framework facade APIs.`,
     }));
 }
 
@@ -247,11 +247,11 @@ export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
     );
   }
 
-  for (const file of await walkFiles(root, 'packages/agent-sdk/src')) {
+  for (const file of await walkFiles(root, 'packages/agent-framework/src')) {
     findings.push(...findPatternFindings(file, await readText(root, file), SDK_FORBIDDEN_PATTERNS));
   }
 
-  const sdkPackageJsonPath = path.join(root, 'packages/agent-sdk/package.json');
+  const sdkPackageJsonPath = path.join(root, 'packages/agent-framework/package.json');
   if (await pathExists(sdkPackageJsonPath)) {
     findings.push(
       ...findSdkPackageDependencyFindings(

@@ -4,7 +4,7 @@ status: wontfix
 created: 2026-05-15
 priority: low
 urgency: later
-area: packages/agent-sdk
+area: packages/agent-framework
 ---
 
 ## Problem
@@ -28,7 +28,7 @@ handler dispatch call path.
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - Unit test added: `system-command-executor.test.ts` verifies throwing handler → structured error
 - `pnpm test` passes
 - `pnpm typecheck` clean

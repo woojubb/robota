@@ -3,8 +3,8 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
-import { EXIT_COMMAND_DESCRIPTION } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { EXIT_COMMAND_DESCRIPTION } from '@robota-sdk/agent-framework';
 import { executeExitCommand } from './exit-command.js';
 
 export function createExitCommandEntry(): ICommand {

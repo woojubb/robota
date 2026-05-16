@@ -9,8 +9,8 @@ area: apps/agent-playground, .agents/specs
 
 ## Problem
 
-`agent-playground` has no dependency on `@robota-sdk/agent-sdk`, `@robota-sdk/agent-sessions`,
-or `@robota-sdk/agent-runtime`. Providers are instantiated directly in
+`agent-playground` has no dependency on `@robota-sdk/agent-framework`, `@robota-sdk/agent-session`,
+or `@robota-sdk/agent-executor`. Providers are instantiated directly in
 `agent-playground/src/lib/playground/robota-executor/remote-providers.ts` lines 29–30:
 
 ```ts

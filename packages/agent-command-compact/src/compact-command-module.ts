@@ -3,7 +3,7 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executeCompactCommand } from './compact-command.js';
 
 export function createCompactCommandEntry(): ICommand {

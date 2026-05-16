@@ -42,8 +42,8 @@ Implement the first slice of the Subagent Process Manager spec: a testable SDK-o
 - Created implementation branch from merged `develop`.
 - Started the core manager slice.
 - Added `SubagentManager`, subagent runtime types, and unit tests in `agent-sdk`.
-- Exported manager contracts from `@robota-sdk/agent-sdk`.
-- Updated `packages/agent-sdk/docs/SPEC.md`.
+- Exported manager contracts from `@robota-sdk/agent-framework`.
+- Updated `packages/agent-framework/docs/SPEC.md`.
 - Verified with `agent-sdk` test/typecheck/lint/build and `harness:scan:specs`.
 
 ## Decisions

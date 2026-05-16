@@ -1,6 +1,6 @@
 # Agent CLI Docs
 
-`@robota-sdk/agent-cli` is the terminal UI for Robota. It renders `InteractiveSession` state from `@robota-sdk/agent-sdk` and keeps session logic in the SDK.
+`@robota-sdk/agent-cli` is the terminal UI for Robota. It renders `InteractiveSession` state from `@robota-sdk/agent-framework` and keeps session logic in the SDK.
 
 ## Current Capabilities
 

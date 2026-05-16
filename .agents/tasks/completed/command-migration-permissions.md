@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-permissions-module
-- **Scope**: packages/agent-command-permissions, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-permissions, packages/agent-framework, packages/agent-cli
 
 ## What
 
@@ -11,7 +11,7 @@ Migrate `/permissions` into a command-module owner that consumes SDK permission 
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
 
 ## Target Owner
 

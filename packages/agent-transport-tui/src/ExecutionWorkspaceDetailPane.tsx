@@ -4,7 +4,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   TExecutionDetailRecordKind,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   formatExecutionDetailRecord,
   formatExecutionWorkspaceEntryRow,

@@ -3,8 +3,8 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
-import { SkillCommandSource } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { SkillCommandSource } from '@robota-sdk/agent-framework';
 import { executeSkillsCommand, SKILLS_COMMAND_DESCRIPTION } from './skills-command.js';
 
 export interface ISkillsCommandModuleOptions {

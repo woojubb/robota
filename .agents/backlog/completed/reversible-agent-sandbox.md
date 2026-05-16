@@ -18,7 +18,7 @@ Robota can already create edit checkpoints for file mutations, but users need st
 - `.agents/tasks/INFRA-BL-003-agent-workspace-manifest.md` tracks declarative workspace setup.
 - `.agents/tasks/INFRA-BL-004-agent-snapshot-hydration.md` tracks provider snapshot/restore.
 - `.agents/specs/self-hosting-loop-verification.md` defines checkpoint, atomic edit, verify, and recover behavior for self-hosting loops.
-- `packages/agent-sdk/src/checkpoints` already owns edit checkpoint storage and `/rewind` restore behavior.
+- `packages/agent-framework/src/checkpoints` already owns edit checkpoint storage and `/rewind` restore behavior.
 
 ## Scope
 

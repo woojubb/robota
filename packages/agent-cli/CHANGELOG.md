@@ -6,7 +6,7 @@
 
 - Add --help / -h CLI flag to print usage information and exit
   - @robota-sdk/agent-core@3.0.0-beta.63
-  - @robota-sdk/agent-sdk@3.0.0-beta.63
+  - @robota-sdk/agent-framework@3.0.0-beta.63
   - @robota-sdk/agent-command-agent@3.0.0-beta.63
   - @robota-sdk/agent-command-background@3.0.0-beta.63
   - @robota-sdk/agent-command-compact@3.0.0-beta.63
@@ -51,7 +51,7 @@
   - @robota-sdk/agent-provider-gemma@3.0.0-beta.62
   - @robota-sdk/agent-provider-openai@3.0.0-beta.62
   - @robota-sdk/agent-provider-qwen@3.0.0-beta.62
-  - @robota-sdk/agent-sdk@3.0.0-beta.62
+  - @robota-sdk/agent-framework@3.0.0-beta.62
   - @robota-sdk/agent-command-agent@3.0.0-beta.62
   - @robota-sdk/agent-command-background@3.0.0-beta.62
   - @robota-sdk/agent-command-compact@3.0.0-beta.62
@@ -91,7 +91,7 @@
 - Updated dependencies [18fcc5b]
 - Updated dependencies [d97bdf2]
 - Updated dependencies [3bde012]
-  - @robota-sdk/agent-sdk@3.0.0-beta.61
+  - @robota-sdk/agent-framework@3.0.0-beta.61
   - @robota-sdk/agent-provider-deepseek@3.0.0-beta.61
   - @robota-sdk/agent-core@3.0.0-beta.61
   - @robota-sdk/agent-command-session@3.0.0-beta.61
@@ -131,10 +131,10 @@
 - Updated dependencies [41ae788]
 - Updated dependencies [3d6bdf6]
 - Updated dependencies [7439391]
-  - @robota-sdk/agent-sdk@3.0.0-beta.60
+  - @robota-sdk/agent-framework@3.0.0-beta.60
   - @robota-sdk/agent-provider-gemini@3.0.0-beta.60
   - @robota-sdk/agent-core@3.0.0-beta.60
-  - @robota-sdk/agent-sessions@3.0.0-beta.60
+  - @robota-sdk/agent-session@3.0.0-beta.60
   - @robota-sdk/agent-provider-openai@3.0.0-beta.60
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.60
   - @robota-sdk/agent-provider-gemma@3.0.0-beta.60
@@ -162,11 +162,11 @@
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.59
+- @robota-sdk/agent-framework@3.0.0-beta.59
 - @robota-sdk/agent-command-agent@3.0.0-beta.59
 - @robota-sdk/agent-transport-headless@3.0.0-beta.59
 - @robota-sdk/agent-core@3.0.0-beta.59
-- @robota-sdk/agent-sessions@3.0.0-beta.59
+- @robota-sdk/agent-session@3.0.0-beta.59
 - @robota-sdk/agent-provider-anthropic@3.0.0-beta.59
 - @robota-sdk/agent-provider-openai@3.0.0-beta.59
 - @robota-sdk/agent-provider-gemma@3.0.0-beta.59
@@ -184,8 +184,8 @@
   - @robota-sdk/agent-provider-gemini@3.0.0-beta.58
   - @robota-sdk/agent-provider-gemma@3.0.0-beta.58
   - @robota-sdk/agent-provider-qwen@3.0.0-beta.58
-  - @robota-sdk/agent-sdk@3.0.0-beta.58
-  - @robota-sdk/agent-sessions@3.0.0-beta.58
+  - @robota-sdk/agent-framework@3.0.0-beta.58
+  - @robota-sdk/agent-session@3.0.0-beta.58
   - @robota-sdk/agent-transport-headless@3.0.0-beta.58
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.58
   - @robota-sdk/agent-provider-openai@3.0.0-beta.58
@@ -221,8 +221,8 @@
 - Updated dependencies [822a78b]
 - Updated dependencies [9817f99]
   - @robota-sdk/agent-core@3.0.0-beta.57
-  - @robota-sdk/agent-sessions@3.0.0-beta.57
-  - @robota-sdk/agent-sdk@3.0.0-beta.57
+  - @robota-sdk/agent-session@3.0.0-beta.57
+  - @robota-sdk/agent-framework@3.0.0-beta.57
   - @robota-sdk/agent-provider-gemini@3.0.0-beta.57
   - @robota-sdk/agent-provider-qwen@3.0.0-beta.57
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.57
@@ -240,8 +240,8 @@
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.56
   - @robota-sdk/agent-provider-gemma@3.0.0-beta.56
   - @robota-sdk/agent-provider-openai@3.0.0-beta.56
-  - @robota-sdk/agent-sdk@3.0.0-beta.56
-  - @robota-sdk/agent-sessions@3.0.0-beta.56
+  - @robota-sdk/agent-framework@3.0.0-beta.56
+  - @robota-sdk/agent-session@3.0.0-beta.56
   - @robota-sdk/agent-command-agent@3.0.0-beta.56
   - @robota-sdk/agent-transport-headless@3.0.0-beta.56
 
@@ -257,8 +257,8 @@
 
 - Updated dependencies [38a72bf]
   - @robota-sdk/agent-core@3.0.0-beta.55
-  - @robota-sdk/agent-sdk@3.0.0-beta.55
-  - @robota-sdk/agent-sessions@3.0.0-beta.55
+  - @robota-sdk/agent-framework@3.0.0-beta.55
+  - @robota-sdk/agent-session@3.0.0-beta.55
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.55
   - @robota-sdk/agent-transport-headless@3.0.0-beta.55
 
@@ -268,8 +268,8 @@
 
 - fix: resolve all typecheck errors across packages
 - Updated dependencies
-  - @robota-sdk/agent-sessions@3.0.0-beta.54
-  - @robota-sdk/agent-sdk@3.0.0-beta.54
+  - @robota-sdk/agent-session@3.0.0-beta.54
+  - @robota-sdk/agent-framework@3.0.0-beta.54
   - @robota-sdk/agent-core@3.0.0-beta.54
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.54
   - @robota-sdk/agent-transport-headless@3.0.0-beta.54
@@ -283,8 +283,8 @@
 - Updated dependencies
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.53
-  - @robota-sdk/agent-sdk@3.0.0-beta.53
-  - @robota-sdk/agent-sessions@3.0.0-beta.53
+  - @robota-sdk/agent-framework@3.0.0-beta.53
+  - @robota-sdk/agent-session@3.0.0-beta.53
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.53
   - @robota-sdk/agent-transport-headless@3.0.0-beta.53
 
@@ -294,8 +294,8 @@
 
 - fix: paste at cursor position + cursor moves to end of pasted label + cursorHint prop
   - @robota-sdk/agent-core@3.0.0-beta.52
-  - @robota-sdk/agent-sessions@3.0.0-beta.52
-  - @robota-sdk/agent-sdk@3.0.0-beta.52
+  - @robota-sdk/agent-session@3.0.0-beta.52
+  - @robota-sdk/agent-framework@3.0.0-beta.52
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.52
   - @robota-sdk/agent-transport-headless@3.0.0-beta.52
 
@@ -305,8 +305,8 @@
 
 - feat: debounce streaming text rendering (300ms) to reduce CPU load
   - @robota-sdk/agent-core@3.0.0-beta.51
-  - @robota-sdk/agent-sessions@3.0.0-beta.51
-  - @robota-sdk/agent-sdk@3.0.0-beta.51
+  - @robota-sdk/agent-session@3.0.0-beta.51
+  - @robota-sdk/agent-framework@3.0.0-beta.51
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.51
   - @robota-sdk/agent-transport-headless@3.0.0-beta.51
 
@@ -316,10 +316,10 @@
 
 - fix: reinsert repository/homepage/bugs in correct field order
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.50
+  - @robota-sdk/agent-framework@3.0.0-beta.50
   - @robota-sdk/agent-transport-headless@3.0.0-beta.50
   - @robota-sdk/agent-core@3.0.0-beta.50
-  - @robota-sdk/agent-sessions@3.0.0-beta.50
+  - @robota-sdk/agent-session@3.0.0-beta.50
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.50
 
 ## 3.0.0-beta.49
@@ -328,10 +328,10 @@
 
 - fix: add repository, homepage, bugs metadata to all publishable packages
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.49
+  - @robota-sdk/agent-framework@3.0.0-beta.49
   - @robota-sdk/agent-transport-headless@3.0.0-beta.49
   - @robota-sdk/agent-core@3.0.0-beta.49
-  - @robota-sdk/agent-sessions@3.0.0-beta.49
+  - @robota-sdk/agent-session@3.0.0-beta.49
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.49
 
 ## 3.0.0-beta.48
@@ -344,10 +344,10 @@
   - MessageList hides tool-start/tool-end entries (not rendered as System:)
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.48
+  - @robota-sdk/agent-framework@3.0.0-beta.48
   - @robota-sdk/agent-transport-headless@3.0.0-beta.48
   - @robota-sdk/agent-core@3.0.0-beta.48
-  - @robota-sdk/agent-sessions@3.0.0-beta.48
+  - @robota-sdk/agent-session@3.0.0-beta.48
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.48
 
 ## 3.0.0-beta.47
@@ -365,10 +365,10 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.47
+  - @robota-sdk/agent-framework@3.0.0-beta.47
   - @robota-sdk/agent-transport-headless@3.0.0-beta.47
   - @robota-sdk/agent-core@3.0.0-beta.47
-  - @robota-sdk/agent-sessions@3.0.0-beta.47
+  - @robota-sdk/agent-session@3.0.0-beta.47
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.47
 
 ## 3.0.0-beta.46
@@ -389,8 +389,8 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sessions@3.0.0-beta.46
-  - @robota-sdk/agent-sdk@3.0.0-beta.46
+  - @robota-sdk/agent-session@3.0.0-beta.46
+  - @robota-sdk/agent-framework@3.0.0-beta.46
   - @robota-sdk/agent-core@3.0.0-beta.46
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.46
 
@@ -399,7 +399,7 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.45
+  - @robota-sdk/agent-framework@3.0.0-beta.45
   - @robota-sdk/agent-core@3.0.0-beta.45
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.45
 
@@ -417,5 +417,5 @@
 
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.0-beta.44
-  - @robota-sdk/agent-sdk@3.0.0-beta.44
+  - @robota-sdk/agent-framework@3.0.0-beta.44
   - @robota-sdk/agent-provider-anthropic@3.0.0-beta.44

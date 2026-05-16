@@ -17,8 +17,8 @@ depends_on: ARCH-CONF-006
 ### 1. agent-sdk React-free 검사 (신규)
 
 - 파일: `scripts/harness/check-sdk-react-free.mjs` (신규 생성)
-- 검사: `packages/agent-sdk/src/`에서 React import 없음
-- 트리거: `pnpm harness:scan` 또는 `pnpm harness:verify -- --scope packages/agent-sdk`
+- 검사: `packages/agent-framework/src/`에서 React import 없음
+- 트리거: `pnpm harness:scan` 또는 `pnpm harness:verify -- --scope packages/agent-framework`
 - 위반 시: error + 개선 안내
 
 ### 2. agent-core zero-deps 검사 (신규 또는 기존 확장)

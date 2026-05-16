@@ -35,7 +35,7 @@ Recommended sequence:
 1. Search for imports from `packages/agent-cli/src/commands/*` and
    `@robota-sdk/agent-cli/dist/commands/*`.
 2. Update CLI internals and tests to import SDK-owned command infrastructure from
-   `@robota-sdk/agent-sdk`.
+   `@robota-sdk/agent-framework`.
 3. Decide `skill-executor.ts` ownership:
    - keep only terminal-host-specific glue in `agent-cli`; or
    - move reusable skill prompt execution into the SDK command/skill API.
@@ -49,7 +49,7 @@ The beta is not required to preserve the CLI command shim surface.
 - [x] No production code imports command infrastructure through `packages/agent-cli/src/commands/*`
       or `@robota-sdk/agent-cli`.
 - [x] `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and command contract types
-      are imported from `@robota-sdk/agent-sdk` or the owning package.
+      are imported from `@robota-sdk/agent-framework` or the owning package.
 - [x] `skill-executor.ts` is either moved to an owning SDK command/skill API or explicitly kept as a
       CLI-private host adapter with no public-looking compatibility barrel.
 - [x] Re-export-only tests are deleted or replaced with owner-package tests.
@@ -62,7 +62,7 @@ Completed in `refactor/cli-command-shims-retirement`.
 
 - Removed the `agent-cli/src/commands/` compatibility surface.
 - Updated CLI UI code to import SDK-owned `CommandRegistry` and `ICommand` directly from
-  `@robota-sdk/agent-sdk`.
+  `@robota-sdk/agent-framework`.
 - Moved command registry, built-in source, skill source, and skill execution behavior tests to
   `agent-sdk`.
 - Added a command-layering harness guard that fails if new CLI command shim files are introduced.

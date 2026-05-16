@@ -11,7 +11,7 @@
 - Does not redefine core agent contracts. `Robota`, tool interfaces (`IToolSchema`, `IToolResult`, `TToolParameters`), and event interfaces (`IEventService`, `IAIProvider`) are imported from `@robota-sdk/agent-core`. `FunctionTool` is imported from `@robota-sdk/agent-tools`. `RelayMcpTool` is imported from `@robota-sdk/agent-tool-mcp`. `bindWithOwnerPath` is imported from `@robota-sdk/agent-event-service`.
 - Keeps team coordination policies explicit and separate from provider integration.
 - Does not own AI provider implementations; provider and model selection is resolved through `@robota-sdk/agent-core` infrastructure.
-- Does not manage session persistence or conversation history; those concerns belong to `@robota-sdk/agent-sessions`.
+- Does not manage session persistence or conversation history; those concerns belong to `@robota-sdk/agent-session`.
 - Template definitions are static JSON; no runtime template creation or persistence API is exposed.
 - Implements relay tool behavior (delegating work to child agents) using the tool contract from
   `@robota-sdk/agent-tools` and MCP relay support from `@robota-sdk/agent-tool-mcp`. Allowed

@@ -3,8 +3,8 @@ import type {
   ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
-} from '@robota-sdk/agent-sdk';
-import { testProviderProfileCommand } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
 import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
 import { createSetupFlow, createProviderSetupInteraction } from './provider-command-setup.js';
 import { buildProviderSwitch } from './provider-command-profile-operations.js';

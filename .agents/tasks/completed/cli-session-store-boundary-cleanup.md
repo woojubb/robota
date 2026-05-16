@@ -3,11 +3,11 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: fix/cli-session-store-boundary
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-sessions, scripts/harness
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-session, scripts/harness
 
 ## Objective
 
-Remove the direct `agent-cli` dependency on `@robota-sdk/agent-sessions` while preserving project-local
+Remove the direct `agent-cli` dependency on `@robota-sdk/agent-session` while preserving project-local
 session persistence, continue/resume/fork flows, and the saved-session picker.
 
 ## Plan
@@ -26,7 +26,7 @@ session persistence, continue/resume/fork flows, and the saved-session picker.
 ### 2026-05-05
 
 - Merged PR #204, refreshed `develop`, and created `fix/cli-session-store-boundary`.
-- Confirmed direct CLI imports from `@robota-sdk/agent-sessions` in `cli.ts`, `render.tsx`,
+- Confirmed direct CLI imports from `@robota-sdk/agent-session` in `cli.ts`, `render.tsx`,
   `App.tsx`, `SessionPicker.tsx`, and `useInteractiveSession.ts`.
 - Added SDK-owned project session store and resumable-session helpers.
 - Removed the direct CLI `agent-sessions` package dependency and migrated resume/session picker flows

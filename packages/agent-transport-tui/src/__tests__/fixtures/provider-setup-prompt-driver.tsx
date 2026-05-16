@@ -2,7 +2,7 @@ import React from 'react';
 import { writeFileSync } from 'node:fs';
 import { render, useApp } from 'ink';
 import InteractivePrompt from '../../InteractivePrompt.js';
-import type { TCommandInteractionPrompt as TInteractivePrompt } from '@robota-sdk/agent-sdk';
+import type { TCommandInteractionPrompt as TInteractivePrompt } from '@robota-sdk/agent-framework';
 import {
   createProviderSetupFlow,
   formatProviderSetupHelpLinks,

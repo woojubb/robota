@@ -7,8 +7,8 @@ Owns the transport contract interfaces for the Robota SDK. This package contains
 ## Boundaries
 
 - **Contains only type contracts and interfaces — no implementation, no classes, no runtime logic.**
-- Depends on `@robota-sdk/agent-sessions` for `ISession` (the minimal session abstraction).
-- Does not depend on `@robota-sdk/agent-sdk` or any implementation package.
+- Depends on `@robota-sdk/agent-session` for `ISession` (the minimal session abstraction).
+- Does not depend on `@robota-sdk/agent-framework` or any implementation package.
 - Implementation packages (`agent-transport-ws`, `agent-transport-http`, etc.) depend on this package, not on `agent-sdk`, for interface types.
 - `agent-sdk` depends on this package to consume the transport contracts it wires.
 
@@ -48,9 +48,9 @@ Types owned by this package (SSOT):
 
 Types consumed from other packages (not owned here):
 
-| Type       | Source                       |
-| ---------- | ---------------------------- |
-| `ISession` | `@robota-sdk/agent-sessions` |
+| Type       | Source                      |
+| ---------- | --------------------------- |
+| `ISession` | `@robota-sdk/agent-session` |
 
 ## Public API Surface
 

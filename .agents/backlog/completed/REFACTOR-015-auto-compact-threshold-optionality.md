@@ -4,12 +4,12 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk
+area: packages/agent-framework
 ---
 
 ## Problem
 
-`packages/agent-sdk/src/command-api/host-context.ts`에서 같은 동작이 두 인터페이스에서 다른 optionality를 가진다:
+`packages/agent-framework/src/command-api/host-context.ts`에서 같은 동작이 두 인터페이스에서 다른 optionality를 가진다:
 
 - `ICommandSessionRuntime` (line 64): `getAutoCompactThreshold?(): number | false` (optional)
 - `ICommandHostContext` (line 79): `getAutoCompactThreshold(): TAutoCompactThreshold` (required)
@@ -29,7 +29,7 @@ Source: COMBINED-015 (SD-011)
 ## Test Plan
 
 - `pnpm typecheck` — 전체 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
 
 ## User Execution Test Scenarios
 

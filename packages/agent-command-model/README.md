@@ -6,7 +6,7 @@ Composable `/model` command module for Robota sessions.
 import { createModelCommandModule } from '@robota-sdk/agent-command-model';
 ```
 
-The module consumes `@robota-sdk/agent-sdk` command contracts and model command common APIs, then
+The module consumes `@robota-sdk/agent-framework` command contracts and model command common APIs, then
 returns typed `model-change-requested` effects. Hosts apply those effects through their own
 settings/restart adapters.
 

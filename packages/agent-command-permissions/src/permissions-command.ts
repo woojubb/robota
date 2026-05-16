@@ -1,4 +1,4 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 import {
   formatCommandPermissionsMessage,
   formatInvalidPermissionModeMessage,
@@ -6,7 +6,7 @@ import {
   parsePermissionModeArgument,
   readCommandPermissionsState,
   writeCommandPermissionMode,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 export function executePermissionsCommand(
   context: ICommandHostContext,

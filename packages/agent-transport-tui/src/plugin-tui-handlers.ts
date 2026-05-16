@@ -4,7 +4,7 @@
  */
 
 import type { IMenuSelectItem } from './MenuSelect.js';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-framework';
 
 interface IConfirmState {
   message: string;

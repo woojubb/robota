@@ -6,7 +6,7 @@ import {
   InteractiveSession,
   SystemCommandExecutor,
   createCommandPendingMemoryStore,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
 
 const TMP_BASE = join(tmpdir(), `robota-command-memory-${process.pid}`);

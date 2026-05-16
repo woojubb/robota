@@ -5,7 +5,7 @@ import type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
   ISystemCommand as TSystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executeProviderCommand } from './provider-command-execution.js';
 export type { IProviderCommandModuleOptions, IProviderCommandSettingsAdapter };
 

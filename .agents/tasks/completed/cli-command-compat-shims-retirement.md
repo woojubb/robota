@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: refactor/cli-command-shims-retirement
-- **Scope**: packages/agent-cli, packages/agent-sdk, scripts/harness
+- **Scope**: packages/agent-cli, packages/agent-framework, scripts/harness
 
 ## Objective
 
@@ -33,7 +33,7 @@ Remove public-looking CLI command compatibility shims so command infrastructure 
 ## Decisions
 
 - `skill-executor.ts` ownership is SDK-owned. The CLI should invoke skill execution through
-  `InteractiveSession` and import common command APIs from `@robota-sdk/agent-sdk`.
+  `InteractiveSession` and import common command APIs from `@robota-sdk/agent-framework`.
 
 ## Test Plan
 

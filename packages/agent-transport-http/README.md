@@ -12,7 +12,7 @@ pnpm add @robota-sdk/agent-transport-http
 
 ```typescript
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import { Hono } from 'hono';
 
 const app = new Hono();
@@ -57,11 +57,11 @@ The `sessionFactory` callback receives the Hono request context and returns an `
 
 ## ITransportAdapter
 
-The HTTP transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+The HTTP transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`:
 
 ```typescript
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
-import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-framework';
 
 const transport: ITransportAdapter = createHttpTransport();
 
@@ -74,5 +74,5 @@ const app = transport.getApp();
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` — `InteractiveSession`
+- `@robota-sdk/agent-framework` — `InteractiveSession`
 - `hono` — HTTP framework

@@ -4,7 +4,7 @@ status: done
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-runtime, packages/agent-cli
+area: packages/agent-executor, packages/agent-cli
 ---
 
 ## Problem
@@ -58,7 +58,7 @@ Add `ScheduledTaskRunner` to `agent-runtime/docs/SPEC.md`:
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-runtime build` passes
+- `pnpm --filter @robota-sdk/agent-executor build` passes
 - `pnpm --filter @robota-sdk/agent-cli build` passes (with moved adapter)
 - `pnpm test` passes for both packages
 - `pnpm typecheck` clean

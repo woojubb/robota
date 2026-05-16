@@ -6,7 +6,7 @@
  */
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   IConfigurableTransport,
   ITransportConfig,

@@ -6,8 +6,8 @@ Migrate `/help` from SDK embedded system-command logic into a command-module own
 
 ## Current Owner
 
-- Metadata/execution: `packages/agent-sdk/src/commands/system-command.ts`
-- Palette derivation: `packages/agent-sdk/src/commands/builtin-source.ts`
+- Metadata/execution: `packages/agent-framework/src/commands/system-command.ts`
+- Palette derivation: `packages/agent-framework/src/commands/builtin-source.ts`
 
 ## Target Owner
 

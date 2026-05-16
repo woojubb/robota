@@ -4,13 +4,13 @@ status: done
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk, packages/agent-transport-tui
+area: packages/agent-framework, packages/agent-transport-tui
 ---
 
 ## Problem
 
 `ITerminalOutput` and `ISpinner` are owned by `agent-core` but are imported from
-`@robota-sdk/agent-sessions` by three files:
+`@robota-sdk/agent-session` by three files:
 
 - `agent-sdk/src/types.ts` lines 13–14 (comment: "Terminal types from agent-sessions")
 - `agent-sdk/src/subagents/in-process-subagent-runner.ts`
@@ -30,13 +30,13 @@ line 10. `agent-transport-tui/package.json` includes `agent-sessions`.
    `@robota-sdk/agent-core`
 2. Update `agent-sdk/src/subagents/in-process-subagent-runner.ts` — same redirect
 3. Update `agent-transport-tui/src/InkTerminal.ts` — import from `@robota-sdk/agent-core`
-4. Verify `agent-transport-tui/package.json` — remove `@robota-sdk/agent-sessions` if no other
+4. Verify `agent-transport-tui/package.json` — remove `@robota-sdk/agent-session` if no other
    usage in the package
-5. Add harness check: `agent-transport-tui` must not depend on `@robota-sdk/agent-sessions`
+5. Add harness check: `agent-transport-tui` must not depend on `@robota-sdk/agent-session`
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - `pnpm --filter @robota-sdk/agent-transport-tui build` passes
 - `pnpm typecheck` clean
 - `pnpm test` passes

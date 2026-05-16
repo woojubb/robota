@@ -17,7 +17,7 @@ import {
   handleInstalledActionSelect,
 } from './plugin-tui-handlers.js';
 import type { IMenuSelectItem } from './MenuSelect.js';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-framework';
 import { usePluginScreenData } from './hooks/usePluginScreenData.js';
 
 type TScreenId =

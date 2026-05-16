@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-reload-plugins-module
-- **Scope**: packages/agent-command-plugin, packages/agent-cli, packages/agent-sdk
+- **Scope**: packages/agent-command-plugin, packages/agent-cli, packages/agent-framework
 
 ## Objective
 

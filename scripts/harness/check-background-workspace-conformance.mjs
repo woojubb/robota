@@ -13,37 +13,37 @@ const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs']);
 
 const REQUIRED_FILES = [
   {
-    file: 'packages/agent-runtime/src/background-tasks/background-task-manager.ts',
+    file: 'packages/agent-executor/src/background-tasks/background-task-manager.ts',
     pattern: /export\s+class\s+BackgroundTaskManager\b/,
     type: 'missing-runtime-background-manager',
-    detail: 'agent-runtime must own BackgroundTaskManager lifecycle state.',
+    detail: 'agent-executor must own BackgroundTaskManager lifecycle state.',
   },
   {
-    file: 'packages/agent-sdk/src/background-tasks/execution-workspace-projection.ts',
+    file: 'packages/agent-framework/src/background-tasks/execution-workspace-projection.ts',
     pattern: /export\s+function\s+createExecutionWorkspaceSnapshot\b/,
     type: 'missing-sdk-execution-workspace-projection',
-    detail: 'agent-sdk must own execution workspace snapshot projection.',
+    detail: 'agent-framework must own execution workspace snapshot projection.',
   },
   {
-    file: 'packages/agent-cli/src/ui/hooks/useInteractiveSession.ts',
+    file: 'packages/agent-transport-tui/src/hooks/useInteractiveSession.ts',
     pattern: /getExecutionWorkspaceSnapshot/,
     type: 'missing-cli-sdk-snapshot-consumption',
     detail: 'agent-cli must consume SDK execution workspace snapshots for background UI.',
   },
   {
-    file: 'packages/agent-cli/src/ui/hooks/useInteractiveSession.ts',
+    file: 'packages/agent-transport-tui/src/hooks/useInteractiveSession.ts',
     pattern: /execution_workspace_event/,
     type: 'missing-cli-sdk-workspace-event-consumption',
     detail: 'agent-cli must consume SDK execution workspace events instead of raw runtime events.',
   },
   {
-    file: 'packages/agent-cli/src/ui/hooks/useInteractiveSession.ts',
+    file: 'packages/agent-transport-tui/src/hooks/useInteractiveSession.ts',
     pattern: /readExecutionWorkspaceDetail/,
     type: 'missing-cli-sdk-detail-reader',
     detail: 'agent-cli must read detail panes through SDK execution workspace APIs.',
   },
   {
-    file: 'packages/agent-cli/src/ui/tui-state-manager.ts',
+    file: 'packages/agent-transport-tui/src/tui-state-manager.ts',
     pattern: /syncExecutionWorkspaceSnapshot/,
     type: 'missing-cli-workspace-snapshot-state-sync',
     detail: 'agent-cli TUI state must sync SDK snapshots instead of deriving lifecycle state.',
@@ -53,7 +53,7 @@ const REQUIRED_FILES = [
     pattern: /Background workspace\/read model\s+\|\s+`agent-sdk`\s+\+\s+`agent-runtime`/,
     type: 'missing-architecture-map-workspace-owner',
     detail:
-      'Architecture map must keep background workspace ownership in agent-sdk + agent-runtime.',
+      'Architecture map must keep background workspace ownership in agent-framework + agent-executor.',
   },
   {
     file: 'packages/agent-cli/docs/SPEC.md',
@@ -69,7 +69,7 @@ const CLI_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-agent-runtime-import',
     pattern: /from\s+['"]@robota-sdk\/agent-runtime(?:\/[^'"]*)?['"]/,
-    detail: 'agent-cli must not import agent-runtime directly; consume SDK workspace projections.',
+    detail: 'agent-cli must not import agent-executor directly; consume SDK workspace projections.',
   },
   {
     type: 'cli-background-registry-owner',

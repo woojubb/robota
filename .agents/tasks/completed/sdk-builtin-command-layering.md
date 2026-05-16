@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/sdk-builtin-command-layering
-- **Scope**: packages/agent-sdk, packages/agent-cli, .agents/backlog
+- **Scope**: packages/agent-framework, packages/agent-cli, .agents/backlog
 
 ## Objective
 
@@ -25,7 +25,7 @@ Move built-in slash command ownership into injected command modules so command m
 - Red tests: add SDK provider command module tests and CLI generic slash routing tests before implementation so provider setup/switch behavior must pass through generic command interactions and effects.
 - Targeted package verification: run SDK and CLI typecheck, full package test suites, and package lint because this change touches public command contracts, SDK exports, and TUI routing.
 - Workspace verification: run root `pnpm build`, root `pnpm typecheck`, root `pnpm lint`, and `git diff --check` to catch cross-package type/export drift, monorepo build ordering problems, lint errors, and whitespace issues.
-- Harness verification: run `pnpm harness:verify -- --scope packages/agent-sdk --scope packages/agent-cli --skip-build` after the root build so repository task-plan checks and scoped test/lint/typecheck checks validate the final change.
+- Harness verification: run `pnpm harness:verify -- --scope packages/agent-framework --scope packages/agent-cli --skip-build` after the root build so repository task-plan checks and scoped test/lint/typecheck checks validate the final change.
 
 ## Progress
 
@@ -40,7 +40,7 @@ Move built-in slash command ownership into injected command modules so command m
 - Removed unused provider definition propagation from `renderApp`, `App`, `useInteractiveSession`, and `useSideEffects`.
 - Verified SDK/CLI package tests, typechecks, package lint, root build, root typecheck, root lint, and `git diff --check`.
 - First harness verification attempt failed on this task document because it lacked a `## Test Plan` section; added the test plan before rerunning.
-- Reran `pnpm harness:verify -- --scope packages/agent-sdk --scope packages/agent-cli --skip-build`; it passed for SDK, CLI, and dependent typecheck scopes.
+- Reran `pnpm harness:verify -- --scope packages/agent-framework --scope packages/agent-cli --skip-build`; it passed for SDK, CLI, and dependent typecheck scopes.
 
 ## Decisions
 

@@ -192,11 +192,11 @@ The implementation must start with pure state-manager tests that prove the visib
 
 ```bash
 pnpm --filter @robota-sdk/agent-cli test
-pnpm --filter @robota-sdk/agent-sdk test
-pnpm --filter @robota-sdk/agent-runtime test
+pnpm --filter @robota-sdk/agent-framework test
+pnpm --filter @robota-sdk/agent-executor test
 pnpm --filter @robota-sdk/agent-cli typecheck
-pnpm --filter @robota-sdk/agent-sdk typecheck
-pnpm --filter @robota-sdk/agent-runtime typecheck
+pnpm --filter @robota-sdk/agent-framework typecheck
+pnpm --filter @robota-sdk/agent-executor typecheck
 pnpm harness:scan
 ```
 

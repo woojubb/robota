@@ -4,12 +4,12 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sessions
+area: packages/agent-session
 ---
 
 ## Problem
 
-`packages/agent-sessions/src/session.ts:167`에서 `IAgentConfig` 생성 시 `name: 'robota-cli'`를 하드코딩한다:
+`packages/agent-session/src/session.ts:167`에서 `IAgentConfig` 생성 시 `name: 'robota-cli'`를 하드코딩한다:
 
 ```ts
 const agentConfig: IAgentConfig = {
@@ -33,8 +33,8 @@ Source: COMBINED-013 (SD-009)
 ## Test Plan
 
 - `pnpm typecheck` — 전체 통과
-- `grep -r "'robota-cli'" packages/agent-sessions/src --include="*.ts"` — 결과 없음
-- `pnpm --filter @robota-sdk/agent-sessions test` — 통과
+- `grep -r "'robota-cli'" packages/agent-session/src --include="*.ts"` — 결과 없음
+- `pnpm --filter @robota-sdk/agent-session test` — 통과
 
 ## User Execution Test Scenarios
 

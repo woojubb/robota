@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/agent-followups-implementation
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-sessions, packages/agent-runtime, .agents
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-session, packages/agent-executor, .agents
 
 ## Objective
 

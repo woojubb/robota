@@ -44,17 +44,17 @@ agent-runtime
 
 ```
 이동 전: packages/agent-cli/src/background/managed-shell-process-runner.ts
-이동 후: packages/agent-runtime/src/background-tasks/runners/managed-shell-process-runner.ts
+이동 후: packages/agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts
 ```
 
 - `agent-runtime/index.ts`에서 `createManagedShellProcessRunner` export
-- `agent-cli/cli.ts`는 `@robota-sdk/agent-runtime`에서 import로 변경
+- `agent-cli/cli.ts`는 `@robota-sdk/agent-executor`에서 import로 변경
 - `agent-cli/src/background/` 디렉터리 삭제
 
 ### B. `ScheduledTaskRunner` → `agent-runtime` 신규 추가
 
 ```
-신규: packages/agent-runtime/src/background-tasks/runners/scheduled-task-runner.ts
+신규: packages/agent-executor/src/background-tasks/runners/scheduled-task-runner.ts
 ```
 
 - cron 표현식 파싱 및 스케줄 관리 (라이브러리 선정 필요 → 리서치 R-1)

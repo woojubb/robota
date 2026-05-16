@@ -3,7 +3,7 @@
 Status: completed
 Created: 2026-05-02
 Branch: feat/cli-command-transcript-collapse
-Scope: packages/agent-cli, packages/agent-sdk
+Scope: packages/agent-cli, packages/agent-framework
 
 ## Priority
 
@@ -73,4 +73,4 @@ Use documentation and product behavior observations only; do not copy source cod
 ## Verification
 
 - `pnpm --filter @robota-sdk/agent-cli test -- src/ui/__tests__/command-output-summary.test.ts src/ui/__tests__/message-list-rendering.test.tsx`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/interactive/__tests__/interactive-session-streaming.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/interactive/__tests__/interactive-session-streaming.test.ts`

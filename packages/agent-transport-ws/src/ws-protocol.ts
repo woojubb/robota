@@ -12,7 +12,7 @@ import type {
   IToolState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 
