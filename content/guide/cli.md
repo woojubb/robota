@@ -142,7 +142,7 @@ The CLI contains no session management logic beyond this hook. The old `useSessi
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-The available command list is built from composed command modules such as `agent-command-skills`, `agent-command-help`, `agent-command-agent`, `agent-command-provider`, `agent-command-plugin`, and `agent-command-exit`. The CLI renders this list but does not own the command definitions.
+The available command list is built from the consolidated `@robota-sdk/agent-command` package, which bundles all 20 command modules. The CLI renders this list but does not own the command definitions.
 
 | Command                   | Description                             |
 | ------------------------- | --------------------------------------- |
