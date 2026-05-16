@@ -6,8 +6,9 @@
  * in `known_marketplaces.json`.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import {
   readRegistry,
   writeRegistry,
@@ -39,12 +40,14 @@ export class MarketplaceClient {
   private readonly exec: TExecFn;
   private readonly marketplacesDir: string;
   private readonly registryPath: string;
+  private readonly fs: IFileSystem;
 
-  constructor(options: IMarketplaceClientOptions) {
+  constructor(options: IMarketplaceClientOptions & { fs?: IFileSystem }) {
     this.pluginsDir = options.pluginsDir;
     this.exec = options.exec;
     this.marketplacesDir = join(this.pluginsDir, 'marketplaces');
     this.registryPath = join(this.pluginsDir, 'known_marketplaces.json');
+    this.fs = options.fs ?? new NodeFileSystem();
   }
 
   /**
@@ -61,13 +64,13 @@ export class MarketplaceClient {
     const tempName = 'temp-' + Date.now().toString(36);
     const tempDir = join(this.marketplacesDir, tempName);
 
-    mkdirSync(this.marketplacesDir, { recursive: true });
+    this.fs.mkdirSync(this.marketplacesDir, { recursive: true });
 
     if (source.type === 'local') {
-      if (!existsSync(source.path)) {
+      if (!this.fs.existsSync(source.path)) {
         throw new Error(`Local marketplace path does not exist: ${source.path}`);
       }
-      cpSync(source.path, tempDir, { recursive: true });
+      this.fs.cpSync(source.path, tempDir, { recursive: true });
     } else {
       const cloneUrl = this.resolveCloneUrl(source);
       const command = `git clone --depth 1 ${cloneUrl} ${tempDir}`;
@@ -80,8 +83,8 @@ export class MarketplaceClient {
     }
 
     const manifestPath = join(tempDir, '.claude-plugin', 'marketplace.json');
-    if (!existsSync(manifestPath)) {
-      rmSync(tempDir, { recursive: true, force: true });
+    if (!this.fs.existsSync(manifestPath)) {
+      this.fs.rmSync(tempDir, { recursive: true, force: true });
       throw new Error(
         source.type === 'local'
           ? 'Local directory does not contain .claude-plugin/marketplace.json'
@@ -93,25 +96,25 @@ export class MarketplaceClient {
     const name = manifest.name;
 
     if (!name) {
-      rmSync(tempDir, { recursive: true, force: true });
+      this.fs.rmSync(tempDir, { recursive: true, force: true });
       throw new Error('Marketplace manifest does not contain a "name" field');
     }
 
-    const registry = readRegistry(this.registryPath);
+    const registry = readRegistry(this.registryPath, this.fs);
     if (registry[name]) {
-      rmSync(tempDir, { recursive: true, force: true });
+      this.fs.rmSync(tempDir, { recursive: true, force: true });
       throw new Error(`Marketplace "${name}" already exists`);
     }
 
     const finalDir = join(this.marketplacesDir, name);
-    renameSync(tempDir, finalDir);
+    this.fs.renameSync(tempDir, finalDir);
 
     registry[name] = {
       source,
       installLocation: finalDir,
       lastUpdated: new Date().toISOString(),
     };
-    writeRegistry(this.registryPath, registry);
+    writeRegistry(this.registryPath, registry, this.fs);
 
     return name;
   }
@@ -122,20 +125,20 @@ export class MarketplaceClient {
    * and removes from the registry.
    */
   removeMarketplace(name: string): void {
-    const registry = readRegistry(this.registryPath);
+    const registry = readRegistry(this.registryPath, this.fs);
     const entry = registry[name];
     if (!entry) {
       throw new Error(`Marketplace "${name}" not found`);
     }
 
-    removeInstalledPluginsForMarketplace(this.pluginsDir, name);
+    removeInstalledPluginsForMarketplace(this.pluginsDir, name, this.fs);
 
-    if (existsSync(entry.installLocation)) {
-      rmSync(entry.installLocation, { recursive: true, force: true });
+    if (this.fs.existsSync(entry.installLocation)) {
+      this.fs.rmSync(entry.installLocation, { recursive: true, force: true });
     }
 
     delete registry[name];
-    writeRegistry(this.registryPath, registry);
+    writeRegistry(this.registryPath, registry, this.fs);
   }
 
   /**
@@ -144,23 +147,23 @@ export class MarketplaceClient {
    * updated manifest is automatically available after pull.
    */
   updateMarketplace(name: string): void {
-    const registry = readRegistry(this.registryPath);
+    const registry = readRegistry(this.registryPath, this.fs);
     const entry = registry[name];
     if (!entry) {
       throw new Error(`Marketplace "${name}" not found`);
     }
 
-    if (!existsSync(entry.installLocation)) {
+    if (!this.fs.existsSync(entry.installLocation)) {
       throw new Error(`Marketplace directory for "${name}" does not exist`);
     }
 
     if (entry.source.type === 'local') {
       const localSource = entry.source as { type: 'local'; path: string };
-      if (!existsSync(localSource.path)) {
+      if (!this.fs.existsSync(localSource.path)) {
         throw new Error(`Local marketplace path does not exist: ${localSource.path}`);
       }
-      rmSync(entry.installLocation, { recursive: true, force: true });
-      cpSync(localSource.path, entry.installLocation, { recursive: true });
+      this.fs.rmSync(entry.installLocation, { recursive: true, force: true });
+      this.fs.cpSync(localSource.path, entry.installLocation, { recursive: true });
     } else {
       const command = `git -C ${entry.installLocation} pull`;
       try {
@@ -172,12 +175,12 @@ export class MarketplaceClient {
     }
 
     entry.lastUpdated = new Date().toISOString();
-    writeRegistry(this.registryPath, registry);
+    writeRegistry(this.registryPath, registry, this.fs);
   }
 
   /** List all registered marketplaces. */
   listMarketplaces(): Array<{ name: string; source: TMarketplaceSource; lastUpdated: string }> {
-    const registry = readRegistry(this.registryPath);
+    const registry = readRegistry(this.registryPath, this.fs);
     return Object.entries(registry).map(([name, entry]) => ({
       name,
       source: entry.source,
@@ -187,14 +190,14 @@ export class MarketplaceClient {
 
   /** Read the marketplace manifest from a registered marketplace's clone. */
   fetchManifest(marketplaceName: string): IMarketplaceManifest {
-    const registry = readRegistry(this.registryPath);
+    const registry = readRegistry(this.registryPath, this.fs);
     const entry = registry[marketplaceName];
     if (!entry) {
       throw new Error(`Marketplace "${marketplaceName}" not found`);
     }
 
     const manifestPath = join(entry.installLocation, '.claude-plugin', 'marketplace.json');
-    if (!existsSync(manifestPath)) {
+    if (!this.fs.existsSync(manifestPath)) {
       throw new Error(
         `Marketplace "${marketplaceName}" does not contain .claude-plugin/marketplace.json`,
       );
@@ -205,7 +208,7 @@ export class MarketplaceClient {
 
   /** Get the clone directory path for a registered marketplace. */
   getMarketplaceDir(name: string): string {
-    const registry = readRegistry(this.registryPath);
+    const registry = readRegistry(this.registryPath, this.fs);
     const entry = registry[name];
     if (!entry) {
       throw new Error(`Marketplace "${name}" not found`);
@@ -226,6 +229,7 @@ export class MarketplaceClient {
       });
       return result.toString().trim().slice(0, 12);
     } catch {
+      // allow-fallback: git SHA unavailable returns 'unknown' as version identifier
       return 'unknown';
     }
   }
@@ -242,6 +246,7 @@ export class MarketplaceClient {
           results.push({ ...plugin, marketplace: name });
         }
       } catch {
+        // allow-fallback: failed marketplace is skipped to allow other marketplaces to load
         // Skip failed marketplaces
       }
     }
@@ -267,7 +272,7 @@ export class MarketplaceClient {
 
   /** Read and parse a marketplace.json from a file path. */
   private readManifestFromPath(path: string): IMarketplaceManifest {
-    const raw = readFileSync(path, 'utf-8');
+    const raw = this.fs.readFileSync(path, 'utf-8');
     const data: unknown = JSON.parse(raw);
 
     if (typeof data !== 'object' || data === null) {

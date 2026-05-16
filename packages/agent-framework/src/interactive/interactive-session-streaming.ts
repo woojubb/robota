@@ -6,7 +6,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type { IDiffLine, IToolState } from './types.js';
@@ -97,13 +98,15 @@ function buildEditDiffLinesWithContext(
   newString: string,
   startLine: number,
   filePath: string,
+  fs: IFileSystem = new NodeFileSystem(),
 ): IDiffLine[] {
   const diffLines = buildEditDiffLines(oldString, newString, startLine);
 
   let fileLines: string[];
   try {
-    fileLines = readFileSync(filePath, 'utf8').split('\n');
+    fileLines = fs.readFileSync(filePath, 'utf8').split('\n');
   } catch {
+    // allow-fallback: unreadable file returns diff without context lines
     return diffLines;
   }
 

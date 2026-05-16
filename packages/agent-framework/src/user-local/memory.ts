@@ -1,5 +1,7 @@
-import { promises as fs } from 'node:fs';
 import path from 'node:path';
+
+import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
+import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { resolveUserLocalStorageRoot } from './storage.js';
 import type { IResolveUserLocalStorageRootOptions } from './storage.js';
 import {
@@ -166,11 +168,12 @@ function projectMemoryItem(
 async function readMemoryFile(
   root: string,
   storageLocation: string,
+  fsAsync: IFileSystemAsync,
 ): Promise<IUserLocalMemoryItemProjection> {
   return projectMemoryItem(
     root,
     storageLocation,
-    parseMemoryRecord(await fs.readFile(storageLocation, 'utf8'), storageLocation),
+    parseMemoryRecord(await fsAsync.readFile(storageLocation, 'utf8'), storageLocation),
   );
 }
 
@@ -189,6 +192,7 @@ async function resolveMemoryFile(
 export async function setUserLocalMemoryItem(
   options: IUserLocalMemorySetOptions,
 ): Promise<IUserLocalMemoryItemProjection> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const category = assertUserLocalMemoryCategory(options.category);
   const key = assertSafeSegment('key', options.key);
   const summary = boundedText('summary', options.summary, MAX_SUMMARY_LENGTH);
@@ -201,7 +205,10 @@ export async function setUserLocalMemoryItem(
   let createdAt = now;
 
   try {
-    const existing = parseMemoryRecord(await fs.readFile(storageLocation, 'utf8'), storageLocation);
+    const existing = parseMemoryRecord(
+      await fsAsync.readFile(storageLocation, 'utf8'),
+      storageLocation,
+    );
     createdAt = existing.createdAt;
   } catch (error) {
     if (error instanceof Error && error.message.includes('ENOENT')) {
@@ -224,27 +231,29 @@ export async function setUserLocalMemoryItem(
     enabled: true,
   };
 
-  await fs.mkdir(memoryRoot, { recursive: true });
-  await fs.writeFile(storageLocation, `${JSON.stringify(item, null, 2)}\n`, 'utf8');
+  await fsAsync.mkdir(memoryRoot, { recursive: true });
+  await fsAsync.writeFile(storageLocation, `${JSON.stringify(item, null, 2)}\n`, 'utf8');
   return projectMemoryItem(root, storageLocation, item);
 }
 
 export async function listUserLocalMemoryItems(
   options: IUserLocalMemoryListOptions,
 ): Promise<IUserLocalMemoryListProjection> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const { root, memoryRoot } = await resolveMemoryRoot(options);
-  let entries: readonly import('node:fs').Dirent[];
+  let entries: readonly IDirent[];
 
   try {
-    entries = await fs.readdir(memoryRoot, { withFileTypes: true });
+    entries = await fsAsync.readdir(memoryRoot, { withFileTypes: true });
   } catch {
+    // allow-fallback: missing memory directory means no items exist
     entries = [];
   }
 
   const items = await Promise.all(
     entries
       .filter((entry) => entry.isFile() && entry.name.endsWith(FILE_EXTENSION))
-      .map((entry) => readMemoryFile(root, path.join(memoryRoot, entry.name))),
+      .map((entry) => readMemoryFile(root, path.join(memoryRoot, entry.name), fsAsync)),
   );
 
   return {
@@ -259,30 +268,36 @@ export async function listUserLocalMemoryItems(
 export async function inspectUserLocalMemoryItem(
   options: IUserLocalMemoryItemOptions,
 ): Promise<IUserLocalMemoryItemProjection> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const { root, storageLocation } = await resolveMemoryFile(options);
-  return readMemoryFile(root, storageLocation);
+  return readMemoryFile(root, storageLocation, fsAsync);
 }
 
 export async function disableUserLocalMemoryItem(
   options: IUserLocalMemoryItemOptions,
 ): Promise<IUserLocalMemoryItemProjection> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const { root, storageLocation } = await resolveMemoryFile(options);
-  const existing = parseMemoryRecord(await fs.readFile(storageLocation, 'utf8'), storageLocation);
+  const existing = parseMemoryRecord(
+    await fsAsync.readFile(storageLocation, 'utf8'),
+    storageLocation,
+  );
   const disabled: IUserLocalMemoryFile = {
     ...existing,
     enabled: false,
     lastUsedAt: formatIsoDate((options.now ?? (() => new Date()))()),
   };
 
-  await fs.writeFile(storageLocation, `${JSON.stringify(disabled, null, 2)}\n`, 'utf8');
+  await fsAsync.writeFile(storageLocation, `${JSON.stringify(disabled, null, 2)}\n`, 'utf8');
   return projectMemoryItem(root, storageLocation, disabled);
 }
 
 export async function deleteUserLocalMemoryItem(
   options: IUserLocalMemoryItemOptions,
 ): Promise<IUserLocalMemoryDeleteResult> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const { storageLocation } = await resolveMemoryFile(options);
-  await fs.rm(storageLocation);
+  await fsAsync.rm(storageLocation);
   return {
     category: options.category,
     key: options.key,

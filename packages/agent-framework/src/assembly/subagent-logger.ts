@@ -6,9 +6,10 @@
  *   {baseLogsDir}/{parentSessionId}/subagents/{agentId}.jsonl
  */
 
-import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { FileSessionLogger } from '@robota-sdk/agent-session';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 /**
  * Create a FileSessionLogger for a subagent session.
@@ -25,9 +26,10 @@ export function createSubagentLogger(
   parentSessionId: string,
   _agentId: string,
   baseLogsDir: string,
+  fs: IFileSystem = new NodeFileSystem(),
 ): FileSessionLogger {
   const subagentDir = join(baseLogsDir, parentSessionId, 'subagents');
-  mkdirSync(subagentDir, { recursive: true });
+  fs.mkdirSync(subagentDir, { recursive: true });
   return new FileSessionLogger(subagentDir);
 }
 

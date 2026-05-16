@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 export type TTaskFileStatus = 'todo' | 'in-progress' | 'blocked' | 'completed' | 'unknown';
 
@@ -147,15 +148,15 @@ function appendProgressEntry(content: string, now: Date, progressMessage: string
   return lines.join('\n');
 }
 
-function resolveGitDirectory(cwd: string): string | undefined {
+function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
   let current = resolve(cwd);
   let reachedRoot = false;
   while (!reachedRoot) {
     const gitPath = join(current, '.git');
-    if (existsSync(gitPath)) {
-      const stats = statSync(gitPath);
+    if (fs.existsSync(gitPath)) {
+      const stats = fs.statSync(gitPath);
       if (stats.isDirectory()) return gitPath;
-      const content = readFileSync(gitPath, 'utf8').trim();
+      const content = fs.readFileSync(gitPath, 'utf8').trim();
       const gitdir = content.match(/^gitdir:\s*(.+)$/)?.[1];
       if (gitdir) return isAbsolute(gitdir) ? gitdir : resolve(current, gitdir);
     }
@@ -167,24 +168,28 @@ function resolveGitDirectory(cwd: string): string | undefined {
   return undefined;
 }
 
-export function readCurrentGitBranch(cwd: string): string | undefined {
-  const gitDir = resolveGitDirectory(cwd);
+export function readCurrentGitBranch(
+  cwd: string,
+  fs: IFileSystem = new NodeFileSystem(),
+): string | undefined {
+  const gitDir = resolveGitDirectory(cwd, fs);
   if (!gitDir) return undefined;
   const headPath = join(gitDir, 'HEAD');
-  if (!existsSync(headPath)) return undefined;
+  if (!fs.existsSync(headPath)) return undefined;
 
-  const head = readFileSync(headPath, 'utf8').trim();
+  const head = fs.readFileSync(headPath, 'utf8').trim();
   const branch = head.match(/^ref:\s+refs\/heads\/(.+)$/)?.[1];
   return branch?.trim();
 }
 
-export function discoverTaskFiles(cwd: string): string[] {
+export function discoverTaskFiles(cwd: string, fs: IFileSystem = new NodeFileSystem()): string[] {
   const tasksDir = join(cwd, TASKS_DIR);
-  if (!existsSync(tasksDir)) {
+  if (!fs.existsSync(tasksDir)) {
     return [];
   }
 
-  return readdirSync(tasksDir, { withFileTypes: true })
+  return fs
+    .readdirSync(tasksDir, { withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
     .filter((name) => name !== README_FILENAME && name.endsWith(MARKDOWN_EXTENSION))
@@ -192,8 +197,12 @@ export function discoverTaskFiles(cwd: string): string[] {
     .map((name) => join(tasksDir, name));
 }
 
-export function parseTaskFile(taskPath: string, cwd: string): ITaskContextFile {
-  const content = readFileSync(taskPath, 'utf8');
+export function parseTaskFile(
+  taskPath: string,
+  cwd: string,
+  fs: IFileSystem = new NodeFileSystem(),
+): ITaskContextFile {
+  const content = fs.readFileSync(taskPath, 'utf8');
   return {
     path: taskPath,
     relativePath: relative(cwd, taskPath),
@@ -225,9 +234,13 @@ export function formatTaskContext(tasks: readonly ITaskContextFile[]): string {
   return tasks.map(formatTask).join('\n\n');
 }
 
-export function loadTaskContext(cwd: string, options: ITaskSelectionOptions = {}): string {
-  const currentBranch = options.currentBranch ?? readCurrentGitBranch(cwd);
-  const tasks = discoverTaskFiles(cwd).map((path) => parseTaskFile(path, cwd));
+export function loadTaskContext(
+  cwd: string,
+  options: ITaskSelectionOptions = {},
+  fs: IFileSystem = new NodeFileSystem(),
+): string {
+  const currentBranch = options.currentBranch ?? readCurrentGitBranch(cwd, fs);
+  const tasks = discoverTaskFiles(cwd, fs).map((path) => parseTaskFile(path, cwd, fs));
   return formatTaskContext(selectRelevantTasks(tasks, { ...options, currentBranch }));
 }
 
@@ -235,10 +248,11 @@ export function updateTaskFileStatus(
   taskPath: string,
   status: TTaskFileStatus,
   options: IUpdateTaskFileStatusOptions = {},
+  fs: IFileSystem = new NodeFileSystem(),
 ): void {
-  const updated = upsertStatusLine(readFileSync(taskPath, 'utf8'), status);
+  const updated = upsertStatusLine(fs.readFileSync(taskPath, 'utf8'), status);
   const withProgress = options.progressMessage
     ? appendProgressEntry(updated, options.now ?? new Date(), options.progressMessage)
     : updated;
-  writeFileSync(taskPath, withProgress, 'utf8');
+  fs.writeFileSync(taskPath, withProgress, 'utf8');
 }
