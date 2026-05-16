@@ -1,5 +1,7 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.65
+
 ## 3.0.0-beta.64
 
 ## 3.0.0-beta.63
