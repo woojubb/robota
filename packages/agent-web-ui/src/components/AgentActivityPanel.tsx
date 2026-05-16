@@ -3,7 +3,7 @@ import type {
   IExecutionWorkspaceEntry,
   TExecutionAttention,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-transport-ws';
+} from '@robota-sdk/agent-transport/ws';
 
 interface IAgentActivityPanelProps {
   tasks: readonly IExecutionWorkspaceEntry[];

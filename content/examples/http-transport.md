@@ -7,7 +7,7 @@ Expose InteractiveSession over REST API using Hono.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { createHttpTransport } from '@robota-sdk/agent-transport-http';
+import { createHttpTransport } from '@robota-sdk/agent-transport/http';
 import { serve } from '@hono/node-server';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -48,7 +48,7 @@ Events: text_delta, tool_start, tool_end, thinking, complete, interrupted, error
 For per-request sessions (e.g., multi-tenant):
 
 ```typescript
-import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
+import { createAgentRoutes } from '@robota-sdk/agent-transport/http';
 
 const routes = createAgentRoutes({
   sessionFactory: (req) => resolveSessionByToken(req),

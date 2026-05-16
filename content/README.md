@@ -112,10 +112,7 @@ robota -p "Explain this project"    # Print mode
 ```
 agent-cli              ← Interactive terminal AI coding assistant
 agent-command          ← All slash command modules (/agent, /help, /provider, /skills, /plugin, …)
-agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
-agent-transport-mcp    ← MCP transport (Model Context Protocol server)
-agent-transport-ws     ← WebSocket transport (framework-agnostic)
-agent-transport-headless ← Non-interactive transport for text/json/stream-json output
+agent-transport        ← Consolidated transport package (sub-paths: /tui, /headless, /http, /ws, /mcp)
   ↓ (product/transport layers consume)
 agent-sdk              ← Assembly layer: InteractiveSession, config, context, createQuery()
   ↓
@@ -129,20 +126,17 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 ## Packages
 
-| Package                                                                        | Description                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-core`](./packages/agent-core/)                             | Core agent runtime, abstractions, and plugin system                                                                                                                                              |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                           | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                             |
-| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction                                                                                                                                                  |
-| [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                       | Background task and subagent lifecycle primitives                                                                                                                                                |
-| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and createQuery()                                                                                                                                     |
-| [`@robota-sdk/agent-command`](./packages/agent-command/)                       | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                  |
-| [`@robota-sdk/agent-provider`](./packages/agent-provider/)                     | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
-| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant                                                                                                                                                         |
-| [`@robota-sdk/agent-transport-headless`](./packages/agent-transport-headless/) | Non-interactive text/json/stream-json transport                                                                                                                                                  |
-| [`@robota-sdk/agent-transport-http`](./packages/agent-transport-http/)         | HTTP/REST transport adapter (Hono; Cloudflare Workers / Node / Lambda)                                                                                                                           |
-| [`@robota-sdk/agent-transport-mcp`](./packages/agent-transport-mcp/)           | MCP transport adapter (Model Context Protocol server)                                                                                                                                            |
-| [`@robota-sdk/agent-transport-ws`](./packages/agent-transport-ws/)             | WebSocket transport adapter (framework-agnostic)                                                                                                                                                 |
+| Package                                                      | Description                                                                                                                                                                                      |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@robota-sdk/agent-core`](./packages/agent-core/)           | Core agent runtime, abstractions, and plugin system                                                                                                                                              |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)         | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                             |
+| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)   | Session with permissions, hooks, and compaction                                                                                                                                                  |
+| [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)     | Background task and subagent lifecycle primitives                                                                                                                                                |
+| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)             | Assembly layer with config/context loading and createQuery()                                                                                                                                     |
+| [`@robota-sdk/agent-command`](./packages/agent-command/)     | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                  |
+| [`@robota-sdk/agent-provider`](./packages/agent-provider/)   | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
+| [`@robota-sdk/agent-cli`](./packages/agent-cli/)             | Interactive terminal AI coding assistant                                                                                                                                                         |
+| [`@robota-sdk/agent-transport`](./packages/agent-transport/) | Consolidated transport package — TUI (`/tui`), headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`) in one package                                                            |
 
 ## Documentation
 
@@ -173,11 +167,8 @@ npm install @robota-sdk/agent-sdk
 # Command modules — all slash commands in one package
 npm install @robota-sdk/agent-command
 
-# Transports
-npm install @robota-sdk/agent-transport-headless
-npm install @robota-sdk/agent-transport-http
-npm install @robota-sdk/agent-transport-mcp
-npm install @robota-sdk/agent-transport-ws
+# Transport (TUI, headless, HTTP, WebSocket, MCP — all in one package)
+npm install @robota-sdk/agent-transport
 
 # CLI — terminal AI coding assistant
 npm install -g @robota-sdk/agent-cli
