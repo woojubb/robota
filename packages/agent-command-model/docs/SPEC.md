@@ -20,7 +20,7 @@ import {
 ## Ownership
 
 - Owns `/model` command metadata and execution.
-- Consumes `@robota-sdk/agent-sdk` command contracts and model command common APIs.
+- Consumes `@robota-sdk/agent-framework` command contracts and model command common APIs.
 - Reads active provider/model catalog state only through injected SDK command adapters.
 - Emits typed `model-change-requested` effects.
 - Leaves host-specific settings persistence and restart/exit behavior to the host.

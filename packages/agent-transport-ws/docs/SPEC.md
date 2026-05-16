@@ -6,7 +6,7 @@ WebSocket transport adapter for exposing InteractiveSession over real-time bidir
 
 ## Boundaries
 
-- Does NOT own InteractiveSession — imported from `@robota-sdk/agent-sdk`
+- Does NOT own InteractiveSession — imported from `@robota-sdk/agent-framework`
 - Does NOT own system commands — uses `session.executeCommand()` from InteractiveSession
 - Does NOT depend on any WebSocket library (ws, uWebSockets, etc.)
 - OWNS: Message protocol definition, event subscription/forwarding, message routing
@@ -95,7 +95,7 @@ The `command` message is generic. Available commands depend on the `ICommandModu
 
 ## ITransportAdapter
 
-This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`.
 
 ### `createWsTransport(options)`
 
@@ -119,5 +119,5 @@ Factory that returns an `ITransportAdapter` with `name: 'ws'`.
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` (InteractiveSession)
+- `@robota-sdk/agent-framework` (InteractiveSession)
 - No WebSocket library dependency (framework-agnostic)

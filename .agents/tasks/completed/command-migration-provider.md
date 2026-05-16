@@ -19,7 +19,7 @@ Extract `/provider` from the transitional SDK-exported command module into a bui
 
 ## Current Owner
 
-- Transitional implementation: `packages/agent-sdk/src/commands/provider-command-*.ts`
+- Transitional implementation: `packages/agent-framework/src/commands/provider-command-*.ts`
 - Composition: `packages/agent-cli/src/cli.ts`
 
 ## Target Owner
@@ -55,16 +55,16 @@ Recommended: `@robota-sdk/agent-command-provider`.
 ## Verification
 
 - `pnpm install`
-- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-framework build`
 - `pnpm --filter @robota-sdk/agent-command-provider build`
 - `pnpm --filter @robota-sdk/agent-command-provider typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - `pnpm --filter @robota-sdk/agent-command-provider test`
 - `pnpm --filter @robota-sdk/agent-command-provider lint`
 - `pnpm harness:scan:commands`
-- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-framework test`
 - `pnpm --filter @robota-sdk/agent-cli build`
-- `pnpm --filter @robota-sdk/agent-sdk lint` (passes with existing warnings)
+- `pnpm --filter @robota-sdk/agent-framework lint` (passes with existing warnings)
 - `pnpm --filter @robota-sdk/agent-cli test`
 - `git diff --check`

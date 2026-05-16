@@ -15,11 +15,11 @@ Status: resolved — PR #205.
 
 Session persistence construction now lives behind SDK-owned APIs in
 `agent-sdk/src/interactive/session-persistence.ts`. CLI calls `createProjectSessionStore(cwd)` and
-related facades from `@robota-sdk/agent-sdk`; it has no direct dependency on
-`@robota-sdk/agent-sessions`.
+related facades from `@robota-sdk/agent-framework`; it has no direct dependency on
+`@robota-sdk/agent-session`.
 
 Mechanical guard: `scripts/harness/check-command-layering.mjs` flags production CLI imports from
-`@robota-sdk/agent-sessions`.
+`@robota-sdk/agent-session`.
 
 ### CLI-AUDIT-002: TUI command effects were queued by mutating `InteractiveSession`
 
@@ -48,7 +48,7 @@ Status: resolved — `packages/agent-cli/docs/ASSEMBLY-ARCHITECTURE.md` now redi
 Status: resolved — `refactor/cli-command-shims-retirement`.
 
 `agent-cli/src/commands/` compatibility surface removed. TUI imports `CommandRegistry` and command
-contract types directly from `@robota-sdk/agent-sdk`.
+contract types directly from `@robota-sdk/agent-framework`.
 
 Mechanical guard: command-layering harness scans for new CLI command shim files under
 `packages/agent-cli/src/commands`.
@@ -72,7 +72,7 @@ Status: resolved.
 
 Status: resolved.
 
-SDK public surface is classified in `packages/agent-sdk/docs/PUBLIC-SURFACE.md`. `agent-runtime`
+SDK public surface is classified in `packages/agent-framework/docs/PUBLIC-SURFACE.md`. `agent-runtime`
 re-exports are allowed only from `agent-sdk/src/background-tasks/index.ts` and
 `agent-sdk/src/subagents/index.ts`.
 

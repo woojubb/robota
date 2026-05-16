@@ -6,7 +6,7 @@
 
 This package:
 
-- exports a command module compatible with `@robota-sdk/agent-sdk`'s `ICommandModule` interface;
+- exports a command module compatible with `@robota-sdk/agent-framework`'s `ICommandModule` interface;
 - owns `/context` command palette metadata;
 - owns `/context` system command formatting and execution;
 - owns `/context list/add/remove/clear` argument parsing and output formatting;
@@ -72,9 +72,9 @@ files.
 
 ## Dependencies
 
-| Package                 | Purpose                                          |
-| ----------------------- | ------------------------------------------------ |
-| `@robota-sdk/agent-sdk` | Command contracts and context/compact common API |
+| Package                       | Purpose                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `@robota-sdk/agent-framework` | Command contracts and context/compact common API |
 
 No dependency from `agent-sdk` or reusable CLI/TUI internals back into this package is allowed. Product composition roots such as the Robota CLI binary may import this package to make `/context` available.
 

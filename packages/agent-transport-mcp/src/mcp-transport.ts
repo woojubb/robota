@@ -6,7 +6,7 @@
  */
 
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import { createAgentMcpServer } from './mcp-server.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 

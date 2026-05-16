@@ -10,4 +10,4 @@ export type {
   IExecutionWorkspaceEntry,
   TExecutionWorkspaceStatus,
   TExecutionAttention,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';

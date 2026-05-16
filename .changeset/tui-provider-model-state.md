@@ -1,6 +1,6 @@
 ---
 '@robota-sdk/agent-core': patch
-'@robota-sdk/agent-sdk': patch
+'@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-command-model': patch
 '@robota-sdk/agent-command-provider': patch
 '@robota-sdk/agent-command-agent': patch
@@ -25,8 +25,8 @@
 '@robota-sdk/agent-provider-openai': patch
 '@robota-sdk/agent-provider-openai-compatible': patch
 '@robota-sdk/agent-provider-qwen': patch
-'@robota-sdk/agent-runtime': patch
-'@robota-sdk/agent-sessions': patch
+'@robota-sdk/agent-executor': patch
+'@robota-sdk/agent-session': patch
 '@robota-sdk/agent-tools': patch
 '@robota-sdk/agent-transport-headless': patch
 ---

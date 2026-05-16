@@ -7,22 +7,22 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Boundaries
 
-- Does NOT own Session/SessionStore — handled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-sessions`
-- Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
-- Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
+- Does NOT own Session/SessionStore — handled internally by `@robota-sdk/agent-framework`; CLI must NOT import from `@robota-sdk/agent-session`
+- Does NOT own tools — assembled internally by `@robota-sdk/agent-framework`; CLI must NOT import from `@robota-sdk/agent-tools`
+- Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-framework`
 - Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
 - Does NOT own prompt file-reference parsing, path resolution, file reads, recursion limits, size
-  limits, or diagnostics for `@file` syntax — handled by `@robota-sdk/agent-sdk`; CLI only passes
+  limits, or diagnostics for `@file` syntax — handled by `@robota-sdk/agent-framework`; CLI only passes
   submitted non-command prompt text to `InteractiveSession.submit()`
 - Does NOT own context reference inventory or `/context add/remove/clear` file operations — handled
   by SDK command common APIs and `@robota-sdk/agent-command-context`; CLI/TUI only renders command output
-- Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only render command output and notices
-- Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-sdk`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
+- Does NOT own automatic project memory capture, retrieval, approval policy, or memory storage — handled by `@robota-sdk/agent-framework`; CLI/TUI may only render command output and notices
+- Does NOT own edit checkpoint capture, storage, or restore algorithms — handled by `@robota-sdk/agent-framework`; CLI/TUI may only route `/rewind`, render command output, and later provide picker chrome over SDK data
 - OWNS: Provider composition (receives provider definitions, reads config, selects an injected definition, creates instance, passes to `InteractiveSession`)
-- Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
-- Does NOT own `CommandRegistry`, `ICommand`, or `ICommandSource` — command registry contracts are imported from `@robota-sdk/agent-sdk`; skill command metadata is provided by `@robota-sdk/agent-command-skills`
+- Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-framework`
+- Does NOT own `CommandRegistry`, `ICommand`, or `ICommandSource` — command registry contracts are imported from `@robota-sdk/agent-framework`; skill command metadata is provided by `@robota-sdk/agent-command-skills`
 - Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
-- Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-runtime` and consumed through `@robota-sdk/agent-sdk` re-exports
+- Does NOT own reusable background/subagent lifecycle contracts or log pagination helpers — these are owned by `@robota-sdk/agent-executor` and consumed through `@robota-sdk/agent-framework` re-exports
 - Does NOT own transparent workflow action provenance, shared state vocabulary, memory inspection
   contracts, command execution eligibility, or retention policy — these are owned by SDK/runtime
   contracts described in the cross-cutting transparent workflow spec
@@ -39,8 +39,8 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O)
-- Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
-- Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
+- Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
+- Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
 
 ## Import Rules
 
@@ -60,7 +60,7 @@ and layer audit findings, see [ARCHITECTURE-MAP.md](ARCHITECTURE-MAP.md). This `
 the owner contract; the architecture map is the scan-friendly companion that must be updated when
 CLI composition changes.
 
-The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
+The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. The CLI:
 
 1. Reads config to determine which provider profile to use.
 2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
@@ -276,13 +276,13 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
                     └── tuiTransport.start() → renderApp() → App.tsx (Ink TUI, owned by agent-transport-tui)
                           ├── useInteractiveSession (ONLY React↔SDK bridge)
                           │   ├── InteractiveSession({ cwd, provider })
-                          │   │   (from @robota-sdk/agent-sdk; config/context loaded internally)
+                          │   │   (from @robota-sdk/agent-framework; config/context loaded internally)
                           │   ├── TuiStateManager    (owned by agent-transport-tui)
                           │   │   holds history: IHistoryEntry[]  ← primary state for message list
                           │   │   syncs from interactiveSession.getFullHistory() on each update
-                          │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
+                          │   ├── CommandRegistry    (from @robota-sdk/agent-framework)
                           │   │   ├── command modules        (including @robota-sdk/agent-command-skills)
-                          │   │   └── PluginCommandSource    (from @robota-sdk/agent-sdk)
+                          │   │   └── PluginCommandSource    (from @robota-sdk/agent-framework)
                           │   └── session.executeCommand()  (slash commands routed through injected command modules)
                           ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                           ├── InputArea.tsx          (bottom input area, slash detection)
@@ -697,7 +697,7 @@ No other hook or component interacts with `InteractiveSession` directly.
 
 ### Plugin Hook Merging
 
-Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) is handled internally by `@robota-sdk/agent-sdk`. The CLI does not perform hook merging.
+Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) is handled internally by `@robota-sdk/agent-framework`. The CLI does not perform hook merging.
 
 ### App.tsx
 
@@ -717,7 +717,7 @@ The `StreamingIndicator` (showing active tools) is rendered when `isThinking || 
 
 ## Command Registry Architecture
 
-The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry` is owned by `@robota-sdk/agent-sdk`; user-visible built-ins, including `/skills`, are provided by injected `ICommandModule` packages. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds plugin command sources and injected `ICommandModule` sources generically.
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry` is owned by `@robota-sdk/agent-framework`; user-visible built-ins, including `/skills`, are provided by injected `ICommandModule` packages. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds plugin command sources and injected `ICommandModule` sources generically.
 
 Reusable CLI/TUI code must not special-case command module names such as `/agent`. It accepts `commandModules` and registers them with the SDK registry. The package binary may choose product defaults by passing modules into `startCli()`.
 
@@ -745,12 +745,12 @@ interface ICommand {
 
 ### Command Sources
 
-| Source   | Class                  | Owner                   | Description                                                                          |
-| -------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | SDK-default infrastructure commands; currently empty                                 |
-| Modules  | `ICommandModule`       | Module package          | Command modules injected by composition, including `/skills`, `/help`, and `/memory` |
-| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | SDK common API used by `agent-command-skills` for virtual skill palette entries      |
-| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins                                          |
+| Source   | Class                  | Owner                         | Description                                                                          |
+| -------- | ---------------------- | ----------------------------- | ------------------------------------------------------------------------------------ |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-framework` | SDK-default infrastructure commands; currently empty                                 |
+| Modules  | `ICommandModule`       | Module package                | Command modules injected by composition, including `/skills`, `/help`, and `/memory` |
+| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-framework` | SDK common API used by `agent-command-skills` for virtual skill palette entries      |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-framework` | Skills provided by installed bundle plugins                                          |
 
 ### Skill Discovery (Multi-Path)
 
@@ -833,8 +833,8 @@ used is not treated as skill activation unless a `skill_activation` event exists
 | ITerminalOutput    | `src/types.ts`                     | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
 | ISpinner           | `src/types.ts`                     | Spinner handle (duplicate — SSOT is agent-sessions)            |
 | IPermissionRequest | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)   |
-| ICommand           | `@robota-sdk/agent-sdk`            | SDK-owned command palette and slash command entry              |
-| ICommandSource     | `@robota-sdk/agent-sdk`            | SDK-owned command source contract                              |
+| ICommand           | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry              |
+| ICommandSource     | `@robota-sdk/agent-framework`      | SDK-owned command source contract                              |
 
 ## Public API Surface
 
@@ -844,7 +844,7 @@ used is not treated as skill activation unless a `skill_activation` event exists
 | ITerminalOutput | type     | Terminal I/O DI interface |
 | ISpinner        | type     | Spinner handle            |
 
-Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-sdk`.
+Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`.
 
 ## File Structure
 
@@ -894,7 +894,7 @@ src/
 `@robota-sdk/agent-transport-tui`. The CLI's `src/` contains only the lifecycle assembly, local host
 adapters, and settings/provider utilities.
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-framework`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 
 ## CLI Usage
 
@@ -993,7 +993,7 @@ When `--resume` is used without a value, a `ListPicker` overlay is shown with al
 
 ### Session Storage
 
-The CLI asks `@robota-sdk/agent-sdk` for a project-local session persistence facade rooted at `.robota/sessions`, not the generic user-level default. The CLI must not import `SessionStore` or `ISessionRecord` from `@robota-sdk/agent-sessions`; it may only consume SDK-owned store and resumable-session summary types. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
+The CLI asks `@robota-sdk/agent-framework` for a project-local session persistence facade rooted at `.robota/sessions`, not the generic user-level default. The CLI must not import `SessionStore` or `ISessionRecord` from `@robota-sdk/agent-session`; it may only consume SDK-owned store and resumable-session summary types. Every resumable session record must stay beside the project logs and must include provider messages, UI history, the exact system prompt, and registered tool schemas. This makes `/continue`, `/resume`, and local debugging inspect the same project-local `.robota` tree.
 
 ## Tool Output Limits
 
@@ -1037,7 +1037,7 @@ Tool execution uses a unified visual style across real-time streaming and post-e
 
 Long tool arguments are truncated with **middle ellipsis**, keeping the last 30 characters visible:
 
-- Before: `Read(/Users/jungyoun/Documents/dev/robota/packages/agent-sdk/src/plugins/ver...)`
+- Before: `Read(/Users/jungyoun/Documents/dev/robota/packages/agent-framework/src/plugins/ver...)`
 - After: `Read(/Users/jungyoun/Documents/dev/...sdk/src/plugins/very-long/file.ts)`
 
 This ensures file names and important suffixes remain visible.
@@ -1273,7 +1273,7 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ## Subagent Execution
 
-Subagent execution (`/agent` command module, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-sdk` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
+Subagent execution (`/agent` command module, fork sessions, agent definition loading) is managed by `@robota-sdk/agent-framework` internally. The CLI does not own subagent lifecycle state — `InteractiveSession` handles subagent and background task lifecycle.
 
 The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
 
@@ -1513,7 +1513,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-rewind`      | Default `/rewind` command module composed by the Robota binary                                                                       |
 | `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`           |
 | `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                   |
-| `@robota-sdk/agent-sdk`                 | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
+| `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
 | `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
 | `@robota-sdk/agent-provider-anthropic`  | Default provider definition contributed by the Robota binary                                                                         |
 | `@robota-sdk/agent-provider-openai`     | Default provider definition contributed by the Robota binary                                                                         |

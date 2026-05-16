@@ -80,7 +80,7 @@ robota -p "query" --append-system-prompt "Focus on security issues"
 import { createHeadlessRunner } from '@robota-sdk/agent-transport-headless';
 
 const runner = createHeadlessRunner({
-  session, // InteractiveSession from @robota-sdk/agent-sdk
+  session, // InteractiveSession from @robota-sdk/agent-framework
   outputFormat, // 'text' | 'json' | 'stream-json'
 });
 
@@ -90,11 +90,11 @@ process.exit(exitCode);
 
 ## ITransportAdapter
 
-The headless transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+The headless transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`:
 
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
-import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-framework';
 
 const transport: ITransportAdapter = createHeadlessTransport({
   outputFormat: 'json',

@@ -97,6 +97,6 @@ packages:
 
 ## 검증
 
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/checkpoints/__tests__/edit-checkpoint-store.test.ts src/checkpoints/__tests__/edit-checkpoint-tools.test.ts src/interactive/__tests__/interactive-session-checkpoints.test.ts src/commands/__tests__/system-command.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk lint` (기존 warning만 존재)
+- `pnpm --filter @robota-sdk/agent-framework test -- src/checkpoints/__tests__/edit-checkpoint-store.test.ts src/checkpoints/__tests__/edit-checkpoint-tools.test.ts src/interactive/__tests__/interactive-session-checkpoints.test.ts src/commands/__tests__/system-command.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework lint` (기존 warning만 존재)

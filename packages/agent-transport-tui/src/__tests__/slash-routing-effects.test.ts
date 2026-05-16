@@ -4,8 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { afterEach, vi } from 'vitest';
-import { CommandRegistry, BundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-sdk';
-import type { ICommandInteraction, IInteractiveSession } from '@robota-sdk/agent-sdk';
+import {
+  CommandRegistry,
+  BundlePluginLoader,
+  PluginCommandSource,
+} from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, IInteractiveSession } from '@robota-sdk/agent-framework';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/useSlashRouting.js';
 import { CommandEffectQueue } from '../hooks/command-effect-queue.js';

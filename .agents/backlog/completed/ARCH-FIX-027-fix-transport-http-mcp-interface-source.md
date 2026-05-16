@@ -10,7 +10,7 @@ area: packages/agent-transport-http, packages/agent-transport-mcp
 ## Problem
 
 `agent-transport-http` and `agent-transport-mcp` import `ITransportAdapter` from
-`@robota-sdk/agent-sdk` and list `agent-sdk` as a production dependency. This unnecessarily
+`@robota-sdk/agent-framework` and list `agent-sdk` as a production dependency. This unnecessarily
 couples transports to the full assembly layer.
 
 `agent-transport-tui` and `agent-transport-headless` correctly depend on
@@ -18,7 +18,7 @@ couples transports to the full assembly layer.
 
 **Evidence**:
 
-- `agent-transport-http/src/http-transport.ts` line 8: imports from `@robota-sdk/agent-sdk`
+- `agent-transport-http/src/http-transport.ts` line 8: imports from `@robota-sdk/agent-framework`
 - `agent-transport-mcp/src/mcp-transport.ts` line 8: same pattern
 
 **Source**: ARCH-SA-004 (System Architect review 2026-05-15)
@@ -30,9 +30,9 @@ couples transports to the full assembly layer.
 2. Update import in `http-transport.ts` — source `ITransportAdapter` from
    `@robota-sdk/agent-interface-transport`
 3. Update import in `mcp-transport.ts` — same redirect
-4. Remove `@robota-sdk/agent-sdk` from production dependencies of both packages if no other usage
+4. Remove `@robota-sdk/agent-framework` from production dependencies of both packages if no other usage
 5. Add harness check: `agent-transport-*` packages must not import transport interface types from
-   `@robota-sdk/agent-sdk`
+   `@robota-sdk/agent-framework`
 
 ## Test Plan
 

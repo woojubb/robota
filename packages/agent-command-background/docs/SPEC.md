@@ -41,7 +41,7 @@ Aliases:
 
 - This package must not import CLI, TUI, React, or local settings I/O.
 - Background task state remains SDK/runtime owned.
-- This package must consume SDK command-facing APIs through `@robota-sdk/agent-sdk`.
+- This package must consume SDK command-facing APIs through `@robota-sdk/agent-framework`.
 - CLI products compose this module; SDK core must not embed `/background` registration or execution.
 - Background state, selected entries, archive visibility, and clear/delete semantics remain
   SDK/runtime owned and are only surfaced by this command module.
@@ -52,8 +52,8 @@ Aliases:
 
 ## Dependencies
 
-- Depends on `@robota-sdk/agent-sdk`.
-- Must not be imported by `@robota-sdk/agent-sdk`.
+- Depends on `@robota-sdk/agent-framework`.
+- Must not be imported by `@robota-sdk/agent-framework`.
 
 ## Verification
 

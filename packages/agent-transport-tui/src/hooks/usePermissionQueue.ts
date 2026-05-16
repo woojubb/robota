@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-sdk';
+import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
 import type { IPermissionRequest } from '../types.js';
 
 export function usePermissionQueue(): {

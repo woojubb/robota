@@ -6,7 +6,7 @@
 
 This package:
 
-- exports a command module compatible with `@robota-sdk/agent-sdk`'s `ICommandModule` interface;
+- exports a command module compatible with `@robota-sdk/agent-framework`'s `ICommandModule` interface;
 - owns `/provider` command palette metadata;
 - owns `/provider` system command parsing and execution;
 - consumes SDK provider common APIs for settings documents, setup-flow primitives, environment references, and profile probing.
@@ -80,10 +80,10 @@ different credentials, endpoints, accounts, or operational defaults.
 
 ## Dependencies
 
-| Package                  | Purpose                                                                |
-| ------------------------ | ---------------------------------------------------------------------- |
-| `@robota-sdk/agent-core` | Provider definition lookup and supported-provider formatting           |
-| `@robota-sdk/agent-sdk`  | Command contracts plus provider common APIs and profile probe defaults |
+| Package                       | Purpose                                                                |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `@robota-sdk/agent-core`      | Provider definition lookup and supported-provider formatting           |
+| `@robota-sdk/agent-framework` | Command contracts plus provider common APIs and profile probe defaults |
 
 No dependency from `agent-sdk` or reusable CLI/TUI internals back into this package is allowed. Product composition roots such as the Robota CLI binary may import this package to make `/provider` available.
 

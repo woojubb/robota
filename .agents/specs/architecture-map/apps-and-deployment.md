@@ -32,12 +32,12 @@ Deployment ownership:
 | `apps/docs`      | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.                                                                                                              |
 | `apps/blog`      | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                                                                                                                               |
 
-`packages/agent-web` vs `apps/agent-web` disambiguation:
+`packages/agent-web-ui vs `apps/agent-web` disambiguation:
 
-| Item                 | Kind              | Role                                                                                   |
-| -------------------- | ----------------- | -------------------------------------------------------------------------------------- |
-| `packages/agent-web` | Published npm lib | Browser React components for monitoring a CLI session over `--web` WebSocket sidecar.  |
-| `apps/agent-web`     | Next.js host app  | Full Playground web application; consumes `agent-playground` and `packages/agent-web`. |
+| Item                   | Kind              | Role                                                                                     |
+| ---------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
+| `packages/agent-web-ui | Published npm lib | Browser React components for monitoring a CLI session over `--web` WebSocket sidecar.    |
+| `apps/agent-web`       | Next.js host app  | Full Playground web application; consumes `agent-playground` and `packages/agent-web-ui. |
 
 They share the `agent-web` name prefix but are different layers: the package is a reusable library;
 the app is the deployment host. Do not import `apps/agent-web` from anywhere; use

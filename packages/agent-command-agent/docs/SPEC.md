@@ -6,7 +6,7 @@
 
 This package:
 
-- exports a command module compatible with `@robota-sdk/agent-sdk`'s `ICommandModule` interface;
+- exports a command module compatible with `@robota-sdk/agent-framework`'s `ICommandModule` interface;
 - owns `/agent` command palette metadata;
 - owns `/agent` system command parsing and execution;
 - requests the SDK `agent-runtime` session requirement so the host session wires agent runtime dependencies and background runtime support.
@@ -95,9 +95,9 @@ supports it; it must not write directly to CLI UI state.
 
 ## Dependencies
 
-| Package                 | Purpose                                   |
-| ----------------------- | ----------------------------------------- |
-| `@robota-sdk/agent-sdk` | Command interfaces and InteractiveSession |
+| Package                       | Purpose                                   |
+| ----------------------------- | ----------------------------------------- |
+| `@robota-sdk/agent-framework` | Command interfaces and InteractiveSession |
 
 No dependency from `agent-sdk` or reusable CLI/TUI internals back into this package is required by the command contract. Product composition roots such as the Robota CLI binary may import this package to make `/agent` available.
 

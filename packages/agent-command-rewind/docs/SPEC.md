@@ -7,7 +7,7 @@
 ## Ownership
 
 - Owns `/rewind` command metadata, subcommands, argument parsing, and command output formatting.
-- Consumes SDK checkpoint common APIs from `@robota-sdk/agent-sdk`.
+- Consumes SDK checkpoint common APIs from `@robota-sdk/agent-framework`.
 - Does not own checkpoint storage, checkpoint creation, file restoration primitives, CLI UI, or TUI picker chrome.
 
 ## Public API

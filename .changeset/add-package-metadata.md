@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-sdk': patch
+'@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-cli': patch
 '@robota-sdk/agent-tools': patch
 '@robota-sdk/agent-transport-headless': patch

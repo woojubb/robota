@@ -4,7 +4,7 @@ import {
   BackgroundTaskError,
   type ISubagentJobStart,
   type TBackgroundTaskRunnerEvent,
-} from '@robota-sdk/agent-runtime';
+} from '@robota-sdk/agent-executor';
 import type {
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,

@@ -3,7 +3,7 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 export function createSettingsCommandEntry(): ICommand {
   return {

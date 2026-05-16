@@ -2,8 +2,8 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
-} from '@robota-sdk/agent-sdk';
-import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-framework';
 import type { TSettingsData } from './settings-io.js';
 import { readSettings, writeSettings } from './settings-io.js';
 

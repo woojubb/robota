@@ -10,7 +10,7 @@ Worktree isolation exists, but it needs to behave like a reliable product featur
 
 ## Current Signals
 
-- `packages/agent-runtime/src/subagents/worktree-subagent-runner.ts` owns runner decoration and cleanup decisions through an injected worktree adapter.
+- `packages/agent-executor/src/subagents/worktree-subagent-runner.ts` owns runner decoration and cleanup decisions through an injected worktree adapter.
 - `packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts` owns concrete local Git worktree operations.
 - `packages/agent-cli/docs/SPEC.md` documents worktree isolation and dirty worktree preservation.
 - `.agents/specs/agent-invocation-router.md` says background write-capable agent work should default to worktree isolation when available.

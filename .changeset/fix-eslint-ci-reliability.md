@@ -1,8 +1,8 @@
 ---
 '@robota-sdk/agent-core': patch
 '@robota-sdk/agent-cli': patch
-'@robota-sdk/agent-sdk': patch
-'@robota-sdk/agent-sessions': patch
+'@robota-sdk/agent-framework': patch
+'@robota-sdk/agent-session': patch
 '@robota-sdk/agent-team': patch
 '@robota-sdk/agent-tools': patch
 '@robota-sdk/agent-tool-mcp': patch

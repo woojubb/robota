@@ -15,5 +15,5 @@ export type {
 export {
   GitWorktreeIsolationAdapter,
   createGitWorktreeIsolationAdapter,
-} from '@robota-sdk/agent-runtime';
-export type { IGitWorktreeIsolationAdapterOptions } from '@robota-sdk/agent-runtime';
+} from '@robota-sdk/agent-executor';
+export type { IGitWorktreeIsolationAdapterOptions } from '@robota-sdk/agent-executor';

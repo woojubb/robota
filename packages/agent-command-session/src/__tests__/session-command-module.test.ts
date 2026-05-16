@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-sdk';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
+import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createSessionCommandModule } from '../session-command-module.js';
 
 function createRuntime(): ICommandSessionRuntime {

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { IStatusLineCommandSettings } from '@robota-sdk/agent-sdk';
+import type { IStatusLineCommandSettings } from '@robota-sdk/agent-framework';
 import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
 import StatusBar from './StatusBar.js';
 

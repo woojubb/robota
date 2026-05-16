@@ -31,10 +31,10 @@ The completed implementation projects each model-invocable command descriptor in
 ## Current Code Confirmation
 
 - `@robota-sdk/agent-command-skills` owns `skills` as a normal `ICommandModule`.
-- `packages/agent-sdk/src/assembly/create-session.ts` now registers projected `robota_command_*` tools only when at least one composed command descriptor is model-invocable.
-- `packages/agent-sdk/src/tools/model-command-tool-projection.ts` maps command descriptors to provider-safe tool names and reverse command identity mappings.
-- `packages/agent-sdk/src/tools/command-execution-tool.ts` remains exported as a legacy compatibility helper, but `createSession()` no longer exposes it by default.
-- `packages/agent-sdk/src/commands/skill-source.ts` owns skill file discovery as SDK common API.
+- `packages/agent-framework/src/assembly/create-session.ts` now registers projected `robota_command_*` tools only when at least one composed command descriptor is model-invocable.
+- `packages/agent-framework/src/tools/model-command-tool-projection.ts` maps command descriptors to provider-safe tool names and reverse command identity mappings.
+- `packages/agent-framework/src/tools/command-execution-tool.ts` remains exported as a legacy compatibility helper, but `createSession()` no longer exposes it by default.
+- `packages/agent-framework/src/commands/skill-source.ts` owns skill file discovery as SDK common API.
 - `InteractiveSession.executeCommand()` normalizes virtual skill aliases to the composed `skills` command.
 - Provider packages translate `IChatOptions.tools` into provider-native function tools and must remain domain-neutral.
 
@@ -46,13 +46,13 @@ Reference: <https://platform.openai.com/docs/api-reference/chat/create>
 
 ## Scope
 
-- `packages/agent-sdk/src/capabilities/**`
-- `packages/agent-sdk/src/tools/**`
-- `packages/agent-sdk/src/assembly/create-session.ts`
-- `packages/agent-sdk/src/commands/system-command-executor.ts`
+- `packages/agent-framework/src/capabilities/**`
+- `packages/agent-framework/src/tools/**`
+- `packages/agent-framework/src/assembly/create-session.ts`
+- `packages/agent-framework/src/commands/system-command-executor.ts`
 - `packages/agent-command-*/src/**`
-- `packages/agent-sdk/docs/SPEC.md`
-- `packages/agent-sdk/README.md`
+- `packages/agent-framework/docs/SPEC.md`
+- `packages/agent-framework/README.md`
 - `content/guide/cli.md` and `content/guide/sdk.md`
 - Provider tests only to confirm provider neutrality and valid tool schema conversion
 
@@ -100,11 +100,11 @@ Because this project is still beta, direct projection replaced the generic `Exec
 
 ## Verification Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk test -- command-execution-tool interactive-session-skill-command`
+- `pnpm --filter @robota-sdk/agent-framework test -- command-execution-tool interactive-session-skill-command`
 - `pnpm --filter @robota-sdk/agent-command-skills test`
 - `pnpm --filter @robota-sdk/agent-transport-headless test -- headless-skill-activation`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework lint`
 - Headless `-p --output-format json` scenario with an injected provider fixture that emits a projected command tool call
 - Real-provider smoke check may be run locally, but it must not be the only verification evidence
 

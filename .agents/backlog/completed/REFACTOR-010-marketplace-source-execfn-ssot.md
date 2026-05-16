@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk
+area: packages/agent-framework
 ---
 
 ## Problem
@@ -12,7 +12,7 @@ area: packages/agent-sdk
 같은 패키지 내 두 가지 SSOT 위반:
 
 **1. IMarketplaceSource 중복:**
-`packages/agent-sdk/src/plugins/marketplace-types.ts:6–10`과 `plugin-settings-store.ts:11–15`에 동일한 type alias가 verbatim으로 중복 존재:
+`packages/agent-framework/src/plugins/marketplace-types.ts:6–10`과 `plugin-settings-store.ts:11–15`에 동일한 type alias가 verbatim으로 중복 존재:
 
 ```ts
 export type IMarketplaceSource =
@@ -41,8 +41,8 @@ Source: COMBINED-010 (SD-005, SD-006)
 ## Test Plan
 
 - `pnpm typecheck` — 전체 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
-- `grep -r "type IMarketplaceSource\|type ExecFn" packages/agent-sdk/src --include="*.ts"` — marketplace-types.ts 한 곳만 존재, ExecFn 없음
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
+- `grep -r "type IMarketplaceSource\|type ExecFn" packages/agent-framework/src --include="*.ts"` — marketplace-types.ts 한 곳만 존재, ExecFn 없음
 
 ## User Execution Test Scenarios
 

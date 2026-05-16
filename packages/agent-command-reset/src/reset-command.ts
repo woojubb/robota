@@ -1,4 +1,4 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 
 export function executeResetCommand(_context: ICommandHostContext, _args: string): ICommandResult {
   return {

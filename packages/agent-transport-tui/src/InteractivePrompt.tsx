@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import type {
   TCommandInteractionPrompt as TInteractivePrompt,
   ICommandChoicePromptOption as IChoicePromptOption,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import ListPicker from './ListPicker.js';
 import TextPrompt from './TextPrompt.js';
 

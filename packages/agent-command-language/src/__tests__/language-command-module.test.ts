@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { ICommandHostContext, IEditCheckpointRestoreResult } from '@robota-sdk/agent-sdk';
-import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type {
+  ICommandHostContext,
+  IEditCheckpointRestoreResult,
+} from '@robota-sdk/agent-framework';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createLanguageCommandModule } from '../language-command-module.js';
 
 function createCheckpointResult(): IEditCheckpointRestoreResult {

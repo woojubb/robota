@@ -10,15 +10,15 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const WORKSPACE_ROOT = process.cwd();
-const SDK_SRC_DIR = 'packages/agent-sdk/src';
-const SDK_TOP_LEVEL_ENTRY = 'packages/agent-sdk/src/index.ts';
+const SDK_SRC_DIR = 'packages/agent-framework/src';
+const SDK_TOP_LEVEL_ENTRY = 'packages/agent-framework/src/index.ts';
 const SDK_RUNTIME_FACADE_FILES = new Set([
-  'packages/agent-sdk/src/background-tasks/index.ts',
-  'packages/agent-sdk/src/subagents/index.ts',
+  'packages/agent-framework/src/background-tasks/index.ts',
+  'packages/agent-framework/src/subagents/index.ts',
 ]);
 const FORBIDDEN_TOP_LEVEL_OWNER_PACKAGES = [
   '@robota-sdk/agent-core',
-  '@robota-sdk/agent-sessions',
+  '@robota-sdk/agent-session',
   '@robota-sdk/agent-tools',
 ];
 
@@ -74,7 +74,7 @@ function findExportStarFindings(file, content) {
       file,
       type: 'sdk-public-export-star',
       detail:
-        'agent-sdk public barrels must use explicit named exports so owner boundaries are auditable.',
+        'agent-framework public barrels must use explicit named exports so owner boundaries are auditable.',
     }));
 }
 
@@ -85,19 +85,19 @@ function findTopLevelOwnerPassThroughFindings(file, content) {
     .map((declaration) => ({
       file,
       type: 'sdk-top-level-owner-pass-through',
-      detail: `Top-level agent-sdk must not pass through ${declaration.source}; import from the owning package or add an explicit SDK-owned facade.`,
+      detail: `Top-level agent-framework must not pass through ${declaration.source}; import from the owning package or add an explicit SDK-owned facade.`,
     }));
 }
 
 function findUnexpectedRuntimeFacadeFindings(file, content) {
   if (SDK_RUNTIME_FACADE_FILES.has(file)) return [];
   return extractReExportDeclarations(content)
-    .filter((declaration) => declaration.source === '@robota-sdk/agent-runtime')
+    .filter((declaration) => declaration.source === '@robota-sdk/agent-executor')
     .map(() => ({
       file,
       type: 'sdk-runtime-facade-location',
       detail:
-        'agent-runtime public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
+        'agent-executor public re-exports must stay in SDK runtime facade barrels, not arbitrary SDK files.',
     }));
 }
 

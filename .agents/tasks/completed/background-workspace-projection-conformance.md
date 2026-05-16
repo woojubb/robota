@@ -30,7 +30,7 @@ Reason:
 
 ## Source Audit Result
 
-- `agent-runtime` owns `BackgroundTaskManager` under `packages/agent-runtime/src/background-tasks/`.
+- `agent-runtime` owns `BackgroundTaskManager` under `packages/agent-executor/src/background-tasks/`.
 - `agent-sdk` owns `createExecutionWorkspaceSnapshot`, execution workspace types, detail readers,
   and `InteractiveSession` workspace APIs.
 - `agent-cli` consumes `getExecutionWorkspaceSnapshot`, `execution_workspace_event`, and

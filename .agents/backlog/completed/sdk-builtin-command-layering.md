@@ -19,8 +19,8 @@ The command layer should have one source of truth:
 
 ## Original Signals
 
-- `packages/agent-sdk/src/commands/system-command.ts` no longer owns user-visible command execution; `/help` moved to `@robota-sdk/agent-command-help`.
-- `packages/agent-sdk/src/commands/builtin-source.ts` owns built-in command palette metadata separately from execution.
+- `packages/agent-framework/src/commands/system-command.ts` no longer owns user-visible command execution; `/help` moved to `@robota-sdk/agent-command-help`.
+- `packages/agent-framework/src/commands/builtin-source.ts` owns built-in command palette metadata separately from execution.
 - `packages/agent-cli/src/commands/slash-executor.ts` hardcoded several command behaviors and returned `handled: false` for others so a later path could execute them.
 - `.agents/specs/agent-invocation-router.md` already states that built-in command modules should be injected by composition roots and should own their descriptors.
 - Extracted command packages such as `agent-command-statusline` show that command modules can package system commands for injection without living in the CLI.

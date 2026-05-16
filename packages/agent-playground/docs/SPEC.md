@@ -14,8 +14,8 @@ Owns the Robota Playground UI package: React components, hooks, executor logic, 
 
 ## Architecture Decision: No agent-sdk Session Stack
 
-The playground intentionally does not depend on `@robota-sdk/agent-sdk`,
-`@robota-sdk/agent-sessions`, or `@robota-sdk/agent-runtime`. This is a deliberate
+The playground intentionally does not depend on `@robota-sdk/agent-framework`,
+`@robota-sdk/agent-session`, or `@robota-sdk/agent-executor`. This is a deliberate
 lightweight client design, not architectural drift.
 
 **Rationale**: The playground is a browser UI that delegates agent execution to
@@ -28,8 +28,8 @@ running a local session stack.
 
 - Allowed: `@robota-sdk/agent-core` (type contracts), `@robota-sdk/agent-remote-client`
   (remote execution), provider packages for type references only.
-- Not allowed: `@robota-sdk/agent-sdk`, `@robota-sdk/agent-sessions`,
-  `@robota-sdk/agent-runtime`.
+- Not allowed: `@robota-sdk/agent-framework`, `@robota-sdk/agent-session`,
+  `@robota-sdk/agent-executor`.
 
 If the playground needs to support local (offline) execution in the future, that work
 must go through a dedicated backlog item and explicit architectural review.

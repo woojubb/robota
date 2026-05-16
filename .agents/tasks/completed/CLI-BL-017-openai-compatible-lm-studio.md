@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-04-29
 - **Branch**: feat/openai-compatible-lm-studio
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-provider-openai
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-provider-openai
 
 ## Objective
 
@@ -80,7 +80,7 @@ Provider resolution order:
 
 - [x] Update package specs before code changes.
   - [x] `packages/agent-cli/docs/SPEC.md`: document provider profile selection and OpenAI-compatible provider creation.
-  - [x] `packages/agent-sdk/docs/SPEC.md`: document `currentProvider`, `providers`, and resolved provider profile fields.
+  - [x] `packages/agent-framework/docs/SPEC.md`: document `currentProvider`, `providers`, and resolved provider profile fields.
   - [x] `packages/agent-provider-openai/docs/SPEC.md`: document CLI-oriented OpenAI-compatible usage and streaming parity expectations if provider behavior changes.
 - [x] Extend SDK config schema and resolution.
   - [x] Add `currentProvider?: string`.
@@ -117,7 +117,7 @@ Provider resolution order:
 Targeted commands:
 
 ```bash
-pnpm --filter @robota-sdk/agent-sdk test
+pnpm --filter @robota-sdk/agent-framework test
 pnpm --filter @robota-sdk/agent-provider-openai test
 pnpm --filter @robota-sdk/agent-cli test
 pnpm --filter @robota-sdk/agent-cli build
@@ -177,10 +177,10 @@ Implemented.
 
 Verification completed:
 
-- `pnpm --filter @robota-sdk/agent-sdk test`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk build`
-- `pnpm --filter @robota-sdk/agent-sdk lint` (exit 0; existing warnings remain)
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework build`
+- `pnpm --filter @robota-sdk/agent-framework lint` (exit 0; existing warnings remain)
 - `pnpm --filter @robota-sdk/agent-provider-openai test -- src/provider.test.ts`
 - `pnpm --filter @robota-sdk/agent-provider-openai typecheck`
 - `pnpm --filter @robota-sdk/agent-provider-openai build`

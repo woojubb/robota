@@ -2,8 +2,8 @@ import {
   createDefaultTools,
   createSubagentLogger,
   createSubagentSession,
-} from '@robota-sdk/agent-sdk';
-import { createProviderFromProfile } from '@robota-sdk/agent-runtime';
+} from '@robota-sdk/agent-framework';
+import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
   isSubagentWorkerParentMessage,
   type ISubagentWorkerStartPayload,

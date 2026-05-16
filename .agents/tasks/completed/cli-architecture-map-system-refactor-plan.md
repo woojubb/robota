@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: docs/cli-architecture-target-plan
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-command-\*, .agents/backlog
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-command-\*, .agents/backlog
 
 ## Objective
 

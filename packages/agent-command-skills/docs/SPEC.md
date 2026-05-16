@@ -4,7 +4,7 @@
 
 `@robota-sdk/agent-command-skills` owns the `skills` built-in command module. User-facing shells render and parse it as `/skills`; SDK command identity remains `skills`.
 
-The package exports an `ICommandModule` that consumes command contracts and skill common APIs from `@robota-sdk/agent-sdk`. It does not own skill file discovery, skill execution, session orchestration, or UI behavior.
+The package exports an `ICommandModule` that consumes command contracts and skill common APIs from `@robota-sdk/agent-framework`. It does not own skill file discovery, skill execution, session orchestration, or UI behavior.
 
 ## Public Surface
 
@@ -47,5 +47,5 @@ define separate lifecycle, retention, archive, or clear behavior.
 
 - `pnpm --filter @robota-sdk/agent-command-skills test`
 - `pnpm --filter @robota-sdk/agent-command-skills typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk test -- system-command interactive-session-skill-command command-execution-tool`
+- `pnpm --filter @robota-sdk/agent-framework test -- system-command interactive-session-skill-command command-execution-tool`
 - `pnpm --filter @robota-sdk/agent-transport-headless test -- headless-skill-activation`

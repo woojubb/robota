@@ -33,15 +33,15 @@ SDK에서 transcript 파일이 항상 생성되는지는 확인되지 않음:
 
 ## Required Change
 
-### `packages/agent-sessions/src/session-lifecycle.ts`
+### `packages/agent-session/src/session-lifecycle.ts`
 
 `fireSessionStartHook()`, `fireSessionEndHook()`에서 `transcript_path` 전달.
 
-### `packages/agent-sessions/src/session-run.ts`
+### `packages/agent-session/src/session-run.ts`
 
 `executeRun()`의 UserPromptSubmit, Stop, StopFailure 발화 지점에서 `transcript_path` 전달.
 
-### `packages/agent-sessions/src/tool-hook-helpers.ts`
+### `packages/agent-session/src/tool-hook-helpers.ts`
 
 `buildHookInput()`에서 `transcript_path` 포함.
 

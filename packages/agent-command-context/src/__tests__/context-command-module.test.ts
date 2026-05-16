@@ -7,8 +7,8 @@ import type {
   IContextReferenceRemoveResult,
   ICommandSessionRuntime,
   TAutoCompactThresholdSource,
-} from '@robota-sdk/agent-sdk';
-import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
 
 type TContextWindowState = ReturnType<ICommandHostContext['getContextState']>;

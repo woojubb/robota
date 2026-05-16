@@ -1,7 +1,7 @@
 ---
 '@robota-sdk/agent-core': patch
-'@robota-sdk/agent-sessions': patch
-'@robota-sdk/agent-sdk': patch
+'@robota-sdk/agent-session': patch
+'@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-command-session': patch
 '@robota-sdk/agent-provider-anthropic': patch
 '@robota-sdk/agent-provider-gemini': patch

@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-core, packages/agent-command-agent, packages/agent-sdk
+area: packages/agent-core, packages/agent-command-agent, packages/agent-framework
 ---
 
 ## Problem
@@ -63,7 +63,7 @@ IContextReferenceHostContext
 ## Test Plan
 
 - `pnpm --filter @robota-sdk/agent-core build` passes
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - `pnpm --filter @robota-sdk/agent-command-agent build` passes
 - No `?.` null-checks on context method calls in command modules
 - `pnpm test` passes for affected packages

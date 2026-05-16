@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/sdk-command-common-api-finalize
-- **Scope**: packages/agent-sdk, .agents/backlog, .agents/tasks
+- **Scope**: packages/agent-framework, .agents/backlog, .agents/tasks
 
 ## Objective
 
@@ -23,7 +23,7 @@ specification with the implemented final layering and archiving the completed ba
 
 ### 2026-05-03
 
-- Confirmed `packages/agent-sdk/src/command-api` owns contracts, effects, interactions, host context,
+- Confirmed `packages/agent-framework/src/command-api` owns contracts, effects, interactions, host context,
   host adapters, and command-facing provider/context/session/runtime/plugin APIs.
 - Confirmed user-visible built-ins are implemented in `agent-command-*` packages and composed by CLI.
 - Confirmed `pnpm harness:scan:commands` guards SDK/CLI/command-package layering after PR #185.
@@ -47,9 +47,9 @@ Completed.
 
 Verification passed:
 
-- `volta run pnpm --filter @robota-sdk/agent-sdk test -- src/command-api/__tests__/command-api.test.ts src/commands/__tests__/system-command.test.ts src/commands/__tests__/command-registry.test.ts`
-- `volta run pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `volta run pnpm --filter @robota-sdk/agent-sdk build`
+- `volta run pnpm --filter @robota-sdk/agent-framework test -- src/command-api/__tests__/command-api.test.ts src/commands/__tests__/system-command.test.ts src/commands/__tests__/command-registry.test.ts`
+- `volta run pnpm --filter @robota-sdk/agent-framework typecheck`
+- `volta run pnpm --filter @robota-sdk/agent-framework build`
 - `volta run pnpm harness:scan:commands`
 - `volta run pnpm docs:validate-structure`
 - `git diff --check`

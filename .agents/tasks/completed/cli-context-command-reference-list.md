@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: feat/cli-context-reference-inventory
-- **Scope**: packages/agent-sdk, packages/agent-command-context, packages/agent-cli docs
+- **Scope**: packages/agent-framework, packages/agent-command-context, packages/agent-cli docs
 
 ## Objective
 
@@ -52,8 +52,8 @@ commands and prompt `@file` references while preserving the CLI-as-thin-renderer
 
 - `pnpm --filter @robota-sdk/agent-command-context test`
 - `pnpm --filter @robota-sdk/agent-command-context typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk test -- context-command-api interactive-session`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-framework test -- context-command-api interactive-session`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm harness:scan`
 
 ## Blockers

@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-04-30
 - **Branch**: feat/background-task-layer
-- **Scope**: .agents/specs, packages/agent-sdk, packages/agent-cli, packages/agent-core, packages/agent-sessions
+- **Scope**: .agents/specs, packages/agent-framework, packages/agent-cli, packages/agent-core, packages/agent-session
 
 ## Objective
 

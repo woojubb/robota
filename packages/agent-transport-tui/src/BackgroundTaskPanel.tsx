@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-sdk';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-framework';
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
 
 interface IProps {

@@ -24,12 +24,12 @@ related: [V-SYS-001, V-SYS-002]
 3. 변경 후 문맥이 자연스럽게 읽히는지 확인한다.
 
 ```bash
-rg 'sub-agent|main agent|parent-agent|child-agent' packages/agent-core/docs packages/agent-sdk/docs
+rg 'sub-agent|main agent|parent-agent|child-agent' packages/agent-core/docs packages/agent-framework/docs
 ```
 
 ## Test Plan
 
-- `rg 'sub-agent|main agent|parent-agent|child-agent' packages/agent-core packages/agent-sdk` 결과 0건
+- `rg 'sub-agent|main agent|parent-agent|child-agent' packages/agent-core packages/agent-framework` 결과 0건
 - 변경 후 문서 구조 유지 확인
 
 ## User Execution Test Scenarios

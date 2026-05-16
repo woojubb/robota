@@ -10,9 +10,9 @@ Migrate `/rewind` edit-checkpoint command registration into a command-module own
 
 ## Current Owner
 
-- Execution helper: `packages/agent-sdk/src/commands/rewind-command.ts`
-- Registration/metadata: `packages/agent-sdk/src/commands/system-command.ts`
-- Subcommands: `packages/agent-sdk/src/commands/system-command-metadata.ts`
+- Execution helper: `packages/agent-framework/src/commands/rewind-command.ts`
+- Registration/metadata: `packages/agent-framework/src/commands/system-command.ts`
+- Subcommands: `packages/agent-framework/src/commands/system-command-metadata.ts`
 
 ## Target Owner
 
@@ -38,7 +38,7 @@ Recommended: `@robota-sdk/agent-command-rewind`, consuming SDK edit-checkpoint A
 ## Completion Notes
 
 - Added `@robota-sdk/agent-command-rewind` as the command-module owner for `/rewind`.
-- Added SDK checkpoint command common APIs under `packages/agent-sdk/src/command-api/checkpoint/`.
-- Removed SDK-embedded `/rewind` execution and metadata from `packages/agent-sdk/src/commands/`.
+- Added SDK checkpoint command common APIs under `packages/agent-framework/src/command-api/checkpoint/`.
+- Removed SDK-embedded `/rewind` execution and metadata from `packages/agent-framework/src/commands/`.
 - Composed `createRewindCommandModule()` in the CLI product entrypoint.
 - Ported list, restore, code-alias, rollback, usage, and error tests into the command package.

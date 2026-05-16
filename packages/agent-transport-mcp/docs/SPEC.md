@@ -6,7 +6,7 @@ MCP transport adapter for exposing InteractiveSession as a Model Context Protoco
 
 ## Boundaries
 
-- Does NOT own InteractiveSession — imported from `@robota-sdk/agent-sdk`
+- Does NOT own InteractiveSession — imported from `@robota-sdk/agent-framework`
 - Does NOT own system commands — uses `session.executeCommand()` and `session.listCommands()` from InteractiveSession
 - Does NOT own MCP protocol — uses `@modelcontextprotocol/sdk`
 - OWNS: Tool registration mapping from InteractiveSession API to MCP tools
@@ -62,7 +62,7 @@ await mcpServer.connect(new StdioServerTransport());
 
 ## ITransportAdapter
 
-This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`.
 
 ### `createMcpTransport(options)`
 
@@ -88,6 +88,6 @@ Factory that returns an `ITransportAdapter` with `name: 'mcp'`.
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` (InteractiveSession)
+- `@robota-sdk/agent-framework` (InteractiveSession)
 - `@modelcontextprotocol/sdk` (MCP server implementation)
 - `zod` (input schema definitions)

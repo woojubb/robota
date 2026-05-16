@@ -54,9 +54,9 @@ Do not add a global `agent-*` coverage threshold yet. The package set includes c
 | `@robota-sdk/agent-provider-openai-compatible`  |     4 |  90.12% |   77.37% |    96.77% |     90.12% | tested executable source       | Good baseline                                        |
 | `@robota-sdk/agent-provider-qwen`               |     2 |  81.96% |   69.31% |    84.48% |     81.96% | tested executable source       | Branch coverage should improve                       |
 | `@robota-sdk/agent-remote-client`               |     7 |  99.31% |   92.89% |   100.00% |     99.31% | tested executable source       | Strong baseline                                      |
-| `@robota-sdk/agent-runtime`                     |     4 |  93.37% |   74.16% |    85.00% |     93.37% | tested executable source       | Add worktree/cancel edge cases before policy changes |
-| `@robota-sdk/agent-sdk`                         |    57 |  88.59% |   80.40% |    80.98% |     88.59% | tested executable source       | Good baseline; provider command helpers are low      |
-| `@robota-sdk/agent-sessions`                    |     4 |  67.59% |   79.00% |    47.82% |     67.59% | tested executable source       | High-risk runtime/session gap                        |
+| `@robota-sdk/agent-executor`                    |     4 |  93.37% |   74.16% |    85.00% |     93.37% | tested executable source       | Add worktree/cancel edge cases before policy changes |
+| `@robota-sdk/agent-framework`                   |    57 |  88.59% |   80.40% |    80.98% |     88.59% | tested executable source       | Good baseline; provider command helpers are low      |
+| `@robota-sdk/agent-session`                     |     4 |  67.59% |   79.00% |    47.82% |     67.59% | tested executable source       | High-risk runtime/session gap                        |
 | `@robota-sdk/agent-team`                        |     1 |  91.01% |   71.42% |    75.00% |     91.01% | tested executable source       | Acceptable baseline                                  |
 | `@robota-sdk/agent-tool-mcp`                    |     0 |   0.00% |    0.00% |     0.00% |      0.00% | no tests                       | Critical MCP tool coverage gap                       |
 | `@robota-sdk/agent-tools`                       |     4 |  31.64% |   79.55% |    65.30% |     31.64% | tested executable source       | Critical filesystem/shell/web tool coverage gap      |

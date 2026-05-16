@@ -1,4 +1,4 @@
-import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import { describe, expect, it } from 'vitest';
 import { createHelpCommandModule } from '../help-command-module.js';
 import { executeHelpCommand } from '../help-command.js';

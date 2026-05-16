@@ -3,7 +3,7 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executeContextCommand } from './context-command.js';
 
 export function createContextCommandEntry(): ICommand {

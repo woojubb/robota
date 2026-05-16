@@ -141,15 +141,15 @@ Implication for Robota:
 
 Robota currently has "in-process awaited subagent calls", not a managed process/thread system.
 
-- `packages/agent-sdk/src/tools/agent-tool.ts`
+- `packages/agent-framework/src/tools/agent-tool.ts`
   - `createAgentTool(deps)` exposes an `Agent` tool.
   - `runAgent()` resolves a built-in/custom agent definition, creates a subagent session, awaits `session.run(args.prompt)`, then returns a JSON string.
   - An `agentId` is generated only for the return payload. There is no registry, durable transcript, lifecycle state, cancellation handle, or follow-up route.
-- `packages/agent-sdk/src/assembly/create-subagent-session.ts`
+- `packages/agent-framework/src/assembly/create-subagent-session.ts`
   - Creates a separate `Session` with separate conversation history and filtered tools.
   - Always removes `Agent`, so subagents cannot spawn subagents.
   - Reuses the parent provider instance.
-- `packages/agent-sdk/src/interactive/interactive-session.ts`
+- `packages/agent-framework/src/interactive/interactive-session.ts`
   - Fork skill execution also creates a subagent session and awaits its result.
   - `executeForkSkillCommand()` refuses to run while the parent session is executing.
   - Events are parent-level only: text delta, tool start/end, thinking, complete, error, context update, interrupted.
@@ -157,7 +157,7 @@ Robota currently has "in-process awaited subagent calls", not a managed process/
   - Tool batches run in `parallel` mode with `maxConcurrency: 5`.
 - `packages/agent-core/src/services/tool-execution-batch.ts`
   - `executeParallel()` uses `Promise.allSettled()` over every request. The `maxConcurrency` value is currently ignored.
-- `packages/agent-sessions/src/session-lifecycle.ts`
+- `packages/agent-session/src/session-lifecycle.ts`
   - `configureProvider()` mutates the provider instance by setting streaming/server-tool callbacks.
   - Because parent and child sessions share the same provider object, concurrent sessions can mix or overwrite callback state.
 - `packages/agent-cli/src/ui/tui-state-manager.ts`

@@ -2,7 +2,7 @@
 
 - **Status**: completed
 - **Branch**: feat/self-hosting-loop-verification
-- **Scope**: packages/agent-tools, packages/agent-sdk, .agents/specs
+- **Scope**: packages/agent-tools, packages/agent-framework, .agents/specs
 
 ## Context
 

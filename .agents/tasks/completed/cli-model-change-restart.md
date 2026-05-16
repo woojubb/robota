@@ -12,7 +12,7 @@ The CLI currently tells the user that changing the model will restart the sessio
 
 ## Current Signals
 
-- `packages/agent-sdk/src/commands/system-command.ts` returns `data.modelId` for the `model` system command and leaves application to the caller.
+- `packages/agent-framework/src/commands/system-command.ts` returns `data.modelId` for the `model` system command and leaves application to the caller.
 - `packages/agent-cli/src/ui/hooks/useSlashRouting.ts` maps `data.modelId` to `_pendingModelId`.
 - `packages/agent-cli/src/ui/hooks/useSideEffects.ts` confirms the model change, calls `updateModelInSettings()`, and requests shutdown.
 - `packages/agent-cli/src/utils/settings-io.ts` updates either `providers[currentProvider].model` or legacy `provider.model`.

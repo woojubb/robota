@@ -27,4 +27,4 @@ export type {
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';

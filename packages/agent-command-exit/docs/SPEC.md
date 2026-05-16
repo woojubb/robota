@@ -34,14 +34,14 @@ The module contributes one `ICommandSource` for autocomplete/palette metadata an
 
 ## Type Ownership
 
-This package does not define independent public data contracts. It consumes SDK-owned command contracts from `@robota-sdk/agent-sdk`.
+This package does not define independent public data contracts. It consumes SDK-owned command contracts from `@robota-sdk/agent-framework`.
 
-| Type             | Location                | Purpose                                     |
-| ---------------- | ----------------------- | ------------------------------------------- |
-| `ICommandModule` | `@robota-sdk/agent-sdk` | Command module composition contract         |
-| `ICommand`       | `@robota-sdk/agent-sdk` | Command palette/autocomplete entry          |
-| `ISystemCommand` | `@robota-sdk/agent-sdk` | Executable command contract                 |
-| `ICommandResult` | `@robota-sdk/agent-sdk` | Command execution result with typed effects |
+| Type             | Location                      | Purpose                                     |
+| ---------------- | ----------------------------- | ------------------------------------------- |
+| `ICommandModule` | `@robota-sdk/agent-framework` | Command module composition contract         |
+| `ICommand`       | `@robota-sdk/agent-framework` | Command palette/autocomplete entry          |
+| `ISystemCommand` | `@robota-sdk/agent-framework` | Executable command contract                 |
+| `ICommandResult` | `@robota-sdk/agent-framework` | Command execution result with typed effects |
 
 ## Public API
 
@@ -74,11 +74,11 @@ This package defines no package-specific error classes. The command is determini
 
 ## Dependencies
 
-| Package                 | Purpose                                                                    |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `@robota-sdk/agent-sdk` | Command contracts, command metadata types, and session-exit effect factory |
+| Package                       | Purpose                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `@robota-sdk/agent-framework` | Command contracts, command metadata types, and session-exit effect factory |
 
-`@robota-sdk/agent-sdk` must not import this package.
+`@robota-sdk/agent-framework` must not import this package.
 
 ## Test Strategy
 
