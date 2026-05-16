@@ -12,7 +12,7 @@ const shared = {
   dts: true,
   outExtensions,
   deps: {
-    neverBundle: [/^@robota-sdk\/.*/, /^hono/, /^ws$/, /^@modelcontextprotocol\/.*/, /^zod$/],
+    neverBundle: [/^@robota-sdk\/.*/, /^ink/, /^react/, /^chalk$/, /^marked/, /^string-width$/],
   },
 };
 
@@ -20,10 +20,6 @@ export default defineConfig({
   ...shared,
   entry: {
     index: 'src/index.ts',
-    'headless/index': 'src/headless/index.ts',
-    'http/index': 'src/http/index.ts',
-    'ws/index': 'src/ws/index.ts',
-    'mcp/index': 'src/mcp/index.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist/node',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
@@ -150,6 +150,7 @@ function AppInner(
   const [executionDetailError, setExecutionDetailError] = useState<string | undefined>();
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
+  const [gitRefreshToken, setGitRefreshToken] = useState(0);
   const backgroundWorkspaceEntries = useMemo(
     () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
     [executionWorkspaceSnapshot],
@@ -218,6 +219,23 @@ function AppInner(
     },
     [selectedExecutionEntry, handleSubmit, interactiveSession],
   );
+
+  const handleSubmitWithGitRefresh = useCallback(
+    async (input: string): Promise<void> => {
+      setGitRefreshToken((t) => t + 1);
+      await handleSubmitWithRouting(input);
+    },
+    [handleSubmitWithRouting],
+  );
+
+  // Refresh git branch when AI response completes.
+  const wasThinkingRef = useRef(false);
+  useEffect(() => {
+    if (wasThinkingRef.current && !isThinking) {
+      setGitRefreshToken((t) => t + 1);
+    }
+    wasThinkingRef.current = isThinking;
+  }, [isThinking]);
 
   // Sync session name from InteractiveSession when resuming
   useEffect(() => {
@@ -452,9 +470,10 @@ function AppInner(
         sessionName={sessionName}
         settings={statusLineSettings}
         activeAgentLabel={activeAgentLabel}
+        gitRefreshToken={gitRefreshToken}
       />
       <InputArea
-        onSubmit={handleSubmitWithRouting}
+        onSubmit={handleSubmitWithGitRefresh}
         onCancelQueue={handleCancelQueue}
         isDisabled={
           !!permissionRequest ||

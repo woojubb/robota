@@ -341,6 +341,9 @@ importers:
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport
+      '@robota-sdk/agent-transport-tui':
+        specifier: workspace:*
+        version: link:../agent-transport-tui
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -867,12 +870,52 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      chalk:
-        specifier: ^5.3.0
-        version: 5.6.2
       hono:
         specifier: ^4.7.0
         version: 4.12.9
+      ws:
+        specifier: ^8.18.3
+        version: 8.20.0
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
+    devDependencies:
+      '@robota-sdk/agent-command':
+        specifier: workspace:*
+        version: link:../agent-command
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.0
+        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-transport-tui:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
+      chalk:
+        specifier: ^5.3.0
+        version: 5.6.2
       ink:
         specifier: ^7.0.1
         version: 7.0.1(@types/react@19.2.14)(react@19.2.4)
@@ -897,12 +940,6 @@ importers:
       string-width:
         specifier: ^8.2.0
         version: 8.2.0
-      ws:
-        specifier: ^8.18.3
-        version: 8.20.0
-      zod:
-        specifier: ^3.24.4
-        version: 3.25.76
     devDependencies:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.13.1
@@ -913,9 +950,6 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
-      '@types/ws':
-        specifier: ^8.5.10
-        version: 8.18.1
       ink-testing-library:
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.2.14)

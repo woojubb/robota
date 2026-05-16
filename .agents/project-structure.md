@@ -18,7 +18,8 @@ packages/
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
-├── agent-transport-*/           # Transports: tui, headless, http, mcp, ws
+├── agent-transport/             # Protocol transports (pure TS): headless, HTTP, WebSocket, MCP
+├── agent-transport-tui/         # TUI transport: Ink/React terminal UI components and TuiTransport adapter
 └── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
 ├── agent-web-ui/           # Web application (Agent Playground)
