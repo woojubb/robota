@@ -4,11 +4,11 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
-import type { IInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
+import type { TInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
 import { createHeadlessTransport } from '../headless-transport.js';
 
 type TStandardSessionOptions = Extract<
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   { cwd: string; provider: unknown }
 >;
 type TTestProvider = TStandardSessionOptions['provider'];

@@ -113,7 +113,7 @@ export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequ
   outputLimitBytes?: number;
 }
 
-export type IBackgroundTaskRequest =
+export type TBackgroundTaskRequest =
   | IAgentBackgroundTaskRequest
   | IProcessBackgroundTaskRequest
   | IScheduledBackgroundTaskRequest;
@@ -206,7 +206,7 @@ export type TBackgroundTaskRunnerEvent =
 
 export interface IBackgroundTaskStart {
   taskId: string;
-  request: IBackgroundTaskRequest;
+  request: TBackgroundTaskRequest;
   emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
@@ -226,7 +226,7 @@ export interface IBackgroundTaskRunner {
   start(task: IBackgroundTaskStart): IBackgroundTaskHandle;
 }
 
-export type TBackgroundTaskIdFactory = (request: IBackgroundTaskRequest) => string;
+export type TBackgroundTaskIdFactory = (request: TBackgroundTaskRequest) => string;
 
 export type TBackgroundTaskEvent =
   | { type: 'background_task_created'; task: IBackgroundTaskState }
@@ -256,7 +256,7 @@ export type TBackgroundTaskEvent =
 export type TBackgroundTaskEventListener = (event: TBackgroundTaskEvent) => void;
 
 export interface IBackgroundTaskManager {
-  spawn(request: IBackgroundTaskRequest): Promise<IBackgroundTaskState>;
+  spawn(request: TBackgroundTaskRequest): Promise<IBackgroundTaskState>;
   wait(taskId: string): Promise<IBackgroundTaskResult>;
   list(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
   get(taskId: string): IBackgroundTaskState | undefined;

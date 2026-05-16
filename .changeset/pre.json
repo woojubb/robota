@@ -57,8 +57,6 @@
     "@robota-sdk/agent-command-statusline": "3.0.0-beta.59",
     "@robota-sdk/agent-command-skills": "3.0.0-beta.60",
     "@robota-sdk/agent-provider-deepseek": "3.0.0-beta.60",
-    "@robota-sdk/auth": "3.0.0-beta.60",
-    "@robota-sdk/credits": "3.0.0-beta.60",
     "@robota-sdk/agent-command-user-local": "3.0.0-beta.61",
     "@robota-sdk/agent-command-settings": "3.0.0-beta.62",
     "@robota-sdk/agent-interface-transport": "3.0.0-beta.62",

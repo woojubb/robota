@@ -102,7 +102,7 @@ export async function executeChatRequest(
     ...(tools && tools.length > 0 && { tools }),
   };
 
-  logger.info('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
+  logger.debug('HTTP non-streaming request', { toolCount: tools?.length ?? 0 });
 
   const url = `${baseUrl}/chat`;
 
@@ -178,8 +178,8 @@ export async function* executeChatStreamRequest(
     ...(tools && tools.length > 0 && { tools }),
   };
 
-  logger.info('🔧 [HTTP-CLIENT] Request tools:', tools?.length || 0);
-  logger.info('🌐 HTTP chatStream request:', {
+  logger.debug('HTTP stream request', {
+    toolCount: tools?.length ?? 0,
     url,
     provider,
     model,
@@ -195,11 +195,11 @@ export async function* executeChatStreamRequest(
       body: JSON.stringify(body),
     });
 
-    logger.info('🌐 HTTP response status:', response.status, response.statusText);
+    logger.debug('HTTP response', { status: response.status, statusText: response.statusText });
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error('❌ HTTP error response:', {
+      logger.error('HTTP error response', {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
@@ -245,10 +245,9 @@ export async function* executeChatStreamRequest(
                   typeof responseData['content'] === 'string' ? responseData['content'] : '';
                 const toolCalls = responseData['toolCalls'];
 
-                // Debug: inspect parsed data
-                logger.debug('🔍 [HTTP-CLIENT-PARSE] Parsed response data:', {
+                logger.debug('parsed stream chunk', {
                   role: String(responseData['role']),
-                  content: contentValue.substring(0, CONTENT_PREVIEW_LENGTH) + '...',
+                  content: contentValue.substring(0, CONTENT_PREVIEW_LENGTH),
                   hasToolCalls: !!toolCalls,
                   toolCallsLength: Array.isArray(toolCalls) ? toolCalls.length : 0,
                 });

@@ -6,7 +6,7 @@ import {
 } from '../background-job-orchestrator.js';
 import type {
   IBackgroundTaskHandle,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
@@ -19,7 +19,7 @@ interface IControlledTask {
   reject: (error: Error) => void;
 }
 
-function createAgentRequest(label: string): IBackgroundTaskRequest {
+function createAgentRequest(label: string): TBackgroundTaskRequest {
   return {
     kind: 'agent',
     label,

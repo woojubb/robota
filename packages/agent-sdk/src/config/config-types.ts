@@ -110,7 +110,7 @@ const HooksSchema = z
 /** Plugin enablement map: plugin name -> enabled flag */
 const EnabledPluginsSchema = z.record(z.boolean()).optional();
 
-/** Extra marketplace sources: name -> { source: IMarketplaceSource } */
+/** Extra marketplace sources: name -> { source: TMarketplaceSource } */
 const MarketplaceSourceSchema = z.object({
   source: z.object({
     type: z.enum(['github', 'git', 'local', 'url']),

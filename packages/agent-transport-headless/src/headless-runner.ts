@@ -1,11 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import type {
-  IInteractiveSession,
-  IExecutionResult,
-  ICommandResult,
-  TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
-} from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession, IExecutionResult } from '@robota-sdk/agent-sdk';
+import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headless-stream-json.js';
 
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 
@@ -14,104 +8,73 @@ export interface IHeadlessRunnerOptions {
   outputFormat: TOutputFormat;
 }
 
-type TStreamJsonEvent =
-  | {
-      type: 'content_block_delta';
-      delta: { type: 'text_delta'; text: string };
-    }
-  | {
-      type: 'background_task_event';
-      background_task_event: TBackgroundTaskEvent;
-    }
-  | {
-      type: 'background_job_group_event';
-      background_job_group_event: TBackgroundJobGroupEvent;
-    };
-
-type TSlashCommandExecution =
-  | {
-      readonly kind: 'not-slash';
-    }
-  | {
-      readonly kind: 'command-result';
-      readonly result: ICommandResult;
-    }
-  | {
-      readonly kind: 'session-execution';
-    };
-
 export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
 } {
   const { session, outputFormat } = options;
-
   return {
     run: (prompt: string): Promise<number> => {
-      if (outputFormat === 'text') {
-        return runTextFormat(session, prompt);
-      }
-      if (outputFormat === 'json') {
-        return runJsonFormat(session, prompt);
-      }
+      if (outputFormat === 'text') return runTextFormat(session, prompt);
+      if (outputFormat === 'json') return runJsonFormat(session, prompt);
       return runStreamJsonFormat(session, prompt);
     },
   };
 }
 
-function writeJsonResult(sessionId: string, result: string, subtype: 'success' | 'error'): void {
+export function writeJsonResult(
+  sessionId: string,
+  result: string,
+  subtype: 'success' | 'error',
+): void {
   const output = JSON.stringify({ type: 'result', result, session_id: sessionId, subtype });
   process.stdout.write(output + '\n');
 }
 
-function parseSlashCommand(prompt: string): { name: string; args: string } | null {
-  const trimmed = prompt.trimStart();
-  if (!trimmed.startsWith('/')) return null;
-  const withoutSlash = trimmed.slice(1);
-  const [name = '', ...args] = withoutSlash.split(/\s+/);
-  if (name.length === 0) return null;
-  return { name, args: args.join(' ') };
-}
-
-async function executeSlashCommandIfPresent(
-  session: IInteractiveSession,
-  prompt: string,
-): Promise<TSlashCommandExecution> {
-  const command = parseSlashCommand(prompt);
-  if (!command) return { kind: 'not-slash' };
-
-  const result = await session.executeCommand(command.name, command.args);
-  if (result) {
-    if (result.effects?.some((effect) => effect.type === 'session-execution-started')) {
-      return { kind: 'session-execution' };
-    }
-    return { kind: 'command-result', result };
-  }
-
-  return {
-    kind: 'command-result',
-    result: {
-      message: `Unknown command "/${command.name}".`,
-      success: false,
-    },
-  };
-}
-
-function getSessionId(session: IInteractiveSession): string {
+export function getSessionId(session: IInteractiveSession): string {
   try {
     return session.getSession().getSessionId();
   } catch {
+    // allow-fallback: session may not be initialized yet
     return '';
   }
 }
 
-function writeStreamJsonEvent(session: IInteractiveSession, event: TStreamJsonEvent): void {
-  const output = JSON.stringify({
-    type: 'stream_event',
-    event,
-    session_id: getSessionId(session),
-    uuid: randomUUID(),
+function runTextFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+  return new Promise<number>((resolve) => {
+    const cleanup = (): void => {
+      session.off('complete', onComplete);
+      session.off('interrupted', onInterrupted);
+      session.off('error', onError);
+    };
+    const onComplete = (result: IExecutionResult): void => {
+      cleanup();
+      process.stdout.write(result.response + '\n');
+      resolve(0);
+    };
+    const onInterrupted = (result: IExecutionResult): void => {
+      cleanup();
+      if (result.response) process.stdout.write(result.response + '\n');
+      resolve(0);
+    };
+    const onError = (_error: Error): void => {
+      cleanup();
+      resolve(1);
+    };
+
+    session.on('complete', onComplete);
+    session.on('interrupted', onInterrupted);
+    session.on('error', onError);
+
+    void executeSlashCommandIfPresent(session, prompt).then((cmd) => {
+      if (cmd.kind === 'command-result') {
+        cleanup();
+        process.stdout.write(cmd.result.message + '\n');
+        resolve(cmd.result.success ? 0 : 1);
+        return;
+      }
+      if (cmd.kind !== 'session-execution') void session.submit(prompt);
+    });
   });
-  process.stdout.write(output + '\n');
 }
 
 function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
@@ -121,19 +84,16 @@ function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<nu
       session.off('interrupted', onInterrupted);
       session.off('error', onError);
     };
-
     const onComplete = (result: IExecutionResult): void => {
       cleanup();
       writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
-
     const onInterrupted = (result: IExecutionResult): void => {
       cleanup();
       writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
-
     const onError = (_error: Error): void => {
       cleanup();
       writeJsonResult(getSessionId(session), '', 'error');
@@ -144,167 +104,38 @@ function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<nu
     session.on('interrupted', onInterrupted);
     session.on('error', onError);
 
-    void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.kind === 'command-result') {
+    void executeSlashCommandIfPresent(session, prompt).then((cmd) => {
+      if (cmd.kind === 'command-result') {
         cleanup();
         writeJsonResult(
           getSessionId(session),
-          commandExecution.result.message,
-          commandExecution.result.success ? 'success' : 'error',
+          cmd.result.message,
+          cmd.result.success ? 'success' : 'error',
         );
-        resolve(commandExecution.result.success ? 0 : 1);
+        resolve(cmd.result.success ? 0 : 1);
         return;
       }
-      if (commandExecution.kind === 'session-execution') {
-        return;
-      }
-      void session.submit(prompt);
+      if (cmd.kind !== 'session-execution') void session.submit(prompt);
     });
   });
 }
 
 function runStreamJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
   return new Promise<number>((resolve) => {
-    const cleanup = subscribeStreamJsonEvents(session, resolve);
+    const cleanup = subscribeStreamJsonEvents(session, getSessionId, writeJsonResult, resolve);
 
-    void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.kind === 'command-result') {
+    void executeSlashCommandIfPresent(session, prompt).then((cmd) => {
+      if (cmd.kind === 'command-result') {
         cleanup();
         writeJsonResult(
           getSessionId(session),
-          commandExecution.result.message,
-          commandExecution.result.success ? 'success' : 'error',
+          cmd.result.message,
+          cmd.result.success ? 'success' : 'error',
         );
-        resolve(commandExecution.result.success ? 0 : 1);
+        resolve(cmd.result.success ? 0 : 1);
         return;
       }
-      if (commandExecution.kind === 'session-execution') {
-        return;
-      }
-      void session.submit(prompt);
-    });
-  });
-}
-
-function subscribeStreamJsonEvents(
-  session: IInteractiveSession,
-  resolve: (exitCode: number) => void,
-): () => void {
-  const onTextDelta = (text: string): void => {
-    writeStreamJsonEvent(session, {
-      type: 'content_block_delta',
-      delta: { type: 'text_delta', text },
-    });
-  };
-  const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
-    writeStreamJsonEvent(session, { type: 'background_task_event', background_task_event: event });
-  const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
-    writeStreamJsonEvent(session, {
-      type: 'background_job_group_event',
-      background_job_group_event: event,
-    });
-  const cleanup = (): void =>
-    unsubscribeStreamJsonEvents(session, {
-      onTextDelta,
-      onBackgroundTaskEvent,
-      onBackgroundJobGroupEvent,
-      onComplete,
-      onInterrupted,
-      onError,
-    });
-  const onComplete = (result: IExecutionResult): void =>
-    completeStream(session, cleanup, result, resolve);
-  const onInterrupted = (result: IExecutionResult): void =>
-    completeStream(session, cleanup, result, resolve);
-  const onError = (_error: Error): void => {
-    cleanup();
-    writeJsonResult(getSessionId(session), '', 'error');
-    resolve(1);
-  };
-
-  session.on('text_delta', onTextDelta);
-  session.on('background_task_event', onBackgroundTaskEvent);
-  session.on('background_job_group_event', onBackgroundJobGroupEvent);
-  session.on('complete', onComplete);
-  session.on('interrupted', onInterrupted);
-  session.on('error', onError);
-  return cleanup;
-}
-
-interface IStreamJsonHandlers {
-  onTextDelta: (text: string) => void;
-  onBackgroundTaskEvent: (event: TBackgroundTaskEvent) => void;
-  onBackgroundJobGroupEvent: (event: TBackgroundJobGroupEvent) => void;
-  onComplete: (result: IExecutionResult) => void;
-  onInterrupted: (result: IExecutionResult) => void;
-  onError: (error: Error) => void;
-}
-
-function unsubscribeStreamJsonEvents(
-  session: IInteractiveSession,
-  handlers: IStreamJsonHandlers,
-): void {
-  session.off('text_delta', handlers.onTextDelta);
-  session.off('background_task_event', handlers.onBackgroundTaskEvent);
-  session.off('background_job_group_event', handlers.onBackgroundJobGroupEvent);
-  session.off('complete', handlers.onComplete);
-  session.off('interrupted', handlers.onInterrupted);
-  session.off('error', handlers.onError);
-}
-
-function completeStream(
-  session: IInteractiveSession,
-  cleanup: () => void,
-  result: IExecutionResult,
-  resolve: (exitCode: number) => void,
-): void {
-  cleanup();
-  writeJsonResult(getSessionId(session), result.response, 'success');
-  resolve(0);
-}
-
-function runTextFormat(session: IInteractiveSession, prompt: string): Promise<number> {
-  return new Promise<number>((resolve) => {
-    const cleanup = (): void => {
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-
-    const onComplete = (result: IExecutionResult): void => {
-      cleanup();
-      process.stdout.write(result.response + '\n');
-      resolve(0);
-    };
-
-    const onInterrupted = (result: IExecutionResult): void => {
-      cleanup();
-      if (result.response) {
-        process.stdout.write(result.response + '\n');
-      }
-      resolve(0);
-    };
-
-    const onError = (_error: Error): void => {
-      cleanup();
-      resolve(1);
-    };
-
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
-
-    void executeSlashCommandIfPresent(session, prompt).then((commandExecution) => {
-      if (commandExecution.kind === 'command-result') {
-        cleanup();
-        process.stdout.write(commandExecution.result.message + '\n');
-        resolve(commandExecution.result.success ? 0 : 1);
-        return;
-      }
-      if (commandExecution.kind === 'session-execution') {
-        return;
-      }
-      void session.submit(prompt);
+      if (cmd.kind !== 'session-execution') void session.submit(prompt);
     });
   });
 }

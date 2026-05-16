@@ -3,7 +3,7 @@
  */
 
 /** Source specification for a marketplace. */
-export type IMarketplaceSource =
+export type TMarketplaceSource =
   | { type: 'github'; repo: string; ref?: string }
   | { type: 'git'; url: string; ref?: string }
   | { type: 'local'; path: string }
@@ -27,13 +27,13 @@ export interface IMarketplaceManifest {
 
 /** Entry in known_marketplaces.json. */
 export interface IKnownMarketplaceEntry {
-  source: IMarketplaceSource;
+  source: TMarketplaceSource;
   installLocation: string;
   lastUpdated: string;
 }
 
 /** Shape of known_marketplaces.json. */
-export type IKnownMarketplacesRegistry = Record<string, IKnownMarketplaceEntry>;
+export type TKnownMarketplacesRegistry = Record<string, IKnownMarketplaceEntry>;
 
 /** Exec function type for running shell commands. Injected at composition root. */
 export type TExecFn = (

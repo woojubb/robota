@@ -3,11 +3,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { createLogger } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { GoogleProvider } from '@robota-sdk/agent-provider-google';
 import { PlaygroundWebSocketServer } from './websocket-server';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
+
+const appLogger = createLogger('agent-server');
 
 // Global WebSocket server instance (will be initialized in server.ts)
 export let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
@@ -180,7 +183,7 @@ export function createApp(): express.Application {
   // Error handling
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-      console.error('API Error:', error);
+      appLogger.error('API Error:', error as Error);
       const statusCode =
         typeof error === 'object' &&
         error !== null &&

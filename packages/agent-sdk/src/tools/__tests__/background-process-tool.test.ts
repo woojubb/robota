@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { IToolResult } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskManager,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   IBackgroundTaskState,
 } from '../../background-tasks/index.js';
 import { createBackgroundProcessTool } from '../background-process-tool.js';
@@ -11,7 +11,7 @@ function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
   return JSON.parse(toolResult.data as string);
 }
 
-function makeTaskState(request: IBackgroundTaskRequest): IBackgroundTaskState {
+function makeTaskState(request: TBackgroundTaskRequest): IBackgroundTaskState {
   return {
     id: 'process_1',
     kind: 'process',
@@ -44,7 +44,7 @@ function makeManager(spawn = vi.fn()): IBackgroundTaskManager {
 
 describe('BackgroundProcess tool', () => {
   it('spawns a managed process task and returns metadata immediately', async () => {
-    const spawn = vi.fn(async (request: IBackgroundTaskRequest) => makeTaskState(request));
+    const spawn = vi.fn(async (request: TBackgroundTaskRequest) => makeTaskState(request));
     const manager = makeManager(spawn);
     const tool = createBackgroundProcessTool({
       backgroundTaskManager: manager,

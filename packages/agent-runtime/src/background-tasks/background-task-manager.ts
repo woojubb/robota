@@ -6,7 +6,7 @@ import {
   type IBackgroundTaskLogPage,
   type IBackgroundTaskManager,
   type IBackgroundTaskManagerOptions,
-  type IBackgroundTaskRequest,
+  type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskState,
@@ -77,7 +77,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       });
   }
 
-  async spawn(request: IBackgroundTaskRequest): Promise<IBackgroundTaskState> {
+  async spawn(request: TBackgroundTaskRequest): Promise<IBackgroundTaskState> {
     if (this.shuttingDown) {
       throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
     }
