@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-17
 priority: medium
 urgency: later
-area: packages/agent-transport, packages/agent-cli
+area: packages/agent-framework, packages/agent-transport, packages/agent-cli
 depends_on: []
 ---
 
@@ -24,60 +24,128 @@ TUI와 CLI 전반에 걸쳐 사용자에게 표시되는 문자열이 영어로 
 | `agent-transport/src/tui/PluginTUI.tsx`                   | "Add Marketplace Source"                                                       |
 | `agent-cli/src/tui-interactions/registry.ts`              | "Exit the session?", "Clear conversation history?", picker labels/descriptions |
 
-### 두 번째 문제: 어느 계층에 i18n이 들어가야 하는가?
+## Architecture Decision (확정)
 
-현재 의존성 방향:
+### 계층 분리 원칙
 
 ```
-agent-core (zero deps)
-  ↑
-agent-framework  ← language 설정 소유 (IResolvedConfig.language)
-  ↑
-agent-transport  ← TUI 문자열 대부분 위치
-  ↑
-agent-cli        ← registry 문자열, interaction 메시지
+agent-core           → 번역 파일 없음 (타입·프리미티브만)
+agent-framework      → i18n engine만 소유 (createTranslator 함수)
+agent-session/etc.   → 번역 파일 없음 (SDK 인프라, UI 문자열 없음)
+─────────────────────────── 이 선 아래에 번역 파일 없음
+agent-command        → 번역 파일 없음 (command description은 이번 범위 제외)
+agent-transport      → TUI catalog 소유 (ko/en/ja/zh)
+agent-cli            → CLI catalog 소유 (ko/en/ja/zh)
 ```
 
-선택지:
+**규칙**: `agent-framework` 하위 패키지에는 번역 파일을 두지 않는다.
+번역 파일이 필요한 사용자 노출 텍스트는 반드시 framework 상위 계층(transport, cli)에서만 발생해야 한다.
 
-| 옵션 | 위치                                             | 장점                      | 단점                                                   |
-| ---- | ------------------------------------------------ | ------------------------- | ------------------------------------------------------ |
-| A    | `agent-framework`에 i18n 인프라 추가             | 이미 `language` 설정 소유 | framework 비대화, TUI 의존성 노출                      |
-| B    | 새 패키지 `agent-i18n` (core 위, framework 아래) | 관심사 분리, 재사용 가능  | 패키지 추가 비용, 의존성 정리 필요                     |
-| C    | `agent-transport` 내부에만                       | 의존성 추가 없음          | agent-cli 문자열 커버 불가 (transport → cli 방향 금지) |
-| D    | 각 패키지가 자체 catalog 관리                    | 단순                      | 번역 파일 분산, 일관성 유지 어려움                     |
+### i18n Engine (`agent-framework`)
 
-> ⚠️ 옵션 선택은 **구현 전 사용자 확인 필수**. 이 백로그는 설계 확정 전에는 실행하지 않는다.
+`agent-framework`은 이미 `IResolvedConfig.language`를 소유한다.
+"어떤 언어를 쓸지"(설정)와 "그 언어로 어떻게 번역하는지"(엔진)를 같은 패키지에 둔다.
 
-## Goal
+```typescript
+// agent-framework/src/i18n/createTranslator.ts
 
-1. TUI UI 텍스트(네비게이션 힌트, placeholder, 확인 메시지, picker 레이블 등)를 `language` 설정에 따라 번역 제공
-2. i18n 인프라가 어느 계층에 속하는지 명확히 결정하고 스펙으로 확정
-3. 번역 catalog 추가/수정이 용이한 구조
+export type TLocale = 'ko' | 'en' | 'ja' | 'zh';
 
-## Open Questions
+export function createTranslator<T extends Record<string, string>>(
+  catalogs: Partial<Record<TLocale, T>>,
+  fallback: TLocale = 'en',
+) {
+  return function t(locale: TLocale | string | undefined, key: keyof T & string): string {
+    const lang = (locale ?? fallback) as TLocale;
+    const catalog = catalogs[lang] ?? catalogs[fallback];
+    return catalog?.[key] ?? key;
+  };
+}
+```
 
-1. **계층**: 어느 패키지가 i18n 인프라를 소유하는가? (위 옵션 A~D 중 선택)
-2. **라이브러리**: `i18next` 같은 외부 라이브러리 vs. 단순 key→string Record 구조?
-3. **전달 방식**: language를 React Context로 TUI 컴포넌트에 전달할지, prop drilling할지?
-4. **커버 범위**: UI 텍스트만인가, 아니면 command description(`ICommand.description`)도 포함하는가?
-5. **번역 파일 형식**: 코드 내 상수(TypeScript 객체)인가, 외부 JSON/YAML 파일인가?
+- 외부 라이브러리 없음 — 순수 TypeScript, zero 추가 deps
+- 번역 키 누락 시 key 자체를 fallback으로 반환 (런타임 오류 없음)
+- `en` fallback 고정
 
-## Scope (확정 후 채울 것)
+### 번역 파일 구조 (`agent-transport`, `agent-cli`)
 
-- [ ] 계층/패키지 결정
-- [ ] 번역 대상 문자열 전수 목록 작성
-- [ ] 초기 지원 언어: ko, en, ja, zh
-- [ ] agent-transport TUI 컴포넌트 번역 적용
-- [ ] agent-cli tui-interactions registry 번역 적용
-- [ ] SPEC.md 업데이트 (소유 패키지)
+```typescript
+// agent-transport/src/tui/i18n/catalog.ts
+import { createTranslator } from '@robota-sdk/agent-framework';
+
+const catalogs = {
+  en: {
+    navigationHint: '↑↓ Navigate  Enter Select  Esc Back',
+    placeholder: 'Type a message or /help',
+    confirmYesNo: '[y/n]',
+    loading: 'Loading...',
+    pressEscBack: 'Press Esc to go back',
+    pickerHint: '↑↓ navigate · Enter select · Esc cancel',
+    // ...
+  },
+  ko: {
+    navigationHint: '↑↓ 이동  Enter 선택  Esc 뒤로',
+    placeholder: '메시지 또는 /help 입력',
+    confirmYesNo: '[y/n]',
+    loading: '로딩 중...',
+    pressEscBack: 'Esc로 뒤로 가기',
+    pickerHint: '↑↓ 이동 · Enter 선택 · Esc 취소',
+    // ...
+  },
+  // ja, zh ...
+} as const;
+
+export const t = createTranslator(catalogs);
+```
+
+```typescript
+// agent-cli/src/i18n/catalog.ts
+import { createTranslator } from '@robota-sdk/agent-framework';
+
+const catalogs = {
+  en: {
+    confirmExit: 'Exit the session?',
+    confirmClear: 'Clear conversation history?',
+    // picker labels ...
+  },
+  ko: {
+    confirmExit: '세션을 종료할까요?',
+    confirmClear: '대화 내역을 지울까요?',
+    // ...
+  },
+} as const;
+
+export const t = createTranslator(catalogs);
+```
+
+### language 전달 방식
+
+`language`는 이미 `IRenderOptions` → `App` → 각 컴포넌트로 props를 통해 흐른다.
+React Context 없이 기존 props 체인 그대로 사용한다.
+
+### 번역 범위 (이번 구현)
+
+- **포함**: TUI 고정 UI 문자열 (네비게이션 힌트, placeholder, confirm 메시지, picker 레이블)
+- **제외**: `ICommand.description` — 별도 작업으로 처리 (agent-command 계층에 있으므로)
+- **제외**: AI 응답 텍스트
+
+## Scope
+
+- [ ] `agent-framework/src/i18n/createTranslator.ts` 구현 및 export
+- [ ] `agent-framework/docs/SPEC.md` i18n engine 섹션 추가
+- [ ] `agent-transport/src/tui/i18n/catalog.ts` 작성 (en/ko/ja/zh)
+- [ ] agent-transport TUI 컴포넌트 전수 적용 (MenuSelect, InputArea, CommandPicker, CommandConfirm, PluginTUI 등)
+- [ ] `agent-cli/src/i18n/catalog.ts` 작성 (en/ko/ja/zh)
+- [ ] agent-cli tui-interactions registry 적용
+- [ ] `agent-transport/docs/SPEC.md`, `agent-cli/docs/SPEC.md` i18n 섹션 추가
 
 ## Test Plan
 
 - [ ] typecheck 전체 통과
-- [ ] 지원 언어별 번역 키 누락 시 빌드 또는 테스트 실패 (타입 또는 harness 게이트)
-- [ ] language=ko 설정 시 한국어 UI 문자열 렌더링 단위 테스트
-- [ ] language=en 설정 시 영어 UI 문자열 렌더링 단위 테스트
+- [ ] 번역 키가 TypeScript 타입으로 강제됨 확인 (존재하지 않는 키 사용 시 컴파일 에러)
+- [ ] `createTranslator` 단위 테스트: ko/en/ja/zh 각각 반환값 확인, 미지원 언어 fallback 확인
+- [ ] TUI 컴포넌트 렌더링 테스트: language=ko 시 한국어 문자열 렌더링 확인
+- [ ] `agent-framework` 하위 패키지에 번역 파일 없음 확인 (harness 또는 grep 체크)
 
 ## User Execution Test Scenarios
 
@@ -113,4 +181,4 @@ language=en 설정 후 동일 흐름
 
 **Expected**: 번역 없는 언어는 영어(en) fallback으로 표시, 런타임 오류 없음
 
-**Evidence**: _(단위 테스트 또는 수동 확인)_
+**Evidence**: _(단위 테스트 확인)_
