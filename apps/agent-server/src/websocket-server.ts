@@ -8,7 +8,7 @@ import type {
   TPlaygroundWebSocketMessageKind,
 } from '@robota-sdk/agent-playground';
 import type { ILogger, TUniversalValue } from '@robota-sdk/agent-core';
-import { ConsoleLogger } from '@robota-sdk/agent-core';
+import { createLogger } from '@robota-sdk/agent-core';
 
 const JWT_PART_COUNT = 3;
 const CLEANUP_INTERVAL_MS = 30000;
@@ -52,7 +52,7 @@ export class PlaygroundWebSocketServer {
   private logger: ILogger;
 
   constructor(server: Server, logger?: ILogger) {
-    this.logger = logger ?? new ConsoleLogger('PlaygroundWebSocketServer');
+    this.logger = logger ?? createLogger('PlaygroundWebSocketServer');
     this.wss = new WebSocketServer({
       server,
       path: '/ws/playground',

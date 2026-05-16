@@ -3,14 +3,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { ConsoleLogger } from '@robota-sdk/agent-core';
+import { createLogger } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { GoogleProvider } from '@robota-sdk/agent-provider-google';
 import { PlaygroundWebSocketServer } from './websocket-server';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
-const appLogger = new ConsoleLogger('agent-server');
+const appLogger = createLogger('agent-server');
 
 // Global WebSocket server instance (will be initialized in server.ts)
 export let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
