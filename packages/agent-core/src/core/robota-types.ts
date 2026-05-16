@@ -1,21 +1,21 @@
 import type { IModuleResultData } from '../abstracts/abstract-module';
 
 /** Shared model configuration shape used in setModel / getModel. */
-export type TModelConfig = {
+export interface IModelConfig {
   provider: string;
   model: string;
   temperature?: number;
   maxTokens?: number;
   topP?: number;
   systemMessage?: string;
-};
+}
 
 /** Return shape of getConfiguration(). */
-export type TConfigurationSnapshot = {
+export interface IConfigurationSnapshot {
   version: number;
   tools: Array<{ name: string; parameters?: string[] }>;
   updatedAt: number;
-};
+}
 
 /** Return shape of getModuleStats(). */
 export type TModuleStats =

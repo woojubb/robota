@@ -11,7 +11,7 @@ import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-serv
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import type { IHistoryEntry } from '../interfaces/messages';
-import type { TModelConfig, TConfigurationSnapshot } from './robota-types';
+import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
 import { validateAgentConfig } from './robota-config-manager';
 import { createRobotaDelegates } from './robota-delegate-factory';
 import type { RobotaConfigManager } from './robota-config-manager';
@@ -174,13 +174,13 @@ export class Robota
   async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
     return this.configManager.updateConfiguration(patch);
   }
-  async getConfiguration(): Promise<TConfigurationSnapshot> {
+  async getConfiguration(): Promise<IConfigurationSnapshot> {
     return this.configManager.getConfiguration();
   }
-  setModel(mc: TModelConfig): void {
+  setModel(mc: IModelConfig): void {
     this.configManager.setModel(mc);
   }
-  getModel(): TModelConfig {
+  getModel(): IModelConfig {
     return this.configManager.getModel();
   }
   registerTool(tool: AbstractTool): void {

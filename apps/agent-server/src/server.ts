@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createApp, setPlaygroundWebSocketServer } from './app';
 import { PlaygroundWebSocketServer } from './websocket-server';
 import { createServer } from 'http';
-import { ConsoleLogger } from '@robota-sdk/agent-core';
+import { createLogger } from '@robota-sdk/agent-core';
 
 // Load environment variables
 dotenv.config({
@@ -11,7 +11,7 @@ dotenv.config({
 });
 
 const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 30_000;
-const logger = new ConsoleLogger('agent-server');
+const logger = createLogger('agent-server');
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', String(promise), 'reason:', reason as Error);
