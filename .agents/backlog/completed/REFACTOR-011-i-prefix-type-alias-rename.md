@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-011: I-prefix type alias → T-prefix 일괄 rename (8개)'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

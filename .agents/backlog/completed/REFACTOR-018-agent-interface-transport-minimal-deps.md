@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-018: agent-interface-transport agent-core 의존 최소화'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

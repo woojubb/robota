@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-FIX-023: $ENV: 참조 유틸리티(env-ref)를 agent-sdk → agent-core로 이동'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-14
 priority: high
 urgency: later

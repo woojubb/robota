@@ -1,6 +1,7 @@
 ---
 title: 'SDK-001: IInteractiveSession interface + InteractiveSession refactor + test factory'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: high
 urgency: soon

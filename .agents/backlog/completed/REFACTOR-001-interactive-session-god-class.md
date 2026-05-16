@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-001: InteractiveSession God Class 분해'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: high
 urgency: soon

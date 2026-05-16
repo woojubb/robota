@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-002: agent-sdk pass-through re-export 제거'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: high
 urgency: soon
