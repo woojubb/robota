@@ -15,6 +15,8 @@ const baseConfig = {
   minify: true,
 };
 
+const nodeExternal = [/^@robota-sdk\/.*/, 'openai'];
+
 export default defineConfig([
   // Node.js build
   {
@@ -23,11 +25,19 @@ export default defineConfig([
     outDir: 'dist/node',
     format: ['esm', 'cjs'],
     platform: 'node',
-    external: [
-      // External dependencies that should not be bundled
-      /^@robota-sdk\/.*/, // All @robota-sdk packages
-      'openai',
-    ],
+    external: nodeExternal,
+  },
+  // Loggers sub-path build (./loggers/file, ./loggers/console)
+  {
+    ...baseConfig,
+    entry: {
+      file: 'src/loggers/file.ts',
+      console: 'src/loggers/console.ts',
+    },
+    outDir: 'dist/loggers',
+    format: ['esm', 'cjs'],
+    platform: 'node',
+    external: nodeExternal,
   },
   // Browser build
   {
@@ -36,16 +46,11 @@ export default defineConfig([
     outDir: 'dist/browser',
     format: ['esm'],
     platform: 'browser',
-    external: [
-      // External dependencies that should not be bundled
-      /^@robota-sdk\/.*/, // All @robota-sdk packages
-      'openai',
-    ],
+    external: nodeExternal,
     define: {
       'process.env.NODE_ENV': '"production"',
     },
     esbuildOptions(options) {
-      // Additional browser optimizations
       options.drop = ['console', 'debugger'];
       options.dropLabels = ['DEV'];
     },
