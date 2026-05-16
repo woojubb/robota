@@ -416,8 +416,8 @@ Manages plugin installation and uninstallation:
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin-conversation-history';
-import { LoggingPlugin } from '@robota-sdk/agent-plugin-logging';
+import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin';
+import { LoggingPlugin } from '@robota-sdk/agent-plugin';
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
