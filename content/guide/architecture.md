@@ -147,7 +147,7 @@ All transport adapters implement the `ITransportAdapter` interface (defined in `
 
 ## Plugin Architecture
 
-`agent-core` defines the `AbstractPlugin` base class. 9 plugin implementations are available as separate `@robota-sdk/agent-plugin-*` packages. `EventEmitterPlugin` is also built directly into `agent-core` so that consumers do not need an additional dependency for basic event emission.
+`agent-core` defines the `AbstractPlugin` base class. 8 plugin implementations are available in `@robota-sdk/agent-plugin`. `EventEmitterPlugin` is also built directly into `agent-core` so that consumers do not need an additional dependency for basic event emission.
 
 Plugins integrate with the agent lifecycle via hooks: `beforeRun`, `afterRun`, `onError`, `onStreamChunk`, `beforeToolExecution`, `afterToolExecution`.
 
@@ -156,7 +156,7 @@ Plugins integrate with the agent lifecycle via hooks: `beforeRun`, `afterRun`, `
 In v2.0.0, `agent-core` contained everything: tools, plugins, session management. In v3.0.0:
 
 - **Tools** moved to `agent-tools` (FunctionTool, ToolRegistry, built-in tools)
-- **Plugins** extracted to `agent-plugin-*` packages
+- **Plugins** available in `@robota-sdk/agent-plugin`
 - **Session** created as a new package (`agent-sessions`) with permission and hook support
 - **SDK** created as a new assembly layer (`agent-sdk`) with config/context loading
 - **CLI** created as a new terminal UI (`agent-cli`)
