@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-04-30
 - **Branch**: feat/background-agent-jobs
-- **Scope**: packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-framework, packages/agent-cli
 - **Merged PR**: #103
 
 ## Objective

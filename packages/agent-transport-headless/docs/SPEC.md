@@ -6,7 +6,7 @@ Headless transport adapter for non-interactive `InteractiveSession` execution. P
 
 ## Boundaries
 
-- Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
+- Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-framework`
 - Does NOT own CLI argument parsing — handled by `@robota-sdk/agent-cli`
 - Does NOT own provider creation or provider configuration prompting — provider is created upstream and injected via session
 - OWNS: output format rendering (text, json, stream-json) and exit code determination
@@ -144,7 +144,7 @@ The runner subscribes to `InteractiveSession` events (`text_delta`, `background_
 
 ## ITransportAdapter
 
-This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`.
 
 ### `createHeadlessTransport(options)`
 
@@ -169,9 +169,9 @@ Factory that returns an `ITransportAdapter` with `name: 'headless'`.
 
 ## Dependencies
 
-| Package                 | Purpose                                  |
-| ----------------------- | ---------------------------------------- |
-| `@robota-sdk/agent-sdk` | `InteractiveSession`, `IExecutionResult` |
+| Package                       | Purpose                                  |
+| ----------------------------- | ---------------------------------------- |
+| `@robota-sdk/agent-framework` | `InteractiveSession`, `IExecutionResult` |
 
 ## File Structure
 

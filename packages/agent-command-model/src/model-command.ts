@@ -2,8 +2,8 @@ import type {
   ICommandHostContext,
   ICommandResult,
   IModelCommandModuleOptions,
-} from '@robota-sdk/agent-sdk';
-import { formatModelCommandUsageMessageAsync } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { formatModelCommandUsageMessageAsync } from '@robota-sdk/agent-framework';
 
 function parseModelId(args: string): string | undefined {
   const modelId = args.trim().split(/\s+/)[0];

@@ -1,5 +1,5 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk';
-import { formatCommandHelpMessage } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
+import { formatCommandHelpMessage } from '@robota-sdk/agent-framework';
 
 export function executeHelpCommand(context: ICommandHostContext, _args: string): ICommandResult {
   return {

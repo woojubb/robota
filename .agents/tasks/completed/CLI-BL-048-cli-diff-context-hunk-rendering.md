@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-02
 - **Branch**: feat/cli-diff-context-hunks
-- **Scope**: packages/agent-cli, packages/agent-sdk
+- **Scope**: packages/agent-cli, packages/agent-framework
 
 ## Priority
 

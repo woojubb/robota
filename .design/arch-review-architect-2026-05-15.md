@@ -18,7 +18,7 @@ Evidence base: Direct code inspection on the `develop` branch
 ### [ARCH-SA-001] InteractiveSession: 1,578줄 God Class
 
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts`
+- **Area**: `packages/agent-framework/src/interactive/interactive-session.ts`
 - **Problem**: `InteractiveSession` 클래스가 1,578줄, private field 96개, async public 메서드 21개를 포함하며 단일 파일에서 다음을 모두 처리한다:
   - 스트리밍 텍스트 누적 및 flush 타이머 관리
   - 도구 실행 상태 추적 (`activeTools`, `pendingPrompt`)
@@ -40,43 +40,43 @@ Evidence base: Direct code inspection on the `develop` branch
 ### [ARCH-SA-002] agent-sdk가 agent-runtime 구현체를 Pass-Through Re-Export
 
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/background-tasks/index.ts`, `packages/agent-sdk/src/subagents/index.ts`
+- **Area**: `packages/agent-framework/src/background-tasks/index.ts`, `packages/agent-framework/src/subagents/index.ts`
 - **Problem**: `agent-sdk`의 두 배럴 파일이 `agent-runtime` 구현 클래스와 타입을 직접 pass-through re-export한다.
 
   ```ts
-  // packages/agent-sdk/src/background-tasks/index.ts:1
-  export { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
-  // packages/agent-sdk/src/background-tasks/index.ts:26
-  export { BackgroundTaskError } from '@robota-sdk/agent-runtime';
+  // packages/agent-framework/src/background-tasks/index.ts:1
+  export { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+  // packages/agent-framework/src/background-tasks/index.ts:26
+  export { BackgroundTaskError } from '@robota-sdk/agent-executor';
 
-  // packages/agent-sdk/src/subagents/index.ts:1
-  export { SubagentManager } from '@robota-sdk/agent-runtime';
-  // packages/agent-sdk/src/subagents/index.ts:3
-  export { WorktreeSubagentRunner, createWorktreeSubagentRunner } from '@robota-sdk/agent-runtime';
+  // packages/agent-framework/src/subagents/index.ts:1
+  export { SubagentManager } from '@robota-sdk/agent-executor';
+  // packages/agent-framework/src/subagents/index.ts:3
+  export { WorktreeSubagentRunner, createWorktreeSubagentRunner } from '@robota-sdk/agent-executor';
   ```
 
-  이 결과로 `agent-cli`는 `@robota-sdk/agent-runtime`에서 직접 import 가능한 심벌들을 `@robota-sdk/agent-sdk`에서도 중복 제공받는다. agent-runtime types는 agent-sdk 공개 API가 아님에도 agent-sdk 표면에 노출된다.
+  이 결과로 `agent-cli`는 `@robota-sdk/agent-executor`에서 직접 import 가능한 심벌들을 `@robota-sdk/agent-framework`에서도 중복 제공받는다. agent-runtime types는 agent-sdk 공개 API가 아님에도 agent-sdk 표면에 노출된다.
 
 - **Rule violation**: `common-mistakes.md` 규칙 4 — "Pass-through re-exports (`export * from '@robota-sdk/other'`) → Import from the owning package directly."
-- **Recommendation**: `agent-sdk/src/index.ts`에서 `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner` 등 agent-runtime 소유 심벌의 re-export를 제거한다. 소비자(`agent-cli`)가 `@robota-sdk/agent-runtime`에서 직접 import하도록 변경한다. SDK-레이어가 facade를 제공해야 한다면, agent-sdk 소유 wrapper 타입/클래스를 정의한다.
+- **Recommendation**: `agent-sdk/src/index.ts`에서 `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner` 등 agent-runtime 소유 심벌의 re-export를 제거한다. 소비자(`agent-cli`)가 `@robota-sdk/agent-executor`에서 직접 import하도록 변경한다. SDK-레이어가 facade를 제공해야 한다면, agent-sdk 소유 wrapper 타입/클래스를 정의한다.
 
 ---
 
 ### [ARCH-SA-003] agent-sdk Plugin Subsystem에 Concrete I/O 직접 포함
 
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/plugins/marketplace-client.ts`, `packages/agent-sdk/src/plugins/bundle-plugin-installer.ts`, `packages/agent-sdk/src/utils/skill-prompt.ts`
+- **Area**: `packages/agent-framework/src/plugins/marketplace-client.ts`, `packages/agent-framework/src/plugins/bundle-plugin-installer.ts`, `packages/agent-framework/src/utils/skill-prompt.ts`
 - **Problem**: Assembly 레이어인 `agent-sdk`가 세 파일에서 `child_process.execSync`와 `node:fs` API를 직접 사용한다.
 
   ```ts
-  // packages/agent-sdk/src/plugins/marketplace-client.ts:9
+  // packages/agent-framework/src/plugins/marketplace-client.ts:9
   import { execSync } from 'node:child_process';
   // plugins/marketplace-client.ts:288: return execSync(command, { timeout, stdio: 'pipe' })...
 
-  // packages/agent-sdk/src/plugins/bundle-plugin-installer.ts:8
+  // packages/agent-framework/src/plugins/bundle-plugin-installer.ts:8
   import { execSync } from 'node:child_process';
 
-  // packages/agent-sdk/src/utils/skill-prompt.ts:1
+  // packages/agent-framework/src/utils/skill-prompt.ts:1
   import { execSync } from 'node:child_process';
   // skill-prompt.ts:79: output = execSync(command, { timeout: 5000, ...})
   ```
@@ -108,8 +108,8 @@ Evidence base: Direct code inspection on the `develop` branch
 ### [ARCH-SA-005] agent-sdk index.ts 배럴 파일이 621줄로 과대성장 + provider command 로직 내장
 
 - **Severity**: Medium
-- **Area**: `packages/agent-sdk/src/index.ts` (621줄), `packages/agent-sdk/src/command-api/provider/` 디렉토리
-- **Problem**: `agent-sdk/src/index.ts`가 621줄 배럴 파일로 성장했다. 배럴 파일은 이 규칙의 "예외"가 될 수 있으나, 문제는 단순 export relay가 아니라 command API 구현 함수들(`buildProviderProfile`, `runProviderSetupPromptFlow`, `createProviderSetupFlow` 등 약 40개 함수)을 직접 export한다는 것이다. `packages/agent-sdk/src/command-api/provider/provider-setup-flow.ts`(309줄)는 provider setup flow 상태 머신 구현 전체를 담고 있다. 규칙 81은 "provider settings/profile helpers may be SDK common APIs"라고 했지만, 전체 setup flow state machine은 command module 책임이다.
+- **Area**: `packages/agent-framework/src/index.ts` (621줄), `packages/agent-framework/src/command-api/provider/` 디렉토리
+- **Problem**: `agent-sdk/src/index.ts`가 621줄 배럴 파일로 성장했다. 배럴 파일은 이 규칙의 "예외"가 될 수 있으나, 문제는 단순 export relay가 아니라 command API 구현 함수들(`buildProviderProfile`, `runProviderSetupPromptFlow`, `createProviderSetupFlow` 등 약 40개 함수)을 직접 export한다는 것이다. `packages/agent-framework/src/command-api/provider/provider-setup-flow.ts`(309줄)는 provider setup flow 상태 머신 구현 전체를 담고 있다. 규칙 81은 "provider settings/profile helpers may be SDK common APIs"라고 했지만, 전체 setup flow state machine은 command module 책임이다.
 - **Rule violation**: `code-quality.md` — "Production files should not exceed 300 lines." (index.ts 예외 가능하나 621줄은 과함) / 규칙 81 — "provider settings/profile helpers may be SDK common APIs, while /provider command flow must consume those APIs as a command module would from a third-party package."
 - **Recommendation**: `provider-setup-flow.ts`의 state machine 로직을 `agent-command-provider`로 이동하고, agent-sdk는 순수 데이터 helper(profile builder, validator, reader)만 유지한다. index.ts는 logical section별 barrel exports만 유지하고 실제 구현 파일을 쪼갠다.
 
@@ -146,7 +146,7 @@ Evidence base: Direct code inspection on the `develop` branch
 ### [ARCH-SA-007] agent-sdk가 node:fs를 Assembly 레이어에서 직접 사용
 
 - **Severity**: Medium
-- **Area**: `packages/agent-sdk/src/context/`, `packages/agent-sdk/src/memory/`, `packages/agent-sdk/src/plugins/`, `packages/agent-sdk/src/assembly/`
+- **Area**: `packages/agent-framework/src/context/`, `packages/agent-framework/src/memory/`, `packages/agent-framework/src/plugins/`, `packages/agent-framework/src/assembly/`
 - **Problem**: Assembly 레이어인 `agent-sdk`가 다수의 파일에서 `node:fs`를 직접 사용한다.
   ```ts
   // context/task-context.ts:1
@@ -246,7 +246,7 @@ Evidence base: Direct code inspection on the `develop` branch
 
 1. **agent-core Zero-Deps 준수**: `agent-core/package.json`에는 `jssha`, `zod`만 production dependency로 포함되며, 다른 `@robota-sdk/agent-*` 패키지는 없다. 직접 코드 검색에서도 다른 agent-\* 패키지 import가 발견되지 않았다.
 
-2. **agent-command-\* 패키지의 SDK-Only 의존**: 19개 command 패키지 중 18개가 `@robota-sdk/agent-sdk`만 dependency로 갖는다. `agent-command-provider`가 `agent-core`도 직접 의존하나, `agent-system.md`에 "agent-command-provider only → Core"로 명시적으로 허용된 예외다.
+2. **agent-command-\* 패키지의 SDK-Only 의존**: 19개 command 패키지 중 18개가 `@robota-sdk/agent-framework`만 dependency로 갖는다. `agent-command-provider`가 `agent-core`도 직접 의존하나, `agent-system.md`에 "agent-command-provider only → Core"로 명시적으로 허용된 예외다.
 
 3. **agent-sdk가 agent-command-\* 패키지를 import하지 않음**: `agent-sdk/src/` 내에서 `@robota-sdk/agent-command-`로 시작하는 import가 전혀 없다. Command module isolation 규칙이 완벽히 준수된다.
 

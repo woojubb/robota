@@ -61,7 +61,7 @@ Recommended first implementation:
 ## Result
 
 Runtime-owned bounded output capture and log pagination helpers moved to
-`packages/agent-runtime/src/background-tasks/log-pages.ts` and are re-exported through SDK facades.
+`packages/agent-executor/src/background-tasks/log-pages.ts` and are re-exported through SDK facades.
 CLI background/subagent files are classified in `packages/agent-cli/docs/ARCHITECTURE-MAP.md`.
 Concrete child process, worker IPC, worker session reconstruction, and Git/filesystem I/O remain in
 `agent-cli` as terminal-host adapters.
@@ -70,15 +70,15 @@ Key verification:
 
 - `pnpm build`
 - `pnpm --filter @robota-sdk/agent-cli test`
-- `pnpm --filter @robota-sdk/agent-runtime test`
-- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-executor test`
+- `pnpm --filter @robota-sdk/agent-framework test`
 - `pnpm harness:scan`
 
 ## Verification Plan
 
 - `pnpm --filter @robota-sdk/agent-cli test -- subagent`
 - `pnpm --filter @robota-sdk/agent-cli test -- managed-shell`
-- `pnpm --filter @robota-sdk/agent-runtime test`
-- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-executor test`
+- `pnpm --filter @robota-sdk/agent-framework test`
 - `pnpm harness:scan:deps`
 - `pnpm harness:scan:commands`

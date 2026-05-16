@@ -4,13 +4,13 @@
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.63
+- @robota-sdk/agent-framework@3.0.0-beta.63
 
 ## 3.0.0-beta.62
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.62
+- @robota-sdk/agent-framework@3.0.0-beta.62
 
 ## 3.0.0-beta.61
 
@@ -22,4 +22,4 @@
 - Updated dependencies [18fcc5b]
 - Updated dependencies [d97bdf2]
 - Updated dependencies [3bde012]
-  - @robota-sdk/agent-sdk@3.0.0-beta.61
+  - @robota-sdk/agent-framework@3.0.0-beta.61

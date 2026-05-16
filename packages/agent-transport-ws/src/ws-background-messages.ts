@@ -1,4 +1,4 @@
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './ws-protocol.js';
 
 export function handleBackgroundQueryMessage(

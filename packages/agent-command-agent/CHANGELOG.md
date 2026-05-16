@@ -4,13 +4,13 @@
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.63
+- @robota-sdk/agent-framework@3.0.0-beta.63
 
 ## 3.0.0-beta.62
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.62
+- @robota-sdk/agent-framework@3.0.0-beta.62
 
 ## 3.0.0-beta.61
 
@@ -23,7 +23,7 @@
 - Updated dependencies [18fcc5b]
 - Updated dependencies [d97bdf2]
 - Updated dependencies [3bde012]
-  - @robota-sdk/agent-sdk@3.0.0-beta.61
+  - @robota-sdk/agent-framework@3.0.0-beta.61
 
 ## 3.0.0-beta.60
 
@@ -31,13 +31,13 @@
 
 - Updated dependencies [41ae788]
 - Updated dependencies [7439391]
-  - @robota-sdk/agent-sdk@3.0.0-beta.60
+  - @robota-sdk/agent-framework@3.0.0-beta.60
 
 ## 3.0.0-beta.59
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.59
+- @robota-sdk/agent-framework@3.0.0-beta.59
 
 ## 3.0.0-beta.58
 
@@ -45,7 +45,7 @@
 
 - Refresh package docs and robota.io content for the beta 57 feature set.
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.58
+  - @robota-sdk/agent-framework@3.0.0-beta.58
 
 ## 3.0.0-beta.57
 
@@ -62,10 +62,10 @@
 - Updated dependencies [0e0e533]
 - Updated dependencies [822a78b]
 - Updated dependencies [9817f99]
-  - @robota-sdk/agent-sdk@3.0.0-beta.57
+  - @robota-sdk/agent-framework@3.0.0-beta.57
 
 ## 3.0.0-beta.56
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.56
+- @robota-sdk/agent-framework@3.0.0-beta.56

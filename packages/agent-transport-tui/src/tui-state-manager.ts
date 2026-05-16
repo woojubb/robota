@@ -13,7 +13,7 @@ import type {
   IToolState,
   IExecutionResult,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 /** Max messages kept in rendering state */
 const MAX_RENDERED_MESSAGES = 100;

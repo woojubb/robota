@@ -11,8 +11,8 @@ import type {
   TSubagentRunnerFactory,
   TShellExecFn,
   IExecutionDetailPage,
-} from '@robota-sdk/agent-sdk';
-import { listResumableSessionSummaries } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
@@ -40,7 +40,7 @@ import {
 } from './execution-workspace-view-model.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { CommandRegistry } from '@robota-sdk/agent-sdk';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
 interface IProps {
   cwd: string;

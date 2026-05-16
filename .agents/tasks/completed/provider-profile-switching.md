@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: feat/provider-profile-switching
-- **Scope**: packages/agent-sdk, packages/agent-command-provider, packages/agent-command-model, packages/agent-cli
+- **Scope**: packages/agent-framework, packages/agent-command-provider, packages/agent-command-model, packages/agent-cli
 
 ## Objective
 
@@ -43,7 +43,7 @@ and active profile display.
 
 ## Test Plan
 
-- Build `@robota-sdk/agent-sdk` first so dependent workspace packages resolve the updated command API
+- Build `@robota-sdk/agent-framework` first so dependent workspace packages resolve the updated command API
   exports during local verification.
 - Run SDK command API tests for profile name suggestion and provider setup flow coverage.
 - Run `@robota-sdk/agent-command-provider` tests for `/provider add`, duplicate profile creation,

@@ -7,7 +7,7 @@
 ## Ownership
 
 - Owns `/memory` command metadata, safety, subcommands, argument parsing, and command output formatting.
-- Consumes SDK memory common APIs from `@robota-sdk/agent-sdk`.
+- Consumes SDK memory common APIs from `@robota-sdk/agent-framework`.
 - Does not own project memory storage paths, pending-candidate storage internals, memory policy primitives, CLI UI, or TUI rendering.
 
 ## Public API

@@ -4,12 +4,12 @@ import type {
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
   IProviderSetupInput,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   buildProviderSetupPatch,
   setCurrentProvider,
   upsertProviderProfile,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { createProviderSetupFlow, submitProviderSetupValue } from './provider-setup-flow.js';
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 import {

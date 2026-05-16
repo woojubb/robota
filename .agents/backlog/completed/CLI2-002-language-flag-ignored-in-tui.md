@@ -44,7 +44,7 @@ const session = new InteractiveSession({
 
 - `packages/agent-cli/src/ui/App.tsx` — `IProps`에 `language` 추가, 세션 생성 시 전달
 - `packages/agent-cli/src/ui/render.tsx` — `IRenderOptions` 확인
-- `packages/agent-sdk/src/interactive/interactive-session.ts` — `IInteractiveSessionStandardOptions`에 `language` 지원 여부 확인 및 추가
+- `packages/agent-framework/src/interactive/interactive-session.ts` — `IInteractiveSessionStandardOptions`에 `language` 지원 여부 확인 및 추가
 
 ## Test Plan
 

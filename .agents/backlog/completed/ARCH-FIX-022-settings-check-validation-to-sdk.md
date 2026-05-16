@@ -49,12 +49,12 @@ agent-cli/src/utils/settings-check.ts  (축소)
   - checkSettingsFile(filePath, providerDefinitions)  ← 파일 읽기 + SDK 함수 호출
 ```
 
-`checkSettingsFile`는 파일을 읽은 뒤 `@robota-sdk/agent-sdk`의 `checkSettingsDocument`를 호출하는 얇은 wrapper.
+`checkSettingsFile`는 파일을 읽은 뒤 `@robota-sdk/agent-framework`의 `checkSettingsDocument`를 호출하는 얇은 wrapper.
 
 ## 수용 기준
 
 - [ ] `checkSettingsDocument`, `TSettingsCheck`가 `agent-sdk`에서 export
-- [ ] `agent-cli/src/utils/settings-check.ts`가 `@robota-sdk/agent-sdk`에서 import
+- [ ] `agent-cli/src/utils/settings-check.ts`가 `@robota-sdk/agent-framework`에서 import
 - [ ] `agent-cli`의 `checkSettingsFile`은 잔류하되 내부에서 SDK 함수 호출
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` 전 범위 통과
 

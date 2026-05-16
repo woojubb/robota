@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 
 const SessionMonitor = dynamic(
-  () => import('@robota-sdk/agent-web/client').then((m) => ({ default: m.SessionMonitor })),
+  () => import('@robota-sdk/agent-web-ui/client').then((m) => ({ default: m.SessionMonitor })),
   {
     ssr: false,
     loading: () => (

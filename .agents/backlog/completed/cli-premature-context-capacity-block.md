@@ -40,14 +40,14 @@ Robota:
 ## Scope
 
 - `packages/agent-cli` context display and user-visible error rendering
-- `packages/agent-sdk` interactive/session context state projection
-- `packages/agent-sessions` context window tracking, compaction trigger, and per-round capacity guard
+- `packages/agent-framework` interactive/session context state projection
+- `packages/agent-session` context window tracking, compaction trigger, and per-round capacity guard
 - Provider usage normalization if the guard depends on provider-reported token metadata
 
 ## Research Needed
 
 - Identify the exact guard that emits `Context window is near capacity. Cannot process further in
-  this round.`
+this round.`
 - Compare all state sources used by:
   - status bar context display;
   - `/context` command output;
@@ -107,5 +107,5 @@ max tokens, reserved tokens, threshold, and whether compaction was attempted.
 - Add regression tests for context state after manual compact.
 - Add integration tests for `InteractiveSession.submit()` around mid-window and near-window states.
 - Add CLI tests only for rendering the structured diagnostic if the user-facing output changes.
-- Run `pnpm --filter @robota-sdk/agent-sessions test`,
-  `pnpm --filter @robota-sdk/agent-sdk test`, and targeted CLI tests if touched.
+- Run `pnpm --filter @robota-sdk/agent-session test`,
+  `pnpm --filter @robota-sdk/agent-framework test`, and targeted CLI tests if touched.

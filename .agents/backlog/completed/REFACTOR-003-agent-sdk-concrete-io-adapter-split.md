@@ -4,16 +4,16 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk, packages/agent-cli
+area: packages/agent-framework, packages/agent-cli
 ---
 
 ## Problem
 
 Assembly 레이어인 `agent-sdk`가 세 파일에서 `child_process.execSync`를 직접 사용한다:
 
-- `packages/agent-sdk/src/plugins/marketplace-client.ts:9` — git clone/pull 명령 실행
-- `packages/agent-sdk/src/plugins/bundle-plugin-installer.ts:8` — npm install/uninstall 실행
-- `packages/agent-sdk/src/utils/skill-prompt.ts:1` — `` !`cmd` `` 패턴 shell 실행
+- `packages/agent-framework/src/plugins/marketplace-client.ts:9` — git clone/pull 명령 실행
+- `packages/agent-framework/src/plugins/bundle-plugin-installer.ts:8` — npm install/uninstall 실행
+- `packages/agent-framework/src/utils/skill-prompt.ts:1` — `` !`cmd` `` 패턴 shell 실행
 
 `ExecFn` 주입 패턴이 `MarketplaceClient`에 일부 적용되어 있으나(`options.exec ?? this.defaultExec`) 기본 구현이 여전히 SDK 내부에 있다.
 
@@ -32,9 +32,9 @@ Source: COMBINED-003 (SA-003)
 ## Test Plan
 
 - `pnpm typecheck` — 전체 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
 - `pnpm --filter @robota-sdk/agent-cli test` — 통과
-- `grep -r "execSync" packages/agent-sdk/src --include="*.ts"` — 결과 없음
+- `grep -r "execSync" packages/agent-framework/src --include="*.ts"` — 결과 없음
 - `pnpm build` — 전체 통과
 
 ## User Execution Test Scenarios

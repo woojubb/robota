@@ -223,10 +223,10 @@ TypeScript Dev/QA v2 점검에서 발견된 서버 품질 이슈.
 
 PM v2 점검에서 발견된 Web Playground 동작 결함.
 
-| ID                                                       | 제목                                                                                 | 우선순위 |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------- |
-| [PLG-001](PLG-001-playground-websocket-url-hardcoded.md) | Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가       | critical |
-| [PLG-002](PLG-002-playground-agent-sdk-refactor.md)      | packages/agent-web 신규 — CLI 세션 브라우저 모니터 (Phase 1) + 양방향 제어 (Phase 2) | medium   |
+| ID                                                       | 제목                                                                                   | 우선순위 |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------- |
+| [PLG-001](PLG-001-playground-websocket-url-hardcoded.md) | Web Playground가 ws://localhost:3001/ws로 하드코딩 — 공개 사이트에서 동작 불가         | critical |
+| [PLG-002](PLG-002-playground-agent-sdk-refactor.md)      | packages/agent-web-ui신규 — CLI 세션 브라우저 모니터 (Phase 1) + 양방향 제어 (Phase 2) | medium   |
 
 ### Pre-Launch Audit v2 — Documentation (2026-05-10)
 
@@ -268,7 +268,7 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [ARCH-FIX-006](ARCH-FIX-006-resolve-legacy-provider-fallback.md)          | resolveLegacyProvider() fallback 패턴 제거                                                                | high     |
 | [ARCH-FIX-007](ARCH-FIX-007-cli-web-sidecar-arch-spec-registration.md)    | CLI 웹 사이드카 기능을 아키텍처 맵 및 SPEC에 등재                                                         | high     |
 | [ARCH-FIX-008](ARCH-FIX-008-agent-server-openapi-spec.md)                 | agent-server 외부 HTTP API OpenAPI 스펙 파일 추가                                                         | high     |
-| [ARCH-FIX-009](ARCH-FIX-009-agent-web-pkg-spec-registration.md)           | packages/agent-web SPEC.md 작성 및 project-structure 등재                                                 | high     |
+| [ARCH-FIX-009](ARCH-FIX-009-agent-web-pkg-spec-registration.md)           | packages/agent-web-uiSPEC.md 작성 및 project-structure 등재                                               | high     |
 | [ARCH-FIX-020](ARCH-FIX-020-agent-cli-subagent-runner-layer-violation.md) | agent-cli의 ChildProcessSubagentRunner→agent-sdk, GitWorktreeIsolationAdapter→agent-runtime으로 분산 이동 | high     |
 | [ARCH-FIX-021](ARCH-FIX-021-provider-factory-logic-to-sdk.md)             | agent-cli의 provider 해석·인스턴스 생성 로직을 agent-runtime/agent-sdk로 분산 이동 (ARCH-FIX-023 선행)    | high     |
 | [ARCH-FIX-023](ARCH-FIX-023-env-ref-utilities-to-agent-core.md)           | agent-sdk의 $ENV: 참조 유틸리티(env-ref)를 zero-dep agent-core로 이동 — ARCH-FIX-021·022 선행 조건        | high     |

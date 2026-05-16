@@ -5,7 +5,7 @@
 ## Current Capabilities
 
 - WebSocket message handling around SDK session execution.
-- Background task status/control messages backed by `@robota-sdk/agent-runtime`.
+- Background task status/control messages backed by `@robota-sdk/agent-executor`.
 - Framework-agnostic transport surface for interactive remote clients.
 
 ## Document Structure

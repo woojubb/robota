@@ -15,7 +15,7 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
   IToolState,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
 import {
   handleBackgroundControlMessage,

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import type {
   ICommandHostContext,
   IProviderCommandSettingsAdapter,
   TProviderSettingsDocument,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { createProviderCommandModule } from '../provider-command-module.js';
 
 const providerDefinitions: readonly IProviderDefinition[] = [

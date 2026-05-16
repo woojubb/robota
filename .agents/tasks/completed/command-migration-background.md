@@ -10,9 +10,9 @@ Migrate `/background` task-control command registration into a command-module ow
 
 ## Current Owner
 
-- Execution helper: `packages/agent-sdk/src/commands/background-command.ts`
-- Registration/metadata: `packages/agent-sdk/src/commands/system-command.ts`
-- Subcommands: `packages/agent-sdk/src/commands/system-command-metadata.ts`
+- Execution helper: `packages/agent-framework/src/commands/background-command.ts`
+- Registration/metadata: `packages/agent-framework/src/commands/system-command.ts`
+- Subcommands: `packages/agent-framework/src/commands/system-command-metadata.ts`
 
 ## Target Owner
 

@@ -92,10 +92,10 @@ describe('findCapabilityPlacementFindings', () => {
       '.agents/project-structure.md': projectStructure,
       'packages/agent-cli/package.json': packageJson('@robota-sdk/agent-cli'),
       'packages/agent-cli/docs/SPEC.md': '# Agent CLI SPEC\n',
-      'packages/agent-sdk/package.json': packageJson('@robota-sdk/agent-sdk'),
-      'packages/agent-sdk/docs/SPEC.md': '# Agent SDK SPEC\n',
+      'packages/agent-framework/package.json': packageJson('@robota-sdk/agent-framework'),
+      'packages/agent-framework/docs/SPEC.md': '# Agent SDK SPEC\n',
       'packages/agent-cli/src/cli.ts':
-        'import { InteractiveSession } from "@robota-sdk/agent-sdk";\n',
+        'import { InteractiveSession } from "@robota-sdk/agent-framework";\n',
     });
 
     const findings = await findCapabilityPlacementFindings(root);
@@ -108,9 +108,10 @@ describe('findCapabilityPlacementFindings', () => {
       '.agents/project-structure.md': projectStructure,
       'packages/agent-cli/package.json': packageJson('@robota-sdk/agent-cli'),
       'packages/agent-cli/docs/SPEC.md': '# Agent CLI SPEC\n',
-      'packages/agent-sdk/package.json': packageJson('@robota-sdk/agent-sdk'),
-      'packages/agent-sdk/docs/SPEC.md': '# Agent SDK SPEC\n',
-      'packages/agent-cli/src/cli.ts': 'import { unsafe } from "@robota-sdk/agent-sdk/internal";\n',
+      'packages/agent-framework/package.json': packageJson('@robota-sdk/agent-framework'),
+      'packages/agent-framework/docs/SPEC.md': '# Agent SDK SPEC\n',
+      'packages/agent-cli/src/cli.ts':
+        'import { unsafe } from "@robota-sdk/agent-framework/internal";\n',
     });
 
     const findings = await findCapabilityPlacementFindings(root);
@@ -119,7 +120,7 @@ describe('findCapabilityPlacementFindings', () => {
       {
         file: 'packages/agent-cli/src/cli.ts',
         type: 'composition-root-import-unexported-subpath',
-        detail: '@robota-sdk/agent-sdk/internal is not an exported owner package entry.',
+        detail: '@robota-sdk/agent-framework/internal is not an exported owner package entry.',
       },
     ]);
   });

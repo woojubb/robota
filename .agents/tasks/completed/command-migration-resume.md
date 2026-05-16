@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-resume-module
-- **Scope**: packages/agent-command-session, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-session, packages/agent-framework, packages/agent-cli
 
 ## Objective
 
@@ -39,7 +39,7 @@ Migrate `/resume` out of SDK-embedded built-in commands into the session command
 ## Result
 
 - `/resume` is now owned by `@robota-sdk/agent-command-session`.
-- `@robota-sdk/agent-sdk` keeps the shared session-picker effect factory and no longer registers `/resume` in default SDK system commands.
+- `@robota-sdk/agent-framework` keeps the shared session-picker effect factory and no longer registers `/resume` in default SDK system commands.
 - CLI/TUI opens the session picker through the generic `session-picker-requested` command effect handler.
 
 ## Original Backlog
@@ -50,7 +50,7 @@ Migrate `/resume` into a command-module owner that requests session picker behav
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
 - Host application: CLI opens `SessionPicker` from `session-picker-requested`
 
 ## Target Owner

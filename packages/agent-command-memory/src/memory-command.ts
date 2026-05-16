@@ -5,7 +5,7 @@ import type {
   ICommandProjectMemoryStore,
   ICommandResult,
   IMemoryEvent,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   MEMORY_COMMAND_USAGE,
   createCommandMemoryStores,
@@ -13,7 +13,7 @@ import {
   isCommandMemoryType,
   listCommandUsedMemoryReferences,
   recordCommandMemoryEvent,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 const SUBCOMMAND_INDEX = 0;
 const TYPE_INDEX = 1;

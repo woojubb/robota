@@ -2,7 +2,7 @@
 
 Composable `agent` command module for Robota sessions. User-facing shells render and parse it as `/agent`; SDK command identity remains `agent`.
 
-This package contributes command metadata and execution for agent job control. It is intentionally outside `@robota-sdk/agent-sdk` so SDK consumers can choose whether to compose the command.
+This package contributes command metadata and execution for agent job control. It is intentionally outside `@robota-sdk/agent-framework` so SDK consumers can choose whether to compose the command.
 
 ## Scope
 
@@ -13,4 +13,4 @@ This package contributes command metadata and execution for agent job control. I
 
 ## Typical Composition
 
-`@robota-sdk/agent-sdk` can compose this module into an `InteractiveSession` command registry. The CLI renders it like any other SDK command and does not need package-specific command ownership.
+`@robota-sdk/agent-framework` can compose this module into an `InteractiveSession` command registry. The CLI renders it like any other SDK command and does not need package-specific command ownership.

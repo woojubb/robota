@@ -45,7 +45,7 @@ Why this matches the backlog intent:
 
 Affected scope:
 
-- `packages/agent-sdk`: storage root resolver, repo-outside validation, category/item projections.
+- `packages/agent-framework`: storage root resolver, repo-outside validation, category/item projections.
 - `packages/agent-command-*` or a new command owner: product command behavior and output shape.
 - `packages/agent-cli`: provider-free command routing to the command owner.
 - Package `SPEC.md` files and cross-cutting specs as needed.
@@ -124,15 +124,11 @@ Open decisions:
 - Evidence:
   - Executed after implementation from `/Users/jungyoun/Documents/dev/robota`.
   - Build command: `pnpm --filter @robota-sdk/agent-cli build` exited 0 after package builds for
-    `@robota-sdk/agent-sdk` and `@robota-sdk/agent-command-user-local`.
-  - Product command exited 0 and printed JSON with:
-    - `root:
-"/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.Kp2lGxRyLa/.robota"`
-    - `activeRepositoryRoot:
-"/private/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.CZ0kZpeuex"`
-    - categories: `preferences`, `view-state`, `memory-projections`, `task-associations`,
-      `workflow-metadata`, and `inspection-index`
-    - every category reported `mayExecuteCommands: false`, `itemCount: 0`, and `items: []`
+    `@robota-sdk/agent-framework` and `@robota-sdk/agent-command-user-local`.
+  - Product command exited 0 and printed JSON with: - `root:
+"/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.Kp2lGxRyLa/.robota"` - `activeRepositoryRoot:
+"/private/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/tmp.CZ0kZpeuex"` - categories: `preferences`, `view-state`, `memory-projections`, `task-associations`,
+    `workflow-metadata`, and `inspection-index` - every category reported `mayExecuteCommands: false`, `itemCount: 0`, and `items: []`
   - Repository-state command:
 
     ```bash

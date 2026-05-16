@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-02
 - **Branch**: feat/cli-provider-usage-visibility
-- **Scope**: packages/agent-core, packages/agent-sessions, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-core, packages/agent-session, packages/agent-framework, packages/agent-cli
 
 ## Priority
 

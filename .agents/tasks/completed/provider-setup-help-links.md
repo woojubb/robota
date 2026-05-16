@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-08
 - **Branch**: feat/provider-setup-help-links
-- **Scope**: packages/agent-core, packages/agent-sdk, packages/agent-command-provider, packages/agent-cli, packages/agent-provider-\*
+- **Scope**: packages/agent-core, packages/agent-framework, packages/agent-command-provider, packages/agent-cli, packages/agent-provider-\*
 
 ## Objective
 

@@ -1,6 +1,6 @@
-import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
+import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-sdk';
+import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
 import type { IInteractiveSessionProps } from './useInteractiveSession.js';

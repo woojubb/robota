@@ -40,7 +40,7 @@ or operational defaults. This means uniqueness cannot be defined by `(provider t
 ## Scope
 
 - `packages/agent-cli`
-- `packages/agent-sdk` profile/settings services and command common APIs
+- `packages/agent-framework` profile/settings services and command common APIs
 - `packages/agent-command-provider`
 - `packages/agent-command-model`
 - package docs/specs that define provider profile persistence and command behavior
@@ -176,7 +176,7 @@ Implemented the provider-profile switching batch:
   profile when that flow exists.
 - Add CLI startup/status projection tests for active profile name, provider type, and model.
 - Run:
-  - `pnpm --filter @robota-sdk/agent-sdk test -- provider`
+  - `pnpm --filter @robota-sdk/agent-framework test -- provider`
   - `pnpm --filter @robota-sdk/agent-command-provider test`
   - `pnpm --filter @robota-sdk/agent-command-model test`
   - `pnpm --filter @robota-sdk/agent-cli test`

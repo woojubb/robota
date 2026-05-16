@@ -27,7 +27,7 @@ the codebase will be ready for a 3.0 major version bump.
 - @robota-sdk/agent-provider-openai
 - @robota-sdk/agent-provider-anthropic
 - @robota-sdk/agent-provider-google
-- @robota-sdk/agent-sessions
+- @robota-sdk/agent-session
 - @robota-sdk/agent-team
 
 ### Packages bumping to 1.0.0 (first stable)

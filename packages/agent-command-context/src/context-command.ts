@@ -3,7 +3,7 @@ import type {
   ICommandResult,
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   addCommandContextReference,
   clearCommandContextReferences,
@@ -16,8 +16,8 @@ import {
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
   writeAutoCompactThresholdSetting,
-} from '@robota-sdk/agent-sdk';
-import type { IContextReferenceItem } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import type { IContextReferenceItem } from '@robota-sdk/agent-framework';
 
 const PERCENT = 100;
 const USAGE = [

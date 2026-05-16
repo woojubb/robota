@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-sdk': patch
+'@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-command-provider': patch
 '@robota-sdk/agent-cli': patch
 ---

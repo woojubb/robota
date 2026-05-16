@@ -11,7 +11,7 @@ P1 - fixes a documented package boundary violation in the CLI beta architecture.
 ## Problem
 
 `packages/agent-cli/docs/SPEC.md` states that `agent-cli` must not import from
-`@robota-sdk/agent-sessions`, but current CLI source constructs and passes `SessionStore` directly.
+`@robota-sdk/agent-session`, but current CLI source constructs and passes `SessionStore` directly.
 This leaks session persistence ownership into the product UI layer and keeps the CLI coupled to a
 concrete sessions package class.
 
@@ -28,7 +28,7 @@ Known current files:
 
 Move session persistence construction and host-facing resume/picker data behind an SDK-owned API or
 port. The CLI should depend on SDK-owned types and factories rather than importing
-`@robota-sdk/agent-sessions`.
+`@robota-sdk/agent-session`.
 
 Recommended shape:
 
@@ -37,20 +37,20 @@ Recommended shape:
   `InteractiveSession`.
 - `SessionPicker` consumes an SDK-owned resumable session summary interface, not
   `ISessionRecord` or `SessionStore`.
-- `agent-cli/package.json` no longer depends on `@robota-sdk/agent-sessions`.
+- `agent-cli/package.json` no longer depends on `@robota-sdk/agent-session`.
 
 ## Acceptance Criteria
 
-- [x] No production file under `packages/agent-cli/src` imports from `@robota-sdk/agent-sessions`.
-- [x] `packages/agent-cli/package.json` no longer declares `@robota-sdk/agent-sessions`.
+- [x] No production file under `packages/agent-cli/src` imports from `@robota-sdk/agent-session`.
+- [x] `packages/agent-cli/package.json` no longer declares `@robota-sdk/agent-session`.
 - [x] Resume, fork, continue, and session picker behavior still work through SDK-owned APIs.
 - [x] `packages/agent-cli/docs/SPEC.md` and `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflect the final boundary.
 - [x] Add or extend a mechanical harness/import check for this forbidden edge if feasible.
 
 ## Verification Plan
 
-- `rg -n "@robota-sdk/agent-sessions" packages/agent-cli/src packages/agent-cli/package.json`
+- `rg -n "@robota-sdk/agent-session" packages/agent-cli/src packages/agent-cli/package.json`
 - `pnpm --filter @robota-sdk/agent-cli test`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk test`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`

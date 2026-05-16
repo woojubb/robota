@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ICommandHostContext, IEditCheckpointRestoreResult } from '@robota-sdk/agent-sdk';
-import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type {
+  ICommandHostContext,
+  IEditCheckpointRestoreResult,
+} from '@robota-sdk/agent-framework';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createModeCommandModule } from '../mode-command-module.js';
 
 type TPermissionModeName = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions';

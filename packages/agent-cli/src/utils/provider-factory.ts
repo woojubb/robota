@@ -1,26 +1,29 @@
 /**
  * Provider factory — CLI entry point for provider construction.
  *
- * Business logic lives in @robota-sdk/agent-runtime and @robota-sdk/agent-sdk.
+ * Business logic lives in @robota-sdk/agent-executor and @robota-sdk/agent-framework.
  * This file owns only: CLI path discovery, file I/O, and the assembly entry points.
  */
 
 import { join } from 'node:path';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { createProviderFromConfig, createProviderFromProfile } from '@robota-sdk/agent-runtime';
-import { readMergedProviderSettingsFromPaths, resolveActiveProvider } from '@robota-sdk/agent-sdk';
+import { createProviderFromConfig, createProviderFromProfile } from '@robota-sdk/agent-executor';
+import {
+  readMergedProviderSettingsFromPaths,
+  resolveActiveProvider,
+} from '@robota-sdk/agent-framework';
 import type { TProviderSettingsDocument } from './provider-settings.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
 
 export type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
-export { createProviderFromConfig, createProviderFromProfile } from '@robota-sdk/agent-runtime';
+export { createProviderFromConfig, createProviderFromProfile } from '@robota-sdk/agent-executor';
 export {
   mergeProviders,
   mergeSettings,
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 export interface IReadProviderSettingsOptions {
   providerOverride?: string;

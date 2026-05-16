@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-rename-module
-- **Scope**: packages/agent-command-session, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-session, packages/agent-framework, packages/agent-cli
 
 ## Objective
 
@@ -50,7 +50,7 @@ Migrate `/rename` into a command-module owner that requests session rename throu
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
 - Host application: CLI applies `session-renamed`
 
 ## Target Owner

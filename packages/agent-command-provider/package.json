@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-sdk": "workspace:*"
+    "@robota-sdk/agent-framework": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^5.0.5",

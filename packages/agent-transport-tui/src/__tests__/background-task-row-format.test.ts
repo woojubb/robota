@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-sdk';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-framework';
 import { formatBackgroundTaskRow } from '../background-task-row-format.js';
 
 function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWorkspaceEntry {

@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-sdk': patch
+'@robota-sdk/agent-framework': patch
 ---
 
 Remove obsolete automatic memory policy configuration and top-level automatic memory orchestration exports from the SDK public surface.

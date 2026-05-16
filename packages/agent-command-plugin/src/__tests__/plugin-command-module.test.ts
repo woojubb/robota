@@ -2,7 +2,7 @@ import type {
   ICommandHostContext,
   ICommandPluginAdapter,
   ICommandSessionRuntime,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { describe, expect, it, vi } from 'vitest';
 import { createPluginCommandModule } from '../plugin-command-module.js';
 import { executePluginCommand, executeReloadPluginsCommand } from '../plugin-command.js';

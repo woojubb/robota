@@ -8,7 +8,7 @@ Own the user-visible `/permissions` command as a composable command module. The 
 
 - Owns `/permissions` descriptor metadata, permission-mode subcommands, validation, and execution.
 - Does not own permission storage, permission prompts, TUI rendering, or direct session internals.
-- Uses `@robota-sdk/agent-sdk` command contracts and permission command common APIs.
+- Uses `@robota-sdk/agent-framework` command contracts and permission command common APIs.
 
 ## Public API
 
@@ -30,7 +30,7 @@ Own the user-visible `/permissions` command as a composable command module. The 
 
 ## Dependency Rules
 
-- May import `@robota-sdk/agent-sdk`.
+- May import `@robota-sdk/agent-framework`.
 - Must not import `@robota-sdk/agent-cli`.
 - Must not duplicate permission-state formatting or permission-mode constants owned by the SDK command API.
 

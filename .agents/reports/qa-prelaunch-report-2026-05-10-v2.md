@@ -113,7 +113,7 @@ robota --language ko
 const ctx = interactiveSession.getContextState(); // try-catch 없음
 ```
 
-`applySystemCommandResult()` 함수에서 `getContextState()`를 보호 없이 호출한다. `InteractiveSession.getContextState()`는 내부적으로 `getSessionOrThrow()`를 호출하고, 세션이 아직 초기화되지 않았으면 `Error('InteractiveSession not initialized...')`를 throw한다 (`packages/agent-sdk/src/interactive/interactive-session.ts:340-343`).
+`applySystemCommandResult()` 함수에서 `getContextState()`를 보호 없이 호출한다. `InteractiveSession.getContextState()`는 내부적으로 `getSessionOrThrow()`를 호출하고, 세션이 아직 초기화되지 않았으면 `Error('InteractiveSession not initialized...')`를 throw한다 (`packages/agent-framework/src/interactive/interactive-session.ts:340-343`).
 
 앱 시작 직후 (세션 초기화 전) 슬래시 커맨드(예: `/help`)를 빠르게 입력하면 unhandled exception이 발생할 수 있다.
 
@@ -314,10 +314,10 @@ if (typeof window !== 'undefined') {
 
 ## 미점검 영역 (이번 v2 점검에서도 제외)
 
-| 영역                                        | 이유                                        |
-| ------------------------------------------- | ------------------------------------------- |
-| `packages/agent-sdk` 내부 세션 라이프사이클 | 범위 외 — 별도 SPEC.md 및 592개 테스트 존재 |
-| 실제 AI 프로바이더 응답 처리                | 실제 네트워크 및 API 키 필요                |
-| Firebase Functions 배포 설정                | Firebase 환경 미구축                        |
-| GitHub Actions CI 파이프라인                | 워크플로우 파일 미확인                      |
-| 접근성 (a11y)                               | TUI CLI 환경 특성상 해당 없음               |
+| 영역                                              | 이유                                        |
+| ------------------------------------------------- | ------------------------------------------- |
+| `packages/agent-framework` 내부 세션 라이프사이클 | 범위 외 — 별도 SPEC.md 및 592개 테스트 존재 |
+| 실제 AI 프로바이더 응답 처리                      | 실제 네트워크 및 API 키 필요                |
+| Firebase Functions 배포 설정                      | Firebase 환경 미구축                        |
+| GitHub Actions CI 파이프라인                      | 워크플로우 파일 미확인                      |
+| 접근성 (a11y)                                     | TUI CLI 환경 특성상 해당 없음               |

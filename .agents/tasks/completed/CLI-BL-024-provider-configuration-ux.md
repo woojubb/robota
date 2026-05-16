@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-04-29
 - **Branch**: feat/provider-configuration-ux
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-transport-headless
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-transport-headless
 
 ## Objective
 
@@ -142,7 +142,7 @@ Provider changes must follow the `/model` restart pattern: command returns struc
 
 | Concern                                      | Owner                                  |
 | -------------------------------------------- | -------------------------------------- |
-| Settings schema and resolved provider config | `@robota-sdk/agent-sdk`                |
+| Settings schema and resolved provider config | `@robota-sdk/agent-framework`          |
 | Settings write helpers and setup UX          | `@robota-sdk/agent-cli`                |
 | Concrete provider imports/instantiation      | `@robota-sdk/agent-cli`                |
 | TUI provider command chrome                  | `@robota-sdk/agent-cli`                |
@@ -205,7 +205,7 @@ Provider slash commands return structured data via `ICommandResult.data`, includ
 
 Before implementation:
 
-- `packages/agent-sdk/docs/SPEC.md`: provider profile schema, resolution, validation, legacy fallback
+- `packages/agent-framework/docs/SPEC.md`: provider profile schema, resolution, validation, legacy fallback
 - `packages/agent-cli/docs/SPEC.md`: first-run setup, setup flags, provider slash commands, settings write ownership
 - `packages/agent-transport-headless/docs/SPEC.md`: non-interactive provider setup/error behavior
 
@@ -235,7 +235,7 @@ Local LM Studio smoke: `curl /v1/models`, `--configure-provider openai`, one tex
 Verification:
 
 ```bash
-pnpm --filter @robota-sdk/agent-sdk test
+pnpm --filter @robota-sdk/agent-framework test
 pnpm --filter @robota-sdk/agent-cli test
 pnpm --filter @robota-sdk/agent-cli build
 pnpm --filter @robota-sdk/agent-transport-headless test

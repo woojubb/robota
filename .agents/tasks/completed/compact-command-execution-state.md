@@ -22,9 +22,9 @@ Manual `/compact` currently can appear to do nothing while the compaction reques
 
 ## Current Signals
 
-- `packages/agent-sdk/src/commands/system-command.ts` executes the `compact` system command and returns `Context compacted: before -> after`.
-- `packages/agent-sessions/src/session.ts` exposes `compact()` as an async operation.
-- `packages/agent-sessions/src/session-history-ops.ts` runs model-backed summarization and updates history after completion.
+- `packages/agent-framework/src/commands/system-command.ts` executes the `compact` system command and returns `Context compacted: before -> after`.
+- `packages/agent-session/src/session.ts` exposes `compact()` as an async operation.
+- `packages/agent-session/src/session-history-ops.ts` runs model-backed summarization and updates history after completion.
 - `packages/agent-cli/src/ui/hooks/useSideEffects.ts` and related TUI state manage command side effects and thinking/input state for normal runs.
 
 ## Scope
@@ -79,9 +79,9 @@ Rationale: compaction calls the provider and rewrites session history. It has th
 
 ## Verification
 
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/interactive/__tests__/interactive-session.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/interactive/__tests__/interactive-session.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli test -- src/ui/__tests__/streaming-indicator.test.tsx src/ui/__tests__/status-bar.test.tsx`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm --filter @robota-sdk/agent-cli lint` (passes with existing warnings)
-- `pnpm --filter @robota-sdk/agent-sdk lint` (passes with existing warnings)
+- `pnpm --filter @robota-sdk/agent-framework lint` (passes with existing warnings)

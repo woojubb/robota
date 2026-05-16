@@ -11,7 +11,7 @@ area: architecture
 
 `agent-interface-transport`는 Domain/Contract 레이어에 위치하는 순수 타입 계약 패키지다.
 그런데 `ITransportAdapter.attach(session)` 시그니처에 필요한 `ISession` 타입을
-`@robota-sdk/agent-sessions`(Session services 레이어)에서 import하고 있다.
+`@robota-sdk/agent-session`(Session services 레이어)에서 import하고 있다.
 
 ```
 Domain (agent-core, agent-interface-transport)   ← 의도된 위치
@@ -19,7 +19,7 @@ Domain (agent-core, agent-interface-transport)   ← 의도된 위치
 Session services (agent-sessions)                ← 실제 ISession 출처
 ```
 
-`packages/agent-sessions/src/session-interface.ts`의 주석이 이 문제를 스스로 인정한다:
+`packages/agent-session/src/session-interface.ts`의 주석이 이 문제를 스스로 인정한다:
 
 > "Keeps agent-interface-transport free of agent-sdk circular dependencies."
 
@@ -44,21 +44,21 @@ Session services (agent-sessions)                ← 실제 ISession 출처
    }
    ```
 
-2. `packages/agent-sessions/src/session-interface.ts`를 삭제하고
+2. `packages/agent-session/src/session-interface.ts`를 삭제하고
    `agent-sessions` index에서 `ISession`을 `agent-core`로부터 re-export.
 
 3. `packages/agent-interface-transport/src/transport-adapter.ts`에서
-   import 경로를 `@robota-sdk/agent-sessions` → `@robota-sdk/agent-core`로 변경.
+   import 경로를 `@robota-sdk/agent-session` → `@robota-sdk/agent-core`로 변경.
 
 4. `packages/agent-interface-transport/package.json`에서
-   `@robota-sdk/agent-sessions` 의존성 제거.
+   `@robota-sdk/agent-session` 의존성 제거.
 
 5. 영향받는 다른 패키지의 `ISession` import 경로를 확인해 `agent-core`에서 오도록 수정.
 
 ## Scope
 
 - `packages/agent-core/src/` — `ISession` 추가
-- `packages/agent-sessions/src/session-interface.ts` — 삭제 후 agent-core re-export
+- `packages/agent-session/src/session-interface.ts` — 삭제 후 agent-core re-export
 - `packages/agent-interface-transport/src/` — import 경로 수정
 - `packages/agent-interface-transport/package.json` — agent-sessions 의존성 제거
 - 영향받는 기타 패키지 import 경로 수정
@@ -67,7 +67,7 @@ Session services (agent-sessions)                ← 실제 ISession 출처
 
 1. `pnpm typecheck` 전체 통과
 2. `pnpm test` 전체 통과
-3. `agent-interface-transport/package.json`에 `@robota-sdk/agent-sessions` 없음 확인
+3. `agent-interface-transport/package.json`에 `@robota-sdk/agent-session` 없음 확인
 4. `ISession` import가 전부 `@robota-sdk/agent-core`에서 오는지 확인
 
 ## User Execution Test Scenarios

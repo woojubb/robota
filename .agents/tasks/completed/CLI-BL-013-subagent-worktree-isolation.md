@@ -31,7 +31,7 @@ packages:
 - Implemented SDK `Agent`/subagent/background metadata propagation and runtime worktree runner decorator.
 - Implemented CLI `GitWorktreeIsolationAdapter` and composed it into the child-process runner factory.
 - Added clean, dirty, failure-cleanup, delegation, and hook lifecycle unit coverage.
-- Split reusable background/subagent lifecycle code into `@robota-sdk/agent-runtime` so SDK and CLI compose smaller runtime materials instead of owning the full feature locally.
+- Split reusable background/subagent lifecycle code into `@robota-sdk/agent-executor` so SDK and CLI compose smaller runtime materials instead of owning the full feature locally.
 
 ## 테스트 계획
 

@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-01
 - **Branch**: feat/gemma-provider-transport
-- **Scope**: packages/agent-core, packages/agent-sessions, packages/agent-runtime, packages/agent-sdk, packages/agent-cli, packages/agent-provider-openai-compatible, packages/agent-provider-gemma, packages/agent-provider-openai
+- **Scope**: packages/agent-core, packages/agent-session, packages/agent-executor, packages/agent-framework, packages/agent-cli, packages/agent-provider-openai-compatible, packages/agent-provider-gemma, packages/agent-provider-openai
 
 ## Objective
 
@@ -434,13 +434,13 @@ Testing must prove the lifecycle behavior with deterministic fake streams before
 ### Verification Commands
 
 ```bash
-pnpm --filter @robota-sdk/agent-runtime test
-pnpm --filter @robota-sdk/agent-sdk test
+pnpm --filter @robota-sdk/agent-executor test
+pnpm --filter @robota-sdk/agent-framework test
 pnpm --filter @robota-sdk/agent-cli test
 pnpm --filter @robota-sdk/agent-provider-openai-compatible test
 pnpm --filter @robota-sdk/agent-provider-gemma test
-pnpm --filter @robota-sdk/agent-runtime build
-pnpm --filter @robota-sdk/agent-sdk build
+pnpm --filter @robota-sdk/agent-executor build
+pnpm --filter @robota-sdk/agent-framework build
 pnpm --filter @robota-sdk/agent-cli build
 pnpm harness:scan
 ```
