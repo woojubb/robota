@@ -6,7 +6,7 @@ Robota SDK follows a strict bottom-up layered assembly model. Each layer builds 
 
 ```
 agent-cli                ← TUI layer: Ink TUI, useInteractiveSession hook, permission prompts
-agent-command-*          ← Built-in/optional slash command modules such as /skills, /agent, /provider, /plugin, and /exit
+agent-command            ← Consolidated slash command package — all 20 command modules in one import
 agent-transport-http     ← HTTP transport: Hono-based REST adapter (Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp      ← MCP transport: Model Context Protocol server adapter
 agent-transport-ws       ← WebSocket transport: framework-agnostic real-time adapter
@@ -33,7 +33,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 | **agent-sessions**           | Session class with permission enforcement, context tracking, compaction                                                                                                                    | General      |
 | **agent-runtime**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                               | General      |
 | **agent-providers**          | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Google compatibility, Gemma, Qwen, and future integrations                                        | General      |
-| **agent-command-\***         | Built-in and optional slash command modules such as `/help`, `/compact`, and `/provider` that own command metadata, execution, lifecycle policy, and descriptors outside CLI/SDK core      | SDK-specific |
+| **agent-command**            | Consolidated slash command package — all 20 command modules (`/help`, `/compact`, `/provider`, `/agent`, `/model`, `/mode`, `/skills`, `/plugin`, and more) in a single import             | SDK-specific |
 | **agent-sdk**                | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery() | SDK-specific |
 | **agent-cli**                | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                                                   | Transport    |
 | **agent-transport-http**     | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                                                              | Transport    |
@@ -46,7 +46,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 
 ```
 agent-cli              ─→ agent-sdk ─→ agent-sessions ─→ agent-core
-agent-command-*        ─→ agent-sdk
+agent-command          ─→ agent-core, agent-framework
 agent-transport-http   ─→ agent-sdk    ├─→ agent-tools ────────────→ agent-core
 agent-transport-mcp    ─→ agent-sdk    ├─→ agent-runtime
 agent-transport-ws     ─→ agent-sdk    ├─→ agent-provider-anthropic → agent-core
