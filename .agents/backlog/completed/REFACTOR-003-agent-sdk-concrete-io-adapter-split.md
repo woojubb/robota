@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-003: agent-sdk concrete I/O adapter 분리 (execSync/child_process)'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: high
 urgency: soon

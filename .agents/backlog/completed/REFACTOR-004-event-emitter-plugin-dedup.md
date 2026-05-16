@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-004: agent-plugin-event-emitter 패키지 제거 (dead code)'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 updated: 2026-05-16
 priority: high

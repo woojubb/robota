@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-022: agent-remote-client 이모지 + 진단 로거 정리'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

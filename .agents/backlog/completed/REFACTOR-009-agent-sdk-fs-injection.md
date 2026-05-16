@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-009: agent-sdk node:fs 직접 사용 → IFileSystem port + adapter injection'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

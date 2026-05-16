@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-019: auth/credits 패키지 소비자 연결 또는 삭제 결정'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-016: agent-tools IZodSchema cast 중앙화 (8개 파일 반복 제거)'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

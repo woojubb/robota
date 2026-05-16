@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-010: IMarketplaceSource + ExecFn SSOT 위반 정리'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later
