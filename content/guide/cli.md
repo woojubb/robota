@@ -49,7 +49,7 @@ Startup checks are rate-limited by a user-level cache at `~/.robota/update-check
 
 ## Non-Interactive (Headless) Mode
 
-Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting. When the prompt starts with `/skill-name`, headless mode calls `InteractiveSession.executeCommand()`, and the SDK normalizes the virtual skill alias to command `skills` with args `<skill-name> [args]`.
+Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport/headless` for output formatting. When the prompt starts with `/skill-name`, headless mode calls `InteractiveSession.executeCommand()`, and the SDK normalizes the virtual skill alias to command `skills` with args `<skill-name> [args]`.
 
 ### Output Formats
 

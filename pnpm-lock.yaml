@@ -338,15 +338,9 @@ importers:
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider
-      '@robota-sdk/agent-transport-headless':
+      '@robota-sdk/agent-transport':
         specifier: workspace:*
-        version: link:../agent-transport-headless
-      '@robota-sdk/agent-transport-tui':
-        specifier: workspace:*
-        version: link:../agent-transport-tui
-      '@robota-sdk/agent-transport-ws':
-        specifier: workspace:*
-        version: link:../agent-transport-ws
+        version: link:../agent-transport
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -859,89 +853,11 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-transport-headless:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-    devDependencies:
-      '@robota-sdk/agent-command':
-        specifier: workspace:*
-        version: link:../agent-command
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-transport-http:
-    dependencies:
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      hono:
-        specifier: ^4.7.0
-        version: 4.12.9
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-transport-mcp:
+  packages/agent-transport:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.28.0
-        version: 1.28.0(zod@3.25.76)
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      zod:
-        specifier: ^3.24.4
-        version: 3.25.76
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-transport-tui:
-    dependencies:
+        version: 1.29.0(zod@3.25.76)
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -954,6 +870,9 @@ importers:
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.9
       ink:
         specifier: ^7.0.1
         version: 7.0.1(@types/react@19.2.14)(react@19.2.4)
@@ -978,6 +897,12 @@ importers:
       string-width:
         specifier: ^8.2.0
         version: 8.2.0
+      ws:
+        specifier: ^8.18.3
+        version: 8.20.0
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
     devDependencies:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.13.1
@@ -988,6 +913,9 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
       ink-testing-library:
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.2.14)
@@ -1007,42 +935,11 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-transport-ws:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      ws:
-        specifier: ^8.18.3
-        version: 8.20.0
-    devDependencies:
-      '@types/ws':
-        specifier: ^8.5.10
-        version: 8.18.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
   packages/agent-web-ui:
     dependencies:
-      '@robota-sdk/agent-transport-ws':
+      '@robota-sdk/agent-transport':
         specifier: workspace:*
-        version: link:../agent-transport-ws
+        version: link:../agent-transport
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.14)(react@19.2.4)
@@ -4583,40 +4480,6 @@ packages:
       globby: 11.1.0
       read-yaml-file: 1.1.0
     dev: true
-
-  /@modelcontextprotocol/sdk@1.28.0(zod@3.25.76):
-    resolution:
-      {
-        integrity: sha512-gmloF+i+flI8ouQK7MWW4mOwuMh4RePBuPFAEPC6+pdqyWOUMDOixb6qZ69owLJpz6XmyllCouc4t8YWO+E2Nw==,
-      }
-    engines: { node: '>=18' }
-    peerDependencies:
-      '@cfworker/json-schema': ^4.1.1
-      zod: ^3.25 || ^4.0
-    peerDependenciesMeta:
-      '@cfworker/json-schema':
-        optional: true
-    dependencies:
-      '@hono/node-server': 1.19.11(hono@4.12.9)
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
-      content-type: 1.0.5
-      cors: 2.8.5
-      cross-spawn: 7.0.6
-      eventsource: 3.0.7
-      eventsource-parser: 3.0.3
-      express: 5.2.1
-      express-rate-limit: 8.3.1(express@5.2.1)
-      hono: 4.12.9
-      jose: 6.2.2
-      json-schema-typed: 8.0.2
-      pkce-challenge: 5.0.0
-      raw-body: 3.0.2
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - supports-color
-    dev: false
 
   /@modelcontextprotocol/sdk@1.29.0(zod@3.25.76):
     resolution:
@@ -20856,7 +20719,7 @@ packages:
       }
     engines: { node: '>=12' }
     dependencies:
-      ansi-styles: 6.2.1
+      ansi-styles: 6.2.3
       is-fullwidth-code-point: 4.0.0
     dev: true
 
