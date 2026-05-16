@@ -44,12 +44,12 @@
 
 그러나 실제 Contract Owner Index 표에는 다음 항목이 없다:
 
-| 누락된 계약 영역                  | 기대되는 소유 패키지 SPEC                                                                 |
-| --------------------------------- | ----------------------------------------------------------------------------------------- |
-| Events (이벤트 계약)              | `packages/agent-core/docs/SPEC.md` — `IEventService`, `EventEmitterPlugin` 등             |
-| Session lifecycle (세션 생명주기) | `packages/agent-sessions/docs/SPEC.md`                                                    |
-| Storage (저장소 포트)             | `packages/agent-sessions/docs/SPEC.md` (SessionStore), `packages/agent-core/docs/SPEC.md` |
-| Provider definitions              | `packages/agent-core/docs/SPEC.md` (provider 계약)                                        |
+| 누락된 계약 영역                  | 기대되는 소유 패키지 SPEC                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------- |
+| Events (이벤트 계약)              | `packages/agent-core/docs/SPEC.md` — `IEventService`, `EventEmitterPlugin` 등            |
+| Session lifecycle (세션 생명주기) | `packages/agent-session/docs/SPEC.md`                                                    |
+| Storage (저장소 포트)             | `packages/agent-session/docs/SPEC.md` (SessionStore), `packages/agent-core/docs/SPEC.md` |
+| Provider definitions              | `packages/agent-core/docs/SPEC.md` (provider 계약)                                       |
 
 현재 "Agent core contracts" 행의 Notes에 "history, permission, hooks, model catalog"만 열거되어 있어, events가 agent-core SPEC에 존재하더라도 cross-cutting 수준의 계약 소유권으로 명시되지 않는다. 사용자나 에이전트가 이벤트 계약 변경 시 어느 SPEC을 먼저 업데이트해야 하는지 즉시 파악하기 어렵다.
 
@@ -59,7 +59,7 @@ Contract Owner Index 표에 다음 행을 추가하거나, "Agent core contracts
 
 ```markdown
 | Event service contracts | packages/agent-core/docs/SPEC.md | IEventService, EventEmitterPlugin, event naming |
-| Session lifecycle contracts | packages/agent-sessions/docs/SPEC.md | Session, SessionStore, PermissionEnforcer, compaction |
+| Session lifecycle contracts | packages/agent-session/docs/SPEC.md | Session, SessionStore, PermissionEnforcer, compaction |
 ```
 
 ---
@@ -154,7 +154,7 @@ Boundary Rule은 다음과 같이 올바르게 안내한다:
 최소 추가 항목:
 
 - Events 계약 행: 소유 문서 = `packages/agent-core/docs/SPEC.md`, Notes = "IEventService, EventEmitterPlugin, event naming and payload conventions"
-- Session lifecycle 계약 행: 소유 문서 = `packages/agent-sessions/docs/SPEC.md`, Notes = "Session lifecycle, SessionStore, PermissionEnforcer, compaction orchestration"
+- Session lifecycle 계약 행: 소유 문서 = `packages/agent-session/docs/SPEC.md`, Notes = "Session lifecycle, SessionStore, PermissionEnforcer, compaction orchestration"
 
 선택적 추가:
 

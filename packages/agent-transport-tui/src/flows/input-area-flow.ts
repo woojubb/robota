@@ -1,5 +1,5 @@
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
-import type { ICommand } from '@robota-sdk/agent-sdk';
+import type { ICommand } from '@robota-sdk/agent-framework';
 import { parseSlashInput } from '../hooks/useAutocomplete.js';
 
 export interface IAutocompleteInputKey {

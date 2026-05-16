@@ -1,0 +1,96 @@
+/**
+ * Types for InteractiveSession — event-driven session wrapper.
+ */
+
+import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type {
+  IExecutionWorkspaceEvent,
+  TBackgroundJobGroupEvent,
+  TBackgroundTaskEvent,
+} from '../background-tasks/index.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+
+/** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
+ *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
+export type TPermissionResultValue = boolean | 'allow-session';
+
+/** Tool execution state visible to clients. */
+export interface IToolState {
+  toolName: string;
+  firstArg: string;
+  isRunning: boolean;
+  result?: 'success' | 'error' | 'denied';
+  diffLines?: IDiffLine[];
+  diffFile?: string;
+  toolResultData?: string;
+}
+
+/** A single diff line for Edit tool display. */
+export interface IDiffLine {
+  type: 'add' | 'remove' | 'context' | 'hunk';
+  text: string;
+  lineNumber: number;
+}
+
+export interface IUsageSnapshot {
+  kind: 'exact' | 'estimated';
+  scope: 'turn';
+  totalTokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
+  contextUsedPercentage: number;
+  costStatus: 'unknown' | 'estimated' | 'exact';
+}
+
+/** Result of a completed prompt execution. */
+export interface IExecutionResult {
+  response: string;
+  history: IHistoryEntry[];
+  toolSummaries: IToolSummary[];
+  contextState: IContextWindowState;
+  usage?: IUsageSnapshot;
+  promptFileReferences?: IPromptFileReferenceRecord[];
+}
+
+/** Summary of a tool call extracted from history. */
+export interface IToolSummary {
+  name: string;
+  args: string;
+}
+
+/** Permission handler delegate — clients provide their own UI. */
+export type TInteractivePermissionHandler = (
+  toolName: string,
+  toolArgs: TToolArgs,
+) => Promise<TPermissionResultValue>;
+
+/** Events emitted by InteractiveSession. */
+export interface IInteractiveSessionEvents {
+  text_delta: (delta: string) => void;
+  tool_start: (state: IToolState) => void;
+  tool_end: (state: IToolState) => void;
+  thinking: (isThinking: boolean) => void;
+  complete: (result: IExecutionResult) => void;
+  error: (error: Error) => void;
+  context_update: (state: IContextWindowState) => void;
+  compact: (event: ICompactEvent) => void;
+  interrupted: (result: IExecutionResult) => void;
+  skill_activation: (event: ISkillActivationEvent) => void;
+  background_task_event: (event: TBackgroundTaskEvent) => void;
+  background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
+  execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
+  user_message: (content: string) => void;
+  /** Emitted when a context file (AGENTS.md or CLAUDE.md) is refreshed due to staleness. */
+  context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
+}
+
+/** Emitted when a context file is found stale and re-read before a turn. */
+export interface IContextFileRefreshedEvent {
+  filePath: string;
+}
+
+export type TInteractiveEventName = keyof IInteractiveSessionEvents;

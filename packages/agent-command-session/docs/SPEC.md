@@ -32,7 +32,7 @@ import {
 - Owns `/resume` command metadata and execution.
 - Owns `/cost` command metadata and execution.
 - Owns `/validate-session` command metadata and execution.
-- Consumes `@robota-sdk/agent-sdk` command contracts and session command common APIs.
+- Consumes `@robota-sdk/agent-framework` command contracts and session command common APIs.
 - Emits typed host effects when a command requires host-rendered state updates.
 - Leaves TUI history projection, process control, settings files, and session picker rendering to the host.
 

@@ -18,7 +18,7 @@ source: qa-prelaunch-report-2026-05-10-v2
 const ctx = interactiveSession.getContextState(); // try-catch 없음
 ```
 
-`applySystemCommandResult()` 함수에서 `getContextState()`를 보호 없이 호출한다. `InteractiveSession.getContextState()`는 내부적으로 `getSessionOrThrow()`를 호출하고, 세션이 아직 초기화되지 않았으면 `Error('InteractiveSession not initialized...')`를 throw한다 (`packages/agent-sdk/src/interactive/interactive-session.ts:340-343`).
+`applySystemCommandResult()` 함수에서 `getContextState()`를 보호 없이 호출한다. `InteractiveSession.getContextState()`는 내부적으로 `getSessionOrThrow()`를 호출하고, 세션이 아직 초기화되지 않았으면 `Error('InteractiveSession not initialized...')`를 throw한다 (`packages/agent-framework/src/interactive/interactive-session.ts:340-343`).
 
 ## Required Change
 

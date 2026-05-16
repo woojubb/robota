@@ -22,7 +22,7 @@ describe('findCommandLayeringFindings', () => {
     const root = await createFixture({
       'packages/agent-cli/src/ui/hooks/useSideEffects.ts':
         'const _pendingProviderSetup = { type: "openai" };\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -41,7 +41,7 @@ describe('findCommandLayeringFindings', () => {
     const root = await createFixture({
       'packages/agent-cli/src/ui/hooks/useSlashRouting.ts':
         'if (cmd === "provider") return routeProviderCommand();\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -53,7 +53,7 @@ describe('findCommandLayeringFindings', () => {
     const root = await createFixture({
       'packages/agent-cli/src/ui/hooks/useSideEffects.ts':
         'const effects = interactiveSession as InteractiveSession & ISideEffects;\neffects._pendingCommandEffects = [];\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -72,7 +72,7 @@ describe('findCommandLayeringFindings', () => {
     const root = await createFixture({
       'packages/agent-cli/src/commands/slash-executor.ts':
         'switch (cmd) { case "model": return { handled: false }; }\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -91,7 +91,7 @@ describe('findCommandLayeringFindings', () => {
     const root = await createFixture({
       'packages/agent-cli/src/commands/plugin-source.ts':
         'export class PluginCommandSource { getCommands() { return []; } }\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -109,8 +109,8 @@ describe('findCommandLayeringFindings', () => {
   it('flags CLI command shim surfaces', async () => {
     const root = await createFixture({
       'packages/agent-cli/src/commands/command-registry.ts':
-        'export { CommandRegistry } from "@robota-sdk/agent-sdk";\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+        'export { CommandRegistry } from "@robota-sdk/agent-framework";\n',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -120,14 +120,14 @@ describe('findCommandLayeringFindings', () => {
         file: 'packages/agent-cli/src/commands/command-registry.ts',
         type: 'cli-command-shim-surface',
         detail:
-          'agent-cli must not expose command infrastructure under src/commands; import SDK-owned command APIs from @robota-sdk/agent-sdk.',
+          'agent-cli must not expose command infrastructure under src/commands; import SDK-owned command APIs from @robota-sdk/agent-framework.',
       },
     ]);
   });
 
   it('flags agent-sdk dependencies on command implementation packages', async () => {
     const root = await createFixture({
-      'packages/agent-sdk/package.json':
+      'packages/agent-framework/package.json':
         '{"dependencies":{"@robota-sdk/agent-command-provider":"workspace:*"}}',
     });
 
@@ -135,7 +135,7 @@ describe('findCommandLayeringFindings', () => {
 
     expect(findings).toEqual([
       {
-        file: 'packages/agent-sdk/package.json',
+        file: 'packages/agent-framework/package.json',
         type: 'sdk-command-package-dependency',
         detail:
           'agent-sdk must not depend on command implementation package @robota-sdk/agent-command-provider.',
@@ -146,8 +146,8 @@ describe('findCommandLayeringFindings', () => {
   it('flags direct CLI imports from agent-sessions', async () => {
     const root = await createFixture({
       'packages/agent-cli/src/cli.ts':
-        'import { SessionStore } from "@robota-sdk/agent-sessions";\n',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+        'import { SessionStore } from "@robota-sdk/agent-session";\n',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -157,7 +157,7 @@ describe('findCommandLayeringFindings', () => {
         file: 'packages/agent-cli/src/cli.ts',
         type: 'cli-agent-sessions-import',
         detail:
-          'agent-cli must not import @robota-sdk/agent-sessions; use SDK-owned session persistence APIs.',
+          'agent-cli must not import @robota-sdk/agent-session; use SDK-owned session persistence APIs.',
       },
     ]);
   });
@@ -165,8 +165,8 @@ describe('findCommandLayeringFindings', () => {
   it('flags direct CLI package dependencies on agent-sessions', async () => {
     const root = await createFixture({
       'packages/agent-cli/package.json':
-        '{"dependencies":{"@robota-sdk/agent-sessions":"workspace:*"}}',
-      'packages/agent-sdk/package.json': '{"dependencies":{}}',
+        '{"dependencies":{"@robota-sdk/agent-session":"workspace:*"}}',
+      'packages/agent-framework/package.json': '{"dependencies":{}}',
     });
 
     const findings = await findCommandLayeringFindings(root);
@@ -176,7 +176,7 @@ describe('findCommandLayeringFindings', () => {
         file: 'packages/agent-cli/package.json',
         type: 'cli-agent-sessions-dependency',
         detail:
-          'agent-cli must not depend on @robota-sdk/agent-sessions; use @robota-sdk/agent-sdk facade APIs.',
+          'agent-cli must not depend on @robota-sdk/agent-session; use @robota-sdk/agent-framework facade APIs.',
       },
     ]);
   });

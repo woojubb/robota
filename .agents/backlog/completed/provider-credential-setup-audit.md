@@ -39,16 +39,16 @@ Sources:
 - [x] `pnpm build`
 - [x] `pnpm --filter @robota-sdk/agent-provider-anthropic test`
 - [x] `pnpm --filter @robota-sdk/agent-core test -- provider-definition`
-- [x] `pnpm --filter @robota-sdk/agent-sdk test -- config-loader provider`
+- [x] `pnpm --filter @robota-sdk/agent-framework test -- config-loader provider`
 - [x] `pnpm --filter @robota-sdk/agent-cli test -- provider`
 - [x] `pnpm --filter @robota-sdk/agent-core typecheck`
-- [x] `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- [x] `pnpm --filter @robota-sdk/agent-framework typecheck`
 - [x] `pnpm --filter @robota-sdk/agent-cli typecheck`
 - [x] `pnpm --filter @robota-sdk/agent-provider-anthropic lint` (existing warnings only)
 - [x] `pnpm --filter @robota-sdk/agent-core lint` (existing warnings only)
-- [x] `pnpm --filter @robota-sdk/agent-sdk lint` (existing warnings only)
+- [x] `pnpm --filter @robota-sdk/agent-framework lint` (existing warnings only)
 - [x] `pnpm --filter @robota-sdk/agent-cli lint` (existing warnings only)
-- [x] `pnpm --filter @robota-sdk/agent-runtime lint`
+- [x] `pnpm --filter @robota-sdk/agent-executor lint`
 - [x] `pnpm run typecheck`
 - [x] `pnpm run lint` (existing warnings only)
 - [x] `pnpm run test`

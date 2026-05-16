@@ -10,7 +10,7 @@ import type {
   ITransportEntry,
   ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 
 const TRANSPORT_NAME_WIDTH = 18;
 

@@ -18,9 +18,9 @@ async function createFixture(files) {
 }
 
 const baselineFiles = {
-  'packages/agent-runtime/src/background-tasks/background-task-manager.ts':
+  'packages/agent-executor/src/background-tasks/background-task-manager.ts':
     'export class BackgroundTaskManager {}\n',
-  'packages/agent-sdk/src/background-tasks/execution-workspace-projection.ts':
+  'packages/agent-framework/src/background-tasks/execution-workspace-projection.ts':
     'export function createExecutionWorkspaceSnapshot() { return { entries: [] }; }\n',
   'packages/agent-cli/src/ui/hooks/useInteractiveSession.ts':
     'session.getExecutionWorkspaceSnapshot(); session.on("execution_workspace_event", () => {}); session.readExecutionWorkspaceDetail("main");\n',
@@ -45,7 +45,7 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
     const root = await createFixture({
       ...baselineFiles,
       'packages/agent-cli/src/background/runtime-import.ts':
-        'import { BackgroundTaskManager } from "@robota-sdk/agent-runtime";\n',
+        'import { BackgroundTaskManager } from "@robota-sdk/agent-executor";\n',
     });
 
     const findings = await findBackgroundWorkspaceConformanceFindings(root);
@@ -55,7 +55,7 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
         file: 'packages/agent-cli/src/background/runtime-import.ts',
         type: 'cli-agent-runtime-import',
         detail:
-          'agent-cli must not import agent-runtime directly; consume SDK workspace projections.',
+          'agent-cli must not import agent-executor directly; consume SDK workspace projections.',
       },
     ]);
   });

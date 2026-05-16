@@ -16,7 +16,7 @@ import type {
   TSubagentRunnerFactory,
   TShellExecFn,
   CommandRegistry,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 

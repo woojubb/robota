@@ -20,5 +20,5 @@ agent-sdk에 300줄 초과 프로덕션 파일 3개. 책임 기준으로 분해.
 
 ## 테스트 계획
 
-- `pnpm --filter @robota-sdk/agent-sdk test` 전후 통과 확인
+- `pnpm --filter @robota-sdk/agent-framework test` 전후 통과 확인
 - 분해 후 300줄 초과 파일 0개 확인

@@ -6,7 +6,7 @@ import {
   BundlePluginLoader,
   MarketplaceClient,
   PluginSettingsStore,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
@@ -14,7 +14,7 @@ import type {
   ICommandPluginAdapter,
   IMarketplaceManifest,
   TPluginInstallScope,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 interface ICliPluginServices {
   cwd: string;

@@ -4,8 +4,8 @@ import type {
   IProviderCommandModuleOptions,
   IProviderSetupInput,
   TCommandInteractionPrompt,
-} from '@robota-sdk/agent-sdk';
-import { buildProviderSetupPatch, mergeProviderPatch } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { buildProviderSetupPatch, mergeProviderPatch } from '@robota-sdk/agent-framework';
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 import {
   createProviderSetupFlow,

@@ -7,7 +7,7 @@ Reviewer: Senior TypeScript Engineer (automated code-level scan)
 
 ## Executive Summary
 
-Overall code quality is high. Strict TypeScript is enforced with zero `any` usage and no `@ts-ignore` annotations across all production source files. The layered architecture is correctly implemented, command modules consistently depend only on `@robota-sdk/agent-sdk`, and all 57 workspace packages have `docs/SPEC.md`. The main open issues are: (1) `InteractiveSession` at 1,578 lines severely violates the 300-line anti-monolith rule; (2) six `as unknown as` escape hatches exist in transport adapter `attach()` implementations, caused by an `ISession` vs `IInteractiveSession` contract gap in `agent-interface-transport`; (3) `IMarketplaceSource` is duplicated verbatim between two files in the same package; (4) several I-prefixed `type` aliases violate the naming convention (interface ↔ type prefix rule); (5) the `@deprecated` rule is violated in `agent-provider-google` and `agent-playground`; and (6) the `agent-sessions` package hard-codes the product name `'robota-cli'` as the agent name, violating the no-product-names-in-code rule.
+Overall code quality is high. Strict TypeScript is enforced with zero `any` usage and no `@ts-ignore` annotations across all production source files. The layered architecture is correctly implemented, command modules consistently depend only on `@robota-sdk/agent-framework`, and all 57 workspace packages have `docs/SPEC.md`. The main open issues are: (1) `InteractiveSession` at 1,578 lines severely violates the 300-line anti-monolith rule; (2) six `as unknown as` escape hatches exist in transport adapter `attach()` implementations, caused by an `ISession` vs `IInteractiveSession` contract gap in `agent-interface-transport`; (3) `IMarketplaceSource` is duplicated verbatim between two files in the same package; (4) several I-prefixed `type` aliases violate the naming convention (interface ↔ type prefix rule); (5) the `@deprecated` rule is violated in `agent-provider-google` and `agent-playground`; and (6) the `agent-sessions` package hard-codes the product name `'robota-cli'` as the agent name, violating the no-product-names-in-code rule.
 
 ---
 
@@ -16,7 +16,7 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 ### [ARCH-SD-001] InteractiveSession 1,578 lines — Severe Anti-Monolith Violation
 
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts`
+- **Area**: `packages/agent-framework/src/interactive/interactive-session.ts`
 - **Problem**: The class is 1,578 lines and implements `ISession`, `IAgentJobHostContext`, and `IInteractiveSession` simultaneously. It owns state management, streaming accumulation, tool tracking, skill routing, checkpoint management, background task subscriptions, persistence, fork execution, and system message rebuilding in one file. This is 5× the 300-line limit.
 - **Rule violation**: Anti-monolith rule — file ≤ 300 lines, function ≤ 50 lines. The single function `executePrompt` (delegated via `executePromptInner`) plus the constructor are alone above the limit.
 - **Recommendation**: Decompose into focused collaborators. The class already references several helpers (`interactive-session-execution.ts`, `interactive-session-streaming.ts`, `interactive-session-init.ts`, `interactive-session-persistence.ts`). What remains in the class body is still a god class. Extract: `InteractiveSessionCommandRouter` (skill/command routing), `InteractiveSessionBackgroundTaskAdapter` (background task subscriptions and state), `InteractiveSessionHistoryAdapter` (history + edit checkpoints). The class itself should be a thin coordinator ≤ 350 lines.
@@ -43,7 +43,7 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 ### [ARCH-SD-003] `ICommandHostContext` Has 10 Optional Members — Weak Interface Contract
 
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/command-api/host-context.ts:75–113`
+- **Area**: `packages/agent-framework/src/command-api/host-context.ts:75–113`
 - **Problem**: `ICommandHostContext` has 10 optional method members (marked `?`): `clearConversationHistory`, `validateCurrentSessionReplayLog`, `getAutoCompactThresholdSource`, `setAutoCompactThreshold`, `getCommandHostAdapters`, `listContextReferences`, `addContextReference`, `removeContextReference`, `clearContextReferences`, `getCommandInvocationSource`, `listCommands`, `listSkills`, `inspectEditCheckpoint`. Callers in command modules must guard every call with `?.`, making the contract meaningless as a guarantee. The interface is essentially a partial duck type with required methods as the exception, not the rule.
 - **Rule violation**: Interface contracts should guarantee what is available. Optional members on a command-host context interface undermine the command isolation pattern — command modules cannot rely on the host providing key capabilities.
 - **Recommendation**: Separate `ICommandHostContext` into a required base (`ICommandHostContext`) covering methods all command modules need, and optional capability interfaces (`ICompactCapable`, `IMemoryCapable`, `IContextReferenceCapable`, `ICheckpointCapable`) that individual command modules can `import type` and narrow to via `in` checks. Each command module declares which capabilities it requires via its `ICommandModule.sessionRequirements` array.
@@ -70,8 +70,8 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 
 - **Severity**: Medium
 - **Area**:
-  - `packages/agent-sdk/src/plugins/marketplace-types.ts:6–10` (SSOT)
-  - `packages/agent-sdk/src/plugins/plugin-settings-store.ts:11–15` (duplicate)
+  - `packages/agent-framework/src/plugins/marketplace-types.ts:6–10` (SSOT)
+  - `packages/agent-framework/src/plugins/plugin-settings-store.ts:11–15` (duplicate)
 - **Problem**: `IMarketplaceSource` is defined identically in both files:
   ```typescript
   export type IMarketplaceSource =
@@ -90,8 +90,8 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 
 - **Severity**: Medium
 - **Area**:
-  - `packages/agent-sdk/src/plugins/marketplace-types.ts:39` (exported as `ExecFn`)
-  - `packages/agent-sdk/src/plugins/bundle-plugin-installer.ts:27` (private redefinition)
+  - `packages/agent-framework/src/plugins/marketplace-types.ts:39` (exported as `ExecFn`)
+  - `packages/agent-framework/src/plugins/bundle-plugin-installer.ts:27` (private redefinition)
 - **Problem**: `ExecFn` has no `T` prefix despite being a type alias for a function type. It is also privately redefined in `bundle-plugin-installer.ts` despite `marketplace-types.ts` already exporting the same shape.
 - **Rule violation**: `T*` prefix for type aliases. No type duplication.
 - **Recommendation**: Rename to `TExecFn` in `marketplace-types.ts`. Remove the duplicate private definition in `bundle-plugin-installer.ts` and import `TExecFn` from `marketplace-types.ts`.
@@ -102,11 +102,11 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 
 - **Severity**: Medium
 - **Area**: Multiple files
-  - `packages/agent-sdk/src/plugins/marketplace-types.ts:6` — `export type IMarketplaceSource`
-  - `packages/agent-sdk/src/plugins/marketplace-types.ts:36` — `export type IKnownMarketplacesRegistry`
-  - `packages/agent-sdk/src/plugins/bundle-plugin-installer.ts:24` — `export type IInstalledPluginsRegistry`
-  - `packages/agent-sdk/src/interactive/interactive-session-init.ts:116` — `export type IInteractiveSessionOptions`
-  - `packages/agent-runtime/src/background-tasks/types.ts:116` — `export type IBackgroundTaskRequest`
+  - `packages/agent-framework/src/plugins/marketplace-types.ts:6` — `export type IMarketplaceSource`
+  - `packages/agent-framework/src/plugins/marketplace-types.ts:36` — `export type IKnownMarketplacesRegistry`
+  - `packages/agent-framework/src/plugins/bundle-plugin-installer.ts:24` — `export type IInstalledPluginsRegistry`
+  - `packages/agent-framework/src/interactive/interactive-session-init.ts:116` — `export type IInteractiveSessionOptions`
+  - `packages/agent-executor/src/background-tasks/types.ts:116` — `export type IBackgroundTaskRequest`
   - `packages/agent-core/src/hooks/types.ts:61` — `export type IHookDefinition`
   - `packages/agent-cli/src/utils/statusline-settings.ts:10` — `export type IStatusLineSettings`
   - `packages/agent-transport-http/src/routes.ts:14` — `export type ISessionFactory`
@@ -146,7 +146,7 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 ### [ARCH-SD-009] Hard-coded Product Name `'robota-cli'` in `agent-sessions` — Foundation Layer
 
 - **Severity**: Medium
-- **Area**: `packages/agent-sessions/src/session.ts:167`
+- **Area**: `packages/agent-session/src/session.ts:167`
 - **Problem**: The `Session` constructor hard-codes `name: 'robota-cli'` in the `IAgentConfig` it builds:
   ```typescript
   const agentConfig: IAgentConfig = {
@@ -178,7 +178,7 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 ### [ARCH-SD-011] `ICommandSessionRuntime.getAutoCompactThreshold` Optional vs Required Inconsistency
 
 - **Severity**: Medium
-- **Area**: `packages/agent-sdk/src/command-api/host-context.ts:64,79`
+- **Area**: `packages/agent-framework/src/command-api/host-context.ts:64,79`
 - **Problem**: `getAutoCompactThreshold` appears twice with different optionality:
   - In `ICommandSessionRuntime` (line 64): `getAutoCompactThreshold?(): number | false` (optional)
   - In `ICommandHostContext` (line 79): `getAutoCompactThreshold(): TAutoCompactThreshold` (required)
@@ -209,7 +209,7 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 ### [ARCH-SD-013] `process.cwd()` Fallback in `InteractiveSession.getCwd()` Masks Missing `cwd`
 
 - **Severity**: Low
-- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts:655`
+- **Area**: `packages/agent-framework/src/interactive/interactive-session.ts:655`
 - **Problem**: `getCwd()` returns `this.cwd ?? process.cwd()`. This is a silent fallback that masks the case where no `cwd` was provided — a condition that should be an error for tools that write files.
 - **Rule violation**: No fallback — if value is absent, treat it as a bug. `process.cwd()` varies between test environments and production contexts, making behavior non-deterministic.
 - **Recommendation**: Make `cwd` required in `IInteractiveSessionStandardOptions` (it already is). For the `IInteractiveSessionInjectedOptions` path where `cwd` is optional, throw explicitly if `getCwd()` is called and `cwd` is undefined rather than silently falling back to `process.cwd()`.
@@ -255,10 +255,10 @@ Overall code quality is high. Strict TypeScript is enforced with zero `any` usag
 
 1. **Zero `any` usage**: `grep ": any\|as any\|<any>"` across all `src/` directories returns no results. Strict TypeScript is fully enforced.
 2. **No `@ts-ignore` or `@ts-nocheck`**: Zero occurrences across the entire monorepo source.
-3. **No React in `agent-sdk`**: No `from 'react'` imports in `packages/agent-sdk/src/`.
+3. **No React in `agent-sdk`**: No `from 'react'` imports in `packages/agent-framework/src/`.
 4. **No `console.*` in production `src/` files**: All logging routes through the injected `ILogger` DI interface. The only `console` match is a URL constant in a provider definition (not a log call).
 5. **All 57 packages have SPEC.md**: Complete coverage — no package is missing its contract document.
-6. **Command module dependency isolation is clean**: All `agent-command-*` packages depend only on `@robota-sdk/agent-sdk` (and `agent-core` for `agent-command-provider`). None import from peer command modules.
+6. **Command module dependency isolation is clean**: All `agent-command-*` packages depend only on `@robota-sdk/agent-framework` (and `agent-core` for `agent-command-provider`). None import from peer command modules.
 7. **`ICommandHostContext` is the sole injection point**: Command module `execute()` callbacks consistently receive only `ICommandHostContext` — no direct `InteractiveSession` references in command packages.
 8. **Named constants for magic numbers**: `STREAMING_FLUSH_INTERVAL_MS`, `MAX_COMPLETED_TOOLS`, `DEFAULT_MAX_TURNS`, `CONTEXT_HARD_BLOCK_THRESHOLD`, `GIT_TIMEOUT_MS` — magic numbers are promoted to named constants in their respective files.
 9. **No cross-layer dependency violations**: `agent-core` → `agent-sessions` → `agent-sdk` direction is respected. `agent-interface-transport` is correctly isolated with no dependency on `agent-sdk`.

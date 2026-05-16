@@ -7,7 +7,7 @@ Owns the tool registry, tool implementations, tool result types, sandbox executi
 ## Boundaries
 
 - Does not own the abstract tool base class (`AbstractTool`) or tool interface contracts (`IToolWithEventService`, `IToolResult`, `IToolExecutionContext`). Those belong to `@robota-sdk/agent-core`.
-- Does not own permission evaluation or hook execution. Tool permission wrapping is performed by consumers (e.g., `@robota-sdk/agent-sessions`).
+- Does not own permission evaluation or hook execution. Tool permission wrapping is performed by consumers (e.g., `@robota-sdk/agent-session`).
 - Does not own MCP tool protocol. MCP tools live in `@robota-sdk/agent-tool-mcp`.
 - Does not own provider-specific behavior. Tools are provider-agnostic.
 - Does not own provider SDK installation. Provider sandbox adapters are structural adapters; applications decide whether to install concrete provider SDKs such as E2B.
@@ -177,7 +177,7 @@ None. `FunctionTool` and `OpenAPITool` implement their respective interfaces dir
 | `ITool` (agent-core)               | `OpenAPITool`                            | `src/implementations/openapi-tool.ts`                                        |
 | `IToolWithEventService` shape      | Built-in CLI tools                       | `src/builtins/*.ts`                                                          |
 | `ISandboxClient` (agent-tools)     | Built-in CLI tool factories              | `src/builtins/bash-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
-| `IWorkspaceManifest` (agent-tools) | `agent-sdk` interactive session assembly | `packages/agent-sdk/src/interactive/interactive-session-init.ts`             |
+| `IWorkspaceManifest` (agent-tools) | `agent-sdk` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-init.ts`       |
 
 ## Test Strategy
 

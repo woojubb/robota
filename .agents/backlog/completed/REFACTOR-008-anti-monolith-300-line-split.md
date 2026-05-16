@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-command-provider, packages/agent-core, packages/agent-sdk, packages/agent-sessions, packages/agent-transport-tui, packages/agent-transport-headless, packages/agent-provider-qwen, packages/agent-plugin-event-emitter, packages/agent-plugin-logging
+area: packages/agent-command-provider, packages/agent-core, packages/agent-framework, packages/agent-session, packages/agent-transport-tui, packages/agent-transport-headless, packages/agent-provider-qwen, packages/agent-plugin-event-emitter, packages/agent-plugin-logging
 ---
 
 ## Problem

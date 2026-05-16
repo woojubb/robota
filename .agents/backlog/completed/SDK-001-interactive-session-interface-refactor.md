@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk, packages/agent-command-agent, packages/agent-transport-tui, packages/agent-transport-ws, packages/agent-transport-headless
+area: packages/agent-framework, packages/agent-command-agent, packages/agent-transport-tui, packages/agent-transport-ws, packages/agent-transport-headless
 ---
 
 ## Problem
@@ -35,9 +35,9 @@ methods produce silent `undefined` rather than compile-time errors.
 
 ### Step 1 — Define `IInteractiveSession`
 
-- Create `packages/agent-sdk/src/interactive/i-interactive-session.ts`
+- Create `packages/agent-framework/src/interactive/i-interactive-session.ts`
 - Expose only the surface transports and tests legitimately consume
-- Export from `packages/agent-sdk/src/index.ts`
+- Export from `packages/agent-framework/src/index.ts`
 
 ### Step 2 — Extract sub-objects from `InteractiveSession`
 
@@ -50,12 +50,12 @@ methods produce silent `undefined` rather than compile-time errors.
 ### Step 3 — Fix `agent-command-agent`
 
 - Change `executeAgentCommand(session: InteractiveSession, ...)` to accept `ICommandHostContext`
-- Remove `@robota-sdk/agent-sdk` production dependency from `agent-command-agent/package.json`
-- Add harness check: `agent-command-*` packages must not import from `@robota-sdk/agent-sdk`
+- Remove `@robota-sdk/agent-framework` production dependency from `agent-command-agent/package.json`
+- Add harness check: `agent-command-*` packages must not import from `@robota-sdk/agent-framework`
 
 ### Step 4 — Add test factory
 
-- Create `packages/agent-sdk/src/testing/create-test-interactive-session.ts`
+- Create `packages/agent-framework/src/testing/create-test-interactive-session.ts`
 - Export `createTestInteractiveSession(overrides?: Partial<IInteractiveSession>)`
 - Migrate all `as unknown as InteractiveSession` usages in test files to use the factory
 
@@ -66,13 +66,13 @@ methods produce silent `undefined` rather than compile-time errors.
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - `pnpm --filter @robota-sdk/agent-command-agent build` passes (no agent-sdk dep)
 - All transport packages build successfully
 - `pnpm test` for `agent-sdk`, `agent-command-agent`, and transport packages passes
 - `pnpm typecheck` clean across all affected packages
 - No remaining `as unknown as InteractiveSession` in test files
-- Harness check added: `agent-command-*` must not import from `@robota-sdk/agent-sdk`
+- Harness check added: `agent-command-*` must not import from `@robota-sdk/agent-framework`
 - `interactive-session.ts` is under 500 lines after sub-object extraction (target ≤ 300)
 
 ## User Execution Test Scenarios

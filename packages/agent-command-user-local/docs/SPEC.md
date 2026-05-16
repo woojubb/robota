@@ -9,7 +9,7 @@ inspecting Robota user-local state through SDK-owned contracts.
 
 - Owns `user-local` command metadata, argument parsing, output formatting, and provider-free direct
   CLI command execution helpers.
-- Consumes user-local storage and memory APIs from `@robota-sdk/agent-sdk`.
+- Consumes user-local storage and memory APIs from `@robota-sdk/agent-framework`.
 - Does not resolve storage roots, validate repo-outside paths, persist user-local items, read
   provider configuration, or render TUI screens.
 

@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-sdk': minor
+'@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-transport-http': minor
 '@robota-sdk/agent-transport-ws': minor
 '@robota-sdk/agent-transport-mcp': minor

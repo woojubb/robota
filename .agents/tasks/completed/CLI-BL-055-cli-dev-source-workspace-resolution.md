@@ -15,7 +15,7 @@ Ensure `pnpm run cli:dev` runs against internal package source without requiring
 
 ## Why
 
-The repository is a pnpm monorepo. pnpm links workspace packages into `node_modules`, but it does not rewrite package entrypoints or bypass Node package resolution. When a source file imports a workspace package by package name, for example `@robota-sdk/agent-sdk`, Node/tsx still reads that package's `package.json` and follows its `exports`/`main` fields. If those fields point to `dist/node/index.js`, then the linked workspace package is selected but its `dist` entrypoint is still used. This is normal package-manager/runtime behavior, not a pnpm bug.
+The repository is a pnpm monorepo. pnpm links workspace packages into `node_modules`, but it does not rewrite package entrypoints or bypass Node package resolution. When a source file imports a workspace package by package name, for example `@robota-sdk/agent-framework`, Node/tsx still reads that package's `package.json` and follows its `exports`/`main` fields. If those fields point to `dist/node/index.js`, then the linked workspace package is selected but its `dist` entrypoint is still used. This is normal package-manager/runtime behavior, not a pnpm bug.
 
 A source-first dev mode may still be useful if the team wants `cli:dev` to observe internal package source edits without rebuilding. That would be an explicit repository policy choice rather than the default pnpm behavior.
 

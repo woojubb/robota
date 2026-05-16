@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-cost-module
-- **Scope**: packages/agent-command-session, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-session, packages/agent-framework, packages/agent-cli
 
 ## Objective
 
@@ -41,7 +41,7 @@ Migrate `/cost` session information display out of SDK-default built-ins into th
 ## Result
 
 - `/cost` is now owned by `@robota-sdk/agent-command-session`.
-- `@robota-sdk/agent-sdk` keeps the shared session-info read helper and no longer registers `/cost` in default SDK system commands.
+- `@robota-sdk/agent-framework` keeps the shared session-info read helper and no longer registers `/cost` in default SDK system commands.
 - CLI slash routing no longer formats `/cost` output directly and instead routes it through the injected command module.
 
 ## Original Backlog
@@ -52,7 +52,7 @@ Migrate `/cost` session information display into a command-module owner.
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
 
 ## Target Owner
 

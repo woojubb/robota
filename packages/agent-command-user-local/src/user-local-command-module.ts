@@ -3,7 +3,7 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   USER_LOCAL_COMMAND_ARGUMENT_HINT,
   USER_LOCAL_COMMAND_DESCRIPTION,

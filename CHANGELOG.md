@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed re-export**: `ToolSchema as FunctionSchema` alias removed
 - **New required exports**: `IAgent`, `IRunOptions`, `IProviderRequest`, `IRawProviderResponse`
 
-#### @robota-sdk/agent-sessions — Complete Rewrite
+#### @robota-sdk/agent-session — Complete Rewrite
 
 - Removed: `ConversationServiceImpl`, `SystemMessageManagerImpl`, `MultiProviderAdapterManager`
 - Removed: `ContextManager`, `ProviderManager`, `ProviderConfig`, `EnhancedConversationHistory`

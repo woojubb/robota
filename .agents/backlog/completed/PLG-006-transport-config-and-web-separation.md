@@ -2,7 +2,7 @@
 
 - **Status**: done
 - **Created**: 2026-05-10
-- **Area**: packages/agent-interface-transport (신규), packages/agent-sessions, packages/agent-sdk, packages/agent-transport-ws, packages/agent-cli, packages/agent-web
+- **Area**: packages/agent-interface-transport (신규), packages/agent-session, packages/agent-framework, packages/agent-transport-ws, packages/agent-cli, packages/agent-web-ui
 - **Priority**: high
 
 ## Objective
@@ -80,7 +80,7 @@ agent-cli                       → agent-sdk, agent-interface-transport, agent-
 
 ```typescript
 // ISession — agent-sessions에 정의, 여기서 import
-import type { ISession } from '@robota-sdk/agent-sessions';
+import type { ISession } from '@robota-sdk/agent-session';
 
 export interface ITransportAdapter {
   readonly name: string;
@@ -135,7 +135,7 @@ export class TransportRegistry {
 `agent-interface-transport`는 `InteractiveSession`을 직접 참조하지 않고 `ISession`을 사용함으로써 순환 의존을 방지한다.
 
 ```typescript
-// packages/agent-sessions/src/session-interface.ts
+// packages/agent-session/src/session-interface.ts
 export interface ISession {
   readonly sessionId: string;
   // transport가 실제로 필요로 하는 최소 계약만 포함
@@ -172,7 +172,7 @@ packages/agent-interface-transport/
 
 ### Step 3 — `agent-sdk`: `SettingsSchema`에 `transports` 추가
 
-`packages/agent-sdk/src/config/config-types.ts`:
+`packages/agent-framework/src/config/config-types.ts`:
 
 - `TransportSettingsSchema` 추가
 - `SettingsSchema`에 `transports: z.record(TransportSettingsSchema).optional()` 추가
@@ -225,9 +225,9 @@ Settings > Transports
 ### Step 9 — 빌드 및 검증
 
 ```bash
-pnpm --filter @robota-sdk/agent-sessions build
+pnpm --filter @robota-sdk/agent-session build
 pnpm --filter @robota-sdk/agent-interface-transport build
-pnpm --filter @robota-sdk/agent-sdk build
+pnpm --filter @robota-sdk/agent-framework build
 pnpm --filter @robota-sdk/agent-transport-ws build
 pnpm --filter @robota-sdk/agent-web build:spa
 pnpm --filter @robota-sdk/agent-cli build
@@ -242,15 +242,15 @@ pnpm typecheck && pnpm lint && pnpm test
 
 **변경 패키지:**
 
-- `packages/agent-sessions` — `ISession` 인터페이스 추가
-- `packages/agent-sdk` — `ITransportAdapter` 제거, `agent-interface-transport` 의존 추가, `SettingsSchema` 확장
+- `packages/agent-session` — `ISession` 인터페이스 추가
+- `packages/agent-framework` — `ITransportAdapter` 제거, `agent-interface-transport` 의존 추가, `SettingsSchema` 확장
 - `packages/agent-transport-ws` — `IConfigurableTransport` 구현, `agent-interface-transport` 의존
 - `packages/agent-cli` — `TransportRegistry`, `/settings` transport TUI, `--web` 삭제
-- `packages/agent-web` — no-transport 상태 처리
+- `packages/agent-web-ui — no-transport 상태 처리
 
 **변경 없는 패키지:**
 
-- `packages/agent-core`, `packages/agent-runtime` — 변경 없음
+- `packages/agent-core`, `packages/agent-executor` — 변경 없음
 
 ## Test Plan
 

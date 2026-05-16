@@ -29,7 +29,7 @@ Selected a dedicated `@robota-sdk/agent-command-reset` package instead of adding
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
 - Host application: CLI deletes user settings and exits
 
 ## Target Owner

@@ -4,13 +4,13 @@
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.63
+- @robota-sdk/agent-framework@3.0.0-beta.63
 
 ## 3.0.0-beta.62
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.62
+- @robota-sdk/agent-framework@3.0.0-beta.62
 
 ## 3.0.0-beta.61
 
@@ -22,7 +22,7 @@
 - Updated dependencies [18fcc5b]
 - Updated dependencies [d97bdf2]
 - Updated dependencies [3bde012]
-  - @robota-sdk/agent-sdk@3.0.0-beta.61
+  - @robota-sdk/agent-framework@3.0.0-beta.61
 
 ## 3.0.0-beta.60
 
@@ -30,20 +30,20 @@
 
 - Updated dependencies [41ae788]
 - Updated dependencies [7439391]
-  - @robota-sdk/agent-sdk@3.0.0-beta.60
+  - @robota-sdk/agent-framework@3.0.0-beta.60
 
 ## 3.0.0-beta.59
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.59
+- @robota-sdk/agent-framework@3.0.0-beta.59
 
 ## 3.0.0-beta.58
 
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.58
+  - @robota-sdk/agent-framework@3.0.0-beta.58
 
 ## 3.0.0-beta.57
 
@@ -60,13 +60,13 @@
 - Updated dependencies [0e0e533]
 - Updated dependencies [822a78b]
 - Updated dependencies [9817f99]
-  - @robota-sdk/agent-sdk@3.0.0-beta.57
+  - @robota-sdk/agent-framework@3.0.0-beta.57
 
 ## 3.0.0-beta.56
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.56
+- @robota-sdk/agent-framework@3.0.0-beta.56
 
 ## 3.0.0-beta.55
 
@@ -79,14 +79,14 @@
   - Fix React type imports, dynamic imports in tests, Express.Multer types
 
 - Updated dependencies [38a72bf]
-  - @robota-sdk/agent-sdk@3.0.0-beta.55
+  - @robota-sdk/agent-framework@3.0.0-beta.55
 
 ## 3.0.0-beta.54
 
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.54
+  - @robota-sdk/agent-framework@3.0.0-beta.54
 
 ## 3.0.0-beta.53
 
@@ -94,19 +94,19 @@
 
 - Updated dependencies
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.53
+  - @robota-sdk/agent-framework@3.0.0-beta.53
 
 ## 3.0.0-beta.52
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.52
+- @robota-sdk/agent-framework@3.0.0-beta.52
 
 ## 3.0.0-beta.51
 
 ### Patch Changes
 
-- @robota-sdk/agent-sdk@3.0.0-beta.51
+- @robota-sdk/agent-framework@3.0.0-beta.51
 
 ## 3.0.0-beta.50
 
@@ -114,7 +114,7 @@
 
 - fix: reinsert repository/homepage/bugs in correct field order
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.50
+  - @robota-sdk/agent-framework@3.0.0-beta.50
 
 ## 3.0.0-beta.49
 
@@ -122,14 +122,14 @@
 
 - fix: add repository, homepage, bugs metadata to all publishable packages
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.49
+  - @robota-sdk/agent-framework@3.0.0-beta.49
 
 ## 3.0.0-beta.48
 
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.48
+  - @robota-sdk/agent-framework@3.0.0-beta.48
 
 ## 3.0.0-beta.47
 
@@ -146,14 +146,14 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.47
+  - @robota-sdk/agent-framework@3.0.0-beta.47
 
 ## 3.0.0-beta.46
 
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.46
+  - @robota-sdk/agent-framework@3.0.0-beta.46
 
 ## 3.0.0-beta.45
 
@@ -165,11 +165,11 @@
   - Simplified factory signatures: only InteractiveSession required
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.45
+  - @robota-sdk/agent-framework@3.0.0-beta.45
 
 ## 3.0.0-beta.44
 
 ### Patch Changes
 
 - Updated dependencies
-  - @robota-sdk/agent-sdk@3.0.0-beta.44
+  - @robota-sdk/agent-framework@3.0.0-beta.44

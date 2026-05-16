@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-07
 - **Branch**: feat/sdk-model-command-tool-projection
-- **Scope**: packages/agent-sdk, packages/agent-transport-headless, content/guide, .agents/specs
+- **Scope**: packages/agent-framework, packages/agent-transport-headless, content/guide, .agents/specs
 
 ## Objective
 

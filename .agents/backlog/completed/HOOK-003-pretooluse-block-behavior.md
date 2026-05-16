@@ -21,7 +21,7 @@ SDK 현재 동작:
 
 ## Required Change
 
-### `packages/agent-sessions/src/tool-hook-helpers.ts`
+### `packages/agent-session/src/tool-hook-helpers.ts`
 
 `runPreToolHook()`의 반환값 처리를 `PermissionEnforcer`가 인식할 수 있는 신호로 변경.
 
@@ -155,6 +155,6 @@ PASS — HOOK-003 implementation is correct.
 
 **Observed result matches expected:** YES
 
-**Note on unit tests (Test Plan):** `packages/agent-sessions/src/__tests__/tool-hook-helpers.test.ts`
+**Note on unit tests (Test Plan):** `packages/agent-session/src/__tests__/tool-hook-helpers.test.ts`
 (10 tests) was also added as engineering verification. Unit tests belong in Test Plan, not User
 Execution Test Scenarios — recorded here for completeness only.

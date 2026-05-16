@@ -3,8 +3,8 @@ import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
-} from '@robota-sdk/agent-sdk';
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { RewindCommandSource, createRewindCommandModule, executeRewindCommand } from '../index.js';
 
 function createCheckpoint(overrides: Partial<IEditCheckpointSummary> = {}): IEditCheckpointSummary {

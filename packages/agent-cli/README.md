@@ -1,4 +1,4 @@
-**Language:** [English](README.md) | [한국어](README.ko.md)
+**Language:** [English](README.md) | [한국어](docs/README-KO.md)
 
 # @robota-sdk/agent-cli
 
@@ -422,7 +422,7 @@ Resumable session JSON is written to `.robota/sessions/{sessionId}.json` for the
 
 ## Architecture
 
-The CLI is a pure TUI layer. All business logic lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. `useInteractiveSession` is the sole React↔SDK bridge, converting SDK events to React state.
+The CLI is a pure TUI layer. All business logic lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. `useInteractiveSession` is the sole React↔SDK bridge, converting SDK events to React state.
 
 ```
 bin.ts → cli.ts (arg parsing)
@@ -452,7 +452,7 @@ bin.ts → cli.ts (arg parsing)
 
 | Package                                | Purpose                                    |
 | -------------------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-sdk`                | Session factory, query, config, context    |
+| `@robota-sdk/agent-framework`          | Session factory, query, config, context    |
 | `@robota-sdk/agent-core`               | Types (TPermissionMode, TToolArgs)         |
 | `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`)      |
 | `ink` 7, `react` 19.2+                 | TUI rendering                              |

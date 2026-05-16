@@ -14,7 +14,7 @@ feat/sdk-background-workspace
 
 ## Scope
 
-packages/agent-runtime, packages/agent-sdk, .agents/tasks, .agents/backlog
+packages/agent-executor, packages/agent-framework, .agents/tasks, .agents/backlog
 
 ## Recommendation
 
@@ -61,16 +61,16 @@ state.
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-runtime test`
-- `pnpm --filter @robota-sdk/agent-runtime typecheck`
-- `pnpm --filter @robota-sdk/agent-runtime build`
-- `pnpm --filter @robota-sdk/agent-runtime lint`
-- `pnpm --filter @robota-sdk/agent-sdk test`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk build`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
-- `pnpm harness:verify -- --scope packages/agent-runtime --base-ref origin/develop --skip-record-check`
-- `pnpm harness:verify -- --scope packages/agent-sdk --base-ref origin/develop --skip-record-check`
+- `pnpm --filter @robota-sdk/agent-executor test`
+- `pnpm --filter @robota-sdk/agent-executor typecheck`
+- `pnpm --filter @robota-sdk/agent-executor build`
+- `pnpm --filter @robota-sdk/agent-executor lint`
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework build`
+- `pnpm --filter @robota-sdk/agent-framework lint`
+- `pnpm harness:verify -- --scope packages/agent-executor --base-ref origin/develop --skip-record-check`
+- `pnpm harness:verify -- --scope packages/agent-framework --base-ref origin/develop --skip-record-check`
 
 ## Result
 
@@ -396,7 +396,7 @@ implementation:
 - Define nested task and group projection semantics for skill-spawned agents and parallel agent
   groups.
 - Add focused unit tests for pure projection logic and event-to-view updates.
-- Update `packages/agent-sdk/docs/SPEC.md`, `.agents/specs/background-task-layer.md`, and
+- Update `packages/agent-framework/docs/SPEC.md`, `.agents/specs/background-task-layer.md`, and
   `packages/agent-cli/docs/SPEC.md` before production code changes.
 
 ## Non-Goals
@@ -456,11 +456,11 @@ implementation:
 
 ## Verification Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk test`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-runtime test`
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-executor test`
 - `pnpm --filter @robota-sdk/agent-cli test -- background`
-- `pnpm harness:verify -- --scope packages/agent-sdk --base-ref origin/develop --skip-record-check`
+- `pnpm harness:verify -- --scope packages/agent-framework --base-ref origin/develop --skip-record-check`
 - `pnpm harness:verify -- --scope packages/agent-cli --base-ref origin/develop --skip-record-check`
 
 ## Follow-Up

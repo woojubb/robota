@@ -45,11 +45,11 @@ Why this matches the backlog intent:
 
 Affected scope:
 
-- `packages/agent-sdk`: memory item projection, persistence facade, delete/disable semantics,
+- `packages/agent-framework`: memory item projection, persistence facade, delete/disable semantics,
   disabled-item non-use.
 - `@robota-sdk/agent-command-user-local`: user-visible command behavior and output formatting.
 - `packages/agent-cli`: provider-free command routing and terminal output only.
-- `packages/agent-sessions` only if session-local ids need to be referenced in projections.
+- `packages/agent-session` only if session-local ids need to be referenced in projections.
 
 Decision:
 

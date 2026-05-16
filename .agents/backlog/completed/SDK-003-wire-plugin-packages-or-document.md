@@ -4,7 +4,7 @@ status: done
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-plugin-*, packages/agent-sdk, packages/agent-cli
+area: packages/agent-plugin-*, packages/agent-framework, packages/agent-cli
 ---
 
 ## Problem
@@ -30,7 +30,7 @@ demonstrate the integration path is actually exercised.
 Add an architecture note to `.agents/specs/architecture-map/agent-system.md` and each
 `agent-plugin-*/docs/SPEC.md` stating: "Plugins are not built into the CLI by default.
 Application consumers register plugins via the SDK assembly API."
-Add an example in `packages/agent-sdk/README.md` showing how to register a plugin.
+Add an example in `packages/agent-framework/README.md` showing how to register a plugin.
 
 ## Scope
 
@@ -44,7 +44,7 @@ Add an example in `packages/agent-sdk/README.md` showing how to register a plugi
 
 1. Update `.agents/specs/architecture-map/agent-system.md` — add plugin consumer note
 2. Update each `agent-plugin-*/docs/SPEC.md` — add "consumer opt-in" status note
-3. Add plugin registration example to `packages/agent-sdk/README.md` or docs
+3. Add plugin registration example to `packages/agent-framework/README.md` or docs
 
 ## Test Plan
 

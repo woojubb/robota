@@ -69,12 +69,12 @@ Target ownership rules:
 ```mermaid
 flowchart TD
   CLI["@robota-sdk/agent-cli\nbin.ts, cli.ts, React/Ink UI"]
-  SDK["@robota-sdk/agent-sdk\nInteractiveSession, command contracts, common APIs"]
+  SDK["@robota-sdk/agent-framework\nInteractiveSession, command contracts, common APIs"]
   Commands["@robota-sdk/agent-command-*\nuser-visible command modules"]
   Core["@robota-sdk/agent-core\nprovider, permission, history, message contracts"]
-  Sessions["@robota-sdk/agent-sessions\nSession, SessionStore, compaction"]
+  Sessions["@robota-sdk/agent-session\nSession, SessionStore, compaction"]
   Tools["@robota-sdk/agent-tools\nbuilt-in tools"]
-  Runtime["@robota-sdk/agent-runtime\nbackground tasks, subagents"]
+  Runtime["@robota-sdk/agent-executor\nbackground tasks, subagents"]
   Providers["@robota-sdk/agent-provider-*\nprovider definitions and transports"]
   Headless["@robota-sdk/agent-transport-headless\nnon-interactive transport"]
   WsTransport["@robota-sdk/agent-transport-ws\nWebSocket protocol handler (--web sidecar)"]

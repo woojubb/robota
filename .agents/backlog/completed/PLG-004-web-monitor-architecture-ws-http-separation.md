@@ -105,8 +105,8 @@ const wsUrl = window.__WS_PORT__
 
 ## Scope
 
-- `packages/agent-sdk`: IWebMonitorPlugin 인터페이스 추가 (선택적)
-- `packages/agent-web`:
+- `packages/agent-framework`: IWebMonitorPlugin 인터페이스 추가 (선택적)
+- `packages/agent-web-ui:
   - WS 서버 (`startWsServer`) 분리 export
   - HTTP 서버 (`startHttpServer`, WS URL 주입) 분리 export
   - SPA: `<meta name="ws-url">` 읽는 로직 추가

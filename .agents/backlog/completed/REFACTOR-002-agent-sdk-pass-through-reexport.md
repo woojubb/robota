@@ -4,20 +4,20 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk, packages/agent-cli
+area: packages/agent-framework, packages/agent-cli
 ---
 
 ## Problem
 
-`packages/agent-sdk/src/background-tasks/index.ts`와 `packages/agent-sdk/src/subagents/index.ts`가 `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, `BackgroundTaskError` 등 agent-runtime 소유 심벌을 그대로 re-export한다.
+`packages/agent-framework/src/background-tasks/index.ts`와 `packages/agent-framework/src/subagents/index.ts`가 `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, `BackgroundTaskError` 등 agent-runtime 소유 심벌을 그대로 re-export한다.
 
 ```ts
 // agent-sdk/src/background-tasks/index.ts:1
-export { BackgroundTaskManager } from '@robota-sdk/agent-runtime';
+export { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 
 // agent-sdk/src/subagents/index.ts:1
-export { SubagentManager } from '@robota-sdk/agent-runtime';
-export { WorktreeSubagentRunner, createWorktreeSubagentRunner } from '@robota-sdk/agent-runtime';
+export { SubagentManager } from '@robota-sdk/agent-executor';
+export { WorktreeSubagentRunner, createWorktreeSubagentRunner } from '@robota-sdk/agent-executor';
 ```
 
 이로 인해 agent-runtime 소유 심벌이 agent-sdk 공개 표면에 중복 노출되고, 소비자가 두 경로 모두에서 import 가능한 혼란이 생긴다.
@@ -31,13 +31,13 @@ Source: COMBINED-002 (SA-002)
 1. `agent-sdk/src/background-tasks/index.ts`에서 agent-runtime 소유 클래스 re-export 제거.
 2. `agent-sdk/src/subagents/index.ts`에서 동일하게 제거.
 3. `agent-sdk/src/index.ts`에서 해당 심벌들의 re-export 라인 제거.
-4. 소비자(`agent-cli` 등)에서 해당 심벌을 `@robota-sdk/agent-runtime`에서 직접 import하도록 변경.
+4. 소비자(`agent-cli` 등)에서 해당 심벌을 `@robota-sdk/agent-executor`에서 직접 import하도록 변경.
 5. SDK-레이어 facade가 필요한 경우 agent-sdk 소유 wrapper 타입/클래스를 별도 정의.
 
 ## Test Plan
 
 - `pnpm typecheck` — 전체 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
 - `pnpm --filter @robota-sdk/agent-cli test` — 통과
 - `pnpm build` — 전체 통과
 

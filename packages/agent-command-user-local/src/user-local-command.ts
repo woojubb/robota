@@ -1,5 +1,5 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk';
-import { inspectUserLocalStorage } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
+import { inspectUserLocalStorage } from '@robota-sdk/agent-framework';
 import { executeMemoryCommand } from './user-local-memory-command.js';
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 export {

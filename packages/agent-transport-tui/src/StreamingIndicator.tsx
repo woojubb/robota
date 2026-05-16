@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { IToolState } from '@robota-sdk/agent-sdk';
+import type { IToolState } from '@robota-sdk/agent-framework';
 import { renderMarkdown } from './render-markdown.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 

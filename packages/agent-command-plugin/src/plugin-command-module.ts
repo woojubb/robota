@@ -3,13 +3,13 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   buildPluginCommandSubcommands,
   PLUGIN_COMMAND_ARGUMENT_HINT,
   PLUGIN_COMMAND_DESCRIPTION,
   RELOAD_PLUGINS_COMMAND_DESCRIPTION,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executePluginCommand, executeReloadPluginsCommand } from './plugin-command.js';
 
 export function createPluginCommandEntry(): ICommand {

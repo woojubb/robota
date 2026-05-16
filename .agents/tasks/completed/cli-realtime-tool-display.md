@@ -28,7 +28,7 @@ packages:
 - `packages/agent-cli/src/ui/App.tsx` — runSessionPrompt, tool call 표시
 - `packages/agent-cli/src/utils/tool-call-extractor.ts` — 현재 사후 추출 방식
 - `packages/agent-core/src/services/execution-round.ts` — tool 실행 루프
-- `packages/agent-sessions/src/session.ts` — onTextDelta 콜백
+- `packages/agent-session/src/session.ts` — onTextDelta 콜백
 
 ## 구현 방향 (검토 필요)
 

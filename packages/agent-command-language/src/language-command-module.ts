@@ -3,12 +3,12 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   buildLanguageCommandSubcommands,
   LANGUAGE_COMMAND_ARGUMENT_HINT,
   LANGUAGE_COMMAND_DESCRIPTION,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executeLanguageCommand } from './language-command.js';
 
 export function createLanguageCommandEntry(): ICommand {

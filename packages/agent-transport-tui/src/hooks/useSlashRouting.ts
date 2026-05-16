@@ -9,7 +9,7 @@ import type {
   CommandRegistry,
   ICommandResult,
   TCommandEffect,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ICommandEffectQueue } from './command-effect-queue.js';

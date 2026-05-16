@@ -2,8 +2,8 @@ import type {
   ICommandHostContext,
   ICommandResult,
   TStatusLineCommandSettingsPatch,
-} from '@robota-sdk/agent-sdk';
-import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-framework';
 
 interface IStatusLineCommandSuccessAction {
   success: true;

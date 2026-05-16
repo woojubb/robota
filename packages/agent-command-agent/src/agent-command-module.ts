@@ -5,7 +5,7 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executeAgentCommand } from './agent-command.js';
 
 function getAgentHostContext(context: ICommandHostContext): IAgentJobHostContext {
