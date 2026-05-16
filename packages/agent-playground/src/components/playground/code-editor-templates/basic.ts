@@ -6,7 +6,7 @@ export const basicTemplate: IExampleTemplate = {
   code: `// Basic Conversation Example
 import OpenAI from 'openai'
 import { Robota } from '@robota-sdk/agent-core'
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai'
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai'
 
 // Basic Conversation Example Started
 

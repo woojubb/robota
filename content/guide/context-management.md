@@ -11,10 +11,10 @@ const state = session.getContextState();
 
 ### Model Context Sizes
 
-| Model                         | Context Window   |
-| ----------------------------- | ---------------- |
-| Claude Sonnet 4.6 / Opus 4.6  | 1,000,000 tokens |
-| Claude Haiku 4.5              | 200,000 tokens   |
+| Model                        | Context Window   |
+| ---------------------------- | ---------------- |
+| Claude Sonnet 4.6 / Opus 4.6 | 1,000,000 tokens |
+| Claude Haiku 4.5             | 200,000 tokens   |
 
 ## Compaction
 
@@ -51,7 +51,7 @@ The `text_delta` event provides real-time text as the model generates it:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 

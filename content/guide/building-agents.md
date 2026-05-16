@@ -52,7 +52,7 @@ Providers implement the `IAIProvider` interface from `agent-core`. Each provider
 ### Anthropic (Claude)
 
 ```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -64,7 +64,7 @@ Supported models: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 ### OpenAI
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY,
@@ -74,7 +74,7 @@ const provider = new OpenAIProvider({
 ### Gemini
 
 ```typescript
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
 const provider = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY,
@@ -87,7 +87,7 @@ Gemini system prompts are sent as Gemini `systemInstruction`. The provider also 
 ### Gemma
 
 ```typescript
-import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
 
 const provider = new GemmaProvider({
   apiKey: 'lm-studio',
@@ -103,7 +103,7 @@ LM Studio and other OpenAI-compatible Chat Completions endpoints support Robota 
 ### Qwen
 
 ```typescript
-import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const provider = new QwenProvider({
   apiKey: process.env.DASHSCOPE_API_KEY,
@@ -116,7 +116,7 @@ Qwen can also enable provider-side hosted web search and extraction through `bui
 ### DeepSeek
 
 ```typescript
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 
 const provider = new DeepSeekProvider({
   apiKey: process.env.DEEPSEEK_API_KEY,

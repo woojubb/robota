@@ -36,9 +36,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-playground": "workspace:*",
-    "@robota-sdk/agent-provider-anthropic": "workspace:*",
-    "@robota-sdk/agent-provider-google": "workspace:*",
-    "@robota-sdk/agent-provider-openai": "workspace:*",
+    "@robota-sdk/agent-provider": "workspace:*",
     "@types/ws": "^8.18.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
