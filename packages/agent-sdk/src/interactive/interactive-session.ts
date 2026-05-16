@@ -228,7 +228,8 @@ export class InteractiveSession
   }
 
   getCwd(): string {
-    return this.cwd ?? process.cwd();
+    if (!this.cwd) throw new Error('cwd is not set — provide cwd in session options');
+    return this.cwd;
   }
 
   get sessionId(): string {
