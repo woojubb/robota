@@ -11,7 +11,7 @@ export {
 } from './interactive/index.js';
 export type {
   IInteractiveSession,
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
   ISkillActivationEvent,
   IInteractiveSessionRecord,
@@ -99,7 +99,6 @@ export type {
   ILegacyProviderSettings,
   IProviderProfileSettings,
   IProviderSettingsBuildOptions,
-  IProviderSetupFlowOptions,
   IProviderSetupInput,
   IProviderSetupPatch,
   IStatusLineCommandSettings,
@@ -125,26 +124,17 @@ export {
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
   clearCommandContextReferences,
-  createProviderSetupFlow,
   deleteProviderProfile,
   formatEnvReference,
-  formatProviderSetupChoiceLabel,
-  formatProviderSetupHelpLinks,
-  formatProviderSetupPromptLabel,
-  formatProviderSetupSelectionPrompt,
-  getProviderSetupStep,
   hasUsableSecretReference,
   isEnvReference,
   mergeProviderPatch,
   probeProviderProfile,
   listCommandContextReferences,
   resolveEnvReference,
-  resolveProviderSetupSelection,
-  runProviderSetupPromptFlow,
   sanitizeProviderProfileName,
   setCurrentProvider,
   suggestProviderProfileName,
-  submitProviderSetupValue,
   testProviderProfileCommand,
   AUTO_COMPACT_THRESHOLD_SETTINGS_KEY,
   compactCommandContext,
@@ -157,7 +147,6 @@ export {
   setCommandAutoCompactThreshold,
   upsertProviderProfile,
   validateProviderProfile,
-  validateProviderSetupValue,
   writeAutoCompactThresholdSetting,
   formatCommandHelpMessage,
   HELP_COMMAND_DESCRIPTION,
@@ -249,8 +238,6 @@ export type {
   ICommandSessionInfo,
   ICommandSessionReplayValidationReport,
   IPermissionsCommandState,
-  IProviderSetupFlowState,
-  IProviderSetupPromptStep,
   ICommandMemoryStores,
   ICommandPendingMemoryStore,
   ICommandProjectMemoryStore,
@@ -261,11 +248,12 @@ export type {
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
   TMemoryCandidateStatus,
-  TProviderSetupFlowSubmitResult,
-  TProviderSetupType,
   TRecommendedResponseLanguage,
-  TPromptInput,
 } from './commands/index.js';
+
+// ── Provider definition utilities ──────────────────────────
+export { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
+export type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 // ── User-local storage and memory ──────────────────────────
 export {
@@ -367,16 +355,16 @@ export { BundlePluginInstaller } from './plugins/index.js';
 export type {
   IBundlePluginInstallerOptions,
   IInstalledPluginRecord,
-  IInstalledPluginsRegistry,
+  TInstalledPluginsRegistry,
 } from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';
 export type {
-  IMarketplaceSource,
+  TMarketplaceSource,
   IMarketplaceManifest,
   IMarketplacePluginEntry,
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
-  IKnownMarketplacesRegistry,
+  TKnownMarketplacesRegistry,
 } from './plugins/index.js';
 export type {
   IBundlePluginManifest,
@@ -448,7 +436,7 @@ export type {
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskManagerOptions,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,

@@ -9,8 +9,9 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import { findProviderDefinition } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import { findProviderDefinition } from '@robota-sdk/agent-sdk';
+import type { IProviderDefinition } from '@robota-sdk/agent-sdk';
 import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
 import { createBackgroundCommandModule } from '@robota-sdk/agent-command-background';
 import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
@@ -345,6 +346,7 @@ async function runPrintMode(
     commandModules,
     commandHostAdapters,
     shellExec,
+    agentName: 'robota-cli',
   });
 
   const transport = createHeadlessTransport({
@@ -490,6 +492,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry: createTransportRegistry(),
     cliAdapter: createTuiCliAdapter(providerDefinitions),
     reloadPluginCommandSource,
+    agentName: 'robota-cli',
   });
   await tuiTransport.start();
   process.exit(0);

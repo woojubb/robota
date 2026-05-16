@@ -84,7 +84,7 @@ export class SessionSkillRouter {
     this.commandExecutor = new SystemCommandExecutor(
       commandModules.flatMap((module) => module.systemCommands ?? []),
     );
-    this.skillCommandSource = new SkillCommandSource(cwd || process.cwd());
+    this.skillCommandSource = new SkillCommandSource(cwd);
     this.commandHostAdapters = commandHostAdapters;
   }
 

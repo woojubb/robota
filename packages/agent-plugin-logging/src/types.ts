@@ -72,6 +72,23 @@ export interface ILogStorage {
   close(): Promise<void>;
 }
 
+/** Structured context data for log entries */
+export interface ILoggingContextData
+  extends Record<string, string | number | boolean | Date | undefined> {
+  userInput?: string;
+  duration?: number;
+  toolName?: string;
+  success?: boolean;
+  executionId?: string;
+  operation?: string;
+  errorMessage?: string;
+  errorStack?: string;
+  inputLength?: number;
+  responseLength?: number;
+  hasOptions?: boolean;
+  modelName?: string;
+}
+
 /**
  * Logging plugin statistics
  */

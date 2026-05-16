@@ -44,6 +44,7 @@ export interface IRenderOptions {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
+  agentName?: string;
 }
 
 export async function renderApp(options: IRenderOptions): Promise<void> {

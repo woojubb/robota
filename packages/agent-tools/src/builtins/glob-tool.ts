@@ -10,7 +10,6 @@ import { resolve } from 'node:path';
 import fg from 'fast-glob';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
-import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const DEFAULT_MAX_RESULTS = 1000;
@@ -100,7 +99,7 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
 export const globTool = createZodFunctionTool(
   'Glob',
   "Fast file pattern matching tool that works with any codebase size.\n\nSupports glob patterns like '**/*.js' or 'src/**/*.ts'. Returns matching file paths sorted by modification time.\n\nUse this tool when you need to find files by name patterns. When doing an open-ended search that may require multiple rounds, use the Agent tool instead.\n\nDefault limit is 1000 results. Use the limit parameter if you need fewer results to save context space.",
-  GlobSchema as unknown as IZodSchema,
+  GlobSchema,
   async (params) => {
     return globFileTool(params as TGlobArgs);
   },

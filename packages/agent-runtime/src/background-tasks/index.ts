@@ -33,7 +33,7 @@ export {
   type IBackgroundTaskLogPage,
   type IBackgroundTaskManager,
   type IBackgroundTaskManagerOptions,
-  type IBackgroundTaskRequest,
+  type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,

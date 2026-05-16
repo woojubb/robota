@@ -3,7 +3,7 @@ import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskRunner,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   TBackgroundPrimitive,
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskIsolation,
@@ -120,7 +120,7 @@ export interface ISubagentManagerOptions {
   maxConcurrent?: number;
   maxDepth?: number;
   now?: () => string;
-  idFactory?: (request: IBackgroundTaskRequest) => string;
+  idFactory?: (request: TBackgroundTaskRequest) => string;
   agentIdleTimeoutMs?: number;
   agentMaxRuntimeMs?: number;
   agentOutputLimitBytes?: number;

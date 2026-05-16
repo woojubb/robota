@@ -87,8 +87,8 @@ export interface IWorkflowConversionOptions {
  * Conversion result with metadata and validation info
  */
 export interface IWorkflowConversionResult<TOutput> {
-  /** Converted workflow data */
-  data: TOutput;
+  /** Converted workflow data — present only when success is true. */
+  data?: TOutput;
 
   /** Conversion success status */
   success: boolean;

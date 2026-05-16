@@ -86,6 +86,7 @@ describe('InteractiveSession', () => {
     const mockSession = createMockSession({ runResult: 'hello world' });
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const thinkingStates: boolean[] = [];
@@ -108,6 +109,7 @@ describe('InteractiveSession', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     await session.submit('test prompt');
@@ -198,6 +200,7 @@ describe('InteractiveSession', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     // Start first execution
@@ -239,6 +242,7 @@ describe('InteractiveSession', () => {
     };
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
       commandModules: [blockingModule],
     });
     const thinkingStates: boolean[] = [];
@@ -282,6 +286,7 @@ describe('InteractiveSession', () => {
     };
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
       commandModules: [blockingModule],
     });
 
@@ -304,6 +309,7 @@ describe('InteractiveSession', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const first = session.submit('first');
@@ -328,6 +334,7 @@ describe('InteractiveSession', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     let interrupted = false;
@@ -358,6 +365,7 @@ describe('InteractiveSession', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     let errorMsg = '';
@@ -378,6 +386,7 @@ describe('InteractiveSession', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const calls: boolean[] = [];
@@ -398,6 +407,7 @@ describe('InteractiveSession', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     expect(session.getSession()).toBe(mockSession);
@@ -407,6 +417,7 @@ describe('InteractiveSession', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const state = session.getContextState();
@@ -433,6 +444,7 @@ describe('InteractiveSession', () => {
 
       new InteractiveSession({
         session: mockSession as never,
+        cwd: '/tmp',
         sessionStore: mockStore as never,
         resumeSessionId: 'old-session',
       });
@@ -466,6 +478,7 @@ describe('InteractiveSession', () => {
 
       const session = new InteractiveSession({
         session: mockSession as never,
+        cwd: '/tmp',
         sessionStore: mockStore as never,
         resumeSessionId: 'old-session',
       });
@@ -479,6 +492,7 @@ describe('InteractiveSession', () => {
 
       const session = new InteractiveSession({
         session: mockSession as never,
+        cwd: '/tmp',
         sessionStore: mockStore as never,
       });
 
@@ -512,6 +526,7 @@ describe('InteractiveSession', () => {
       const mockSession = createMockSession();
       const session = new InteractiveSession({
         session: mockSession as never,
+        cwd: '/tmp',
         sessionStore: mockStore as never,
         resumeSessionId: 'old-session',
       });
@@ -538,6 +553,7 @@ describe('InteractiveSession', () => {
 
       const session = new InteractiveSession({
         session: mockSession as never,
+        cwd: '/tmp',
         sessionStore: mockStore as never,
         resumeSessionId: 'old-session',
       });

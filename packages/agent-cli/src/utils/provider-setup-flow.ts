@@ -5,7 +5,7 @@ export type {
   TProviderSetupFlowSubmitResult,
   TProviderSetupType,
   TPromptInput,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-command-provider';
 export {
   createProviderSetupFlow,
   formatProviderSetupChoiceLabel,
@@ -17,4 +17,4 @@ export {
   runProviderSetupPromptFlow,
   submitProviderSetupValue,
   validateProviderSetupValue,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-command-provider';

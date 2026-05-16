@@ -8,6 +8,7 @@ import { PluginError } from '../utils/errors';
 import type { ILogger } from '../utils/logger';
 import type {
   IEventEmitterEventData,
+  TEventDataValue,
   TEventName,
   TEventEmitterListener,
 } from './event-emitter/types';
@@ -199,4 +200,24 @@ export function unregisterHandler(
     return true;
   }
   return false;
+}
+
+export function buildToolCallEmitData(
+  context: { executionId?: string; sessionId?: string; userId?: string },
+  toolCall: { name?: string; id?: string; result?: string | number | boolean | null },
+  duration: number | undefined,
+): Partial<IEventEmitterEventData> {
+  const hasResult = toolCall.result !== null && toolCall.result !== undefined;
+  return {
+    executionId: context.executionId,
+    sessionId: context.sessionId,
+    userId: context.userId,
+    data: {
+      toolName: toolCall.name || '',
+      toolId: toolCall.id || '',
+      toolResult: hasResult ? String(toolCall.result) : undefined,
+      duration: duration as TEventDataValue,
+      success: hasResult,
+    },
+  };
 }

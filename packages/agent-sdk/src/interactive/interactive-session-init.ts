@@ -35,7 +35,7 @@ import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 export type {
   IInteractiveSessionStandardOptions,
   IInteractiveSessionInjectedOptions,
-  IInteractiveSessionOptions,
+  TInteractiveSessionOptions,
   IInitOptions,
 } from './interactive-session-options.js';
 export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';
@@ -148,6 +148,7 @@ export async function createInteractiveSession(
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
+    agentName: options.agentName,
   });
 
   return {
@@ -259,6 +260,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.workspaceManifest ? { workspaceManifest: options.workspaceManifest } : {}),
     ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
     ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
+    ...(options.agentName ? { agentName: options.agentName } : {}),
     commandDescriptors: deps.commandDescriptors,
     ...(deps.commandDescriptors.length > 0
       ? {

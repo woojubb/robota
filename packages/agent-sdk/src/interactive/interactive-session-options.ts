@@ -69,6 +69,8 @@ export interface IInteractiveSessionStandardOptions {
   sandboxWorkspaceRoot?: string;
   /** Provider sandbox snapshot id to restore before replaying saved messages. */
   sandboxSnapshotId?: string;
+  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
+  agentName?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -90,7 +92,7 @@ export interface IInteractiveSessionInjectedOptions {
 }
 
 /** Union of standard and injected construction options. */
-export type IInteractiveSessionOptions =
+export type TInteractiveSessionOptions =
   | IInteractiveSessionStandardOptions
   | IInteractiveSessionInjectedOptions;
 
@@ -148,4 +150,6 @@ export interface IInitOptions {
   sandboxWorkspaceRoot?: string;
   /** Provider sandbox snapshot id to restore before replaying saved messages. */
   sandboxSnapshotId?: string;
+  /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
+  agentName?: string;
 }

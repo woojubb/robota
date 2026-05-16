@@ -896,10 +896,6 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-interface-transport:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -1804,6 +1800,9 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.13.1
         version: 0.13.1
+      '@robota-sdk/agent-command-provider':
+        specifier: workspace:*
+        version: link:../agent-command-provider
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
@@ -1902,36 +1901,6 @@ importers:
       vite:
         specifier: '>=7.3.2'
         version: 8.0.8(@types/node@20.19.9)(esbuild@0.25.8)(tsx@4.21.0)
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/auth:
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/credits:
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)

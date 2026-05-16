@@ -66,6 +66,7 @@ interface IProps {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
+  agentName?: string;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -134,6 +135,7 @@ function AppInner(
     transportRegistry: props.transportRegistry,
     language: props.language,
     reloadPluginCommandSource: props.reloadPluginCommandSource,
+    agentName: props.agentName,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);

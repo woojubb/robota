@@ -1,7 +1,7 @@
 import { BackgroundTaskError } from './types.js';
 import type {
   IBackgroundTaskHandle,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskState,
@@ -28,7 +28,7 @@ export function markBackgroundTaskStarted(
 }
 
 export function validateBackgroundTaskRequest(
-  request: IBackgroundTaskRequest,
+  request: TBackgroundTaskRequest,
   runners: ReadonlyMap<string, IBackgroundTaskRunner>,
   maxDepth: number,
 ): void {

@@ -7,11 +7,11 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { IMarketplaceSource } from './marketplace-types.js';
+import type { TMarketplaceSource } from './marketplace-types.js';
 
 /** Persisted marketplace source entry. */
 export interface IPersistedMarketplaceSource {
-  source: IMarketplaceSource;
+  source: TMarketplaceSource;
 }
 
 /** Shape of the plugin-related keys in settings.json. */
@@ -97,7 +97,7 @@ export class PluginSettingsStore {
   }
 
   /** Add or update a marketplace source. */
-  setMarketplaceSource(name: string, source: IMarketplaceSource): void {
+  setMarketplaceSource(name: string, source: TMarketplaceSource): void {
     const settings = this.readAll();
     const extra = this.getMarketplaceSourcesFrom(settings);
     extra[name] = { source };

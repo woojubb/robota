@@ -225,6 +225,32 @@ export function requireConversationId(
   return context.conversationId;
 }
 
+export function buildFullExecutionContext(
+  messages: TUniversalMessage[],
+  config: IAgentConfig,
+  startTime: Date,
+  executionId: string,
+  conversationId: string,
+  context?: Partial<IExecutionContext>,
+): IExecutionContext {
+  return {
+    messages,
+    config,
+    startTime,
+    executionId,
+    conversationId,
+    ...(context?.sessionId && { sessionId: context.sessionId }),
+    ...(context?.userId && { userId: context.userId }),
+    ...(context?.metadata && { metadata: context.metadata }),
+    ...(context?.signal && { signal: context.signal }),
+    ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
+    ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
+    ...(context?.maxExecutionRounds !== undefined && {
+      maxExecutionRounds: context.maxExecutionRounds,
+    }),
+  };
+}
+
 /**
  * Convert an IExecutionContext to the flat record format expected by plugin hooks.
  */

@@ -7,7 +7,6 @@
 
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
-import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const DEFAULT_LIMIT = 10;
@@ -98,6 +97,6 @@ async function runWebSearch(args: TWebSearchArgs): Promise<string> {
 export const webSearchTool = createZodFunctionTool(
   'WebSearch',
   'Search the web and return results with title, URL, and snippet.',
-  WebSearchSchema as unknown as IZodSchema,
+  WebSearchSchema,
   async (params) => runWebSearch(params as TWebSearchArgs),
 );

@@ -10,7 +10,6 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { createZodFunctionTool } from '../implementations/function-tool';
-import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const GrepSchema = z.object({
@@ -225,7 +224,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
 export const grepTool = createZodFunctionTool(
   'Grep',
   "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse head_limit to control result size and save context space.",
-  GrepSchema as unknown as IZodSchema,
+  GrepSchema,
   async (params) => {
     return grepFileTool(params as TGrepArgs);
   },

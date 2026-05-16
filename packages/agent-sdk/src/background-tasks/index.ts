@@ -24,7 +24,7 @@ export type {
   IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskManagerOptions,
-  IBackgroundTaskRequest,
+  TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,

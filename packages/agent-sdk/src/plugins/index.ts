@@ -17,16 +17,16 @@ export { BundlePluginInstaller } from './bundle-plugin-installer.js';
 export type {
   IBundlePluginInstallerOptions,
   IInstalledPluginRecord,
-  IInstalledPluginsRegistry,
+  TInstalledPluginsRegistry,
 } from './bundle-plugin-installer.js';
 
 // Marketplace client — discover plugins from marketplace registries
 export { MarketplaceClient } from './marketplace-client.js';
 export type {
-  IMarketplaceSource,
+  TMarketplaceSource,
   IMarketplaceManifest,
   IMarketplacePluginEntry,
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
-  IKnownMarketplacesRegistry,
+  TKnownMarketplacesRegistry,
 } from './marketplace-client.js';

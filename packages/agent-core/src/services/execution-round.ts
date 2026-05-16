@@ -1,11 +1,4 @@
-/**
- * Execution round orchestrator.
- * Provider helpers → execution-round-provider.ts
- * Tool recording → execution-round-tools.ts
- */
-
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
-import type { TProviderNativeRawPayloadCallback } from '../interfaces/provider';
 import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
@@ -15,8 +8,6 @@ import type { ConversationStore } from '../managers/conversation-history-manager
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
-import { estimateContextTokensFromMessages } from '../context/estimation';
-import { getModelContextWindow } from '../context/models';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
@@ -27,59 +18,30 @@ import {
 } from './execution-types';
 import {
   computeRoundThinkingContext,
-  callProviderWithCache,
   validateAndExtractResponse,
 } from './execution-round-provider';
 import { executeAndRecordToolCalls } from './execution-round-tools';
 import { collectAssistantUsageMetadata } from './execution-usage';
+import { handleContextCapacityBlock } from './execution-round-context';
+import {
+  createRoundStreamingCallbacks,
+  callRoundProviderWithEvents,
+} from './execution-round-streaming';
 export type { IToolResultsOutcome } from './execution-round-tools';
 export {
   computeRoundThinkingContext,
   callProviderWithCache,
   validateAndExtractResponse,
 } from './execution-round-provider';
-export { executeAndRecordToolCalls, addToolResultsToHistory } from './execution-round-tools';
+export { executeAndRecordToolCalls } from './execution-round-tools';
+export { addToolResultsToHistory } from './execution-round-tool-results';
+export {
+  CONTEXT_HARD_BLOCK_THRESHOLD,
+  type IContextCapacityDecision,
+  getContextCapacityDecision,
+} from './execution-round-context';
 
-export const CONTEXT_HARD_BLOCK_THRESHOLD = 0.95;
 const MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2;
-
-export interface IContextCapacityDecision {
-  readonly shouldBlock: boolean;
-  readonly estimatedTokens: number;
-  readonly contextLimit: number;
-  readonly thresholdTokens: number;
-  readonly thresholdPercentage: number;
-  readonly usedPercentage: number;
-  readonly serializedTokens: number;
-  readonly providerTokens?: number;
-  readonly usageFloorTokens?: number;
-}
-
-export function getContextCapacityDecision(
-  messages: readonly TUniversalMessage[],
-  model: string,
-  usageFloorTokens: number,
-): IContextCapacityDecision {
-  const estimate = estimateContextTokensFromMessages(messages, { usageFloorTokens });
-  const contextLimit = getModelContextWindow(model);
-  const thresholdTokens = contextLimit * CONTEXT_HARD_BLOCK_THRESHOLD;
-  const usedPercentage =
-    contextLimit > 0 ? Math.round((estimate.usedTokens / contextLimit) * 10_000) / 100 : 100;
-
-  return {
-    shouldBlock: estimate.usedTokens > thresholdTokens,
-    estimatedTokens: estimate.usedTokens,
-    contextLimit,
-    thresholdTokens,
-    thresholdPercentage: CONTEXT_HARD_BLOCK_THRESHOLD * 100,
-    usedPercentage,
-    serializedTokens: estimate.serializedTokens,
-    ...(estimate.providerTokens !== undefined && { providerTokens: estimate.providerTokens }),
-    ...(estimate.usageFloorTokens !== undefined && {
-      usageFloorTokens: estimate.usageFloorTokens,
-    }),
-  };
-}
 
 /** Dependencies required by the round executor */
 export interface IRoundDependencies {
@@ -90,10 +52,7 @@ export interface IRoundDependencies {
   cacheService?: ExecutionCacheService;
 }
 
-/**
- * Execute a single round of the conversation loop.
- * Returns true if the loop should break (no more tool calls).
- */
+/** Execute a single round of the conversation loop. Returns true if loop should break. */
 export async function executeRound(
   roundState: IExecutionRoundState,
   maxRounds: number,
@@ -115,30 +74,11 @@ export async function executeRound(
     maxRounds,
   });
 
-  const historyMessages = conversationStore.getMessages();
-  if (!Array.isArray(historyMessages)) {
-    throw new Error('[EXECUTION] Conversation messages must be an array');
-  }
-
+  const conversationMessages = conversationStore.getMessages();
   const { thinkingNodeId, previousThinkingNodeId } = computeRoundThinkingContext(
     conversationId,
     roundState,
   );
-
-  const conversationMessages = historyMessages;
-
-  logger.debug('Current conversation messages', {
-    round: currentRound,
-    messageCount: conversationMessages.length,
-    fullHistory: conversationMessages.map((m, index) => ({
-      index,
-      role: m.role,
-      content: m.content?.substring(0, 100),
-      hasToolCalls: 'toolCalls' in m ? !!m.toolCalls?.length : false,
-      toolCallId: 'toolCallId' in m ? m.toolCallId : undefined,
-      toolCallsCount: 'toolCalls' in m ? m.toolCalls?.length : 0,
-    })),
-  });
 
   await callPluginHook(plugins, 'beforeProviderCall', { messages: conversationMessages }, logger);
 
@@ -180,129 +120,46 @@ export async function executeRound(
 
   // Pre-send hard-capacity check. Routine compaction is owned by agent-sessions; this guard is
   // only a last safety stop when the effective context estimate is already near the model limit.
-  const contextDecision = getContextCapacityDecision(
-    conversationMessages,
-    config.defaultModel.model,
-    roundState.cumulativeInputTokens,
-  );
-  if (contextDecision.shouldBlock) {
-    logger.warn('[ROUND] Context hard-capacity prevention before provider call', {
-      estimatedTokens: contextDecision.estimatedTokens,
-      contextLimit: contextDecision.contextLimit,
-      thresholdTokens: contextDecision.thresholdTokens,
-      thresholdPercentage: contextDecision.thresholdPercentage,
-      serializedTokens: contextDecision.serializedTokens,
-      providerTokens: contextDecision.providerTokens ?? 0,
-      usageFloorTokens: contextDecision.usageFloorTokens ?? 0,
-      round: currentRound,
-    });
-    const overflowMetadata = {
-      round: currentRound,
-      contextOverflow: true,
-      estimatedTokens: contextDecision.estimatedTokens,
-      contextLimit: contextDecision.contextLimit,
-      thresholdTokens: contextDecision.thresholdTokens,
-      thresholdPercentage: contextDecision.thresholdPercentage,
-      serializedTokens: contextDecision.serializedTokens,
-      providerTokens: contextDecision.providerTokens ?? 0,
-      usageFloorTokens: contextDecision.usageFloorTokens ?? 0,
-      usedPercentage: contextDecision.usedPercentage,
-    };
-    conversationStore.addAssistantMessage(
-      `Context window is near capacity. Cannot process further in this round. Estimated ${contextDecision.estimatedTokens.toLocaleString()} / ${contextDecision.contextLimit.toLocaleString()} tokens (${Math.round(contextDecision.usedPercentage)}%) exceeds the hard-block threshold ${Math.round(contextDecision.thresholdPercentage)}%. Run /compact and retry.`,
-      [],
-      overflowMetadata,
-    );
+  if (
+    handleContextCapacityBlock(
+      conversationMessages,
+      config,
+      roundState,
+      conversationStore,
+      logger,
+      currentRound,
+    )
+  ) {
     return true;
   }
 
-  const runTextDelta = fullContext.onTextDelta;
-
-  // Round separator for streaming UI
   if (currentRound > 1) {
-    runTextDelta?.('\n\n');
+    fullContext.onTextDelta?.('\n\n');
   }
 
   conversationStore.beginAssistant();
 
-  let streamDeltaSequence = 0;
-  let providerNativeRawPayloadSequence = 0;
-  const wrappedOnTextDelta = (delta: string): void => {
-    fullContext.onExecutionEvent?.('provider_stream_raw_delta', {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      sequence: streamDeltaSequence,
-      delta,
-    } as TExecutionEventData);
-    streamDeltaSequence++;
-    conversationStore.appendStreaming(delta);
-    runTextDelta?.(delta);
-  };
-  const wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback = (event): void => {
-    const sequence = event.sequence ?? providerNativeRawPayloadSequence;
-    providerNativeRawPayloadSequence = Math.max(providerNativeRawPayloadSequence, sequence + 1);
-    fullContext.onExecutionEvent?.('provider_native_raw_payload', {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      ...event,
-      sequence,
-    } as TExecutionEventData);
-  };
+  const { wrappedOnTextDelta, wrappedOnProviderNativeRawPayload } = createRoundStreamingCallbacks(
+    fullContext,
+    conversationStore,
+    executionId,
+    currentRound,
+  );
 
-  let response: TUniversalMessage;
-  try {
-    fullContext.onExecutionEvent?.('provider_request', {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      provider: resolved.currentInfo.provider,
-      model: config.defaultModel.model,
-      messages: conversationMessages,
-      tools: resolved.availableTools,
-    } as TExecutionEventData);
-    response = await callProviderWithCache(conversationMessages, config, resolved, cacheService, {
-      signal: fullContext.signal,
-      onTextDelta: wrappedOnTextDelta,
-      onProviderNativeRawPayload: wrappedOnProviderNativeRawPayload,
-    });
-    fullContext.onExecutionEvent?.('provider_response_raw', {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      response,
-      responseKind: 'provider-normalized-message',
-    } as TExecutionEventData);
-    fullContext.onExecutionEvent?.('provider_response_normalized', {
-      executionId,
-      conversationId: fullContext.conversationId,
-      round: currentRound,
-      response,
-      toolCallsCount:
-        response.role === 'assistant' && Array.isArray(response.toolCalls)
-          ? response.toolCalls.length
-          : 0,
-    } as TExecutionEventData);
-  } catch (providerError) {
-    const isAbortError =
-      providerError instanceof Error &&
-      (providerError.name === 'AbortError' ||
-        providerError.message.includes('aborted') ||
-        providerError.message.includes('abort'));
-    if (isAbortError) {
-      conversationStore.commitAssistant('interrupted', { round: currentRound });
-      throw providerError;
-    }
-    conversationStore.discardPending();
-    const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
-    logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
-    conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
-      round: currentRound,
-      providerError: true,
-    });
-    return true;
-  }
+  const response = await callRoundProviderWithEvents(
+    conversationMessages,
+    config,
+    resolved,
+    cacheService,
+    fullContext,
+    conversationStore,
+    currentRound,
+    executionId,
+    logger,
+    wrappedOnTextDelta,
+    wrappedOnProviderNativeRawPayload,
+  );
+  if (response === null) return true;
 
   const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(
     response,
@@ -404,11 +261,7 @@ export async function executeRound(
   if (toolOutcome.contextOverflowed) {
     logger.warn(
       '[ROUND] Tool results partially skipped due to context overflow — continuing to let AI respond',
-      {
-        added: toolOutcome.addedCount,
-        skipped: toolOutcome.skippedCount,
-        round: currentRound,
-      },
+      { added: toolOutcome.addedCount, skipped: toolOutcome.skippedCount, round: currentRound },
     );
   }
 

@@ -7,7 +7,8 @@ import type {
   IPlaygroundWebSocketMessage,
   TPlaygroundWebSocketMessageKind,
 } from '@robota-sdk/agent-playground';
-import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { ILogger, TUniversalValue } from '@robota-sdk/agent-core';
+import { createLogger } from '@robota-sdk/agent-core';
 
 const JWT_PART_COUNT = 3;
 const CLEANUP_INTERVAL_MS = 30000;
@@ -48,8 +49,10 @@ export class PlaygroundWebSocketServer {
   private clients = new Map<string, IPlaygroundClient>();
   private userSessions = new Map<string, Set<string>>(); // userId -> Set<clientId>
   private cleanupInterval: ReturnType<typeof setInterval>;
+  private logger: ILogger;
 
-  constructor(server: Server) {
+  constructor(server: Server, logger?: ILogger) {
+    this.logger = logger ?? createLogger('PlaygroundWebSocketServer');
     this.wss = new WebSocketServer({
       server,
       path: '/ws/playground',
@@ -64,14 +67,14 @@ export class PlaygroundWebSocketServer {
     );
 
     if (!process.env.JWT_SECRET) {
-      console.warn(
-        'WARNING: JWT_SECRET environment variable is not set. ' +
+      this.logger.warn(
+        'JWT_SECRET environment variable is not set. ' +
           'JWT validation will use format-only checking (development mode). ' +
           'Set JWT_SECRET for production use.',
       );
     }
 
-    console.log('PlaygroundWebSocketServer initialized on /ws/playground');
+    this.logger.info('PlaygroundWebSocketServer initialized on /ws/playground');
   }
 
   private handleConnection(ws: WebSocket, _req: IncomingMessage): void {
@@ -84,7 +87,7 @@ export class PlaygroundWebSocketServer {
     };
 
     this.clients.set(clientId, client);
-    console.log(`🔗 New WebSocket connection: ${clientId}`);
+    this.logger.info(`New WebSocket connection: ${clientId}`);
 
     // Set up message handling
     ws.on('message', (data: Buffer) => {
@@ -92,7 +95,7 @@ export class PlaygroundWebSocketServer {
         const message: IPlaygroundWebSocketMessage = JSON.parse(data.toString());
         this.handleMessage(clientId, message);
       } catch (error) {
-        console.error(`❌ Invalid message from ${clientId}:`, error);
+        this.logger.error(`Invalid message from ${clientId}:`, error as Error);
         this.sendError(clientId, 'Invalid message format');
       }
     });
@@ -104,7 +107,7 @@ export class PlaygroundWebSocketServer {
 
     // Handle errors
     ws.on('error', (error) => {
-      console.error(`❌ WebSocket error for ${clientId}:`, error);
+      this.logger.error(`WebSocket error for ${clientId}:`, error);
       this.handleDisconnection(clientId);
     });
 
@@ -220,7 +223,7 @@ export class PlaygroundWebSocketServer {
       },
     });
 
-    console.log(`✅ Client ${clientId} authenticated as user ${userId}, session ${sessionId}`);
+    this.logger.info(`Client ${clientId} authenticated as user ${userId}, session ${sessionId}`);
   }
 
   private handleDisconnection(clientId: string): void {
@@ -238,7 +241,7 @@ export class PlaygroundWebSocketServer {
       }
 
       this.clients.delete(clientId);
-      console.log(`🔌 Client ${clientId} disconnected`);
+      this.logger.info(`Client ${clientId} disconnected`);
     }
   }
 
@@ -248,7 +251,7 @@ export class PlaygroundWebSocketServer {
       try {
         client.ws.send(JSON.stringify(message));
       } catch (error) {
-        console.error(`❌ Failed to send message to ${clientId}:`, error);
+        this.logger.error(`Failed to send message to ${clientId}:`, error as Error);
         this.handleDisconnection(clientId);
       }
     }
@@ -284,7 +287,7 @@ export class PlaygroundWebSocketServer {
       }
     }
 
-    console.log(`📡 Broadcasted to ${broadcastCount} clients in session ${sessionId}`);
+    this.logger.debug(`Broadcasted to ${broadcastCount} clients in session ${sessionId}`);
   }
 
   private cleanupInactiveConnections(): void {
@@ -293,7 +296,7 @@ export class PlaygroundWebSocketServer {
 
     for (const [clientId, client] of this.clients) {
       if (now.getTime() - client.lastActivity.getTime() > timeout) {
-        console.log(`🧹 Cleaning up inactive client: ${clientId}`);
+        this.logger.debug(`Cleaning up inactive client: ${clientId}`);
         client.ws.close();
         this.handleDisconnection(clientId);
       }
@@ -358,6 +361,6 @@ export class PlaygroundWebSocketServer {
     this.clients.clear();
     this.userSessions.clear();
     this.wss.close();
-    console.log('PlaygroundWebSocketServer closed');
+    this.logger.info('PlaygroundWebSocketServer closed');
   }
 }
