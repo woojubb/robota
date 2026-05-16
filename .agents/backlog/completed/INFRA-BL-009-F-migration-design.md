@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-BL-009-F: 전체 마이그레이션 설계 — 단계별 계획 문서 및 패키지 분류'
-status: todo
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: later
@@ -8,7 +9,7 @@ area: .design/build-tool-migration-design.md, all packages
 depends_on:
   - INFRA-BL-009-D
   - INFRA-BL-009-E
-blocked-by: INFRA-BL-009-D 또는 INFRA-BL-009-E 중 하나 PoC 성공 전
+blocked-by: INFRA-BL-009-D 또는 INFRA-BL-009-E 중 하나 PoC 성공 전 (D 완료로 해제)
 ---
 
 ## 배경
