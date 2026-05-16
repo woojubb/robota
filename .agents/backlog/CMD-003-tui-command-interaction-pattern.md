@@ -1,5 +1,5 @@
 ---
-title: 'CMD-003: TUI command interaction pattern 선언 + 게이트 — dialog/wizard 흐름 강제'
+title: 'CMD-003: TUI command interaction — args 없이 실행 시 dialog/wizard 흐름 선언 + 게이트'
 status: backlog
 created: 2026-05-16
 priority: high
@@ -10,142 +10,239 @@ depends_on: [CMD-001, CMD-002]
 
 ## Problem
 
-현재 TUI에서 슬래시 커맨드를 선택하는 흐름이 두 가지 케이스로 동작한다.
+### 현재 동작
+
+TUI에서 슬래시 커맨드를 선택하면 두 결과 중 하나다:
 
 ```
-# 케이스 A: subcommand가 없는 command (대부분)
-User: / → Tab on /compact → input 창에 "/compact " 삽입 → 사용자 추가 입력 대기
-
-# 케이스 B: subcommand가 있는 command
-User: / → Enter on /model → input 창에 "/model " 삽입 → 사용자 모델명 직접 입력 대기
+{ type: 'insert', value: '/model ' }   // subcommand 있는 경우
+{ type: 'submit', value: '/help' }     // subcommand 없는 경우
 ```
 
-두 케이스 모두 **"input 창에 가입력 상태로 전환 후 사용자의 추가 입력 대기"** 흐름이다.
+이 두 결과는 **호출자(LLM vs 사람)와 args 제공 여부를 구분하지 않는다**.
 
-### 왜 문제인가
+### 진짜 문제
 
-이 흐름은 다음 커맨드들에서 나쁜 UX를 만든다:
+`/model`을 사람이 args 없이 선택했을 때와 LLM이 `/model claude-opus-4-7`을 입력했을 때는 전혀 다른 경험이어야 한다:
 
-| Command         | 현재 흐름                           | 기대 흐름                         |
-| --------------- | ----------------------------------- | --------------------------------- |
-| `/model`        | `/model ` 삽입 → 모델명 직접 타이핑 | 즉시 모델 목록 picker 오픈 → 선택 |
-| `/mode`         | `/mode ` 삽입 → 모드명 타이핑       | 즉시 모드 목록 picker 오픈 → 선택 |
-| `/language`     | `/language ` 삽입 → 언어명 타이핑   | 즉시 언어 목록 picker 오픈 → 선택 |
-| `/resume`       | `/resume ` 삽입 → 세션 ID 타이핑    | 즉시 세션 목록 picker 오픈 → 선택 |
-| `/provider add` | `/provider add` 제출 → 텍스트 출력  | multi-step wizard로 provider 설정 |
-| `/clear`        | `/clear` 제출                       | 확인 dialog 후 실행               |
-| `/exit`         | `/exit` 제출                        | 확인 dialog 후 종료               |
+| 호출 방식                                   | args 있음   | args 없음                           |
+| ------------------------------------------- | ----------- | ----------------------------------- |
+| LLM (`/model claude-opus-4-7`)              | 즉시 실행 ✓ | — (LLM은 항상 args를 완성해서 보냄) |
+| 사람 (`/model claude-opus-4-7` 직접 타이핑) | 즉시 실행 ✓ | —                                   |
+| 사람 (autocomplete에서 `/model` 선택)       | 즉시 실행 ✓ | **picker 오픈** ← 현재 없음         |
 
-**근본 원인**: 현재 TUI는 `resolveTabCompletion` / `resolveEnterCommandSelection` 두 함수만으로 모든 커맨드 선택 흐름을 처리한다. 커맨드별로 "어떤 UI 흐름으로 실행되어야 하는가"를 선언하는 레이어가 없다.
+**args 있음 → 항상 직접 실행** (dialog 불필요, 호출자 무관)  
+**args 없음 → 커맨드에 따라 picker/wizard** (사람이 탐색하는 경우)
 
-**두 번째 문제**: 새 커맨드가 추가될 때 TUI 인터랙션 패턴을 선언하지 않아도 아무런 경고/오류가 발생하지 않는다. 관례를 강제하는 게이트가 없다.
+현재는 "args 없음" 케이스를 모두 `insert`(input 가입력 상태)로 처리하고 있어서,
+`/model`을 선택하면 input에 `/model ` 이 삽입되고 사람이 모델명을 직접 타이핑해야 한다.
+
+### 두 번째 문제 (게이트 부재)
+
+새 커맨드가 추가될 때 "args 없이 실행되면 어떤 UI를 보여줄지"를 선언하지 않아도
+아무런 경고/오류가 없다. 실수로 `insert` fallback에 남겨진다.
 
 ## Goal
 
-1. 각 커맨드가 TUI에서 어떤 방식으로 실행되어야 하는지를 **명시적으로 선언**하는 시스템 구축
+1. `args 없이 실행` 시의 TUI 동작을 커맨드별로 명시적으로 선언하는 시스템 구축
 2. 선언 없이 커맨드가 등록되면 **typecheck 또는 harness에서 실패**하는 게이트 도입
-3. picker / wizard / dialog 흐름을 **실제 구현** (Input 삽입 흐름 탈피)
+3. picker / wizard 흐름을 실제 구현하여 input 가입력 fallback 탈피
 
 ## Design
 
-### 인터랙션 패턴 분류
+### 핵심 원칙
 
-```typescript
-// packages/agent-transport/src/tui/command-interaction.ts
-
-export type TCommandInteractionPattern =
-  | 'input' // 기존 흐름: input 창에 삽입 후 사용자 추가 입력 대기
-  | 'immediate' // 즉시 실행: args 없이 선택만으로 submit
-  | 'picker' // 인라인 목록 picker 즉시 오픈 (SelectInput)
-  | 'wizard'; // 다단계 흐름 (multi-step dialog)
+```
+trigger = (args 없음) AND (커맨드에 onMissingArgs 선언 있음)
 ```
 
-### 패턴별 적용 대상 (전수 조사 기준)
+- args가 있으면 → 항상 기존대로 submit/execute
+- args가 없고 onMissingArgs가 선언되어 있으면 → picker/wizard 오픈
+- args가 없고 선언 없으면 → 기존 insert fallback (텍스트 입력 대기)
 
-| Pattern     | Commands                                                                                                                                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `immediate` | `help`, `cost`, `clear` (확인 없이), `validate-session`                                                                                                                                                      |
-| `picker`    | `model`, `mode`, `language`, `resume`, `provider use`, `plugin list`                                                                                                                                         |
-| `wizard`    | `provider add`, `provider test`, `reset` (확인 포함)                                                                                                                                                         |
-| `input`     | `compact [instructions]`, `rename <name>`, `context add <path>`, `memory`, `agent`, `background`, `skills`, `statusline`, `user-local`, `rewind`, `exit` (→ 확인 후 실행이므로 사실상 wizard), `permissions` |
-
-> ⚠️ 위 분류는 초안 — 실제 구현 전 사용자 확인 필요.
-
-### 인터페이스 설계 (agent-transport 레이어)
+### `onMissingArgs` 선언 타입
 
 ```typescript
 // packages/agent-transport/src/tui/command-interaction.ts
 
+export type TOnMissingArgsAction =
+  | 'picker' // 선택지 목록 즉시 오픈 (model, mode, language, resume 등)
+  | 'wizard' // 다단계 입력 흐름 오픈 (provider add, reset 확인 등)
+  | 'confirm'; // 단순 yes/no 확인 후 실행 (exit, clear 등)
+
 export interface ITuiCommandInteraction {
-  /** 이 커맨드의 TUI 인터랙션 패턴 */
-  pattern: TCommandInteractionPattern;
+  /**
+   * args 없이 TUI에서 실행되었을 때의 동작.
+   * - args가 있으면 이 선언을 무시하고 항상 직접 실행.
+   * - undefined: 기존 흐름 (input 창에 삽입, 사용자 타이핑 대기).
+   */
+  onMissingArgs?: TOnMissingArgsAction;
 }
 
 export interface ITuiPickerInteraction extends ITuiCommandInteraction {
-  pattern: 'picker';
-  /** picker에 보여줄 항목 목록을 런타임에 생성 */
+  onMissingArgs: 'picker';
+  /** 런타임에 picker 항목 목록 생성 */
   getItems(context: ITuiInteractionContext): ITuiPickerItem[];
 }
 
 export interface ITuiWizardInteraction extends ITuiCommandInteraction {
-  pattern: 'wizard';
-  /** wizard step 목록 (순서대로 진행) */
+  onMissingArgs: 'wizard';
   steps: ITuiWizardStep[];
 }
 
-export interface ITuiImmediateInteraction extends ITuiCommandInteraction {
-  pattern: 'immediate';
-  /** 선택 즉시 제출할 커맨드 문자열 생성 */
-  buildCommand(): string;
+export interface ITuiConfirmInteraction extends ITuiCommandInteraction {
+  onMissingArgs: 'confirm';
+  /** 확인 메시지 */
+  message(commandName: string): string;
 }
 ```
 
-### 게이트 설계: 두 가지 중 하나 선택
-
-#### Option A: TypeScript 타입 수준 강제 (추천)
+### 결정 로직
 
 ```typescript
-// packages/agent-cli/src/tui-interactions/index.ts
+// packages/agent-transport/src/tui/flows/input-area-flow.ts
 
-// 모든 커맨드 이름의 유니온 타입
-type TSystemCommandName = 'agent' | 'background' | 'compact' | 'context' | ...;
+export function resolveCommandSelection(
+  value: string,
+  command: ICommand,
+  interaction: ITuiCommandInteraction | undefined,
+): TCommandSelectionResult {
+  const args = extractArgs(value, command.name).trim();
+  const hasArgs = args.length > 0;
 
-// 모든 커맨드가 반드시 인터랙션을 선언해야 하는 Record
-const TUI_COMMAND_INTERACTIONS: Record<TSystemCommandName, ITuiCommandInteraction> = {
-  agent:      { pattern: 'input' },
-  background: { pattern: 'input' },
-  compact:    { pattern: 'input' },
-  model:      { pattern: 'picker', getItems: getModelPickerItems },
-  mode:       { pattern: 'picker', getItems: getModePickerItems },
-  // ...
+  // args 있음 → 항상 직접 실행 (picker/wizard 무시)
+  if (hasArgs) {
+    return { type: 'submit', value: `/${command.name} ${args}` };
+  }
+
+  // args 없음 + onMissingArgs 선언 → dialog 오픈
+  if (interaction?.onMissingArgs) {
+    return { type: 'open-interaction', commandName: command.name };
+  }
+
+  // args 없음 + 선언 없음 → 기존 흐름 (subcommand 있으면 insert, 없으면 submit)
+  if (command.subcommands && command.subcommands.length > 0) {
+    return { type: 'insert', value: `/${command.name} `, selectedIndex: 0 };
+  }
+  return { type: 'submit', value: `/${command.name}` };
+}
+```
+
+### `onMissingArgs` 적용 대상 (전수 조사 초안)
+
+| Command                    | onMissingArgs | 이유                               |
+| -------------------------- | ------------- | ---------------------------------- |
+| `model`                    | `picker`      | 사용 가능한 모델 목록에서 선택     |
+| `mode`                     | `picker`      | 권한 모드 목록에서 선택            |
+| `language`                 | `picker`      | 언어 목록에서 선택                 |
+| `resume`                   | `picker`      | 재개할 세션 목록에서 선택          |
+| `provider` (no subcommand) | `picker`      | current/list/use/add/test 중 선택  |
+| `exit`                     | `confirm`     | "세션을 종료하시겠습니까?"         |
+| `clear`                    | `confirm`     | "히스토리를 지우시겠습니까?"       |
+| `reset`                    | `wizard`      | 무엇을 reset할지 + 확인            |
+| `provider add`             | `wizard`      | provider type → credentials → 확인 |
+| `compact`                  | _(선언 없음)_ | optional args — 없어도 바로 실행   |
+| `help`                     | _(선언 없음)_ | args 필요 없음, 바로 실행          |
+| `context`                  | _(선언 없음)_ | subcommand 있음, insert로 충분     |
+| `background`               | _(선언 없음)_ | subcommand 있음                    |
+| `agent`                    | _(선언 없음)_ | natural language args 자유 입력    |
+| `memory`                   | _(선언 없음)_ | subcommand 있음                    |
+| `skills`                   | _(선언 없음)_ | list or skill-name, 자유 입력      |
+| `rewind`                   | _(선언 없음)_ | optional args                      |
+| `statusline`               | _(선언 없음)_ | subcommand 있음                    |
+| `user-local`               | _(선언 없음)_ | subcommand 있음                    |
+| `permissions`              | _(선언 없음)_ | subcommand 있음                    |
+| `plugin`                   | _(선언 없음)_ | subcommand 있음                    |
+
+> ⚠️ 위 분류는 초안 — 실제 구현 전 사용자 확인 필요.
+
+### 게이트 설계
+
+#### 게이트 목표
+
+"모든 커맨드가 onMissingArgs를 고려했는가"를 **개발자가 의식적으로 결정**했음을 강제한다.  
+선언 없음(undefined)이 허용되지만, 그 판단을 레지스트리에 **명시적으로 기록**해야 한다.
+
+```typescript
+// packages/agent-cli/src/tui-interactions/registry.ts
+
+type TSystemCommandName =
+  | 'agent'
+  | 'background'
+  | 'compact'
+  | 'context'
+  | 'exit'
+  | 'help'
+  | 'language'
+  | 'memory'
+  | 'mode'
+  | 'model'
+  | 'permissions'
+  | 'plugin'
+  | 'provider'
+  | 'reset'
+  | 'rewind'
+  | 'clear'
+  | 'rename'
+  | 'resume'
+  | 'cost'
+  | 'validate-session'
+  | 'settings'
+  | 'skills'
+  | 'statusline'
+  | 'user-local';
+
+// Record로 선언 → 커맨드 추가 시 여기도 추가 필수 (TypeScript 컴파일 에러)
+export const TUI_COMMAND_INTERACTIONS: Record<
+  TSystemCommandName,
+  ITuiCommandInteraction | undefined // undefined = 기존 흐름 (의도적 선택)
+> = {
+  agent: undefined, // natural language args, 자유 입력
+  background: undefined, // subcommand 있음
+  compact: undefined, // args 없어도 즉시 실행
+  context: undefined, // subcommand 있음
+  exit: { onMissingArgs: 'confirm', message: () => 'Exit the session?' },
+  help: undefined, // args 필요 없음
+  language: { onMissingArgs: 'picker', getItems: getLanguageItems },
+  memory: undefined,
+  mode: { onMissingArgs: 'picker', getItems: getModeItems },
+  model: { onMissingArgs: 'picker', getItems: getModelItems },
+  permissions: undefined,
+  plugin: undefined,
+  provider: { onMissingArgs: 'picker', getItems: getProviderSubcommandItems },
+  reset: { onMissingArgs: 'wizard', steps: resetWizardSteps },
+  rewind: undefined,
+  clear: { onMissingArgs: 'confirm', message: () => 'Clear conversation history?' },
+  rename: undefined, // 텍스트 입력 필요
+  resume: { onMissingArgs: 'picker', getItems: getSessionItems },
+  cost: undefined,
+  'validate-session': undefined,
+  settings: undefined,
+  skills: undefined,
+  statusline: undefined,
+  'user-local': undefined,
 };
-// → 커맨드 추가 시 이 Record에 추가하지 않으면 TypeScript 컴파일 에러 발생
 ```
 
-**장점**: 빌드 타임 강제, 별도 harness 불필요  
-**단점**: `TSystemCommandName` 타입을 수동으로 유지해야 함 (커맨드 추가 시 2곳 수정)
+`undefined`를 명시적으로 기록하는 것이 핵심 — `Record<Name, X | undefined>`이므로 key가 없으면 TypeScript 컴파일 에러.
 
-#### Option B: Harness 체크
+#### Harness 체크 (이중 게이트)
 
-```bash
-# .agents/harness/check-tui-interactions.ts
-# 등록된 모든 ISystemCommand.name과 TUI_COMMAND_INTERACTIONS의 key 집합 비교
-# 누락된 커맨드가 있으면 harness:verify 실패
+```typescript
+// packages/agent-cli/src/tui-interactions/__tests__/registry-coverage.test.ts
+import { TUI_COMMAND_INTERACTIONS } from '../registry.js';
+
+it('TUI interaction registry covers all registered system commands', () => {
+  const registeredNames = getRegisteredCommandNames(); // 런타임에서 추출
+  const declaredNames = Object.keys(TUI_COMMAND_INTERACTIONS);
+
+  expect(declaredNames.sort()).toEqual(registeredNames.sort());
+});
 ```
 
-**장점**: SSOT — 커맨드 목록은 코드에서 자동 추출  
-**단점**: 빌드 타임이 아닌 harness 실행 시점에 감지
+TypeScript는 빌드타임 게이트, 테스트는 런타임 게이트 — 양쪽으로 방어.
 
-#### 결론
-
-두 방식을 조합:
-
-- **TypeScript Record** (Option A): 즉각적인 개발자 피드백
-- **Harness 체크** (Option B): CI/pre-push 게이트
-
-### TUI 실행 흐름 변경
-
-현재 `resolveEnterCommandSelection()` 반환값(`{ type: 'insert' | 'submit' }`)에 `'open-picker' | 'open-wizard'`를 추가:
+### `TCommandSelectionResult` 확장
 
 ```typescript
 export type TCommandSelectionResult =
@@ -156,87 +253,95 @@ export type TCommandSelectionResult =
 
 `InputArea.tsx`에서 `open-interaction` 결과를 받으면:
 
-- autocomplete를 닫고
-- `TUI_COMMAND_INTERACTIONS[commandName]`에 따라 picker/wizard 컴포넌트를 마운트
-
-picker/wizard가 완료되면 `onSubmit(builtCommand)`를 호출해 실제 실행.
+- autocomplete 닫기
+- `TUI_COMMAND_INTERACTIONS[commandName].onMissingArgs`에 따라 picker / wizard / confirm 컴포넌트 마운트
+- 완료 시 `onSubmit(builtCommand)` 호출로 실제 실행
 
 ## Migration Steps
 
-1. `packages/agent-transport/src/tui/command-interaction.ts` — 패턴 타입 + 인터페이스 정의
-2. `packages/agent-transport/src/tui/flows/input-area-flow.ts` — `TCommandSelectionResult`에 `open-interaction` 추가, `resolveEnterCommandSelection` 수정
-3. `packages/agent-transport/src/tui/InputArea.tsx` — `open-interaction` 처리 로직 추가
-4. `packages/agent-cli/src/tui-interactions/index.ts` — `TUI_COMMAND_INTERACTIONS` 레지스트리 (모든 커맨드 전수 선언)
+1. `packages/agent-transport/src/tui/command-interaction.ts` — `TOnMissingArgsAction` + 인터페이스 정의
+2. `packages/agent-transport/src/tui/flows/input-area-flow.ts` — `TCommandSelectionResult`에 `open-interaction` 추가 + `resolveCommandSelection` 교체
+3. `packages/agent-transport/src/tui/InputArea.tsx` — `open-interaction` 처리 + 컴포넌트 마운트 로직
+4. `packages/agent-cli/src/tui-interactions/registry.ts` — `TUI_COMMAND_INTERACTIONS` 레지스트리 (전수 선언)
 5. picker 구현: `ModelPickerInteraction`, `ModePickerInteraction`, `LanguagePickerInteraction`, `ResumePickerInteraction`
-6. wizard 구현: `ProviderAddWizard`, `ResetWizard`
-7. harness 체크: `packages/agent-transport` 스코프에 `tui-interaction-coverage` 체크 추가
-8. SPEC.md 업데이트: agent-transport + agent-cli
+6. wizard 구현: `ResetWizard`, `ProviderAddWizard`
+7. confirm 구현: `ExitConfirm`, `ClearConfirm`
+8. `packages/agent-cli/src/tui-interactions/__tests__/registry-coverage.test.ts` — 커버리지 게이트 테스트
+9. SPEC.md 업데이트: agent-transport + agent-cli
 
 ## Test Plan
 
 - [ ] typecheck 전체 통과
-- [ ] `TUI_COMMAND_INTERACTIONS`에 누락된 커맨드가 있으면 TypeScript 오류 발생 확인
-- [ ] `/model` 선택 시 picker가 즉시 열리고 Tab/Enter 없이 모델 선택 가능 확인
-- [ ] `/mode` 선택 시 picker 즉시 열림 확인
-- [ ] `/compact` 선택 시 기존 input 흐름 유지 확인
-- [ ] picker에서 ESC 시 autocomplete로 돌아오는 cancel 동작 확인
+- [ ] `TUI_COMMAND_INTERACTIONS`에 key 누락 시 TypeScript 오류 발생 확인
+- [ ] `/model` (args 없음) → picker 즉시 오픈 확인
+- [ ] `/model claude-opus-4-7` (args 있음) → picker 없이 즉시 실행 확인
+- [ ] LLM이 `/model claude-opus-4-7` 실행 → picker 없이 즉시 실행 확인
+- [ ] `/compact` (args 없음) → 즉시 실행 (picker/wizard 없음) 확인
+- [ ] picker에서 ESC → autocomplete 또는 empty input으로 돌아가기 확인
+- [ ] registry-coverage 테스트 — 새 커맨드 추가 후 레지스트리 미등록 시 실패 확인
 
 ## User Execution Test Scenarios
 
-### Scenario 1: picker 커맨드 즉시 실행
+### Scenario 1: args 없이 선택 → picker 오픈
 
 **Steps**:
 
 ```
-User: / → (autocomplete 오픈)
-User: Change Model 선택 (Enter)
+User: / → Change Model 선택 (Enter, args 없음)
 ```
 
-**Expected**: input 삽입 없이 모델 목록 picker가 즉시 오픈됨
+**Expected**: input 삽입 없이 모델 목록 picker 즉시 오픈
 
 **Evidence**: _(구현 완료 후 스크린샷)_
 
-### Scenario 2: input 커맨드 기존 흐름 유지
+### Scenario 2: args 있음 → picker 없이 즉시 실행
 
 **Steps**:
 
 ```
-User: / → Compact Context 선택 (Tab)
+User: /model claude-opus-4-7 (직접 타이핑 후 Enter)
 ```
 
-**Expected**: input 창에 `/compact ` 삽입 (기존 동작 유지)
+**Expected**: picker 없이 모델 변경 즉시 실행
 
 **Evidence**: _(구현 완료 후 채움)_
 
-### Scenario 3: 새 커맨드 추가 시 강제 선언
+### Scenario 3: LLM 경로 — dialog 없이 직접 실행
+
+**Prerequisites**: LLM이 `executeCommand("model", "claude-opus-4-7")` 호출
+
+**Expected**: picker/wizard 없이 즉시 실행 (TUI 인터랙션 우회)
+
+**Evidence**: _(LLM 실행 로그)_
+
+### Scenario 4: 새 커맨드 추가 시 레지스트리 강제
 
 **Steps**:
 
-1. `ISystemCommand`에 새 커맨드 `foo` 추가
-2. `TUI_COMMAND_INTERACTIONS`에 `foo` 누락
+1. 새 `ISystemCommand` `foo` 추가
+2. `TUI_COMMAND_INTERACTIONS` 레지스트리에 `foo` 미등록
 
-**Expected**: TypeScript 컴파일 오류 발생 — 빌드 실패
+**Expected**: TypeScript 컴파일 오류 — 빌드 실패
 
 **Evidence**: _(타입 에러 스크린샷)_
 
-### Scenario 4: wizard 커맨드 (provider add)
+### Scenario 5: confirm 커맨드 (exit)
 
 **Steps**:
 
 ```
-User: /provider → add 선택 (Enter)
+User: / → Exit Session 선택 (Enter, args 없음)
 ```
 
-**Expected**: multi-step wizard 오픈 (provider type → credentials → 확인)
+**Expected**: "Exit the session? [y/n]" confirm dialog 오픈 → 확인 후 종료
 
 **Evidence**: _(구현 완료 후 스크린샷)_
 
 ## Open Questions
 
-1. **picker UI 컴포넌트**: 기존 `MenuSelect.tsx` / `ListPicker.tsx` 재사용 가능한가, 아니면 새 컴포넌트 필요한가?
-2. **wizard step 취소 흐름**: wizard 도중 ESC 시 어디로 돌아가야 하는가 (autocomplete? empty input?)
-3. **`'input'` 패턴의 명시적 선언**: 모든 커맨드에 선언을 강제할지, `'input'`을 default fallback으로 허용할지?
-   - 강제 선언 시: 커맨드 추가 시 한 곳 더 수정 필요 → 명시적이고 의도가 드러남
-   - fallback 허용 시: 선언 누락을 알아채기 어려움 → 게이트 효과 반감
-   - **추천**: 강제 선언 (fallback 없음)
-4. **subcommand별 인터랙션**: `/provider current`(immediate)와 `/provider add`(wizard)는 같은 `provider` 커맨드의 subcommand — subcommand 단위 선언이 필요한가?
+1. **`undefined` vs `{ onMissingArgs: undefined }`**: Record value 타입을 `ITuiCommandInteraction | undefined`로 할지, 아니면 모든 entry가 객체 형태여야 하는지? — `undefined` 허용이 더 간결하지만 의도가 덜 명시적.
+
+2. **subcommand 단위 `onMissingArgs`**: `/provider`는 `picker`이지만 `/provider add`는 `wizard`이다. 최상위 커맨드에만 선언할지, subcommand 단위까지 선언할지?
+   - 현실적 접근: 최상위 커맨드의 `onMissingArgs`는 "args/subcommand 없이 호출된 경우"에만 적용 → `/provider` (args 없음) → picker (subcommand 선택) → `/provider add` 선택 → wizard
+
+3. **picker에서 선택 후 추가 args가 필요한 경우**: picker에서 subcommand를 선택했을 때 해당 subcommand가 또 args를 필요로 하면? (예: picker로 `add`를 선택했더니 이제 wizard가 필요한 경우) — 이중 인터랙션 체인이 필요한가?
