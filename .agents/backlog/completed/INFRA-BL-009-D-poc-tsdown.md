@@ -1,10 +1,11 @@
 ---
 title: 'INFRA-BL-009-D: tsdown PoC — auth/credits 패키지 마이그레이션 검증'
-status: todo
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: later
-area: packages/auth, packages/credits
+area: packages/agent-plugin-limits (auth/credits 미존재로 대체)
 depends_on:
   - INFRA-BL-009-A
   - INFRA-BL-009-B
