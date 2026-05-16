@@ -610,7 +610,7 @@ The SDK is pure TypeScript with no React dependency. The CLI is a thin TUI-only 
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 // Consumer creates provider and passes it to InteractiveSession.
 // Config and context are loaded internally from cwd.
@@ -1114,7 +1114,7 @@ registry.getSubcommands('mode'); // ICommand[] — subcommands
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const query = createQuery({ provider });

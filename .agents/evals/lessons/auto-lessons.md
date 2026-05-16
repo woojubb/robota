@@ -27,21 +27,21 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 7469 events in the last 7 days
+- Frequency: 9617 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-001-transport-sdk-reverse-dependency.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-002-agent-event-service-compat-shim-removal.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-003-agent-cli-core-direct-dependency.md`
+- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-001-consolidate-provider-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-002-consolidate-transport-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-003-consolidate-command-packages.md`
 - First seen: 2026-05-10T05:29:56.000Z
-- Last seen: 2026-05-16T05:22:57.000Z
+- Last seen: 2026-05-16T09:37:44.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 143 events in the last 7 days
+- Frequency: 155 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-10T05:52:53.000Z
-- Last seen: 2026-05-16T05:22:57.000Z
+- Last seen: 2026-05-16T09:37:44.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 

@@ -7,8 +7,8 @@ export const multiProviderTemplate: IExampleTemplate = {
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { Robota } from '@robota-sdk/agent-core'
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai'
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic'
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai'
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic'
 
 // Multi-Provider Example Started
 

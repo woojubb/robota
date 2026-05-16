@@ -7,7 +7,7 @@ Multi-turn sessions with permissions, context tracking, and compaction.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const sessionStore = new SessionStore();
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -49,7 +49,7 @@ const forked = new InteractiveSession({
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -98,7 +98,7 @@ setTimeout(() => session.abort(), 30000);
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { SessionStore } from '@robota-sdk/agent-sessions';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const store = new SessionStore();
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });

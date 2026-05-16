@@ -16,7 +16,7 @@ pnpm add @robota-sdk/agent-framework
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const query = createQuery({ provider });
@@ -268,7 +268,7 @@ not activate the skill.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const query = createQuery({ provider });
@@ -316,7 +316,7 @@ SDK sessions can receive a provider-neutral sandbox client. When provided, Bash,
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
@@ -415,7 +415,7 @@ Manages plugin installation and uninstallation:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin-conversation-history';
 import { LoggingPlugin } from '@robota-sdk/agent-plugin-logging';
 
@@ -500,7 +500,7 @@ Settings are merged from lowest to highest priority:
 | `@robota-sdk/agent-core`               | Engine, providers, permissions, hooks |
 | `@robota-sdk/agent-session`            | Session, SessionStore                 |
 | `@robota-sdk/agent-tools`              | Tool infrastructure + built-in tools  |
-| `@robota-sdk/agent-provider-anthropic` | Anthropic LLM provider                |
+| `@robota-sdk/agent-provider/anthropic` | Anthropic LLM provider                |
 | `chalk`                                | Terminal colors (permission prompt)   |
 | `zod`                                  | Settings schema validation            |
 

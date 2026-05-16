@@ -113,15 +113,9 @@ importers:
       '@robota-sdk/agent-playground':
         specifier: workspace:*
         version: link:../../packages/agent-playground
-      '@robota-sdk/agent-provider-anthropic':
+      '@robota-sdk/agent-provider':
         specifier: workspace:*
-        version: link:../../packages/agent-provider-anthropic
-      '@robota-sdk/agent-provider-google':
-        specifier: workspace:*
-        version: link:../../packages/agent-provider-google
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../../packages/agent-provider-openai
+        version: link:../../packages/agent-provider
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -398,24 +392,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-provider-anthropic':
+      '@robota-sdk/agent-provider':
         specifier: workspace:*
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-deepseek':
-        specifier: workspace:*
-        version: link:../agent-provider-deepseek
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../agent-provider-gemini
-      '@robota-sdk/agent-provider-gemma':
-        specifier: workspace:*
-        version: link:../agent-provider-gemma
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:*
-        version: link:../agent-provider-openai
-      '@robota-sdk/agent-provider-qwen':
-        specifier: workspace:*
-        version: link:../agent-provider-qwen
+        version: link:../agent-provider
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
         version: link:../agent-transport-headless
@@ -1019,12 +998,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:^
         version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
+      '@robota-sdk/agent-provider':
         specifier: workspace:^
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-provider-openai':
-        specifier: workspace:^
-        version: link:../agent-provider-openai
+        version: link:../agent-provider
       '@robota-sdk/agent-remote-client':
         specifier: workspace:*
         version: link:../agent-remote-client
@@ -1256,292 +1232,36 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-provider-anthropic:
+  packages/agent-provider:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.80.0
         version: 0.80.0(zod@3.25.76)
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-bytedance:
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-deepseek:
-    dependencies:
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
-      openai:
-        specifier: ^4.98.0
-        version: 4.104.0(zod@3.25.76)
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-gemini:
-    dependencies:
       '@google/genai':
         specifier: ^1.51.0
         version: 1.51.0(@modelcontextprotocol/sdk@1.29.0)
-    devDependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-gemma:
-    dependencies:
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
       openai:
         specifier: ^4.98.0
         version: 4.104.0(zod@3.25.76)
     devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
+      '@types/node':
+        specifier: ^22.14.0
+        version: 22.16.5
       rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
+        specifier: ^6.0.1
+        version: 6.1.3
       tsdown:
         specifier: ^0.22.0
         version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.8.3
         version: 5.8.3
       vitest:
         specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-google:
-    dependencies:
-      '@robota-sdk/agent-provider-gemini':
-        specifier: workspace:*
-        version: link:../agent-provider-gemini
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-openai:
-    dependencies:
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
-      openai:
-        specifier: ^4.98.0
-        version: 4.104.0(zod@3.25.76)
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-openai-compatible:
-    dependencies:
-      openai:
-        specifier: ^4.98.0
-        version: 4.104.0(zod@3.25.76)
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-provider-qwen:
-    dependencies:
-      '@robota-sdk/agent-provider-openai-compatible':
-        specifier: workspace:*
-        version: link:../agent-provider-openai-compatible
-      openai:
-        specifier: ^4.98.0
-        version: 4.104.0(zod@3.25.76)
-    devDependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.1.0
-        version: 1.6.1(@types/node@20.19.9)
+        version: 1.6.1(@types/node@22.16.5)
 
   packages/agent-remote-client:
     dependencies:
@@ -8805,7 +8525,7 @@ packages:
       }
     dependencies:
       '@types/node': 20.19.9
-      form-data: 4.0.4
+      form-data: 4.0.5
     dev: false
 
   /@types/node@12.20.55:
@@ -8839,7 +8559,6 @@ packages:
       }
     dependencies:
       undici-types: 6.21.0
-    dev: false
 
   /@types/node@24.12.0:
     resolution:
@@ -10825,6 +10544,14 @@ packages:
       }
     dev: true
 
+  /balanced-match@4.0.4:
+    resolution:
+      {
+        integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+    dev: true
+
   /base64-js@1.5.1:
     resolution:
       {
@@ -10942,6 +10669,16 @@ packages:
       }
     dependencies:
       balanced-match: 1.0.2
+    dev: true
+
+  /brace-expansion@5.0.6:
+    resolution:
+      {
+        integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+    dependencies:
+      balanced-match: 4.0.4
     dev: true
 
   /braces@3.0.3:
@@ -14298,6 +14035,7 @@ packages:
       es-set-tostringtag: 2.1.0
       hasown: 2.0.2
       mime-types: 2.1.35
+    dev: true
 
   /form-data@4.0.5:
     resolution:
@@ -14311,7 +14049,6 @@ packages:
       es-set-tostringtag: 2.1.0
       hasown: 2.0.2
       mime-types: 2.1.35
-    dev: true
 
   /formatly@0.3.0:
     resolution:
@@ -14716,6 +14453,18 @@ packages:
       minipass: 7.1.2
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
+    dev: true
+
+  /glob@13.0.6:
+    resolution:
+      {
+        integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+    dependencies:
+      minimatch: 10.2.5
+      minipass: 7.1.3
+      path-scurry: 2.0.2
     dev: true
 
   /glob@7.2.3:
@@ -16259,7 +16008,7 @@ packages:
     engines: { node: '>=10' }
     dependencies:
       '@babel/core': 7.28.0
-      '@babel/parser': 7.28.0
+      '@babel/parser': 7.29.2
       '@istanbuljs/schema': 0.1.3
       istanbul-lib-coverage: 3.2.2
       semver: 7.7.4
@@ -17804,7 +17553,6 @@ packages:
         integrity: sha512-aY/R+aEsRelme17KGQa/1ZSIpLpNYYrhcrepKTZgE+W3WM16YMCaPwOHLHsmopZHELU0Ojin1lPVxKR0MihncA==,
       }
     engines: { node: 20 || >=22 }
-    dev: false
 
   /lru-cache@5.1.1:
     resolution:
@@ -18732,6 +18480,16 @@ packages:
     engines: { node: '>=4' }
     dev: true
 
+  /minimatch@10.2.5:
+    resolution:
+      {
+        integrity: sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+    dependencies:
+      brace-expansion: 5.0.6
+    dev: true
+
   /minimatch@3.1.5:
     resolution:
       {
@@ -18762,6 +18520,14 @@ packages:
     resolution:
       {
         integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==,
+      }
+    engines: { node: '>=16 || 14 >=14.17' }
+    dev: true
+
+  /minipass@7.1.3:
+    resolution:
+      {
+        integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==,
       }
     engines: { node: '>=16 || 14 >=14.17' }
     dev: true
@@ -19749,6 +19515,17 @@ packages:
     dependencies:
       lru-cache: 10.4.3
       minipass: 7.1.2
+    dev: true
+
+  /path-scurry@2.0.2:
+    resolution:
+      {
+        integrity: sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+    dependencies:
+      lru-cache: 11.2.7
+      minipass: 7.1.3
     dev: true
 
   /path-to-regexp@0.1.13:
@@ -20933,6 +20710,18 @@ packages:
     hasBin: true
     dependencies:
       glob: 10.5.0
+    dev: true
+
+  /rimraf@6.1.3:
+    resolution:
+      {
+        integrity: sha512-LKg+Cr2ZF61fkcaK1UdkH2yEBBKnYjTyWzTJT6KNPcSPaiT7HSdhtMXQuN5wkTX0Xu72KQ1l8S42rlmexS2hSA==,
+      }
+    engines: { node: 20 || >=22 }
+    hasBin: true
+    dependencies:
+      glob: 13.0.6
+      package-json-from-dist: 1.0.1
     dev: true
 
   /rolldown-plugin-dts@0.25.1(rolldown@1.0.1)(typescript@5.8.3):
@@ -23605,6 +23394,31 @@ packages:
       - terser
     dev: true
 
+  /vite-node@1.6.1(@types/node@22.16.5):
+    resolution:
+      {
+        integrity: sha512-YAXkfvGtuTzwWbDSACdJSg4A4DZiAqckWe90Zapc/sEX3XvHcw1NdurM/6od8J207tSDqNbSsgdCacBgvJKFuA==,
+      }
+    engines: { node: ^18.0.0 || >=20.0.0 }
+    hasBin: true
+    dependencies:
+      cac: 6.7.14
+      debug: 4.4.3
+      pathe: 1.1.2
+      picocolors: 1.1.1
+      vite: 5.4.19(@types/node@22.16.5)
+    transitivePeerDependencies:
+      - '@types/node'
+      - less
+      - lightningcss
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+    dev: true
+
   /vite-plugin-vitepress-auto-sidebar@1.7.1(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)(vite@5.4.19)(vitepress@1.6.3):
     resolution:
       {
@@ -23665,6 +23479,48 @@ packages:
         optional: true
     dependencies:
       '@types/node': 20.19.9
+      esbuild: 0.21.5
+      postcss: 8.5.10
+      rollup: 4.59.1
+    optionalDependencies:
+      fsevents: 2.3.3
+    dev: true
+
+  /vite@5.4.19(@types/node@22.16.5):
+    resolution:
+      {
+        integrity: sha512-qO3aKv3HoQC8QKiNSTuUM1l9o/XX3+c+VTgLHbJWHZGeTPVAg2XwazI9UWzoxjIJCGCV2zU60uqMzjeLZuULqA==,
+      }
+    engines: { node: ^18.0.0 || >=20.0.0 }
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^18.0.0 || >=20.0.0
+      less: '*'
+      lightningcss: ^1.21.0
+      sass: '*'
+      sass-embedded: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      '@types/node': 22.16.5
       esbuild: 0.21.5
       postcss: 8.5.10
       rollup: 4.59.1
@@ -23910,6 +23766,66 @@ packages:
       tinypool: 0.8.4
       vite: 5.4.19(@types/node@20.19.9)
       vite-node: 1.6.1(@types/node@20.19.9)
+      why-is-node-running: 2.3.0
+    transitivePeerDependencies:
+      - less
+      - lightningcss
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - supports-color
+      - terser
+    dev: true
+
+  /vitest@1.6.1(@types/node@22.16.5):
+    resolution:
+      {
+        integrity: sha512-Ljb1cnSJSivGN0LqXd/zmDbWEM0RNNg2t1QW/XUhYl/qPqyu7CsqeWtqQXHVaJsecLPuDoak2oJcZN2QoRIOag==,
+      }
+    engines: { node: ^18.0.0 || >=20.0.0 }
+    hasBin: true
+    peerDependencies:
+      '@edge-runtime/vm': '*'
+      '@types/node': ^18.0.0 || >=20.0.0
+      '@vitest/browser': 1.6.1
+      '@vitest/ui': 1.6.1
+      happy-dom: '*'
+      jsdom: '*'
+    peerDependenciesMeta:
+      '@edge-runtime/vm':
+        optional: true
+      '@types/node':
+        optional: true
+      '@vitest/browser':
+        optional: true
+      '@vitest/ui':
+        optional: true
+      happy-dom:
+        optional: true
+      jsdom:
+        optional: true
+    dependencies:
+      '@types/node': 22.16.5
+      '@vitest/expect': 1.6.1
+      '@vitest/runner': 1.6.1
+      '@vitest/snapshot': 1.6.1
+      '@vitest/spy': 1.6.1
+      '@vitest/utils': 1.6.1
+      acorn-walk: 8.3.4
+      chai: 4.5.0
+      debug: 4.4.3
+      execa: 8.0.1
+      local-pkg: 0.5.1
+      magic-string: 0.30.21
+      pathe: 1.1.2
+      picocolors: 1.1.1
+      std-env: 3.9.0
+      strip-literal: 2.1.1
+      tinybench: 2.9.0
+      tinypool: 0.8.4
+      vite: 5.4.19(@types/node@22.16.5)
+      vite-node: 1.6.1(@types/node@22.16.5)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - less

@@ -76,14 +76,14 @@ vi.mock('@robota-sdk/agent-core', () => ({
   SilentLogger: sdkMocks.logger,
 }));
 
-vi.mock('@robota-sdk/agent-provider-openai', () => ({
+vi.mock('@robota-sdk/agent-provider/openai', () => ({
   OpenAIProvider: vi.fn((config: unknown) => {
     providerMocks.openAiConfigs.push(config);
     return { provider: 'openai', config };
   }),
 }));
 
-vi.mock('@robota-sdk/agent-provider-anthropic', () => ({
+vi.mock('@robota-sdk/agent-provider/anthropic', () => ({
   AnthropicProvider: vi.fn((config: unknown) => {
     providerMocks.anthropicConfigs.push(config);
     return { provider: 'anthropic', config };
