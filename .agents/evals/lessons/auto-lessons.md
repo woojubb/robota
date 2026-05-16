@@ -27,29 +27,29 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 7294 events in the last 7 days
+- Frequency: 7469 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-001-transport-sdk-reverse-dependency.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-002-agent-event-service-compat-shim-removal.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-003-agent-cli-core-direct-dependency.md`
 - First seen: 2026-05-10T05:29:56.000Z
-- Last seen: 2026-05-15T18:08:25.000Z
+- Last seen: 2026-05-16T05:22:57.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 142 events in the last 7 days
+- Frequency: 143 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-10T05:52:53.000Z
-- Last seen: 2026-05-15T18:08:25.000Z
+- Last seen: 2026-05-16T05:22:57.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 18 events in the last 7 days
+- Frequency: 26 events in the last 7 days
 - Sources: blocks
 - Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/ui/hooks/useSideEffects.ts`, `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`, `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-core/src/services/execution-round-provider.ts`
 - First seen: 2026-05-10T06:11:13.000Z
-- Last seen: 2026-05-15T20:13:55.000Z
+- Last seen: 2026-05-16T05:21:26.000Z
 - Status: candidate; human review is required before promotion.
