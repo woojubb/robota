@@ -9,6 +9,7 @@ import { executeContextCommand } from './context-command.js';
 export function createContextCommandEntry(): ICommand {
   return {
     name: 'context',
+    displayName: 'Context References',
     description: 'Context window info, reference inventory, and auto-compact controls',
     source: 'context',
     modelInvocable: false,
@@ -27,6 +28,7 @@ function createContextSystemCommand(): ISystemCommand {
   const entry = createContextCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

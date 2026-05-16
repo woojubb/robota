@@ -14,6 +14,7 @@ export interface ISkillsCommandModuleOptions {
 export function createSkillsCommandEntry(): ICommand {
   return {
     name: 'skills',
+    displayName: 'Skills',
     description: SKILLS_COMMAND_DESCRIPTION,
     source: 'skills',
     modelInvocable: true,
@@ -27,6 +28,7 @@ function createSkillsSystemCommand(): ISystemCommand {
   const entry = createSkillsCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: true,
