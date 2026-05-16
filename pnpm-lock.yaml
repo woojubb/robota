@@ -327,7 +327,7 @@ importers:
         specifier: workspace:*
         version: link:../agent-core
       '@robota-sdk/agent-executor':
-        specifier: workspace:3.0.0-beta.63
+        specifier: workspace:3.0.0-beta.64
         version: link:../agent-executor
       '@robota-sdk/agent-framework':
         specifier: workspace:*
