@@ -14,6 +14,7 @@ import { executeMemoryCommand } from './memory-command.js';
 export function createMemoryCommandEntry(): ICommand {
   return {
     name: 'memory',
+    displayName: 'Memory',
     description: MEMORY_COMMAND_DESCRIPTION,
     source: 'memory',
     argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
@@ -27,6 +28,7 @@ function createMemorySystemCommand(): ISystemCommand {
   const entry = createMemoryCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: true,

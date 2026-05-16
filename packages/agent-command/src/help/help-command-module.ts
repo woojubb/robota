@@ -10,6 +10,7 @@ import { executeHelpCommand } from './help-command.js';
 export function createHelpCommandEntry(): ICommand {
   return {
     name: 'help',
+    displayName: 'Help',
     description: HELP_COMMAND_DESCRIPTION,
     source: 'help',
     modelInvocable: false,
@@ -20,6 +21,7 @@ function createHelpSystemCommand(): ISystemCommand {
   const entry = createHelpCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

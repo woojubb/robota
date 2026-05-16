@@ -14,6 +14,7 @@ import { executeLanguageCommand } from './language-command.js';
 export function createLanguageCommandEntry(): ICommand {
   return {
     name: 'language',
+    displayName: 'Language',
     description: LANGUAGE_COMMAND_DESCRIPTION,
     source: 'language',
     argumentHint: LANGUAGE_COMMAND_ARGUMENT_HINT,
@@ -26,6 +27,7 @@ function createLanguageSystemCommand(): ISystemCommand {
   const entry = createLanguageCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

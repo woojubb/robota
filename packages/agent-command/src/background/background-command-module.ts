@@ -13,6 +13,7 @@ import { executeBackgroundCommand } from './background-command.js';
 export function createBackgroundCommandEntry(): ICommand {
   return {
     name: 'background',
+    displayName: 'Background Tasks',
     description: BACKGROUND_COMMAND_DESCRIPTION,
     source: 'background',
     modelInvocable: false,
@@ -24,6 +25,7 @@ function createBackgroundSystemCommand(): ISystemCommand {
   const entry = createBackgroundCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

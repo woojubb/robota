@@ -22,6 +22,7 @@ import {
 export function createClearCommandEntry(): ICommand {
   return {
     name: 'clear',
+    displayName: 'Clear History',
     description: CLEAR_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
@@ -31,6 +32,7 @@ export function createClearCommandEntry(): ICommand {
 export function createRenameCommandEntry(): ICommand {
   return {
     name: 'rename',
+    displayName: 'Rename Session',
     description: RENAME_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
@@ -40,6 +42,7 @@ export function createRenameCommandEntry(): ICommand {
 export function createResumeCommandEntry(): ICommand {
   return {
     name: 'resume',
+    displayName: 'Resume Session',
     description: RESUME_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
@@ -49,6 +52,7 @@ export function createResumeCommandEntry(): ICommand {
 export function createCostCommandEntry(): ICommand {
   return {
     name: 'cost',
+    displayName: 'Session Cost',
     description: COST_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
@@ -58,6 +62,7 @@ export function createCostCommandEntry(): ICommand {
 export function createValidateSessionCommandEntry(): ICommand {
   return {
     name: 'validate-session',
+    displayName: 'Validate Session',
     description: VALIDATE_SESSION_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
@@ -68,6 +73,7 @@ function createClearSystemCommand(): ISystemCommand {
   const entry = createClearCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
@@ -80,6 +86,7 @@ function createRenameSystemCommand(): ISystemCommand {
   const entry = createRenameCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
@@ -92,6 +99,7 @@ function createResumeSystemCommand(): ISystemCommand {
   const entry = createResumeCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
@@ -104,6 +112,7 @@ function createCostSystemCommand(): ISystemCommand {
   const entry = createCostCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
@@ -116,6 +125,7 @@ function createValidateSessionSystemCommand(): ISystemCommand {
   const entry = createValidateSessionCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

@@ -18,6 +18,7 @@ describe('createResetCommandModule', () => {
     expect(module.name).toBe('agent-command-reset');
     expect(createResetCommandEntry()).toEqual({
       name: 'reset',
+      displayName: 'Reset Settings',
       description: 'Delete settings',
       source: 'reset',
       modelInvocable: false,
