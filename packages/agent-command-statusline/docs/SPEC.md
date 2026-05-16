@@ -9,7 +9,7 @@ Own the user-visible `/statusline` command as a composable command module. The p
 - Owns `/statusline` descriptor metadata and command execution.
 - Does not own status bar rendering, settings file I/O, or TUI state updates.
 - Emits SDK `statusline-settings-patch` effects for host application.
-- Uses `@robota-sdk/agent-sdk` command contracts and statusline command common APIs.
+- Uses `@robota-sdk/agent-framework` command contracts and statusline command common APIs.
 
 ## Public API
 
@@ -32,7 +32,7 @@ Own the user-visible `/statusline` command as a composable command module. The p
 
 ## Dependency Rules
 
-- May import `@robota-sdk/agent-sdk`.
+- May import `@robota-sdk/agent-framework`.
 - Must not import `@robota-sdk/agent-cli`.
 - Must not read or write settings directly.
 - Must not render status bar output directly.

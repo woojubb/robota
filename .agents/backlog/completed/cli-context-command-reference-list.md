@@ -17,7 +17,7 @@ agent-cli has no standard command to list or manage currently loaded documents i
 ## Scope
 
 - `packages/agent-cli`
-- `packages/agent-sdk` (shared context management API)
+- `packages/agent-framework` (shared context management API)
 - Related command packages
 
 ## Research Needed

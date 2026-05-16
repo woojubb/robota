@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/sdk-builtin-command-layering
-- **Scope**: .agents/rules, .agents/backlog, packages/agent-sdk/docs, packages/agent-cli/docs, scripts/harness
+- **Scope**: .agents/rules, .agents/backlog, packages/agent-framework/docs, packages/agent-cli/docs, scripts/harness
 
 ## Objective
 

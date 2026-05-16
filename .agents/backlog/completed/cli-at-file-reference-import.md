@@ -21,7 +21,7 @@ context parsing or file-loading semantics.
 
 ## Scope
 
-- `packages/agent-sdk`
+- `packages/agent-framework`
 - `packages/agent-command-context` or another owning command package if user-visible command
   behavior is required
 - `packages/agent-cli` only for thin host wiring and rendering
@@ -73,4 +73,4 @@ render diagnostics and pass user input to the SDK/command layer.
 - Add unit tests for circular-reference and max-depth protection.
 - Add unit tests for missing-file and oversize-file diagnostics.
 - Add command or SDK integration tests proving imported files become structured context records.
-- Run `pnpm --filter @robota-sdk/agent-sdk test` and the affected command/CLI package tests.
+- Run `pnpm --filter @robota-sdk/agent-framework test` and the affected command/CLI package tests.

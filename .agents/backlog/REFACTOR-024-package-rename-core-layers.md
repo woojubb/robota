@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk, packages/agent-runtime, packages/agent-sessions, packages/agent-web
+area: packages/agent-framework, packages/agent-executor, packages/agent-session, packages/agent-web-ui
 ---
 
 ## Problem
@@ -24,10 +24,10 @@ area: packages/agent-sdk, packages/agent-runtime, packages/agent-sessions, packa
 
 각 패키지마다:
 
-1. 디렉토리 이름 변경 (`packages/agent-sdk/` → `packages/agent-framework/`)
-2. `package.json`의 `name` 필드 변경 (`@robota-sdk/agent-sdk` → `@robota-sdk/agent-framework`)
+1. 디렉토리 이름 변경 (`packages/agent-framework/` → `packages/agent-framework/`)
+2. `package.json`의 `name` 필드 변경 (`@robota-sdk/agent-framework` → `@robota-sdk/agent-framework`)
 3. 모노레포 전체에서 해당 패키지를 import하는 모든 `package.json` `dependencies` 업데이트
-4. 소스 코드 내 import 경로 업데이트 (`from '@robota-sdk/agent-sdk'` 등)
+4. 소스 코드 내 import 경로 업데이트 (`from '@robota-sdk/agent-framework'` 등)
 5. 각 패키지의 `docs/SPEC.md` 패키지명 업데이트
 6. 아키텍처 맵 문서 업데이트 (`.agents/specs/architecture-map/`)
 7. `project-structure.md` 업데이트
@@ -56,7 +56,7 @@ area: packages/agent-sdk, packages/agent-runtime, packages/agent-sessions, packa
 - `pnpm typecheck` — 전체 통과
 - `pnpm test` — 전체 통과
 - `pnpm harness:scan` — 이상 없음
-- `grep -r "agent-sdk\|agent-runtime\|agent-sessions\|packages/agent-web" --include="*.ts" --include="*.json" packages apps` — 구 이름 잔존 없음
+- `grep -r "agent-sdk\|agent-runtime\|agent-sessions\|packages/agent-web-ui --include="*.ts" --include="*.json" packages apps` — 구 이름 잔존 없음
 
 ## User Execution Test Scenarios
 

@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-06
 - **Branch**: fix/skill-activation-runtime-contract
-- **Scope**: packages/agent-sdk, packages/agent-cli, .agents/specs
+- **Scope**: packages/agent-framework, packages/agent-cli, .agents/specs
 
 ## Objective
 

@@ -10,11 +10,11 @@ related: [V-DEP-001, ARCH-CONF-006]
 
 ## Problem
 
-`agent-transport-ws`와 `agent-transport-http`는 `dependency-direction.md` 기준으로 Adapters 레이어 소속이다. Adapters 레이어는 Domain(`agent-core`) 방향으로만 의존해야 하지만, 두 패키지 모두 Assembly 레이어인 `@robota-sdk/agent-sdk`를 직접 의존한다.
+`agent-transport-ws`와 `agent-transport-http`는 `dependency-direction.md` 기준으로 Adapters 레이어 소속이다. Adapters 레이어는 Domain(`agent-core`) 방향으로만 의존해야 하지만, 두 패키지 모두 Assembly 레이어인 `@robota-sdk/agent-framework`를 직접 의존한다.
 
 ```
-agent-transport-ws/package.json  → @robota-sdk/agent-sdk  (역방향)
-agent-transport-http/package.json → @robota-sdk/agent-sdk  (역방향)
+agent-transport-ws/package.json  → @robota-sdk/agent-framework  (역방향)
+agent-transport-http/package.json → @robota-sdk/agent-framework  (역방향)
 ```
 
 이는 Adapters → Assembly 방향의 레이어 역전이며, layered assembly 아키텍처 규칙 위반이다.

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
-import type { IExecutionResult } from '@robota-sdk/agent-sdk';
-import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-sdk';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { IExecutionResult } from '@robota-sdk/agent-framework';
+import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-framework';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-framework';
 import { createHeadlessRunner } from '../headless-runner.js';
 
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {

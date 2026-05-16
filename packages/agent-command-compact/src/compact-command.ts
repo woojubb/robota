@@ -1,5 +1,5 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-sdk';
-import { compactCommandContext } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
+import { compactCommandContext } from '@robota-sdk/agent-framework';
 
 function parseInstructions(args: string): string | undefined {
   const instructions = args.trim();

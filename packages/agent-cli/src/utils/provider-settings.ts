@@ -5,7 +5,7 @@ export type {
   IProviderSetupInput,
   IProviderSetupPatch,
   TProviderSettingsDocument,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 export {
   buildProviderProfile,
   buildProviderSetupPatch,
@@ -14,4 +14,4 @@ export {
   setCurrentProvider,
   upsertProviderProfile,
   validateProviderProfile,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';

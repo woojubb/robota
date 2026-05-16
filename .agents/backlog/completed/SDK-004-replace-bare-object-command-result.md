@@ -4,7 +4,7 @@ status: done
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk
+area: packages/agent-framework
 ---
 
 ## Problem
@@ -29,7 +29,7 @@ minus type safety — it prevents the caller from accessing any properties witho
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - `pnpm typecheck` clean across all packages
 - `pnpm test` passes
 - No remaining bare `object` in `TCommandResultDataValue` union

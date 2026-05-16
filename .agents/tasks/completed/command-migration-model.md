@@ -8,8 +8,8 @@ Migrate `/model` into a command-module owner that requests model-change effects 
 
 ## Previous Owner
 
-- Metadata/execution: `packages/agent-sdk/src/commands/system-command.ts`
-- Model subcommands: `packages/agent-sdk/src/commands/system-command-metadata.ts`
+- Metadata/execution: `packages/agent-framework/src/commands/system-command.ts`
+- Model subcommands: `packages/agent-framework/src/commands/system-command-metadata.ts`
 - Host application: CLI applies `model-change-requested`
 
 ## Target Owner
@@ -49,9 +49,9 @@ Recommended: `@robota-sdk/agent-command-model`, consuming SDK model registry/com
 - `pnpm --filter @robota-sdk/agent-command-model test:coverage -- --coverage.reporter=json-summary --coverage.reporter=text-summary`
 - `pnpm --filter @robota-sdk/agent-command-model typecheck`
 - `pnpm --filter @robota-sdk/agent-command-model lint`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/commands/__tests__/system-command.test.ts src/command-api/__tests__/command-api.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/commands/__tests__/system-command.test.ts src/command-api/__tests__/command-api.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework lint`
 - `pnpm --filter @robota-sdk/agent-cli test -- src/commands/__tests__/builtin-source.test.ts src/commands/__tests__/slash-executor.test.ts src/ui/__tests__/model-change-side-effect.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - `pnpm --filter @robota-sdk/agent-cli lint`

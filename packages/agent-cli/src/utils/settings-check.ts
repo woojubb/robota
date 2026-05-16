@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { checkSettingsDocument } from '@robota-sdk/agent-sdk';
-import type { TProviderSettingsDocument, TSettingsCheck } from '@robota-sdk/agent-sdk';
+import { checkSettingsDocument } from '@robota-sdk/agent-framework';
+import type { TProviderSettingsDocument, TSettingsCheck } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from './provider-definition.js';
 
 export { checkSettingsDocument };

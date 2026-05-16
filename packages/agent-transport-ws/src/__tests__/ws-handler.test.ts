@@ -15,7 +15,7 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
   TExecutionWorkspaceUpdateCause,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 const backgroundTask: IBackgroundTaskState = {
   id: 'task_1',

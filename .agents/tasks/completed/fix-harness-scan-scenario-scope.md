@@ -23,7 +23,7 @@ packages/agent-core/examples/scenarios/offline-verify.record.json: scope must ma
 packages/agent-provider-bytedance/examples/scenarios/bytedance-video-dry-run.record.json
 packages/agent-provider-google/examples/scenarios/google-image-dry-run.record.json
 packages/agent-provider-openai/examples/scenarios/executor-verify.record.json
-packages/agent-sessions/examples/scenarios/offline-verify.record.json
+packages/agent-session/examples/scenarios/offline-verify.record.json
 packages/agent-team/examples/scenarios/offline-verify.record.json
 ```
 

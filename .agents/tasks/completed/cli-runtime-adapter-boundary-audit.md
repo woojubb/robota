@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: refactor/cli-runtime-adapter-boundary
-- **Scope**: packages/agent-cli, packages/agent-runtime, packages/agent-sdk, scripts/harness
+- **Scope**: packages/agent-cli, packages/agent-executor, packages/agent-framework, scripts/harness
 
 ## Objective
 
@@ -35,7 +35,7 @@ Classify the CLI-owned background/subagent/worktree runtime files and move reusa
 
 ## Decisions
 
-- Keep `agent-cli` importing runtime contracts through `@robota-sdk/agent-sdk` re-exports because
+- Keep `agent-cli` importing runtime contracts through `@robota-sdk/agent-framework` re-exports because
   the current SDK SPEC discourages direct `agent-cli -> agent-runtime` imports.
 - Do not move child-process spawning, worker executable resolution, child IPC protocol, or Git
   worktree I/O out of `agent-cli` in this backlog; those are concrete terminal-host adapters.
@@ -55,24 +55,24 @@ Classify the CLI-owned background/subagent/worktree runtime files and move reusa
 ## Result
 
 Resolved the owner boundary audit. Runtime-owned log helpers now live in
-`packages/agent-runtime/src/background-tasks/log-pages.ts`, are re-exported by `agent-runtime` and
+`packages/agent-executor/src/background-tasks/log-pages.ts`, are re-exported by `agent-runtime` and
 `agent-sdk`, and are used by CLI process/subagent adapters. CLI runtime files are classified in
 `packages/agent-cli/docs/ARCHITECTURE-MAP.md`.
 
 Verification passed:
 
 - `pnpm build`
-- `pnpm --filter @robota-sdk/agent-runtime test -- log-pages`
+- `pnpm --filter @robota-sdk/agent-executor test -- log-pages`
 - `pnpm --filter @robota-sdk/agent-cli test -- managed-shell child-process-subagent-runner`
-- `pnpm --filter @robota-sdk/agent-runtime typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-executor typecheck`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - `pnpm --filter @robota-sdk/agent-cli test`
-- `pnpm --filter @robota-sdk/agent-runtime test`
-- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-executor test`
+- `pnpm --filter @robota-sdk/agent-framework test`
 - `pnpm --filter @robota-sdk/agent-cli lint`
-- `pnpm --filter @robota-sdk/agent-runtime lint`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm --filter @robota-sdk/agent-executor lint`
+- `pnpm --filter @robota-sdk/agent-framework lint`
 - `pnpm docs:build`
 - `pnpm harness:scan:commands`
 - `pnpm harness:scan:deps`

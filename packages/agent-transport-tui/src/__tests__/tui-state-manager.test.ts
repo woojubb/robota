@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { TuiStateManager } from '../tui-state-manager.js';
-import type { IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
+import type { IToolState, IExecutionResult } from '@robota-sdk/agent-framework';
 
 function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
   return {

@@ -6,7 +6,7 @@
 
 This package:
 
-- exports a command module compatible with `@robota-sdk/agent-sdk`'s `ICommandModule` interface;
+- exports a command module compatible with `@robota-sdk/agent-framework`'s `ICommandModule` interface;
 - owns `/compact` command palette metadata;
 - owns `/compact` descriptor metadata, model-invocable policy, system command parsing, and execution;
 - consumes SDK context/compact command APIs through the command host facade.
@@ -51,9 +51,9 @@ The executable command declares `lifecycle: "blocking"` so hosts run it through 
 
 ## Dependencies
 
-| Package                 | Purpose                                          |
-| ----------------------- | ------------------------------------------------ |
-| `@robota-sdk/agent-sdk` | Command contracts and context/compact common API |
+| Package                       | Purpose                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `@robota-sdk/agent-framework` | Command contracts and context/compact common API |
 
 No dependency from `agent-sdk` or reusable CLI/TUI internals back into this package is allowed. Product composition roots such as the Robota CLI binary may import this package to make `/compact` available.
 

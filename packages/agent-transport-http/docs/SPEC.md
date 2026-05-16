@@ -6,8 +6,8 @@ HTTP transport adapter for exposing InteractiveSession over REST API. Built on H
 
 ## Boundaries
 
-- Does NOT own InteractiveSession — imported from `@robota-sdk/agent-sdk`
-- Does NOT own system commands (via session.executeCommand) — imported from `@robota-sdk/agent-sdk`
+- Does NOT own InteractiveSession — imported from `@robota-sdk/agent-framework`
+- Does NOT own system commands (via session.executeCommand) — imported from `@robota-sdk/agent-framework`
 - Does NOT own Session, tools, providers — those are SDK internals
 - OWNS: HTTP route definitions, SSE streaming, request/response serialization
 
@@ -39,7 +39,7 @@ Factory function that returns a Hono app with all routes configured.
 
 ```typescript
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
 
 const routes = createAgentRoutes({
   sessionFactory: (req) => interactiveSession,
@@ -83,7 +83,7 @@ The `sessionFactory` callback receives the HTTP request context and returns an I
 
 ## ITransportAdapter
 
-This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`.
 
 ### `createHttpTransport(options?)`
 
@@ -101,5 +101,5 @@ Factory that returns an `ITransportAdapter` with `name: 'http'`.
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` (InteractiveSession)
+- `@robota-sdk/agent-framework` (InteractiveSession)
 - `hono` (HTTP framework)

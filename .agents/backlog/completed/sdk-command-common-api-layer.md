@@ -57,7 +57,7 @@ packages/
   agent-cli/
 ```
 
-`packages/agent-sdk/src/commands/` should become registry/executor infrastructure only. Feature command implementation files under SDK should be removed, not kept as compatibility aliases.
+`packages/agent-framework/src/commands/` should become registry/executor infrastructure only. Feature command implementation files under SDK should be removed, not kept as compatibility aliases.
 
 ## API Responsibilities
 

@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-09
 - **Branch**: feat/user-local-inspection-initiative
-- **Scope**: packages/agent-sdk, packages/agent-command-\*, packages/agent-cli, .agents/backlog
+- **Scope**: packages/agent-framework, packages/agent-command-\*, packages/agent-cli, .agents/backlog
 
 ## Objective
 

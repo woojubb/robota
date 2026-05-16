@@ -157,7 +157,7 @@ packages/agent-transport-tui/
   tsconfig.json
 ```
 
-의존성: `@robota-sdk/agent-sdk`, `@robota-sdk/agent-interface-transport`, `ink`, `react`
+의존성: `@robota-sdk/agent-framework`, `@robota-sdk/agent-interface-transport`, `ink`, `react`
 
 ### Step 5 — `agent-cli/src/ui/` 파일 이동
 
@@ -241,9 +241,9 @@ process.exit(0);
 
 **변경 없는 패키지:**
 
-- `packages/agent-sdk` — 변경 없음 (이미 TUI 무관)
+- `packages/agent-framework` — 변경 없음 (이미 TUI 무관)
 - `packages/agent-transport-ws` — 변경 없음
-- `packages/agent-sessions`, `packages/agent-core` — 변경 없음
+- `packages/agent-session`, `packages/agent-core` — 변경 없음
 
 ## Test Plan
 

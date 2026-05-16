@@ -5,14 +5,14 @@ packages/
 ├── auth/                        # Auth contracts, verifier ports, scope policy
 ├── credits/                     # Credit account, reservation, and settlement contracts
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
-├── agent-runtime/               # Reusable background task and subagent lifecycle/state/ports
-├── agent-sessions/              # Session lifecycle and persistence
+├── agent-executor/               # Reusable background task and subagent lifecycle/state/ports
+├── agent-session/               # Session lifecycle and persistence
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
-├── agent-sdk/                   # SDK assembly layer: InteractiveSession, command contracts/common APIs
+├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-command-*/             # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-cli/                   # Terminal UI and local runtime adapters
-├── agent-web/                   # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
+├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider-*/            # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
 ├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package
@@ -21,7 +21,7 @@ packages/
 ├── agent-transport-*/           # Transports: tui, headless, http, mcp, ws
 └── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
-├── agent-web/              # Web application (Agent Playground)
+├── agent-web-ui/           # Web application (Agent Playground)
 ├── blog/                   # Blog/content application
 ├── docs/                   # Documentation site
 └── agent-server/           # AI provider proxy + Playground WebSocket
@@ -38,7 +38,7 @@ apps/
 
 ## Command Package Rule
 
-User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-sdk` command contracts. `agent-sdk` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
+User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
 
 ## Interface Package Rule
 
@@ -51,6 +51,6 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic.
-- Implementation packages (`agent-transport-*`, `agent-provider-*`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-sdk`, for interface types.
-- `agent-sdk` depends on `agent-interface-*` packages to consume the contracts it needs.
+- Implementation packages (`agent-transport-*`, `agent-provider-*`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
+- `agent-framework` depends on `agent-interface-*` packages to consume the contracts it needs.
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.

@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: feat/provider-model-catalog-refresh
-- **Scope**: packages/agent-core, packages/agent-sdk, packages/agent-command-model, packages/agent-provider-openai
+- **Scope**: packages/agent-core, packages/agent-framework, packages/agent-command-model, packages/agent-provider-openai
 
 ## Objective
 
@@ -39,7 +39,7 @@ without moving model metadata into the CLI/TUI layer.
 
 - `pnpm --filter @robota-sdk/agent-core test -- provider-definition`
 - `pnpm --filter @robota-sdk/agent-provider-openai test -- provider-definition`
-- `pnpm --filter @robota-sdk/agent-sdk test -- model-command-api`
+- `pnpm --filter @robota-sdk/agent-framework test -- model-command-api`
 - `pnpm --filter @robota-sdk/agent-command-model test`
 - `pnpm harness:scan:commands`
 

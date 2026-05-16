@@ -7,7 +7,7 @@ Finish migration hardening for `/agent`, which already lives in `@robota-sdk/age
 ## Current Owner
 
 - Implementation: `packages/agent-command-agent/src/agent-command-module.ts`
-- Runtime APIs: `@robota-sdk/agent-sdk` and `@robota-sdk/agent-runtime`
+- Runtime APIs: `@robota-sdk/agent-framework` and `@robota-sdk/agent-executor`
 
 ## Target Owner
 

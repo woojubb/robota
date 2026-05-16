@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-04
 - **Branch**: feat/cli-selected-backlogs
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-command-provider, packages/agent-command-model
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-command-provider, packages/agent-command-model
 
 ## Objective
 

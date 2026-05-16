@@ -2,12 +2,12 @@ import type {
   ICommandInteraction,
   ICommandResult,
   IProviderCommandModuleOptions,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   deleteProviderProfile,
   sanitizeProviderProfileName,
   upsertProviderProfile,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { formatProviderChoiceLabel } from './provider-command-profile-operations.js';
 
 const YES = 'yes';

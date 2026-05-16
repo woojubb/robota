@@ -41,15 +41,15 @@ The module contributes one `ICommandSource` for autocomplete/palette metadata an
 
 ## Type Ownership
 
-This package does not define independent public data contracts. It consumes SDK-owned command contracts from `@robota-sdk/agent-sdk`.
+This package does not define independent public data contracts. It consumes SDK-owned command contracts from `@robota-sdk/agent-framework`.
 
-| Type                    | Location                | Purpose                             |
-| ----------------------- | ----------------------- | ----------------------------------- |
-| `ICommandModule`        | `@robota-sdk/agent-sdk` | Command module composition contract |
-| `ICommand`              | `@robota-sdk/agent-sdk` | Command palette/autocomplete entry  |
-| `ISystemCommand`        | `@robota-sdk/agent-sdk` | Executable command contract         |
-| `ICommandResult`        | `@robota-sdk/agent-sdk` | Command execution result            |
-| `ICommandPluginAdapter` | `@robota-sdk/agent-sdk` | Host-provided plugin operations     |
+| Type                    | Location                      | Purpose                             |
+| ----------------------- | ----------------------------- | ----------------------------------- |
+| `ICommandModule`        | `@robota-sdk/agent-framework` | Command module composition contract |
+| `ICommand`              | `@robota-sdk/agent-framework` | Command palette/autocomplete entry  |
+| `ISystemCommand`        | `@robota-sdk/agent-framework` | Executable command contract         |
+| `ICommandResult`        | `@robota-sdk/agent-framework` | Command execution result            |
+| `ICommandPluginAdapter` | `@robota-sdk/agent-framework` | Host-provided plugin operations     |
 
 ## Public API
 
@@ -112,11 +112,11 @@ This package defines no package-specific error classes. Adapter failures are rep
 
 ## Dependencies
 
-| Package                 | Purpose                                      |
-| ----------------------- | -------------------------------------------- |
-| `@robota-sdk/agent-sdk` | Command contracts, adapter APIs, and effects |
+| Package                       | Purpose                                      |
+| ----------------------------- | -------------------------------------------- |
+| `@robota-sdk/agent-framework` | Command contracts, adapter APIs, and effects |
 
-`@robota-sdk/agent-sdk` must not import this package.
+`@robota-sdk/agent-framework` must not import this package.
 
 ## Test Strategy
 

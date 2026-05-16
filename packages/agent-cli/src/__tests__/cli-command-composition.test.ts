@@ -9,7 +9,7 @@ import type {
   IRawProviderResponse,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import { CommandRegistry, InteractiveSession } from '@robota-sdk/agent-sdk';
+import { CommandRegistry, InteractiveSession } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { createDefaultCliCommandModules, startCli } from '../cli.js';
 

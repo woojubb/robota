@@ -3,14 +3,14 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
   RENAME_COMMAND_DESCRIPTION,
   RESUME_COMMAND_DESCRIPTION,
   VALIDATE_SESSION_COMMAND_DESCRIPTION,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   executeClearCommand,
   executeCostCommand,

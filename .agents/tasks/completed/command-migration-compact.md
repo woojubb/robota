@@ -12,8 +12,8 @@ Migrate `/compact` from SDK embedded system-command logic into a command-module 
 
 ## Current Owner
 
-- Execution/lifecycle: `packages/agent-sdk/src/commands/system-command.ts`
-- Session compaction implementation: `@robota-sdk/agent-sessions`
+- Execution/lifecycle: `packages/agent-framework/src/commands/system-command.ts`
+- Session compaction implementation: `@robota-sdk/agent-session`
 
 ## Target Owner
 
@@ -47,18 +47,18 @@ Recommended: `@robota-sdk/agent-command-compact`, consuming SDK compaction/conte
 
 ## Verification
 
-- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-framework build`
 - `pnpm --filter @robota-sdk/agent-command-compact test`
 - `pnpm --filter @robota-sdk/agent-command-compact typecheck`
 - `pnpm --filter @robota-sdk/agent-command-compact build`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/commands/__tests__/system-command.test.ts src/command-api/__tests__/command-api.test.ts src/interactive/__tests__/interactive-session.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/commands/__tests__/system-command.test.ts src/command-api/__tests__/command-api.test.ts src/interactive/__tests__/interactive-session.test.ts`
 - `pnpm --filter @robota-sdk/agent-command-compact lint`
 - `pnpm --filter @robota-sdk/agent-cli test -- src/ui/__tests__/streaming-indicator.test.tsx src/ui/__tests__/slash-routing-effects.test.ts src/commands/__tests__/builtin-source.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli build`
 - `pnpm docs:validate-structure`
 - `pnpm harness:scan:test-plans`
 - `pnpm --filter @robota-sdk/agent-cli lint`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm --filter @robota-sdk/agent-framework lint`
 - `pnpm harness:scan:commands`

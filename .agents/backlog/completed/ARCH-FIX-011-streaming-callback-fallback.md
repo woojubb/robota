@@ -29,7 +29,7 @@ run_scoped callback || provider_level callback
 
 - 관련 streaming 테스트 전체 통과
 - fallback 분기 코드 없음 확인
-- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-framework test`
 - `pnpm typecheck`
 
 ## User Execution Test Scenarios

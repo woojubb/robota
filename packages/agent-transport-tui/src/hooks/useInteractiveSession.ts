@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
+import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskRunner,
@@ -11,7 +11,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   TShellExecFn,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import type {
   IAIProvider,
   TPermissionMode,
@@ -55,7 +55,7 @@ export interface IInteractiveSessionState {
   history: IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
-  activeTools: import('@robota-sdk/agent-sdk').IToolState[];
+  activeTools: import('@robota-sdk/agent-framework').IToolState[];
   isThinking: boolean;
   isAborting: boolean;
   isShuttingDown: boolean;
@@ -145,7 +145,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     const onSkillActivation = (): void =>
       applySkillActivationEventToManager(interactiveSession, manager);
     const onExecutionWorkspaceEvent = (
-      event: import('@robota-sdk/agent-sdk').IExecutionWorkspaceEvent,
+      event: import('@robota-sdk/agent-framework').IExecutionWorkspaceEvent,
     ): void => manager.syncExecutionWorkspaceSnapshot(event.snapshot);
 
     interactiveSession.on('text_delta', manager.onTextDelta);

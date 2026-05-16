@@ -77,7 +77,7 @@ Recommended work sequence:
 
 ## Verification Plan
 
-- `rg -n "from '@robota-sdk|from \"@robota-sdk" packages/agent-cli/src packages/agent-sdk/src packages/agent-command-*`
+- `rg -n "from '@robota-sdk|from \"@robota-sdk" packages/agent-cli/src packages/agent-framework/src packages/agent-command-*`
 - `pnpm harness:scan:commands`
 - `pnpm harness:scan:deps`
 - `pnpm harness:scan:specs`

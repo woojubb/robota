@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { IStatusLineCommandSettings } from '@robota-sdk/agent-sdk';
-import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-sdk';
+import type { IStatusLineCommandSettings } from '@robota-sdk/agent-framework';
+import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-framework';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 

@@ -5,7 +5,7 @@ import type {
   ICommandResult,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 type TSlashCommandExecution =
   | { readonly kind: 'not-slash' }

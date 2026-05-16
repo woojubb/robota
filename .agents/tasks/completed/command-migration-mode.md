@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-mode-module
-- **Scope**: packages/agent-command-mode, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-mode, packages/agent-framework, packages/agent-cli
 
 ## What
 
@@ -11,8 +11,8 @@ Migrate `/mode` permission-mode display/update behavior into a command-module ow
 
 ## Current Owner
 
-- Metadata/execution: `packages/agent-sdk/src/commands/system-command.ts`
-- Mode constants: `packages/agent-sdk/src/commands/system-command-metadata.ts`
+- Metadata/execution: `packages/agent-framework/src/commands/system-command.ts`
+- Mode constants: `packages/agent-framework/src/commands/system-command-metadata.ts`
 
 ## Target Owner
 

@@ -43,7 +43,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-sdk": "workspace:*",
+    "@robota-sdk/agent-framework": "workspace:*",
     "ws": "^8.18.3"
   },
   "devDependencies": {

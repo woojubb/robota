@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk, packages/agent-cli
+area: packages/agent-framework, packages/agent-cli
 ---
 
 ## Problem
@@ -37,9 +37,9 @@ Source: COMBINED-009 (SA-007)
 
 ## Test Plan
 
-- `grep -r "from 'node:fs'" packages/agent-sdk/src --include="*.ts"` — 결과 없음
+- `grep -r "from 'node:fs'" packages/agent-framework/src --include="*.ts"` — 결과 없음
 - `pnpm typecheck` — 전체 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
 - `pnpm build` — 전체 통과
 
 ## User Execution Test Scenarios

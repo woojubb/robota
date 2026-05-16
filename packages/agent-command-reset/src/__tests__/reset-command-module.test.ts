@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ICommandHostContext } from '@robota-sdk/agent-sdk';
-import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import {
   createResetCommandEntry,
   createResetCommandModule,

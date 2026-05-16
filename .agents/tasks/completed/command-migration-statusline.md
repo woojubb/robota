@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-statusline-module
-- **Scope**: packages/agent-command-statusline, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-statusline, packages/agent-framework, packages/agent-cli
 
 ## What
 

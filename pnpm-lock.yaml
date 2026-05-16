@@ -201,9 +201,9 @@ importers:
       '@robota-sdk/agent-playground':
         specifier: workspace:^
         version: link:../../packages/agent-playground
-      '@robota-sdk/agent-web':
+      '@robota-sdk/agent-web-ui':
         specifier: workspace:^
-        version: link:../../packages/agent-web
+        version: link:../../packages/agent-web-ui
       next:
         specifier: ^15.5.15
         version: 15.5.15(@babel/core@7.28.0)(react-dom@19.1.0)(react@19.1.0)
@@ -389,6 +389,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-executor':
+        specifier: workspace:3.0.0-beta.63
+        version: link:../agent-executor
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -410,12 +416,6 @@ importers:
       '@robota-sdk/agent-provider-qwen':
         specifier: workspace:*
         version: link:../agent-provider-qwen
-      '@robota-sdk/agent-runtime':
-        specifier: workspace:3.0.0-beta.63
-        version: link:../agent-runtime
-      '@robota-sdk/agent-sdk':
-        specifier: workspace:*
-        version: link:../agent-sdk
       '@robota-sdk/agent-transport-headless':
         specifier: workspace:*
         version: link:../agent-transport-headless
@@ -474,9 +474,9 @@ importers:
 
   packages/agent-command-agent:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -493,9 +493,9 @@ importers:
 
   packages/agent-command-background:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -512,9 +512,9 @@ importers:
 
   packages/agent-command-compact:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -531,9 +531,9 @@ importers:
 
   packages/agent-command-context:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -550,9 +550,9 @@ importers:
 
   packages/agent-command-exit:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -569,9 +569,9 @@ importers:
 
   packages/agent-command-help:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -588,9 +588,9 @@ importers:
 
   packages/agent-command-language:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -607,9 +607,9 @@ importers:
 
   packages/agent-command-memory:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -626,9 +626,9 @@ importers:
 
   packages/agent-command-mode:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -645,9 +645,9 @@ importers:
 
   packages/agent-command-model:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -664,9 +664,9 @@ importers:
 
   packages/agent-command-permissions:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -683,9 +683,9 @@ importers:
 
   packages/agent-command-plugin:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -705,9 +705,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -724,9 +724,9 @@ importers:
 
   packages/agent-command-reset:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -743,9 +743,9 @@ importers:
 
   packages/agent-command-rewind:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -762,9 +762,9 @@ importers:
 
   packages/agent-command-session:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -781,9 +781,9 @@ importers:
 
   packages/agent-command-settings:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -800,9 +800,9 @@ importers:
 
   packages/agent-command-skills:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -819,9 +819,9 @@ importers:
 
   packages/agent-command-statusline:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -838,9 +838,9 @@ importers:
 
   packages/agent-command-user-local:
     dependencies:
-      '@robota-sdk/agent-sdk':
+      '@robota-sdk/agent-framework':
         specifier: workspace:*
-        version: link:../agent-sdk
+        version: link:../agent-framework
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -893,6 +893,65 @@ importers:
         version: 5.8.3
       vitest:
         specifier: ^1.1.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-executor:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      croner:
+        specifier: ^10.0.1
+        version: 10.0.1
+    devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-framework:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-executor':
+        specifier: workspace:*
+        version: link:../agent-executor
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
+      '@robota-sdk/agent-session':
+        specifier: workspace:*
+        version: link:../agent-session
+      '@robota-sdk/agent-tools':
+        specifier: workspace:*
+        version: link:../agent-tools
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-interface-transport:
@@ -1506,66 +1565,7 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-runtime:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      croner:
-        specifier: ^10.0.1
-        version: 10.0.1
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-sdk:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-interface-transport':
-        specifier: workspace:*
-        version: link:../agent-interface-transport
-      '@robota-sdk/agent-runtime':
-        specifier: workspace:*
-        version: link:../agent-runtime
-      '@robota-sdk/agent-sessions':
-        specifier: workspace:*
-        version: link:../agent-sessions
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
-      zod:
-        specifier: ^3.24.0
-        version: 3.25.76
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-sessions:
+  packages/agent-session:
     dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
@@ -1682,12 +1682,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-sdk':
-        specifier: workspace:*
-        version: link:../agent-sdk
     devDependencies:
       '@robota-sdk/agent-command-skills':
         specifier: workspace:*
@@ -1707,12 +1707,12 @@ importers:
 
   packages/agent-transport-http:
     dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-sdk':
-        specifier: workspace:*
-        version: link:../agent-sdk
       hono:
         specifier: ^4.7.0
         version: 4.12.9
@@ -1735,12 +1735,12 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.28.0
         version: 1.28.0(zod@3.25.76)
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-sdk':
-        specifier: workspace:*
-        version: link:../agent-sdk
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -1763,12 +1763,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-sdk':
-        specifier: workspace:*
-        version: link:../agent-sdk
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -1830,12 +1830,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-sdk':
-        specifier: workspace:*
-        version: link:../agent-sdk
       ws:
         specifier: ^8.18.3
         version: 8.20.0
@@ -1856,7 +1856,7 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-web:
+  packages/agent-web-ui:
     dependencies:
       '@robota-sdk/agent-transport-ws':
         specifier: workspace:*
@@ -1891,7 +1891,7 @@ importers:
         version: 5.0.10
       tailwindcss:
         specifier: ^4.0.0
-        version: 4.1.11
+        version: 4.3.0
       tsup:
         specifier: ^8.0.1
         version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
@@ -2713,9 +2713,9 @@ packages:
       '@babel/code-frame': 7.27.1
       '@babel/generator': 7.28.0
       '@babel/helper-globals': 7.28.0
-      '@babel/parser': 7.28.0
+      '@babel/parser': 7.29.2
       '@babel/template': 7.27.2
-      '@babel/types': 7.28.1
+      '@babel/types': 7.29.0
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
@@ -8131,7 +8131,7 @@ packages:
         integrity: sha512-ufFd2Xi92OAVPYsy+P4n7/U7e68fex0+Ee8gSG9KX7eo084CWiQ4sdxktvdl0bOPupXtVJPY19zk6EwWqUQ8lg==,
       }
     dependencies:
-      '@babel/types': 7.28.1
+      '@babel/types': 7.29.0
     dev: true
 
   /@types/babel__template@7.4.4:
@@ -8140,8 +8140,8 @@ packages:
         integrity: sha512-h/NUaSyG5EyxBIp8YRxo4RMe2/qQgvyowRwVMzhYhBCONbW8PUsg4lkFMrhgZhUe5z3L3MiLDuvyJ/CaPa2A8A==,
       }
     dependencies:
-      '@babel/parser': 7.28.0
-      '@babel/types': 7.28.1
+      '@babel/parser': 7.29.2
+      '@babel/types': 7.29.0
     dev: true
 
   /@types/babel__traverse@7.20.7:
@@ -8150,7 +8150,7 @@ packages:
         integrity: sha512-dkO5fhS7+/oos4ciWxyEyjWe48zmG6wbCheo/G2ZnHx4fs3EU6YC6UM8rk56gAjNJ9P3MTH2jo5jb92/K6wbng==,
       }
     dependencies:
-      '@babel/types': 7.28.1
+      '@babel/types': 7.29.0
     dev: true
 
   /@types/body-parser@1.19.6:
@@ -10432,7 +10432,7 @@ packages:
     engines: { node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0 }
     dependencies:
       '@babel/template': 7.27.2
-      '@babel/types': 7.28.1
+      '@babel/types': 7.29.0
       '@types/babel__core': 7.20.5
     dev: true
 

@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-language-module
-- **Scope**: packages/agent-command-language, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-language, packages/agent-framework, packages/agent-cli
 
 ## What
 
@@ -11,7 +11,7 @@ Migrate `/language` into a command-module owner that requests language-change ef
 
 ## Current Owner
 
-- Metadata/execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Metadata/execution: `packages/agent-framework/src/commands/system-command.ts`
 - Host application: CLI persists language settings and restarts
 
 ## Target Owner

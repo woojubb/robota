@@ -3,12 +3,12 @@ import type {
   ICommandModule,
   ICommandSource,
   ISystemCommand,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   buildPermissionModeSubcommands,
   PERMISSION_MODE_ARGUMENT_HINT,
   PERMISSIONS_COMMAND_DESCRIPTION,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { executePermissionsCommand } from './permissions-command.js';
 
 export function createPermissionsCommandEntry(): ICommand {

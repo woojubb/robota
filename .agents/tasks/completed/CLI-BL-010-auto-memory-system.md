@@ -45,12 +45,12 @@ packages:
 ## 검증
 
 - [x] RED: memory store/context/command tests fail before implementation
-- [x] GREEN: `pnpm --filter @robota-sdk/agent-sdk test -- memory`
-- [x] GREEN: `pnpm --filter @robota-sdk/agent-sdk test -- system-command`
-- [x] GREEN: `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- [x] GREEN: `pnpm --filter @robota-sdk/agent-sdk build`
-- [x] GREEN: `pnpm --filter @robota-sdk/agent-sdk lint`
-- [x] GREEN: `pnpm --filter @robota-sdk/agent-sdk test`
+- [x] GREEN: `pnpm --filter @robota-sdk/agent-framework test -- memory`
+- [x] GREEN: `pnpm --filter @robota-sdk/agent-framework test -- system-command`
+- [x] GREEN: `pnpm --filter @robota-sdk/agent-framework typecheck`
+- [x] GREEN: `pnpm --filter @robota-sdk/agent-framework build`
+- [x] GREEN: `pnpm --filter @robota-sdk/agent-framework lint`
+- [x] GREEN: `pnpm --filter @robota-sdk/agent-framework test`
 - [x] GREEN: `pnpm harness:scan`
 
 ## Result

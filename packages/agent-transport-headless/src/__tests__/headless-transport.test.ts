@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
-import type { IExecutionResult } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { IExecutionResult } from '@robota-sdk/agent-framework';
 
 function createMockSession(): IInteractiveSession {
   return {

@@ -2,7 +2,7 @@
 
 - **Status**: done
 - **Created**: 2026-05-10
-- **Area**: packages/agent-transport-ws, packages/agent-web, packages/agent-cli (spa)
+- **Area**: packages/agent-transport-ws, packages/agent-web-ui packages/agent-cli (spa)
 - **Priority**: high
 
 ## Objective
@@ -43,7 +43,7 @@
 | `subscribeSessionEvents` → `execution_workspace_event` | ❌ 구독 안 함 |
 | 연결 시 초기 스냅샷 전송                               | ❌ 없음       |
 
-### Web UI (`packages/agent-web`)
+### Web UI (`packages/agent-web-ui)
 
 | 항목                                        | 상태    |
 | ------------------------------------------- | ------- |
@@ -143,7 +143,7 @@ if (msg.type === 'get-execution-workspace') {
 
 **isSessionQueryMessage** 함수 type guard에 `'get-execution-workspace'` 추가.
 
-### Step 2 — Web UI 훅 확장 (`packages/agent-web/src/hooks/useWsSession.ts`)
+### Step 2 — Web UI 훅 확장 (`packages/agent-web-uisrc/hooks/useWsSession.ts`)
 
 ```typescript
 // import 추가
@@ -167,7 +167,7 @@ return { ..., executionWorkspace };
 
 ### Step 3 — AgentActivityPanel 컴포넌트 신규
 
-**`packages/agent-web/src/components/AgentActivityPanel.tsx`**
+**`packages/agent-web-uisrc/components/AgentActivityPanel.tsx`**
 
 `IExecutionWorkspaceSnapshot.entries`에서 `kind === 'background_task'` 항목만 필터링.
 완료된 태스크는 일정 시간(2초) 후 자동으로 숨기거나 collapsed 처리.
@@ -188,7 +188,7 @@ function AgentCard({ entry }: { entry: IExecutionWorkspaceEntry }): React.ReactE
 
 ### Step 4 — SessionMonitor 레이아웃 분할
 
-**`packages/agent-web/src/components/SessionMonitor.tsx`** 수정:
+**`packages/agent-web-uisrc/components/SessionMonitor.tsx`** 수정:
 
 `executionWorkspace`에서 background_task 항목 개수를 계산해 패널 노출 여부 결정.
 
@@ -239,17 +239,17 @@ pnpm typecheck && pnpm lint && pnpm test
 **변경 패키지:**
 
 - `packages/agent-transport-ws` — 프로토콜 + 핸들러 (protocol, handler, index)
-- `packages/agent-web` — 훅 + 컴포넌트 2개 신규 + SessionMonitor 레이아웃
+- `packages/agent-web-ui — 훅 + 컴포넌트 2개 신규 + SessionMonitor 레이아웃
 - `packages/agent-cli` — SPA 재빌드 포함
 
 **변경 없는 패키지:**
 
-- `packages/agent-sdk` — `InteractiveSession` 그대로 사용
-- `packages/agent-runtime` — 변경 없음
+- `packages/agent-framework` — `InteractiveSession` 그대로 사용
+- `packages/agent-executor` — 변경 없음
 
 **새 파일:**
 
-- `packages/agent-web/src/components/AgentActivityPanel.tsx`
+- `packages/agent-web-uisrc/components/AgentActivityPanel.tsx`
 
 ## Test Plan
 

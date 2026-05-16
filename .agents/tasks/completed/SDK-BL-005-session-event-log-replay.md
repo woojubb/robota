@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-02
 - **Branch**: feat/session-event-log-replay
-- **Scope**: packages/agent-sessions, packages/agent-core, packages/agent-sdk
+- **Scope**: packages/agent-session, packages/agent-core, packages/agent-framework
 
 ## What
 
@@ -24,7 +24,7 @@ This makes root-cause analysis depend on inference. It also conflicts with the s
 
 ## Current Gap
 
-`packages/agent-sessions/docs/SPEC.md` says session logs must preserve enough raw data to reconstruct what was sent to the model and what came back. Current implementation only partially satisfies that contract:
+`packages/agent-session/docs/SPEC.md` says session logs must preserve enough raw data to reconstruct what was sent to the model and what came back. Current implementation only partially satisfies that contract:
 
 - `pre_run` logs enriched input and pre-run history.
 - `text_delta` logs streamed visible text deltas.
@@ -116,7 +116,7 @@ The exact schema should be finalized in the spec before implementation, but the 
 
 1. Assign a backlog ID, for example `SDK-BL-0XX-session-event-log-replay`.
 2. Move this file to `.agents/tasks/<ID>-session-event-log-replay.md`.
-3. Update `packages/agent-sessions/docs/SPEC.md`, `packages/agent-core/docs/SPEC.md`, and `packages/agent-sdk/docs/SPEC.md` before code changes.
+3. Update `packages/agent-session/docs/SPEC.md`, `packages/agent-core/docs/SPEC.md`, and `packages/agent-framework/docs/SPEC.md` before code changes.
 4. Implement with TDD around replay, multi-tool turns, and parallel `Agent` tool-call provenance.
 
 ## Progress

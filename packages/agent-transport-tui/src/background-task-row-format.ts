@@ -1,4 +1,4 @@
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-sdk';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-framework';
 import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
 
 export interface IBackgroundTaskRow {

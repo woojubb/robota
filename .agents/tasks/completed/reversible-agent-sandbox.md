@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/reversible-agent-sandbox
-- **Scope**: packages/agent-sdk, packages/agent-command-rewind, .agents
+- **Scope**: packages/agent-framework, packages/agent-command-rewind, .agents
 
 ## Objective
 

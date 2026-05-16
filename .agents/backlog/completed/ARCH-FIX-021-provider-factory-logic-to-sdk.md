@@ -98,7 +98,7 @@ agent-cli/src/utils/provider-factory.ts  (축소)
 ### `agent-cli` re-export 정리
 
 이동된 함수들의 re-export를 `agent-cli`에 남기지 않는다.
-CLI 내부 소비자는 `@robota-sdk/agent-runtime` 또는 `@robota-sdk/agent-sdk`에서 직접 import.
+CLI 내부 소비자는 `@robota-sdk/agent-executor` 또는 `@robota-sdk/agent-framework`에서 직접 import.
 
 ## 수용 기준
 
@@ -106,7 +106,7 @@ CLI 내부 소비자는 `@robota-sdk/agent-runtime` 또는 `@robota-sdk/agent-sd
 - [ ] `createProviderFromProfile`, `createProviderFromConfig`, `normalizeProviderConfig`, `resolveProfileApiKey`가 `agent-runtime`에서 export
 - [ ] `readMergedProviderSettingsFromPaths`, `mergeSettings`, `mergeProviders`가 `agent-sdk`에서 export
 - [ ] `agent-cli/src/utils/provider-factory.ts`가 위 함수들을 각 패키지에서 import
-- [ ] `child-process-subagent-worker.ts`(ARCH-FIX-020 이동 후 agent-sdk)가 `@robota-sdk/agent-runtime`에서 함수 사용
+- [ ] `child-process-subagent-worker.ts`(ARCH-FIX-020 이동 후 agent-sdk)가 `@robota-sdk/agent-executor`에서 함수 사용
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` 전 범위 통과
 
 ## Test Plan

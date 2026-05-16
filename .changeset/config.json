@@ -5,8 +5,8 @@
   "fixed": [
     [
       "@robota-sdk/agent-core",
-      "@robota-sdk/agent-sessions",
-      "@robota-sdk/agent-sdk",
+      "@robota-sdk/agent-session",
+      "@robota-sdk/agent-framework",
       "@robota-sdk/agent-command-agent",
       "@robota-sdk/agent-command-background",
       "@robota-sdk/agent-command-compact",
@@ -43,9 +43,9 @@
       "@robota-sdk/agent-command-user-local",
       "@robota-sdk/agent-interface-transport",
       "@robota-sdk/agent-provider-qwen",
-      "@robota-sdk/agent-runtime",
+      "@robota-sdk/agent-executor",
       "@robota-sdk/agent-transport-tui",
-      "@robota-sdk/agent-web",
+      "@robota-sdk/agent-web-ui",
       "@robota-sdk/agent-remote-client",
       "@robota-sdk/agent-playground",
       "@robota-sdk/agent-team",

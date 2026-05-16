@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { IExecutionWorkspaceEntry, IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-sdk';
+import type {
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+} from '@robota-sdk/agent-framework';
 import {
   countActiveBackgroundWorkspaceEntries,
   formatExecutionDetailRecord,

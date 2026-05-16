@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-help-module
-- **Scope**: packages/agent-command-help, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-command-help, packages/agent-framework, packages/agent-cli
 
 ## Objective
 

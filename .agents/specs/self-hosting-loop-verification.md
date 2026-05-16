@@ -1,7 +1,7 @@
 # Self-Hosting Loop Verification
 
 - **Status**: implemented by CLI-BL-014
-- **Owner Packages**: `@robota-sdk/agent-tools`, `@robota-sdk/agent-sdk`
+- **Owner Packages**: `@robota-sdk/agent-tools`, `@robota-sdk/agent-framework`
 - **Last Updated**: 2026-05-02
 
 ## Objective
@@ -32,7 +32,7 @@ Owns filesystem mutation semantics for built-in tools.
 - Tool behavior remains provider-agnostic and session-agnostic.
 - This package MUST NOT know about `.robota`, checkpoints, sessions, prompts, CLI/TUI, or self-hosting policies.
 
-### `@robota-sdk/agent-sdk`
+### `@robota-sdk/agent-framework`
 
 Owns self-hosting loop planning and state transitions.
 

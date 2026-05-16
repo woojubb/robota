@@ -1,4 +1,4 @@
-import type { IInteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import { renderApp, type IRenderOptions } from './render.js';

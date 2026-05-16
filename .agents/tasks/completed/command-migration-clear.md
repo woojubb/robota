@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/command-clear-module
-- **Scope**: packages/agent-sdk, packages/agent-command-session, packages/agent-cli
+- **Scope**: packages/agent-framework, packages/agent-command-session, packages/agent-cli
 
 ## What
 
@@ -11,7 +11,7 @@ Migrate `/clear` from SDK embedded system-command logic into a command-module ow
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
 
 ## Target Owner
 

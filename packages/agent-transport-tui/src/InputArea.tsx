@@ -4,7 +4,7 @@ const PENDING_PROMPT_DISPLAY_MAX = 50;
 const PENDING_PROMPT_TAIL_KEEP = 47;
 import { Box, Text, useInput, useWindowSize } from 'ink';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { CommandRegistry, ICommand } from '@robota-sdk/agent-sdk';
+import type { CommandRegistry, ICommand } from '@robota-sdk/agent-framework';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
