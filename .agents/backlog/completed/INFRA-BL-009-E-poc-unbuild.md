@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-BL-009-E: unbuild PoC — auth/credits 패키지 마이그레이션 검증 (tsdown 비교군)'
-status: todo
+status: skipped
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: later
@@ -9,6 +10,11 @@ depends_on:
   - INFRA-BL-009-A
   - INFRA-BL-009-B
   - INFRA-BL-009-C
+skip-reason: |
+  INFRA-BL-009-B Prior Art Research에서 unbuild 3.6.1 분석 완료.
+  결론: browser/node dual build 지원 불충분, DTS 확장자 .d.ts 강제 불가,
+  마이그레이션 비용 높음. tsdown이 명확한 우위. 별도 PoC 불필요.
+  INFRA-BL-009-F는 INFRA-BL-009-D 성공으로 unblocked (D OR E 조건).
 ---
 
 ## 배경
