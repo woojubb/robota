@@ -4,9 +4,7 @@
  * agent-transport-* implementations and the assembly layer.
  */
 
-import type { ISession } from '@robota-sdk/agent-core';
-
-export interface ITransportAdapter<TSession = ISession> {
+export interface ITransportAdapter<TSession = unknown> {
   readonly name: string;
   attach(session: TSession): void;
   start(): Promise<void>;
