@@ -5,8 +5,9 @@
  * cache directory, and tracks installations in `installed_plugins.json`.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { PluginSettingsStore } from './plugin-settings-store.js';
 import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
 
@@ -32,6 +33,8 @@ export interface IBundlePluginInstallerOptions {
   marketplaceClient: MarketplaceClient;
   /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
   exec: TExecFn;
+  /** File system adapter for testability. */
+  fs?: IFileSystem;
 }
 
 /** Default git clone timeout in milliseconds (60 seconds). */
@@ -45,6 +48,7 @@ export class BundlePluginInstaller {
   private readonly settingsStore: PluginSettingsStore;
   private readonly marketplaceClient: MarketplaceClient;
   private readonly exec: TExecFn;
+  private readonly fs: IFileSystem;
 
   constructor(options: IBundlePluginInstallerOptions) {
     this.pluginsDir = options.pluginsDir;
@@ -53,6 +57,7 @@ export class BundlePluginInstaller {
     this.settingsStore = options.settingsStore;
     this.marketplaceClient = options.marketplaceClient;
     this.exec = options.exec;
+    this.fs = options.fs ?? new NodeFileSystem();
   }
 
   /**
@@ -77,7 +82,7 @@ export class BundlePluginInstaller {
     // Target directory: cache/<marketplace>/<plugin>/<version>/
     const targetDir = join(this.cacheDir, marketplaceName, pluginName, version);
 
-    if (existsSync(targetDir)) {
+    if (this.fs.existsSync(targetDir)) {
       throw new Error(
         `Plugin "${pluginName}" version "${version}" is already installed from "${marketplaceName}"`,
       );
@@ -112,8 +117,8 @@ export class BundlePluginInstaller {
     }
 
     // Remove the installed directory
-    if (existsSync(record.installPath)) {
-      rmSync(record.installPath, { recursive: true, force: true });
+    if (this.fs.existsSync(record.installPath)) {
+      this.fs.rmSync(record.installPath, { recursive: true, force: true });
     }
 
     // Remove from registry
@@ -180,7 +185,7 @@ export class BundlePluginInstaller {
     pluginName: string,
     targetDir: string,
   ): void {
-    mkdirSync(targetDir, { recursive: true });
+    this.fs.mkdirSync(targetDir, { recursive: true });
 
     const source = this.normalizeSource(rawSource);
 
@@ -190,13 +195,13 @@ export class BundlePluginInstaller {
         const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);
         const sourcePath = join(marketplaceDir, source);
 
-        if (!existsSync(sourcePath)) {
+        if (!this.fs.existsSync(sourcePath)) {
           throw new Error(
             `Plugin source path "${source}" not found in marketplace "${marketplaceName}"`,
           );
         }
 
-        cpSync(sourcePath, targetDir, { recursive: true });
+        this.fs.cpSync(sourcePath, targetDir, { recursive: true });
       } else if (source.type === 'github') {
         // Clone from GitHub
         const repoUrl = `https://github.com/${source.repo}.git`;
@@ -215,8 +220,8 @@ export class BundlePluginInstaller {
       }
     } catch (err) {
       // Clean up empty target directory on failure
-      if (existsSync(targetDir)) {
-        rmSync(targetDir, { recursive: true, force: true });
+      if (this.fs.existsSync(targetDir)) {
+        this.fs.rmSync(targetDir, { recursive: true, force: true });
       }
       throw err;
     }
@@ -225,7 +230,7 @@ export class BundlePluginInstaller {
   /** Clone a git repository to the target directory. */
   private cloneToDir(repoUrl: string, targetDir: string, pluginName: string): void {
     // Remove the directory first since mkdirSync already created it
-    rmSync(targetDir, { recursive: true, force: true });
+    this.fs.rmSync(targetDir, { recursive: true, force: true });
 
     const command = `git clone --depth 1 ${repoUrl} ${targetDir}`;
     try {
@@ -238,17 +243,18 @@ export class BundlePluginInstaller {
 
   /** Read the installed_plugins.json registry. */
   private readRegistry(): TInstalledPluginsRegistry {
-    if (!existsSync(this.registryPath)) {
+    if (!this.fs.existsSync(this.registryPath)) {
       return {};
     }
     try {
-      const raw = readFileSync(this.registryPath, 'utf-8');
+      const raw = this.fs.readFileSync(this.registryPath, 'utf-8');
       const data: unknown = JSON.parse(raw);
       if (typeof data === 'object' && data !== null) {
         return data as TInstalledPluginsRegistry;
       }
       return {};
     } catch {
+      // allow-fallback: corrupt installed_plugins.json returns empty registry to allow recovery
       return {};
     }
   }
@@ -256,9 +262,9 @@ export class BundlePluginInstaller {
   /** Write the installed_plugins.json registry. */
   private writeRegistry(registry: TInstalledPluginsRegistry): void {
     const dir = dirname(this.registryPath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+    if (!this.fs.existsSync(dir)) {
+      this.fs.mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
+    this.fs.writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
   }
 }

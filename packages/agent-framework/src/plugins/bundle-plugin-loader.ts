@@ -8,8 +8,9 @@
  * For each plugin, the latest version directory (lexicographically last) is loaded.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type {
   IBundlePluginManifest,
   IBundleSkill,
@@ -26,10 +27,16 @@ import {
 export class BundlePluginLoader {
   private readonly pluginsDir: string;
   private readonly enabledPlugins: TEnabledPlugins;
+  private readonly fs: IFileSystem;
 
-  constructor(pluginsDir: string, enabledPlugins?: TEnabledPlugins) {
+  constructor(
+    pluginsDir: string,
+    enabledPlugins?: TEnabledPlugins,
+    fs: IFileSystem = new NodeFileSystem(),
+  ) {
     this.pluginsDir = pluginsDir;
     this.enabledPlugins = enabledPlugins ?? {};
+    this.fs = fs;
   }
 
   /** Load all discovered and enabled bundle plugins (sync). */
@@ -50,21 +57,21 @@ export class BundlePluginLoader {
    */
   private discoverAndLoad(): ILoadedBundlePlugin[] {
     const cacheDir = join(this.pluginsDir, 'cache');
-    if (!existsSync(cacheDir)) {
+    if (!this.fs.existsSync(cacheDir)) {
       return [];
     }
 
     const results: ILoadedBundlePlugin[] = [];
 
     // Iterate marketplaces
-    const marketplaces = getSortedSubdirs(cacheDir);
+    const marketplaces = getSortedSubdirs(cacheDir, this.fs);
     for (const marketplace of marketplaces) {
       const marketplaceDir = join(cacheDir, marketplace);
-      const plugins = getSortedSubdirs(marketplaceDir);
+      const plugins = getSortedSubdirs(marketplaceDir, this.fs);
 
       for (const pluginName of plugins) {
         const pluginDir = join(marketplaceDir, pluginName);
-        const versions = getSortedSubdirs(pluginDir);
+        const versions = getSortedSubdirs(pluginDir, this.fs);
 
         if (versions.length === 0) continue;
 
@@ -73,7 +80,7 @@ export class BundlePluginLoader {
         const versionDir = join(pluginDir, latestVersion);
 
         const manifestPath = join(versionDir, '.claude-plugin', 'plugin.json');
-        if (!existsSync(manifestPath)) continue;
+        if (!this.fs.existsSync(manifestPath)) continue;
 
         const manifest = this.readManifest(manifestPath);
         if (!manifest) continue;
@@ -92,7 +99,7 @@ export class BundlePluginLoader {
 
   /** Read and validate a plugin.json manifest. Returns null if the manifest structure is invalid. */
   private readManifest(path: string): IBundlePluginManifest | null {
-    const raw = readFileSync(path, 'utf-8');
+    const raw = this.fs.readFileSync(path, 'utf-8');
     const data: unknown = JSON.parse(raw);
     return validateManifest(data);
   }
@@ -129,18 +136,18 @@ export class BundlePluginLoader {
   /** Load skills from the plugin's skills/ directory. */
   private loadSkills(pluginDir: string, pluginName: string): IBundleSkill[] {
     const skillsDir = join(pluginDir, 'skills');
-    if (!existsSync(skillsDir)) return [];
+    if (!this.fs.existsSync(skillsDir)) return [];
 
-    const entries = readdirSync(skillsDir, { withFileTypes: true });
+    const entries = this.fs.readdirSync(skillsDir, { withFileTypes: true });
     const skills: IBundleSkill[] = [];
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
       const skillFile = join(skillsDir, entry.name, 'SKILL.md');
-      if (!existsSync(skillFile)) continue;
+      if (!this.fs.existsSync(skillFile)) continue;
 
-      const raw = readFileSync(skillFile, 'utf-8');
+      const raw = this.fs.readFileSync(skillFile, 'utf-8');
       const { metadata, content } = parseSkillFrontmatter(raw);
 
       const description = typeof metadata.description === 'string' ? metadata.description : '';
@@ -161,15 +168,15 @@ export class BundlePluginLoader {
   /** Load commands from the plugin's commands/ directory (flat .md files). */
   private loadCommands(pluginDir: string, pluginName: string): IBundleSkill[] {
     const commandsDir = join(pluginDir, 'commands');
-    if (!existsSync(commandsDir)) return [];
+    if (!this.fs.existsSync(commandsDir)) return [];
 
-    const entries = readdirSync(commandsDir, { withFileTypes: true });
+    const entries = this.fs.readdirSync(commandsDir, { withFileTypes: true });
     const commands: IBundleSkill[] = [];
 
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
-      const raw = readFileSync(join(commandsDir, entry.name), 'utf-8');
+      const raw = this.fs.readFileSync(join(commandsDir, entry.name), 'utf-8');
       const { metadata, content } = parseSkillFrontmatter(raw);
 
       const name =
@@ -190,9 +197,9 @@ export class BundlePluginLoader {
   /** Load hooks from hooks/hooks.json if present. */
   private loadHooks(pluginDir: string): Record<string, unknown> {
     const hooksPath = join(pluginDir, 'hooks', 'hooks.json');
-    if (!existsSync(hooksPath)) return {};
+    if (!this.fs.existsSync(hooksPath)) return {};
 
-    const raw = readFileSync(hooksPath, 'utf-8');
+    const raw = this.fs.readFileSync(hooksPath, 'utf-8');
     const data: unknown = JSON.parse(raw);
     if (typeof data === 'object' && data !== null) {
       return data as Record<string, unknown>;
@@ -203,18 +210,18 @@ export class BundlePluginLoader {
   /** Load MCP server configuration from `.mcp.json` at the plugin root if present. */
   private loadMcpConfig(pluginDir: string): unknown | undefined {
     const mcpPath = join(pluginDir, '.mcp.json');
-    if (!existsSync(mcpPath)) return undefined;
+    if (!this.fs.existsSync(mcpPath)) return undefined;
 
-    const raw = readFileSync(mcpPath, 'utf-8');
+    const raw = this.fs.readFileSync(mcpPath, 'utf-8');
     return JSON.parse(raw) as unknown;
   }
 
   /** Load agent definitions from agents/ directory if present. */
   private loadAgents(pluginDir: string): string[] {
     const agentsDir = join(pluginDir, 'agents');
-    if (!existsSync(agentsDir)) return [];
+    if (!this.fs.existsSync(agentsDir)) return [];
 
-    const entries = readdirSync(agentsDir, { withFileTypes: true });
+    const entries = this.fs.readdirSync(agentsDir, { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory() || e.name.endsWith('.md'))
       .map((e) => e.name.replace(/\.md$/, ''));

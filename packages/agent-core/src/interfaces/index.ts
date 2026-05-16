@@ -192,3 +192,5 @@ export type { ICacheKey, ICacheEntry, ICacheStorage, ICacheStats, ICacheOptions 
 export type { ISpinner, ITerminalOutput } from './terminal-output';
 
 export type { ISession } from './session';
+
+export type { IDirent, IStats, IFileSystem, IFileSystemAsync } from './file-system';

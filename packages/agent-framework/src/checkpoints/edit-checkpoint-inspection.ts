@@ -1,5 +1,6 @@
-import { statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointInspectionPlan,
@@ -13,11 +14,13 @@ interface IEditCheckpointInspectionInput {
   target: IEditCheckpointManifest;
   manifests: readonly IEditCheckpointManifest[];
   checkpointDir: (sessionId: string, checkpointId: string) => string;
+  fs?: IFileSystem;
 }
 
 export function buildEditCheckpointInspection(
   input: IEditCheckpointInspectionInput,
 ): IEditCheckpointInspection {
+  const fs = input.fs ?? new NodeFileSystem();
   const later = input.manifests.filter((manifest) => manifest.sequence > input.target.sequence);
   const rollbackRange = input.manifests.filter(
     (manifest) => manifest.sequence >= input.target.sequence,
@@ -29,7 +32,7 @@ export function buildEditCheckpointInspection(
       const snapshotPath = file.snapshotFile
         ? join(input.checkpointDir(input.sessionId, input.target.id), file.snapshotFile)
         : undefined;
-      const snapshotStats = snapshotPath ? statSafe(snapshotPath) : undefined;
+      const snapshotStats = snapshotPath ? statSafe(snapshotPath, fs) : undefined;
       return {
         originalPath: file.originalPath,
         relativePath: relative(input.cwd, file.originalPath),
@@ -64,10 +67,11 @@ function toInspectionPlan(
   };
 }
 
-function statSafe(path: string): { size: number } | undefined {
+function statSafe(path: string, fs: IFileSystem): { size: number } | undefined {
   try {
-    return statSync(path);
+    return fs.statSync(path);
   } catch {
+    // allow-fallback: missing snapshot file returns undefined to mark snapshot unavailable
     return undefined;
   }
 }

@@ -5,8 +5,9 @@
  * concurrent writes from overwriting each other's changes.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { TMarketplaceSource } from './marketplace-types.js';
 
 /** Persisted marketplace source entry. */
@@ -23,24 +24,27 @@ export interface IPluginSettings {
 /** Centralized settings store for plugin configuration. */
 export class PluginSettingsStore {
   private readonly settingsPath: string;
+  private readonly fs: IFileSystem;
 
-  constructor(settingsPath: string) {
+  constructor(settingsPath: string, fs: IFileSystem = new NodeFileSystem()) {
     this.settingsPath = settingsPath;
+    this.fs = fs;
   }
 
   /** Read the full settings file from disk. */
   private readAll(): Record<string, unknown> {
-    if (!existsSync(this.settingsPath)) {
+    if (!this.fs.existsSync(this.settingsPath)) {
       return {};
     }
     try {
-      const raw = readFileSync(this.settingsPath, 'utf-8');
+      const raw = this.fs.readFileSync(this.settingsPath, 'utf-8');
       const data: unknown = JSON.parse(raw);
       if (typeof data === 'object' && data !== null) {
         return data as Record<string, unknown>;
       }
       return {};
     } catch {
+      // allow-fallback: corrupt settings file returns empty object to allow recovery
       return {};
     }
   }
@@ -48,10 +52,10 @@ export class PluginSettingsStore {
   /** Write the full settings file to disk. */
   private writeAll(settings: Record<string, unknown>): void {
     const dir = dirname(this.settingsPath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+    if (!this.fs.existsSync(dir)) {
+      this.fs.mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    this.fs.writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
   }
 
   // --- enabledPlugins ---
