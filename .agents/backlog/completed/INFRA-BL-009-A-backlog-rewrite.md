@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-BL-009-A: 빌드 도구 마이그레이션 백로그 규칙 준수 구조로 재작성'
-status: todo
+status: done
 created: 2026-05-15
 priority: high
 urgency: soon
