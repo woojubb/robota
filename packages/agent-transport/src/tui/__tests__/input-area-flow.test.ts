@@ -14,6 +14,7 @@ import {
   shouldSubmitInput,
 } from '../flows/input-area-flow.js';
 import type { ICommand } from '@robota-sdk/agent-framework';
+import type { ITuiPickerInteraction } from '../command-interaction.js';
 import {
   createAssistantMessage,
   createSystemMessage,
@@ -64,6 +65,24 @@ describe('input area flow', () => {
     const result = resolveEnterCommandSelection('/he', command('help'));
 
     expect(result).toEqual({ type: 'submit', value: '/help' });
+  });
+
+  it('Given interaction declared and no args When enter selects command Then open-interaction is returned', () => {
+    const result = resolveEnterCommandSelection('/ex', command('exit'), {
+      onMissingArgs: 'confirm',
+    });
+
+    expect(result).toEqual({ type: 'open-interaction', commandName: 'exit' });
+  });
+
+  it('Given interaction declared but subcommand selected (args present) When enter selects Then submits', () => {
+    const pickerInteraction: ITuiPickerInteraction = {
+      onMissingArgs: 'picker',
+      getItems: () => [],
+    };
+    const result = resolveEnterCommandSelection('/mode plan', command('plan'), pickerInteraction);
+
+    expect(result).toEqual({ type: 'submit', value: '/mode plan' });
   });
 
   it('Given multiline paste When label change is created Then label is inserted at cursor', () => {
