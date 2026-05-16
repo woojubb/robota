@@ -24,6 +24,7 @@ function createCompactSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: false,
     userInvocable: true,
     modelInvocable: entry.modelInvocable,
     argumentHint: entry.argumentHint,

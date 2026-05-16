@@ -29,6 +29,7 @@ function createModelSystemCommand(options?: IModelCommandModuleOptions): ISystem
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: true,
     userInvocable: true,
     argumentHint: entry.argumentHint,
     subcommands: entry.subcommands,

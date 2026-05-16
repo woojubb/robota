@@ -24,6 +24,7 @@ function createResetSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: true,
     userInvocable: true,
     modelInvocable: false,
     lifecycle: 'inline',
