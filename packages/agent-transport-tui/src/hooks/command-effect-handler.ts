@@ -1,5 +1,5 @@
-import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sdk/agent-sdk';
-import { isStatusLineCommandSettingsPatch } from '@robota-sdk/agent-sdk';
+import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
+import { isStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';

@@ -3,8 +3,8 @@ import {
   CommandRegistry,
   SystemCommandExecutor,
   createSystemCommands,
-} from '@robota-sdk/agent-sdk';
-import type { IAgentJobHostContext, ICommandHostContext } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import type { IAgentJobHostContext, ICommandHostContext } from '@robota-sdk/agent-framework';
 import { createAgentCommandModule } from '../agent-command-module.js';
 
 function createMockSession(overrides?: Record<string, unknown>): ICommandHostContext {

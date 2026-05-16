@@ -53,16 +53,16 @@ const PRODUCT_SHELL_OWNERSHIP_PATTERNS = [
 const COMMAND_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
   '@robota-sdk/agent-provider-',
   '@robota-sdk/agent-cli',
-  '@robota-sdk/agent-web',
+  '@robota-sdk/agent-web-ui',
   '@robota-sdk/agent-server',
 ];
 
 const PROVIDER_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
   '@robota-sdk/agent-command-',
   '@robota-sdk/agent-cli',
-  '@robota-sdk/agent-web',
+  '@robota-sdk/agent-web-ui',
   '@robota-sdk/agent-server',
-  '@robota-sdk/agent-sdk',
+  '@robota-sdk/agent-framework',
 ];
 
 const DOCUMENTED_WORKSPACE_PATTERNS = [
@@ -71,20 +71,18 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-transport-[^/]+$/, textPattern: /agent-transport-\*/ },
   { pathPattern: /^packages\/agent-plugin-[^/]+$/, textPattern: /agent-plugin-\*/ },
   { pathPattern: /^packages\/agent-interface-[^/]+$/, textPattern: /agent-interface-\*/ },
-  { pathPattern: /^packages\/agent-web$/, textPattern: /agent-web/ },
+  { pathPattern: /^packages\/agent-web-ui$/, textPattern: /agent-web-ui/ },
   { pathPattern: /^packages\/agent-tool-mcp$/, textPattern: /agent-tool-mcp/ },
   { pathPattern: /^packages\/agent-tools$/, textPattern: /agent-tools/ },
-  { pathPattern: /^packages\/agent-runtime$/, textPattern: /agent-runtime/ },
-  { pathPattern: /^packages\/agent-sdk$/, textPattern: /agent-sdk/ },
-  { pathPattern: /^packages\/agent-sessions$/, textPattern: /agent-sessions/ },
+  { pathPattern: /^packages\/agent-executor$/, textPattern: /agent-executor/ },
+  { pathPattern: /^packages\/agent-framework$/, textPattern: /agent-framework/ },
+  { pathPattern: /^packages\/agent-session$/, textPattern: /agent-session/ },
   { pathPattern: /^packages\/agent-core$/, textPattern: /agent-core/ },
   { pathPattern: /^packages\/agent-cli$/, textPattern: /agent-cli/ },
   { pathPattern: /^packages\/agent-playground$/, textPattern: /agent-playground/ },
   { pathPattern: /^packages\/agent-remote-client$/, textPattern: /agent-remote-client/ },
   { pathPattern: /^packages\/agent-team$/, textPattern: /agent-team/ },
   { pathPattern: /^packages\/agent-event-service$/, textPattern: /agent-event-service/ },
-  { pathPattern: /^packages\/auth$/, textPattern: /auth/ },
-  { pathPattern: /^packages\/credits$/, textPattern: /credits/ },
   { pathPattern: /^apps\/agent-web$/, textPattern: /agent-web/ },
   { pathPattern: /^apps\/agent-server$/, textPattern: /agent-server/ },
   { pathPattern: /^apps\/docs$/, textPattern: /(?:apps\/)?docs\// },

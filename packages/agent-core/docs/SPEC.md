@@ -11,7 +11,7 @@
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
 - Does not own workflow visualization or session persistence; session persistence belongs to
-  `@robota-sdk/agent-sessions`.
+  `@robota-sdk/agent-session`.
 - **Zero dependency on other agent-\* packages.** `agent-core` must never import any other
   `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered
   assembly architecture: other agent-\* packages register with agent-core through its abstract
@@ -274,7 +274,7 @@ Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools own
 | `estimateSerializedContextTokens`   | function  | Deterministic serialized-history fallback estimate                                                 |
 | `readTokenUsageFromMessage`         | function  | Reads normalized token usage from a single message                                                 |
 
-These types and helpers are consumed by `@robota-sdk/agent-sessions` to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
+These types and helpers are consumed by `@robota-sdk/agent-session` to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
 
 Provider response usage is normalized before assistant messages are committed:
 
@@ -362,7 +362,7 @@ Events are bound to their owner via `bindWithOwnerPath()`.
 
 ## Permission System
 
-The permission module (`src/permissions/`) provides a deterministic, three-step policy evaluation for tool calls. It is consumed by `@robota-sdk/agent-sessions` to gate tool execution before delegating to the actual tool.
+The permission module (`src/permissions/`) provides a deterministic, three-step policy evaluation for tool calls. It is consumed by `@robota-sdk/agent-session` to gate tool execution before delegating to the actual tool.
 
 ### Evaluation Algorithm (`evaluatePermission`)
 
@@ -661,7 +661,7 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by `@robota-sdk/agent-sessions` at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by `@robota-sdk/agent-session` at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
 
 ### Provider Error Recovery
 
@@ -778,7 +778,7 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 | `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider-anthropic) | `packages/agent-provider-anthropic/src/provider.ts`          |
 | `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider-gemini)       | `packages/agent-provider-gemini/src/provider.ts`             |
 | `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider-google)       | `packages/agent-provider-google/src/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)              | `packages/agent-sessions/examples/verify-offline.ts`         |
+| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)              | `packages/agent-session/examples/verify-offline.ts`          |
 | `AbstractExecutor` (agent-core)   | `SimpleRemoteExecutor` (agent-remote)          | `packages/agent-remote/src/client/remote-executor-simple.ts` |
 
 ## Test Strategy
@@ -816,7 +816,7 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 ### Key Peer Contracts
 
 - Provider packages implement `AbstractAIProvider` and `IAIProvider`
-- `@robota-sdk/agent-sessions` consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
+- `@robota-sdk/agent-session` consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
 - `@robota-sdk/agent-tools` consumes `AbstractTool`, `IFunctionTool`, `IToolWithEventService`
 - `@robota-sdk/agent-plugin-*` packages extend `AbstractPlugin`
 - `@robota-sdk/agent-team` consumes `Robota`, `IAgentConfig`, event services

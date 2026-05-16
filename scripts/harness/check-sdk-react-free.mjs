@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Check that agent-sdk (packages/agent-sdk) has no React imports.
+ * Check that agent-sdk (packages/agent-framework) has no React imports.
  *
  * Rules enforced:
- * 1. No `from 'react'` or `from "react"` imports in packages/agent-sdk/src/
- * 2. No 'react' in packages/agent-sdk/package.json dependencies or devDependencies.
+ * 1. No `from 'react'` or `from "react"` imports in packages/agent-framework/src/
+ * 2. No 'react' in packages/agent-framework/package.json dependencies or devDependencies.
  *
  * agent-sdk is a platform-neutral assembly layer. React hooks/context/components
  * belong in CLI packages (agent-cli, agent-command-*) only.
@@ -62,7 +62,7 @@ if (existsSync(SDK_PKG_JSON)) {
       violations.push({
         type: 'REACT-DEP',
         section,
-        message: `React listed in packages/agent-sdk/package.json [${section}]. agent-sdk must be React-free.`,
+        message: `React listed in packages/agent-framework/package.json [${section}]. agent-sdk must be React-free.`,
       });
     }
   }

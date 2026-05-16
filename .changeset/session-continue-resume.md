@@ -1,6 +1,6 @@
 ---
-'@robota-sdk/agent-sessions': minor
-'@robota-sdk/agent-sdk': minor
+'@robota-sdk/agent-session': minor
+'@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-cli': minor
 ---
 

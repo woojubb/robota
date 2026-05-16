@@ -55,13 +55,13 @@ Align project memory behavior with the command/capability architecture. `/memory
 
 ## Verification
 
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/interactive/__tests__/interactive-session-memory.test.ts src/commands/__tests__/system-command.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/commands/__tests__/system-command.test.ts src/memory/__tests__/automatic-memory.test.ts src/interactive/__tests__/interactive-session-memory.test.ts src/__tests__/system-prompt-builder.test.ts src/commands/__tests__/command-registry.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/interactive/__tests__/interactive-session-memory.test.ts src/commands/__tests__/system-command.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/commands/__tests__/system-command.test.ts src/memory/__tests__/automatic-memory.test.ts src/interactive/__tests__/interactive-session-memory.test.ts src/__tests__/system-prompt-builder.test.ts src/commands/__tests__/command-registry.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli test -- src/commands/__tests__/builtin-source.test.ts src/commands/__tests__/slash-executor.test.ts src/ui/__tests__/input-area-flow.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk test`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
-- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework lint`
+- `pnpm --filter @robota-sdk/agent-framework build`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
 - `pnpm harness:scan`
 

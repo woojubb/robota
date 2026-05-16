@@ -4,7 +4,7 @@ status: done
 created: 2026-05-12
 priority: medium
 urgency: soon
-area: packages/agent-sdk/src/command-api/provider/provider-profile-names.ts
+area: packages/agent-framework/src/command-api/provider/provider-profile-names.ts
 ---
 
 ## Problem
@@ -65,5 +65,5 @@ const baseName =
 
 관련 파일:
 
-- `packages/agent-sdk/src/command-api/provider/provider-profile-names.ts` — `suggestProviderProfileName()` 수정
-- `packages/agent-sdk/src/command-api/provider/provider-profile-names.test.ts` — 테스트 업데이트
+- `packages/agent-framework/src/command-api/provider/provider-profile-names.ts` — `suggestProviderProfileName()` 수정
+- `packages/agent-framework/src/command-api/provider/provider-profile-names.test.ts` — 테스트 업데이트

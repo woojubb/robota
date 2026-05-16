@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-framework';
 import type { IMenuSelectItem } from '../MenuSelect.js';
 
 export function usePluginScreenData(

@@ -1,5 +1,5 @@
 {
-  "name": "@robota-sdk/agent-web",
+  "name": "@robota-sdk/agent-web-ui",
   "version": "0.1.0",
   "private": true,
   "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
@@ -19,7 +19,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-playground": "workspace:^",
-    "@robota-sdk/agent-web": "workspace:^",
+    "@robota-sdk/agent-web-ui": "workspace:^",
     "next": "15.4.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"

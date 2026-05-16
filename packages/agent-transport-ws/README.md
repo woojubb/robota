@@ -12,7 +12,7 @@ pnpm add @robota-sdk/agent-transport-ws
 
 ```typescript
 import { createWsHandler } from '@robota-sdk/agent-transport-ws';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({ port: 8080 });
@@ -66,11 +66,11 @@ All messages are JSON-encoded objects with a `type` field.
 
 ## ITransportAdapter
 
-The WebSocket transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+The WebSocket transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`:
 
 ```typescript
 import { createWsTransport } from '@robota-sdk/agent-transport-ws';
-import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-framework';
 
 const transport: ITransportAdapter = createWsTransport({
   send: (msg) => ws.send(JSON.stringify(msg)),
@@ -86,7 +86,7 @@ ws.on('close', () => transport.stop());
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` — `InteractiveSession`
+- `@robota-sdk/agent-framework` — `InteractiveSession`
 - No WebSocket library dependency (framework-agnostic)
 
 ## Background Work

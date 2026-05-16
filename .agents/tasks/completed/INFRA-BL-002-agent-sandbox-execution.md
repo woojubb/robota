@@ -183,11 +183,11 @@ await sandbox.kill();
 검증:
 
 - `pnpm --filter @robota-sdk/agent-tools test -- src/__tests__/sandbox-tools.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/assembly/__tests__/create-tools.test.ts src/__tests__/create-session-new-options.test.ts src/reversible-execution/__tests__/reversible-execution-policy.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/assembly/__tests__/create-tools.test.ts src/__tests__/create-session-new-options.test.ts src/reversible-execution/__tests__/reversible-execution-policy.test.ts`
 - `pnpm --filter @robota-sdk/agent-tools typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm --filter @robota-sdk/agent-tools lint`
-- `pnpm --filter @robota-sdk/agent-sdk lint`
+- `pnpm --filter @robota-sdk/agent-framework lint`
 - `pnpm build`
 - `pnpm docs:build`
 - `pnpm harness:scan`

@@ -15,8 +15,8 @@ Compaction previously existed in multiple paths. The dedicated `agent-command-co
 - `packages/agent-command-compact/src/compact-command-module.ts` defines the `compact` command module, blocking lifecycle, model-invocable policy, and safety metadata.
 - `packages/agent-cli/src/ui/hooks/useSlashRouting.ts` routes slash commands through `InteractiveSession.executeCommand()`.
 - `packages/agent-cli/src/ui/hooks/useInteractiveSession.ts` bridges compact events back into TUI history so automatic compaction notifications are rendered.
-- `packages/agent-sdk/src/config/config-types.ts` and `packages/agent-sessions/src/context-window-tracker.ts` define configurable auto-compact policy with the documented default.
-- `packages/agent-sessions/src/session-run.ts` auto-compacts at the start of `run()` when the tracker exceeds the threshold.
+- `packages/agent-framework/src/config/config-types.ts` and `packages/agent-session/src/context-window-tracker.ts` define configurable auto-compact policy with the documented default.
+- `packages/agent-session/src/session-run.ts` auto-compacts at the start of `run()` when the tracker exceeds the threshold.
 - `agent-invocation-router.md` already describes command descriptors and model-invocable command execution as the direction for built-in commands such as `/agent`.
 
 ## Research Required

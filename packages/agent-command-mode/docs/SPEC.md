@@ -8,7 +8,7 @@ Own the legacy `/mode` command as an optional composable command module. The pac
 
 - Owns optional `/mode` descriptor metadata, permission-mode subcommands, validation, and execution.
 - Does not own permission storage, TUI rendering, or direct session internals.
-- Uses `@robota-sdk/agent-sdk` command contracts and permission mode common APIs.
+- Uses `@robota-sdk/agent-framework` command contracts and permission mode common APIs.
 
 ## Public API
 
@@ -29,7 +29,7 @@ Own the legacy `/mode` command as an optional composable command module. The pac
 
 ## Dependency Rules
 
-- May import `@robota-sdk/agent-sdk`.
+- May import `@robota-sdk/agent-framework`.
 - Must not import `@robota-sdk/agent-cli`.
 - Must not duplicate permission-mode constants owned by the SDK command API.
 

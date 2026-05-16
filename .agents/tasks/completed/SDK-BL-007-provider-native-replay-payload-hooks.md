@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: feat/provider-native-replay-payload-hooks
-- **Scope**: packages/agent-core, packages/agent-provider-\*, packages/agent-sessions, packages/agent-sdk, packages/agent-cli
+- **Scope**: packages/agent-core, packages/agent-provider-\*, packages/agent-session, packages/agent-framework, packages/agent-cli
 
 ## Objective
 

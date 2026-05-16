@@ -20,7 +20,7 @@ related: [V-CON-004, PLG-002]
 ## Solution
 
 1. `apps-and-deployment.md`에 `apps/agent-web`의 라우트 구조를 추가한다 (`/`, `/monitor` 등).
-2. `apps/agent-web`의 SPEC.md 또는 README에 `/monitor` 라우트의 역할과 `packages/agent-web`과의 관계를 기술한다.
+2. `apps/agent-web`의 SPEC.md 또는 README에 `/monitor` 라우트의 역할과 `packages/agent-web-ui과의 관계를 기술한다.
 3. `PLG-002` 백로그가 완료되면 해당 아키텍처 등재를 이 항목에서 확인한다.
 
 ## Test Plan

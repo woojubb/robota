@@ -4,12 +4,12 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk
+area: packages/agent-framework
 ---
 
 ## Problem
 
-`packages/agent-sdk/src/interactive/interactive-session.ts`가 1,578줄, private field 96개, public async 메서드 21개로 anti-monolith 규칙을 5× 초과한다. 스트리밍 누적, 도구 추적, 메시지 히스토리, 백그라운드 태스크 이벤트, 서브에이전트 생명주기, 컨텍스트 참조, 에디트 체크포인트, 스킬 실행, 세션 지속성, 자동 압축 조율을 단일 클래스에서 처리한다.
+`packages/agent-framework/src/interactive/interactive-session.ts`가 1,578줄, private field 96개, public async 메서드 21개로 anti-monolith 규칙을 5× 초과한다. 스트리밍 누적, 도구 추적, 메시지 히스토리, 백그라운드 태스크 이벤트, 서브에이전트 생명주기, 컨텍스트 참조, 에디트 체크포인트, 스킬 실행, 세션 지속성, 자동 압축 조율을 단일 클래스에서 처리한다.
 
 Rule violation: Anti-monolith (300줄 제한), Composition over integration.
 
@@ -35,7 +35,7 @@ Source: COMBINED-001 (SA-001, SD-001)
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk test` — 전체 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 전체 통과
 - `pnpm typecheck` — 전체 통과
 - `pnpm harness:scan` — 300줄 위반 없음
 - `pnpm build` — 전체 통과

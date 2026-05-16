@@ -2,7 +2,7 @@
 
 - **Status**: completed
 - **Branch**: feat/context-injection-task-files
-- **Scope**: packages/agent-sdk
+- **Scope**: packages/agent-framework
 
 ## Context
 
@@ -56,7 +56,7 @@ Develop a standardized method for injecting relevant task-level metadata (status
 - Integrated active task context into context loading and system prompt composition as a neutral `## Active Task Context` section.
 - Added unit coverage for discovery, parsing, selection, prompt formatting, status updates, context loading, and prompt section placement.
 - Fixed pre-push full-suite isolation by preventing cwd-less injected sessions from implicitly writing edit checkpoint state to the repository cwd.
-- Verified with targeted tests, full `@robota-sdk/agent-sdk` tests, typecheck, build, lint, `harness:scan`, and affected `harness:verify`.
+- Verified with targeted tests, full `@robota-sdk/agent-framework` tests, typecheck, build, lint, `harness:scan`, and affected `harness:verify`.
 
 ## Result
 

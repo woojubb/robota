@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { IResumableSessionSummary } from '@robota-sdk/agent-sdk';
+import type { IResumableSessionSummary } from '@robota-sdk/agent-framework';
 import ListPicker from './ListPicker.js';
 
 const SESSION_ID_DISPLAY_LENGTH = 8;

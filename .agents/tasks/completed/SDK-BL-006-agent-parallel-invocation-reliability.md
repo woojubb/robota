@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-02
 - **Branch**: fix/cli-sdk-backlog-053-006
-- **Scope**: packages/agent-sdk, packages/agent-command-agent, packages/agent-sessions
+- **Scope**: packages/agent-framework, packages/agent-command-agent, packages/agent-session
 
 ## What
 
@@ -84,7 +84,7 @@ The model-visible instructions say that for multiple or parallel agents, the mod
 
 1. Assign a backlog ID, for example `SDK-BL-0XX-agent-parallel-invocation-reliability`.
 2. Move this file to `.agents/tasks/<ID>-agent-parallel-invocation-reliability.md`.
-3. Update `packages/agent-sdk/docs/SPEC.md`, `packages/agent-command-agent/docs/SPEC.md`, and relevant session logging specs before implementation.
+3. Update `packages/agent-framework/docs/SPEC.md`, `packages/agent-command-agent/docs/SPEC.md`, and relevant session logging specs before implementation.
 4. Implement with TDD around two-agent and four-agent explicit parallel requests.
 
 ## Progress

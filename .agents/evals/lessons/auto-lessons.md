@@ -17,39 +17,39 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 26 events in the last 7 days
+- Frequency: 13 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
-- First seen: 2026-05-09T13:32:49.000Z
+- First seen: 2026-05-10T12:20:36.000Z
 - Last seen: 2026-05-15T12:46:06.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 8099 events in the last 7 days
+- Frequency: 7294 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-001-architecture-md-stale-apps.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-AUDIT-002-repository-overview-package-families.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-CONF-005-agent-plugin-spec-sweep.md`
-- First seen: 2026-05-09T07:35:07.000Z
-- Last seen: 2026-05-15T12:49:35.000Z
+- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-001-transport-sdk-reverse-dependency.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-002-agent-event-service-compat-shim-removal.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-003-agent-cli-core-direct-dependency.md`
+- First seen: 2026-05-10T05:29:56.000Z
+- Last seen: 2026-05-15T18:08:25.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 205 events in the last 7 days
+- Frequency: 142 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-09T09:16:51.000Z
-- Last seen: 2026-05-15T12:49:35.000Z
+- First seen: 2026-05-10T05:52:53.000Z
+- Last seen: 2026-05-15T18:08:25.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 16 events in the last 7 days
+- Frequency: 18 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/ui/hooks/useSideEffects.ts`, `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`, `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-cli/src/web-sidecar/web-sidecar-server.ts`
-- First seen: 2026-05-09T14:16:03.000Z
-- Last seen: 2026-05-14T17:09:03.000Z
+- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/ui/hooks/useSideEffects.ts`, `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`, `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-core/src/services/execution-round-provider.ts`
+- First seen: 2026-05-10T06:11:13.000Z
+- Last seen: 2026-05-15T20:13:55.000Z
 - Status: candidate; human review is required before promotion.

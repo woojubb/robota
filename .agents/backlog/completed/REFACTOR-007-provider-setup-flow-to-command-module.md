@@ -4,14 +4,14 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk, packages/agent-command-provider
+area: packages/agent-framework, packages/agent-command-provider
 ---
 
 ## Problem
 
-`packages/agent-sdk/src/command-api/provider/provider-setup-flow.ts` (309줄)가 provider setup flow 전체 state machine을 SDK 내부에서 구현한다. 규칙 81은 "provider settings/profile helpers may be SDK common APIs, while /provider command flow must consume those APIs as a command module would" 임을 명시한다.
+`packages/agent-framework/src/command-api/provider/provider-setup-flow.ts` (309줄)가 provider setup flow 전체 state machine을 SDK 내부에서 구현한다. 규칙 81은 "provider settings/profile helpers may be SDK common APIs, while /provider command flow must consume those APIs as a command module would" 임을 명시한다.
 
-`packages/agent-sdk/src/index.ts`가 621줄 배럴로 과대 성장한 원인 중 하나다.
+`packages/agent-framework/src/index.ts`가 621줄 배럴로 과대 성장한 원인 중 하나다.
 
 Rule violation: SDK command common API boundary — setup flow state machine은 agent-command-provider 책임.
 
@@ -28,7 +28,7 @@ Source: COMBINED-007 (SA-005)
 
 - `pnpm typecheck` — 전체 통과
 - `pnpm --filter @robota-sdk/agent-command-provider test` — 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
 - `pnpm build` — 전체 통과
 
 ## User Execution Test Scenarios

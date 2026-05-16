@@ -40,7 +40,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SA-001, SD-001
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts`
+- **Area**: `packages/agent-framework/src/interactive/interactive-session.ts`
 - **Problem**: 1,578줄, private field 96개, public async 메서드 21개. 스트리밍 누적, 도구 추적, 메시지 히스토리, 백그라운드 태스크 이벤트, 서브에이전트 생명주기, 컨텍스트 참조, 에디트 체크포인트, 스킬 실행, 세션 지속성, 자동 압축 조율을 모두 한 클래스에서 처리.
 - **Rule**: Anti-monolith — 300줄 / 함수 50줄 제한. Composition over integration.
 - **Backlog**: REFACTOR-001
@@ -51,7 +51,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SA-002
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/background-tasks/index.ts`, `packages/agent-sdk/src/subagents/index.ts`
+- **Area**: `packages/agent-framework/src/background-tasks/index.ts`, `packages/agent-framework/src/subagents/index.ts`
 - **Problem**: `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, `BackgroundTaskError` 등 agent-runtime 소유 심벌을 agent-sdk 공개 표면으로 재노출. common-mistakes 규칙 4(Pass-through re-export 금지) 위반.
 - **Rule**: No pass-through re-exports.
 - **Backlog**: REFACTOR-002
@@ -62,7 +62,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SA-003
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/plugins/marketplace-client.ts:9`, `bundle-plugin-installer.ts:8`, `utils/skill-prompt.ts:1`
+- **Area**: `packages/agent-framework/src/plugins/marketplace-client.ts:9`, `bundle-plugin-installer.ts:8`, `utils/skill-prompt.ts:1`
 - **Problem**: assembly 레이어인 agent-sdk가 `execSync` (git clone/pull, npm install/uninstall, shell 명령 실행)를 직접 호출. `ExecFn` 주입 패턴이 일부 적용되어 있으나 불완전.
 - **Rule**: Orchestrator/adapter split. Concrete I/O는 injected adapters/shell packages에만.
 - **Backlog**: REFACTOR-003
@@ -95,7 +95,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SD-003
 - **Severity**: High
-- **Area**: `packages/agent-sdk/src/command-api/host-context.ts:75–113`
+- **Area**: `packages/agent-framework/src/command-api/host-context.ts:75–113`
 - **Problem**: `ICommandHostContext`의 20개 메서드 중 10개가 optional(`?:`). command module이 핵심 기능을 `?.` 없이 호출할 수 없어 인터페이스가 보증하는 것이 없는 상태.
 - **Rule**: Interface contracts should guarantee what is available.
 - **Backlog**: REFACTOR-006 (SD-004의 `as unknown as IAgentJobHostContext` 포함)
@@ -106,7 +106,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SA-005
 - **Severity**: Medium
-- **Area**: `packages/agent-sdk/src/index.ts` (621줄), `packages/agent-sdk/src/command-api/provider/provider-setup-flow.ts` (309줄)
+- **Area**: `packages/agent-framework/src/index.ts` (621줄), `packages/agent-framework/src/command-api/provider/provider-setup-flow.ts` (309줄)
 - **Problem**: provider setup flow 전체 state machine이 SDK에 내장. 규칙 81은 "provider flow는 command module 책임"임을 명시.
 - **Rule**: SDK command common API boundary — setup flow는 agent-command-provider 소유.
 - **Backlog**: REFACTOR-007
@@ -155,7 +155,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SD-005, SD-006
 - **Severity**: Medium
-- **Area**: `packages/agent-sdk/src/plugins/marketplace-types.ts`, `plugin-settings-store.ts`, `bundle-plugin-installer.ts`
+- **Area**: `packages/agent-framework/src/plugins/marketplace-types.ts`, `plugin-settings-store.ts`, `bundle-plugin-installer.ts`
 - **Problem**: `IMarketplaceSource` type alias가 두 파일에 verbatim 중복. `ExecFn`이 `T` prefix 없이 정의 + `bundle-plugin-installer.ts`에 private 재정의.
 - **Rule**: No cross-package/file type duplication. T\* prefix for type aliases.
 - **Backlog**: REFACTOR-010
@@ -188,7 +188,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SD-009
 - **Severity**: Medium
-- **Area**: `packages/agent-sessions/src/session.ts:167`
+- **Area**: `packages/agent-session/src/session.ts:167`
 - **Problem**: `name: 'robota-cli'` in `IAgentConfig`. foundation 패키지에 CLI 제품명 하드코딩.
 - **Rule**: No product names in code. Foundation packages must not reference specific consumer names.
 - **Backlog**: REFACTOR-013
@@ -210,7 +210,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SD-011
 - **Severity**: Medium
-- **Area**: `packages/agent-sdk/src/command-api/host-context.ts:64,79`
+- **Area**: `packages/agent-framework/src/command-api/host-context.ts:64,79`
 - **Problem**: `ICommandSessionRuntime`에서는 optional(`?`), `ICommandHostContext`에서는 required. 동일 동작에 두 가지 계약.
 - **Rule**: Consistent interface contracts.
 - **Backlog**: REFACTOR-015
@@ -275,7 +275,7 @@ Methodology: Independent parallel review, direct code inspection on `develop` br
 
 - **Sources**: SD-013
 - **Severity**: Low
-- **Area**: `packages/agent-sdk/src/interactive/interactive-session.ts:655`
+- **Area**: `packages/agent-framework/src/interactive/interactive-session.ts:655`
 - **Problem**: `this.cwd ?? process.cwd()`. cwd 미제공 시 환경에 따라 비결정론적 동작.
 - **Rule**: No fallback — absent value = bug.
 - **Backlog**: REFACTOR-021

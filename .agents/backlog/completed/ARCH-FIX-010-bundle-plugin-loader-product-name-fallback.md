@@ -30,7 +30,7 @@ related: [V-SYS-007]
 - `bundle-plugin-loader.ts`에 `Claude Code` 문자열 없음 확인 (`rg 'Claude Code' packages/`)
 - fallback 경로 탐색 로직 없음 확인
 - silent catch 없음 확인
-- `pnpm --filter @robota-sdk/agent-sdk test` 통과
+- `pnpm --filter @robota-sdk/agent-framework test` 통과
 
 ## User Execution Test Scenarios
 

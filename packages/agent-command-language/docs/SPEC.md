@@ -8,7 +8,7 @@ Own the user-visible `/language` command as a composable command module. The pac
 
 - Owns `/language` descriptor metadata, recommended language subcommands, argument parsing, and effect production.
 - Does not own settings file I/O, restart orchestration, or TUI rendering.
-- Uses `@robota-sdk/agent-sdk` command contracts and language command common APIs.
+- Uses `@robota-sdk/agent-framework` command contracts and language command common APIs.
 
 ## Public API
 
@@ -28,7 +28,7 @@ Own the user-visible `/language` command as a composable command module. The pac
 
 ## Dependency Rules
 
-- May import `@robota-sdk/agent-sdk`.
+- May import `@robota-sdk/agent-framework`.
 - Must not import `@robota-sdk/agent-cli`.
 - Must not write settings files directly.
 

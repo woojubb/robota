@@ -9,9 +9,8 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import { findProviderDefinition } from '@robota-sdk/agent-sdk';
-import type { IProviderDefinition } from '@robota-sdk/agent-sdk';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
 import { createBackgroundCommandModule } from '@robota-sdk/agent-command-background';
 import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
@@ -38,12 +37,12 @@ import {
   projectPaths,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import type {
   ICommandHostAdapters,
   ICommandModule,
   TProviderSettingsDocument,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import {
@@ -72,7 +71,7 @@ import { TransportRegistry } from './transports/transport-registry.js';
 import {
   createDefaultBackgroundTaskRunners,
   type IBackgroundTaskRunner,
-} from '@robota-sdk/agent-runtime';
+} from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 import {
   checkForCliUpdate,

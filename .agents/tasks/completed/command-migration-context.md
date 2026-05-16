@@ -12,8 +12,8 @@ Migrate `/context` into a command-module owner that consumes SDK context-window 
 
 ## Current Owner
 
-- Execution: `packages/agent-sdk/src/commands/system-command.ts`
-- Auto compact threshold helper: `packages/agent-sdk/src/commands/system-command-metadata.ts`
+- Execution: `packages/agent-framework/src/commands/system-command.ts`
+- Auto compact threshold helper: `packages/agent-framework/src/commands/system-command-metadata.ts`
 
 ## Target Owner
 
@@ -46,13 +46,13 @@ Recommended: `@robota-sdk/agent-command-context`, potentially grouped with compa
 ## Verification
 
 - `pnpm install`
-- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-framework build`
 - `pnpm --filter @robota-sdk/agent-command-context test`
 - `pnpm --filter @robota-sdk/agent-command-context typecheck`
 - `pnpm --filter @robota-sdk/agent-command-context build`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/commands/__tests__/system-command.test.ts src/command-api/__tests__/command-api.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/commands/__tests__/system-command.test.ts src/command-api/__tests__/command-api.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm --filter @robota-sdk/agent-command-context lint`
 - `pnpm --filter @robota-sdk/agent-cli test -- src/commands/__tests__/builtin-source.test.ts src/ui/__tests__/slash-routing-effects.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli build`

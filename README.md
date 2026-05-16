@@ -18,7 +18,7 @@ robota
 ### SDK — Programmatic Usage
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { query } from '@robota-sdk/agent-framework';
 
 const response = await query('List all TypeScript files in src/');
 ```
@@ -62,8 +62,8 @@ agent-core        ← Foundation: Robota engine, abstractions, plugins
 | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
 | [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                             | Core agent runtime, abstractions, and plugin system    |
 | [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)                           | Tool registry, FunctionTool, and 8 built-in tools      |
-| [`@robota-sdk/agent-sessions`](https://www.npmjs.com/package/@robota-sdk/agent-sessions)                     | Session with permissions, hooks, and compaction        |
-| [`@robota-sdk/agent-sdk`](https://www.npmjs.com/package/@robota-sdk/agent-sdk)                               | Assembly layer with config/context loading and query() |
+| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                       | Session with permissions, hooks, and compaction        |
+| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                   | Assembly layer with config/context loading and query() |
 | [`@robota-sdk/agent-provider-anthropic`](https://www.npmjs.com/package/@robota-sdk/agent-provider-anthropic) | Anthropic Claude provider                              |
 | [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)                               | Interactive terminal AI coding assistant               |
 

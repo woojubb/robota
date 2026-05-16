@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-04-30
 - **Branch**: feat/subagent-manager-core
-- **Scope**: packages/agent-core, packages/agent-sessions
+- **Scope**: packages/agent-core, packages/agent-session
 
 ## Objective
 

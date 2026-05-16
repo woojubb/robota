@@ -36,7 +36,7 @@ or delete.
 - `packages/agent-command-provider/src/provider-command-execution.ts` formats provider lists as
   text and returns a confirmation interaction only after `use <profile>` receives an explicit
   profile argument.
-- `packages/agent-sdk/src/command-api/provider/**` owns provider settings, profile validation,
+- `packages/agent-framework/src/command-api/provider/**` owns provider settings, profile validation,
   setup-flow primitives, env references, and profile probing.
 - `packages/agent-cli/src/ui/**` already has generic UI primitives such as `MenuSelect`,
   `ListPicker`, `ConfirmPrompt`, `TextPrompt`, and command-effect handling.
@@ -50,8 +50,8 @@ or delete.
 - `packages/agent-command-provider/src/provider-command-module.ts`
 - `packages/agent-command-provider/src/__tests__/provider-command-module.test.ts`
 - `packages/agent-command-provider/docs/SPEC.md`
-- `packages/agent-sdk/src/command-api/provider/**`
-- `packages/agent-sdk/docs/SPEC.md`
+- `packages/agent-framework/src/command-api/provider/**`
+- `packages/agent-framework/docs/SPEC.md`
 - `packages/agent-cli/src/ui/hooks/command-effect-handler.ts`
 - `packages/agent-cli/src/ui/hooks/useSideEffects.ts`
 - `packages/agent-cli/src/ui/MenuSelect.tsx`, `ListPicker.tsx`, `TextPrompt.tsx`,

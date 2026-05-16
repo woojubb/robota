@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: refactor/sdk-public-surface-owner-audit
-- **Scope**: packages/agent-sdk, packages/agent-cli/docs, scripts/harness
+- **Scope**: packages/agent-framework, packages/agent-cli/docs, scripts/harness
 
 ## Objective
 
@@ -37,9 +37,9 @@ compatibility contracts.
 
 ## Test Plan
 
-- `rg -n "export \\* from '@robota-sdk|export \\* from" packages/agent-sdk/src`
-- `pnpm --filter @robota-sdk/agent-sdk test`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
+- `rg -n "export \\* from '@robota-sdk|export \\* from" packages/agent-framework/src`
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
 - `pnpm --filter @robota-sdk/agent-cli test`
 - `pnpm harness:scan:deps`
 - `pnpm harness:scan:commands`

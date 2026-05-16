@@ -3,7 +3,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect, vi } from 'vitest';
 import PluginTUI from '../PluginTUI.js';
-import type { ICommandPluginAdapter } from '@robota-sdk/agent-sdk';
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-framework';
 
 function mockCallbacks(): ICommandPluginAdapter {
   return {

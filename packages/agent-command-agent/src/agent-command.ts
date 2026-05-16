@@ -1,9 +1,9 @@
-import { summarizeBackgroundJobGroup } from '@robota-sdk/agent-sdk';
+import { summarizeBackgroundJobGroup } from '@robota-sdk/agent-framework';
 import type {
   IAgentJobHostContext,
   ICommandResult,
   ISubagentJobState,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
 import type { IAgentRunRequest } from './agent-command-parser.js';
 

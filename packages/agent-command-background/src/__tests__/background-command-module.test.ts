@@ -3,7 +3,7 @@ import type {
   IBackgroundTaskState,
   ICommandHostContext,
   ICommandSessionRuntime,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   BackgroundCommandSource,
   createBackgroundCommandEntry,

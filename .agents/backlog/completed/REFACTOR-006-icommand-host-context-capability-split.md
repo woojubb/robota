@@ -4,13 +4,13 @@ status: backlog
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk, packages/agent-command-agent
+area: packages/agent-framework, packages/agent-command-agent
 ---
 
 ## Problem
 
 **문제 1 — ICommandHostContext optional 멤버 10개:**
-`packages/agent-sdk/src/command-api/host-context.ts:75–113`에서 20개 메서드 중 10개가 optional(`?:`). command module이 핵심 기능을 `?.` 없이 안전하게 호출할 수 없어 인터페이스가 보증하는 것이 없는 상태다.
+`packages/agent-framework/src/command-api/host-context.ts:75–113`에서 20개 메서드 중 10개가 optional(`?:`). command module이 핵심 기능을 `?.` 없이 안전하게 호출할 수 없어 인터페이스가 보증하는 것이 없는 상태다.
 
 ```ts
 clearConversationHistory?(): void;
@@ -46,7 +46,7 @@ Source: COMBINED-006 (SD-003, SD-004)
 ## Test Plan
 
 - `pnpm typecheck` — 전체 통과
-- `pnpm --filter @robota-sdk/agent-sdk test` — 통과
+- `pnpm --filter @robota-sdk/agent-framework test` — 통과
 - `pnpm --filter @robota-sdk/agent-command-agent test` — 통과
 - `grep -r "as unknown as IAgentJobHostContext" packages --include="*.ts"` — 결과 없음 (프로덕션 파일)
 - `pnpm build` — 전체 통과

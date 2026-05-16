@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-sdk';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-framework';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TInteractivePrompt } from './side-effects-types.js';

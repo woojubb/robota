@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
-import type { ICommandHostContext } from '@robota-sdk/agent-sdk';
+import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
+import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '../skills-command-module.js';
 
 function createTempSkill(cwd: string): void {

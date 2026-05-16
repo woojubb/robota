@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { IExecutionWorkspaceEntry, IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-sdk';
+import type {
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+} from '@robota-sdk/agent-framework';
 import {
   applySelectionInput,
   createSelectionFlowState,

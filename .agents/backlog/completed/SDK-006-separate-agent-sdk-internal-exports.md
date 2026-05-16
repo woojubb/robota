@@ -4,7 +4,7 @@ status: done
 created: 2026-05-15
 priority: low
 urgency: later
-area: packages/agent-sdk
+area: packages/agent-framework
 ---
 
 ## Problem
@@ -32,7 +32,7 @@ table. Once consumers depend on them they become frozen public API that is expen
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk build` passes
+- `pnpm --filter @robota-sdk/agent-framework build` passes
 - `pnpm typecheck` clean across all packages
 - `pnpm test` passes
 - All exports in `agent-sdk/src/index.ts` are present in `agent-sdk/docs/SPEC.md`

@@ -281,9 +281,9 @@ describe('CLI dev source resolution', () => {
     'packages/agent-provider-openai',
     'packages/agent-provider-openai-compatible',
     'packages/agent-provider-qwen',
-    'packages/agent-runtime',
-    'packages/agent-sdk',
-    'packages/agent-sessions',
+    'packages/agent-executor',
+    'packages/agent-framework',
+    'packages/agent-session',
     'packages/agent-tools',
     'packages/agent-transport-headless',
   ];

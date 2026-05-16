@@ -4,8 +4,8 @@ import type {
   IEditCheckpointRestoreResult,
   IModelCommandModuleOptions,
   TProviderSettingsDocument,
-} from '@robota-sdk/agent-sdk';
-import { SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createModelCommandModule } from '../model-command-module.js';
 
 type TTestProviderDefinition = NonNullable<

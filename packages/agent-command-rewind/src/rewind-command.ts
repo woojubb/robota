@@ -4,13 +4,13 @@ import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 import {
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
-} from '@robota-sdk/agent-sdk';
+} from '@robota-sdk/agent-framework';
 
 const SUBCOMMAND_INDEX = 0;
 const CHECKPOINT_ID_INDEX = 1;

@@ -55,14 +55,14 @@ Recommended design:
 
 Implemented an optional provider-owned `refreshModelCatalog` contract on `IProviderDefinition`.
 `@robota-sdk/agent-provider-openai` now provides the first live adapter through the OpenAI Models API,
-and `@robota-sdk/agent-sdk` exposes async model command common APIs that invoke refresh hooks without
+and `@robota-sdk/agent-framework` exposes async model command common APIs that invoke refresh hooks without
 moving provider logic into command modules or the CLI/TUI. `/model` now surfaces catalog freshness and
 keeps manual model input available when refresh is unavailable.
 
 ## Verification Plan
 
 - `pnpm --filter @robota-sdk/agent-core test`
-- `pnpm --filter @robota-sdk/agent-sdk test -- model`
+- `pnpm --filter @robota-sdk/agent-framework test -- model`
 - `pnpm --filter @robota-sdk/agent-command-model test`
 - affected provider package tests
 - `pnpm harness:scan:commands`

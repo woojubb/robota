@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-04
 - **Branch**: docs/agent-cli-architecture-map
-- **Scope**: packages/agent-cli, packages/agent-sdk, packages/agent-command-*, packages/agent-core, .agents/rules
+- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-command-\*, packages/agent-core, .agents/rules
 
 ## Objective
 
@@ -102,7 +102,7 @@ into the new map or make it a focused subdocument linked from the master archite
 ## Scope
 
 - `packages/agent-cli`
-- `packages/agent-sdk` command API and session assembly surfaces used by the CLI
+- `packages/agent-framework` command API and session assembly surfaces used by the CLI
 - `packages/agent-command-*` built-in command packages used by the CLI
 - provider packages and provider definition contracts used during CLI setup
 - runtime/session/transport/tool packages directly needed by CLI execution
@@ -184,7 +184,7 @@ into the new map or make it a focused subdocument linked from the master archite
 ## Verification Plan
 
 - Read package specs before drawing the map: `packages/agent-cli/docs/SPEC.md`,
-  `packages/agent-sdk/docs/SPEC.md`, relevant `packages/agent-command-*/docs/SPEC.md`, and
+  `packages/agent-framework/docs/SPEC.md`, relevant `packages/agent-command-*/docs/SPEC.md`, and
   `packages/agent-core/docs/SPEC.md`.
 - Build the initial graph from source imports using `rg`, package manifests, and command
   registration code.

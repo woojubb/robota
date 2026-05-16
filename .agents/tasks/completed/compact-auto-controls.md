@@ -13,9 +13,9 @@ Add a user-facing way to inspect, enable, disable, and tune the automatic contex
 ## Current Signals
 
 - `packages/agent-command-context/src/context-command.ts` reports `Auto compact` from the `context` command.
-- `packages/agent-sessions/src/session-types.ts` supports `autoCompactThreshold?: TAutoCompactThreshold`.
-- `packages/agent-sessions/src/context-window-tracker.ts` accepts a threshold fraction or `false`.
-- `packages/agent-sdk/src/assembly/create-session.ts` can pass `autoCompactThreshold` into the session.
+- `packages/agent-session/src/session-types.ts` supports `autoCompactThreshold?: TAutoCompactThreshold`.
+- `packages/agent-session/src/context-window-tracker.ts` accepts a threshold fraction or `false`.
+- `packages/agent-framework/src/assembly/create-session.ts` can pass `autoCompactThreshold` into the session.
 
 ## Research Required
 

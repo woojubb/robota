@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
-import type { TInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
+import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '../headless-transport.js';
 
 type TStandardSessionOptions = Extract<

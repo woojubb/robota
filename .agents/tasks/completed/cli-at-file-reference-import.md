@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-05
 - **Branch**: feat/cli-at-file-reference-import
-- **Scope**: packages/agent-sdk, packages/agent-cli, command/context packages as needed
+- **Scope**: packages/agent-framework, packages/agent-cli, command/context packages as needed
 
 ## Objective
 

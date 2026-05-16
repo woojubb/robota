@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-sdk': patch
+'@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-transport-http': patch
 '@robota-sdk/agent-transport-ws': patch
 '@robota-sdk/agent-transport-mcp': patch

@@ -4,12 +4,12 @@ status: done
 created: 2026-05-15
 priority: high
 urgency: soon
-area: packages/agent-sdk, packages/agent-cli
+area: packages/agent-framework, packages/agent-cli
 ---
 
 ## Problem
 
-`packages/agent-sdk/src/subagents/child-process-subagent-runner.ts` imports `fork` from
+`packages/agent-framework/src/subagents/child-process-subagent-runner.ts` imports `fork` from
 `node:child_process` directly. CLI-AUDIT-006 already classified this as a CLI adapter, yet
 the file lives in `agent-sdk` and is re-exported from `agent-cli/src/subagents/index.ts`.
 This makes `agent-sdk` non-deployable in environments without `node:child_process` (e.g., edge
@@ -23,7 +23,7 @@ runtimes, browsers, WASM environments).
 
 ## Scope
 
-Files to move from `packages/agent-sdk/src/subagents/` to `packages/agent-cli/src/subagents/`:
+Files to move from `packages/agent-framework/src/subagents/` to `packages/agent-cli/src/subagents/`:
 
 - `child-process-subagent-runner.ts`
 - `child-process-subagent-runner-result.ts`
@@ -34,13 +34,13 @@ Files to move from `packages/agent-sdk/src/subagents/` to `packages/agent-cli/sr
 After the move:
 
 - `agent-sdk/src/subagents/index.ts` exports only `in-process-subagent-runner.ts` and
-  `@robota-sdk/agent-runtime` re-exports
+  `@robota-sdk/agent-executor` re-exports
 - `agent-cli/src/subagents/index.ts` exports both in-process and child-process runners
 - Add harness check: `agent-sdk` must not import from `node:child_process`
 
 ## Test Plan
 
-- `pnpm --filter @robota-sdk/agent-sdk build` passes with no `child_process` references
+- `pnpm --filter @robota-sdk/agent-framework build` passes with no `child_process` references
 - `pnpm --filter @robota-sdk/agent-cli build` passes with moved files in place
 - `pnpm test` for both packages passes
 - `pnpm typecheck` clean

@@ -29,8 +29,8 @@ cat packages/agent-core/package.json | jq '.dependencies // {} | keys[] | select
 ### 2. agent-sdk React-free (구현 검증)
 
 ```bash
-grep -r "from 'react'" packages/agent-sdk/src/ --include="*.ts" --include="*.tsx"
-grep "react" packages/agent-sdk/package.json
+grep -r "from 'react'" packages/agent-framework/src/ --include="*.ts" --include="*.tsx"
+grep "react" packages/agent-framework/package.json
 ```
 
 예상: 출력 없음
@@ -38,7 +38,7 @@ grep "react" packages/agent-sdk/package.json
 ### 3. agent-sessions는 agent-runtime에 의존하지 않음 (역방향 금지)
 
 ```bash
-cat packages/agent-sessions/package.json | jq '.dependencies // {} | keys[] | select(contains("agent-runtime"))'
+cat packages/agent-session/package.json | jq '.dependencies // {} | keys[] | select(contains("agent-runtime"))'
 ```
 
 예상: 출력 없음
@@ -56,7 +56,7 @@ done
 ### 5. agent-cli는 agent-sessions를 직접 import하지 않음
 
 ```bash
-grep -r "@robota-sdk/agent-sessions" packages/agent-cli/src/ --include="*.ts"
+grep -r "@robota-sdk/agent-session" packages/agent-cli/src/ --include="*.ts"
 ```
 
 예상: 출력 없음 (harness에서도 검사 중)
@@ -64,7 +64,7 @@ grep -r "@robota-sdk/agent-sessions" packages/agent-cli/src/ --include="*.ts"
 ### 6. agent-sdk는 agent-command-\* 패키지를 import하지 않음
 
 ```bash
-grep -r "@robota-sdk/agent-command-" packages/agent-sdk/src/ --include="*.ts"
+grep -r "@robota-sdk/agent-command-" packages/agent-framework/src/ --include="*.ts"
 ```
 
 예상: 출력 없음
@@ -81,7 +81,7 @@ grep -r "@robota-sdk/agent-cli" packages/agent-command-*/src/ --include="*.ts"
 
 위 7개 검사를 모두 실행하고 각 결과가 예상과 일치하는지 확인한다. 불일치 발견 시 별도 픽스 백로그를 생성한다.
 
-추가: `pnpm harness:verify -- --scope packages/agent-core packages/agent-sdk packages/agent-sessions packages/agent-runtime`
+추가: `pnpm harness:verify -- --scope packages/agent-core packages/agent-framework packages/agent-session packages/agent-executor`
 
 ## User Execution Test Scenarios
 

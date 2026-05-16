@@ -3,7 +3,7 @@
 - **Status**: completed
 - **Created**: 2026-05-03
 - **Branch**: feat/worktree-support-hardening-finalize
-- **Scope**: packages/agent-runtime, packages/agent-cli, packages/agent-sdk, packages/agent-command-background, .agents
+- **Scope**: packages/agent-executor, packages/agent-cli, packages/agent-framework, packages/agent-command-background, .agents
 
 ## Objective
 

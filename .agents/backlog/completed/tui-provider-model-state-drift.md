@@ -30,7 +30,7 @@ This indicates drift between at least two of these state sources:
 ## Scope
 
 - `packages/agent-cli`
-- `packages/agent-sdk` command common APIs for provider/model settings
+- `packages/agent-framework` command common APIs for provider/model settings
 - `packages/agent-command-provider`
 - `packages/agent-command-model`
 
@@ -115,7 +115,7 @@ The command-facing API should expose:
 - Run:
   - `pnpm --filter @robota-sdk/agent-command-provider test`
   - `pnpm --filter @robota-sdk/agent-command-model test`
-  - `pnpm --filter @robota-sdk/agent-sdk test`
+  - `pnpm --filter @robota-sdk/agent-framework test`
   - `pnpm --filter @robota-sdk/agent-cli test`
   - `pnpm harness:verify -- --scope packages/agent-cli`
 

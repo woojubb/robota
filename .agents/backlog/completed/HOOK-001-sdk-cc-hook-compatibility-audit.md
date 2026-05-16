@@ -9,16 +9,16 @@ area: hooks
 
 ## Problem
 
-agent-sdk의 훅 시스템(`packages/agent-core/src/hooks/`, `packages/agent-sessions/`)이 Claude Code 훅 스펙과 호환되게 설계되어 있다고 명시하지만, 실제로 Claude Code 기준으로 작성된 훅 스크립트를 연결했을 때 동작하지 않는 필드/동작 차이가 존재한다.
+agent-sdk의 훅 시스템(`packages/agent-core/src/hooks/`, `packages/agent-session/`)이 Claude Code 훅 스펙과 호환되게 설계되어 있다고 명시하지만, 실제로 Claude Code 기준으로 작성된 훅 스크립트를 연결했을 때 동작하지 않는 필드/동작 차이가 존재한다.
 
 ## Key Files Audited
 
 - `packages/agent-core/src/hooks/types.ts` — IHookInput 타입 정의
 - `packages/agent-core/src/hooks/hook-runner.ts` — runHooks() 실행 엔진
 - `packages/agent-core/src/hooks/executors/command-executor.ts` — 쉘 커맨드 실행
-- `packages/agent-sessions/src/session-run.ts` — UserPromptSubmit, Stop, StopFailure 발화
-- `packages/agent-sessions/src/session-lifecycle.ts` — SessionStart, SessionEnd 발화
-- `packages/agent-sessions/src/tool-hook-helpers.ts` — PreToolUse, PostToolUse 발화
+- `packages/agent-session/src/session-run.ts` — UserPromptSubmit, Stop, StopFailure 발화
+- `packages/agent-session/src/session-lifecycle.ts` — SessionStart, SessionEnd 발화
+- `packages/agent-session/src/tool-hook-helpers.ts` — PreToolUse, PostToolUse 발화
 
 ## Compatibility Gaps Found
 

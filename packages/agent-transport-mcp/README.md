@@ -12,7 +12,7 @@ pnpm add @robota-sdk/agent-transport-mcp
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 const mcpServer = createAgentMcpServer({
@@ -44,11 +44,11 @@ The `submit` tool waits for the session to reach `complete` or `interrupted` sta
 
 ## ITransportAdapter
 
-The MCP transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+The MCP transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-framework`:
 
 ```typescript
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
-import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+import type { ITransportAdapter } from '@robota-sdk/agent-framework';
 
 const transport: ITransportAdapter = createMcpTransport({
   name: 'robota-agent',
@@ -64,6 +64,6 @@ const server = transport.getServer();
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` — `InteractiveSession`
+- `@robota-sdk/agent-framework` — `InteractiveSession`
 - `@modelcontextprotocol/sdk` — MCP server implementation
 - `zod` — input schema definitions

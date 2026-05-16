@@ -76,13 +76,13 @@ Completed the recent CLI backlog audit and implemented the only required correct
 
 ## Verification
 
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/__tests__/config-loader.test.ts src/__tests__/public-api.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/__tests__/config-loader.test.ts src/__tests__/public-api.test.ts src/commands/__tests__/system-command.test.ts src/interactive/__tests__/interactive-session-memory.test.ts src/__tests__/system-prompt-builder.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk test -- src/__tests__/create-session-new-options.test.ts src/__tests__/create-subagent-session.test.ts src/__tests__/subagent-integration.test.ts src/tools/__tests__/agent-tool.test.ts src/interactive/__tests__/interactive-session-skill-command.test.ts src/__tests__/hook-wiring.test.ts`
-- `pnpm --filter @robota-sdk/agent-sdk typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk build`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/__tests__/config-loader.test.ts src/__tests__/public-api.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/__tests__/config-loader.test.ts src/__tests__/public-api.test.ts src/commands/__tests__/system-command.test.ts src/interactive/__tests__/interactive-session-memory.test.ts src/__tests__/system-prompt-builder.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework test -- src/__tests__/create-session-new-options.test.ts src/__tests__/create-subagent-session.test.ts src/__tests__/subagent-integration.test.ts src/tools/__tests__/agent-tool.test.ts src/interactive/__tests__/interactive-session-skill-command.test.ts src/__tests__/hook-wiring.test.ts`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
+- `pnpm --filter @robota-sdk/agent-framework build`
 - `pnpm --filter @robota-sdk/agent-cli test -- src/subagents/__tests__/child-process-subagent-runner.test.ts`
 - `pnpm --filter @robota-sdk/agent-cli typecheck`
-- `pnpm --filter @robota-sdk/agent-sdk test`
+- `pnpm --filter @robota-sdk/agent-framework test`
 - `pnpm harness:scan`
 - `pnpm harness:verify -- --base-ref origin/develop --skip-record-check`

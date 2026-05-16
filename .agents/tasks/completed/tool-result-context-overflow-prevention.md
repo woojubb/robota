@@ -49,8 +49,8 @@ User: "난 아직도 뭘해야 할지 모르겠어."
 
 - `packages/agent-core/src/services/execution-round.ts` — executeAndRecordToolCalls, addToolResultsToHistory
 - `packages/agent-core/src/services/tool-execution-service.ts` — executeTools (parallel batch)
-- `packages/agent-sessions/src/session.ts` — compact(), run()
-- `packages/agent-sessions/src/context-window-tracker.ts` — token tracking
+- `packages/agent-session/src/session.ts` — compact(), run()
+- `packages/agent-session/src/context-window-tracker.ts` — token tracking
 
 ## Claude Code 참고
 
@@ -66,12 +66,14 @@ Claude Code는 모든 tool result를 무조건 수집 후 ~95%에서 사후 comp
 4. AI가 이 결과를 보고 스스로 `/compact` 요청하거나 접근 방식 변경
 
 **장점:**
+
 - 기존 permission deny 인프라 그대로 활용
 - 추가 API call(compact) 비용 없음
 - AI가 상황을 인지하고 자율적으로 대응 (compact, 작업 축소 등)
 - 구현이 단순함
 
 **기존 방안 대비:**
+
 - 방안 A(auto-compact): compact에 추가 API call 필요, 복잡
 - 방안 B(단순 스킵): AI가 이유를 모름 → 방안 C는 이유를 알려줌
 

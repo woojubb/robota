@@ -4,7 +4,7 @@ status: backlog
 created: 2026-05-15
 priority: medium
 urgency: later
-area: packages/agent-sdk, packages/agent-runtime, packages/agent-core, packages/agent-cli, packages/agent-transport-http
+area: packages/agent-framework, packages/agent-executor, packages/agent-core, packages/agent-cli, packages/agent-transport-http
 ---
 
 ## Problem
