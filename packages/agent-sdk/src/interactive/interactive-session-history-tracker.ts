@@ -189,7 +189,7 @@ export class SessionHistoryTracker {
     const { references, result } = await addInteractiveContextReference(
       this.contextReferences,
       path,
-      this.cwd || process.cwd(),
+      this.cwd,
     );
     this.contextReferences = references;
     this.persistSession();
@@ -234,7 +234,7 @@ export class SessionHistoryTracker {
 
   private getCheckpointStore(): EditCheckpointStore {
     if (!this.editCheckpointStore) {
-      this.editCheckpointStore = new EditCheckpointStore({ cwd: this.cwd || process.cwd() });
+      this.editCheckpointStore = new EditCheckpointStore({ cwd: this.cwd });
     }
     return this.editCheckpointStore;
   }
