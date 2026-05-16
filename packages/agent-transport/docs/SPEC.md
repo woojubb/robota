@@ -114,7 +114,47 @@ Consolidated from 5 individual packages (v3.0.0-beta.63):
 | `@robota-sdk/agent-transport-ws`       | `@robota-sdk/agent-transport/ws`       |
 | `@robota-sdk/agent-transport-mcp`      | `@robota-sdk/agent-transport/mcp`      |
 
-## 9. Testing
+## 9. TUI Command Interaction System
+
+`src/tui/command-interaction.ts` defines the extension point for richer command UX when a user invokes a slash command without supplying args.
+
+### Types
+
+```typescript
+export type TOnMissingArgsAction = 'picker' | 'wizard' | 'confirm';
+
+export interface ITuiCommandInteraction {
+  onMissingArgs?: TOnMissingArgsAction;
+}
+
+export interface ITuiPickerInteraction extends ITuiCommandInteraction {
+  onMissingArgs: 'picker';
+  getItems(): ITuiPickerItem[];
+}
+
+export interface ITuiConfirmInteraction extends ITuiCommandInteraction {
+  onMissingArgs: 'confirm';
+  message: string;
+}
+
+export type TAnyTuiCommandInteraction = ITuiPickerInteraction | ITuiConfirmInteraction;
+```
+
+### Resolution Flow
+
+`resolveEnterCommandSelection` (in `flows/input-area-flow.ts`) accepts an optional `ITuiCommandInteraction`:
+
+- If the user typed args (parentCommand is non-empty in parsed input) → always submit directly, skip interaction.
+- If no args and `interaction.onMissingArgs` is set → return `{ type: 'open-interaction', commandName }`.
+- Otherwise → existing insert/submit behavior unchanged.
+
+`InputArea` renders `CommandPicker` or `CommandConfirm` overlay when an `open-interaction` result is received. On selection/confirmation, the constructed command string is submitted via `submitPrompt`.
+
+### Invariant
+
+`agent-transport` owns the types and UI components. The interaction registry lives in `agent-cli`. `InputArea` receives `resolveInteraction?: (name: string) => ITuiCommandInteraction | undefined` as a prop — no direct dependency on `agent-cli`.
+
+## 10. Testing
 
 Run:
 
@@ -122,4 +162,4 @@ Run:
 pnpm --filter @robota-sdk/agent-transport test
 ```
 
-Expected: 48 test files, 401+ tests, all passing.
+Expected: 48+ test files, 401+ tests, all passing.

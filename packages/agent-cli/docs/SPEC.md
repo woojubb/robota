@@ -365,6 +365,25 @@ Supported commands:
 
 Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
+### TUI Command Interaction Registry
+
+`src/tui-interactions/registry.ts` owns the mapping from system command names to TUI interaction behaviors. Every known system command must appear in `TUI_COMMAND_INTERACTIONS` — missing keys produce a TypeScript compile error (exhaustive `Record` type).
+
+```typescript
+export const TUI_COMMAND_INTERACTIONS: Record<
+  TSystemCommandName,
+  TAnyTuiCommandInteraction | undefined
+> = { ... };
+```
+
+- `undefined` — existing insert/submit behavior (intentional, no dialog needed)
+- `{ onMissingArgs: 'picker', getItems }` — opens a picker overlay
+- `{ onMissingArgs: 'confirm', message }` — opens a yes/no confirm dialog
+
+The registry exports `resolveInteraction(commandName)` which is passed as `IRenderOptions.resolveInteraction` to `TuiTransport` and threaded through `App` → `InputArea`.
+
+A runtime gate (`registry-coverage.test.ts`) verifies that every picker entry has a working `getItems()` and every confirm entry has a non-empty `message`.
+
 ### Command Module Composition
 
 Built-in commands are represented as `ICommandModule` instances injected into `InteractiveSession`. Command modules own command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
