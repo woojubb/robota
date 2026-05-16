@@ -34,9 +34,9 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "build:js": "tsup --no-dts",
-    "build:types": "tsup --dts-only",
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
     "build:check": "pnpm run typecheck && pnpm run build",
     "dev": "tsup --watch",
     "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
@@ -82,11 +82,11 @@
   "peerDependencies": {},
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
-    "tsup": "^8.0.1",
+    "tsdown": "^0.22.0",
     "typescript": "^5.3.3",
-    "vitest": "^1.6.1",
-    "eslint": "^8.56.0"
+    "vitest": "^1.6.1"
   },
   "publishConfig": {
     "access": "public",
