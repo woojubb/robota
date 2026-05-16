@@ -3,6 +3,9 @@
   "version": "3.0.0-beta.64",
   "description": "Consolidated AI provider implementations for Robota SDK",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
