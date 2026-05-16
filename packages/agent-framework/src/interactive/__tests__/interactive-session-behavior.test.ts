@@ -515,8 +515,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('queued prompt preserves displayInput and rawInput', async () => {
     const mockSession = createMockSession();
-    const controllableRun = createControllableRun();
-    mockSession.run.mockImplementation(controllableRun.run);
+    const firstRun = createControllableRun();
+    const secondRun = createControllableRun();
+    let callCount = 0;
+    mockSession.run.mockImplementation(() => {
+      callCount += 1;
+      return callCount === 1 ? firstRun.run() : secondRun.run();
+    });
 
     const session = new InteractiveSession({
       session: mockSession as never,
@@ -525,25 +530,24 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // Start first execution
     const first = session.submit('first');
-    await controllableRun.started;
+    await firstRun.started;
 
     // Queue with displayInput + rawInput
     await session.submit('expanded prompt', '/skill', '/plugin:skill args');
     expect(session.getPendingPrompt()).toBe('expanded prompt');
 
-    // Complete first
-    controllableRun.resolve('done');
+    // Complete first; queued prompt should start automatically
+    firstRun.resolve('done');
     await first;
-    await new Promise((r) => setTimeout(r, 50));
+    // Wait for the queued run to actually start (no fixed timeout)
+    await secondRun.started;
+    secondRun.resolve('done');
 
-    // Second call should have used the queued rawInput
+    // Second call must have used the queued rawInput
     const calls = mockSession.run.mock.calls;
-    const lastCall = calls[calls.length - 1];
-    if (lastCall) {
-      // If queued prompt executed, it should pass rawInput
-      expect(lastCall[0]).toBe('expanded prompt');
-      expect(lastCall[1]).toBe('/plugin:skill args');
-    }
+    expect(calls).toHaveLength(2);
+    expect(calls[1][0]).toBe('expanded prompt');
+    expect(calls[1][1]).toBe('/plugin:skill args');
   });
 
   // ── Regression: abort preserves interrupted assistant text ─────
