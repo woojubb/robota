@@ -121,15 +121,25 @@ function checkDtsExtension(pkgDir, pkg) {
   node scripts/harness/check-build-output-contracts.mjs
   ```
 - 예상 결과: 기존과 동일한 통과 결과, 추가된 파일 존재 검증 항목이 출력에 표시됨
-- 증거: [구현 후 기록]
+- 증거:
+  ```
+  Build output contract check passed for 54 package(s).
+  ```
+  (2026-05-16 실행 — 54개 패키지 통과, 에러 없음)
 
 ### 시나리오 2: DTS 확장자 오류 탐지
 
 - agent-executability: agent-executable
-- 전제조건: 테스트용 패키지 또는 fixture에 `"types": "dist/node/index.d.mts"` 기재
+- 전제조건: 단위 테스트 fixture 사용 (`scripts/harness/__tests__/check-build-output-contracts.test.mjs`)
 - 명령:
   ```bash
-  node scripts/harness/check-build-output-contracts.mjs
+  pnpm exec vitest run scripts/harness/__tests__/check-build-output-contracts.test.mjs
   ```
-- 예상 결과: `WRONG_DTS_EXT: types="dist/node/index.d.mts"` 오류 출력
-- 증거: [구현 후 기록]
+- 예상 결과: `flags .d.mts in top-level types field` 테스트 통과 — `.d.mts` 탐지 확인
+- 증거:
+  ```
+  ✓ scripts/harness/__tests__/check-build-output-contracts.test.mjs  (15 tests) 3ms
+  Test Files  1 passed (1)
+  Tests  15 passed (15)
+  ```
+  (2026-05-16 실행)
