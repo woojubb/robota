@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-BL-009-C: check-build-output-contracts.mjs 실제 파일 존재 및 DTS 확장자 검증 강화'
-status: todo
+status: done
 created: 2026-05-15
 priority: high
 urgency: soon
