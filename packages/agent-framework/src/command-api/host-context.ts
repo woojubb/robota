@@ -28,6 +28,8 @@ import type {
 
 export interface ICommandListEntry {
   name: string;
+  /** User-friendly display label. Falls back to `name` if not set. */
+  displayName?: string;
   description: string;
 }
 

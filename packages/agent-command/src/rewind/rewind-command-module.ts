@@ -14,6 +14,7 @@ import { executeRewindCommand } from './rewind-command.js';
 export function createRewindCommandEntry(): ICommand {
   return {
     name: 'rewind',
+    displayName: 'Rewind History',
     description: REWIND_COMMAND_DESCRIPTION,
     source: 'rewind',
     argumentHint: REWIND_COMMAND_ARGUMENT_HINT,
@@ -27,6 +28,7 @@ function createRewindSystemCommand(): ISystemCommand {
   const entry = createRewindCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     argumentHint: entry.argumentHint,
     userInvocable: true,

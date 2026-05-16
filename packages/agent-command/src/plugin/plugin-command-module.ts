@@ -15,6 +15,7 @@ import { executePluginCommand, executeReloadPluginsCommand } from './plugin-comm
 export function createPluginCommandEntry(): ICommand {
   return {
     name: 'plugin',
+    displayName: 'Plugins',
     description: PLUGIN_COMMAND_DESCRIPTION,
     source: 'plugin-manager',
     modelInvocable: false,
@@ -26,6 +27,7 @@ export function createPluginCommandEntry(): ICommand {
 export function createReloadPluginsCommandEntry(): ICommand {
   return {
     name: 'reload-plugins',
+    displayName: 'Reload Plugins',
     description: RELOAD_PLUGINS_COMMAND_DESCRIPTION,
     source: 'plugin-manager',
     modelInvocable: false,
@@ -36,6 +38,7 @@ function createPluginSystemCommand(): ISystemCommand {
   const entry = createPluginCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
@@ -50,6 +53,7 @@ function createReloadPluginsSystemCommand(): ISystemCommand {
   const entry = createReloadPluginsCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

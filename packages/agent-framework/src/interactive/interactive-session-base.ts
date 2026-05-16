@@ -115,7 +115,7 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeSkillCommandByName(name, args, request);
   }
-  listCommands(): Array<{ name: string; description: string }> {
+  listCommands(): Array<{ name: string; displayName?: string; description: string }> {
     return this.skillRouter.listCommands();
   }
   listSkills(): ICommandSkillListEntry[] {

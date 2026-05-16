@@ -31,6 +31,7 @@ function createAgentSubcommands(): ICommand[] {
 export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
+    displayName: 'Agent Jobs',
     description: [
       'Subagent jobs command.',
       'Natural-language arguments start one background agent job.',
@@ -52,6 +53,7 @@ export function createAgentSystemCommand(): ISystemCommand {
   const entry = createAgentCommandEntry();
   return {
     name: entry.name,
+    ...(entry.displayName !== undefined ? { displayName: entry.displayName } : {}),
     description: entry.description,
     execute: (context, args) => executeAgentCommand(getAgentHostContext(context), args),
     ...(entry.modelInvocable !== undefined ? { modelInvocable: entry.modelInvocable } : {}),

@@ -15,6 +15,7 @@ import { executeModelCommand } from './model-command.js';
 export function createModelCommandEntry(options?: IModelCommandModuleOptions): ICommand {
   return {
     name: 'model',
+    displayName: 'Change Model',
     description: MODEL_COMMAND_DESCRIPTION,
     source: 'model',
     argumentHint: MODEL_COMMAND_ARGUMENT_HINT,
@@ -26,6 +27,7 @@ function createModelSystemCommand(options?: IModelCommandModuleOptions): ISystem
   const entry = createModelCommandEntry(options);
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     argumentHint: entry.argumentHint,

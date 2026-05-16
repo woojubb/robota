@@ -51,7 +51,8 @@ function CommandRow(props: {
   const indicator = isSelected ? '▸ ' : '  ';
   const nameColor = isSelected ? 'cyan' : undefined;
   const dimmed = !isSelected;
-  const namePart = capName(cmd.name, nameColWidth);
+  const displayLabel = cmd.displayName ?? cmd.name;
+  const namePart = capName(displayLabel, nameColWidth);
   const text = showSlash
     ? `${indicator}/${namePart}  ${cmd.description ?? ''}`
     : `${indicator}${namePart}  ${cmd.description ?? ''}`;
@@ -81,7 +82,7 @@ export default function SlashAutocomplete({
 
   const nameColWidth = Math.min(
     NAME_COL_MAX,
-    Math.max(...visibleCommands.map((c) => c.name.length)),
+    Math.max(...visibleCommands.map((c) => (c.displayName ?? c.name).length)),
   );
 
   return (

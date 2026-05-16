@@ -14,6 +14,7 @@ import { executeStatusLineCommand } from './statusline-command.js';
 export function createStatusLineCommandEntry(): ICommand {
   return {
     name: 'statusline',
+    displayName: 'Status Line',
     description: STATUSLINE_COMMAND_DESCRIPTION,
     source: 'statusline',
     argumentHint: STATUSLINE_COMMAND_ARGUMENT_HINT,
@@ -26,6 +27,7 @@ function createStatusLineSystemCommand(): ISystemCommand {
   const entry = createStatusLineCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

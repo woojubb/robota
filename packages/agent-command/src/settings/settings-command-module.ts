@@ -8,6 +8,7 @@ import type {
 export function createSettingsCommandEntry(): ICommand {
   return {
     name: 'settings',
+    displayName: 'Settings',
     description: 'Open transport settings — enable/disable transports and configure options',
     source: 'settings',
     modelInvocable: false,
@@ -18,6 +19,7 @@ function createSettingsSystemCommand(): ISystemCommand {
   const entry = createSettingsCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

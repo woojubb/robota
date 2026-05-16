@@ -10,6 +10,7 @@ import { executeExitCommand } from './exit-command.js';
 export function createExitCommandEntry(): ICommand {
   return {
     name: 'exit',
+    displayName: 'Exit Session',
     description: EXIT_COMMAND_DESCRIPTION,
     source: 'exit',
     modelInvocable: false,
@@ -20,6 +21,7 @@ function createExitSystemCommand(): ISystemCommand {
   const entry = createExitCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

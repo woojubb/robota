@@ -13,6 +13,7 @@ describe('exit command module', () => {
 
     expect(entry).toEqual({
       name: 'exit',
+      displayName: 'Exit Session',
       description: 'Exit CLI',
       source: 'exit',
       modelInvocable: false,

@@ -11,6 +11,7 @@ const RESET_COMMAND_DESCRIPTION = 'Delete settings';
 export function createResetCommandEntry(): ICommand {
   return {
     name: 'reset',
+    displayName: 'Reset Settings',
     description: RESET_COMMAND_DESCRIPTION,
     source: 'reset',
     modelInvocable: false,
@@ -21,6 +22,7 @@ function createResetSystemCommand(): ISystemCommand {
   const entry = createResetCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
