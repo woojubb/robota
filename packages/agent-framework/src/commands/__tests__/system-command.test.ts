@@ -154,6 +154,42 @@ describe('SystemCommandExecutor', () => {
     ).toEqual(executableNames);
   });
 
+  it('resolveRequiresPermission derives from safety when field is undefined', () => {
+    const executor = new SystemCommandExecutor();
+    const base = { description: 'd', execute: () => ({ success: true, message: '' }) };
+
+    expect(executor.resolveRequiresPermission({ name: 'a', safety: 'read-only', ...base })).toBe(
+      false,
+    );
+    expect(executor.resolveRequiresPermission({ name: 'b', safety: 'write', ...base })).toBe(true);
+    expect(executor.resolveRequiresPermission({ name: 'c', safety: 'network', ...base })).toBe(
+      true,
+    );
+    expect(executor.resolveRequiresPermission({ name: 'd', ...base })).toBe(true);
+  });
+
+  it('resolveRequiresPermission respects explicit field over safety', () => {
+    const executor = new SystemCommandExecutor();
+    const base = { description: 'd', execute: () => ({ success: true, message: '' }) };
+
+    expect(
+      executor.resolveRequiresPermission({
+        name: 'a',
+        requiresPermission: false,
+        safety: 'write',
+        ...base,
+      }),
+    ).toBe(false);
+    expect(
+      executor.resolveRequiresPermission({
+        name: 'b',
+        requiresPermission: true,
+        safety: 'read-only',
+        ...base,
+      }),
+    ).toBe(true);
+  });
+
   it('register adds custom command', async () => {
     const executor = new SystemCommandExecutor();
     executor.register({

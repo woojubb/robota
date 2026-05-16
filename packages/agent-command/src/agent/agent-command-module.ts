@@ -55,6 +55,7 @@ export function createAgentSystemCommand(): ISystemCommand {
     name: entry.name,
     ...(entry.displayName !== undefined ? { displayName: entry.displayName } : {}),
     description: entry.description,
+    requiresPermission: false,
     execute: (context, args) => executeAgentCommand(getAgentHostContext(context), args),
     ...(entry.modelInvocable !== undefined ? { modelInvocable: entry.modelInvocable } : {}),
     ...(entry.userInvocable !== undefined ? { userInvocable: entry.userInvocable } : {}),

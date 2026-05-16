@@ -30,6 +30,7 @@ function createRewindSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: false,
     argumentHint: entry.argumentHint,
     userInvocable: true,
     modelInvocable: false,

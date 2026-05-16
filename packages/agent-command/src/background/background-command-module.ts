@@ -27,6 +27,7 @@ function createBackgroundSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,
     lifecycle: 'inline',

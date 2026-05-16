@@ -45,6 +45,7 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,
     argumentHint: entry.argumentHint,
