@@ -1,5 +1,18 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.64
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.0-beta.64
+  - @robota-sdk/agent-command@3.0.0-beta.64
+  - @robota-sdk/agent-transport@3.0.0-beta.64
+  - @robota-sdk/agent-core@3.0.0-beta.64
+  - @robota-sdk/agent-executor@3.0.0-beta.64
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.64
+  - @robota-sdk/agent-provider@3.0.0-beta.64
+
 ## 3.0.0-beta.63
 
 ### Patch Changes
