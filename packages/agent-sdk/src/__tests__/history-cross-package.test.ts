@@ -48,6 +48,7 @@ describe('IHistoryEntry cross-package integration', () => {
   it('history accumulates user + assistant entries across multiple submits', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'answer' }) as never,
+      cwd: '/tmp',
     } as never);
 
     await session.submit('first');
@@ -67,6 +68,7 @@ describe('IHistoryEntry cross-package integration', () => {
     const mockSession = createMockSession({ runResult: 'done' });
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     } as never);
 
     // Simulate tool execution via the execution controller
@@ -153,6 +155,7 @@ describe('IHistoryEntry cross-package integration', () => {
   it('all history entries have id, timestamp, category, type', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'test' }) as never,
+      cwd: '/tmp',
     } as never);
 
     await session.submit('test');

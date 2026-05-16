@@ -88,6 +88,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('user submits a prompt → user message + assistant message appear in history', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'Hello back!' }) as never,
+      cwd: '/tmp',
     });
 
     await session.submit('Hello');
@@ -112,6 +113,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const deltas: string[] = [];
@@ -132,6 +134,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     // Start first execution
@@ -164,6 +167,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const first = session.submit('first');
@@ -205,6 +209,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     let wasInterrupted = false;
@@ -243,6 +248,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('non-abort errors produce error system message', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runError: new Error('API rate limit exceeded') }) as never,
+      cwd: '/tmp',
     });
 
     let errorReceived: Error | null = null;
@@ -265,6 +271,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('getActiveTools returns empty array after execution completes', async () => {
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
     });
 
     // Before any execution
@@ -281,6 +288,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('thinking transitions: false → true → false on submit', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'done' }) as never,
+      cwd: '/tmp',
     });
 
     const states: boolean[] = [];
@@ -298,6 +306,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('context_update event fires after completion with current state', async () => {
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
     });
 
     let contextUsedTokens = 0;
@@ -309,14 +318,20 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(contextUsedTokens).toBe(1000);
   });
 
-  it('injected sessions without cwd do not auto-start edit checkpoints', async () => {
+  it('injected sessions without cwd emit error on submit', async () => {
     const beginTurn = vi.spyOn(EditCheckpointStore.prototype, 'beginTurn');
     const session = new InteractiveSession({
       session: createMockSession() as never,
     });
 
+    let errorMsg: string | undefined;
+    session.on('error', (err) => {
+      errorMsg = err.message;
+    });
+
     try {
       await session.submit('test');
+      expect(errorMsg).toContain('cwd is not set');
       expect(beginTurn).not.toHaveBeenCalled();
     } finally {
       beginTurn.mockRestore();
@@ -328,6 +343,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('multiple prompts accumulate in message history', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'response' }) as never,
+      cwd: '/tmp',
     });
 
     await session.submit('first');
@@ -350,6 +366,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('off() stops receiving events', async () => {
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
     });
 
     let count = 0;
@@ -377,6 +394,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     await session.submit('expanded skill prompt', '/audit', '/rulebased-harness:audit');
@@ -391,6 +409,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     await session.submit('hello');
@@ -403,6 +422,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('displayInput overrides user message (skill prompt not shown as You:)', async () => {
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
     });
 
     await session.submit('full expanded skill prompt content', '/audit');
@@ -416,6 +436,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('without displayInput, user message shows the actual input', async () => {
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
     });
 
     await session.submit('Hello world');
@@ -442,6 +463,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     await session.submit('test');
@@ -461,6 +483,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     // Simulate tool events by checking the internal clear timing
@@ -497,6 +520,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     // Start first execution
@@ -539,6 +563,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     });
 
     const exec = session.submit('write a story');
@@ -581,6 +606,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'hello' }) as never,
+      cwd: '/tmp',
       sessionStore: mockSessionStore,
     } as never);
 
@@ -632,6 +658,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
       sessionStore: mockSessionStore,
       resumeSessionId: 'prev-session',
     } as never);
@@ -654,6 +681,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('getName returns session name', () => {
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
       sessionName: 'my-session',
     } as never);
     expect(session.getName()).toBe('my-session');
@@ -676,6 +704,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
       sessionStore: mockSessionStore,
     } as never);
 
@@ -696,6 +725,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: createMockSession() as never,
+      cwd: '/tmp',
     } as never);
 
     session.attachTransport(mockTransport);
@@ -705,6 +735,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('no tool summary when no tools were executed', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'simple answer' }) as never,
+      cwd: '/tmp',
     } as never);
 
     await session.submit('hello');
@@ -729,6 +760,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'answer' }) as never,
+        cwd: '/tmp',
         sessionStore: mockSessionStore,
       } as never);
 
@@ -751,6 +783,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'answer' }) as never,
+        cwd: '/tmp',
         sessionStore: mockSessionStore,
       } as never);
 
@@ -776,6 +809,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'response' }) as never,
+        cwd: '/tmp',
         sessionStore: mockSessionStore,
       } as never);
 
@@ -829,6 +863,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'new answer' }) as never,
+        cwd: '/tmp',
         sessionStore: mockSessionStore,
         resumeSessionId: 'prev',
       } as never);
@@ -864,6 +899,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     const session = new InteractiveSession({
       session: mockSession as never,
+      cwd: '/tmp',
     } as never);
 
     // Manually trigger tool events via the execution controller
