@@ -9,6 +9,7 @@ import { executeCompactCommand } from './compact-command.js';
 export function createCompactCommandEntry(): ICommand {
   return {
     name: 'compact',
+    displayName: 'Compact Context',
     description: 'Compress context window',
     source: 'compact',
     modelInvocable: true,
@@ -21,6 +22,7 @@ function createCompactSystemCommand(): ISystemCommand {
   const entry = createCompactCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: entry.modelInvocable,

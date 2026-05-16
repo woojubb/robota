@@ -13,6 +13,7 @@ import {
 export function createUserLocalCommandEntry(): ICommand {
   return {
     name: 'user-local',
+    displayName: 'User Config',
     description: USER_LOCAL_COMMAND_DESCRIPTION,
     source: 'user-local',
     argumentHint: USER_LOCAL_COMMAND_ARGUMENT_HINT,
@@ -37,6 +38,7 @@ function createUserLocalSystemCommand(): ISystemCommand {
   const entry = createUserLocalCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

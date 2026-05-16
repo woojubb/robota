@@ -118,8 +118,12 @@ describe('SystemCommandExecutor', () => {
   it('formats a composed command list through the SDK common API', () => {
     const session = createMockSession({
       listCommands: vi.fn().mockReturnValue([
-        { name: 'help', description: 'Show available commands' },
-        { name: 'provider', description: 'Manage provider profiles' },
+        { name: 'help', displayName: 'Help', description: 'Show available commands' },
+        {
+          name: 'provider',
+          displayName: 'Provider Setup',
+          description: 'Manage provider profiles',
+        },
       ]),
     });
 
@@ -128,8 +132,8 @@ describe('SystemCommandExecutor', () => {
     expect(result).toBe(
       [
         'Available commands:',
-        '  help             — Show available commands',
-        '  provider         — Manage provider profiles',
+        '  Help (/help)                     — Show available commands',
+        '  Provider Setup (/provider)       — Manage provider profiles',
       ].join('\n'),
     );
   });

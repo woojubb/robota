@@ -43,9 +43,9 @@ function createCommandHostContext(): ICommandHostContext {
     compactContext: async () => undefined,
     getCwd: () => '/workspace',
     listCommands: () => [
-      { name: 'help', description: 'Show available commands' },
-      { name: 'provider', description: 'Manage provider profiles' },
-      { name: 'plugin', description: 'Manage plugins' },
+      { name: 'help', displayName: 'Help', description: 'Show available commands' },
+      { name: 'provider', displayName: 'Provider Setup', description: 'Manage provider profiles' },
+      { name: 'plugin', displayName: 'Plugins', description: 'Manage plugins' },
     ],
     listEditCheckpoints: () => [],
     restoreEditCheckpoint: async () => ({
@@ -77,6 +77,7 @@ describe('createHelpCommandModule', () => {
     expect(module.commandSources?.[0]?.getCommands()).toEqual([
       {
         name: 'help',
+        displayName: 'Help',
         description: 'Show available commands',
         source: 'help',
         modelInvocable: false,
@@ -96,9 +97,9 @@ describe('executeHelpCommand', () => {
       success: true,
       message: [
         'Available commands:',
-        '  help             — Show available commands',
-        '  provider         — Manage provider profiles',
-        '  plugin           — Manage plugins',
+        '  Help (/help)                     — Show available commands',
+        '  Provider Setup (/provider)       — Manage provider profiles',
+        '  Plugins (/plugin)                — Manage plugins',
       ].join('\n'),
     });
   });

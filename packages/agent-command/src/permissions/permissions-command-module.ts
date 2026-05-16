@@ -14,6 +14,7 @@ import { executePermissionsCommand } from './permissions-command.js';
 export function createPermissionsCommandEntry(): ICommand {
   return {
     name: 'permissions',
+    displayName: 'Permissions',
     description: PERMISSIONS_COMMAND_DESCRIPTION,
     source: 'permissions',
     argumentHint: PERMISSION_MODE_ARGUMENT_HINT,
@@ -26,6 +27,7 @@ function createPermissionsSystemCommand(): ISystemCommand {
   const entry = createPermissionsCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

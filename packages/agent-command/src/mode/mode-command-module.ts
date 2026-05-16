@@ -14,6 +14,7 @@ import { executeModeCommand } from './mode-command.js';
 export function createModeCommandEntry(): ICommand {
   return {
     name: 'mode',
+    displayName: 'Interaction Mode',
     description: PERMISSION_MODE_COMMAND_DESCRIPTION,
     source: 'mode',
     argumentHint: PERMISSION_MODE_ARGUMENT_HINT,
@@ -26,6 +27,7 @@ function createModeSystemCommand(): ISystemCommand {
   const entry = createModeCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,

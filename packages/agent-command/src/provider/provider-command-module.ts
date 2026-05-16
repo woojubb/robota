@@ -22,6 +22,7 @@ function buildProviderSubcommands(): ICommand[] {
 export function createProviderCommandEntry(): ICommand {
   return {
     name: 'provider',
+    displayName: 'Provider Setup',
     description: 'Manage provider profiles',
     source: 'provider',
     modelInvocable: false,
@@ -42,6 +43,7 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
   const entry = createProviderCommandEntry();
   return {
     name: entry.name,
+    displayName: entry.displayName,
     description: entry.description,
     userInvocable: true,
     modelInvocable: false,
