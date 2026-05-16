@@ -29,6 +29,7 @@ function createPermissionsSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    requiresPermission: true,
     userInvocable: true,
     modelInvocable: false,
     argumentHint: entry.argumentHint,

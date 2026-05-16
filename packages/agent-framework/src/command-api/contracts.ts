@@ -17,5 +17,12 @@ export interface ISystemCommand {
   safety?: TCapabilitySafety;
   subcommands?: readonly ICommand[];
   lifecycle?: TSystemCommandLifecycle;
+  /**
+   * Whether executing this command requires explicit user permission/confirmation.
+   * - `false`: runs immediately without any approval gate
+   * - `true`: user confirmation is required before execution
+   * - `undefined` (default): derived from `safety` — `'read-only'` → false, others → true
+   */
+  requiresPermission?: boolean;
   execute(context: ICommandHostContext, args: string): Promise<ICommandResult> | ICommandResult;
 }
