@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
+import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { IAgentDefinition } from './agent-definition-types.js';
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
 
@@ -80,15 +81,16 @@ function parseFrontmatter(content: string): { frontmatter: IRawFrontmatter | nul
 }
 
 /** Scan a directory for .md files and return parsed agent definitions. */
-function scanAgentsDir(dir: string): IAgentDefinition[] {
-  if (!existsSync(dir)) return [];
+function scanAgentsDir(dir: string, fs: IFileSystem): IAgentDefinition[] {
+  if (!fs.existsSync(dir)) return [];
 
   const agents: IAgentDefinition[] = [];
-  let entries: import('node:fs').Dirent[];
+  let entries: IDirent[];
 
   try {
-    entries = readdirSync(dir, { withFileTypes: true }) as import('node:fs').Dirent[];
+    entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
+    // allow-fallback: unreadable agents directory returns empty list
     return [];
   }
 
@@ -96,7 +98,7 @@ function scanAgentsDir(dir: string): IAgentDefinition[] {
     if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
     const filePath = join(dir, entry.name);
-    const content = readFileSync(filePath, 'utf-8');
+    const content = fs.readFileSync(filePath, 'utf-8');
     const { frontmatter, body } = parseFrontmatter(content);
     const fallbackName = basename(entry.name, '.md');
 
@@ -134,20 +136,22 @@ function scanAgentsDir(dir: string): IAgentDefinition[] {
 export class AgentDefinitionLoader {
   private readonly cwd: string;
   private readonly home: string;
+  private readonly fs: IFileSystem;
 
-  constructor(cwd: string, home?: string) {
+  constructor(cwd: string, home?: string, fs: IFileSystem = new NodeFileSystem()) {
     this.cwd = cwd;
     this.home = home ?? homedir();
+    this.fs = fs;
   }
 
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
   loadAll(): IAgentDefinition[] {
     const sources: IAgentDefinition[][] = [
-      scanAgentsDir(join(this.cwd, '.robota', 'agents')),
-      scanAgentsDir(join(this.cwd, '.agents', 'agents')),
-      scanAgentsDir(join(this.cwd, '.claude', 'agents')),
-      scanAgentsDir(join(this.home, '.robota', 'agents')),
-      scanAgentsDir(join(this.home, '.claude', 'agents')),
+      scanAgentsDir(join(this.cwd, '.robota', 'agents'), this.fs),
+      scanAgentsDir(join(this.cwd, '.agents', 'agents'), this.fs),
+      scanAgentsDir(join(this.cwd, '.claude', 'agents'), this.fs),
+      scanAgentsDir(join(this.home, '.robota', 'agents'), this.fs),
+      scanAgentsDir(join(this.home, '.claude', 'agents'), this.fs),
     ];
 
     // Deduplicate custom agents: higher-priority source wins

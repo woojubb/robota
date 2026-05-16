@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type {
   IMemoryCandidate,
   IMemoryPendingRecord,
@@ -25,7 +26,11 @@ export class PendingMemoryStore {
   private readonly path: string;
   private readonly now: () => Date;
 
-  constructor(cwd: string, now: () => Date = () => new Date()) {
+  constructor(
+    cwd: string,
+    now: () => Date = () => new Date(),
+    private readonly fs: IFileSystem = new NodeFileSystem(),
+  ) {
     this.path = join(memoryRoot(cwd), PENDING_FILENAME);
     this.now = now;
   }
@@ -77,17 +82,18 @@ export class PendingMemoryStore {
   }
 
   private read(): IPendingMemoryDocument {
-    if (!existsSync(this.path)) return emptyDocument();
+    if (!this.fs.existsSync(this.path)) return emptyDocument();
     try {
-      const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as IPendingMemoryDocument;
+      const parsed = JSON.parse(this.fs.readFileSync(this.path, 'utf8')) as IPendingMemoryDocument;
       return { version: 1, records: parsed.records ?? [] };
     } catch {
+      // allow-fallback: corrupt JSON treated as empty document
       return emptyDocument();
     }
   }
 
   private write(document: IPendingMemoryDocument): void {
-    mkdirSync(dirname(this.path), { recursive: true });
-    writeFileSync(this.path, JSON.stringify(document, null, 2), 'utf8');
+    this.fs.mkdirSync(dirname(this.path), { recursive: true });
+    this.fs.writeFileSync(this.path, JSON.stringify(document, null, 2), 'utf8');
   }
 }

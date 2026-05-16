@@ -1,6 +1,8 @@
-import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+
+import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
+import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
 
 export const USER_LOCAL_STORAGE_CATEGORIES = [
   'preferences',
@@ -54,6 +56,7 @@ export interface IResolveUserLocalStorageRootOptions {
   readonly activeRepositoryRoot: string;
   readonly homeDir?: string;
   readonly storageRoot?: string;
+  readonly fsAsync?: IFileSystemAsync;
 }
 
 export interface IInspectUserLocalStorageOptions extends IResolveUserLocalStorageRootOptions {
@@ -117,22 +120,24 @@ function isEqualOrInside(parentPath: string, candidatePath: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
-async function resolveForComparison(absPath: string): Promise<string> {
+async function resolveForComparison(absPath: string, fsAsync: IFileSystemAsync): Promise<string> {
   let current = absPath;
 
   while (path.dirname(current) !== current) {
     try {
-      const realCurrent = await fs.realpath(current);
+      const realCurrent = await fsAsync.realpath(current);
       const relativeMissingPath = path.relative(current, absPath);
       return path.resolve(realCurrent, relativeMissingPath);
     } catch {
+      // allow-fallback: walk up to first existing ancestor, not an error suppression
       current = path.dirname(current);
     }
   }
 
   try {
-    return await fs.realpath(current);
+    return await fsAsync.realpath(current);
   } catch {
+    // allow-fallback: filesystem root unreachable; resolve() gives a safe absolute path
     return path.resolve(absPath);
   }
 }
@@ -140,6 +145,7 @@ async function resolveForComparison(absPath: string): Promise<string> {
 export async function resolveUserLocalStorageRoot(
   options: IResolveUserLocalStorageRootOptions,
 ): Promise<string> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const activeRepositoryRoot = path.resolve(options.activeRepositoryRoot);
   assertAbsolutePath('activeRepositoryRoot', activeRepositoryRoot);
 
@@ -151,8 +157,8 @@ export async function resolveUserLocalStorageRoot(
   assertAbsolutePath('userLocalStorageRoot', candidateRoot);
 
   const resolvedRoot = path.resolve(candidateRoot);
-  const comparableRoot = await resolveForComparison(resolvedRoot);
-  const comparableRepositoryRoot = await resolveForComparison(activeRepositoryRoot);
+  const comparableRoot = await resolveForComparison(resolvedRoot, fsAsync);
+  const comparableRepositoryRoot = await resolveForComparison(activeRepositoryRoot, fsAsync);
 
   if (isEqualOrInside(comparableRepositoryRoot, comparableRoot)) {
     throw new Error(
@@ -170,20 +176,22 @@ function resolveCategoryLocation(root: string, category: TUserLocalStorageCatego
 async function listItemSummaries(
   root: string,
   category: TUserLocalStorageCategory,
+  fsAsync: IFileSystemAsync,
 ): Promise<readonly IUserLocalStorageItemSummary[]> {
   const storageLocation = resolveCategoryLocation(root, category);
-  let entries: readonly import('node:fs').Dirent[];
+  let entries: readonly IDirent[];
 
   try {
-    entries = await fs.readdir(storageLocation, { withFileTypes: true });
+    entries = await fsAsync.readdir(storageLocation, { withFileTypes: true });
   } catch {
+    // allow-fallback: missing category directory returns empty list
     return [];
   }
 
   const summaries = await Promise.all(
     entries.map(async (entry): Promise<IUserLocalStorageItemSummary> => {
       const itemLocation = path.join(storageLocation, entry.name);
-      const stats = await fs.stat(itemLocation);
+      const stats = await fsAsync.stat(itemLocation);
       const key = entry.name;
       return {
         root,
@@ -193,8 +201,8 @@ async function listItemSummaries(
         source: 'user-local-storage',
         scope: 'user',
         storageLocation: itemLocation,
-        createdAt: formatIsoDate(stats.birthtime),
-        lastUsedAt: formatIsoDate(stats.mtime),
+        createdAt: formatIsoDate(new Date(stats.birthtimeMs)),
+        lastUsedAt: formatIsoDate(new Date(stats.mtimeMs)),
         enabled: true,
         deleteAvailable: true,
         disableAvailable: false,
@@ -208,12 +216,13 @@ async function listItemSummaries(
 export async function inspectUserLocalStorage(
   options: IInspectUserLocalStorageOptions,
 ): Promise<IUserLocalStorageInspection> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   const root = await resolveUserLocalStorageRoot(options);
   const activeRepositoryRoot = path.resolve(options.activeRepositoryRoot);
   const createDirectories = options.createDirectories ?? true;
 
   if (createDirectories) {
-    await fs.mkdir(root, { recursive: true });
+    await fsAsync.mkdir(root, { recursive: true });
   }
 
   const categories = await Promise.all(
@@ -221,9 +230,9 @@ export async function inspectUserLocalStorage(
       async (definition): Promise<IUserLocalStorageCategoryProjection> => {
         const storageLocation = resolveCategoryLocation(root, definition.category);
         if (createDirectories) {
-          await fs.mkdir(storageLocation, { recursive: true });
+          await fsAsync.mkdir(storageLocation, { recursive: true });
         }
-        const items = await listItemSummaries(root, definition.category);
+        const items = await listItemSummaries(root, definition.category, fsAsync);
         return {
           category: definition.category,
           purpose: definition.purpose,

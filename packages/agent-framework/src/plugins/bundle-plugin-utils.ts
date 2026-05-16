@@ -5,7 +5,8 @@
  * used by BundlePluginLoader.
  */
 
-import { existsSync, readdirSync } from 'node:fs';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { IBundlePluginManifest } from './bundle-plugin-types.js';
 
 /**
@@ -91,15 +92,19 @@ export function validateManifest(data: unknown): IBundlePluginManifest | null {
  * Get sorted subdirectories from a directory.
  * Returns directory names sorted lexicographically.
  */
-export function getSortedSubdirs(dirPath: string): string[] {
-  if (!existsSync(dirPath)) return [];
+export function getSortedSubdirs(
+  dirPath: string,
+  fs: IFileSystem = new NodeFileSystem(),
+): string[] {
+  if (!fs.existsSync(dirPath)) return [];
   try {
-    const entries = readdirSync(dirPath, { withFileTypes: true });
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
       .sort();
   } catch {
+    // allow-fallback: unreadable directory returns empty list to allow plugin discovery to continue
     return [];
   }
 }

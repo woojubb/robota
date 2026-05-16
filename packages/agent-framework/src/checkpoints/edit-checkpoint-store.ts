@@ -1,6 +1,7 @@
-import { access, copyFile, mkdir, rename, rm, writeFile } from 'node:fs/promises';
-import { constants, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+
+import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
+import { NodeFileSystem, NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { projectPaths } from '../paths.js';
 import type {
   IEditCheckpointFileRecord,
@@ -32,7 +33,11 @@ export class EditCheckpointStore {
   private readonly now: () => Date;
   private activeTurn: IActiveEditCheckpointTurn | null = null;
 
-  constructor(options: IEditCheckpointStoreOptions) {
+  constructor(
+    options: IEditCheckpointStoreOptions,
+    private readonly fs: IFileSystem = new NodeFileSystem(),
+    private readonly fsAsync: IFileSystemAsync = new NodeFileSystemAsync(),
+  ) {
     this.cwd = resolve(options.cwd);
     this.rootDir = projectPaths(this.cwd).checkpoints;
     this.now = options.now ?? (() => new Date());
@@ -46,7 +51,7 @@ export class EditCheckpointStore {
     const nextSequence = this.nextSequence(input.sessionId);
     const id = `turn-${String(nextSequence).padStart(ID_PAD, '0')}`;
     const dir = join(this.sessionDir(input.sessionId), id);
-    await mkdir(join(dir, SNAPSHOT_DIR), { recursive: true });
+    await this.fsAsync.mkdir(join(dir, SNAPSHOT_DIR), { recursive: true });
 
     const manifest: IEditCheckpointManifest = {
       version: 1,
@@ -133,7 +138,10 @@ export class EditCheckpointStore {
     }
 
     for (const manifest of later) {
-      await rm(this.checkpointDir(sessionId, manifest.id), { recursive: true, force: true });
+      await this.fsAsync.rm(this.checkpointDir(sessionId, manifest.id), {
+        recursive: true,
+        force: true,
+      });
     }
 
     return {
@@ -167,7 +175,10 @@ export class EditCheckpointStore {
     }
 
     for (const manifest of rollbackRange) {
-      await rm(this.checkpointDir(sessionId, manifest.id), { recursive: true, force: true });
+      await this.fsAsync.rm(this.checkpointDir(sessionId, manifest.id), {
+        recursive: true,
+        force: true,
+      });
     }
 
     return {
@@ -182,7 +193,7 @@ export class EditCheckpointStore {
     originalPath: string,
     active: IActiveEditCheckpointTurn,
   ): Promise<IEditCheckpointFileRecord> {
-    const existed = await pathExists(originalPath);
+    const existed = await pathExists(this.fsAsync, this.fs, originalPath);
     if (!existed) {
       return {
         originalPath,
@@ -194,7 +205,7 @@ export class EditCheckpointStore {
       SNAPSHOT_DIR,
       `${String(active.manifest.files.length + 1).padStart(SNAPSHOT_PAD, '0')}.content`,
     );
-    await copyFile(originalPath, join(active.dir, snapshotFile));
+    await this.fsAsync.copyFile(originalPath, join(active.dir, snapshotFile));
     return {
       originalPath,
       existed: true,
@@ -208,14 +219,14 @@ export class EditCheckpointStore {
     record: IEditCheckpointFileRecord,
   ): Promise<void> {
     if (!record.existed) {
-      await rm(record.originalPath, { force: true });
+      await this.fsAsync.rm(record.originalPath, { force: true });
       return;
     }
     if (!record.snapshotFile) {
       throw new Error(`Checkpoint file record is missing a snapshot: ${record.originalPath}`);
     }
-    await mkdir(dirname(record.originalPath), { recursive: true });
-    await copyFile(
+    await this.fsAsync.mkdir(dirname(record.originalPath), { recursive: true });
+    await this.fsAsync.copyFile(
       join(this.checkpointDir(sessionId, checkpointId), record.snapshotFile),
       record.originalPath,
     );
@@ -223,9 +234,9 @@ export class EditCheckpointStore {
 
   private loadManifests(sessionId: string): IEditCheckpointManifest[] {
     const dir = this.sessionDir(sessionId);
-    return readDirSyncSafe(dir)
+    return readDirSyncSafe(this.fs, dir)
       .map((entry) => join(dir, entry, MANIFEST_FILE))
-      .map((manifestPath) => readJsonManifest(manifestPath))
+      .map((manifestPath) => readJsonManifest(this.fs, manifestPath))
       .filter((manifest): manifest is IEditCheckpointManifest => manifest !== undefined)
       .sort((a, b) => a.sequence - b.sequence);
   }
@@ -236,11 +247,11 @@ export class EditCheckpointStore {
   }
 
   private async writeManifest(dir: string, manifest: IEditCheckpointManifest): Promise<void> {
-    await mkdir(dir, { recursive: true });
+    await this.fsAsync.mkdir(dir, { recursive: true });
     const path = join(dir, MANIFEST_FILE);
     const tmp = `${path}.tmp`;
-    await writeFile(tmp, JSON.stringify(manifest, null, 2), 'utf8');
-    await rename(tmp, path);
+    await this.fsAsync.writeFile(tmp, JSON.stringify(manifest, null, 2), 'utf8');
+    await this.fsAsync.rename(tmp, path);
   }
 
   private sessionDir(sessionId: string): string {
@@ -272,28 +283,35 @@ function isInside(parent: string, child: string): boolean {
   return rel.length === 0 || (!rel.startsWith('..') && !rel.startsWith('/'));
 }
 
-async function pathExists(path: string): Promise<boolean> {
+async function pathExists(
+  fsAsync: IFileSystemAsync,
+  fs: IFileSystem,
+  path: string,
+): Promise<boolean> {
   try {
-    await access(path, constants.F_OK);
+    await fsAsync.access(path, fs.constants.F_OK);
     return true;
   } catch {
+    // allow-fallback: access failure means file absent, false is the correct result
     return false;
   }
 }
 
-function readDirSyncSafe(dir: string): string[] {
+function readDirSyncSafe(fs: IFileSystem, dir: string): string[] {
   try {
-    return readdirSync(dir);
+    return fs.readdirSync(dir);
   } catch {
+    // allow-fallback: missing directory returns empty list, not an error
     return [];
   }
 }
 
-function readJsonManifest(path: string): IEditCheckpointManifest | undefined {
+function readJsonManifest(fs: IFileSystem, path: string): IEditCheckpointManifest | undefined {
   try {
-    const raw = readFileSync(path, 'utf8');
+    const raw = fs.readFileSync(path, 'utf8');
     return JSON.parse(raw) as IEditCheckpointManifest;
   } catch {
+    // allow-fallback: corrupted/missing manifest is filtered out by caller
     return undefined;
   }
 }

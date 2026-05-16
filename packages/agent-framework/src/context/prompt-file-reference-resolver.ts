@@ -1,5 +1,7 @@
-import { readFile, realpath, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
+
+import type { IFileSystemAsync } from '@robota-sdk/agent-core';
+import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import type {
   IPromptFileReferenceDiagnostic,
   IPromptFileReferenceLimits,
@@ -38,6 +40,7 @@ interface IResolveState {
   diagnostics: IPromptFileReferenceDiagnostic[];
   loadedPaths: Set<string>;
   totalBytes: number;
+  fsAsync: IFileSystemAsync;
 }
 
 interface IReferenceFileInfo {
@@ -75,14 +78,16 @@ export async function resolvePromptFileReferencePaths(
 async function createResolveState(
   options: IPromptFileReferenceResolveOptions,
 ): Promise<IResolveState> {
+  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
   return {
-    rootPath: await resolveWorkspaceRoot(options.cwd),
+    rootPath: await resolveWorkspaceRoot(options.cwd, fsAsync),
     limits: resolveLimits(options.limits),
     reason: options.reason ?? 'prompt-reference',
     references: [],
     diagnostics: [],
     loadedPaths: new Set<string>(),
     totalBytes: 0,
+    fsAsync,
   };
 }
 
@@ -102,10 +107,11 @@ function resolveLimits(limits: IPromptFileReferenceLimits | undefined): IResolve
   };
 }
 
-async function resolveWorkspaceRoot(cwd: string): Promise<string> {
+async function resolveWorkspaceRoot(cwd: string, fsAsync: IFileSystemAsync): Promise<string> {
   try {
-    return await realpath(cwd);
+    return await fsAsync.realpath(cwd);
   } catch {
+    // allow-fallback: realpath fails for non-existent cwd; resolve() gives a usable absolute path
     return resolve(cwd);
   }
 }
@@ -161,7 +167,7 @@ async function resolveReferencePath(
   }
 
   try {
-    const sourcePath = await realpath(candidatePath);
+    const sourcePath = await state.fsAsync.realpath(candidatePath);
     if (isPathWithinRoot(sourcePath, state.rootPath)) return sourcePath;
     pushDiagnostic(
       state,
@@ -170,6 +176,7 @@ async function resolveReferencePath(
       'Referenced path resolves outside the workspace.',
     );
   } catch {
+    // allow-fallback: realpath failure means file absent; diagnostic is the intended result
     pushDiagnostic(state, 'not-found', reference, 'Referenced file was not found.');
   }
   return undefined;
@@ -194,7 +201,7 @@ async function inspectReferenceFile(
   state: IResolveState,
 ): Promise<IReferenceFileInfo | undefined> {
   try {
-    const fileStat = await stat(sourcePath);
+    const fileStat = await state.fsAsync.stat(sourcePath);
     if (fileStat.isDirectory()) {
       pushDiagnostic(
         state,
@@ -224,6 +231,7 @@ async function inspectReferenceFile(
     }
     return { sourcePath, byteLength: fileStat.size };
   } catch {
+    // allow-fallback: stat failure means unreadable; diagnostic is the intended result
     pushDiagnostic(state, 'unreadable', reference, 'Referenced file could not be inspected.');
     return undefined;
   }
@@ -235,8 +243,9 @@ async function readReferenceFile(
   state: IResolveState,
 ): Promise<string | undefined> {
   try {
-    return await readFile(sourcePath, 'utf8');
+    return await state.fsAsync.readFile(sourcePath, 'utf8');
   } catch {
+    // allow-fallback: read failure means unreadable; diagnostic is the intended result
     pushDiagnostic(state, 'unreadable', reference, 'Referenced file could not be read.');
     return undefined;
   }

@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
+import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type { ICommandSource, ICommand } from '../command-api/types.js';
 
 interface IFrontmatter {
@@ -92,18 +93,18 @@ function buildCommand(
 }
 
 /** Scan a skills directory for subdirectories containing SKILL.md */
-function scanSkillsDir(skillsDir: string): ICommand[] {
-  if (!existsSync(skillsDir)) return [];
+function scanSkillsDir(skillsDir: string, fs: IFileSystem): ICommand[] {
+  if (!fs.existsSync(skillsDir)) return [];
 
   const commands: ICommand[] = [];
-  const entries = readdirSync(skillsDir, { withFileTypes: true });
+  const entries: IDirent[] = fs.readdirSync(skillsDir, { withFileTypes: true });
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const skillFile = join(skillsDir, entry.name, 'SKILL.md');
-    if (!existsSync(skillFile)) continue;
+    if (!fs.existsSync(skillFile)) continue;
 
-    const content = readFileSync(skillFile, 'utf-8');
+    const content = fs.readFileSync(skillFile, 'utf-8');
     const frontmatter = parseFrontmatter(content);
     commands.push(buildCommand(frontmatter, content, entry.name));
   }
@@ -112,16 +113,16 @@ function scanSkillsDir(skillsDir: string): ICommand[] {
 }
 
 /** Scan a commands directory for .md files (Claude Code legacy format) */
-function scanCommandsDir(commandsDir: string): ICommand[] {
-  if (!existsSync(commandsDir)) return [];
+function scanCommandsDir(commandsDir: string, fs: IFileSystem): ICommand[] {
+  if (!fs.existsSync(commandsDir)) return [];
 
   const commands: ICommand[] = [];
-  const entries = readdirSync(commandsDir, { withFileTypes: true });
+  const entries: IDirent[] = fs.readdirSync(commandsDir, { withFileTypes: true });
 
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
     const filePath = join(commandsDir, entry.name);
-    const content = readFileSync(filePath, 'utf-8');
+    const content = fs.readFileSync(filePath, 'utf-8');
     const frontmatter = parseFrontmatter(content);
     const fallbackName = basename(entry.name, '.md');
     commands.push(buildCommand(frontmatter, content, fallbackName));
@@ -135,21 +136,23 @@ export class SkillCommandSource implements ICommandSource {
   readonly name = 'skill';
   private readonly cwd: string;
   private readonly home: string;
+  private readonly fs: IFileSystem;
   private cachedCommands: ICommand[] | null = null;
 
-  constructor(cwd: string, home?: string) {
+  constructor(cwd: string, home?: string, fs: IFileSystem = new NodeFileSystem()) {
     this.cwd = cwd;
     this.home = home ?? homedir();
+    this.fs = fs;
   }
 
   getCommands(): ICommand[] {
     if (this.cachedCommands) return this.cachedCommands;
 
     const sources: ICommand[][] = [
-      scanSkillsDir(join(this.cwd, '.claude', 'skills')),
-      scanCommandsDir(join(this.cwd, '.claude', 'commands')),
-      scanSkillsDir(join(this.home, '.robota', 'skills')),
-      scanSkillsDir(join(this.cwd, '.agents', 'skills')),
+      scanSkillsDir(join(this.cwd, '.claude', 'skills'), this.fs),
+      scanCommandsDir(join(this.cwd, '.claude', 'commands'), this.fs),
+      scanSkillsDir(join(this.home, '.robota', 'skills'), this.fs),
+      scanSkillsDir(join(this.cwd, '.agents', 'skills'), this.fs),
     ];
 
     const seen = new Set<string>();

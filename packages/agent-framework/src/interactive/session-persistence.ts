@@ -5,8 +5,9 @@ import {
   SessionStore,
   type ISessionRecord,
 } from '@robota-sdk/agent-session';
-import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
@@ -55,9 +56,12 @@ export interface IResumableSessionSummary {
   preview: string;
 }
 
-export function createProjectSessionStore(cwd: string): IInteractiveSessionStore {
+export function createProjectSessionStore(
+  cwd: string,
+  fs: IFileSystem = new NodeFileSystem(),
+): IInteractiveSessionStore {
   const paths = projectPaths(cwd);
-  return new ProjectSessionStoreFacade(paths.sessions, paths.logs);
+  return new ProjectSessionStoreFacade(paths.sessions, paths.logs, fs);
 }
 
 export function listResumableSessionSummaries(
@@ -97,10 +101,12 @@ export function resolveSessionIdByIdOrName(
 class ProjectSessionStoreFacade implements IInteractiveSessionStore {
   private readonly store: SessionStore;
   private readonly logsDir: string | undefined;
+  private readonly fs: IFileSystem;
 
-  constructor(baseDir: string, logsDir?: string) {
+  constructor(baseDir: string, logsDir?: string, fs: IFileSystem = new NodeFileSystem()) {
     this.store = new SessionStore(baseDir);
     this.logsDir = logsDir;
+    this.fs = fs;
   }
 
   save(session: IInteractiveSessionRecord): void {
@@ -159,10 +165,11 @@ class ProjectSessionStoreFacade implements IInteractiveSessionStore {
   }
 
   private listReplayLogRecords(): IInteractiveSessionRecord[] {
-    if (!this.logsDir || !existsSync(this.logsDir)) {
+    if (!this.logsDir || !this.fs.existsSync(this.logsDir)) {
       return [];
     }
-    return readdirSync(this.logsDir)
+    return this.fs
+      .readdirSync(this.logsDir)
       .filter((file) => file.endsWith('.jsonl'))
       .map((file) => this.loadFromReplayLog(file.slice(0, -'.jsonl'.length)))
       .filter((record): record is IInteractiveSessionRecord => record !== undefined);

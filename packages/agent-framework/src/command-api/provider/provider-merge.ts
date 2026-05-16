@@ -1,13 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import type { IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 import { normalizeProviderConfig } from '@robota-sdk/agent-executor';
 import type { IProviderProfileSettings, TProviderSettingsDocument } from './provider-settings.js';
 
 export function readMergedProviderSettingsFromPaths(
   paths: readonly string[],
+  fs: IFileSystem = new NodeFileSystem(),
 ): TProviderSettingsDocument {
   return paths.reduce<TProviderSettingsDocument>((settings, filePath) => {
-    const parsed = readSettingsFile(filePath);
+    const parsed = readSettingsFile(filePath, fs);
     if (parsed === undefined) {
       return settings;
     }
@@ -15,12 +17,15 @@ export function readMergedProviderSettingsFromPaths(
   }, {});
 }
 
-function readSettingsFile(filePath: string): TProviderSettingsDocument | undefined {
-  if (!existsSync(filePath)) {
+function readSettingsFile(
+  filePath: string,
+  fs: IFileSystem,
+): TProviderSettingsDocument | undefined {
+  if (!fs.existsSync(filePath)) {
     return undefined;
   }
   try {
-    const raw = readFileSync(filePath, 'utf8');
+    const raw = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(raw) as TProviderSettingsDocument;
   } catch {
     // allow-fallback: unparseable settings file is skipped to allow the config chain to continue

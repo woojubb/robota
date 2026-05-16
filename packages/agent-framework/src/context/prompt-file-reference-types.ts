@@ -1,3 +1,5 @@
+import type { IFileSystemAsync } from '@robota-sdk/agent-core';
+
 export type TPromptFileReferenceReason = 'manual' | 'prompt-reference';
 
 export type TPromptFileReferenceDiagnosticCode =
@@ -49,6 +51,7 @@ export interface IPromptFileReferenceResolveOptions {
   cwd: string;
   limits?: IPromptFileReferenceLimits;
   reason?: TPromptFileReferenceReason;
+  fsAsync?: IFileSystemAsync;
 }
 
 export interface IResolvedPromptFileReferences {

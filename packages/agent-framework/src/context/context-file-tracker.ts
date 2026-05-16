@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 /** A single context file entry tracked with its content hash. */
 export interface IContextFileEntry {
@@ -17,8 +18,11 @@ export function computeContentHash(content: string): string {
 }
 
 /** Read a file from disk and return an entry with its content hash. */
-export function loadFileWithHash(filePath: string): IContextFileEntry {
-  const content = readFileSync(filePath, 'utf-8');
+export function loadFileWithHash(
+  filePath: string,
+  fs: IFileSystem = new NodeFileSystem(),
+): IContextFileEntry {
+  const content = fs.readFileSync(filePath, 'utf-8');
   return { filePath, content, contentHash: computeContentHash(content) };
 }
 
@@ -34,16 +38,17 @@ export interface IContextStalenessCheckResult {
  */
 export async function checkContextStaleness(
   entries: readonly IContextFileEntry[],
+  fs: IFileSystem = new NodeFileSystem(),
 ): Promise<IContextStalenessCheckResult> {
   const stale: IContextFileEntry[] = [];
   const fresh: IContextFileEntry[] = [];
 
   for (const entry of entries) {
-    if (!existsSync(entry.filePath)) {
+    if (!fs.existsSync(entry.filePath)) {
       fresh.push(entry);
       continue;
     }
-    const diskContent = readFileSync(entry.filePath, 'utf-8');
+    const diskContent = fs.readFileSync(entry.filePath, 'utf-8');
     const diskHash = computeContentHash(diskContent);
     if (diskHash !== entry.contentHash) {
       stale.push(entry);
@@ -69,14 +74,15 @@ export interface IContextRefreshResult {
  */
 export async function refreshContextEntries(
   entries: readonly IContextFileEntry[],
+  fs: IFileSystem = new NodeFileSystem(),
 ): Promise<IContextRefreshResult> {
-  const { stale } = await checkContextStaleness(entries);
+  const { stale } = await checkContextStaleness(entries, fs);
   const staleSet = new Set(stale.map((e) => e.filePath));
   const refreshed: string[] = [];
 
   const updated = entries.map((entry) => {
     if (!staleSet.has(entry.filePath)) return entry;
-    const diskContent = readFileSync(entry.filePath, 'utf-8');
+    const diskContent = fs.readFileSync(entry.filePath, 'utf-8');
     refreshed.push(entry.filePath);
     return {
       filePath: entry.filePath,
