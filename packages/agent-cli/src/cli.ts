@@ -88,6 +88,7 @@ import { resolveGitBranch } from './utils/git-branch.js';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
+import { resolveInteraction } from './tui-interactions/registry.js';
 
 const PRINTABLE_ASCII_START = 32;
 
@@ -493,6 +494,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     cliAdapter: createTuiCliAdapter(providerDefinitions),
     reloadPluginCommandSource,
     agentName: 'robota-cli',
+    resolveInteraction,
   });
   await tuiTransport.start();
   process.exit(0);
