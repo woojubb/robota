@@ -264,19 +264,18 @@ const agent = new Robota({
 
 ### Available Plugins
 
-`EventEmitterPlugin` is built into `agent-core`. 9 plugins are also available as separate `@robota-sdk/agent-plugin-*` packages (not yet published — available in the monorepo only):
+`EventEmitterPlugin` is built into `agent-core`. 8 plugins are also available via `@robota-sdk/agent-plugin`:
 
-| Plugin Package                                  | Purpose                       |
-| ----------------------------------------------- | ----------------------------- |
-| `@robota-sdk/agent-plugin-event-emitter`        | Event emission (standalone)   |
-| `@robota-sdk/agent-plugin-logging`              | Multi-backend logging         |
-| `@robota-sdk/agent-plugin-usage`                | Token usage and cost tracking |
-| `@robota-sdk/agent-plugin-performance`          | Metrics collection            |
-| `@robota-sdk/agent-plugin-execution-analytics`  | Execution analytics           |
-| `@robota-sdk/agent-plugin-error-handling`       | Error recovery strategies     |
-| `@robota-sdk/agent-plugin-limits`               | Rate limiting                 |
-| `@robota-sdk/agent-plugin-conversation-history` | Persistent history            |
-| `@robota-sdk/agent-plugin-webhook`              | HTTP notifications            |
+| Plugin Export               | Purpose                       |
+| --------------------------- | ----------------------------- |
+| `LoggingPlugin`             | Multi-backend logging         |
+| `UsagePlugin`               | Token usage and cost tracking |
+| `PerformancePlugin`         | Metrics collection            |
+| `ExecutionAnalyticsPlugin`  | Execution analytics           |
+| `ErrorHandlingPlugin`       | Error recovery strategies     |
+| `LimitsPlugin`              | Rate limiting                 |
+| `ConversationHistoryPlugin` | Persistent history            |
+| `WebhookPlugin`             | HTTP notifications            |
 
 ### Creating Custom Plugins
 
@@ -375,7 +374,7 @@ try {
 
 | v2.0.0                                     | v3.0.0                                                      |
 | ------------------------------------------ | ----------------------------------------------------------- |
-| Plugins built into `agent-core`            | 9 plugins extracted to `agent-plugin-*` packages            |
+| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`           |
 | `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
 | `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
 | `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                       |

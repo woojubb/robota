@@ -1,13 +1,14 @@
 {
-  "name": "@robota-sdk/agent-plugin-webhook",
+  "name": "@robota-sdk/agent-plugin",
   "version": "3.0.0-beta.63",
-  "description": "Webhook notification plugin for Robota SDK",
+  "description": "Consolidated plugin implementations for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
       "node": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
@@ -19,36 +20,29 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "tsdown",
-    "build:js": "tsdown --no-dts",
-    "build:types": "tsdown --dts",
-    "test": "vitest run --passWithNoTests",
-    "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts,.tsx",
-    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
-    "clean": "rimraf dist",
-    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf dist"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "jssha": "^3.3.1"
   },
-  "peerDependencies": {
-    "@robota-sdk/agent-core": "workspace:*"
-  },
   "devDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "rimraf": "^5.0.5",
+    "@types/node": "^22.14.0",
+    "rimraf": "^6.0.1",
     "tsdown": "^0.22.0",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.3",
     "vitest": "^1.6.1"
   },
   "license": "MIT",
   "publishConfig": {
     "access": "public"
-  },
-  "private": true
+  }
 }
