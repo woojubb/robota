@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
+import { createSkillsCommandModule } from '@robota-sdk/agent-command';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '../headless-transport.js';
 

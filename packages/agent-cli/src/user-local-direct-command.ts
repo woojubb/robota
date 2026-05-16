@@ -1,4 +1,4 @@
-import { executeUserLocalDirectCommand } from '@robota-sdk/agent-command-user-local';
+import { executeUserLocalDirectCommand } from '@robota-sdk/agent-command';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 
 export async function runUserLocalDirectCommandIfRequested(

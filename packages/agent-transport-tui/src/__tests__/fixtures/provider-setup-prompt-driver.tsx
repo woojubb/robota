@@ -11,7 +11,7 @@ import {
   validateProviderSetupValue,
   type IProviderSetupFlowState,
   type TProviderSetupType,
-} from '@robota-sdk/agent-command-provider';
+} from '@robota-sdk/agent-command';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const openaiDefaults = {

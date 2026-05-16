@@ -111,10 +111,7 @@ robota -p "Explain this project"    # Print mode
 
 ```
 agent-cli              ← Interactive terminal AI coding assistant
-agent-command-agent    ← /agent command module for background subagent control
-agent-command-help     ← /help command module for registered command discovery
-agent-command-provider ← /provider command module for provider profiles
-agent-command-skills   ← /skills command module for skill discovery and activation
+agent-command          ← All slash command modules (/agent, /help, /provider, /skills, /plugin, …)
 agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
 agent-transport-mcp    ← MCP transport (Model Context Protocol server)
 agent-transport-ws     ← WebSocket transport (framework-agnostic)
@@ -139,10 +136,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction                                                                                                                                                  |
 | [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                       | Background task and subagent lifecycle primitives                                                                                                                                                |
 | [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and createQuery()                                                                                                                                     |
-| [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)           | `/agent` command module for background subagent jobs                                                                                                                                             |
-| [`@robota-sdk/agent-command-help`](./packages/agent-command-help/)             | `/help` command module for registered command discovery                                                                                                                                          |
-| [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)     | `/provider` command module for provider profiles                                                                                                                                                 |
-| [`@robota-sdk/agent-command-skills`](./packages/agent-command-skills/)         | `/skills` command module for skill discovery and activation                                                                                                                                      |
+| [`@robota-sdk/agent-command`](./packages/agent-command/)                       | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                  |
 | [`@robota-sdk/agent-provider`](./packages/agent-provider/)                     | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
 | [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant                                                                                                                                                         |
 | [`@robota-sdk/agent-transport-headless`](./packages/agent-transport-headless/) | Non-interactive text/json/stream-json transport                                                                                                                                                  |
@@ -176,11 +170,8 @@ npm install @robota-sdk/agent-tools
 # SDK — assembly layer with createQuery() and InteractiveSession
 npm install @robota-sdk/agent-sdk
 
-# Command module — /agent background jobs
-npm install @robota-sdk/agent-command-agent
-
-# Command module — /provider profile management
-npm install @robota-sdk/agent-command-provider
+# Command modules — all slash commands in one package
+npm install @robota-sdk/agent-command
 
 # Transports
 npm install @robota-sdk/agent-transport-headless
