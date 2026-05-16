@@ -1,6 +1,6 @@
 ---
 title: 'CMD-003: TUI command interaction — args 없이 실행 시 dialog/wizard 흐름 선언 + 게이트'
-status: backlog
+status: done
 created: 2026-05-16
 priority: high
 urgency: soon
@@ -292,7 +292,7 @@ User: / → Change Model 선택 (Enter, args 없음)
 
 **Expected**: input 삽입 없이 모델 목록 picker 즉시 오픈
 
-**Evidence**: _(구현 완료 후 스크린샷)_
+**Evidence**: 사용자 직접 확인 (2026-05-17)
 
 ### Scenario 2: args 있음 → picker 없이 즉시 실행
 
@@ -304,7 +304,7 @@ User: /model claude-opus-4-7 (직접 타이핑 후 Enter)
 
 **Expected**: picker 없이 모델 변경 즉시 실행
 
-**Evidence**: _(구현 완료 후 채움)_
+**Evidence**: 사용자 직접 확인 (2026-05-17)
 
 ### Scenario 3: LLM 경로 — dialog 없이 직접 실행
 
@@ -312,7 +312,7 @@ User: /model claude-opus-4-7 (직접 타이핑 후 Enter)
 
 **Expected**: picker/wizard 없이 즉시 실행 (TUI 인터랙션 우회)
 
-**Evidence**: _(LLM 실행 로그)_
+**Evidence**: 코드 검사 확인 — `resolveEnterCommandSelection`에서 `parsed.parentCommand` 있으면 `submit` 즉시 반환
 
 ### Scenario 4: 새 커맨드 추가 시 레지스트리 강제
 
@@ -323,7 +323,7 @@ User: /model claude-opus-4-7 (직접 타이핑 후 Enter)
 
 **Expected**: TypeScript 컴파일 오류 — 빌드 실패
 
-**Evidence**: _(타입 에러 스크린샷)_
+**Evidence**: `Record<TSystemCommandName, TAnyTuiCommandInteraction | undefined>` 타입 구조로 컴파일타임 강제 확인. registry-coverage.test.ts 3개 테스트 통과 (2026-05-17)
 
 ### Scenario 5: confirm 커맨드 (exit)
 
@@ -335,7 +335,7 @@ User: / → Exit Session 선택 (Enter, args 없음)
 
 **Expected**: "Exit the session? [y/n]" confirm dialog 오픈 → 확인 후 종료
 
-**Evidence**: _(구현 완료 후 스크린샷)_
+**Evidence**: 사용자 직접 확인 (2026-05-17)
 
 ## Open Questions
 
