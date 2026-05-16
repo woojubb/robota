@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-BL-009-B: 빌드 도구 마이그레이션 Prior Art Research 및 Decision Matrix'
-status: todo
+status: done
 created: 2026-05-15
 priority: medium
 urgency: soon
