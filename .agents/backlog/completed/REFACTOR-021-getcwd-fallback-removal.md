@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-021: getCwd() process.cwd() silent fallback 제거'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

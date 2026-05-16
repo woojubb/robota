@@ -118,8 +118,12 @@ describe('SystemCommandExecutor', () => {
   it('formats a composed command list through the SDK common API', () => {
     const session = createMockSession({
       listCommands: vi.fn().mockReturnValue([
-        { name: 'help', description: 'Show available commands' },
-        { name: 'provider', description: 'Manage provider profiles' },
+        { name: 'help', displayName: 'Help', description: 'Show available commands' },
+        {
+          name: 'provider',
+          displayName: 'Provider Setup',
+          description: 'Manage provider profiles',
+        },
       ]),
     });
 
@@ -128,8 +132,8 @@ describe('SystemCommandExecutor', () => {
     expect(result).toBe(
       [
         'Available commands:',
-        '  help             — Show available commands',
-        '  provider         — Manage provider profiles',
+        '  Help (/help)                     — Show available commands',
+        '  Provider Setup (/provider)       — Manage provider profiles',
       ].join('\n'),
     );
   });
@@ -148,6 +152,42 @@ describe('SystemCommandExecutor', () => {
     expect(
       new BuiltinCommandSource(module.systemCommands).getCommands().map((c) => c.name),
     ).toEqual(executableNames);
+  });
+
+  it('resolveRequiresPermission derives from safety when field is undefined', () => {
+    const executor = new SystemCommandExecutor();
+    const base = { description: 'd', execute: () => ({ success: true, message: '' }) };
+
+    expect(executor.resolveRequiresPermission({ name: 'a', safety: 'read-only', ...base })).toBe(
+      false,
+    );
+    expect(executor.resolveRequiresPermission({ name: 'b', safety: 'write', ...base })).toBe(true);
+    expect(executor.resolveRequiresPermission({ name: 'c', safety: 'network', ...base })).toBe(
+      true,
+    );
+    expect(executor.resolveRequiresPermission({ name: 'd', ...base })).toBe(true);
+  });
+
+  it('resolveRequiresPermission respects explicit field over safety', () => {
+    const executor = new SystemCommandExecutor();
+    const base = { description: 'd', execute: () => ({ success: true, message: '' }) };
+
+    expect(
+      executor.resolveRequiresPermission({
+        name: 'a',
+        requiresPermission: false,
+        safety: 'write',
+        ...base,
+      }),
+    ).toBe(false);
+    expect(
+      executor.resolveRequiresPermission({
+        name: 'b',
+        requiresPermission: true,
+        safety: 'read-only',
+        ...base,
+      }),
+    ).toBe(true);
   });
 
   it('register adds custom command', async () => {

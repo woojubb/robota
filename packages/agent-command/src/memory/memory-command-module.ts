@@ -1,0 +1,57 @@
+import type {
+  ICommand,
+  ICommandModule,
+  ICommandSource,
+  ISystemCommand,
+} from '@robota-sdk/agent-framework';
+import {
+  MEMORY_COMMAND_ARGUMENT_HINT,
+  MEMORY_COMMAND_DESCRIPTION,
+  buildMemoryCommandSubcommands,
+} from '@robota-sdk/agent-framework';
+import { executeMemoryCommand } from './memory-command.js';
+
+export function createMemoryCommandEntry(): ICommand {
+  return {
+    name: 'memory',
+    displayName: 'Memory',
+    description: MEMORY_COMMAND_DESCRIPTION,
+    source: 'memory',
+    argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
+    modelInvocable: true,
+    safety: 'write',
+    subcommands: buildMemoryCommandSubcommands(),
+  };
+}
+
+function createMemorySystemCommand(): ISystemCommand {
+  const entry = createMemoryCommandEntry();
+  return {
+    name: entry.name,
+    displayName: entry.displayName,
+    description: entry.description,
+    requiresPermission: false,
+    userInvocable: true,
+    modelInvocable: true,
+    argumentHint: entry.argumentHint,
+    safety: entry.safety,
+    subcommands: entry.subcommands,
+    execute: executeMemoryCommand,
+  };
+}
+
+export class MemoryCommandSource implements ICommandSource {
+  readonly name = 'memory';
+
+  getCommands(): ICommand[] {
+    return [createMemoryCommandEntry()];
+  }
+}
+
+export function createMemoryCommandModule(): ICommandModule {
+  return {
+    name: 'agent-command-memory',
+    commandSources: [new MemoryCommandSource()],
+    systemCommands: [createMemorySystemCommand()],
+  };
+}

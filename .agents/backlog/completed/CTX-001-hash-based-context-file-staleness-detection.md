@@ -1,6 +1,7 @@
 ---
 title: 'CTX-001: Hash-based staleness detection for .md files loaded in agent context'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-14
 priority: medium
 urgency: later

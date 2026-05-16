@@ -13,13 +13,13 @@ Choose the packages you need based on your use case:
 ### I want to build a custom AI agent
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
 ```
 
 ### I want tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
 ```
 
 ### I want a ready-to-use coding assistant
@@ -71,7 +71,7 @@ On first run, you'll be guided through provider selection and API key configurat
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -96,7 +96,7 @@ console.log(response);
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({
@@ -133,8 +133,8 @@ console.log(response);
 ### 3. Switch providers dynamically
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new Robota({
   name: 'MultiProviderAgent',
@@ -160,7 +160,7 @@ response = await agent.run('Continue our conversation.');
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,

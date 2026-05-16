@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-005: Transport attach() 계약 불일치 해결 — ISession vs IInteractiveSession'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: high
 urgency: soon

@@ -1,6 +1,7 @@
 ---
 title: 'MULTI-001: TUI 멀티에이전트 멀티플렉서 — 방향키로 main·백그라운드 에이전트 자유 전환 및 프롬프트 입력'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-14
 priority: high
 urgency: later

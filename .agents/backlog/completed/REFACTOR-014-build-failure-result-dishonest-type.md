@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-014: buildFailureResult 부정직한 타입 수정 (undefined as unknown as TOutput)'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

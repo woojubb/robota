@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-007: provider setup flow state machine → agent-command-provider 이동'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

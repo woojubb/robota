@@ -10,7 +10,7 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import { CommandRegistry, InteractiveSession } from '@robota-sdk/agent-framework';
-import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { createDefaultCliCommandModules, startCli } from '../cli.js';
 
 function createFakeProvider(): IAIProvider {

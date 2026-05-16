@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-015: getAutoCompactThreshold optionality 일관화'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later
