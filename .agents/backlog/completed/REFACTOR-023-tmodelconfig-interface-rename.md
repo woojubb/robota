@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-023: TModelConfig / TConfigurationSnapshot → interface 변환'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

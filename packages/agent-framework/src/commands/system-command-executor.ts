@@ -33,6 +33,12 @@ export class SystemCommandExecutor {
     return this.commands.get(name);
   }
 
+  /** Resolve whether a command requires permission confirmation. */
+  resolveRequiresPermission(command: ISystemCommand): boolean {
+    if (command.requiresPermission !== undefined) return command.requiresPermission;
+    return command.safety !== 'read-only';
+  }
+
   async executeCommand(
     command: ISystemCommand,
     session: ICommandHostContext,

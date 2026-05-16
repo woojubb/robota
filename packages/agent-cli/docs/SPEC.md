@@ -1499,31 +1499,29 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 `@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
 
-| Package                                 | Purpose                                                                                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-command-agent`       | Default `/agent` command module composed by the Robota binary                                                                        |
-| `@robota-sdk/agent-command-compact`     | Default `/compact` command module composed by the Robota binary                                                                      |
-| `@robota-sdk/agent-command-context`     | Default `/context` command module composed by the Robota binary                                                                      |
-| `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                         |
-| `@robota-sdk/agent-command-help`        | Default `/help` command module composed by the Robota binary                                                                         |
-| `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                     |
-| `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                        |
-| `@robota-sdk/agent-command-permissions` | Default `/permissions [mode]` command module composed by the Robota binary                                                           |
-| `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                     |
-| `@robota-sdk/agent-command-rewind`      | Default `/rewind` command module composed by the Robota binary                                                                       |
-| `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`           |
-| `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                   |
-| `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts |
-| `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                             |
-| `@robota-sdk/agent-provider-anthropic`  | Default provider definition contributed by the Robota binary                                                                         |
-| `@robota-sdk/agent-provider-openai`     | Default provider definition contributed by the Robota binary                                                                         |
-| `@robota-sdk/agent-provider-gemma`      | Default provider definition contributed by the Robota binary                                                                         |
-| `@robota-sdk/agent-transport-headless`  | Headless runner for print mode (`-p`) execution                                                                                      |
-| `ink` 7, `react` 19.2+                  | TUI rendering                                                                                                                        |
-| `ink-select-input`                      | Arrow-key selection (permission prompt)                                                                                              |
-| `ink-spinner`                           | Loading spinner                                                                                                                      |
-| `chalk`                                 | Terminal colors                                                                                                                      |
-| `ink-text-input`                        | Base text input (extended by CjkTextInput)                                                                                           |
-| `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                              |
-| `cli-highlight`                         | Syntax highlighting for code blocks                                                                                                  |
-| `string-width`                          | Unicode-aware string width calculation                                                                                               |
+| Package                                 | Purpose                                                                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-command-agent`       | Default `/agent` command module composed by the Robota binary                                                                                     |
+| `@robota-sdk/agent-command-compact`     | Default `/compact` command module composed by the Robota binary                                                                                   |
+| `@robota-sdk/agent-command-context`     | Default `/context` command module composed by the Robota binary                                                                                   |
+| `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                                      |
+| `@robota-sdk/agent-command-help`        | Default `/help` command module composed by the Robota binary                                                                                      |
+| `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                                  |
+| `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                                     |
+| `@robota-sdk/agent-command-permissions` | Default `/permissions [mode]` command module composed by the Robota binary                                                                        |
+| `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                                  |
+| `@robota-sdk/agent-command-rewind`      | Default `/rewind` command module composed by the Robota binary                                                                                    |
+| `@robota-sdk/agent-command-session`     | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`                        |
+| `@robota-sdk/agent-command-statusline`  | Default `/statusline` command module composed by the Robota binary                                                                                |
+| `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts              |
+| `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                          |
+| `@robota-sdk/agent-provider`            | Default provider definitions contributed by the Robota binary (via sub-paths: `/anthropic`, `/openai`, `/gemini`, `/gemma`, `/qwen`, `/deepseek`) |
+| `@robota-sdk/agent-transport-headless`  | Headless runner for print mode (`-p`) execution                                                                                                   |
+| `ink` 7, `react` 19.2+                  | TUI rendering                                                                                                                                     |
+| `ink-select-input`                      | Arrow-key selection (permission prompt)                                                                                                           |
+| `ink-spinner`                           | Loading spinner                                                                                                                                   |
+| `chalk`                                 | Terminal colors                                                                                                                                   |
+| `ink-text-input`                        | Base text input (extended by CjkTextInput)                                                                                                        |
+| `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                                           |
+| `cli-highlight`                         | Syntax highlighting for code blocks                                                                                                               |
+| `string-width`                          | Unicode-aware string width calculation                                                                                                            |

@@ -31,7 +31,7 @@ export interface ICreateQueryOptions {
  *
  * ```typescript
  * import { createQuery } from '@robota-sdk/agent-framework';
- * import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+ * import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
  *
  * const query = createQuery({ provider: new AnthropicProvider({ apiKey: '...' }) });
  * const answer = await query('List all TypeScript files');

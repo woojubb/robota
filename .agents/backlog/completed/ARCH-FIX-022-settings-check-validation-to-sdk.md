@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-FIX-022: agent-cli의 provider 설정 검증 로직(checkSettingsDocument)을 agent-sdk로 이동'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-14
 priority: medium
 urgency: later

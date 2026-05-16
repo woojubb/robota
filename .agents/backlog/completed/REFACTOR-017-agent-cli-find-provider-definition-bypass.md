@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-017: agent-cli findProviderDefinition → agent-sdk 경유'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

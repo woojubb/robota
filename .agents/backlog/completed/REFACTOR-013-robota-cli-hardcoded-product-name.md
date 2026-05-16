@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-013: agent-sessions 하드코딩된 robota-cli 제품명 제거'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

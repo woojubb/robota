@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-008: Anti-monolith — 300줄 초과 파일 분할 (14개)'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: medium
 urgency: later

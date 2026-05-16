@@ -52,7 +52,7 @@ Providers implement the `IAIProvider` interface from `agent-core`. Each provider
 ### Anthropic (Claude)
 
 ```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -64,7 +64,7 @@ Supported models: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 ### OpenAI
 
 ```typescript
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY,
@@ -74,7 +74,7 @@ const provider = new OpenAIProvider({
 ### Gemini
 
 ```typescript
-import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
 const provider = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY,
@@ -87,7 +87,7 @@ Gemini system prompts are sent as Gemini `systemInstruction`. The provider also 
 ### Gemma
 
 ```typescript
-import { GemmaProvider } from '@robota-sdk/agent-provider-gemma';
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
 
 const provider = new GemmaProvider({
   apiKey: 'lm-studio',
@@ -103,7 +103,7 @@ LM Studio and other OpenAI-compatible Chat Completions endpoints support Robota 
 ### Qwen
 
 ```typescript
-import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 
 const provider = new QwenProvider({
   apiKey: process.env.DASHSCOPE_API_KEY,
@@ -116,7 +116,7 @@ Qwen can also enable provider-side hosted web search and extraction through `bui
 ### DeepSeek
 
 ```typescript
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 
 const provider = new DeepSeekProvider({
   apiKey: process.env.DEEPSEEK_API_KEY,
@@ -264,19 +264,18 @@ const agent = new Robota({
 
 ### Available Plugins
 
-`EventEmitterPlugin` is built into `agent-core`. 9 plugins are also available as separate `@robota-sdk/agent-plugin-*` packages (not yet published — available in the monorepo only):
+`EventEmitterPlugin` is built into `agent-core`. 8 plugins are also available via `@robota-sdk/agent-plugin`:
 
-| Plugin Package                                  | Purpose                       |
-| ----------------------------------------------- | ----------------------------- |
-| `@robota-sdk/agent-plugin-event-emitter`        | Event emission (standalone)   |
-| `@robota-sdk/agent-plugin-logging`              | Multi-backend logging         |
-| `@robota-sdk/agent-plugin-usage`                | Token usage and cost tracking |
-| `@robota-sdk/agent-plugin-performance`          | Metrics collection            |
-| `@robota-sdk/agent-plugin-execution-analytics`  | Execution analytics           |
-| `@robota-sdk/agent-plugin-error-handling`       | Error recovery strategies     |
-| `@robota-sdk/agent-plugin-limits`               | Rate limiting                 |
-| `@robota-sdk/agent-plugin-conversation-history` | Persistent history            |
-| `@robota-sdk/agent-plugin-webhook`              | HTTP notifications            |
+| Plugin Export               | Purpose                       |
+| --------------------------- | ----------------------------- |
+| `LoggingPlugin`             | Multi-backend logging         |
+| `UsagePlugin`               | Token usage and cost tracking |
+| `PerformancePlugin`         | Metrics collection            |
+| `ExecutionAnalyticsPlugin`  | Execution analytics           |
+| `ErrorHandlingPlugin`       | Error recovery strategies     |
+| `LimitsPlugin`              | Rate limiting                 |
+| `ConversationHistoryPlugin` | Persistent history            |
+| `WebhookPlugin`             | HTTP notifications            |
 
 ### Creating Custom Plugins
 
@@ -375,7 +374,7 @@ try {
 
 | v2.0.0                                     | v3.0.0                                                      |
 | ------------------------------------------ | ----------------------------------------------------------- |
-| Plugins built into `agent-core`            | 9 plugins extracted to `agent-plugin-*` packages            |
+| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`           |
 | `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
 | `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
 | `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                       |

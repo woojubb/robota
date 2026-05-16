@@ -1,6 +1,7 @@
 ---
 title: 'REFACTOR-020: agent-server console.* → DI logger'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-15
 priority: low
 urgency: backlog

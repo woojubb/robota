@@ -8,7 +8,7 @@
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -87,7 +87,7 @@ Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover avai
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const ask = createQuery({ provider });
@@ -100,7 +100,7 @@ The simplest way to interact with Robota is to create a query function and call 
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const query = createQuery({ provider });
@@ -235,7 +235,7 @@ const session = new InteractiveSession({
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
@@ -350,24 +350,24 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 ## Marketplace Client
 
-`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through the `@robota-sdk/agent-command-plugin` module and its `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
+`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through the plugin command module in `@robota-sdk/agent-command` and its `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
 
 ## Transport Adapters
 
-`InteractiveSession` is the single entry point for all interactive use cases. Transport adapters in the `agent-transport-*` packages consume it to expose the session over different protocols:
+`InteractiveSession` is the single entry point for all interactive use cases. Transport adapters in `@robota-sdk/agent-transport` consume it to expose the session over different protocols:
 
-| Package                    | Protocol                       | Description                                                      |
+| Sub-path                   | Protocol                       | Description                                                      |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
-| `agent-transport-http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
-| `agent-transport-mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
-| `agent-transport-ws`       | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
-| `agent-transport-headless` | stdin/stdout (non-interactive) | Non-interactive execution with text/json/stream-json output      |
+| `agent-transport/http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
+| `agent-transport/mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
+| `agent-transport/ws`       | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
+| `agent-transport/headless` | stdin/stdout (non-interactive) | Non-interactive execution with text/json/stream-json output      |
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
-All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-sdk`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each package provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
+All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-sdk`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each sub-path provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
 
-`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-sdk`.
+`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport/http`. It has no dependency on `agent-sdk`.
 
 ## Assembly vs Direct Usage
 
@@ -375,8 +375,8 @@ All transport adapters implement the `ITransportAdapter` interface (exported fro
 | ------------------------------ | ------------------------------------------------------------------------ |
 | Quick one-shot                 | `createQuery({ provider })` — creates an `InteractiveSession` internally |
 | Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling           |
-| Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`            |
-| Non-interactive / headless     | `agent-transport-headless` — text, JSON, or stream-JSON output           |
+| Expose over HTTP / MCP / WS    | `agent-transport/{http,mcp,ws}` wrapping `InteractiveSession`            |
+| Non-interactive / headless     | `agent-transport/headless` — text, JSON, or stream-JSON output           |
 | Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                           |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                                |
 | Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider       |

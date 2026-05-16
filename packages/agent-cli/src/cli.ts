@@ -12,26 +12,26 @@ import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { findProviderDefinition } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-framework';
-import { createAgentCommandModule } from '@robota-sdk/agent-command-agent';
-import { createBackgroundCommandModule } from '@robota-sdk/agent-command-background';
-import { createProviderCommandModule } from '@robota-sdk/agent-command-provider';
-import { createCompactCommandModule } from '@robota-sdk/agent-command-compact';
-import { createContextCommandModule } from '@robota-sdk/agent-command-context';
-import { createExitCommandModule } from '@robota-sdk/agent-command-exit';
-import { createHelpCommandModule } from '@robota-sdk/agent-command-help';
-import { createLanguageCommandModule } from '@robota-sdk/agent-command-language';
-import { createMemoryCommandModule } from '@robota-sdk/agent-command-memory';
-import { createModelCommandModule } from '@robota-sdk/agent-command-model';
-import { createPermissionsCommandModule } from '@robota-sdk/agent-command-permissions';
-import { createPluginCommandModule } from '@robota-sdk/agent-command-plugin';
-import { createResetCommandModule } from '@robota-sdk/agent-command-reset';
-import { createRewindCommandModule } from '@robota-sdk/agent-command-rewind';
-import { createStatusLineCommandModule } from '@robota-sdk/agent-command-statusline';
-import { createSessionCommandModule } from '@robota-sdk/agent-command-session';
-import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
-import { createUserLocalCommandModule } from '@robota-sdk/agent-command-user-local';
-import { createModeCommandModule } from '@robota-sdk/agent-command-mode';
-import { createSettingsCommandModule } from '@robota-sdk/agent-command-settings';
+import { createAgentCommandModule } from '@robota-sdk/agent-command';
+import { createBackgroundCommandModule } from '@robota-sdk/agent-command';
+import { createProviderCommandModule } from '@robota-sdk/agent-command';
+import { createCompactCommandModule } from '@robota-sdk/agent-command';
+import { createContextCommandModule } from '@robota-sdk/agent-command';
+import { createExitCommandModule } from '@robota-sdk/agent-command';
+import { createHelpCommandModule } from '@robota-sdk/agent-command';
+import { createLanguageCommandModule } from '@robota-sdk/agent-command';
+import { createMemoryCommandModule } from '@robota-sdk/agent-command';
+import { createModelCommandModule } from '@robota-sdk/agent-command';
+import { createPermissionsCommandModule } from '@robota-sdk/agent-command';
+import { createPluginCommandModule } from '@robota-sdk/agent-command';
+import { createResetCommandModule } from '@robota-sdk/agent-command';
+import { createRewindCommandModule } from '@robota-sdk/agent-command';
+import { createStatusLineCommandModule } from '@robota-sdk/agent-command';
+import { createSessionCommandModule } from '@robota-sdk/agent-command';
+import { createSkillsCommandModule } from '@robota-sdk/agent-command';
+import { createUserLocalCommandModule } from '@robota-sdk/agent-command';
+import { createModeCommandModule } from '@robota-sdk/agent-command';
+import { createSettingsCommandModule } from '@robota-sdk/agent-command';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -64,10 +64,10 @@ import {
   runInteractiveProviderSetup,
 } from './utils/provider-setup.js';
 import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
-import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
-import { TuiTransport } from '@robota-sdk/agent-transport-tui';
-import type { ITuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
+import { TuiTransport } from '@robota-sdk/agent-transport/tui';
+import type { ITuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { TransportRegistry } from './transports/transport-registry.js';
 import {
   createDefaultBackgroundTaskRunners,

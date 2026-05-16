@@ -1,6 +1,7 @@
 ---
 title: 'BGTASK-001: ManagedShellProcessRunner를 agent-runtime으로 이동 + ScheduledTaskRunner 신규 추가'
-status: backlog
+status: done
+completed: 2026-05-16
 created: 2026-05-14
 priority: high
 urgency: later
