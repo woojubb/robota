@@ -5,8 +5,7 @@
   "description": "Package-owned examples for @robota-sdk/agent-core (not part of the workspace)",
   "dependencies": {
     "@robota-sdk/agent-core": "link:..",
-    "@robota-sdk/agent-provider-openai": "link:../../openai",
-    "@robota-sdk/agent-provider-anthropic": "link:../../anthropic"
+    "@robota-sdk/agent-provider": "link:../../agent-provider"
   },
   "devDependencies": {
     "tsx": "^4.20.3",

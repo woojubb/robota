@@ -3,7 +3,7 @@ import { analyzeCode, parseAgentConfig, validateEnvironment } from '../code-anal
 
 const validAgentCode = `
 import { Robota, createFunctionTool, LoggingPlugin } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 const weatherTool = createFunctionTool('weather', 'Get weather conditions', async () => {
   return { temperature: 21 };

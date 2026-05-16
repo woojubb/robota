@@ -1,6 +1,6 @@
 import type { IAIProvider, IExecutor } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { RemoteExecutor } from '@robota-sdk/agent-remote-client';
 
 import { REMOTE_EXECUTOR_TIMEOUT_MS } from './constants';

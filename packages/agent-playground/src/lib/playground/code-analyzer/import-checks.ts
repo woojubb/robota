@@ -5,9 +5,9 @@ const PLUGIN_NAMES = ['LoggingPlugin', 'UsagePlugin', 'PerformancePlugin'];
 export function checkImports(code: string, errors: IErrorInfo[], warnings: IErrorInfo[]): void {
   checkRobotaImport(code, errors);
   checkOpenAiClientImport(code, errors);
-  checkProviderImport(code, 'OpenAIProvider', '@robota-sdk/agent-provider-openai', errors);
-  checkProviderImport(code, 'AnthropicProvider', '@robota-sdk/agent-provider-anthropic', errors);
-  checkProviderImport(code, 'GoogleProvider', '@robota-sdk/agent-provider-google', errors);
+  checkProviderImport(code, 'OpenAIProvider', '@robota-sdk/agent-provider/openai', errors);
+  checkProviderImport(code, 'AnthropicProvider', '@robota-sdk/agent-provider/anthropic', errors);
+  checkProviderImport(code, 'GoogleProvider', '@robota-sdk/agent-provider/google', errors);
   checkCoreUtilityImports(code, warnings);
 }
 

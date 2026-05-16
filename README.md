@@ -27,7 +27,7 @@ const response = await query('List all TypeScript files in src/');
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const agent = new Robota({
   name: 'MyAgent',
@@ -58,14 +58,14 @@ agent-core        ← Foundation: Robota engine, abstractions, plugins
 
 ## Packages
 
-| Package                                                                                                      | Description                                            |
-| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                             | Core agent runtime, abstractions, and plugin system    |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)                           | Tool registry, FunctionTool, and 8 built-in tools      |
-| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                       | Session with permissions, hooks, and compaction        |
-| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                   | Assembly layer with config/context loading and query() |
-| [`@robota-sdk/agent-provider-anthropic`](https://www.npmjs.com/package/@robota-sdk/agent-provider-anthropic) | Anthropic Claude provider                              |
-| [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)                               | Interactive terminal AI coding assistant               |
+| Package                                                                                    | Description                                                                             |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)           | Core agent runtime, abstractions, and plugin system                                     |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)         | Tool registry, FunctionTool, and 8 built-in tools                                       |
+| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)     | Session with permissions, hooks, and compaction                                         |
+| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework) | Assembly layer with config/context loading and query()                                  |
+| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider)   | Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
+| [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)             | Interactive terminal AI coding assistant                                                |
 
 ## Documentation
 

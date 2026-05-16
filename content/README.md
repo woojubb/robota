@@ -27,7 +27,7 @@ The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled f
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -49,7 +49,7 @@ console.log(response);
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
@@ -81,7 +81,7 @@ const response = await agent.run('What is 42 * 17?');
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const query = createQuery({ provider });
@@ -125,37 +125,30 @@ agent-sdk              ← Assembly layer: InteractiveSession, config, context, 
 agent-sessions         ← Session lifecycle: permissions, hooks, compaction
 agent-runtime          ← Background task and subagent lifecycle primitives
 agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports/manifests
-agent-provider-*       ← AI provider implementations (anthropic, openai, gemini, google, gemma, qwen)
+agent-provider         ← Consolidated AI provider package (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugins
 ```
 
 ## Packages
 
-| Package                                                                                        | Description                                                            |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| [`@robota-sdk/agent-core`](./packages/agent-core/)                                             | Core agent runtime, abstractions, and plugin system                    |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                                           | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests   |
-| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                                     | Session with permissions, hooks, and compaction                        |
-| [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                                       | Background task and subagent lifecycle primitives                      |
-| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                                               | Assembly layer with config/context loading and createQuery()           |
-| [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)                           | `/agent` command module for background subagent jobs                   |
-| [`@robota-sdk/agent-command-help`](./packages/agent-command-help/)                             | `/help` command module for registered command discovery                |
-| [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)                     | `/provider` command module for provider profiles                       |
-| [`@robota-sdk/agent-command-skills`](./packages/agent-command-skills/)                         | `/skills` command module for skill discovery and activation            |
-| [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/)                 | Anthropic Claude provider                                              |
-| [`@robota-sdk/agent-provider-deepseek`](./packages/agent-provider-deepseek/)                   | DeepSeek OpenAI-compatible provider                                    |
-| [`@robota-sdk/agent-provider-openai`](./packages/agent-provider-openai/)                       | OpenAI provider                                                        |
-| [`@robota-sdk/agent-provider-gemini`](./packages/agent-provider-gemini/)                       | Canonical Google Gemini provider                                       |
-| [`@robota-sdk/agent-provider-google`](./packages/agent-provider-google/)                       | Gemini compatibility wrapper for legacy Google imports/settings        |
-| [`@robota-sdk/agent-provider-gemma`](./packages/agent-provider-gemma/)                         | Gemma-family local provider for LM Studio/OpenAI-compatible endpoints  |
-| [`@robota-sdk/agent-provider-openai-compatible`](./packages/agent-provider-openai-compatible/) | Reusable OpenAI-compatible transport primitives                        |
-| [`@robota-sdk/agent-provider-qwen`](./packages/agent-provider-qwen/)                           | Qwen/DashScope provider with optional provider-side web tools          |
-| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                                               | Interactive terminal AI coding assistant                               |
-| [`@robota-sdk/agent-transport-headless`](./packages/agent-transport-headless/)                 | Non-interactive text/json/stream-json transport                        |
-| [`@robota-sdk/agent-transport-http`](./packages/agent-transport-http/)                         | HTTP/REST transport adapter (Hono; Cloudflare Workers / Node / Lambda) |
-| [`@robota-sdk/agent-transport-mcp`](./packages/agent-transport-mcp/)                           | MCP transport adapter (Model Context Protocol server)                  |
-| [`@robota-sdk/agent-transport-ws`](./packages/agent-transport-ws/)                             | WebSocket transport adapter (framework-agnostic)                       |
+| Package                                                                        | Description                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@robota-sdk/agent-core`](./packages/agent-core/)                             | Core agent runtime, abstractions, and plugin system                                                                                                                                              |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                           | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                             |
+| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction                                                                                                                                                  |
+| [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)                       | Background task and subagent lifecycle primitives                                                                                                                                                |
+| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and createQuery()                                                                                                                                     |
+| [`@robota-sdk/agent-command-agent`](./packages/agent-command-agent/)           | `/agent` command module for background subagent jobs                                                                                                                                             |
+| [`@robota-sdk/agent-command-help`](./packages/agent-command-help/)             | `/help` command module for registered command discovery                                                                                                                                          |
+| [`@robota-sdk/agent-command-provider`](./packages/agent-command-provider/)     | `/provider` command module for provider profiles                                                                                                                                                 |
+| [`@robota-sdk/agent-command-skills`](./packages/agent-command-skills/)         | `/skills` command module for skill discovery and activation                                                                                                                                      |
+| [`@robota-sdk/agent-provider`](./packages/agent-provider/)                     | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
+| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant                                                                                                                                                         |
+| [`@robota-sdk/agent-transport-headless`](./packages/agent-transport-headless/) | Non-interactive text/json/stream-json transport                                                                                                                                                  |
+| [`@robota-sdk/agent-transport-http`](./packages/agent-transport-http/)         | HTTP/REST transport adapter (Hono; Cloudflare Workers / Node / Lambda)                                                                                                                           |
+| [`@robota-sdk/agent-transport-mcp`](./packages/agent-transport-mcp/)           | MCP transport adapter (Model Context Protocol server)                                                                                                                                            |
+| [`@robota-sdk/agent-transport-ws`](./packages/agent-transport-ws/)             | WebSocket transport adapter (framework-agnostic)                                                                                                                                                 |
 
 ## Documentation
 
@@ -171,15 +164,11 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 # Core — build custom agents
 npm install @robota-sdk/agent-core
 
-# Provider
-npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
-npm install @robota-sdk/agent-provider-deepseek
-npm install @robota-sdk/agent-provider-openai openai
-npm install @robota-sdk/agent-provider-gemini @google/genai
-npm install @robota-sdk/agent-provider-google @google/genai
-npm install @robota-sdk/agent-provider-qwen
-npm install @robota-sdk/agent-provider-gemma
-npm install @robota-sdk/agent-provider-openai-compatible
+# Provider (all providers in one package — pick the peer deps for your chosen provider)
+npm install @robota-sdk/agent-provider
+# + @anthropic-ai/sdk   for /anthropic
+# + openai              for /openai
+# + @google/genai       for /gemini or /google
 
 # Tools — FunctionTool, Zod tools, built-in CLI tools
 npm install @robota-sdk/agent-tools

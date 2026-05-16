@@ -6,7 +6,7 @@ Real-time bidirectional communication with InteractiveSession.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createWsTransport } from '@robota-sdk/agent-transport-ws';
 import { WebSocketServer } from 'ws';
 
