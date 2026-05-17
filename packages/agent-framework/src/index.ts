@@ -620,6 +620,10 @@ export { resolveGitBranch } from './git/git-branch.js';
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
 
+// ── Agent runtime (composition API) ──────────────────────────
+export type { IAgentRuntimeConfig, IAgentRuntime } from './runtime/index.js';
+export { createAgentRuntime } from './runtime/index.js';
+
 // ── Package version ───────────────────────────────────────────
 export { readPackageVersion } from './utils/read-package-version.js';
 

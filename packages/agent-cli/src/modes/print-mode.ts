@@ -1,27 +1,10 @@
 import { execSync } from 'node:child_process';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import {
-  InteractiveSession,
-  type ICommandHostAdapters,
-  type ICommandModule,
-} from '@robota-sdk/agent-framework';
-import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import { InteractiveSession, type IAgentRuntime } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 
-export async function runPrintMode(
-  cwd: string,
-  args: IParsedCliArgs,
-  provider: IAIProvider,
-  sessionStore: ReturnType<typeof createProjectSessionStore>,
-  backgroundTaskRunners: IBackgroundTaskRunner[],
-  subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
-  commandModules: readonly ICommandModule[],
-  commandHostAdapters: ICommandHostAdapters,
-): Promise<void> {
+export async function runPrintMode(args: IParsedCliArgs, runtime: IAgentRuntime): Promise<void> {
   let prompt = args.positional.join(' ').trim();
 
   if (!prompt && !process.stdin.isTTY) {
@@ -37,7 +20,7 @@ export async function runPrintMode(
     process.exit(1);
   }
 
-  const appendSystemPrompt = buildAppendSystemPrompt(cwd, args);
+  const appendSystemPrompt = buildAppendSystemPrompt(runtime.cwd, args);
 
   // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
   if (args.systemPrompt) {
@@ -48,11 +31,11 @@ export async function runPrintMode(
     execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
 
   const session = new InteractiveSession({
-    cwd,
-    provider,
+    cwd: runtime.cwd,
+    provider: runtime.provider,
     permissionMode: args.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
-    sessionStore: args.noSessionPersistence ? undefined : sessionStore,
+    sessionStore: args.noSessionPersistence ? undefined : runtime.sessionStore,
     sessionName: args.sessionName,
     bare: args.bare || undefined,
     allowedTools: args.allowedTools
@@ -62,10 +45,10 @@ export async function runPrintMode(
           .filter((t) => t.length > 0)
       : undefined,
     appendSystemPrompt,
-    backgroundTaskRunners,
-    subagentRunnerFactory,
-    commandModules,
-    commandHostAdapters,
+    backgroundTaskRunners: runtime.backgroundTaskRunners,
+    subagentRunnerFactory: runtime.subagentRunnerFactory,
+    commandModules: runtime.commandModules,
+    commandHostAdapters: runtime.commandHostAdapters,
     shellExec,
     agentName: 'robota-cli',
   });
