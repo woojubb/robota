@@ -1,5 +1,3 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandModule, IProviderCommandSettingsAdapter } from '@robota-sdk/agent-framework';
 import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
@@ -20,6 +18,9 @@ import { createSettingsCommandModule } from '../settings/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { ICommandModule, IProviderCommandSettingsAdapter } from '@robota-sdk/agent-framework';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;

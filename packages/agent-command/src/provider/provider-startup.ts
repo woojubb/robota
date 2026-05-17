@@ -1,6 +1,5 @@
 import { join } from 'node:path';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
+
 import {
   checkSettingsDocument,
   readMergedProviderSettings,
@@ -10,13 +9,17 @@ import {
   getProviderSettingsPaths,
   applyProviderConfiguration,
 } from '@robota-sdk/agent-framework';
-import type { TSettingsScope } from '@robota-sdk/agent-framework';
+
 import {
   formatProviderSetupSelectionPrompt,
   resolveProviderSetupSelection,
   runProviderSetupPromptFlow,
   type TPromptInput,
 } from './provider-setup-flow.js';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type { TSettingsScope } from '@robota-sdk/agent-framework';
 
 export interface IProviderStartupContext {
   provider?: string;

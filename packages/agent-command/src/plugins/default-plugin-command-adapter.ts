@@ -1,12 +1,14 @@
 import { execSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
 import {
   BundlePluginInstaller,
   BundlePluginLoader,
   MarketplaceClient,
   PluginSettingsStore,
 } from '@robota-sdk/agent-framework';
+
 import type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
@@ -29,7 +31,7 @@ function createPluginServices(cwd: string): IPluginServices {
   const pluginsDir = join(home, '.robota', 'plugins');
   const userSettingsPath = join(home, '.robota', 'settings.json');
 
-  const exec = (command: string, options: { timeout: number; stdio?: string }) =>
+  const exec = (command: string, options: { timeout: number; stdio?: string }): Buffer =>
     execSync(command, {
       timeout: options.timeout,
       stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
@@ -105,7 +107,7 @@ async function installPlugin(
   }
   if (scope === 'project') {
     const projectPluginsDir = join(services.cwd, '.robota', 'plugins');
-    const projectExec = (command: string, options: { timeout: number; stdio?: string }) =>
+    const projectExec = (command: string, options: { timeout: number; stdio?: string }): Buffer =>
       execSync(command, {
         timeout: options.timeout,
         stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',

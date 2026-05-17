@@ -1,10 +1,11 @@
+import { executeCompactCommand } from './compact-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import { executeCompactCommand } from './compact-command.js';
 
 export function createCompactCommandEntry(): ICommand {
   return {
