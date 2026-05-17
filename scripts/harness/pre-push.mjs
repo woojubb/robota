@@ -94,6 +94,9 @@ if (prePushMode === 'fast') {
 run('pnpm', ['harness:plan', '--', ...baseArgs, ...scopeExpansionArgs]);
 run('pnpm', ['harness:verify', '--', ...baseArgs, ...scopeExpansionArgs, '--skip-record-check']);
 
+process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
+run('pnpm', ['cli:dev', '--version']);
+
 process.stdout.write('\nRelease-grade verification remains explicit:\n');
 process.stdout.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');
 process.stdout.write('  pnpm harness:verify:release\n');
