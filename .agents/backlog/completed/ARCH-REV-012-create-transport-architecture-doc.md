@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-012: Create transport-architecture.md architecture-map subdocument'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: soon
