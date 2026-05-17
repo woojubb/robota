@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-013: Expand agent-system.md — MCP disambiguation, WebSocket sidecar cross-reference, playground data-flow'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: soon
