@@ -1,3 +1,11 @@
+import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
+
+import {
+  type THTTPMethod,
+  findOperation,
+  createSchemaFromOperation,
+} from './openapi-schema-converter';
+
 import type {
   ITool,
   IToolResult,
@@ -9,12 +17,6 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { OpenAPIV3 } from 'openapi-types';
-import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
-import {
-  type THTTPMethod,
-  findOperation,
-  createSchemaFromOperation,
-} from './openapi-schema-converter';
 
 /**
  * OpenAPI tool implementation
