@@ -25,6 +25,7 @@ export interface IProviderStartupContext {
 
 export interface IEnsureProviderConfigOptions {
   formatError: (defs: readonly IProviderDefinition[]) => string;
+  isInteractive?: () => boolean;
 }
 
 export async function runProviderStartupSetup(
@@ -64,7 +65,8 @@ export async function ensureProviderConfig(
   if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
     return;
   }
-  if (!isInteractiveTerminal()) {
+  const checkInteractive = options.isInteractive ?? (() => false);
+  if (!checkInteractive()) {
     throw new Error(options.formatError(providerDefinitions));
   }
   await runProviderStartupSetup(
@@ -109,8 +111,4 @@ function findHighestPriorityCurrentProviderPath(
     }
   }
   return undefined;
-}
-
-function isInteractiveTerminal(): boolean {
-  return process.stdin.isTTY === true && process.stdout.isTTY === true;
 }

@@ -159,3 +159,24 @@ Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-1
 
 `plugin-command-source-loader.ts` and `plugin-command-adapter.ts` catch blocks now have
 `// allow-fallback: <reason>` comments (added inline; formatter moved to next line on disk).
+
+### CLI-AUDIT-016: `isInteractiveTerminal` — terminal I/O check leaked into agent-command
+
+Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+
+`agent-command/src/provider/provider-startup.ts` contained `process.stdin.isTTY` /
+`process.stdout.isTTY` — a terminal I/O concern that belongs in the CLI layer.
+
+Fix: added `isInteractive?: () => boolean` to `IEnsureProviderConfigOptions`. `agent-command`
+defaults the check to `() => false` (safe: non-interactive). `agent-cli` supplies the real
+TTY check via `isInteractive: () => process.stdin.isTTY === true && process.stdout.isTTY === true`.
+
+### CLI-AUDIT-017: `process.cwd()` fallback hidden in `createSkillsCommandModule`
+
+Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+
+`agent-command/src/skills/skills-command-module.ts` used `options.cwd ?? process.cwd()`,
+making `cwd` silently depend on the process working directory when omitted.
+
+Fix: `cwd` is now required in `ISkillsCommandModuleOptions`. All callers already supplied it
+explicitly; no call-site changes needed.

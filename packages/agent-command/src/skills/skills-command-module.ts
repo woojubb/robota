@@ -8,7 +8,7 @@ import { SkillCommandSource } from '@robota-sdk/agent-framework';
 import { executeSkillsCommand, SKILLS_COMMAND_DESCRIPTION } from './skills-command.js';
 
 export interface ISkillsCommandModuleOptions {
-  readonly cwd?: string;
+  readonly cwd: string;
 }
 
 export function createSkillsCommandEntry(): ICommand {
@@ -48,11 +48,9 @@ export class SkillsCommandSource implements ICommandSource {
   }
 }
 
-export function createSkillsCommandModule(
-  options: ISkillsCommandModuleOptions = {},
-): ICommandModule {
+export function createSkillsCommandModule(options: ISkillsCommandModuleOptions): ICommandModule {
   const commandSources: ICommandSource[] = [new SkillsCommandSource()];
-  commandSources.push(new SkillCommandSource(options.cwd ?? process.cwd()));
+  commandSources.push(new SkillCommandSource(options.cwd));
 
   return {
     name: 'agent-command-skills',

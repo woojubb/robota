@@ -63,7 +63,10 @@ export async function ensureConfig(
     promptInput,
     terminal,
     providerDefinitions,
-    { formatError: formatMissingProviderConfigMessage },
+    {
+      formatError: formatMissingProviderConfigMessage,
+      isInteractive: () => process.stdin.isTTY === true && process.stdout.isTTY === true,
+    },
   );
 }
 
