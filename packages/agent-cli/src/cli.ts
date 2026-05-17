@@ -6,11 +6,11 @@
 import { execSync } from 'node:child_process';
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
+  createAgentRuntime,
   createProjectSessionStore,
   projectPaths,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
-  readMergedProviderSettings,
   readProviderSettings,
   createProviderFromSettings,
   checkForCliUpdate,
@@ -26,7 +26,6 @@ import {
 } from './startup/provider-startup.js';
 import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
-import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
   createChildProcessSubagentRunnerFactory,
   getDefaultSubagentWorkerPath,
@@ -44,6 +43,7 @@ export type { IStartCliOptions };
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   let args: IParsedCliArgs;
   try {
+    // allow-fallback: argument validation errors are terminal — exit is the correct response
     args = parseCliArgs();
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
@@ -82,6 +82,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   try {
+    // allow-fallback: user-local command failure is terminal — exit is the correct response
     if (await runUserLocalDirectCommandIfRequested(args, cwd, terminal)) {
       return;
     }
@@ -104,6 +105,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   try {
+    // allow-fallback: terminal failure — not a silent fallback
     await ensureConfig(cwd, args, promptInput, terminal, providerDefinitions);
   } catch (error) {
     // allow-fallback: terminal failure — not a silent fallback
@@ -117,15 +119,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
   const provider = createProviderFromSettings(cwd, args.model, providerOptions);
-  const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
-  const paths = projectPaths(cwd);
-  const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
-    workerPath: getDefaultSubagentWorkerPath(),
-    providerConfig: { ...providerSettings, model: modelId },
-    logsDir: paths.logs,
-  });
 
-  const sessionStore = createProjectSessionStore(cwd);
+  const sessionStore = args.noSessionPersistence ? undefined : createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
   let showSessionPickerOnStart = false;
 
@@ -143,23 +138,29 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
+  const paths = projectPaths(cwd);
+  const runtime = createAgentRuntime({
+    cwd,
+    provider,
+    commandModules,
+    commandHostAdapters,
+    subagentRunnerFactory: createChildProcessSubagentRunnerFactory({
+      workerPath: getDefaultSubagentWorkerPath(),
+      providerConfig: { ...providerSettings, model: modelId },
+      logsDir: paths.logs,
+    }),
+    sessionStore,
+    transportRegistry: createDefaultTransportRegistry(),
+    reloadPluginCommandSource,
+  });
+
   if (args.printMode) {
-    await runPrintMode(
-      cwd,
-      args,
-      provider,
-      sessionStore,
-      backgroundTaskRunners,
-      subagentRunnerFactory,
-      commandModules,
-      commandHostAdapters,
-    );
+    await runPrintMode(args, runtime);
     return;
   }
 
   const tuiTransport = new TuiTransport({
-    cwd,
-    provider,
+    runtime,
     providerOverride: args.provider,
     providerType: providerSettings.name,
     modelId,
@@ -167,23 +168,16 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version,
-    sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
-    backgroundTaskRunners,
-    subagentRunnerFactory,
-    commandModules,
-    commandHostAdapters,
     shellExec: (command: string) =>
       execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),
     startupUpdateNotice: startupUpdateNoticePromise
       ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
       : undefined,
-    transportRegistry: createDefaultTransportRegistry(),
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
-    reloadPluginCommandSource,
     agentName: 'robota-cli',
   });
   await tuiTransport.start();
