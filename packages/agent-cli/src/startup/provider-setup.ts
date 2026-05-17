@@ -2,6 +2,7 @@ import type { IAIProvider, IProviderConfig } from '@robota-sdk/agent-core';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import {
   projectPaths,
+  readMergedProviderSettings,
   readProviderSettings,
   createProviderFromSettings,
 } from '@robota-sdk/agent-framework';
@@ -13,6 +14,7 @@ export interface IProviderSetup {
   provider: IAIProvider;
   providerSettings: IProviderConfig;
   modelId: string;
+  activeProfileName: string | undefined;
   subagentRunnerFactory: TSubagentRunnerFactory;
 }
 
@@ -28,11 +30,12 @@ export function createProviderSetup(
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = opts.model ?? providerSettings.model;
   const provider = createProviderFromSettings(cwd, opts.model, providerOptions);
+  const activeProfileName = opts.provider ?? readMergedProviderSettings(cwd).currentProvider;
 
   const { subagentRunnerFactory } = createSubagentSetup({
     providerConfig: { ...providerSettings, model: modelId },
     logsDir: projectPaths(cwd).logs,
   });
 
-  return { provider, providerSettings, modelId, subagentRunnerFactory };
+  return { provider, providerSettings, modelId, activeProfileName, subagentRunnerFactory };
 }

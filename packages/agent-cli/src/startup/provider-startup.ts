@@ -8,7 +8,6 @@ import {
   resolveSettingsPathForScope,
 } from '@robota-sdk/agent-framework';
 import type { TSettingsScope } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   ensureProviderConfig,
@@ -28,7 +27,7 @@ export function handleProviderConfigurationArgs(
   cwd: string,
   opts: IConfigPhaseOptions,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[],
 ): boolean {
   const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(opts.settingsScope));
   if (opts.configureProvider) {
@@ -55,7 +54,8 @@ export async function ensureConfig(
   opts: IConfigPhaseOptions,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[],
+  isInteractive: boolean,
 ): Promise<void> {
   await ensureProviderConfig(
     cwd,
@@ -65,7 +65,7 @@ export async function ensureConfig(
     providerDefinitions,
     {
       formatError: formatMissingProviderConfigMessage,
-      isInteractive: () => process.stdin.isTTY === true && process.stdout.isTTY === true,
+      isInteractive: () => isInteractive,
     },
   );
 }
@@ -75,7 +75,7 @@ export async function runInteractiveProviderSetup(
   opts: IConfigPhaseOptions,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[],
 ): Promise<void> {
   await runProviderStartupSetup(
     cwd,
@@ -103,7 +103,7 @@ function buildSetupInputFromOptions(opts: IConfigPhaseOptions): IProviderSetupIn
 }
 
 export function formatMissingProviderConfigMessage(
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[],
 ): string {
   return [
     'No provider configuration found.',

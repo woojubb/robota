@@ -9,7 +9,6 @@
  * ESM module is loaded (static imports are hoisted by the JS engine).
  */
 import { startCli } from './cli.js';
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 // Last-resort crash prevention for IME-related errors only.
 // Korean IME in raw mode can cause errors that escape React/Ink.
@@ -30,7 +29,7 @@ process.on('uncaughtException', (err) => {
   throw err;
 });
 
-startCli().catch((err: Error | TUniversalValue) => {
+startCli().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(message + '\n');
   process.exit(1);

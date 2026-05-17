@@ -23,13 +23,7 @@ export function buildAppendSystemPrompt(
   const appendParts: string[] = [];
   if (opts.appendSystemPrompt) appendParts.push(opts.appendSystemPrompt);
   if (opts.taskFile) {
-    try {
-      appendParts.push(readTaskFilePrompt(cwd, opts.taskFile));
-    } catch (error) {
-      // allow-fallback: terminal failure — task file read failure exits process
-      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-      process.exit(1);
-    }
+    appendParts.push(readTaskFilePrompt(cwd, opts.taskFile));
   }
   if (opts.jsonSchema)
     appendParts.push(
