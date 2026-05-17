@@ -67,7 +67,7 @@ sequenceDiagram
   participant TUI as agent-cli React/Ink TUI
   participant Sidecar as startWebSidecarServer
   participant WsTransport as agent-transport/ws createWsHandler
-  participant Browser as agent-web (browser)
+  participant Browser as agent-web-ui (browser)
 
   User->>TUI: launch with --web flag
   TUI->>Sidecar: startWebSidecarServer(interactiveSession, port)

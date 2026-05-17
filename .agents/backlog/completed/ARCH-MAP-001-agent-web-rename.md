@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-MAP-001: agent-web → agent-web-ui rename in architecture map (6 files)'
-status: todo
+status: done
 created: 2026-05-18
+completed: 2026-05-18
 priority: high
 urgency: soon
 area: .agents/specs/architecture-map

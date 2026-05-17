@@ -57,15 +57,15 @@ Mechanical guard: command-layering harness scans for new CLI command shim files 
 
 Status: resolved.
 
-| File                                                             | Classification                                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `agent-cli/src/background/managed-shell-process-runner.ts`       | CLI adapter — Node spawn, stdin, cancellation                             |
-| `agent-subagent-runner/src/child-process-subagent-runner.ts`     | Optional package — Node fork, worker path, payload (moved from agent-cli) |
-| `agent-subagent-runner/src/child-process-subagent-ipc.ts`        | Optional package — IPC protocol types                                     |
-| `agent-subagent-runner/src/child-process-subagent-worker.ts`     | Optional package — worker entry point                                     |
-| `agent-subagent-runner/src/worker-path-resolver.ts`              | Optional package — bundled worker path resolver                           |
-| `agent-executor/src/subagents/git-worktree-isolation-adapter.ts` | Executor adapter — worktree port impl                                     |
-| `agent-executor/src/background-tasks/log-pages.ts`               | Runtime primitive — bounded output + pagination                           |
+| File                                                                          | Classification                                                                             |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts` | Executor adapter — Node spawn, stdin, cancellation (moved from agent-cli via arch-fix-024) |
+| `agent-subagent-runner/src/child-process-subagent-runner.ts`                  | Optional package — Node fork, worker path, payload (moved from agent-cli)                  |
+| `agent-subagent-runner/src/child-process-subagent-ipc.ts`                     | Optional package — IPC protocol types                                                      |
+| `agent-subagent-runner/src/child-process-subagent-worker.ts`                  | Optional package — worker entry point                                                      |
+| `agent-subagent-runner/src/worker-path-resolver.ts`                           | Optional package — bundled worker path resolver                                            |
+| `agent-executor/src/subagents/git-worktree-isolation-adapter.ts`              | Executor adapter — worktree port impl                                                      |
+| `agent-executor/src/background-tasks/log-pages.ts`                            | Runtime primitive — bounded output + pagination                                            |
 
 ### CLI-AUDIT-007: SDK public exports hide package ownership
 
