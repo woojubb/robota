@@ -20,6 +20,8 @@ flowchart TD
   Providers["agent-provider\nprovider definitions + transports"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]
   Plugins["agent-plugin\nplugin layer (event, logging, usage, etc.)"]
+  IfaceTransport["agent-interface-transport\nITransportAdapter · IConfigurableTransport\ntype contracts only"]
+  IfaceTui["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter\ntype contracts only"]
 
   AgentCLI --> TuiTransport
   AgentCLI --> Framework
@@ -28,6 +30,7 @@ flowchart TD
   AgentCLI --> Headless
   AgentCLI --> SubagentRunner
   TuiTransport --> Framework
+  TuiTransport --> IfaceTui
   AgentCLI -. "consumer opt-in" .-> Plugins
   Headless --> Framework
   Commands --> Framework
@@ -39,28 +42,33 @@ flowchart TD
   Framework --> Executor
   Framework --> Tools
   Framework --> Core
+  Framework --> IfaceTransport
   Framework -. "consumer opt-in" .-> Plugins
   Providers --> Core
   Sessions --> Core
   Executor --> Core
   Tools --> Core
   Plugins --> Core
+  IfaceTransport --> Core
+  IfaceTui --> Core
 ```
 
 Agent stack ownership:
 
-| Concern                                           | Owner                                | Contract                                                                    |
-| ------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
-| Terminal input/rendering                          | `agent-transport/tui`                | I/O adapter only — implements `IConfigurableTransport`.                     |
-| CLI lifecycle + assembly                          | `agent-cli`                          | Composes transports, providers, commands; owns `process.exit()`.            |
-| Framework assembly layer                          | `agent-framework`                    | Composes sessions/executor/tools/core. React-free.                          |
-| Command contracts/common APIs                     | `agent-framework`                    | Command packages consume these as third-party modules.                      |
-| User-visible built-in command behavior            | `agent-command`                      | CLI composes defaults; framework must not import them.                      |
-| Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`    | CLI must not hardcode provider branches.                                    |
-| Session lifecycle and compaction                  | `agent-session`                      | CLI consumes through framework facades only.                                |
-| Background/subagent lifecycle ports               | `agent-executor`                     | CLI keeps concrete local process/worktree adapters.                         |
-| Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)     | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().   |
-| Background workspace/read model                   | `agent-framework` + `agent-executor` | CLI renders framework projections; keeps only ephemeral UI selection state. |
+| Concern                                           | Owner                                | Contract                                                                         |
+| ------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| Terminal input/rendering                          | `agent-transport/tui`                | I/O adapter only — implements `IConfigurableTransport`.                          |
+| CLI lifecycle + assembly                          | `agent-cli`                          | Composes transports, providers, commands; owns `process.exit()`.                 |
+| Framework assembly layer                          | `agent-framework`                    | Composes sessions/executor/tools/core. React-free.                               |
+| Command contracts/common APIs                     | `agent-framework`                    | Command packages consume these as third-party modules.                           |
+| User-visible built-in command behavior            | `agent-command`                      | CLI composes defaults; framework must not import them.                           |
+| Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`    | CLI must not hardcode provider branches.                                         |
+| Session lifecycle and compaction                  | `agent-session`                      | CLI consumes through framework facades only.                                     |
+| Background/subagent lifecycle ports               | `agent-executor`                     | CLI keeps concrete local process/worktree adapters.                              |
+| Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)     | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().        |
+| Background workspace/read model                   | `agent-framework` + `agent-executor` | CLI renders framework projections; keeps only ephemeral UI selection state.      |
+| Transport adapter type contracts                  | `agent-interface-transport`          | `ITransportAdapter`, `IConfigurableTransport` — no runtime deps.                 |
+| TUI interaction type contracts                    | `agent-interface-tui`                | `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps. |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness. See [commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) for profile switching semantics.
 
@@ -82,12 +90,12 @@ See [agent-cli-composition.md](agent-cli-composition.md) and [agent-cli/](agent-
 ```mermaid
 flowchart TD
   Browser["Browser"]
-  AgentWeb["agent-web\nNext.js product host"]
+  AgentWeb["apps/agent-web\nNext.js product host"]
   ClientEntry["agent-playground/client\nbrowser-safe React entry"]
   Playground["agent-playground\nexecutor + hooks + components"]
   RemoteClient["agent-remote-client\nRemoteExecutor (API keys stay server-side)"]
   Core["agent-core / agent-tools"]
-  Providers["agent-provider-openai / anthropic\nprovider adapters"]
+  Providers["agent-provider\nprovider adapters"]
 
   Browser --> AgentWeb
   AgentWeb --> ClientEntry
@@ -102,7 +110,7 @@ Playground ownership:
 
 | Concern                                | Owner                     | Contract                                                                                                                                                |
 | -------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product route and deployment host      | `agent-web`               | Imports browser-safe playground entry only.                                                                                                             |
+| Product route and deployment host      | `apps/agent-web`          | Imports browser-safe playground entry only.                                                                                                             |
 | Browser-safe React package entry       | `agent-playground/client` | Must not expose Node-only services.                                                                                                                     |
 | Executor, hooks, components, context   | `agent-playground`        | Internal modules under `src/lib/` and `src/components/`; see [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md). |
 | Secure provider execution from browser | `agent-remote-client`     | API keys stay server-side through `RemoteExecutor`.                                                                                                     |
@@ -111,3 +119,13 @@ Playground ownership:
 `agent-framework`, `agent-session`, or `agent-executor`. Session management and all server-side
 policy run in `apps/agent-server`; the playground is a lightweight client UI only.
 See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md).
+
+## Multi-Agent Orchestration
+
+`agent-team` owns multi-agent task delegation and coordination. It sits in the orchestration layer
+between assembly and domain — below `agent-framework` but above `agent-core`. It consumes
+`agent-core` contracts and provider adapters but does not own session persistence or UI.
+
+| Concern                                 | Owner        | Contract                                                                         |
+| --------------------------------------- | ------------ | -------------------------------------------------------------------------------- |
+| Multi-agent task delegation and routing | `agent-team` | Coordinates sub-agents through `agent-core` contracts; no TUI or CLI dependency. |

@@ -23,6 +23,8 @@ graph TD
     cli["agent-cli"]
     webui["agent-web-ui"]
     subrunner["agent-subagent-runner"]
+    ifaceTransport["agent-interface-transport"]
+    ifaceTui["agent-interface-tui"]
   end
   subgraph Providers["Providers & Remote"]
     provider["agent-provider"]
@@ -41,27 +43,20 @@ graph TD
     docs["apps/docs"]
     blog["apps/blog"]
   end
-  subgraph CrossCutting["Cross-Cutting"]
-    auth["auth"]
-    credits["credits"]
-  end
-
   Runtime --> Providers
   Runtime --> Plugins
   Playground --> Runtime
   Playground --> Providers
-  Providers --> CrossCutting
-  Runtime --> CrossCutting
 ```
 
-| Family                               | Packages/apps                                                                                                                                                                                                                                              | Architecture route                                                                           |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Agent runtime and CLI                | `agent-core`, `agent-framework`, `agent-session`, `agent-executor`, `agent-tools`, `agent-tool-mcp`, `agent-command`, `agent-cli`, `agent-web` (browser monitor), `agent-transport` (subpaths: /tui, /headless, /ws, /http, /mcp), `agent-subagent-runner` | [agent-system.md](agent-system.md), [agent-cli-composition.md](agent-cli-composition.md)     |
-| Agent providers and remote execution | `agent-provider`, `agent-remote-client`, `agent-team`, `apps/agent-server`                                                                                                                                                                                 | [agent-system.md](agent-system.md), [cross-cutting-contracts.md](cross-cutting-contracts.md) |
-| Agent plugins                        | `agent-plugin` (single package — event, logging, usage, etc. modules)                                                                                                                                                                                      | [agent-system.md](agent-system.md)                                                           |
-| Agent playground                     | `agent-playground` (package), `apps/agent-web`                                                                                                                                                                                                             | [agent-system.md](agent-system.md), [apps-and-deployment.md](apps-and-deployment.md)         |
-| Documentation and publishing         | `apps/docs`, `apps/blog`, `content/`, package docs                                                                                                                                                                                                         | [apps-and-deployment.md](apps-and-deployment.md)                                             |
-| Cross-cutting contracts              | `auth`, `credits`, shared command/provider/session specs                                                                                                                                                                                                   | [cross-cutting-contracts.md](cross-cutting-contracts.md)                                     |
+| Family                               | Packages/apps                                                                                                                                                                                                                                                                                                                                                     | Architecture route                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Agent runtime and CLI                | `agent-core`, `agent-framework`, `agent-session`, `agent-executor`, `agent-tools`, `agent-tool-mcp`, `agent-command`, `agent-cli`, `agent-web-ui` (browser monitor), `agent-transport` (subpaths: /tui, /headless, /ws, /http, /mcp), `agent-subagent-runner`, `agent-interface-transport` (transport type contracts), `agent-interface-tui` (TUI type contracts) | [agent-system.md](agent-system.md), [agent-cli-composition.md](agent-cli-composition.md)     |
+| Agent providers and remote execution | `agent-provider`, `agent-remote-client`, `agent-team`, `apps/agent-server`                                                                                                                                                                                                                                                                                        | [agent-system.md](agent-system.md), [cross-cutting-contracts.md](cross-cutting-contracts.md) |
+| Agent plugins                        | `agent-plugin` (single package — event, logging, usage, etc. modules)                                                                                                                                                                                                                                                                                             | [agent-system.md](agent-system.md)                                                           |
+| Agent playground                     | `agent-playground` (package), `apps/agent-web`                                                                                                                                                                                                                                                                                                                    | [agent-system.md](agent-system.md), [apps-and-deployment.md](apps-and-deployment.md)         |
+| Documentation and publishing         | `apps/docs`, `apps/blog`, `content/`, package docs                                                                                                                                                                                                                                                                                                                | [apps-and-deployment.md](apps-and-deployment.md)                                             |
+| Cross-cutting contracts              | shared command/provider/session specs                                                                                                                                                                                                                                                                                                                             | [cross-cutting-contracts.md](cross-cutting-contracts.md)                                     |
 
 For new product-visible capabilities, read [capability-placement.md](capability-placement.md) before
 choosing an owner package. Product visibility is not ownership; architecture ownership follows the

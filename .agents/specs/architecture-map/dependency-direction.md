@@ -8,20 +8,24 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 
 ```mermaid
 flowchart TD
-  ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
+  ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   TransportShells["Transport shells\nagent-transport/tui, agent-transport/ws, agent-transport/http,\nagent-transport/headless, agent-transport/mcp"]
   Orchestration["Orchestration\nagent-team, agent-remote-client"]
+  Playground["Playground packages\nagent-playground"]
   Sessions["Session services\nagent-session"]
   Executor["Runtime services\nagent-executor"]
-  Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth, credits"]
+  TypeContracts["Type contracts (no runtime deps)\nagent-interface-transport, agent-interface-tui"]
+  Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages)"]
   Adapters["Adapters and providers\nagent-provider, agent-tools, agent-tool-mcp,\nagent-plugin"]
   OptIn["Optional runners\nagent-subagent-runner (opt-in)"]
 
   ProductShells --> Assembly
+  ProductShells --> Playground
   Assembly --> Sessions
   Assembly --> Executor
   Assembly --> Domain
+  Assembly --> TypeContracts
   Sessions --> Domain
   Executor --> Domain
   Assembly --> Adapters
@@ -29,13 +33,17 @@ flowchart TD
   ProductShells --> OptIn
   Adapters --> Domain
   TransportShells --> Assembly
+  TransportShells --> TypeContracts
   Assembly --> TransportShells
   Orchestration --> Domain
   Orchestration --> Adapters
   Assembly --> Orchestration
+  Playground --> Adapters
+  Playground --> Domain
   OptIn --> Assembly
   OptIn --> Executor
   OptIn --> Adapters
+  TypeContracts --> Domain
 ```
 
 `ProductShells → Adapters` is composition-root wiring only. A product shell may construct or select
@@ -62,10 +70,12 @@ Layer rules:
 | Domain contracts    | Types, pure rules, ports, error shapes                            | Concrete I/O, runtime process management, deps on other agent-\* packages |
 | Adapters/providers  | Vendor implementations, filesystem/network adapters, plugins      | Cross-package contracts they merely implement                             |
 | Optional runners    | Child-process execution, IPC, worker entry, worktree isolation    | Command contracts, TUI behavior, CLI-specific types                       |
+| Playground packages | Reusable playground behavior, executor hooks, UI components       | Session persistence, CLI-specific types, server-side provider policy      |
+| Type contracts      | Pure TypeScript interfaces, no runtime deps beyond agent-core     | Concrete I/O, runtime state, business logic                               |
 
 ## Target Architecture
 
 1. Keep `.agents/specs/ARCHITECTURE-MAP.md` as the repo-wide router. Put detail in focused `.agents/specs/architecture-map/*.md` subdocuments.
 2. Keep `agent-cli` as a product shell: terminal rendering, input, ephemeral selection state, and concrete host adapters only.
 3. Put reusable behavior below the CLI. Background task lifecycle, command contracts, spawning ports, persistence, permissions, and provider semantics live in `agent-framework`, `agent-executor`, `agent-command`, provider packages, transports, or another lower reusable owner.
-4. Apply the same owner-first rule to every product shell. `agent-web`, docs, blog, and future shells may render or host capabilities; reusable contracts and state live in owning service/framework/executor/command/provider/transport/domain packages.
+4. Apply the same owner-first rule to every product shell. `apps/agent-web`, docs, blog, and future shells may render or host capabilities; reusable contracts and state live in owning service/framework/executor/command/provider/transport/domain packages.
