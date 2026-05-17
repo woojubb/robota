@@ -2,8 +2,6 @@
 
 ```text
 packages/
-├── auth/                        # Auth contracts, verifier ports, scope policy
-├── credits/                     # Credit account, reservation, and settlement contracts
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
 ├── agent-executor/               # Reusable background task and subagent lifecycle/state/ports
 ├── agent-session/               # Session lifecycle and persistence
@@ -22,11 +20,21 @@ packages/
 ├── agent-transport/             # Protocol transports: headless, HTTP, WebSocket, MCP (pure TS); TUI/Ink via ./tui subpath
 └── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
-├── agent-web-ui/           # Web application (Agent Playground)
+├── agent-web/              # Web application (Agent Playground)
 ├── blog/                   # Blog/content application
 ├── docs/                   # Documentation site
 └── agent-server/           # AI provider proxy + Playground WebSocket
 ```
+
+## Planned Packages (Not Yet Created)
+
+The following packages are planned but do not yet exist on disk. Do not attempt to import from them.
+See [capability-placement.md](specs/architecture-map/capability-placement.md) for their TBD ownership status.
+
+| Package             | Planned Purpose                                       |
+| ------------------- | ----------------------------------------------------- |
+| `packages/auth/`    | Auth contracts, verifier ports, scope policy          |
+| `packages/credits/` | Credit account, reservation, and settlement contracts |
 
 ## Related Documents
 
@@ -53,6 +61,6 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic.
-- Implementation packages (`agent-transport-*`, `agent-provider-*`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
+- Implementation packages (`agent-transport` with subpaths `/tui`, `/headless`, `/ws`, `/http`, `/mcp`; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
 - `agent-framework` depends on `agent-interface-*` packages to consume the contracts it needs.
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
