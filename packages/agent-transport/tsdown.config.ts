@@ -14,12 +14,12 @@ const shared = {
   deps: {
     neverBundle: [
       /^@robota-sdk\/.*/,
-      /^ink/,
-      /^react/,
       /^hono/,
       /^ws$/,
       /^@modelcontextprotocol\/.*/,
       /^zod$/,
+      /^ink/,
+      /^react/,
       /^chalk$/,
       /^marked/,
       /^string-width$/,
@@ -31,11 +31,11 @@ export default defineConfig({
   ...shared,
   entry: {
     index: 'src/index.ts',
-    'tui/index': 'src/tui/index.ts',
     'headless/index': 'src/headless/index.ts',
     'http/index': 'src/http/index.ts',
     'ws/index': 'src/ws/index.ts',
     'mcp/index': 'src/mcp/index.ts',
+    'tui/index': 'src/tui/index.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist/node',

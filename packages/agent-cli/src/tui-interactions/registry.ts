@@ -2,7 +2,7 @@ import type {
   ITuiCommandInteraction,
   ITuiPickerItem,
   TAnyTuiCommandInteraction,
-} from '@robota-sdk/agent-transport';
+} from '@robota-sdk/agent-transport/tui';
 
 type TSystemCommandName =
   | 'agent'
