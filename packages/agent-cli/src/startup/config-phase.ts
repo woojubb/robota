@@ -15,6 +15,7 @@ export async function handleConfigPhase(
   opts: IConfigPhaseOptions,
   commandSetup: ICommandSetup,
   terminal: ITerminalOutput,
+  isInteractive: boolean,
 ): Promise<TConfigPhaseResult> {
   if (opts.configure) {
     await runInteractiveProviderSetup(
@@ -31,14 +32,14 @@ export async function handleConfigPhase(
     return { handled: true };
   }
 
-  try {
-    // allow-fallback: terminal failure — not a silent fallback
-    await ensureConfig(cwd, opts, promptInput, terminal, commandSetup.providerDefinitions);
-  } catch (error) {
-    // allow-fallback: terminal failure — not a silent fallback
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
-  }
+  await ensureConfig(
+    cwd,
+    opts,
+    promptInput,
+    terminal,
+    commandSetup.providerDefinitions,
+    isInteractive,
+  );
 
   return { handled: false };
 }

@@ -25,16 +25,18 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 
 export type { IStartCliOptions };
 
-export async function startCli(options: IStartCliOptions = {}): Promise<void> {
-  let args: IParsedCliArgs;
+function parseArgsOrExit(): IParsedCliArgs {
   try {
-    // allow-fallback: argument validation errors are terminal — exit is the correct response
-    args = parseCliArgs();
+    return parseCliArgs();
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
+}
+
+export async function startCli(options: IStartCliOptions = {}): Promise<void> {
+  const args = parseArgsOrExit();
   const version = readVersion();
   const terminal = new PrintTerminal();
 
@@ -48,7 +50,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const sessionOpts = toSessionRunOptions(args);
 
   try {
-    // allow-fallback: user-local command failure is terminal — exit is the correct response
     if (await runUserLocalDirectCommandIfRequested(toUserLocalCommandOptions(args), cwd, terminal))
       return;
   } catch (error) {
@@ -58,8 +59,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   // Layer 2: sub-layer assembly (same-level grouping)
+  const isTTY = process.stdin.isTTY === true && process.stdout.isTTY === true;
   const commandSetup = createCommandSetup(cwd, options);
-  if ((await handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal)).handled) return;
+  const configPhase = await handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal, isTTY);
+  if (configPhase.handled) return;
 
   const providerSetup = createProviderSetup(cwd, configPhaseOpts, commandSetup);
   const sessionSetup = createSessionSetup(cwd, sessionOpts);

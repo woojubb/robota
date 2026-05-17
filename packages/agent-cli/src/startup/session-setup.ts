@@ -26,8 +26,7 @@ export function createSessionSetup(cwd: string, opts: ISessionRunOptions): ISess
     } else {
       resumeSessionId = resolveSessionIdByIdOrName(sessionStore, opts.resumeId);
       if (resumeSessionId === undefined) {
-        process.stderr.write(`Session not found: ${opts.resumeId}\n`);
-        process.exit(1);
+        throw new Error(`Session not found: ${opts.resumeId}`);
       }
     }
   }

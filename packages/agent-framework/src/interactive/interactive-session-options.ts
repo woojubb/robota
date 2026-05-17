@@ -39,6 +39,8 @@ export interface IInteractiveSessionStandardOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
@@ -122,6 +124,8 @@ export interface IInitOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
