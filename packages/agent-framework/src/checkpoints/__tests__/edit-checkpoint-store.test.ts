@@ -1,7 +1,9 @@
-import { describe, expect, it, afterEach } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it, afterEach } from 'vitest';
+
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
 
 const TMP_BASE = join(tmpdir(), `robota-edit-checkpoint-store-${process.pid}`);

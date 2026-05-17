@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+
 import {
   buildModelCommandSubcommands,
   formatModelCommandUsageMessageAsync,
@@ -7,6 +7,8 @@ import {
   resolveActiveProviderModelCatalog,
   resolveActiveProviderModelCatalogState,
 } from '../model/model-command-api.js';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {

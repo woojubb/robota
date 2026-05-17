@@ -1,4 +1,37 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
+
+import { SessionBase } from './session-base.js';
+import {
+  buildPermissionEnforcer,
+  buildRobota,
+  buildSessionTrackers,
+} from './session-components.js';
+import { compact, persistSession } from './session-history-ops.js';
+import {
+  configureProvider,
+  fireSessionEndHook,
+  fireSessionStartHook,
+} from './session-lifecycle.js';
+import { executeRun } from './session-run.js';
+
+import type { CompactionOrchestrator } from './compaction-orchestrator.js';
+import type { ContextWindowTracker } from './context-window-tracker.js';
+import type { PermissionEnforcer } from './permission-enforcer.js';
+import type {
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+} from './permission-types.js';
+import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import type { IRunContext } from './session-run.js';
+import type { ISessionStore } from './session-store.js';
+import type {
+  ICompactEvent,
+  ISessionOptions,
+  ISessionShutdownOptions,
+  TCompactTrigger,
+} from './session-types.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -6,36 +39,6 @@ import type {
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
-import type { ISessionStore } from './session-store.js';
-import type { ISessionLogger, TSessionLogData } from './session-logger.js';
-import { PermissionEnforcer } from './permission-enforcer.js';
-import type {
-  TPermissionHandler,
-  TPermissionResult,
-  ITerminalOutput,
-  ISpinner,
-} from './permission-types.js';
-import { ContextWindowTracker } from './context-window-tracker.js';
-import { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type {
-  ICompactEvent,
-  ISessionOptions,
-  ISessionShutdownOptions,
-  TCompactTrigger,
-} from './session-types.js';
-import { executeRun } from './session-run.js';
-import { compact, persistSession } from './session-history-ops.js';
-import {
-  configureProvider,
-  fireSessionEndHook,
-  fireSessionStartHook,
-} from './session-lifecycle.js';
-import { SessionBase } from './session-base.js';
-import {
-  buildPermissionEnforcer,
-  buildRobota,
-  buildSessionTrackers,
-} from './session-components.js';
 import type { Robota } from '@robota-sdk/agent-core';
 
 export type {
@@ -224,7 +227,7 @@ export class Session extends SessionBase {
     });
   }
 
-  private buildRunContext() {
+  private buildRunContext(): IRunContext {
     return {
       sessionId: this.sessionId,
       cwd: this.cwd,

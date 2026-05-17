@@ -4,6 +4,11 @@
  * In-memory history classes live in ./conversation-store-history.ts.
  */
 import { randomUUID } from 'node:crypto';
+
+import { SimpleConversationHistory } from './conversation-store-history';
+import { isAssistantMessage, isToolMessage } from '../interfaces/messages';
+
+import type { IConversationHistory } from './conversation-history-manager';
 import type {
   TUniversalMessageMetadata,
   TUniversalMessageRole,
@@ -14,9 +19,6 @@ import type {
   IHistoryEntry,
   TMessageState,
 } from '../interfaces/messages';
-import { isAssistantMessage, isToolMessage } from '../interfaces/messages';
-import type { IConversationHistory } from './conversation-history-manager';
-import { SimpleConversationHistory } from './conversation-store-history';
 
 /** API message format for provider consumption */
 export interface IProviderApiMessage {

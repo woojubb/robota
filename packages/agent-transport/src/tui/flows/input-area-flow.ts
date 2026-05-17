@@ -1,7 +1,8 @@
+import { parseSlashInput } from '../hooks/useAutocomplete.js';
+
+import type { ITuiCommandInteraction } from '../command-interaction.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ICommand } from '@robota-sdk/agent-framework';
-import { parseSlashInput } from '../hooks/useAutocomplete.js';
-import type { ITuiCommandInteraction } from '../command-interaction.js';
 
 export interface IAutocompleteInputKey {
   upArrow?: boolean;

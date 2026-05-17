@@ -1,5 +1,23 @@
-import OpenAI from 'openai';
 import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
+import OpenAI from 'openai';
+
+import { parseGemmaChatCompletion, withGemmaProjectionMetadata } from './provider-projection';
+import { GemmaReasoningProjector } from './reasoning-projector';
+import {
+  createGemmaStreamProjectionState,
+  flushGemmaStreamProjection,
+  projectGemmaStreamChunk,
+} from './streaming-projection';
+import { createGemmaToolCallProjector } from './tool-call-projector';
+import {
+  assembleOpenAICompatibleStream,
+  convertToOpenAICompatibleMessages,
+  convertToOpenAICompatibleTools,
+  observeProviderNativeRawPayloadStream,
+} from '../shared/openai-compatible/index.js';
+
+import type { IGemmaProviderOptions } from './types';
+import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type {
   IAssistantMessage,
   IChatOptions,
@@ -7,22 +25,6 @@ import type {
   TTextDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import {
-  assembleOpenAICompatibleStream,
-  convertToOpenAICompatibleMessages,
-  convertToOpenAICompatibleTools,
-  observeProviderNativeRawPayloadStream,
-} from '../shared/openai-compatible/index.js';
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
-import type { IGemmaProviderOptions } from './types';
-import { GemmaReasoningProjector } from './reasoning-projector';
-import { createGemmaToolCallProjector } from './tool-call-projector';
-import { parseGemmaChatCompletion, withGemmaProjectionMetadata } from './provider-projection';
-import {
-  createGemmaStreamProjectionState,
-  flushGemmaStreamProjection,
-  projectGemmaStreamChunk,
-} from './streaming-projection';
 
 export class GemmaProvider extends AbstractAIProvider {
   override readonly name = 'gemma';

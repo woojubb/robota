@@ -1,7 +1,21 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import {
+  CommandRegistry,
+  InteractiveSession,
+  readMergedProviderSettings,
+  readSettings,
+  resolveProviderSettingsWriteTargetPath,
+  writeSettings,
+} from '@robota-sdk/agent-framework';
+import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { describe, expect, it, vi } from 'vitest';
+
+import { startCli } from '../cli.js';
+
 import type {
   IAIProvider,
   IChatOptions,
@@ -9,9 +23,24 @@ import type {
   IRawProviderResponse,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import { CommandRegistry, InteractiveSession } from '@robota-sdk/agent-framework';
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import { createDefaultCliCommandModules, startCli } from '../cli.js';
+import type {
+  IProviderCommandSettingsAdapter,
+  TProviderSettingsDocument,
+} from '@robota-sdk/agent-framework';
+
+const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => ({
+  readMergedSettings: () => readMergedProviderSettings(cwd),
+  readTargetSettings: () =>
+    readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+  writeTargetSettings: (settings: TProviderSettingsDocument) =>
+    writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+});
+
+const noopProviderSettingsAdapter = {
+  readMergedSettings: () => ({}) as TProviderSettingsDocument,
+  readTargetSettings: () => ({}) as TProviderSettingsDocument,
+  writeTargetSettings: () => undefined,
+};
 
 function createFakeProvider(): IAIProvider {
   return {
@@ -49,9 +78,10 @@ describe('default CLI command composition', () => {
   it('exposes permissions mode subcommands and standalone mode command', () => {
     const registry = new CommandRegistry();
 
-    for (const module of createDefaultCliCommandModules({
+    for (const module of createDefaultCommandModules({
       cwd: '/workspace',
       providerDefinitions: [],
+      providerSettingsAdapter: noopProviderSettingsAdapter,
     })) {
       registry.addModule(module);
     }
@@ -187,9 +217,10 @@ describe('default CLI command composition', () => {
       },
       bare: true,
       permissionMode: 'default',
-      commandModules: createDefaultCliCommandModules({
+      commandModules: createDefaultCommandModules({
         cwd,
         providerDefinitions: [],
+        providerSettingsAdapter: noopProviderSettingsAdapter,
       }),
     });
     const writes: string[] = [];
@@ -255,9 +286,10 @@ describe('default CLI command composition', () => {
       },
       bare: true,
       permissionMode: 'default',
-      commandModules: createDefaultCliCommandModules({
+      commandModules: createDefaultCommandModules({
         cwd,
         providerDefinitions: [],
+        providerSettingsAdapter: createProviderSettingsAdapter(cwd),
       }),
     });
     const writes: string[] = [];

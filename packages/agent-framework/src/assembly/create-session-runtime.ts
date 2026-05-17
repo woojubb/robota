@@ -1,27 +1,27 @@
-import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import { SubagentManager, BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import { storeAgentToolDeps } from '../tools/agent-tool.js';
-import type { IAgentToolDeps } from '../tools/agent-tool.js';
-import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+
 import { fireSubagentLifecycleHook } from './background-task-hooks.js';
-import type { IBackgroundTaskManager, TBackgroundTaskEvent } from '../background-tasks/index.js';
-import { createExecutionOriginMetadata } from '../background-tasks/index.js';
-import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
-import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
-import { buildSystemPrompt } from '../context/system-prompt-builder.js';
-import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
-import {
-  createModelCommandToolProjection,
-  formatProjectedModelCommandToolPromptDescription,
-} from '../tools/model-command-tool-projection.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { ISessionLogger } from '@robota-sdk/agent-session';
+import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
+import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import type { Session } from '@robota-sdk/agent-session';
+import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+import { storeAgentToolDeps } from '../tools/agent-tool.js';
+import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
+import { formatProjectedModelCommandToolPromptDescription } from '../tools/model-command-tool-projection.js';
+
 import type { ICreateSessionOptions } from './create-session-types.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { IBackgroundTaskManager, TBackgroundTaskEvent } from '../background-tasks/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { IAgentToolDeps } from '../tools/agent-tool.js';
+import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
+import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
+import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { ISessionLogger } from '@robota-sdk/agent-session';
+import type { Session } from '@robota-sdk/agent-session';
 
 export interface IAgentRuntimeResult {
   agentToolDeps: IAgentToolDeps | undefined;

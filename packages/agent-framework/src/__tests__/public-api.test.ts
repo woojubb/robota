@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import * as sdk from '../index.js';
 
 describe('agent-sdk public API', () => {

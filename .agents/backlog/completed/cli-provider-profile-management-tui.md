@@ -1,8 +1,9 @@
+---
+title: 'CLI Provider Profile Management TUI'
+status: done
+---
+
 # CLI Provider Profile Management TUI
-
-## Status
-
-Completed.
 
 ## Created
 

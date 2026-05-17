@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
+
+import { formatCommandHelpMessage } from '../../command-api/help/help-command-api.js';
 import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-source.js';
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
-import { formatCommandHelpMessage } from '../../command-api/help/help-command-api.js';
-import type { ICommandHostContext } from '../../command-api/index.js';
+
 import type { ICommandModule } from '../../command-api/command-module.js';
+import type { ICommandHostContext } from '../../command-api/index.js';
 
 function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
   const underlying = {

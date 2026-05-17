@@ -1,5 +1,3 @@
-import type { IEventService, IEventContext } from '../interfaces/event-service';
-import { bindWithOwnerPath } from '../event-service/index';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
   countWords,
@@ -11,10 +9,13 @@ import {
   HIGH_INPUT_COMPLEXITY_THRESHOLD,
   MEDIUM_INPUT_COMPLEXITY_THRESHOLD,
 } from './execution-types';
-import type { IAgentConfig } from '../interfaces/agent';
-import type { TUniversalMessage } from '../interfaces/messages';
-import type { IResolvedProviderInfo } from './execution-types';
+import { bindWithOwnerPath } from '../event-service/index';
+
 import type { ExecutionEventEmitter } from './execution-event-emitter';
+import type { IResolvedProviderInfo } from './execution-types';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { IEventService, IEventContext } from '../interfaces/event-service';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 /**
  * Emit the EXECUTION START event.
@@ -215,14 +216,14 @@ export function emitToolResultsEvents(
     throw new Error('[EXECUTION] Tool results ready requires toolCallIds');
   }
 
-  const buildCtx = () =>
+  const buildCtx = (): IEventContext =>
     emitter.buildThinkingOwnerContext(
       conversationId,
       executionId,
       thinkingNodeId,
       previousThinkingNodeId,
     );
-  const resolveService = (ctx: IEventContext) => {
+  const resolveService = (ctx: IEventContext): IEventService => {
     if (!ctx.ownerType || !ctx.ownerId) {
       throw new Error('[EXECUTION] Missing owner context for tool results event');
     }

@@ -1,3 +1,8 @@
+---
+title: 'Command Migration: `/help`'
+status: done
+---
+
 # Command Migration: `/help`
 
 ## What

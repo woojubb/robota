@@ -1,7 +1,3 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { TUniversalValue } from '@robota-sdk/agent-core';
-import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
-import { QwenProvider } from './provider';
 import {
   DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE,
   DEFAULT_QWEN_PROVIDER_BASE_URL,
@@ -9,8 +5,13 @@ import {
   QWEN_MODEL_LAST_VERIFIED_AT,
   QWEN_MODEL_SOURCE_URL,
 } from './defaults';
-import type { IQwenBuiltInWebToolsOptions } from './types';
 import { refreshQwenModelCatalog } from './model-catalog-refresh';
+import { QwenProvider } from './provider';
+import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
+
+import type { IQwenBuiltInWebToolsOptions } from './types';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 const QWEN_API_KEY_URL = 'https://modelstudio.console.alibabacloud.com/?tab=api#/api-key';
 const QWEN_SETUP_SOURCE_URL = 'https://www.alibabacloud.com/help/en/model-studio/get-api-key';

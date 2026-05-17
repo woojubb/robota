@@ -1,11 +1,3 @@
-import type {
-  IAppendMemoryInput,
-  ICommandHostContext,
-  ICommandPendingMemoryStore,
-  ICommandProjectMemoryStore,
-  ICommandResult,
-  IMemoryEvent,
-} from '@robota-sdk/agent-framework';
 import {
   MEMORY_COMMAND_USAGE,
   createCommandMemoryStores,
@@ -13,6 +5,15 @@ import {
   isCommandMemoryType,
   listCommandUsedMemoryReferences,
   recordCommandMemoryEvent,
+} from '@robota-sdk/agent-framework';
+
+import type {
+  IAppendMemoryInput,
+  ICommandHostContext,
+  ICommandPendingMemoryStore,
+  ICommandProjectMemoryStore,
+  ICommandResult,
+  IMemoryEvent,
 } from '@robota-sdk/agent-framework';
 
 const SUBCOMMAND_INDEX = 0;

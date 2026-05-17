@@ -1,8 +1,9 @@
+---
+title: 'Transparent Process Execution for agent-cli'
+status: done
+---
+
 # Transparent Process Execution for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 

@@ -6,6 +6,15 @@
  */
 
 import { createUserMessage, getProviderCapabilities, runHooks } from '@robota-sdk/agent-core';
+
+import {
+  createToolExecutionBridge,
+  forwardToolExecutionEvent,
+} from './session-tool-execution-bridge.js';
+
+import type { ContextWindowTracker } from './context-window-tracker.js';
+import type { TSessionLogData } from './session-logger.js';
+import type { ISessionOptions } from './session-types.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -14,13 +23,6 @@ import type {
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
-import type { ContextWindowTracker } from './context-window-tracker.js';
-import type { TSessionLogData } from './session-logger.js';
-import type { ISessionOptions } from './session-types.js';
-import {
-  createToolExecutionBridge,
-  forwardToolExecutionEvent,
-} from './session-tool-execution-bridge.js';
 
 /** Dependencies injected by Session.run() */
 export interface IRunContext {

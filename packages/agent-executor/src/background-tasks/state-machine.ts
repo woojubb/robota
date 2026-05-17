@@ -1,5 +1,6 @@
-import type { TBackgroundTaskStatus } from './types.js';
 import { BackgroundTaskError } from './types.js';
+
+import type { TBackgroundTaskStatus } from './types.js';
 
 export type TBackgroundTaskTransitionEvent =
   | 'START'

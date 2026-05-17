@@ -2,7 +2,7 @@
 
 ## Token Tracking
 
-`ContextWindowTracker` (in `agent-sessions`) reads the shared `agent-core` context estimator. Terminal provider usage is treated as the exact post-response state. If new user or tool messages appear after the latest provider usage, the estimator uses the maximum of serialized history, latest provider usage metadata, and any caller-provided usage floor, so previous metadata cannot hide a large prompt that has not been sent yet.
+`ContextWindowTracker` (in `agent-session`) reads the shared `agent-core` context estimator. Terminal provider usage is treated as the exact post-response state. If new user or tool messages appear after the latest provider usage, the estimator uses the maximum of serialized history, latest provider usage metadata, and any caller-provided usage floor, so previous metadata cannot hide a large prompt that has not been sent yet.
 
 ```typescript
 const state = session.getContextState();
@@ -50,7 +50,7 @@ CLAUDE.md can define a "Compact Instructions" section. These instructions are au
 The `text_delta` event provides real-time text as the model generates it:
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });

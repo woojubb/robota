@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IToolResult } from '@robota-sdk/agent-core';
+
+import { createBackgroundProcessTool } from '../background-process-tool.js';
+
 import type {
   IBackgroundTaskManager,
   TBackgroundTaskRequest,
   IBackgroundTaskState,
 } from '../../background-tasks/index.js';
-import { createBackgroundProcessTool } from '../background-process-tool.js';
+import type { IToolResult } from '@robota-sdk/agent-core';
 
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
   return JSON.parse(toolResult.data as string);

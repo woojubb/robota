@@ -1,4 +1,3 @@
-import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 import {
   createLogger,
   type ILogger,
@@ -7,7 +6,10 @@ import {
   startPeriodicTask,
   stopPeriodicTask,
 } from '@robota-sdk/agent-core';
+
 import { aggregateUsageStats } from '../aggregate-usage-stats';
+
+import type { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 
 const SAMPLE_SIZE = 3;
 

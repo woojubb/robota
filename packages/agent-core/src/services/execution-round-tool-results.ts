@@ -1,10 +1,11 @@
-import type { TToolMetadata } from '../interfaces/tool';
-import type { IToolCall, TUniversalMessageMetadata } from '../interfaces/messages';
-import type { ILogger } from '../utils/logger';
-import type { ConversationStore } from '../managers/conversation-history-manager';
-import { estimateContextTokensFromMessages } from '../context/estimation';
 import { isExecutionError, PREVIEW_LENGTH } from './execution-types';
 import { UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-service';
+import { estimateContextTokensFromMessages } from '../context/estimation';
+
+import type { IToolCall, TUniversalMessageMetadata } from '../interfaces/messages';
+import type { TToolMetadata } from '../interfaces/tool';
+import type { ConversationStore } from '../managers/conversation-history-manager';
+import type { ILogger } from '../utils/logger';
 
 /** Result of addToolResultsToHistory indicating whether context overflow occurred */
 export interface IToolResultsOutcome {
@@ -80,7 +81,7 @@ export function addToolResultsToHistory(
     );
 
     let content: string;
-    let metadata: TUniversalMessageMetadata = { round: currentRound };
+    const metadata: TUniversalMessageMetadata = { round: currentRound };
 
     if (result && result.success) {
       if (typeof result.result === 'undefined') {

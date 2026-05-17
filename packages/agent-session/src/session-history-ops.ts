@@ -6,19 +6,20 @@
  */
 
 import { runHooks } from '@robota-sdk/agent-core';
+
+import type { CompactionOrchestrator } from './compaction-orchestrator.js';
+import type { ContextWindowTracker } from './context-window-tracker.js';
+import type { TSessionLogData } from './session-logger.js';
+import type { ISessionRecord, ISessionStore } from './session-store.js';
+import type { ICompactEvent, TCompactTrigger } from './session-types.js';
+import type { IToolSchema } from '@robota-sdk/agent-core';
+import type { Robota } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
-import type { Robota } from '@robota-sdk/agent-core';
-import type { ISessionRecord, ISessionStore } from './session-store.js';
-import type { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type { ContextWindowTracker } from './context-window-tracker.js';
-import type { TSessionLogData } from './session-logger.js';
-import type { IToolSchema } from '@robota-sdk/agent-core';
-import type { ICompactEvent, TCompactTrigger } from './session-types.js';
 
 /** Dependencies for compact() */
 export interface ICompactContext {

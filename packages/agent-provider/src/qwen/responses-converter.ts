@@ -1,4 +1,3 @@
-import type { IAssistantMessage, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IQwenBuiltInWebToolsOptions,
   IQwenResponsesFunctionTool,
@@ -7,6 +6,7 @@ import type {
   TQwenResponsesInputItem,
   TQwenResponsesTool,
 } from './types';
+import type { IAssistantMessage, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 
 export function getQwenBuiltInWebToolNames(
   options: IQwenBuiltInWebToolsOptions | undefined,

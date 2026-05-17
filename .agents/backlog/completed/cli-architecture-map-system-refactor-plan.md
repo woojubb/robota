@@ -1,8 +1,9 @@
+---
+title: 'CLI Architecture Map System Refactor Plan'
+status: done
+---
+
 # CLI Architecture Map System Refactor Plan
-
-## Status
-
-Completed.
 
 Completed: 2026-05-05
 

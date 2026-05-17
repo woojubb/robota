@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vitest';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { describe, expect, it } from 'vitest';
+
+import { BackgroundJobOrchestrator, createExecutionWorkspaceTaskSpawner } from '../index.js';
+
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
 } from '@robota-sdk/agent-executor';
-import { BackgroundJobOrchestrator, createExecutionWorkspaceTaskSpawner } from '../index.js';
 
 function createProcessRunner(): IBackgroundTaskRunner {
   return {

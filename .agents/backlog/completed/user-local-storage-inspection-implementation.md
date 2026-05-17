@@ -1,8 +1,9 @@
+---
+title: 'User-Local Storage Inspection Implementation'
+status: done
+---
+
 # User-Local Storage Inspection Implementation
-
-## Status
-
-Completed.
 
 ## Created
 

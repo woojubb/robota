@@ -232,7 +232,7 @@ const response = await agent.run(
 | `webFetchTool`  | Fetch URL content (HTML-to-text)     |
 | `webSearchTool` | Web search via Brave Search API      |
 
-These are used by `agent-sdk` to assemble the CLI agent, but can also be used independently.
+These are used by `agent-framework` to assemble the CLI agent, but can also be used independently.
 
 ## Plugins
 
@@ -372,13 +372,13 @@ try {
 
 ## Changes from v2.0.0
 
-| v2.0.0                                     | v3.0.0                                                      |
-| ------------------------------------------ | ----------------------------------------------------------- |
-| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`           |
-| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
-| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                          |
-| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                       |
-| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`   |
-| No session management                      | `Session` class in `agent-sessions` with compaction         |
-| No CLI                                     | `agent-cli` with Ink TUI                                    |
-| No SDK layer                               | `agent-sdk` with config/context loading and `createQuery()` |
+| v2.0.0                                     | v3.0.0                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`                  |
+| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                 |
+| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                 |
+| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                              |
+| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`          |
+| No session management                      | `InteractiveSession` in `agent-framework` with compaction          |
+| No CLI                                     | `agent-cli` with Ink TUI                                           |
+| No SDK layer                               | `agent-framework` with runtime assembly and `createAgentRuntime()` |

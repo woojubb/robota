@@ -44,16 +44,16 @@ Update the smallest relevant file under [agent-cli/](agent-cli/) in the same PR 
 affects any of these:
 
 - `packages/agent-cli/src/cli.ts` composition of providers, command modules, transports, or runtime adapters;
-- `packages/agent-transport-tui/src/hooks/useInteractiveSession.ts`, `useSlashRouting.ts`, or `useSideEffects.ts`;
-- a new or removed `@robota-sdk/agent-command-*` module in the default CLI product;
+- `packages/agent-transport/src/tui/hooks/useInteractiveSession.ts`, `useSlashRouting.ts`, or `useSideEffects.ts`;
+- a new or removed `@robota-sdk/agent-command` module in the default CLI product;
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive vs non-interactive execution mode flags or transport behavior;
 - package dependencies among CLI, SDK, command packages, provider packages, runtime, sessions, tools, or core;
 - any future CLI composition of MCP/deployment capabilities.
 
 CLI-visible behavior is not automatically CLI-owned behavior. Before adding terminal UI for a new
-capability, verify the non-UI behavior is owned by `agent-sdk`, `agent-runtime`, an
-`agent-command-*` package, a provider package, or another lower reusable layer. If that owner API
+capability, verify the non-UI behavior is owned by `agent-framework`, `agent-executor`,
+`agent-command`, a provider package, or another lower reusable layer. If that owner API
 does not exist, add it first and keep `agent-cli` limited to TUI, input, ephemeral selection state,
 and concrete host adapters.
 

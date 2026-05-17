@@ -6,20 +6,20 @@
  * IInitOptions: internal async init shape passed to createInteractiveSession().
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
-import type { IAIProvider, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
-import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
-import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { ICreateSessionOptions } from '../assembly/index.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { TInteractivePermissionHandler } from './types.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { TInteractivePermissionHandler } from './types.js';
+import type { ICreateSessionOptions } from '../assembly/index.js';
+import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
+import type { IResolvedConfig } from '../config/config-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
+import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { IAIProvider, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
@@ -39,6 +39,8 @@ export interface IInteractiveSessionStandardOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
@@ -122,6 +124,8 @@ export interface IInitOptions {
   allowedTools?: string[];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */

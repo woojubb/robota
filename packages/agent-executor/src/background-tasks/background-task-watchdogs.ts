@@ -1,4 +1,3 @@
-import type { IBackgroundTaskManagerOptions, TBackgroundTaskTimeoutReason } from './types.js';
 import {
   hasRepeatedSentence,
   normalizeRepeatedText,
@@ -6,6 +5,8 @@ import {
   unrefTimer,
   type ITrackedBackgroundTask,
 } from './background-task-manager-helpers.js';
+
+import type { IBackgroundTaskManagerOptions, TBackgroundTaskTimeoutReason } from './types.js';
 
 export interface IBackgroundTaskWatchdogDefaults {
   agentIdleTimeoutMs: number;

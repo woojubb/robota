@@ -1,10 +1,10 @@
+import type { ICommandEffectQueue } from './command-effect-queue.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   TCommandInteractionPrompt as TInteractivePrompt,
   IStatusLineCommandSettings as TStatusLineSettings,
 } from '@robota-sdk/agent-framework';
-import type { ICommandEffectQueue } from './command-effect-queue.js';
 
 export type { TInteractivePrompt, TStatusLineSettings };
 

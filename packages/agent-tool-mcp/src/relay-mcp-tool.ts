@@ -1,3 +1,5 @@
+import { ToolExecutionError } from '@robota-sdk/agent-core';
+
 import type {
   TToolParameters,
   IToolResult,
@@ -6,7 +8,6 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { IEventService, IOwnerPathSegment } from '@robota-sdk/agent-core';
-import { ToolExecutionError } from '@robota-sdk/agent-core';
 
 const ID_RADIX = 36;
 const ID_SUBSTR_END = 8;

@@ -1,9 +1,10 @@
 /**
  * CLI argument parsing and validation.
- * Pure functions — no side effects beyond process.exit on validation failure.
+ * Pure functions — throw on invalid input, no process.* side effects.
  */
 
 import { parseArgs } from 'node:util';
+
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
@@ -49,9 +50,9 @@ export interface IParsedCliArgs {
   disableUpdateCheck: boolean;
 }
 
-/** Print CLI usage help to stdout. */
-export function printHelp(): void {
-  process.stdout.write(`
+/** Return CLI usage help text. */
+export function printHelp(): string {
+  return `
 Usage: robota [options] [-p <prompt>]
 
 Options:
@@ -79,84 +80,81 @@ Examples:
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
   robota --continue                Resume the last session
-`);
+`;
 }
 
-/** Validate and return a TOutputFormat from a raw CLI string, or exit on error. */
+/** Validate and return a TOutputFormat from a raw CLI string, or throw on error. */
 export function parseOutputFormat(raw: string | undefined): TOutputFormat | undefined {
   if (raw === undefined) return undefined;
   if (!(VALID_OUTPUT_FORMATS as readonly string[]).includes(raw)) {
-    process.stderr.write(
-      `Invalid --output-format "${raw}". Valid: ${VALID_OUTPUT_FORMATS.join(' | ')}\n`,
-    );
-    process.exit(1);
+    throw new Error(`Invalid --output-format "${raw}". Valid: ${VALID_OUTPUT_FORMATS.join(' | ')}`);
   }
   return raw as TOutputFormat;
 }
 
-/** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
+/** Validate and return a TPermissionMode from a raw CLI string, or throw on error. */
 export function parsePermissionMode(raw: string | undefined): TPermissionMode | undefined {
   if (raw === undefined) return undefined;
   if (!VALID_MODES.includes(raw as TPermissionMode)) {
-    process.stderr.write(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}\n`);
-    process.exit(1);
+    throw new Error(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}`);
   }
   return raw as TPermissionMode;
 }
 
-/** Validate and return a positive integer from a raw CLI string, or exit on error. */
+/** Validate and return a positive integer from a raw CLI string, or throw on error. */
 export function parseMaxTurns(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
   const n = parseInt(raw, 10);
   if (isNaN(n) || n <= 0) {
-    process.stderr.write(`Invalid --max-turns "${raw}". Must be a positive integer.\n`);
-    process.exit(1);
+    throw new Error(`Invalid --max-turns "${raw}". Must be a positive integer.`);
   }
   return n;
 }
 
-/** Parse and validate CLI arguments. */
-export function parseCliArgs(): IParsedCliArgs {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      help: { type: 'boolean', short: 'h', default: false },
-      p: { type: 'boolean', short: 'p', default: false },
-      continue: { type: 'boolean', short: 'c', default: false },
-      resume: { type: 'string', short: 'r' },
-      model: { type: 'string' },
-      language: { type: 'string' },
-      'permission-mode': { type: 'string' },
-      'max-turns': { type: 'string' },
-      'fork-session': { type: 'boolean', default: false },
-      name: { type: 'string', short: 'n' },
-      'output-format': { type: 'string' },
-      format: { type: 'string' },
-      summary: { type: 'string' },
-      source: { type: 'string' },
-      'system-prompt': { type: 'string' },
-      'append-system-prompt': { type: 'string' },
-      'task-file': { type: 'string' },
-      version: { type: 'boolean', default: false },
-      reset: { type: 'boolean', default: false },
-      bare: { type: 'boolean', default: false },
-      'allowed-tools': { type: 'string' },
-      'no-session-persistence': { type: 'boolean', default: false },
-      'json-schema': { type: 'string' },
-      configure: { type: 'boolean', default: false },
-      'configure-provider': { type: 'string' },
-      provider: { type: 'string' },
-      type: { type: 'string' },
-      'base-url': { type: 'string' },
-      'api-key': { type: 'string' },
-      'api-key-env': { type: 'string' },
-      'set-current': { type: 'boolean', default: false },
-      'settings-scope': { type: 'string' },
-      'check-update': { type: 'boolean', default: false },
-      'disable-update-check': { type: 'boolean', default: false },
-    },
-  });
+const PARSE_ARGS_CONFIG = {
+  allowPositionals: true,
+  options: {
+    help: { type: 'boolean', short: 'h', default: false },
+    p: { type: 'boolean', short: 'p', default: false },
+    continue: { type: 'boolean', short: 'c', default: false },
+    resume: { type: 'string', short: 'r' },
+    model: { type: 'string' },
+    language: { type: 'string' },
+    'permission-mode': { type: 'string' },
+    'max-turns': { type: 'string' },
+    'fork-session': { type: 'boolean', default: false },
+    name: { type: 'string', short: 'n' },
+    'output-format': { type: 'string' },
+    format: { type: 'string' },
+    summary: { type: 'string' },
+    source: { type: 'string' },
+    'system-prompt': { type: 'string' },
+    'append-system-prompt': { type: 'string' },
+    'task-file': { type: 'string' },
+    version: { type: 'boolean', default: false },
+    reset: { type: 'boolean', default: false },
+    bare: { type: 'boolean', default: false },
+    'allowed-tools': { type: 'string' },
+    'no-session-persistence': { type: 'boolean', default: false },
+    'json-schema': { type: 'string' },
+    configure: { type: 'boolean', default: false },
+    'configure-provider': { type: 'string' },
+    provider: { type: 'string' },
+    type: { type: 'string' },
+    'base-url': { type: 'string' },
+    'api-key': { type: 'string' },
+    'api-key-env': { type: 'string' },
+    'set-current': { type: 'boolean', default: false },
+    'settings-scope': { type: 'string' },
+    'check-update': { type: 'boolean', default: false },
+    'disable-update-check': { type: 'boolean', default: false },
+  },
+} as const;
 
+function mapParsedValues(
+  values: ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'],
+  positionals: string[],
+): IParsedCliArgs {
   return {
     positional: positionals,
     help: values['help'] ?? false,
@@ -194,4 +192,10 @@ export function parseCliArgs(): IParsedCliArgs {
     checkUpdate: values['check-update'] ?? false,
     disableUpdateCheck: values['disable-update-check'] ?? false,
   };
+}
+
+/** Parse and validate CLI arguments. */
+export function parseCliArgs(): IParsedCliArgs {
+  const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
+  return mapParsedValues(values, positionals);
 }

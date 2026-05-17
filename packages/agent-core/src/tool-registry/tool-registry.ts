@@ -1,7 +1,8 @@
-import type { ITool, IToolRegistry } from '../interfaces/tool';
-import type { IToolSchema } from '../interfaces/provider';
 import { ValidationError } from '../utils/errors';
 import { logger } from '../utils/logger';
+
+import type { IToolSchema } from '../interfaces/provider';
+import type { ITool, IToolRegistry } from '../interfaces/tool';
 
 /**
  * Tool registry implementation

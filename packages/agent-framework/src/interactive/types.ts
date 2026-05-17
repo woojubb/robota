@@ -2,15 +2,15 @@
  * Types for InteractiveSession — event-driven session wrapper.
  */
 
-import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type {
   IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
-import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */

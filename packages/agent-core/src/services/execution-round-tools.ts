@@ -1,19 +1,21 @@
+import {
+  type IToolResultsOutcome,
+  addToolResultsToHistory,
+  isUnknownToolExecutionResult,
+} from './execution-round-tool-results';
+import { type IExecutionRoundState } from './execution-types';
+import { getModelContextWindow } from '../context/models';
+
+import type { IRoundDependencies } from './execution-round';
+import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type {
   IAgentConfig,
   TExecutionEventCallback,
   TExecutionEventData,
 } from '../interfaces/agent';
 import type { IToolCall } from '../interfaces/messages';
-import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ConversationStore } from '../managers/conversation-history-manager';
-import { getModelContextWindow } from '../context/models';
-import { type IExecutionRoundState } from './execution-types';
-import type { IRoundDependencies } from './execution-round';
-import {
-  type IToolResultsOutcome,
-  addToolResultsToHistory,
-  isUnknownToolExecutionResult,
-} from './execution-round-tool-results';
+
 export type { IToolResultsOutcome } from './execution-round-tool-results';
 
 /** Execute tools from assistant tool calls and add results to conversation history */

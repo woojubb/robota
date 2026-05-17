@@ -1,3 +1,5 @@
+export { PrintTerminal } from './print-terminal.js';
+export { promptInput } from './cli-input.js';
 export { createHeadlessRunner } from './headless-runner.js';
 export type { IHeadlessRunnerOptions, TOutputFormat } from './headless-runner.js';
 export { createHeadlessTransport } from './headless-transport.js';

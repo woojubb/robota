@@ -1,8 +1,9 @@
+---
+title: 'CLI `@file` Reference Import'
+status: done
+---
+
 # CLI `@file` Reference Import
-
-## Status
-
-Completed.
 
 ## Priority
 

@@ -8,8 +8,8 @@
  * @template TOutput - Output workflow data type
  */
 
-import type { ILogger } from '../utils/logger';
 import type { TConfigValue, TMetadata, TMetadataValue, TUniversalValue } from './types';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Workflow configuration - uses base type for cross-converter compatibility

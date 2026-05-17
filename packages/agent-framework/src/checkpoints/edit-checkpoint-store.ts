@@ -1,8 +1,9 @@
 import { dirname, join, relative, resolve } from 'node:path';
 
-import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
 import { NodeFileSystem, NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { projectPaths } from '../paths.js';
+import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
+
 import type {
   IEditCheckpointFileRecord,
   IEditCheckpointInspection,
@@ -11,7 +12,7 @@ import type {
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
 } from './edit-checkpoint-types.js';
-import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
+import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
 
 const MANIFEST_FILE = 'manifest.json';
 const SNAPSHOT_DIR = 'files';

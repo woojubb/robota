@@ -1,13 +1,13 @@
 # Using the SDK
 
-`@robota-sdk/agent-sdk` is the provider-neutral assembly layer that composes `agent-core`, `agent-tools`, `agent-sessions`, runtime services, commands, context loading, and transports into a cohesive experience. It exposes `InteractiveSession` as the primary entry point and `createQuery()` as the one-shot convenience API. Consumers create the provider instance and pass it in.
+`@robota-sdk/agent-framework` is the provider-neutral assembly layer that composes `agent-core`, `agent-tools`, `agent-session`, runtime services, commands, context loading, and transports into a cohesive experience. It exposes `InteractiveSession` as the primary entry point and `createQuery()` as the one-shot convenience API. Consumers create the provider instance and pass it in.
 
 ## InteractiveSession — Primary Entry Point
 
 `InteractiveSession` is the primary entry point for any interactive use case — CLI, web front-end, API server, or dynamic worker. It wraps `Session` via composition and provides an event-driven, queue-aware API.
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({
@@ -86,7 +86,7 @@ Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover avai
 `createQuery({ provider })` is a lightweight factory that builds a one-shot query function pre-configured for a specific provider. Use it when you want simple prompt-in/response-out calls but need to reuse a configured provider instance across multiple calls.
 
 ```typescript
-import { createQuery } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -99,7 +99,7 @@ const response = await ask('List all TypeScript files in this project');
 The simplest way to interact with Robota is to create a query function and call it with a prompt. `createQuery()` builds an `InteractiveSession` internally, loads settings and project context from the working directory, and cleans up after each prompt.
 
 ```typescript
-import { createQuery } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -234,7 +234,7 @@ const session = new InteractiveSession({
 `InteractiveSession` accepts `sandboxClient?: ISandboxClient`. When present, the SDK creates sandbox-aware Bash, Read, Write, and Edit tools. This keeps the CLI/TUI thin: hosts choose whether to supply a sandbox, while tool command/file behavior remains in `agent-tools`.
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
@@ -259,7 +259,7 @@ const session = new InteractiveSession({
 });
 ```
 
-`E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-sdk` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK. `workspaceManifest` is also owned by `agent-tools`; SDK only applies it during async interactive session initialization. Inline/local files, directories, and Git repositories are supported by the generic applicator. Cloud mount entries return `unsupported` until the chosen sandbox adapter implements native mounting.
+`E2BSandboxClient` adapts E2B-compatible objects from its owning package, `agent-tools`, but does not require `agent-framework` or `agent-tools` to depend on the `e2b` package. Applications install provider SDKs at their composition root and pass the adapted client into the SDK. `workspaceManifest` is also owned by `agent-tools`; SDK only applies it during async interactive session initialization. Inline/local files, directories, and Git repositories are supported by the generic applicator. Cloud mount entries return `unsupported` until the chosen sandbox adapter implements native mounting.
 
 If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`, `InteractiveSession.shutdown()` saves `sandboxSnapshotId` into the session record. A later non-fork `resumeSessionId` restore hydrates that sandbox reference before saved messages are replayed. Forked sessions start from a fresh execution environment unless the host explicitly supplies its own sandbox reference.
 
@@ -268,7 +268,7 @@ If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`
 `createSubagentSession()` spawns a child session for delegating subtasks to a subagent. The child session forks the parent's context (`context:fork`), inherits hooks and permissions, and runs independently.
 
 ```typescript
-import { createSubagentSession } from '@robota-sdk/agent-sdk';
+import { createSubagentSession } from '@robota-sdk/agent-framework';
 
 const subSession = createSubagentSession({
   parentSession: session,
@@ -312,7 +312,7 @@ Agent definitions describe reusable agent configurations. Built-in types:
 | `explore`       | haiku   | read-only | Lightweight codebase exploration         |
 | `plan`          | inherit | read-only | Multi-step planning with read-only tools |
 
-Custom agent definitions can be placed in `.robota/agents/` (primary) or `.claude/agents/` (Claude Code compatible) and are loaded by `AgentDefinitionLoader`. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the `IAgentDefinition` interface.
+Custom agent definitions can be placed in `.robota/agents/` (primary) or `.claude/agents/` (Claude Code compatible) and are loaded by `AgentDefinitionLoader`. See [agent-framework SPEC.md](../../packages/agent-framework/docs/SPEC.md) for the `IAgentDefinition` interface.
 
 ### Agent Definition Schema
 
@@ -338,19 +338,19 @@ Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}
 
 `Session.run()` now forwards core execution events through the session logger. Current events include provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant message commits, tool batch starts, tool execution requests, and tool execution results.
 
-These events are append-only provenance for debugging and future `/resume` replay. Concrete provider packages own exact SDK-native payload selection through `IChatOptions.onProviderNativeRawPayload`; `agent-core` routes the callback without provider branches, and `agent-sessions` validates that provider requests have native raw response or stream payload coverage.
+These events are append-only provenance for debugging and future `/resume` replay. Concrete provider packages own exact SDK-native payload selection through `IChatOptions.onProviderNativeRawPayload`; `agent-core` routes the callback without provider branches, and `agent-session` validates that provider requests have native raw response or stream payload coverage.
 
 ## Always-Streaming Policy
 
-The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream. See [agent-provider-anthropic SPEC.md](../../packages/agent-provider-anthropic/docs/SPEC.md) for details.
+The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream. See [agent-provider SPEC.md](../../packages/agent-provider/docs/SPEC.md) for details.
 
 ## Output Token Limits
 
-The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_tokens` value per model rather than hardcoding a fixed limit. Current defaults: Sonnet 4.6 supports 64K output tokens, Opus 4.6 supports 128K output tokens. See [agent-provider-anthropic SPEC.md](../../packages/agent-provider-anthropic/docs/SPEC.md) for details.
+The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_tokens` value per model rather than hardcoding a fixed limit. Current defaults: Sonnet 4.6 supports 64K output tokens, Opus 4.6 supports 128K output tokens. See [agent-provider SPEC.md](../../packages/agent-provider/docs/SPEC.md) for details.
 
 ## Marketplace Client
 
-`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through the plugin command module in `@robota-sdk/agent-command` and its `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
+`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through the plugin command module in `@robota-sdk/agent-command` and its `/plugin marketplace add/remove/list/update` commands. See [agent-framework SPEC.md](../../packages/agent-framework/docs/SPEC.md) for the full API.
 
 ## Transport Adapters
 
@@ -365,9 +365,9 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
-All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-sdk`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each sub-path provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
+All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-framework`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each sub-path provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
 
-`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport/http`. It has no dependency on `agent-sdk`.
+`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport/http`. It has no dependency on `agent-framework`.
 
 ## Assembly vs Direct Usage
 
@@ -379,4 +379,4 @@ All transport adapters implement the `ITransportAdapter` interface (exported fro
 | Non-interactive / headless     | `agent-transport/headless` — text, JSON, or stream-JSON output           |
 | Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                           |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                                |
-| Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider       |
+| Custom session (no SDK)        | `new Session()` from `agent-session` with your own tools/provider        |

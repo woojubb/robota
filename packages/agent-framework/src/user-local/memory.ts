@@ -1,9 +1,5 @@
 import path from 'node:path';
 
-import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
-import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
-import { resolveUserLocalStorageRoot } from './storage.js';
-import type { IResolveUserLocalStorageRootOptions } from './storage.js';
 import {
   USER_LOCAL_MEMORY_CATEGORIES,
   type IUserLocalMemoryDeleteResult,
@@ -15,6 +11,11 @@ import {
   type IUserLocalMemorySetOptions,
   type TUserLocalMemoryCategory,
 } from './memory-types.js';
+import { resolveUserLocalStorageRoot } from './storage.js';
+import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
+
+import type { IResolveUserLocalStorageRootOptions } from './storage.js';
+import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
 
 type TJsonValue =
   | string

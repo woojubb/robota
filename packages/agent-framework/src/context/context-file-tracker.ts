@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** A single context file entry tracked with its content hash. */
 export interface IContextFileEntry {

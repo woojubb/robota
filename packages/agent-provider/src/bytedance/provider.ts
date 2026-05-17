@@ -1,3 +1,13 @@
+import { requestJson } from './http-client';
+import { mapVideoJobSnapshot, mapInitialStatus, toIsoTimestamp } from './status-mapper';
+
+import type {
+  IBytedanceCreateVideoTaskRequest,
+  IBytedanceCreateVideoTaskResponse,
+  IBytedanceProviderOptions,
+  IBytedanceVideoTaskResponse,
+  TBytedanceTaskContent,
+} from './types';
 import type {
   IInlineImageInputSource,
   IUriImageInputSource,
@@ -7,15 +17,6 @@ import type {
   IVideoJobAccepted,
   IVideoJobSnapshot,
 } from '@robota-sdk/agent-core';
-import type {
-  IBytedanceCreateVideoTaskRequest,
-  IBytedanceCreateVideoTaskResponse,
-  IBytedanceProviderOptions,
-  IBytedanceVideoTaskResponse,
-  TBytedanceTaskContent,
-} from './types';
-import { requestJson } from './http-client';
-import { mapVideoJobSnapshot, mapInitialStatus, toIsoTimestamp } from './status-mapper';
 
 const DEFAULT_CREATE_VIDEO_PATH = '/contents/generations/tasks';
 const DEFAULT_GET_VIDEO_TASK_PATH_TEMPLATE = '/contents/generations/tasks/{taskId}';

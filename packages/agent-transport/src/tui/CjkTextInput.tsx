@@ -11,9 +11,10 @@
  * Drop-in replacement: same props as ink-text-input.
  */
 
-import React, { useRef, useState } from 'react';
-import { Text, useInput, usePaste } from 'ink';
 import chalk from 'chalk';
+import { Text, useInput, usePaste } from 'ink';
+import React, { useRef, useState } from 'react';
+
 import {
   applyCjkTextInput,
   applyCjkTextPaste,

@@ -1,5 +1,5 @@
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { TMemoryType } from './project-memory-store.js';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export type TMemoryPolicyMode = 'disabled' | 'approval_required' | 'auto_save';
 

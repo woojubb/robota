@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from '../create-tools';
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
+import { describe, expect, it } from 'vitest';
+
+import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from '../create-tools';
 
 describe('createDefaultTools', () => {
   it('assembles all default local tools and describes web tools as local tools', () => {

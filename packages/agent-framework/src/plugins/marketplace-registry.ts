@@ -6,9 +6,11 @@
  */
 
 import { join, dirname } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type { TKnownMarketplacesRegistry } from './marketplace-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** Read the known_marketplaces.json registry. Returns empty object if missing or corrupt. */
 export function readRegistry(

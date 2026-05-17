@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 const mockLoadConfig = vi.fn().mockResolvedValue({

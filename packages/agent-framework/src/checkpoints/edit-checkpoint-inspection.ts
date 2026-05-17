@@ -1,12 +1,14 @@
 import { join, relative } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type {
   IEditCheckpointInspection,
   IEditCheckpointInspectionPlan,
   IEditCheckpointManifest,
   IEditCheckpointSummary,
 } from './edit-checkpoint-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 interface IEditCheckpointInspectionInput {
   cwd: string;

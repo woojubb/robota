@@ -4,6 +4,8 @@
  * Extracted from robota.ts to keep the main class under 300 lines.
  * All public method signatures are preserved via delegation.
  */
+import { ConfigurationError } from '../utils/errors';
+
 import type {
   IPluginContract,
   IPluginHooks,
@@ -12,7 +14,6 @@ import type {
 } from '../abstracts/abstract-plugin';
 import type { ExecutionService } from '../services/execution-service';
 import type { ILogger } from '../utils/logger';
-import { ConfigurationError } from '../utils/errors';
 
 /**
  * Manages plugin lifecycle on behalf of a Robota instance.

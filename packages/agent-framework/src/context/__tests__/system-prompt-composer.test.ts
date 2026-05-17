@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
 import { composeSystemPrompt } from '../system-prompt-composer.js';
 import { createCapabilitySection } from '../system-prompt-section-providers.js';
+
 import type { ISystemPromptSection } from '../system-prompt-types.js';
 
 describe('system prompt composer', () => {

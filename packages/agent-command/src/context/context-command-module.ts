@@ -1,10 +1,11 @@
+import { executeContextCommand } from './context-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import { executeContextCommand } from './context-command.js';
 
 export function createContextCommandEntry(): ICommand {
   return {

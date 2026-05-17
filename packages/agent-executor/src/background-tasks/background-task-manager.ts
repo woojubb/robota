@@ -1,4 +1,24 @@
 import {
+  cloneBackgroundTaskState,
+  createDeferred,
+  createQueuedBackgroundTaskState,
+  createRunnerError,
+  matchesBackgroundTaskFilter,
+  toBackgroundTaskErrorMessage,
+  type ITrackedBackgroundTask,
+} from './background-task-manager-helpers.js';
+import {
+  applyBackgroundTaskRunnerStateEvent,
+  markBackgroundTaskCancelled,
+  markBackgroundTaskCompleted,
+  markBackgroundTaskFailed,
+  markBackgroundTaskStarted,
+  startBackgroundTaskRunner,
+  validateBackgroundTaskRequest,
+} from './background-task-manager-state.js';
+import { createBackgroundTaskWatchdogs } from './background-task-watchdogs.js';
+import { isTerminalBackgroundTaskStatus } from './state-machine.js';
+import {
   BackgroundTaskError,
   type IBackgroundTaskInput,
   type IBackgroundTaskListFilter,
@@ -16,29 +36,8 @@ import {
   type TBackgroundTaskRunnerEvent,
   type TBackgroundTaskTimeoutReason,
 } from './types.js';
-import { isTerminalBackgroundTaskStatus } from './state-machine.js';
-import {
-  cloneBackgroundTaskState,
-  createDeferred,
-  createQueuedBackgroundTaskState,
-  createRunnerError,
-  matchesBackgroundTaskFilter,
-  toBackgroundTaskErrorMessage,
-  type ITrackedBackgroundTask,
-} from './background-task-manager-helpers.js';
-import {
-  BackgroundTaskWatchdogController,
-  createBackgroundTaskWatchdogs,
-} from './background-task-watchdogs.js';
-import {
-  applyBackgroundTaskRunnerStateEvent,
-  markBackgroundTaskCancelled,
-  markBackgroundTaskCompleted,
-  markBackgroundTaskFailed,
-  markBackgroundTaskStarted,
-  startBackgroundTaskRunner,
-  validateBackgroundTaskRequest,
-} from './background-task-manager-state.js';
+
+import type { BackgroundTaskWatchdogController } from './background-task-watchdogs.js';
 
 const DEFAULT_MAX_CONCURRENT = 4;
 const DEFAULT_MAX_DEPTH = 1;

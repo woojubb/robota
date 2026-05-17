@@ -7,8 +7,12 @@
  */
 
 import { spawn } from 'node:child_process';
+
 import { z } from 'zod';
+
 import { createZodFunctionTool } from '../implementations/function-tool';
+
+import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 
@@ -136,7 +140,7 @@ async function runBash(args: TBashArgs, options: ISandboxToolOptions = {}): Prom
 /**
  * Create a BashTool instance — register with Robota agent tools registry.
  */
-export function createBashTool(options: ISandboxToolOptions = {}) {
+export function createBashTool(options: ISandboxToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Bash',
     'Executes a given bash command and returns its output.\n\nThe working directory persists between commands, but shell state does not.\n\nIMPORTANT: Avoid using this tool to run `find`, `grep`, `cat`, `head`, `tail`, `sed`, `awk`, or `echo` commands. Instead, use the appropriate dedicated tool:\n - File search: Use Glob (NOT find or ls)\n - Content search: Use Grep (NOT grep or rg)\n - Read files: Use Read (NOT cat/head/tail)\n - Edit files: Use Edit (NOT sed/awk)\n\nFor simple commands, keep the description brief (5-10 words). For complex commands, include enough context to clarify what the command does.\n\nOutput is limited to 30,000 characters. Longer output will be middle-truncated.',

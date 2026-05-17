@@ -1,5 +1,9 @@
+import { RegexMemoryCandidateExtractor } from './memory-candidate-extractor.js';
+import { MemoryPolicyEvaluator } from './memory-policy-evaluator.js';
+import { MemoryRetrievalService } from './memory-retrieval-service.js';
 import { PendingMemoryStore } from './pending-memory-store.js';
 import { ProjectMemoryStore } from './project-memory-store.js';
+
 import type {
   IAutomaticMemoryConfig,
   IMemoryEvent,
@@ -8,10 +12,7 @@ import type {
   IMemoryReference,
   IMemoryRetrievalResult,
 } from './automatic-memory-types.js';
-import { RegexMemoryCandidateExtractor } from './memory-candidate-extractor.js';
 import type { IMemoryCandidateExtractor } from './memory-candidate-extractor.js';
-import { MemoryPolicyEvaluator } from './memory-policy-evaluator.js';
-import { MemoryRetrievalService } from './memory-retrieval-service.js';
 
 export interface IAutomaticMemoryControllerOptions {
   cwd: string;

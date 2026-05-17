@@ -1,13 +1,15 @@
-import React from 'react';
-import { Box, Text } from 'ink';
-import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
 import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
+import { Box, Text } from 'ink';
+import React from 'react';
+
+import { formatCommandOutputSummary } from './command-output-summary.js';
 import { renderMarkdown } from './render-markdown.js';
-import type { IToolCallSummary } from './utils/tool-call-extractor.js';
+import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 import UsageSummaryEntry from './UsageSummaryEntry.js';
-import { formatCommandOutputSummary } from './command-output-summary.js';
-import ToolCommandOutput from './ToolCommandOutput.js';
+
+import type { IToolCallSummary } from './utils/tool-call-extractor.js';
+import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
 
 interface IProps {
   history: IHistoryEntry[];

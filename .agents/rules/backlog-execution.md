@@ -180,6 +180,38 @@ expected result, and summarize the evidence already observed by the agent. If th
 test scenario gate does not pass, the work is not complete and the agent must fix the issue or ask
 for a decision.
 
+## Completion Steps
+
+When all gates pass and the work is fully done, follow these steps **in order**:
+
+1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the backlog
+   file's frontmatter. For items that will not be implemented, use `status: wontfix` or
+   `status: skipped` instead.
+2. **Move the file** — `git mv .agents/backlog/<file>.md .agents/backlog/completed/<file>.md`.
+3. **Single commit** — include the frontmatter update and the `git mv` in the same commit.
+   Do not commit or push before both the status update and the move are staged together.
+
+### Status Invariants
+
+- Frontmatter `status:` is the **only** place status is recorded. Body sections such as
+  `## Status` are banned and must not be written.
+- A file may not reside in `completed/` with `status: todo` or `status: in-progress`.
+- A file may not have `status: done` while still in the `backlog/` root.
+- `status: done` must not be set before the User Execution Test Scenario gate passes (Stage 2).
+- `wontfix`, `skipped`, and `superseded` are valid terminal statuses for items that were
+  deliberately not implemented.
+
+### Common Mistakes to Avoid
+
+| Mistake                                                                | Correct action                                                      |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Moving file to `completed/` before updating `status:` in frontmatter   | Update frontmatter first, then `git mv`                             |
+| Leaving `status: done` in frontmatter but file still in `backlog/`     | Move with `git mv` immediately after the status update              |
+| Splitting the status update and the move into separate commits         | Stage both changes and commit together                              |
+| Writing `## Status` section in body instead of using frontmatter       | Use frontmatter `status:` field only                                |
+| Setting `status: done` before user execution test scenario gate passes | Run the scenario, record evidence, then set done                    |
+| Copying (not moving) to `completed/`, leaving a duplicate in root      | Always use `git mv` — never `cp`. Root must have no duplicate files |
+
 ## Base Branch Workflow
 
 For a multi-backlog initiative:

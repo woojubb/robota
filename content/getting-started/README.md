@@ -159,7 +159,7 @@ response = await agent.run('Continue our conversation.');
 ### 4. Use the SDK for project-aware sessions
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({

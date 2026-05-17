@@ -1,3 +1,16 @@
+import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { ICommandResult } from '../commands/system-command.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
+import type { IProjectInfo } from '../context/project-detector.js';
+import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { TSessionFactory } from '../hooks/agent-executor.js';
+import type { TProviderFactory } from '../hooks/prompt-executor.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
+import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -14,20 +27,7 @@ import type {
   TPermissionHandler,
   ISessionLogger,
 } from '@robota-sdk/agent-session';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
-import type { IProjectInfo } from '../context/project-detector.js';
-import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
-import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
-import type { ICommandResult } from '../commands/system-command.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
-import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 
 export type TAutoCompactThreshold = number | false;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {

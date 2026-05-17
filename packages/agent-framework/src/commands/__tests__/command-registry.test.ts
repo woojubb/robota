@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
 import { BuiltinCommandSource } from '../builtin-source.js';
 import { CommandRegistry } from '../command-registry.js';
+
 import type { ICommandModule } from '../../command-api/command-module.js';
 
 describe('CommandRegistry capability descriptors', () => {

@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-transport",
-  "version": "3.0.0-beta.65",
-  "description": "Consolidated transport package for Robota SDK — TUI, headless, HTTP, WebSocket, and MCP adapters",
+  "version": "3.0.0-beta.66",
+  "description": "Consolidated transport package for Robota SDK — headless, HTTP, WebSocket, and MCP adapters",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -16,18 +16,6 @@
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
-      }
-    },
-    "./tui": {
-      "types": "./dist/node/tui/index.d.ts",
-      "source": "./src/tui/index.ts",
-      "node": {
-        "import": "./dist/node/tui/index.js",
-        "require": "./dist/node/tui/index.cjs"
-      },
-      "default": {
-        "import": "./dist/node/tui/index.js",
-        "require": "./dist/node/tui/index.cjs"
       }
     },
     "./headless": {
@@ -77,6 +65,18 @@
         "import": "./dist/node/mcp/index.js",
         "require": "./dist/node/mcp/index.cjs"
       }
+    },
+    "./tui": {
+      "types": "./dist/node/tui/index.d.ts",
+      "source": "./src/tui/index.ts",
+      "node": {
+        "import": "./dist/node/tui/index.js",
+        "require": "./dist/node/tui/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/tui/index.js",
+        "require": "./dist/node/tui/index.cjs"
+      }
     }
   },
   "repository": {
@@ -107,6 +107,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-interface-tui": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "chalk": "^5.3.0",

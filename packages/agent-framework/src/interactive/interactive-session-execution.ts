@@ -5,13 +5,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
+
 import { collectAssistantUsageMetadata } from '@robota-sdk/agent-core';
-import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+
 import { listActiveContextReferences } from '../context/context-reference-inventory.js';
-import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import {
   buildPromptWithFileReferences,
   createPromptFileReferenceHistoryEntry,
@@ -21,6 +18,12 @@ import {
   resolvePromptFileReferencePaths,
   toPromptFileReferenceRecords,
 } from '../context/prompt-file-references.js';
+
+import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 export interface IPreparedPromptInput {
   modelInput: string;

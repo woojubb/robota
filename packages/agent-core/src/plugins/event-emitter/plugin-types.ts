@@ -3,6 +3,8 @@
  *
  * Extracted from event-emitter-plugin.ts to keep each file under 300 lines.
  */
+import type { IEventEmitterMetrics } from './metrics';
+import type { IEventEmitterEventData, TEventName, TEventEmitterListener } from './types';
 import type {
   IPluginExecutionContext,
   IPluginExecutionResult,
@@ -10,8 +12,6 @@ import type {
   IPluginStats,
 } from '../../abstracts/abstract-plugin';
 import type { TToolParameters, IToolResult } from '../../interfaces/tool';
-import type { IEventEmitterEventData, TEventName, TEventEmitterListener } from './types';
-import type { IEventEmitterMetrics } from './metrics';
 
 export type { TEventName };
 export type { IEventEmitterEventData };

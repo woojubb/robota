@@ -5,8 +5,7 @@
  * session record back into the tracker state on resume/fork.
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IInteractiveSessionStore } from './session-persistence.js';
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
@@ -14,10 +13,11 @@ import type {
   TBackgroundTaskEvent,
   TBackgroundTaskStatus,
 } from '../background-tasks/index.js';
-import type { IInteractiveSessionStore } from './session-persistence.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { Session } from '@robota-sdk/agent-session';
 
 /** Inject a saved message into a session, supporting all roles including 'tool'. */
 export function injectSavedMessage(session: Session, msg: TUniversalMessage): void {

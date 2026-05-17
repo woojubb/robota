@@ -1,14 +1,14 @@
-import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
-import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
-import type { ToolExecutionService } from './tool-execution-service';
-import type { ILogger } from '../utils/logger';
-import type { ExecutionEventEmitter } from './execution-event-emitter';
-import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { ConversationStore } from '../managers/conversation-history-manager';
-import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import { callPluginHook } from './plugin-hook-dispatcher';
-import { bindWithOwnerPath } from '../event-service/index';
 import { EXECUTION_EVENTS } from './execution-constants';
+import { handleContextCapacityBlock } from './execution-round-context';
+import {
+  computeRoundThinkingContext,
+  validateAndExtractResponse,
+} from './execution-round-provider';
+import {
+  createRoundStreamingCallbacks,
+  callRoundProviderWithEvents,
+} from './execution-round-streaming';
+import { executeAndRecordToolCalls } from './execution-round-tools';
 import {
   type IResolvedProviderInfo,
   type IExecutionRoundState,
@@ -16,17 +16,19 @@ import {
   SHORT_PREVIEW_LENGTH,
   LAST_MESSAGES_SLICE,
 } from './execution-types';
-import {
-  computeRoundThinkingContext,
-  validateAndExtractResponse,
-} from './execution-round-provider';
-import { executeAndRecordToolCalls } from './execution-round-tools';
 import { collectAssistantUsageMetadata } from './execution-usage';
-import { handleContextCapacityBlock } from './execution-round-context';
-import {
-  createRoundStreamingCallbacks,
-  callRoundProviderWithEvents,
-} from './execution-round-streaming';
+import { callPluginHook } from './plugin-hook-dispatcher';
+import { bindWithOwnerPath } from '../event-service/index';
+
+import type { ExecutionEventEmitter } from './execution-event-emitter';
+import type { TPluginWithHooks } from './plugin-hook-dispatcher';
+import type { ToolExecutionService } from './tool-execution-service';
+import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
+import type { TUniversalMessage, TMessageState } from '../interfaces/messages';
+import type { ILogger } from '../utils/logger';
+import type { ExecutionCacheService } from './cache/execution-cache-service';
+import type { ConversationStore } from '../managers/conversation-history-manager';
+
 export type { IToolResultsOutcome } from './execution-round-tools';
 export {
   computeRoundThinkingContext,
