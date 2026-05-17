@@ -392,3 +392,24 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | CLIR-M03 | --system-prompt 미구현 플래그 완전 구현 또는 완전 제거                      | medium   | ✅   |
 | CLIR-L01 | agentName 하드코딩 — robota-cli 문자열 상수로 추출                          | low      | ✅   |
 | CLIR-L02 | bin.ts — TUniversalValue catch 타입 선언 제거 및 unknown으로 교체           | low      | ✅   |
+
+### Architecture Map Review — 2026-05-18
+
+시니어 설계 아키텍트 · 시니어 개발자 · 시니어 기획자 3인 병렬 리뷰 결과 도출된 아키텍처 맵 정확도 및 커버리지 개선 항목.
+리뷰 보고서: [.agents/reports/arch-review-summary.md](../reports/arch-review-summary.md)
+
+| ID                                                                         | 제목                                                                    | 우선순위 |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------- |
+| [ARCH-REV-001](ARCH-REV-001-fix-project-structure-accuracy.md)             | project-structure.md 정확도 수정 (잘못된 경로, 존재하지 않는 패키지)    | critical |
+| [ARCH-REV-002](ARCH-REV-002-fix-dependency-direction-diagram.md)           | dependency-direction.md 다이어그램 오류 수정 (4가지 검증된 부정확성)    | critical |
+| [ARCH-REV-003](ARCH-REV-003-fix-code-quality-stale-package-names.md)       | code-quality.md 구식 패키지명 수정                                      | high     |
+| [ARCH-REV-004](ARCH-REV-004-refresh-composition-tree.md)                   | composition-tree.md 전면 갱신 (CLIR 리팩터 이후 구식)                   | critical |
+| [ARCH-REV-005](ARCH-REV-005-fix-class-interface-inventory.md)              | class-interface-inventory.md 구식 항목 수정                             | high     |
+| [ARCH-REV-006](ARCH-REV-006-fix-execution-modes-sidecar-and-print.md)      | execution-modes.md 수정 (사이드카 계획됨 표시, 프린트 모드 API 갱신)    | high     |
+| [ARCH-REV-007](ARCH-REV-007-add-evidence-to-layering-audit.md)             | layering-audit.md 누락 증거 추가 (CLI-AUDIT-012~023)                    | high     |
+| [ARCH-REV-008](ARCH-REV-008-fix-stale-names-in-spec-files.md)              | agent-team + agent-web-ui SPEC.md 구식 패키지명 수정                    | high     |
+| [ARCH-REV-009](ARCH-REV-009-update-cross-cutting-contracts.md)             | cross-cutting-contracts.md 누락 행 추가 (transport, plugin)             | high     |
+| [ARCH-REV-010](ARCH-REV-010-create-subagent-runner-spec.md)                | packages/agent-subagent-runner/docs/SPEC.md 생성 (유일하게 누락된 SPEC) | critical |
+| [ARCH-REV-011](ARCH-REV-011-create-agent-team-arch-map.md)                 | agent-team.md 아키텍처 맵 서브문서 생성 (멀티에이전트 오케스트레이션)   | high     |
+| [ARCH-REV-012](ARCH-REV-012-create-transport-architecture-doc.md)          | transport-architecture.md 서브문서 생성                                 | high     |
+| [ARCH-REV-013](ARCH-REV-013-expand-agent-system-mcp-sidecar-playground.md) | agent-system.md 확장 (MCP 명확화, 사이드카 교차참조, 플레이그라운드)    | high     |
