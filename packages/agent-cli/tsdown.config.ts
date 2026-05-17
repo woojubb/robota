@@ -18,7 +18,6 @@ export default defineConfig([
   {
     entry: {
       index: 'src/index.ts',
-      'subagents/child-process-subagent-worker': 'src/subagents/child-process-subagent-worker.ts',
     },
     format: ['esm', 'cjs'],
     outDir: 'dist/node',

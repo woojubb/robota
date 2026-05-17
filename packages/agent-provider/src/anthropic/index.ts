@@ -17,6 +17,6 @@ import type { IAnthropicProviderOptions } from './types';
  * @param _options - Configuration options for the Anthropic provider
  * @returns An AnthropicProvider instance
  */
-export function createAnthropicProvider(_options: IAnthropicProviderOptions) {
+export function createAnthropicProvider(_options: IAnthropicProviderOptions): void {
   // Implementation of createAnthropicProvider function
 }

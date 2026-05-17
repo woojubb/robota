@@ -4,6 +4,7 @@
  */
 
 import jsSHA from 'jssha';
+
 import type { IWebhookRequest } from './types';
 import type { ILogger } from '@robota-sdk/agent-core';
 

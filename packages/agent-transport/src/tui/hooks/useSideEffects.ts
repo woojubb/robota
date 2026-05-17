@@ -1,16 +1,18 @@
-import { useState, useRef, useCallback } from 'react';
-import { useApp } from 'ink';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-framework';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { TSessionEndReason } from '@robota-sdk/agent-core';
-import type { TInteractivePrompt } from './side-effects-types.js';
-import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
+import { useApp } from 'ink';
+import { useState, useRef, useCallback } from 'react';
+
 import { applyCommandEffects } from './command-effect-handler.js';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 import {
   addModelChangeCancelledMessage,
   applyConfirmedModelChange,
 } from './model-change-side-effect.js';
+
+import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
+import type { TInteractivePrompt } from './side-effects-types.js';
+import type { TSessionEndReason } from '@robota-sdk/agent-core';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-framework';
 
 const EXIT_DELAY_MS = 500;
 

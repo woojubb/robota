@@ -1,5 +1,5 @@
-import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TStatusLineCommandSettingsPatch } from './statusline/statusline-command-api.js';
+import type { TSessionEndReason } from '@robota-sdk/agent-core';
 
 export type TCommandEffect =
   | { type: 'model-change-requested'; modelId: string }

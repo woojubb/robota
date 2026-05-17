@@ -1,5 +1,3 @@
-import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
-import { JsonLogFormatter } from '../formatters';
 import {
   createLogger,
   type ILogger,
@@ -8,6 +6,10 @@ import {
   startPeriodicTask,
   stopPeriodicTask,
 } from '@robota-sdk/agent-core';
+
+import { JsonLogFormatter } from '../formatters';
+
+import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 
 /**
  * Remote log storage with batching

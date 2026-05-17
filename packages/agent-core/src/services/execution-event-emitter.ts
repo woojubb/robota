@@ -1,5 +1,22 @@
+import {
+  emitAssistantMessageComplete as emitAssistantMessageCompleteHelper,
+  emitToolResultsEvents as emitToolResultsEventsHelper,
+  emitExecutionStartEvent as emitExecutionStartEventHelper,
+  emitUserMessageEvent as emitUserMessageEventHelper,
+} from './execution-event-emitter-high-level';
+import {
+  buildBaseOwnerPath,
+  buildExecutionOwnerContext,
+  buildThinkingOwnerContext,
+  buildToolOwnerContext,
+  buildResponseOwnerContext,
+} from './execution-event-helpers';
+import { TOOL_EVENT_PREFIX } from './tool-execution-service';
+import { isDefaultEventService, bindWithOwnerPath } from '../event-service/index';
+
+import type { IResolvedProviderInfo } from './execution-types';
 import type { IExecutionContextInjection } from '../interfaces/agent';
-import type { ILogger } from '../utils/logger';
+import type { IAgentConfig } from '../interfaces/agent';
 import type {
   IEventService,
   IEventContext,
@@ -8,24 +25,8 @@ import type {
   IToolEventData,
   IBaseEventData,
 } from '../interfaces/event-service';
-import { isDefaultEventService, bindWithOwnerPath } from '../event-service/index';
-import { TOOL_EVENT_PREFIX } from './tool-execution-service';
-import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
-import type { IResolvedProviderInfo } from './execution-types';
-import {
-  buildBaseOwnerPath,
-  buildExecutionOwnerContext,
-  buildThinkingOwnerContext,
-  buildToolOwnerContext,
-  buildResponseOwnerContext,
-} from './execution-event-helpers';
-import {
-  emitAssistantMessageComplete as emitAssistantMessageCompleteHelper,
-  emitToolResultsEvents as emitToolResultsEventsHelper,
-  emitExecutionStartEvent as emitExecutionStartEventHelper,
-  emitUserMessageEvent as emitUserMessageEventHelper,
-} from './execution-event-emitter-high-level';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Encapsulates all event emission logic for ExecutionService.

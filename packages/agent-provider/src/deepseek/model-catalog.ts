@@ -1,5 +1,6 @@
-import type { IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
 import { DEFAULT_DEEPSEEK_PROVIDER_MODEL } from './defaults';
+
+import type { IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
 
 export const DEEPSEEK_MODEL_CATALOG_SOURCE_URL =
   'https://api-docs.deepseek.com/quick_start/pricing';

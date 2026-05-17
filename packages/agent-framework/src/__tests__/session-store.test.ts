@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { join } from 'path';
 import { tmpdir } from 'os';
+import { join } from 'path';
+
 import { SessionStore } from '@robota-sdk/agent-session';
-import type { ISessionRecord } from '@robota-sdk/agent-session';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
+
+import type { ISessionRecord } from '@robota-sdk/agent-session';
 
 function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
   return {

@@ -5,6 +5,9 @@
  * @internal
  */
 import { randomUUID } from 'node:crypto';
+
+import { NetworkError } from '../../utils/errors';
+
 import type {
   IAssistantMessage,
   ISystemMessage,
@@ -13,7 +16,6 @@ import type {
   IUserMessage,
   TMessageState,
 } from '../../interfaces/messages';
-import type { TUniversalValue } from '../../interfaces/types';
 import type { IRawProviderResponse } from '../../interfaces/provider';
 import type {
   IConversationResponse,
@@ -21,7 +23,7 @@ import type {
   IConversationServiceOptions,
   TConversationContextMetadata,
 } from '../../interfaces/service';
-import { NetworkError } from '../../utils/errors';
+import type { TUniversalValue } from '../../interfaces/types';
 import type { ILogger } from '../../utils/logger';
 
 /** @internal */

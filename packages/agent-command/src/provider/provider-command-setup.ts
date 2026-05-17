@@ -1,12 +1,5 @@
-import type {
-  ICommandInteraction,
-  ICommandResult,
-  IProviderCommandModuleOptions,
-  IProviderSetupInput,
-  TCommandInteractionPrompt,
-} from '@robota-sdk/agent-framework';
 import { buildProviderSetupPatch, mergeProviderPatch } from '@robota-sdk/agent-framework';
-import type { IProviderSetupFlowState } from './provider-setup-flow.js';
+
 import {
   createProviderSetupFlow,
   formatProviderSetupHelpLinks,
@@ -14,6 +7,15 @@ import {
   submitProviderSetupValue,
   validateProviderSetupValue,
 } from './provider-setup-flow.js';
+
+import type { IProviderSetupFlowState } from './provider-setup-flow.js';
+import type {
+  ICommandInteraction,
+  ICommandResult,
+  IProviderCommandModuleOptions,
+  IProviderSetupInput,
+  TCommandInteractionPrompt,
+} from '@robota-sdk/agent-framework';
 
 const PROVIDER_RESTART_EFFECT = {
   type: 'session-restart-requested',

@@ -1,5 +1,5 @@
-import OpenAI from 'openai';
 import type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 /**
  * OpenAI Conversation Adapter

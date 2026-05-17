@@ -11,15 +11,6 @@ import {
 } from '@robota-sdk/agent-core';
 
 import {
-  TLogLevel,
-  ILogEntry,
-  ILoggingContextData,
-  ILoggingPluginOptions,
-  ILoggingPluginStats,
-  ILogStorage,
-  ILogFormatter,
-} from './types';
-import {
   validateLoggingOptions,
   createLoggingStorage,
   extractLoggingModuleData,
@@ -28,6 +19,16 @@ import {
   logExecutionCompleteHelper,
   logToolExecutionHelper,
 } from './logging-helpers';
+
+import type {
+  TLogLevel,
+  ILogEntry,
+  ILoggingContextData,
+  ILoggingPluginOptions,
+  ILoggingPluginStats,
+  ILogStorage,
+  ILogFormatter,
+} from './types';
 
 export type { ILoggingContextData } from './types';
 

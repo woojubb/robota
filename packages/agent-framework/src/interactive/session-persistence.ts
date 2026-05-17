@@ -1,23 +1,26 @@
-import type { IHistoryEntry, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import { join } from 'node:path';
+
 import {
   loadSessionLogEntries,
   replaySessionLogEntries,
   SessionStore,
   type ISessionRecord,
 } from '@robota-sdk/agent-session';
-import { join } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { projectPaths } from '../paths.js';
+
 import type {
   IBackgroundJobGroupState,
   IBackgroundTaskState,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import { projectPaths } from '../paths.js';
+import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 
 export interface IInteractiveSessionRecord {
   id: string;

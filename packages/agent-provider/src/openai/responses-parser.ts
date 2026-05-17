@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { IToolCall, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+
+import { streamWithAbort } from './responses-stream-utils';
+
 import type {
   IOpenAIResponsesErrorEvent,
   IOpenAIResponsesFunctionCallOutputItem,
@@ -11,7 +13,7 @@ import type {
   TOpenAIResponsesOutputItem,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
-import { streamWithAbort } from './responses-stream-utils';
+import type { IToolCall, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
 
 interface IOpenAIResponsesStreamAssemblyOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;

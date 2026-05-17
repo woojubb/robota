@@ -6,13 +6,14 @@
  */
 
 import { type ILogger, type TTimerId } from '@robota-sdk/agent-core';
+
+import type { WebhookHttpClient } from './http-client';
 import type {
   TWebhookEventName,
   IWebhookPayload,
   IWebhookEndpoint,
   IWebhookRequest,
 } from './types';
-import { WebhookHttpClient } from './http-client';
 
 /** Manages the async request queue, batch queue, and concurrency for WebhookPlugin. @internal */
 export class WebhookQueueManager {

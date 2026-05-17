@@ -1,7 +1,7 @@
+import type { IAgentConfig, IAgent } from './agent';
 import type { IAIProvider, IToolSchema } from './provider';
 import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
 import type { TUniversalValue } from './types';
-import type { IAgentConfig, IAgent } from './agent';
 
 /**
  * Reusable type definitions for manager layer

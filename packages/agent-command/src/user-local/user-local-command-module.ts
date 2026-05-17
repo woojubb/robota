@@ -1,14 +1,15 @@
+import {
+  USER_LOCAL_COMMAND_ARGUMENT_HINT,
+  USER_LOCAL_COMMAND_DESCRIPTION,
+  executeUserLocalCommand,
+} from './user-local-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import {
-  USER_LOCAL_COMMAND_ARGUMENT_HINT,
-  USER_LOCAL_COMMAND_DESCRIPTION,
-  executeUserLocalCommand,
-} from './user-local-command.js';
 
 export function createUserLocalCommandEntry(): ICommand {
   return {

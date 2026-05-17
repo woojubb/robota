@@ -11,13 +11,7 @@ import {
   type TTimerId,
   startPeriodicTask,
 } from '@robota-sdk/agent-core';
-import {
-  IUsageStats,
-  IAggregatedUsageStats,
-  IUsagePluginOptions,
-  IUsagePluginStats,
-  IUsageStorage,
-} from './types';
+
 import {
   MemoryUsageStorage,
   FileUsageStorage,
@@ -34,6 +28,14 @@ import {
   extractStringField,
   resolveOperation,
 } from './usage-plugin-helpers';
+
+import type {
+  IUsageStats,
+  IAggregatedUsageStats,
+  IUsagePluginOptions,
+  IUsagePluginStats,
+  IUsageStorage,
+} from './types';
 
 const DEFAULT_REMOTE_TIMEOUT_MS = 30000;
 

@@ -1,7 +1,9 @@
-import React from 'react';
 import { Box, Text } from 'ink';
-import { buildToolDiffSummary } from './utils/tool-diff-summary.js';
+import React from 'react';
+
 import { renderMarkdown } from './render-markdown.js';
+import { buildToolDiffSummary } from './utils/tool-diff-summary.js';
+
 import type { IDiffLine } from './utils/edit-diff.js';
 
 interface IProps {

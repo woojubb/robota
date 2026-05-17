@@ -1,4 +1,13 @@
+import {
+  applyBackgroundTaskResultMetadataToState,
+  cloneBackgroundTaskState,
+  createRunnerError,
+  normalizeBackgroundTaskError,
+  type ITrackedBackgroundTask,
+} from './background-task-manager-helpers.js';
+import { transitionBackgroundTaskStatus } from './state-machine.js';
 import { BackgroundTaskError } from './types.js';
+
 import type {
   IBackgroundTaskHandle,
   TBackgroundTaskRequest,
@@ -7,14 +16,6 @@ import type {
   IBackgroundTaskState,
   TBackgroundTaskRunnerEvent,
 } from './types.js';
-import { transitionBackgroundTaskStatus } from './state-machine.js';
-import {
-  applyBackgroundTaskResultMetadataToState,
-  cloneBackgroundTaskState,
-  createRunnerError,
-  normalizeBackgroundTaskError,
-  type ITrackedBackgroundTask,
-} from './background-task-manager-helpers.js';
 
 export function markBackgroundTaskStarted(
   task: ITrackedBackgroundTask,

@@ -7,9 +7,12 @@
 
 import { stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
+
 import fg from 'fast-glob';
 import { z } from 'zod';
+
 import { createZodFunctionTool } from '../implementations/function-tool';
+
 import type { TToolResult } from '../types/tool-result.js';
 
 const DEFAULT_MAX_RESULTS = 1000;

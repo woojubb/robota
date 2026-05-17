@@ -7,9 +7,10 @@ import {
   type IProviderModelCatalogEntry,
   type IProviderProfileConfig,
 } from '@robota-sdk/agent-core';
-import type { ICommand } from '../types.js';
-import type { TProviderSettingsDocument } from '../provider/provider-settings.js';
 import { resolveEnvReference } from '@robota-sdk/agent-core';
+
+import type { TProviderSettingsDocument } from '../provider/provider-settings.js';
+import type { ICommand } from '../types.js';
 
 export const MODEL_COMMAND_DESCRIPTION = 'Change AI model';
 export const MODEL_COMMAND_ARGUMENT_HINT = '<model-id>';

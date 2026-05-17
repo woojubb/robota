@@ -3,6 +3,20 @@
  *
  * SimpleConversationHistory and PersistentSystemConversationHistory.
  */
+import {
+  createUserMessage,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolMessage,
+} from './conversation-message-factory';
+import {
+  isSystemMessage,
+  messageToHistoryEntry,
+  chatEntryToMessage,
+  isChatEntry,
+} from '../interfaces/messages';
+
+import type { IConversationHistory } from './conversation-history-manager';
 import type {
   TUniversalMessageMetadata,
   TUniversalMessageRole,
@@ -11,19 +25,6 @@ import type {
   TUniversalMessagePart,
   IHistoryEntry,
 } from '../interfaces/messages';
-import {
-  isSystemMessage,
-  messageToHistoryEntry,
-  chatEntryToMessage,
-  isChatEntry,
-} from '../interfaces/messages';
-import {
-  createUserMessage,
-  createAssistantMessage,
-  createSystemMessage,
-  createToolMessage,
-} from './conversation-message-factory';
-import type { IConversationHistory } from './conversation-history-manager';
 
 /**
  * Default conversation history implementation.

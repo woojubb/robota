@@ -1,7 +1,6 @@
-import OpenAI from 'openai';
-
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { IExecutor, ILogger, TProviderOptionValueBase } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export type TOpenAIApiSurface = 'responses' | 'chat-completions';
 

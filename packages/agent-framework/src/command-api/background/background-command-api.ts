@@ -4,8 +4,8 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
 } from '../../background-tasks/index.js';
-import type { ICommand } from '../types.js';
 import type { ICommandHostContext } from '../host-context.js';
+import type { ICommand } from '../types.js';
 
 const DECIMAL_RADIX = 10;
 const INLINE_METADATA_LIMIT = 160;

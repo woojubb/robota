@@ -1,5 +1,6 @@
-import type { TUniversalMessage } from '../interfaces/messages';
 import { readTokenUsageFromMessage } from '../context/token-usage';
+
+import type { TUniversalMessage } from '../interfaces/messages';
 
 export interface IAssistantUsageMetadata {
   inputTokens: number;

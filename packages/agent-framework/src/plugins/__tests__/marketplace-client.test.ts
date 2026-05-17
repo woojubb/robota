@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
+
 import { MarketplaceClient } from '../marketplace-client.js';
+
 import type { TMarketplaceSource } from '../marketplace-client.js';
 
 const TMP_BASE = join(tmpdir(), 'robota-marketplace-test-' + process.pid);

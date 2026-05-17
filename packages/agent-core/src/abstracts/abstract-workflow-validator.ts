@@ -7,16 +7,6 @@
  * @template TWorkflowData - Type of workflow data to validate
  */
 import {
-  IWorkflowValidator,
-  IValidationOptions,
-  IValidationResult,
-  IValidationIssue,
-  ValidationSeverity,
-} from '../interfaces/workflow-validator';
-import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
-import type { ILogger } from '../utils/logger';
-import { SilentLogger } from '../utils/logger';
-import {
   createValidationResultHelper,
   createFailureResultHelper,
   updateStatisticsHelper,
@@ -24,6 +14,17 @@ import {
   filterIssuesHelper,
   getEnabledRulesHelper,
 } from './abstract-workflow-validator-helpers';
+import { ValidationSeverity } from '../interfaces/workflow-validator';
+import { SilentLogger } from '../utils/logger';
+
+import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
+import type {
+  IWorkflowValidator,
+  IValidationOptions,
+  IValidationResult,
+  IValidationIssue,
+} from '../interfaces/workflow-validator';
+import type { ILogger } from '../utils/logger';
 
 /** Validator options (enabled flag + injected logger). */
 export interface IBaseWorkflowValidatorOptions {
@@ -254,7 +255,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     };
   }
 
-  getStats() {
+  getStats(): ReturnType<typeof buildValidatorStatsOutput> {
     return buildValidatorStatsOutput(this.stats, this.ruleConfigs);
   }
 

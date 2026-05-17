@@ -2,6 +2,15 @@
  * Session types — interfaces and type aliases for Session construction.
  */
 
+import type { TAutoCompactThreshold } from './context-window-tracker.js';
+import type {
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+} from './permission-types.js';
+import type { ISessionLogger } from './session-logger.js';
+import type { ISessionStore } from './session-store.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -11,15 +20,6 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { ISessionStore } from './session-store.js';
-import type { ISessionLogger } from './session-logger.js';
-import type { TAutoCompactThreshold } from './context-window-tracker.js';
-import type {
-  TPermissionHandler,
-  TPermissionResult,
-  ITerminalOutput,
-  ISpinner,
-} from './permission-types.js';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 

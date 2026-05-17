@@ -1,6 +1,8 @@
-import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 import { createLogger, type ILogger, StorageError } from '@robota-sdk/agent-core';
+
 import { aggregateUsageStats } from '../aggregate-usage-stats';
+
+import type { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 
 /**
  * File storage implementation for usage statistics

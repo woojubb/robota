@@ -1,14 +1,16 @@
 import { Robota } from '@robota-sdk/agent-core';
+
+import { CompactionOrchestrator } from './compaction-orchestrator.js';
+import { ContextWindowTracker } from './context-window-tracker.js';
+import { PermissionEnforcer } from './permission-enforcer.js';
+
+import type { ISessionOptions } from './session-types.js';
 import type {
   IAgentConfig,
   IAIProvider,
   IToolWithEventService,
   TPermissionMode,
 } from '@robota-sdk/agent-core';
-import { PermissionEnforcer } from './permission-enforcer.js';
-import { ContextWindowTracker } from './context-window-tracker.js';
-import { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type { ISessionOptions } from './session-types.js';
 
 export function buildPermissionEnforcer(
   options: ISessionOptions,

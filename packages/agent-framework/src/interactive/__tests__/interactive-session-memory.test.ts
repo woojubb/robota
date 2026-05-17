@@ -1,11 +1,14 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+import { join } from 'node:path';
+
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+
+import { ProjectMemoryStore } from '../../memory/project-memory-store.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createProjectSessionStore } from '../session-persistence.js';
-import { ProjectMemoryStore } from '../../memory/project-memory-store.js';
+
+import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 
 const TMP_BASE = join(tmpdir(), `robota-interactive-memory-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;

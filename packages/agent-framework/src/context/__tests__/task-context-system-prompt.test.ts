@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
 import { buildSystemPrompt } from '../system-prompt-builder.js';
+
 import type { ISystemPromptParams } from '../system-prompt-builder.js';
 
 const BASE_PARAMS: ISystemPromptParams = {

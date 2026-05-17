@@ -31,16 +31,10 @@ describe('parseOutputFormat', () => {
     expect(parseOutputFormat('stream-json')).toBe('stream-json');
   });
 
-  it('exits with error for invalid format', () => {
-    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
-    parseOutputFormat('xml');
-    expect(stderrSpy).toHaveBeenCalledWith(
-      'Invalid --output-format "xml". Valid: text | json | stream-json\n',
+  it('throws for invalid format', () => {
+    expect(() => parseOutputFormat('xml')).toThrow(
+      'Invalid --output-format "xml". Valid: text | json | stream-json',
     );
-    expect(exitSpy).toHaveBeenCalledWith(1);
-    stderrSpy.mockRestore();
-    exitSpy.mockRestore();
   });
 });
 
@@ -265,14 +259,10 @@ describe('help flag', () => {
     expect(parseCliArgs().help).toBe(false);
   });
 
-  it('printHelp writes to stdout', () => {
-    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    printHelp();
-    expect(stdoutSpy).toHaveBeenCalledOnce();
-    const output = stdoutSpy.mock.calls[0][0] as string;
+  it('printHelp returns help text string', () => {
+    const output = printHelp();
     expect(output).toContain('--help');
     expect(output).toContain('--version');
     expect(output).toContain('-p');
-    stdoutSpy.mockRestore();
   });
 });

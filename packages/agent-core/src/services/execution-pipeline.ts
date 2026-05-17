@@ -1,15 +1,8 @@
-import type { IAgentConfig } from '../interfaces/agent';
-import type { ConversationStore } from '../managers/conversation-history-manager';
-import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import { callPluginHook } from './plugin-hook-dispatcher';
-import type { ILogger } from '../utils/logger';
-import type { TMetadata } from '../interfaces/types';
-import type { ExecutionEventEmitter } from './execution-event-emitter';
-import { EXECUTION_EVENTS } from './execution-constants';
 import { randomUUID } from 'node:crypto';
-import type { ToolExecutionService } from './tool-execution-service';
-import type { ExecutionCacheService } from './cache/execution-cache-service';
+
+import { EXECUTION_EVENTS } from './execution-constants';
 import { executeRound } from './execution-round';
+import { buildFinalResult } from './execution-service-helpers';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
@@ -17,7 +10,16 @@ import {
   type IExecutionRoundState,
   PREVIEW_LENGTH,
 } from './execution-types';
-import { buildFinalResult } from './execution-service-helpers';
+import { callPluginHook } from './plugin-hook-dispatcher';
+
+import type { ExecutionEventEmitter } from './execution-event-emitter';
+import type { TPluginWithHooks } from './plugin-hook-dispatcher';
+import type { ToolExecutionService } from './tool-execution-service';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { TMetadata } from '../interfaces/types';
+import type { ConversationStore } from '../managers/conversation-history-manager';
+import type { ILogger } from '../utils/logger';
+import type { ExecutionCacheService } from './cache/execution-cache-service';
 
 export const DEFAULT_MAX_EXECUTION_ROUNDS = 10;
 export const UNLIMITED_EXECUTION_ROUNDS = 0;

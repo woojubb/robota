@@ -1,11 +1,13 @@
-import React from 'react';
 import { Box, Text } from 'ink';
+import React from 'react';
+
+import ListPicker from './ListPicker.js';
+import TextPrompt from './TextPrompt.js';
+
 import type {
   TCommandInteractionPrompt as TInteractivePrompt,
   ICommandChoicePromptOption as IChoicePromptOption,
 } from '@robota-sdk/agent-framework';
-import ListPicker from './ListPicker.js';
-import TextPrompt from './TextPrompt.js';
 
 interface IInteractivePromptProps {
   prompt: TInteractivePrompt;

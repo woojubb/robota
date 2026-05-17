@@ -2,13 +2,16 @@
  * Tests for InteractiveSession — event-driven session wrapper.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { InteractiveSession } from '../interactive-session.js';
-import type { IToolState, IExecutionResult } from '../types.js';
+
 import type { ICommandModule } from '../../command-api/command-module.js';
+import type { IToolState, IExecutionResult } from '../types.js';
 
 // Minimal mock Session that satisfies InteractiveSession's needs
 function createMockSession(options?: {

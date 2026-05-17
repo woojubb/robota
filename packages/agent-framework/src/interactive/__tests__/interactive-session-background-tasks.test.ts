@@ -1,6 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
-import type { Session } from '@robota-sdk/agent-session';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { describe, expect, it, vi } from 'vitest';
+
+import { storeAgentToolDeps } from '../../tools/agent-tool.js';
+import { InteractiveSession } from '../interactive-session.js';
+
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskLogPage,
@@ -10,9 +13,8 @@ import type {
   IExecutionWorkspaceEvent,
   TBackgroundTaskEvent,
 } from '../../background-tasks/index.js';
-import { InteractiveSession } from '../interactive-session.js';
-import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
+import type { Session } from '@robota-sdk/agent-session';
 
 function createSessionStub(): Session {
   return {

@@ -1,5 +1,6 @@
-import type { TUniversalMessage } from '../interfaces/messages.js';
 import { readTokenUsageFromMessage } from './token-usage.js';
+
+import type { TUniversalMessage } from '../interfaces/messages.js';
 
 export const CONTEXT_ESTIMATE_CHARS_PER_TOKEN = 4;
 
@@ -14,9 +15,7 @@ export interface IContextTokenEstimate {
   readonly usageFloorTokens?: number;
 }
 
-export function estimateSerializedContextTokens(
-  messages: readonly TUniversalMessage[],
-): number {
+export function estimateSerializedContextTokens(messages: readonly TUniversalMessage[]): number {
   return Math.ceil(JSON.stringify(messages).length / CONTEXT_ESTIMATE_CHARS_PER_TOKEN);
 }
 

@@ -1,20 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import type OpenAI from 'openai';
-import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
-import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
-import type { IOpenAIError } from './types/api-types';
-import type { IOpenAIProviderOptions } from './types';
+
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
 import {
   convertToOpenAIResponsesInput,
   convertToOpenAIResponsesTools,
 } from './responses-converter';
 import { assembleOpenAIResponsesStream, parseOpenAIResponsesResponse } from './responses-parser';
+import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
+
 import type {
   IOpenAIResponsesRequestNonStreaming,
   IOpenAIResponsesRequestStreaming,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
+import type { IOpenAIProviderOptions } from './types';
+import type { IOpenAIError } from './types/api-types';
+import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export interface IOpenAIResponsesChatOptions {
   client?: OpenAI;

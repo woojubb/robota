@@ -1,4 +1,3 @@
-import type { ICommandResult, TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
 import {
   deleteUserLocalMemoryItem,
   disableUserLocalMemoryItem,
@@ -6,7 +5,10 @@ import {
   listUserLocalMemoryItems,
   setUserLocalMemoryItem,
 } from '@robota-sdk/agent-framework';
+
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
+
+import type { ICommandResult, TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
 
 export interface IUserLocalMemoryCommandArgs {
   readonly action?: string;

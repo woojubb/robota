@@ -5,8 +5,8 @@
  * Follows Single Responsibility Principle by focusing only on validation logic.
  */
 
-import type { ILogger } from '../utils/logger';
 import type { IWorkflowData, IWorkflowConfig, IWorkflowMetadata } from './workflow-converter';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Validation severity levels

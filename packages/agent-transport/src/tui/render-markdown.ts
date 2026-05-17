@@ -1,7 +1,8 @@
 import { marked } from 'marked';
-import type { Renderer } from 'marked';
 // @ts-expect-error — marked-terminal has no type declarations
 import TerminalRenderer from 'marked-terminal';
+
+import type { Renderer } from 'marked';
 
 const ANSI_LIGHT_RED = '\u001b[38;5;210m';
 const ANSI_LIGHT_GREEN = '\u001b[38;5;120m';

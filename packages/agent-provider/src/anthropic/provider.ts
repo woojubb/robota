@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import Anthropic from '@anthropic-ai/sdk';
-import type { IAnthropicProviderOptions } from './types';
 import { AbstractAIProvider, getModelMaxOutput } from '@robota-sdk/agent-core';
+
+import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
+import { streamAndAssemble } from './streaming-handler';
+
+import type { IAnthropicProviderOptions } from './types';
 import type {
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
@@ -9,8 +14,6 @@ import type {
   IChatOptions,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
-import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
-import { streamAndAssemble } from './streaming-handler';
 
 /**
  * Anthropic provider implementation for Robota

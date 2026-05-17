@@ -1,14 +1,15 @@
-import type {
-  IProviderModelCatalog,
-  IProviderModelCatalogEntry,
-  IProviderProfileConfig,
-} from '@robota-sdk/agent-core';
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
 import {
   DEEPSEEK_MODEL_CATALOG_SOURCE_URL,
   DEEPSEEK_MODEL_LAST_VERIFIED_AT,
   getDeepSeekFallbackModelCatalogEntry,
 } from './model-catalog';
+
+import type {
+  IProviderModelCatalog,
+  IProviderModelCatalogEntry,
+  IProviderProfileConfig,
+} from '@robota-sdk/agent-core';
 
 export interface IDeepSeekModelsResponse {
   data?: Array<{

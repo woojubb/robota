@@ -1,11 +1,12 @@
-import type { IToolCall } from '../interfaces/messages';
-import type { IToolExecutionBatchContext, ToolExecutionService } from './tool-execution-service';
-import type { ExecutionEventEmitter } from './execution-event-emitter';
-import type { ILogger } from '../utils/logger';
-import { isExecutionError } from './execution-types';
-import type { IExecutionError } from './execution-types';
 import { EXECUTION_EVENTS } from './execution-constants';
+import { isExecutionError } from './execution-types';
+
+import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { IStreamChunk } from './execution-stream';
+import type { IExecutionError } from './execution-types';
+import type { IToolExecutionBatchContext, ToolExecutionService } from './tool-execution-service';
+import type { IToolCall } from '../interfaces/messages';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Execute tool calls detected during streaming and yield result chunks.
@@ -65,7 +66,7 @@ export async function* executeStreamToolCalls(
     );
 
     let content: string;
-    let metadata: Record<string, string | number | boolean> = {
+    const metadata: Record<string, string | number | boolean> = {
       executionId,
     };
 

@@ -4,13 +4,13 @@
  * Single responsibility: Transform data between different formats
  */
 
-import type { IBasicMessage, IResponseMessage, IRequestMessage } from '../types/message-types';
 import type {
   IHttpRequest,
   IHttpResponse,
   TDefaultRequestData,
   THttpMethod,
 } from '../types/http-types';
+import type { IBasicMessage, IResponseMessage, IRequestMessage } from '../types/message-types';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 const RANDOM_ID_RADIX = 36;

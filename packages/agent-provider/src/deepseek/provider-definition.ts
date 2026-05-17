@@ -1,5 +1,3 @@
-import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
-import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
 import {
   DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE,
   DEFAULT_DEEPSEEK_PROVIDER_BASE_URL,
@@ -12,7 +10,10 @@ import {
 } from './model-catalog';
 import { refreshDeepSeekModelCatalog } from './model-catalog-refresh';
 import { DeepSeekProvider } from './provider';
+import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
+
 import type { TDeepSeekReasoningEffort, TDeepSeekThinkingMode } from './types';
+import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
 
 const DEEPSEEK_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> = {
   status: 'fallback',

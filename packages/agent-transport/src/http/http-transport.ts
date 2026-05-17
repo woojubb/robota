@@ -5,10 +5,10 @@
  * while exposing the underlying Hono app via getApp().
  */
 
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
-
 import { createAgentRoutes } from './routes.js';
+
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Hono } from 'hono';
 
 export interface IHttpTransportOptions {

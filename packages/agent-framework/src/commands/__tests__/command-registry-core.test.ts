@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { CommandRegistry } from '../command-registry.js';
+
 import type { ICommand, ICommandSource } from '../../command-api/types.js';
 
 function createMockSource(name: string, commands: ICommand[]): ICommandSource {

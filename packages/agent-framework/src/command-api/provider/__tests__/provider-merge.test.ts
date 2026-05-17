@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+
 import { mergeSettings, mergeProviders, resolveActiveProvider } from '../provider-merge.js';
+
 import type { TProviderSettingsDocument } from '../provider-settings.js';
 import type { IProviderDefinition, IAIProvider } from '@robota-sdk/agent-core';
 

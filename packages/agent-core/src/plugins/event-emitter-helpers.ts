@@ -5,19 +5,20 @@
  * Contains validation logic, event processing, and stats computation.
  */
 import { PluginError } from '../utils/errors';
+
 import type { ILogger } from '../utils/logger';
+import type { IEventEmitterMetrics } from './event-emitter/metrics';
+import type {
+  IEventEmitterHandlerRegistration,
+  IEventEmitterPluginOptions,
+  IEventEmitterPluginStats,
+} from './event-emitter/plugin-types';
 import type {
   IEventEmitterEventData,
   TEventDataValue,
   TEventName,
   TEventEmitterListener,
 } from './event-emitter/types';
-import type {
-  IEventEmitterHandlerRegistration,
-  IEventEmitterPluginOptions,
-  IEventEmitterPluginStats,
-} from './event-emitter/plugin-types';
-import type { IEventEmitterMetrics } from './event-emitter/metrics';
 
 /**
  * Validate EventEmitterPlugin constructor options.

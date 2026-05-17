@@ -1,9 +1,3 @@
-import type { IBaseEventData, IEventService } from '../interfaces/event-service';
-import { EXECUTION_EVENTS } from '../services/execution-service';
-import { TOOL_EVENTS } from '../services/tool-execution-service';
-import { AGENT_EVENTS } from '../agents/constants';
-import { TASK_EVENTS } from '../event-service/index';
-import type { TUniversalValue } from '../interfaces/types';
 import {
   asObjectValue,
   getStringLength,
@@ -12,6 +6,13 @@ import {
   type TExecutionProxyTarget,
   type TExecutionProxyArgs,
 } from './execution-proxy-types';
+import { AGENT_EVENTS } from '../agents/constants';
+import { TASK_EVENTS } from '../event-service/index';
+import { EXECUTION_EVENTS } from '../services/execution-service';
+import { TOOL_EVENTS } from '../services/tool-execution-service';
+
+import type { IBaseEventData, IEventService } from '../interfaces/event-service';
+import type { TUniversalValue } from '../interfaces/types';
 
 export type {
   IExecutionProxyConfig,

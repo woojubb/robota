@@ -1,3 +1,5 @@
+import { executeProviderCommand } from './provider-command-execution.js';
+
 import type {
   ICommand,
   ICommandModule as TCommandModule,
@@ -6,7 +8,6 @@ import type {
   IProviderCommandSettingsAdapter,
   ISystemCommand as TSystemCommand,
 } from '@robota-sdk/agent-framework';
-import { executeProviderCommand } from './provider-command-execution.js';
 export type { IProviderCommandModuleOptions, IProviderCommandSettingsAdapter };
 
 function buildProviderSubcommands(): ICommand[] {

@@ -1,3 +1,11 @@
+import {
+  buildModelCommandSubcommands,
+  MODEL_COMMAND_ARGUMENT_HINT,
+  MODEL_COMMAND_DESCRIPTION,
+} from '@robota-sdk/agent-framework';
+
+import { executeModelCommand } from './model-command.js';
+
 import type {
   ICommand,
   ICommandModule,
@@ -5,12 +13,6 @@ import type {
   IModelCommandModuleOptions,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import {
-  buildModelCommandSubcommands,
-  MODEL_COMMAND_ARGUMENT_HINT,
-  MODEL_COMMAND_DESCRIPTION,
-} from '@robota-sdk/agent-framework';
-import { executeModelCommand } from './model-command.js';
 
 export function createModelCommandEntry(options?: IModelCommandModuleOptions): ICommand {
   return {
