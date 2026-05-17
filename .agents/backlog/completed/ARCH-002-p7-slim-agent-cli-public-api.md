@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-002-p7: agent-cli index.ts를 startCli 단일 export로 축소'
-status: backlog
+status: done
 created: 2026-05-17
 priority: medium
 urgency: soon

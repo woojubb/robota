@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-002-p6: agent-cli provider 인프라 올바른 레이어 배치 + 재수출 shim 삭제'
-status: backlog
+status: done
 created: 2026-05-17
 priority: high
 urgency: soon

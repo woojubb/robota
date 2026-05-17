@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-002-p8: createDefaultCliCommandModules를 cli.ts에서 agent-framework으로 추출'
-status: backlog
+status: done
 created: 2026-05-17
 priority: medium
 urgency: later
