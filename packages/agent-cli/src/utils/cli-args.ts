@@ -4,6 +4,7 @@
  */
 
 import { parseArgs } from 'node:util';
+
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
@@ -110,48 +111,50 @@ export function parseMaxTurns(raw: string | undefined): number | undefined {
   return n;
 }
 
-/** Parse and validate CLI arguments. */
-export function parseCliArgs(): IParsedCliArgs {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      help: { type: 'boolean', short: 'h', default: false },
-      p: { type: 'boolean', short: 'p', default: false },
-      continue: { type: 'boolean', short: 'c', default: false },
-      resume: { type: 'string', short: 'r' },
-      model: { type: 'string' },
-      language: { type: 'string' },
-      'permission-mode': { type: 'string' },
-      'max-turns': { type: 'string' },
-      'fork-session': { type: 'boolean', default: false },
-      name: { type: 'string', short: 'n' },
-      'output-format': { type: 'string' },
-      format: { type: 'string' },
-      summary: { type: 'string' },
-      source: { type: 'string' },
-      'system-prompt': { type: 'string' },
-      'append-system-prompt': { type: 'string' },
-      'task-file': { type: 'string' },
-      version: { type: 'boolean', default: false },
-      reset: { type: 'boolean', default: false },
-      bare: { type: 'boolean', default: false },
-      'allowed-tools': { type: 'string' },
-      'no-session-persistence': { type: 'boolean', default: false },
-      'json-schema': { type: 'string' },
-      configure: { type: 'boolean', default: false },
-      'configure-provider': { type: 'string' },
-      provider: { type: 'string' },
-      type: { type: 'string' },
-      'base-url': { type: 'string' },
-      'api-key': { type: 'string' },
-      'api-key-env': { type: 'string' },
-      'set-current': { type: 'boolean', default: false },
-      'settings-scope': { type: 'string' },
-      'check-update': { type: 'boolean', default: false },
-      'disable-update-check': { type: 'boolean', default: false },
-    },
-  });
+const PARSE_ARGS_CONFIG = {
+  allowPositionals: true,
+  options: {
+    help: { type: 'boolean', short: 'h', default: false },
+    p: { type: 'boolean', short: 'p', default: false },
+    continue: { type: 'boolean', short: 'c', default: false },
+    resume: { type: 'string', short: 'r' },
+    model: { type: 'string' },
+    language: { type: 'string' },
+    'permission-mode': { type: 'string' },
+    'max-turns': { type: 'string' },
+    'fork-session': { type: 'boolean', default: false },
+    name: { type: 'string', short: 'n' },
+    'output-format': { type: 'string' },
+    format: { type: 'string' },
+    summary: { type: 'string' },
+    source: { type: 'string' },
+    'system-prompt': { type: 'string' },
+    'append-system-prompt': { type: 'string' },
+    'task-file': { type: 'string' },
+    version: { type: 'boolean', default: false },
+    reset: { type: 'boolean', default: false },
+    bare: { type: 'boolean', default: false },
+    'allowed-tools': { type: 'string' },
+    'no-session-persistence': { type: 'boolean', default: false },
+    'json-schema': { type: 'string' },
+    configure: { type: 'boolean', default: false },
+    'configure-provider': { type: 'string' },
+    provider: { type: 'string' },
+    type: { type: 'string' },
+    'base-url': { type: 'string' },
+    'api-key': { type: 'string' },
+    'api-key-env': { type: 'string' },
+    'set-current': { type: 'boolean', default: false },
+    'settings-scope': { type: 'string' },
+    'check-update': { type: 'boolean', default: false },
+    'disable-update-check': { type: 'boolean', default: false },
+  },
+} as const;
 
+function mapParsedValues(
+  values: ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'],
+  positionals: string[],
+): IParsedCliArgs {
   return {
     positional: positionals,
     help: values['help'] ?? false,
@@ -189,4 +192,10 @@ export function parseCliArgs(): IParsedCliArgs {
     checkUpdate: values['check-update'] ?? false,
     disableUpdateCheck: values['disable-update-check'] ?? false,
   };
+}
+
+/** Parse and validate CLI arguments. */
+export function parseCliArgs(): IParsedCliArgs {
+  const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
+  return mapParsedValues(values, positionals);
 }

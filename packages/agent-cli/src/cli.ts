@@ -1,25 +1,27 @@
-import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
-import { parseCliArgs } from './utils/cli-args.js';
-import type { IParsedCliArgs } from './utils/cli-args.js';
-import { handlePreflightCommands } from './startup/preflight.js';
+import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
+
+import { runPrintMode } from './modes/print-mode.js';
+import { runTuiMode } from './modes/tui-mode.js';
 import {
   toConfigPhaseOptions,
   toSessionRunOptions,
   toUserLocalCommandOptions,
   toStartupUpdatePolicyOptions,
 } from './startup/args-to-options.js';
-import type { IStartCliOptions } from './startup/command-setup.js';
 import { createCommandSetup } from './startup/command-setup.js';
 import { handleConfigPhase } from './startup/config-phase.js';
+import { handlePreflightCommands } from './startup/preflight.js';
 import { createProviderSetup } from './startup/provider-setup.js';
 import { createSessionSetup } from './startup/session-setup.js';
 import { resolveStartupUpdateNotice } from './startup/update-notice.js';
-import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { readVersion } from './startup/version.js';
-import { runPrintMode } from './modes/print-mode.js';
-import { runTuiMode } from './modes/tui-mode.js';
+import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
+import { parseCliArgs } from './utils/cli-args.js';
+
+import type { IStartCliOptions } from './startup/command-setup.js';
+import type { IParsedCliArgs } from './utils/cli-args.js';
 
 export type { IStartCliOptions };
 
@@ -44,7 +46,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // Layer 1: IParsedCliArgs → typed option objects (boundary)
   const configPhaseOpts = toConfigPhaseOptions(args);
   const sessionOpts = toSessionRunOptions(args);
-  const updatePolicyOpts = toStartupUpdatePolicyOptions(args);
 
   try {
     // allow-fallback: user-local command failure is terminal — exit is the correct response
@@ -88,7 +89,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerSetup,
     sessionSetup,
     sessionOpts,
-    startupUpdateNotice: resolveStartupUpdateNotice(version, updatePolicyOpts),
+    startupUpdateNotice: resolveStartupUpdateNotice(version, toStartupUpdatePolicyOptions(args)),
   });
   process.exit(0);
 }

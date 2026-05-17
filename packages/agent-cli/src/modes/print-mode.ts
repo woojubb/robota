@@ -1,13 +1,15 @@
 import { execSync } from 'node:child_process';
+
 import { InteractiveSession, type IAgentRuntime } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import type { ISessionRunOptions } from '../startup/args-to-options.js';
+
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 
-export async function runPrintMode(
-  opts: ISessionRunOptions,
-  runtime: IAgentRuntime,
-): Promise<void> {
+import type { ISessionRunOptions } from '../startup/args-to-options.js';
+
+const SHELL_EXEC_TIMEOUT_MS = 5_000;
+
+async function resolvePrompt(opts: ISessionRunOptions): Promise<string> {
   let prompt = opts.positional.join(' ').trim();
 
   if (!prompt && !process.stdin.isTTY) {
@@ -23,6 +25,14 @@ export async function runPrintMode(
     process.exit(1);
   }
 
+  return prompt;
+}
+
+export async function runPrintMode(
+  opts: ISessionRunOptions,
+  runtime: IAgentRuntime,
+): Promise<void> {
+  const prompt = await resolvePrompt(opts);
   const appendSystemPrompt = buildAppendSystemPrompt(runtime.cwd, opts);
 
   // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
@@ -30,8 +40,12 @@ export async function runPrintMode(
     process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
   }
 
-  const shellExec = (command: string) =>
-    execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
+  const shellExec = (command: string): string =>
+    execSync(command, {
+      timeout: SHELL_EXEC_TIMEOUT_MS,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }).trimEnd();
 
   const session = new InteractiveSession({
     cwd: runtime.cwd,
