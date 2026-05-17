@@ -1,4 +1,10 @@
 import { Robota, type IEventService } from '@robota-sdk/agent-core';
+import { bindWithOwnerPath } from '@robota-sdk/agent-core';
+import { RelayMcpTool } from '@robota-sdk/agent-tool-mcp';
+import { FunctionTool } from '@robota-sdk/agent-tools';
+
+import templates from './templates.json';
+
 import type {
   IAgentConfig,
   IAIProvider,
@@ -7,10 +13,6 @@ import type {
   IToolResult,
   IOwnerPathSegment,
 } from '@robota-sdk/agent-core';
-import { FunctionTool } from '@robota-sdk/agent-tools';
-import { RelayMcpTool } from '@robota-sdk/agent-tool-mcp';
-import { bindWithOwnerPath } from '@robota-sdk/agent-core';
-import templates from './templates.json';
 
 interface ITemplateEntry {
   id: string;
