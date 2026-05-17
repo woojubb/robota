@@ -311,9 +311,12 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 
 ### Architecture Refactoring — ARCH-002 Follow-up (2026-05-17)
 
-| ID                                                      | 제목                                                                 | 우선순위 |
-| ------------------------------------------------------- | -------------------------------------------------------------------- | -------- |
-| [ARCH-002-p5](ARCH-002-p5-cli-terminal-io-injection.md) | agent-cli 터미널 I/O 직접 호출 분리 — process.\* 누수 제거 (Phase 5) | high     |
+| ID                                                           | 제목                                                                    | 우선순위 |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- | -------- |
+| [ARCH-002-p5](ARCH-002-p5-cli-terminal-io-injection.md)      | agent-cli 터미널 I/O 직접 호출 분리 — process.\* 누수 제거 (Phase 5)    | high     |
+| [ARCH-002-p6](ARCH-002-p6-provider-infra-to-framework.md)    | agent-cli provider 인프라를 agent-framework으로 이동 — 재수출 shim 삭제 | high     |
+| [ARCH-002-p7](ARCH-002-p7-slim-agent-cli-public-api.md)      | agent-cli index.ts를 startCli 단일 export로 축소                        | medium   |
+| [ARCH-002-p8](ARCH-002-p8-extract-command-module-factory.md) | createDefaultCliCommandModules를 cli.ts에서 agent-framework으로 추출    | medium   |
 
 ### Architecture Refactoring — 2026-05-15 Independent Dual Review
 
