@@ -1,6 +1,6 @@
 # ARCH-002-p20: Eliminate agent-cli subagents/index.ts pass-through barrel
 
-## Status: todo
+## Status: done
 
 ## Problem
 

@@ -30,7 +30,7 @@ import {
 import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
-import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
+import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { readVersion } from './startup/version.js';

@@ -53,7 +53,7 @@ packages/agent-cli/src/bin.ts
    |- runInteractiveProviderSetup() / handleProviderConfigurationArgs() / ensureConfig()
    |- readProviderSettings() and createProviderFromSettings()  (agent-framework)
    |- createDefaultBackgroundTaskRunners()  (agent-executor)
-   |- createChildProcessSubagentRunnerFactory()  (subagents/)
+   |- createChildProcessSubagentRunnerFactory()  (agent-framework)
    |- createProjectSessionStore(cwd)  (agent-framework)
    |- if -p print mode
    |  `- runPrintMode()  (modes/print-mode.ts)
