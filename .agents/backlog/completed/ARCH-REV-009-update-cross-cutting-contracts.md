@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-009: Update cross-cutting-contracts.md — add missing transport and plugin contract rows'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: now
