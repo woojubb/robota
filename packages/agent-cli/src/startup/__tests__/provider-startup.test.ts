@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IParsedCliArgs } from '../../utils/cli-args.js';
+import type { IConfigPhaseOptions } from '../args-to-options.js';
 import {
   ensureConfig,
   formatMissingProviderConfigMessage,
@@ -123,43 +123,19 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   },
 ];
 
-function baseArgs(): IParsedCliArgs {
+function baseArgs(): IConfigPhaseOptions {
   return {
     positional: [],
-    help: false,
     printMode: false,
-    continueMode: false,
-    resumeId: undefined,
-    model: undefined,
-    language: undefined,
-    permissionMode: undefined,
-    maxTurns: undefined,
-    forkSession: false,
-    sessionName: undefined,
-    outputFormat: undefined,
-    format: undefined,
-    summary: undefined,
-    source: undefined,
-    systemPrompt: undefined,
-    appendSystemPrompt: undefined,
-    taskFile: undefined,
-    version: false,
-    reset: false,
-    bare: false,
-    allowedTools: undefined,
-    noSessionPersistence: false,
-    jsonSchema: undefined,
-    configure: false,
-    configureProvider: undefined,
     provider: undefined,
+    settingsScope: undefined,
+    configureProvider: undefined,
     providerType: undefined,
-    baseURL: undefined,
+    model: undefined,
     apiKey: undefined,
     apiKeyEnv: undefined,
+    baseURL: undefined,
     setCurrent: false,
-    settingsScope: undefined,
-    checkUpdate: false,
-    disableUpdateCheck: false,
   };
 }
 

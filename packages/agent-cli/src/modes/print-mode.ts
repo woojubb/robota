@@ -1,11 +1,14 @@
 import { execSync } from 'node:child_process';
 import { InteractiveSession, type IAgentRuntime } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import type { IParsedCliArgs } from '../utils/cli-args.js';
+import type { ISessionRunOptions } from '../startup/args-to-options.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 
-export async function runPrintMode(args: IParsedCliArgs, runtime: IAgentRuntime): Promise<void> {
-  let prompt = args.positional.join(' ').trim();
+export async function runPrintMode(
+  opts: ISessionRunOptions,
+  runtime: IAgentRuntime,
+): Promise<void> {
+  let prompt = opts.positional.join(' ').trim();
 
   if (!prompt && !process.stdin.isTTY) {
     const chunks: Buffer[] = [];
@@ -20,10 +23,10 @@ export async function runPrintMode(args: IParsedCliArgs, runtime: IAgentRuntime)
     process.exit(1);
   }
 
-  const appendSystemPrompt = buildAppendSystemPrompt(runtime.cwd, args);
+  const appendSystemPrompt = buildAppendSystemPrompt(runtime.cwd, opts);
 
   // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
-  if (args.systemPrompt) {
+  if (opts.systemPrompt) {
     process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
   }
 
@@ -33,13 +36,13 @@ export async function runPrintMode(args: IParsedCliArgs, runtime: IAgentRuntime)
   const session = new InteractiveSession({
     cwd: runtime.cwd,
     provider: runtime.provider,
-    permissionMode: args.permissionMode ?? 'bypassPermissions',
-    maxTurns: args.maxTurns,
-    sessionStore: args.noSessionPersistence ? undefined : runtime.sessionStore,
-    sessionName: args.sessionName,
-    bare: args.bare || undefined,
-    allowedTools: args.allowedTools
-      ? args.allowedTools
+    permissionMode: opts.permissionMode ?? 'bypassPermissions',
+    maxTurns: opts.maxTurns,
+    sessionStore: opts.noSessionPersistence ? undefined : runtime.sessionStore,
+    sessionName: opts.sessionName,
+    bare: opts.bare || undefined,
+    allowedTools: opts.allowedTools
+      ? opts.allowedTools
           .split(',')
           .map((t) => t.trim())
           .filter((t) => t.length > 0)
@@ -54,7 +57,7 @@ export async function runPrintMode(args: IParsedCliArgs, runtime: IAgentRuntime)
   });
 
   const transport = createHeadlessTransport({
-    outputFormat: args.outputFormat ?? 'text',
+    outputFormat: opts.outputFormat ?? 'text',
     prompt,
   });
   session.attachTransport(transport);

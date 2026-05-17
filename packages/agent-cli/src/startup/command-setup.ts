@@ -1,44 +1,37 @@
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
-  getStartupCliUpdateNotice,
   getUserSettingsPath,
   readMergedProviderSettings,
   readSettings,
   resolveProviderSettingsWriteTargetPath,
-  shouldRunStartupCliUpdateCheck,
   writeSettings,
 } from '@robota-sdk/agent-framework';
 import type {
-  ICliUpdateNotice,
   ICommandHostAdapters,
   ICommandModule,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
+  reloadPluginCommandSource,
 } from '@robota-sdk/agent-command';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
-import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 export interface IStartCliOptions {
   commandModules?: readonly ICommandModule[];
   providerDefinitions?: readonly IProviderDefinition[];
 }
 
-export interface ICliSetup {
+export interface ICommandSetup {
   commandHostAdapters: ICommandHostAdapters;
   providerDefinitions: readonly IProviderDefinition[];
   commandModules: readonly ICommandModule[];
-  startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
+  reloadPluginCommandSource: (registry: CommandRegistry) => void;
 }
 
-export function buildCommandSetup(
-  cwd: string,
-  args: IParsedCliArgs,
-  options: IStartCliOptions,
-  version: string,
-): ICliSetup {
+export function createCommandSetup(cwd: string, options: IStartCliOptions = {}): ICommandSetup {
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
       read: () => readSettings(getUserSettingsPath()),
@@ -58,8 +51,5 @@ export function buildCommandSetup(
     ...createDefaultCommandModules({ cwd, providerDefinitions, providerSettingsAdapter }),
     ...(options.commandModules ?? []),
   ];
-  const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
-    ? getStartupCliUpdateNotice({ currentVersion: version })
-    : undefined;
-  return { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise };
+  return { commandHostAdapters, providerDefinitions, commandModules, reloadPluginCommandSource };
 }

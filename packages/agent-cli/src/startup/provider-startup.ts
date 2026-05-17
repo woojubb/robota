@@ -1,5 +1,5 @@
 import { formatSupportedProviderTypes, type IProviderDefinition } from '@robota-sdk/agent-core';
-import type { IParsedCliArgs } from '../utils/cli-args.js';
+import type { IConfigPhaseOptions } from './args-to-options.js';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
@@ -26,40 +26,40 @@ function validateSettingsScope(scope: string | undefined): TSettingsScope | unde
 
 export function handleProviderConfigurationArgs(
   cwd: string,
-  args: IParsedCliArgs,
+  opts: IConfigPhaseOptions,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): boolean {
-  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
-  if (args.configureProvider) {
-    applyProviderConfiguration(settingsPath, buildSetupInputFromArgs(args), {
+  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(opts.settingsScope));
+  if (opts.configureProvider) {
+    applyProviderConfiguration(settingsPath, buildSetupInputFromOptions(opts), {
       providerDefinitions,
     });
     terminal.writeLine(`Provider profile saved to ${settingsPath}`);
-    return !args.printMode && args.positional.length === 0;
+    return !opts.printMode && opts.positional.length === 0;
   }
-  if (args.provider && args.setCurrent) {
+  if (opts.provider && opts.setCurrent) {
     const switchSettingsPath =
-      args.settingsScope === undefined ? resolveProviderSettingsWriteTargetPath(cwd) : settingsPath;
-    applyProviderSwitch(switchSettingsPath, args.provider, {
+      opts.settingsScope === undefined ? resolveProviderSettingsWriteTargetPath(cwd) : settingsPath;
+    applyProviderSwitch(switchSettingsPath, opts.provider, {
       knownProviders: readMergedProviderSettings(cwd).providers,
     });
-    terminal.writeLine(`Current provider set to ${args.provider}`);
-    return !args.printMode && args.positional.length === 0;
+    terminal.writeLine(`Current provider set to ${opts.provider}`);
+    return !opts.printMode && opts.positional.length === 0;
   }
   return false;
 }
 
 export async function ensureConfig(
   cwd: string,
-  args: IParsedCliArgs,
+  opts: IConfigPhaseOptions,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): Promise<void> {
   await ensureProviderConfig(
     cwd,
-    { provider: args.provider, settingsScope: validateSettingsScope(args.settingsScope) },
+    { provider: opts.provider, settingsScope: validateSettingsScope(opts.settingsScope) },
     promptInput,
     terminal,
     providerDefinitions,
@@ -72,33 +72,33 @@ export async function ensureConfig(
 
 export async function runInteractiveProviderSetup(
   cwd: string,
-  args: IParsedCliArgs,
+  opts: IConfigPhaseOptions,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): Promise<void> {
   await runProviderStartupSetup(
     cwd,
-    { settingsScope: validateSettingsScope(args.settingsScope) },
+    { settingsScope: validateSettingsScope(opts.settingsScope) },
     promptInput,
     terminal,
     providerDefinitions,
   );
 }
 
-function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
-  const type = args.providerType ?? args.configureProvider;
-  if (!args.configureProvider || !type) {
+function buildSetupInputFromOptions(opts: IConfigPhaseOptions): IProviderSetupInput {
+  const type = opts.providerType ?? opts.configureProvider;
+  if (!opts.configureProvider || !type) {
     throw new Error('--configure-provider requires a provider profile and --type');
   }
   return {
-    profile: args.configureProvider,
+    profile: opts.configureProvider,
     type,
-    ...(args.model !== undefined && { model: args.model }),
-    ...(args.apiKey !== undefined && { apiKey: args.apiKey }),
-    ...(args.apiKeyEnv !== undefined && { apiKeyEnv: args.apiKeyEnv }),
-    ...(args.baseURL !== undefined && { baseURL: args.baseURL }),
-    setCurrent: args.setCurrent,
+    ...(opts.model !== undefined && { model: opts.model }),
+    ...(opts.apiKey !== undefined && { apiKey: opts.apiKey }),
+    ...(opts.apiKeyEnv !== undefined && { apiKeyEnv: opts.apiKeyEnv }),
+    ...(opts.baseURL !== undefined && { baseURL: opts.baseURL }),
+    setCurrent: opts.setCurrent,
   };
 }
 

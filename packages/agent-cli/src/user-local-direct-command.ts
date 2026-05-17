@@ -1,22 +1,22 @@
 import { executeUserLocalDirectCommand } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import type { IParsedCliArgs } from './utils/cli-args.js';
+import type { IUserLocalCommandOptions } from './startup/args-to-options.js';
 
 export async function runUserLocalDirectCommandIfRequested(
-  args: IParsedCliArgs,
+  opts: IUserLocalCommandOptions,
   cwd: string,
   terminal: ITerminalOutput,
 ): Promise<boolean> {
-  if (args.positional[0] !== 'user-local') {
+  if (opts.positional[0] !== 'user-local') {
     return false;
   }
 
   const result = await executeUserLocalDirectCommand({
     cwd,
-    argv: args.positional.slice(1),
-    format: args.format,
-    summary: args.summary,
-    source: args.source,
+    argv: opts.positional.slice(1),
+    format: opts.format,
+    summary: opts.summary,
+    source: opts.source,
   });
   const output = result.message.trimEnd();
   if (!result.success) {
