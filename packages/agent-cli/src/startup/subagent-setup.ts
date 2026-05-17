@@ -1,9 +1,6 @@
 import type { IProviderConfig } from '@robota-sdk/agent-core';
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
-import {
-  createChildProcessSubagentRunnerFactory,
-  getDefaultSubagentWorkerPath,
-} from '@robota-sdk/agent-subagent-runner';
+import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 
 export interface ISubagentSetupConfig {
   providerConfig: IProviderConfig;
@@ -17,7 +14,6 @@ export interface ISubagentSetup {
 export function createSubagentSetup(config: ISubagentSetupConfig): ISubagentSetup {
   return {
     subagentRunnerFactory: createChildProcessSubagentRunnerFactory({
-      workerPath: getDefaultSubagentWorkerPath(),
       providerConfig: config.providerConfig,
       logsDir: config.logsDir,
     }),

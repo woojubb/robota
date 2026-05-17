@@ -279,6 +279,7 @@ describe('provider startup', () => {
         promptInput,
         NOOP_TERMINAL,
         providerDefinitions,
+        false,
       ),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
@@ -314,7 +315,7 @@ describe('provider startup', () => {
     };
 
     await expect(
-      ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions),
+      ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions, false),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
   });
@@ -345,7 +346,7 @@ describe('provider startup', () => {
     const answers = ['1', 'sk-ant-project', '', 'ko'];
     const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
-    await ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions);
+    await ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions, true);
 
     const settings = JSON.parse(
       readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),

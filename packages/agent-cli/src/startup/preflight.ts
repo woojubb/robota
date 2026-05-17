@@ -16,21 +16,20 @@ export async function handlePreflightCommands(
   ctx: IPreflightContext,
 ): Promise<TPreflightResult> {
   if (args.help) {
-    process.stdout.write(printHelp());
+    ctx.terminal.write(printHelp());
     return { handled: true };
   }
   if (args.version) {
-    process.stdout.write(`robota ${ctx.version}\n`);
+    ctx.terminal.writeLine(`robota ${ctx.version}`);
     return { handled: true };
   }
   if (args.checkUpdate) {
     const result = await checkForCliUpdate({ currentVersion: ctx.version, force: true });
     const message = formatCliUpdateCheckMessage(result);
     if (result.status === 'error') {
-      process.stderr.write(`${message}\n`);
-      process.exit(1);
+      throw new Error(message);
     }
-    process.stdout.write(`${message}\n`);
+    ctx.terminal.writeLine(message);
     return { handled: true };
   }
   if (args.reset) {
