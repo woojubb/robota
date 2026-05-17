@@ -22,13 +22,8 @@ packages/agent-cli/src/bin.ts
    |  |- commandHostAdapters
    |  |  |- settings adapter -> agent-framework settings-io
    |  |  `- plugin adapter -> createDefaultPluginCommandAdapter()  (agent-command)
-   |  |- providerDefinitions = DEFAULT_PROVIDER_DEFINITIONS  (utils/provider-default-definitions.ts)
-   |  |  |- agent-provider-anthropic
-   |  |  |- agent-provider-openai
-   |  |  |- agent-provider-gemini
-   |  |  |- agent-provider-gemma
-   |  |  |- agent-provider-qwen
-   |  |  `- agent-provider-deepseek
+   |  |- providerDefinitions = createDefaultProviderDefinitions()  (agent-provider)
+   |  |  |- anthropic, openai, gemini, gemma, qwen, deepseek provider definitions
    |  |- commandModules (via createDefaultCommandModules() from agent-command)
    |  |  |- createSkillsCommandModule({ cwd })
    |  |  |- createHelpCommandModule()

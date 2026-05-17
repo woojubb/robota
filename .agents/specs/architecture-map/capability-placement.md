@@ -15,7 +15,7 @@ and [../../rules/spec-workflow.md](../../rules/spec-workflow.md).
 flowchart TB
   subgraph Shell["Product Shells — render + wire only"]
     CLI2["agent-cli"]
-    Web["agent-web"]
+    Web["apps/agent-web"]
   end
   subgraph Assembly["Assembly Layer — behavior + contracts"]
     CMD["agent-command\nbuilt-in commands"]
@@ -31,16 +31,26 @@ flowchart TB
     TOOLS["agent-tools · agent-tool-mcp"]
     PLUGIN["agent-plugin"]
   end
+  subgraph Orchestration["Orchestration — multi-agent coordination"]
+    TEAM["agent-team\nmulti-agent delegation"]
+  end
+  subgraph TypeContracts["Type Contracts — no runtime deps"]
+    IFTRANSPORT["agent-interface-transport\nITransportAdapter · IConfigurableTransport"]
+    IFTUI["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter"]
+  end
   subgraph Domain["Domain — ZERO agent-* deps"]
     CORE["agent-core\nprovider · history · permissions · events"]
-    AUTH["auth · credits"]
   end
 
   Shell --> Assembly
   Assembly --> Services
   Assembly --> Adapters
+  Assembly --> Orchestration
+  Assembly --> TypeContracts
   Services --> Domain
   Adapters --> Domain
+  Orchestration --> Domain
+  TypeContracts --> Domain
 ```
 
 New capability ownership follows the **lowest reusable boundary**: if two shells or packages need it,
@@ -48,22 +58,25 @@ it belongs in the layer below both of them.
 
 ## Owner Selection Table
 
-| Capability concern                                      | Owner first                                                                                 | Product shell responsibility                                                |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Terminal/browser UI, navigation, selection, key binding | `agent-cli`, `agent-web`, `apps/docs`, `apps/blog`                                          | Render owner projections and hold ephemeral UI state only.                  |
-| Command behavior, descriptors, host effects             | `agent-command` for built-ins; `agent-framework` for command contracts/common APIs          | Register default command modules and render command UI.                     |
-| Background task lifecycle and subagent lifecycle        | `agent-executor` state machines and runner ports; `agent-framework` facades/projections     | Provide concrete local adapters and render framework/executor projections.  |
-| Child-process subagent runner + worker                  | `agent-subagent-runner` (opt-in package)                                                    | Import factory; pass workerPath from getDefaultSubagentWorkerPath().        |
-| Execution workspace/read model                          | `agent-framework` + `agent-executor`                                                        | Keep selected-entry UI state and request reads through framework APIs.      |
-| Session lifecycle, history, compaction                  | `agent-session` through `agent-framework` facades                                           | Display session state and invoke framework operations.                      |
-| Provider definitions, setup metadata, model catalogs    | `agent-provider` through `agent-core` contracts                                             | Compose selected providers and display provider/profile state.              |
-| Provider transport and vendor SDK behavior              | `agent-provider`, `agent-transport` subpaths, or server-side service packages               | Supply credentials through allowed adapters; never hardcode vendor logic.   |
-| Tool contracts, sandbox policy, MCP integration         | `agent-tools`, `agent-tool-mcp`, and `agent-core` contracts                                 | Render tool progress/results and pass host adapters.                        |
-| Auth and credits policy                                 | `auth`, `credits`, and their package SPEC files                                             | Collect product-specific input and call owner APIs.                         |
-| Orchestration policies (cost, auth, retry, routing)     | Orchestrator layer — not the runtime API surface                                            | Call orchestrator APIs; never add policy to the immutable Runtime API.      |
-| Playground reusable behavior                            | `agent-playground`, `agent-remote-client`, `agent-framework`, `agent-core`                  | `agent-web` owns routes and deployment host only.                           |
-| Server provider proxy, WebSocket, CORS, process host    | `agent-server` with contracts from provider, remote-client, playground, and framework specs | Frontend shells call the API; they do not own server-side provider policy.  |
-| Documentation build/deploy                              | `apps/docs`, `apps/blog`, Cloudflare deployment docs                                        | Product docs render generated/source content and deploy through owner flow. |
+| Capability concern                                      | Owner first                                                                                      | Product shell responsibility                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Terminal/browser UI, navigation, selection, key binding | `agent-cli`, `apps/agent-web`, `apps/docs`, `apps/blog`                                          | Render owner projections and hold ephemeral UI state only.                   |
+| Command behavior, descriptors, host effects             | `agent-command` for built-ins; `agent-framework` for command contracts/common APIs               | Register default command modules and render command UI.                      |
+| Background task lifecycle and subagent lifecycle        | `agent-executor` state machines and runner ports; `agent-framework` facades/projections          | Provide concrete local adapters and render framework/executor projections.   |
+| Child-process subagent runner + worker                  | `agent-subagent-runner` (opt-in package)                                                         | Import factory; pass workerPath from getDefaultSubagentWorkerPath().         |
+| Execution workspace/read model                          | `agent-framework` + `agent-executor`                                                             | Keep selected-entry UI state and request reads through framework APIs.       |
+| Session lifecycle, history, compaction                  | `agent-session` through `agent-framework` facades                                                | Display session state and invoke framework operations.                       |
+| Provider definitions, setup metadata, model catalogs    | `agent-provider` through `agent-core` contracts                                                  | Compose selected providers and display provider/profile state.               |
+| Provider transport and vendor SDK behavior              | `agent-provider`, `agent-transport` subpaths, or server-side service packages                    | Supply credentials through allowed adapters; never hardcode vendor logic.    |
+| Tool contracts, sandbox policy, MCP integration         | `agent-tools`, `agent-tool-mcp`, and `agent-core` contracts                                      | Render tool progress/results and pass host adapters.                         |
+| Auth and credits policy                                 | TBD — packages not yet created; policy lives in orchestrator layer for now                       | Collect product-specific input and call orchestrator APIs.                   |
+| Multi-agent task delegation and coordination            | `agent-team`                                                                                     | Compose `agent-team` APIs; do not own sub-agent policy in the product shell. |
+| Orchestration policies (cost, auth, retry, routing)     | Orchestrator layer — not the runtime API surface                                                 | Call orchestrator APIs; never add policy to the immutable Runtime API.       |
+| Transport adapter type contracts                        | `agent-interface-transport`                                                                      | Use `ITransportAdapter` / `IConfigurableTransport` from this package only.   |
+| TUI interaction type contracts                          | `agent-interface-tui`                                                                            | Use `ITuiCommandInteraction` / `ITuiCliAdapter` from this package only.      |
+| Playground reusable behavior                            | `agent-playground`, `agent-remote-client`, `agent-framework`, `agent-core`                       | `apps/agent-web` owns routes and deployment host only.                       |
+| Server provider proxy, WebSocket, CORS, process host    | `apps/agent-server` with contracts from provider, remote-client, playground, and framework specs | Frontend shells call the API; they do not own server-side provider policy.   |
+| Documentation build/deploy                              | `apps/docs`, `apps/blog`, Cloudflare deployment docs                                             | Product docs render generated/source content and deploy through owner flow.  |
 
 ## Stop Conditions
 
