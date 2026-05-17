@@ -5,13 +5,15 @@
  * These tests catch issues that unit tests per package miss.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { InteractiveSession } from '../interactive/interactive-session.js';
 import {
   createUserMessage,
   createAssistantMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import { describe, it, expect, vi } from 'vitest';
+
+import { InteractiveSession } from '../interactive/interactive-session.js';
+
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 function createMockSession(options?: {

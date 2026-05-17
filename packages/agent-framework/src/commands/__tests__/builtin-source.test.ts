@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { BuiltinCommandSource } from '../builtin-source.js';
 
 describe('BuiltinCommandSource', () => {

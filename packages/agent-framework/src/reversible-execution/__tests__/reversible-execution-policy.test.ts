@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+
+import {
+  evaluateReversibleToolSafety,
+  wrapReversibleExecutionTools,
+} from '../reversible-execution-policy.js';
+
 import type {
   IEventService,
   IParameterValidationResult,
@@ -8,10 +14,6 @@ import type {
   IToolWithEventService,
   TToolParameters,
 } from '@robota-sdk/agent-core';
-import {
-  evaluateReversibleToolSafety,
-  wrapReversibleExecutionTools,
-} from '../reversible-execution-policy.js';
 
 function createTool(name: string, execute: () => Promise<IToolResult>): IToolWithEventService {
   const schema: IToolSchema = {

@@ -1,15 +1,17 @@
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import {
   createDefaultBackgroundTaskRunners,
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-executor';
+
+import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
+import { createProjectSessionStore } from '../interactive/session-persistence.js';
+
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry } from '../commands/index.js';
 import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
-import { createProjectSessionStore } from '../interactive/session-persistence.js';
-import { getUserSettingsPath, readSettings, writeSettings } from '../config/settings-io.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentRuntimeConfig {
   cwd: string;

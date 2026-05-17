@@ -6,31 +6,34 @@
  * Session restore logic lives in interactive-session-restore.ts.
  */
 
-import { createSession } from '../assembly/index.js';
-import type { IContextFileEntry } from '../context/context-loader.js';
-import { FileSessionLogger } from '@robota-sdk/agent-session';
-import type { Session } from '@robota-sdk/agent-session';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
-import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
-import { projectPaths } from '../paths.js';
-import { loadConfig } from '../config/config-loader.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import { loadContext } from '../context/context-loader.js';
-import { detectProject } from '../context/project-detector.js';
-import { BundlePluginLoader } from '../plugins/index.js';
-import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { NOOP_TERMINAL } from './interactive-session-execution.js';
+
+import { FileSessionLogger } from '@robota-sdk/agent-session';
 import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
-import type { ICommandResult } from '../commands/index.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
+
+import { NOOP_TERMINAL } from './interactive-session-execution.js';
+import { detectProject } from '../context/project-detector.js';
+import { projectPaths } from '../paths.js';
+import { injectSavedMessage } from './interactive-session-restore.js';
+import { createSession } from '../assembly/index.js';
+import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import { loadConfig } from '../config/config-loader.js';
+import { loadContext } from '../context/context-loader.js';
+import { BundlePluginLoader } from '../plugins/index.js';
+import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
+
 import type {
   IInteractiveSessionStandardOptions,
   IInitOptions,
 } from './interactive-session-options.js';
-import { injectSavedMessage } from './interactive-session-restore.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { ICommandResult } from '../commands/index.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { IContextFileEntry } from '../context/context-loader.js';
+import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { Session } from '@robota-sdk/agent-session';
 
 export type {
   IInteractiveSessionStandardOptions,

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+
 import { PromptExecutor } from '../prompt-executor.js';
+
 import type { IPromptHookDefinition, IHookInput } from '@robota-sdk/agent-core';
 
 const makeInput = (overrides?: Partial<IHookInput>): IHookInput => ({

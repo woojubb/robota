@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import {
   buildProviderSetupPatch,
   deleteProviderProfile,
@@ -6,6 +7,7 @@ import {
   upsertProviderProfile,
   validateProviderProfile,
 } from '../command-api/provider/provider-settings.js';
+
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const providerDefinitions: readonly IProviderDefinition[] = [

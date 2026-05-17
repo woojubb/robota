@@ -7,9 +7,11 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { InteractiveSession } from '../interactive-session.js';
-import type { IExecutionResult, IToolState } from '../types.js';
+
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
+import { InteractiveSession } from '../interactive-session.js';
+
+import type { IExecutionResult, IToolState } from '../types.js';
 
 function createMockSession(options?: {
   runResult?: string;

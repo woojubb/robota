@@ -6,10 +6,11 @@
  *   const answer = await query('What files are here?');
  */
 
+import { InteractiveSession } from './interactive/interactive-session.js';
+
+import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { InteractiveSession } from './interactive/interactive-session.js';
-import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
 
 export interface ICreateQueryOptions {
   /** AI provider instance (required). */

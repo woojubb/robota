@@ -11,28 +11,30 @@
  * multiple concurrent sessions without race conditions.
  */
 
-import { z } from 'zod';
-import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { SubagentManager } from '@robota-sdk/agent-executor';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
+
+import { runManagedAgentBatch } from './agent-tool-batch.js';
+import {
+  stringifyAgentError,
+  stringifyAgentSuccess,
+  stringifyUnknownAgentType,
+} from './agent-tool-output.js';
+import { getBuiltInAgent } from '../agents/built-in-agents.js';
+import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+
+import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type {
   IInProcessSubagentRunnerDeps,
   ISubagentManager,
   ISubagentJobResult,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
-import { createExecutionOriginMetadata } from '../background-tasks/index.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
-import { runManagedAgentBatch } from './agent-tool-batch.js';
-import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
-import {
-  stringifyAgentError,
-  stringifyAgentSuccess,
-  stringifyUnknownAgentType,
-} from './agent-tool-output.js';
+import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',

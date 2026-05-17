@@ -1,8 +1,11 @@
-import { describe, it, expect, afterEach } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, afterEach } from 'vitest';
+
 import { checkSettingsFile } from '../command-api/provider/settings-check.js';
+
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const TMP_BASE = join(tmpdir(), `robota-settings-check-test-${process.pid}`);

@@ -3,6 +3,7 @@
  */
 
 import { join, dirname } from 'node:path';
+
 import type { ILoadedBundlePlugin } from './bundle-plugin-types.js';
 import type { THooksConfig } from '@robota-sdk/agent-core';
 

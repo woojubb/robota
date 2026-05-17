@@ -1,4 +1,8 @@
-import type { TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
+import type {
+  IExecutionResult,
+  TInteractiveEventName,
+  IInteractiveSessionEvents,
+} from './types.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -13,11 +17,7 @@ import type {
 } from '../background-tasks/index.js';
 import type { ICommandResult, ICommandListEntry } from '../commands/index.js';
 import type { ISubagentJobState } from '../subagents/index.js';
-import type {
-  IExecutionResult,
-  TInteractiveEventName,
-  IInteractiveSessionEvents,
-} from './types.js';
+import type { TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 
 /** Minimal session surface consumed by transport adapters and test factories. */
 export interface IInteractiveSession {

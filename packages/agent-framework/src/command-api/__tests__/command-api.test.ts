@@ -1,15 +1,5 @@
-import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
-import type {
-  ICommandHostContext,
-  IContextReferenceAddResult,
-  IContextReferenceClearResult,
-  IContextReferenceItem,
-  IContextReferenceRemoveResult,
-  ICommandResult,
-  ICommandSessionRuntime,
-  ISystemCommand,
-} from '../index.js';
+
 import {
   buildProviderProfile,
   formatEnvReference,
@@ -57,7 +47,19 @@ import {
   writeCommandPermissionMode,
   writeAutoCompactThresholdSetting,
 } from '../index.js';
+
 import type { IEditCheckpointRestoreResult } from '../../checkpoints/index.js';
+import type {
+  ICommandHostContext,
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+  ICommandResult,
+  ICommandSessionRuntime,
+  ISystemCommand,
+} from '../index.js';
+import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 100,

@@ -1,13 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
 import { tmpdir } from 'os';
+import { join } from 'path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import {
   computeContentHash,
   loadFileWithHash,
   checkContextStaleness,
   refreshContextEntries,
 } from '../context-file-tracker.js';
+
 import type { IContextFileEntry } from '../context-file-tracker.js';
 
 const testDir = join(tmpdir(), `ctx-file-tracker-test-${Date.now()}`);

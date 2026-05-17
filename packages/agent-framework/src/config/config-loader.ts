@@ -11,6 +11,7 @@
  */
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+
 import { SettingsSchema, type TSettings, type IResolvedConfig } from './config-types.js';
 
 /**

@@ -1,14 +1,15 @@
-import type { IContextWindowState } from '@robota-sdk/agent-core';
 import { AUTO_COMPACT_THRESHOLD } from '@robota-sdk/agent-session';
-import type { ICommandSettingsAdapter, ICommandSettingsDocument } from '../host-adapters.js';
-import type { ICommandHostContext } from '../host-context.js';
-import type { TAutoCompactThresholdSource } from '../host-context.js';
+
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceItem,
   IContextReferenceRemoveResult,
 } from '../../context/context-reference-inventory.js';
+import type { ICommandSettingsAdapter, ICommandSettingsDocument } from '../host-adapters.js';
+import type { ICommandHostContext } from '../host-context.js';
+import type { TAutoCompactThresholdSource } from '../host-context.js';
+import type { IContextWindowState } from '@robota-sdk/agent-core';
 export type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,

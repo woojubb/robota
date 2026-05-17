@@ -5,14 +5,13 @@
  * InteractiveSession state without coupling to the class directly.
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+
 import {
   isAbortError,
   buildResult,
@@ -21,9 +20,12 @@ import {
   preparePromptInput,
 } from './interactive-session-execution.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
+
 import type { IToolState, IExecutionResult } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { Session } from '@robota-sdk/agent-session';
 
 export interface IPromptTurnContext {
   getSession: () => Session;

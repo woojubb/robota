@@ -1,36 +1,39 @@
-import type { Session } from '@robota-sdk/agent-session';
-import type { ISession } from '@robota-sdk/agent-core';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { TUniversalMessage, TSessionEndReason } from '@robota-sdk/agent-core';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from './i-interactive-session.js';
-import type {
-  IAgentJobHostContext,
-  TAutoCompactThresholdSource,
-  TAutoCompactThreshold,
-} from '../commands/index.js';
+
+import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
+import { InteractiveSessionBase } from './interactive-session-base.js';
+import { SessionExecutionController } from './interactive-session-execution-controller.js';
 import { runSkillInFork } from './interactive-session-fork.js';
-import type { TInteractiveEventName, IInteractiveSessionEvents } from './types.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
-import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
+import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
-import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
+import { SessionSkillRouter } from './interactive-session-skill-router.js';
+import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
+import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+
+import type { IInteractiveSession } from './i-interactive-session.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
   TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { TInteractiveEventName, IInteractiveSessionEvents } from './types.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
+import type { ICommandHostContext } from '../command-api/index.js';
+import type {
+  IAgentJobHostContext,
+  TAutoCompactThresholdSource,
+  TAutoCompactThreshold,
+} from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { TUniversalMessage, TSessionEndReason } from '@robota-sdk/agent-core';
+import type { ISession } from '@robota-sdk/agent-core';
+import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
-import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
-import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
-import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { SessionExecutionController } from './interactive-session-execution-controller.js';
-import { InteractiveSessionBase } from './interactive-session-base.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -106,7 +109,7 @@ export class InteractiveSession
       commandModules,
       cwd,
       commandHostAdapters,
-      () => this as unknown as import('../command-api/index.js').ICommandHostContext,
+      () => this as unknown as ICommandHostContext,
       () => this.session?.getSessionId() ?? '',
       (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
       (result) => this.execCtrl.applyForkSkillResult(result),

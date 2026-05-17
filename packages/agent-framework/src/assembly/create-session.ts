@@ -3,32 +3,34 @@
  * tools, and provider.
  */
 
-import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
-import { PromptExecutor } from '../hooks/prompt-executor.js';
-import { AgentExecutor } from '../hooks/agent-executor.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
 import { Session } from '@robota-sdk/agent-session';
-import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
-import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
-import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
-import {
-  createModelCommandToolProjection,
-  createProjectedCommandExecutionTools,
-} from '../tools/model-command-tool-projection.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
-import type {
-  ICreateSessionOptions,
-  ICreateSessionResult,
-  TSessionConstructorWithAutoCompact,
-} from './create-session-types.js';
+
 import {
   buildAgentRuntime,
   buildBackgroundProcessTool,
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
+import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
+import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
+import { AgentExecutor } from '../hooks/agent-executor.js';
+import { PromptExecutor } from '../hooks/prompt-executor.js';
+import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
+import {
+  createModelCommandToolProjection,
+  createProjectedCommandExecutionTools,
+} from '../tools/model-command-tool-projection.js';
+
+import type {
+  ICreateSessionOptions,
+  ICreateSessionResult,
+  TSessionConstructorWithAutoCompact,
+} from './create-session-types.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { TSessionFactory } from '../hooks/agent-executor.js';
+import type { TProviderFactory } from '../hooks/prompt-executor.js';
+import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 

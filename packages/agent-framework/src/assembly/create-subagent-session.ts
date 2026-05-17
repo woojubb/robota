@@ -7,20 +7,22 @@
  * Session suitable for subagent use.
  */
 
+import { Session } from '@robota-sdk/agent-session';
+
+import { assembleSubagentPrompt } from './subagent-prompts.js';
+import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
+
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import { Session } from '@robota-sdk/agent-session';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   ISessionLogger,
   ITerminalOutput,
   TPermissionHandler,
 } from '@robota-sdk/agent-session';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
-import { assembleSubagentPrompt } from './subagent-prompts.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
 /** Model shortcut names mapped to full Anthropic model IDs. */
 const MODEL_SHORTCUTS: Record<string, string> = {
