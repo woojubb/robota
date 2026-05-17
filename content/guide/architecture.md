@@ -5,53 +5,65 @@
 Robota SDK follows a strict bottom-up layered assembly model. Each layer builds on the layer below.
 
 ```
-agent-cli                ← TUI layer: Ink TUI, useInteractiveSession hook, permission prompts
+agent-cli                ← CLI entry point: argument parsing, provider wiring, TUI startup
+agent-transport-tui      ← TUI layer: Ink/React terminal components, TuiTransport
 agent-command            ← Consolidated slash command package — all 20 command modules in one import
-agent-transport          ← Consolidated transport package (sub-paths: /tui, /headless, /http, /ws, /mcp)
+agent-transport          ← Protocol transports (pure TS): headless, HTTP, WebSocket, MCP
   ↓ (command and transport packages consume)
-agent-sdk                ← Assembly layer: InteractiveSession, SystemCommandExecutor,
-  │                          CommandRegistry, BuiltinCommandSource, SkillCommandSource,
+agent-framework          ← Assembly layer: InteractiveSession, CommandRegistry,
   │                          config, context, createQuery(), skill/agent runtime APIs
   ↓
-agent-sessions    ← Session lifecycle: permissions, hooks, compaction, persistence, replay events
-agent-runtime     ← Background task and subagent lifecycle primitives
+agent-session     ← Session lifecycle: permissions, hooks, compaction, persistence, replay events
+agent-executor    ← Background task and subagent lifecycle primitives
 agent-tools       ← Tool infrastructure + 8 built-in CLI tools
-agent-providers   ← AI provider implementations (Anthropic, OpenAI, DeepSeek, Gemini, Google compatibility, Gemma, Qwen)
+agent-provider    ← AI provider implementations (Anthropic, OpenAI, DeepSeek, Gemini, Gemma, Qwen)
   ↓
 agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugins
 ```
 
 ## Package Roles
 
-| Package                 | Role                                                                                                                                                                                       | Layer        |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| **agent-core**          | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                                           | Foundation   |
-| **agent-tools**         | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                                                    | General      |
-| **agent-sessions**      | Session class with permission enforcement, context tracking, compaction                                                                                                                    | General      |
-| **agent-runtime**       | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                               | General      |
-| **agent-providers**     | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Google compatibility, Gemma, Qwen, and future integrations                                        | General      |
-| **agent-command**       | Consolidated slash command package — all 20 command modules (`/help`, `/compact`, `/provider`, `/agent`, `/model`, `/mode`, `/skills`, `/plugin`, and more) in a single import             | SDK-specific |
-| **agent-sdk**           | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery() | SDK-specific |
-| **agent-cli**           | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                                                   | Transport    |
-| **agent-transport**     | Consolidated transport package — TUI (`/tui`), headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), and MCP (`/mcp`) adapters in one import                                          | Transport    |
-| **agent-remote-client** | HTTP client for calling a remote Robota agent exposed via `agent-transport/http`                                                                                                           | Client       |
+| Package                       | Role                                                                                                                                                                | Layer        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **agent-core**                | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                    | Foundation   |
+| **agent-tools**               | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                             | General      |
+| **agent-session**             | Session class with permission enforcement, context tracking, compaction                                                                                             | General      |
+| **agent-executor**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                        | General      |
+| **agent-provider**            | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Gemma, Qwen, and more                                                      | General      |
+| **agent-plugin**              | 8 official plugins: ConversationHistory, Logging, Usage, Limits, ErrorHandling, ExecutionAnalytics, Performance, Webhook                                            | General      |
+| **agent-command**             | Consolidated slash command package — all 20 command modules in a single import                                                                                      | SDK-specific |
+| **agent-framework**           | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery() | SDK-specific |
+| **agent-transport**           | Protocol transports (pure TS, zero React/Ink): headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`)                                              | Transport    |
+| **agent-transport-tui**       | TUI rendering layer — all Ink/React terminal UI components, hooks, and `TuiTransport` adapter                                                                       | Transport    |
+| **agent-cli**                 | CLI entry point: argument parsing, provider factory, TUI startup; wires `agent-transport-tui`, `agent-transport`, `agent-command`, `agent-framework`                | CLI          |
+| **agent-remote-client**       | HTTP client for calling a remote Robota agent exposed via `agent-transport/http`                                                                                    | Client       |
+| **agent-web-ui**              | Browser React component library for monitoring a CLI session over WebSocket                                                                                         | Browser UI   |
+| **agent-interface-transport** | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                           | Contracts    |
 
 ## Dependency Flow
 
 ```
-agent-cli              ─→ agent-sdk ─→ agent-sessions ─→ agent-core
-agent-command          ─→ agent-core, agent-framework
+agent-cli              ─→ agent-framework, agent-transport-tui, agent-transport, agent-command
+agent-transport-tui    ─→ agent-framework, agent-interface-transport, agent-core
 agent-transport        ─→ agent-interface-transport, agent-framework, agent-core
-agent-remote-client                    (HTTP client, no agent-sdk dependency)
+agent-command          ─→ agent-core, agent-framework
+agent-remote-client                    (HTTP client, no agent-framework dependency)
+agent-web-ui           ─→ agent-transport (ws types only)
 ```
+
+## React / Ink Policy
+
+| Category          | Packages allowed                                  | Rule                                        |
+| ----------------- | ------------------------------------------------- | ------------------------------------------- |
+| React + Ink (TUI) | `agent-transport-tui` only                        | Never in protocol transport or SDK packages |
+| React (browser)   | `agent-playground`, `agent-web-ui`                | Browser app packages only                   |
+| Pure TypeScript   | Everything else (core, framework, transport, CLI) | No React or Ink dependencies                |
 
 ## Data Flow: IHistoryEntry[]
 
 `InteractiveSession` maintains history as `IHistoryEntry[]` — a universal timeline that includes both chat messages (user/assistant turns) and session events (tool calls, system events, status changes). This is the single source of truth for display and persistence.
 
 Background tasks are tracked alongside the session through runtime snapshots and append-only JSONL event/transcript streams. High-frequency streaming output is stored in logs/transcripts, while session JSON stores resumable task state and references.
-
-Session logs also receive provider/tool execution boundary events from `agent-core`: provider request envelopes, provider-native raw request/response/stream payloads, provider-normalized responses, assistant commits, tool batch starts, tool execution requests, and tool execution results. Provider-native payload selection remains owned by concrete provider packages; `agent-core` only routes the provider-neutral callback event.
 
 ```
 User input
@@ -66,17 +78,17 @@ User input
   → clients (CLI, HTTP, MCP, WS, Headless) update their state from events
 ```
 
-Key invariant: AI providers never receive event-kind entries. The session layer filters to chat-only entries before forwarding context to the provider. This keeps the provider interface clean while the full `IHistoryEntry[]` timeline remains available for UI rendering.
+Key invariant: AI providers never receive event-kind entries. The session layer filters to chat-only entries before forwarding context to the provider.
 
 Rules:
 
 - Dependencies are one-way. No cycles.
 - `agent-core` has zero workspace dependencies (foundation).
-- `agent-sessions` depends only on `agent-core` (generic — no tools or providers).
-- Assembly (wiring tools + provider + prompt) happens in `agent-sdk`.
-- `InteractiveSession` (in `agent-sdk`) is the gateway for all transport adapters. There is no separate `IAgentGateway` interface — transports consume `InteractiveSession` directly.
-- `agent-cli` and `agent-transport` depend only on `agent-sdk`; they do not access `agent-sessions` or `agent-core` directly.
-- `agent-remote-client` is a standalone HTTP client; it does not depend on `agent-sdk`.
+- `agent-session` depends only on `agent-core` (generic — no tools or providers).
+- Assembly (wiring tools + provider + prompt) happens in `agent-framework`.
+- `InteractiveSession` (in `agent-framework`) is the gateway for all transport adapters. There is no separate `IAgentGateway` interface — transports consume `InteractiveSession` directly.
+- `agent-cli` and transport packages depend only on `agent-framework`; they do not access `agent-session` or `agent-core` directly.
+- `agent-remote-client` is a standalone HTTP client; it does not depend on `agent-framework`.
 
 ## Design Patterns
 
@@ -102,43 +114,42 @@ Rules:
 
 ## InteractiveSession
 
-`InteractiveSession` (in `agent-sdk`) wraps `Session` via composition to provide an event-driven API suitable for any interactive client. It is the single gateway used by all transport adapters — CLI, HTTP, MCP, WebSocket, and Headless — with no additional gateway interface required.
+`InteractiveSession` (in `agent-framework`) wraps `Session` via composition to provide an event-driven API suitable for any interactive client. It is the single gateway used by all transport adapters — CLI, HTTP, MCP, WebSocket, and Headless.
 
 Key responsibilities:
 
-| Concern                   | Detail                                                                                                                                  |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **submit / abort**        | `submit(input)` starts a run; `abort()` cancels the current run                                                                         |
-| **cancelQueue**           | Cancels the pending queued prompt without aborting the in-flight run                                                                    |
-| **Prompt queue**          | Queues a new prompt submitted while a run is in progress                                                                                |
-| **Event emission**        | Emits typed events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) consumed by clients                  |
-| **Universal history**     | Maintains `IHistoryEntry[]` — unified timeline of chat messages and session events; `getFullHistory()` returns the complete list        |
-| **SystemCommandExecutor** | Embedded inside `InteractiveSession`. Intercepts built-in system commands (help, clear, compact, mode, model, etc.) before any LLM call |
-| **CommandRegistry**       | SDK-owned utility used by clients to aggregate built-in, skill, plugin, and command-module sources for slash-command discovery          |
+| Concern               | Detail                                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **submit / abort**    | `submit(input)` starts a run; `abort()` cancels the current run                                                                  |
+| **cancelQueue**       | Cancels the pending queued prompt without aborting the in-flight run                                                             |
+| **Prompt queue**      | Queues a new prompt submitted while a run is in progress                                                                         |
+| **Event emission**    | Emits typed events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) consumed by clients           |
+| **Universal history** | Maintains `IHistoryEntry[]` — unified timeline of chat messages and session events; `getFullHistory()` returns the complete list |
+| **CommandRegistry**   | SDK-owned utility used by clients to aggregate built-in, skill, plugin, and command-module sources for slash-command discovery   |
 
-The CLI's `useInteractiveSession` hook subscribes to these events and translates them into React state via `TuiStateManager`. `InteractiveSession` itself has no React dependency.
+`agent-transport-tui`'s `useInteractiveSession` hook subscribes to these events and translates them into React state via `TuiStateManager`. `InteractiveSession` itself has no React dependency.
 
 ## Transport Layer
 
 The transport layer exposes `InteractiveSession` over various protocols. Each transport is a thin adapter that bridges the protocol to the session's `submit` / `abort` / event API.
 
-| Package / Sub-path           | Protocol                       | Runtime                                        |
+| Package                      | Protocol                       | Runtime                                        |
 | ---------------------------- | ------------------------------ | ---------------------------------------------- |
-| **agent-cli**                | Terminal (stdin)               | Node.js (Ink + React)                          |
+| **agent-transport-tui**      | Terminal (stdin, Ink TUI)      | Node.js (Ink + React)                          |
 | **agent-transport/http**     | HTTP / REST                    | Cloudflare Workers, Node.js, AWS Lambda (Hono) |
 | **agent-transport/mcp**      | MCP                            | Node.js stdio / SSE (MCP SDK)                  |
 | **agent-transport/ws**       | WebSocket                      | Any WS library (framework-agnostic)            |
 | **agent-transport/headless** | stdin/stdout (non-interactive) | Node.js — text/json/stream-json output         |
 
-All adapters import `InteractiveSession` from `agent-sdk`. None of them implement session logic — they only translate protocol messages into session calls and forward session events back to the caller.
+All adapters import `InteractiveSession` from `agent-framework`. None of them implement session logic — they only translate protocol messages into session calls and forward session events back to the caller.
 
-All transport adapters implement the `ITransportAdapter` interface (defined in `agent-sdk/src/interactive/types.ts`), which provides a uniform lifecycle: `attach(session)` to bind a session, `start()` to begin serving, and `stop()` to shut down. Each transport package exports a factory function that returns an `ITransportAdapter` implementation.
+All transport adapters implement `IConfigurableTransport` (defined in `agent-interface-transport`), which provides a uniform lifecycle: `attach(session)` to bind a session, `start()` to begin serving, and `stop()` to shut down.
 
-`agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport/http`. It has no dependency on `agent-sdk`.
+`agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport/http`. It has no dependency on `agent-framework`.
 
 ## Plugin Architecture
 
-`agent-core` defines the `AbstractPlugin` base class. 8 plugin implementations are available in `@robota-sdk/agent-plugin`. `EventEmitterPlugin` is also built directly into `agent-core` so that consumers do not need an additional dependency for basic event emission.
+`agent-core` defines the `AbstractPlugin` base class. 8 plugin implementations are available in `@robota-sdk/agent-plugin`.
 
 Plugins integrate with the agent lifecycle via hooks: `beforeRun`, `afterRun`, `onError`, `onStreamChunk`, `beforeToolExecution`, `afterToolExecution`.
 
@@ -147,8 +158,11 @@ Plugins integrate with the agent lifecycle via hooks: `beforeRun`, `afterRun`, `
 In v2.0.0, `agent-core` contained everything: tools, plugins, session management. In v3.0.0:
 
 - **Tools** moved to `agent-tools` (FunctionTool, ToolRegistry, built-in tools)
-- **Plugins** available in `@robota-sdk/agent-plugin`
-- **Session** created as a new package (`agent-sessions`) with permission and hook support
-- **SDK** created as a new assembly layer (`agent-sdk`) with config/context loading
-- **CLI** created as a new terminal UI (`agent-cli`)
+- **Plugins** consolidated in `@robota-sdk/agent-plugin`
+- **Session** created as `agent-session` with permission and hook support
+- **Background tasks** handled by `agent-executor`
+- **SDK assembly** in `agent-framework` (was `agent-sdk`)
+- **CLI** entry point is `agent-cli`
+- **TUI** (Ink/React) extracted to `agent-transport-tui`
+- **Transport** (protocol-only) in `agent-transport`
 - **Permissions** and **Hooks** added to `agent-core` as general-purpose infrastructure

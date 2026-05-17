@@ -1,6 +1,6 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is a purely TUI layer built on `InteractiveSession` from `@robota-sdk/agent-sdk`. The CLI has no session logic of its own: the `useInteractiveSession` React hook subscribes to `InteractiveSession` events and translates them into React state. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the SDK layer.
+`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-transport-tui`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
 
 State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. The `useInteractiveSession` hook wraps `TuiStateManager` and feeds its output into the React component tree via `useState`.
 
@@ -271,7 +271,7 @@ Skill descriptions are metadata only. Mentioning or recommending a skill in ordi
 does not activate that skill; activation is recorded only when `/skills` or an explicit virtual
 `/skill-name` invocation loads the full `SKILL.md` through SDK skill activation.
 
-When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
+When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-framework SPEC.md](../../packages/agent-framework/docs/SPEC.md) for details.
 
 ## Session Management
 

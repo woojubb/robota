@@ -18,6 +18,7 @@ interface IProps {
   sessionName?: string;
   settings: IStatusLineCommandSettings;
   activeAgentLabel?: string;
+  gitRefreshToken?: number;
 }
 
 export default function SessionStatusBar({
@@ -34,9 +35,10 @@ export default function SessionStatusBar({
   sessionName,
   settings,
   activeAgentLabel,
+  gitRefreshToken,
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
-  const gitBranch = useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd]);
+  const gitBranch = useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd, gitRefreshToken]);
   const providerDisplayName = useMemo(
     () =>
       providerType !== undefined ? cliAdapter.getProviderDisplayName(providerType) : undefined,

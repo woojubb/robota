@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { TAnyTuiCommandInteraction } from '@robota-sdk/agent-transport';
+import type { TAnyTuiCommandInteraction } from '@robota-sdk/agent-transport/tui';
 import { TUI_COMMAND_INTERACTIONS } from '../registry.js';
 
 const EXPECTED_SYSTEM_COMMANDS = [
