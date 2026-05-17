@@ -193,6 +193,8 @@ export {
   isStatusLineCommandSettingsPatch,
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
+  readStatusLineSettings,
+  applyStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
 export type {
   ICommandAvailablePlugin,

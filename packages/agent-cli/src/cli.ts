@@ -85,7 +85,7 @@ import {
   resolveGitBranch,
 } from '@robota-sdk/agent-framework';
 import type { ICliUpdateNotice } from '@robota-sdk/agent-framework';
-import { applyStatusLineSettings } from './utils/statusline-settings.js';
+import { applyStatusLineSettings } from '@robota-sdk/agent-framework';
 import { applyActiveModelChange } from '@robota-sdk/agent-framework';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';

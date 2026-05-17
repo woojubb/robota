@@ -228,6 +228,8 @@ export {
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   hasSensitiveCommandMemoryContent,
   isStatusLineCommandSettingsPatch,
+  readStatusLineSettings,
+  applyStatusLineSettings,
   isCommandMemoryType,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
