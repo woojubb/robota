@@ -55,9 +55,23 @@ const agent = new Robota({
 | `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)            |
 | `grepTool`      | Grep      | Search file contents with regex patterns                  |
 | `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)               |
-| `webSearchTool` | WebSearch | Web search via Brave Search API                           |
+| `webSearchTool` | WebSearch | Web search via You.com Search API (with Brave fallback)   |
 
 Factory exports (`createBashTool`, `createReadTool`, `createWriteTool`, `createEditTool`) accept an optional `sandboxClient`. The default singleton exports keep host-local behavior.
+
+### WebSearch provider setup
+
+- Preferred: set `YDC_API_KEY` to use You.com Search API (`https://api.you.com/v1/agents/search`).
+- Fallback: if You.com is unavailable and `BRAVE_API_KEY` is set, WebSearch falls back to Brave Search API.
+- If neither key is configured, the tool returns a setup error with both options.
+
+Example:
+
+```bash
+export YDC_API_KEY="your_youcom_api_key"
+# optional fallback
+export BRAVE_API_KEY="your_brave_api_key"
+```
 
 ## Sandbox Execution
 

@@ -1,7 +1,8 @@
 /**
  * WebSearchTool — search the web and return results.
  *
- * Uses Brave Search API when BRAVE_API_KEY is set.
+ * Uses You.com Search API when YDC_API_KEY is set (or free-tier when omitted).
+ * Falls back to Brave Search API when BRAVE_API_KEY is set.
  * Returns an error with setup instructions otherwise.
  */
 
@@ -36,17 +37,80 @@ interface IBraveResponse {
   };
 }
 
+interface IYouSearchResult {
+  url: string;
+  title: string;
+  description?: string;
+  snippets?: string[];
+}
+
+interface IYouSearchResponse {
+  results?: {
+    web?: IYouSearchResult[];
+    news?: IYouSearchResult[];
+  };
+}
+
 async function runWebSearch(args: TWebSearchArgs): Promise<string> {
   const { query, limit = DEFAULT_LIMIT } = args;
+  const youApiKey = process.env['YDC_API_KEY'];
   const apiKey = process.env['BRAVE_API_KEY'];
+
+  if (youApiKey || !apiKey) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+      const params = new URLSearchParams({ query, count: String(Math.min(limit, 100)) });
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (youApiKey) headers['X-API-Key'] = youApiKey;
+
+      const response = await fetch(`https://api.you.com/v1/agents/search?${params}`, {
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const body = await response.text();
+        const result: TToolResult = {
+          success: false,
+          output: '',
+          error: `You.com Search API error: HTTP ${response.status} ${response.statusText}. ${body}`,
+        };
+        return JSON.stringify(result);
+      }
+
+      const data = (await response.json()) as IYouSearchResponse;
+      const combined = [...(data.results?.web ?? []), ...(data.results?.news ?? [])].slice(
+        0,
+        limit,
+      );
+      const results = combined.map((r) => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.description ?? r.snippets?.[0] ?? '',
+      }));
+
+      const result: TToolResult = { success: true, output: JSON.stringify(results, null, 2) };
+      return JSON.stringify(result);
+    } catch (err) {
+      if (!apiKey) {
+        const message = err instanceof Error ? err.message : String(err);
+        const result: TToolResult = { success: false, output: '', error: message };
+        return JSON.stringify(result);
+      }
+    }
+  }
 
   if (!apiKey) {
     const result: TToolResult = {
       success: false,
       output: '',
       error:
-        'Web search requires BRAVE_API_KEY environment variable. ' +
-        'Get a free API key at https://brave.com/search/api/ (2,000 queries/month free).',
+        'Web search requires YDC_API_KEY (recommended; Search API supports free daily usage) or BRAVE_API_KEY. ' +
+        'Get YDC key at https://you.com/platform or Brave key at https://brave.com/search/api/.',
     };
     return JSON.stringify(result);
   }
