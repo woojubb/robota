@@ -1,3 +1,8 @@
+---
+title: 'Reversible Agent Sandbox'
+status: done
+---
+
 # Reversible Agent Sandbox
 
 - **Status**: completed

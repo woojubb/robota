@@ -1,8 +1,9 @@
+---
+title: 'Provider Credential Setup Audit'
+status: done
+---
+
 # Provider Credential Setup Audit
-
-## Status
-
-Completed on 2026-05-07.
 
 ## Recommendation Applied
 

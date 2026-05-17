@@ -1,6 +1,9 @@
-# ARCH-002-p21: Move promptInput (TPromptInput impl) to agent-transport/headless
+---
+title: 'ARCH-002-p21: Move promptInput (TPromptInput impl) to agent-transport/headless'
+status: done
+---
 
-## Status: done
+# ARCH-002-p21: Move promptInput (TPromptInput impl) to agent-transport/headless
 
 ## Problem
 

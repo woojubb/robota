@@ -1,3 +1,8 @@
+---
+title: 'CLI Permission Prompt UX 근본 개선'
+status: done
+---
+
 # CLI Permission Prompt UX 근본 개선
 
 ## 현재 상태

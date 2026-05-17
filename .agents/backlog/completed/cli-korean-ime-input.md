@@ -1,3 +1,8 @@
+---
+title: 'Korean IME Input — Last Character Dropped on Enter'
+status: done
+---
+
 # Korean IME Input — Last Character Dropped on Enter
 
 ## Problem

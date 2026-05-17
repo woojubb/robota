@@ -1,13 +1,22 @@
 # Backlog
 
-Future work items and ideas that are not yet scheduled as active tasks.
-Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/tasks/completed/`.
+Future work items and ideas that are tracked and executed as focused PRs. Completed items are
+archived to `completed/`.
 
 ## Process
 
-1. Add ideas here as `<topic>.md` files.
-2. When prioritized, move to `.agents/tasks/` and update status.
-3. When done, archive to `.agents/tasks/completed/`.
+1. Create a new `.md` file in this directory with the required frontmatter (see File Format below).
+2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
+3. When implementation is complete and all gates pass (see
+   [backlog-execution.md](../rules/backlog-execution.md)):
+   - Update `status: done` and add `completed: YYYY-MM-DD` in frontmatter.
+   - Use `git mv` to move the file from `backlog/` to `backlog/completed/`.
+   - Include the status update and the move in the same commit — do not split them.
+4. For items that will not be implemented, set `status: wontfix` or `status: skipped` in
+   frontmatter, then move to `completed/` in the same commit.
+
+**Never** move a file to `completed/` without first updating `status` in its frontmatter.
+**Never** set `status: done` before the User Execution Test Scenario gate passes (if applicable).
 
 ## File Format
 
@@ -17,16 +26,19 @@ required at the top of each file:
 ```markdown
 ---
 title: '<ID>: <short description>'
-status: todo | in-progress | done | wontfix | backlog
+status: todo | in-progress | done | wontfix | skipped | superseded
 created: YYYY-MM-DD
+completed: YYYY-MM-DD # required when status is done/wontfix/skipped/superseded
 priority: critical | high | medium | low
 urgency: now | soon | later | backlog
 area: <affected packages or apps>
+depends_on: [] # list of blocking backlog IDs, empty if none
 ---
 ```
 
-Inline markdown (`- **Status**: value`) is **not acceptable** for metadata. Frontmatter is the
-single source of truth for status tracking — grep-based tooling and harness scripts rely on it.
+The `status` field in frontmatter is the **single source of truth**. Do not write status
+information anywhere in the body — body sections such as `## Status` are banned. Grep-based
+tooling and harness scripts rely exclusively on frontmatter for status tracking.
 
 ## Backlog Entry Requirements
 

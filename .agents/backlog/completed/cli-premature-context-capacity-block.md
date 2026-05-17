@@ -1,8 +1,9 @@
+---
+title: 'CLI Premature Context Capacity Block'
+status: done
+---
+
 # CLI Premature Context Capacity Block
-
-## Status
-
-Completed.
 
 ## Priority
 

@@ -1,8 +1,9 @@
+---
+title: 'DeepSeek API Provider Support'
+status: done
+---
+
 # DeepSeek API Provider Support
-
-## Status
-
-Completed.
 
 ## Priority
 
