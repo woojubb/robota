@@ -7,7 +7,7 @@ import {
   applyProviderConfiguration,
   applyProviderSwitch,
   resolveProviderSettingsWriteTargetPath,
-} from '../provider-configuration.js';
+} from '@robota-sdk/agent-framework';
 import { readProviderSettings } from '../provider-factory.js';
 
 const TMP_BASE = join(tmpdir(), `robota-provider-configuration-test-${process.pid}`);

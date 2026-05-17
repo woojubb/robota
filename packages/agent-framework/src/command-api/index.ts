@@ -89,8 +89,20 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
-export { checkSettingsDocument } from './provider/settings-check.js';
+export { checkSettingsDocument, checkSettingsFile } from './provider/settings-check.js';
 export type { TSettingsCheck } from './provider/settings-check.js';
+export {
+  applyProviderConfiguration,
+  applyProviderSwitch,
+  applyActiveModelChange,
+  resolveProviderSettingsWriteTargetPath,
+} from './provider/provider-configuration.js';
+export type {
+  IProviderSwitchOptions,
+  IActiveModelChangeOptions,
+  IActiveModelChangeResult,
+  IProviderSettingsWriteTargetOptions,
+} from './provider/provider-configuration.js';
 export {
   mergeProviders,
   mergeSettings,

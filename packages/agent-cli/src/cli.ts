@@ -65,7 +65,7 @@ import {
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from './utils/provider-setup.js';
-import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
+import { resolveProviderSettingsWriteTargetPath } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { WsTransport } from '@robota-sdk/agent-transport/ws';
 import { TuiTransport } from '@robota-sdk/agent-transport/tui';
@@ -86,7 +86,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import type { ICliUpdateNotice } from '@robota-sdk/agent-framework';
 import { applyStatusLineSettings } from './utils/statusline-settings.js';
-import { applyActiveModelChange } from './utils/provider-configuration.js';
+import { applyActiveModelChange } from '@robota-sdk/agent-framework';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';

@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import { formatSupportedProviderTypes, type IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from './cli-args.js';
-import { checkSettingsDocument } from './settings-check.js';
+import { checkSettingsDocument } from '@robota-sdk/agent-framework';
 import { getUserSettingsPath, readSettings, writeSettings } from '@robota-sdk/agent-framework';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
   resolveProviderSettingsWriteTargetPath,
-} from './provider-configuration.js';
+} from '@robota-sdk/agent-framework';
 import {
   getProviderSettingsPaths,
   readMergedProviderSettingsFromPaths,

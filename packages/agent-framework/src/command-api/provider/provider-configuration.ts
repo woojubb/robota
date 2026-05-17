@@ -1,5 +1,6 @@
-import { readSettings, writeSettings, getProviderSettingsPaths } from '@robota-sdk/agent-framework';
-import { readMergedProviderSettingsFromPaths } from '@robota-sdk/agent-framework';
+import { readSettings, writeSettings } from '../../config/settings-io.js';
+import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+import { readMergedProviderSettingsFromPaths } from './provider-merge.js';
 import {
   buildProviderSetupPatch,
   mergeProviderPatch,
@@ -8,7 +9,7 @@ import {
   type IProviderSetupInput,
   type IProviderSettingsBuildOptions,
   type TProviderSettingsDocument,
-} from '@robota-sdk/agent-framework';
+} from './provider-settings.js';
 
 export interface IProviderSwitchOptions {
   knownProviders?: Record<string, IProviderProfileSettings>;
