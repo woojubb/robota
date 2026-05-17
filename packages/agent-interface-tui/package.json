@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface-tui",
-  "version": "3.0.0-beta.66",
+  "version": "3.0.0-beta.67",
   "description": "TUI interaction contract interfaces for the Robota SDK (ITuiPickerItem, ITuiCommandInteraction, ITuiPickerInteraction, ITuiConfirmInteraction)",
   "type": "module",
   "main": "dist/node/index.js",

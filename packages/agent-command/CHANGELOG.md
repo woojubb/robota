@@ -1,5 +1,13 @@
 # @robota-sdk/agent-command
 
+## 3.0.0-beta.67
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.0-beta.67
+  - @robota-sdk/agent-core@3.0.0-beta.67
+
 ## 3.0.0-beta.66
 
 ### Patch Changes
