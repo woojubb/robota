@@ -1,5 +1,5 @@
-import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from './plugin/plugin-command-api.js';
+import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;

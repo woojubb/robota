@@ -4,32 +4,35 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type {
-  IContextReferenceAddResult,
-  IContextReferenceClearResult,
-  IContextReferenceItem,
-  IContextReferenceRemoveResult,
-} from '../context/context-reference-inventory.js';
-import {
-  clearContextReferences,
-  removeContextReference,
-} from '../context/context-reference-inventory.js';
+
 import {
   addInteractiveContextReference,
   recordInteractiveContextReferences,
 } from './interactive-session-context-references.js';
-import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import { formatSkillActivationMessage } from '../commands/skill-activation-events.js';
+import {
+  clearContextReferences,
+  removeContextReference,
+} from '../context/context-reference-inventory.js';
+
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import { formatSkillActivationMessage } from '../commands/skill-activation-events.js';
+import type {
+  IContextReferenceAddResult,
+  IContextReferenceClearResult,
+  IContextReferenceItem,
+  IContextReferenceRemoveResult,
+} from '../context/context-reference-inventory.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 export interface IHistoryTrackerState {
   history: IHistoryEntry[];

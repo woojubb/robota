@@ -2,11 +2,13 @@
 
 import dynamic from 'next/dynamic';
 
+import type { ReactElement } from 'react';
+
 const PlaygroundDemo = dynamic(
   () => import('@robota-sdk/agent-playground/client').then((m) => ({ default: m.PlaygroundDemo })),
   { ssr: false, loading: () => <div className="p-6 text-sm text-gray-500">Loading Demo...</div> },
 );
 
-export default function PlaygroundDemoPage() {
+export default function PlaygroundDemoPage(): ReactElement {
   return <PlaygroundDemo />;
 }

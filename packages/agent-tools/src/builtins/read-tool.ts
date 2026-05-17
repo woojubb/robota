@@ -6,8 +6,12 @@
  */
 
 import { readFile, stat } from 'node:fs/promises';
+
 import { z } from 'zod';
+
 import { createZodFunctionTool } from '../implementations/function-tool';
+
+import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
 
@@ -156,7 +160,7 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
 /**
  * Create a ReadTool instance — register with Robota agent tools registry.
  */
-export function createReadTool(options: ISandboxToolOptions = {}) {
+export function createReadTool(options: ISandboxToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Read',
     'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',

@@ -1,0 +1,144 @@
+import { readMergedProviderSettingsFromPaths } from './provider-merge.js';
+import {
+  buildProviderSetupPatch,
+  mergeProviderPatch,
+  setCurrentProvider,
+  type IProviderProfileSettings,
+  type IProviderSetupInput,
+  type IProviderSettingsBuildOptions,
+  type TProviderSettingsDocument,
+} from './provider-settings.js';
+import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+import { readSettings, writeSettings } from '../../config/settings-io.js';
+
+export interface IProviderSwitchOptions {
+  knownProviders?: Record<string, IProviderProfileSettings>;
+}
+
+export interface IActiveModelChangeOptions {
+  settingsPaths?: readonly string[];
+  providerOverride?: string | undefined;
+}
+
+export interface IProviderSettingsWriteTargetOptions {
+  settingsPaths?: readonly string[];
+}
+
+export interface IActiveModelChangeResult {
+  settingsPath: string;
+  settings: TProviderSettingsDocument;
+  profileName?: string;
+}
+
+export function resolveProviderSettingsWriteTargetPath(
+  cwd: string,
+  options: IProviderSettingsWriteTargetOptions = {},
+): string {
+  const settingsPaths = options.settingsPaths ?? getProviderSettingsPaths(cwd);
+  const targetPath = findLastPathWithCurrentProvider(settingsPaths) ?? settingsPaths[0];
+  if (targetPath === undefined) {
+    throw new Error('No settings path available for provider update');
+  }
+  return targetPath;
+}
+
+function readProviderDocument(settingsPath: string): TProviderSettingsDocument {
+  return readSettings(settingsPath) as TProviderSettingsDocument;
+}
+
+export function applyProviderConfiguration(
+  settingsPath: string,
+  input: IProviderSetupInput,
+  options: IProviderSettingsBuildOptions = {},
+): TProviderSettingsDocument {
+  const settings = readProviderDocument(settingsPath);
+  const patch = buildProviderSetupPatch(input, options);
+  const next = mergeProviderPatch(settings, patch);
+  writeSettings(settingsPath, next);
+  return next;
+}
+
+export function applyProviderSwitch(
+  settingsPath: string,
+  profileName: string,
+  options: IProviderSwitchOptions = {},
+): TProviderSettingsDocument {
+  const settings = readProviderDocument(settingsPath);
+  const hasLocalProfile = settings.providers?.[profileName] !== undefined;
+  const hasKnownProfile = options.knownProviders?.[profileName] !== undefined;
+  const next =
+    hasLocalProfile || hasKnownProfile
+      ? { ...settings, currentProvider: profileName }
+      : setCurrentProvider(settings, profileName);
+  writeSettings(settingsPath, next);
+  return next;
+}
+
+export function applyActiveModelChange(
+  cwd: string,
+  modelId: string,
+  options: IActiveModelChangeOptions = {},
+): IActiveModelChangeResult {
+  const settingsPaths = options.settingsPaths ?? getProviderSettingsPaths(cwd);
+  const merged = readMergedProviderSettingsFromPaths(settingsPaths);
+  const activeProfileName = options.providerOverride ?? merged.currentProvider;
+
+  if (typeof activeProfileName !== 'string') {
+    throw new Error(
+      'Cannot update model: no active provider profile. Set "currentProvider" in settings.',
+    );
+  }
+
+  return updateActiveProviderProfileModel(settingsPaths, activeProfileName, modelId);
+}
+
+function updateActiveProviderProfileModel(
+  settingsPaths: readonly string[],
+  profileName: string,
+  modelId: string,
+): IActiveModelChangeResult {
+  const settingsPath =
+    findLastPathWithProviderProfile(settingsPaths, profileName) ?? settingsPaths[0];
+  if (settingsPath === undefined) {
+    throw new Error('No settings path available for model update');
+  }
+
+  const settings = readProviderDocument(settingsPath);
+  const providers = settings.providers ?? {};
+  const existing = providers[profileName] ?? {};
+  const next: TProviderSettingsDocument = {
+    ...settings,
+    providers: {
+      ...providers,
+      [profileName]: {
+        ...existing,
+        model: modelId,
+      },
+    },
+  };
+  writeSettings(settingsPath, next);
+  return { settingsPath, settings: next, profileName };
+}
+
+function findLastPathWithProviderProfile(
+  settingsPaths: readonly string[],
+  profileName: string,
+): string | undefined {
+  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
+    const settingsPath = settingsPaths[index];
+    if (settingsPath === undefined) continue;
+    const settings = readProviderDocument(settingsPath);
+    if (settings.providers?.[profileName] !== undefined) return settingsPath;
+  }
+  return undefined;
+}
+
+function findLastPathWithCurrentProvider(settingsPaths: readonly string[]): string | undefined {
+  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
+    const settingsPath = settingsPaths[index];
+    if (settingsPath === undefined) continue;
+    const settings = readProviderDocument(settingsPath);
+    if (settings.currentProvider !== undefined) return settingsPath;
+  }
+  return undefined;
+}

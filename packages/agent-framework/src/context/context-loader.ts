@@ -5,9 +5,11 @@
  */
 import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
-import { ProjectMemoryStore } from '../memory/project-memory-store.js';
-import { loadTaskContext } from './task-context.js';
+
 import { loadFileWithHash } from './context-file-tracker.js';
+import { loadTaskContext } from './task-context.js';
+import { ProjectMemoryStore } from '../memory/project-memory-store.js';
+
 import type { IContextFileEntry } from './context-file-tracker.js';
 
 export type { IContextFileEntry };

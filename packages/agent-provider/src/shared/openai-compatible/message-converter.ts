@@ -1,10 +1,10 @@
-import type OpenAI from 'openai';
 import type {
   IAssistantMessage,
   IToolCall,
   IToolSchema,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export function convertToOpenAICompatibleMessages(
   messages: TUniversalMessage[],

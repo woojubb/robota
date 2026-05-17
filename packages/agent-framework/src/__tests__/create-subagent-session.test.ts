@@ -4,11 +4,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { ITerminalOutput } from '@robota-sdk/agent-session';
 
 // Mock Session to capture constructor args
 const mockSessionConstructor = vi.fn();

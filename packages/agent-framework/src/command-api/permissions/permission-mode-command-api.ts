@@ -1,7 +1,7 @@
-import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { ICommand } from '../types.js';
-import type { ICommandHostContext } from '../host-context.js';
 import type { ICommandPermissionModeAdapter } from '../host-adapters.js';
+import type { ICommandHostContext } from '../host-context.js';
+import type { ICommand } from '../types.js';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 export const PERMISSION_MODE_COMMAND_DESCRIPTION = 'Show/change permission mode';
 export const PERMISSION_MODE_ARGUMENT_HINT = 'plan | default | acceptEdits | bypassPermissions';

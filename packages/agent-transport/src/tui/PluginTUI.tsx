@@ -4,9 +4,10 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import MenuSelect from './MenuSelect.js';
-import TextPrompt from './TextPrompt.js';
+
 import ConfirmPrompt from './ConfirmPrompt.js';
+import { usePluginScreenData } from './hooks/usePluginScreenData.js';
+import MenuSelect from './MenuSelect.js';
 import {
   handleMainSelect,
   handleMarketplaceListSelect,
@@ -16,9 +17,10 @@ import {
   handleInstalledListSelect,
   handleInstalledActionSelect,
 } from './plugin-tui-handlers.js';
+import TextPrompt from './TextPrompt.js';
+
 import type { IMenuSelectItem } from './MenuSelect.js';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-framework';
-import { usePluginScreenData } from './hooks/usePluginScreenData.js';
 
 type TScreenId =
   | 'main'

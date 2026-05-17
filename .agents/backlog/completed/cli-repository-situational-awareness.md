@@ -1,8 +1,9 @@
+---
+title: 'Repository Situational Awareness for agent-cli'
+status: done
+---
+
 # Repository Situational Awareness for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 

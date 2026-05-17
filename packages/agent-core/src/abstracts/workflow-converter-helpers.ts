@@ -4,13 +4,13 @@
  * Extracted from abstracts/abstract-workflow-converter.ts to keep that file under 300 lines.
  * Contains result construction, stats extraction, and default validation logic.
  */
+import type { TUniversalValue } from '../interfaces/types';
 import type {
   IWorkflowConversionOptions,
   IWorkflowConversionResult,
   IWorkflowData,
 } from '../interfaces/workflow-converter';
 import type { ILogger } from '../utils/logger';
-import type { TUniversalValue } from '../interfaces/types';
 
 /**
  * Extract basic node/edge statistics from workflow data.

@@ -1,3 +1,8 @@
+---
+title: 'WebFetch and WebSearch Tools'
+status: done
+---
+
 # WebFetch and WebSearch Tools
 
 ## What

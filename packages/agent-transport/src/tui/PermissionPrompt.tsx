@@ -1,7 +1,6 @@
-import React from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { IPermissionRequest } from './types.js';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import React from 'react';
+
 import {
   applyPermissionPromptInput,
   getPermissionPromptInputAction,
@@ -9,6 +8,9 @@ import {
   type TPermissionPromptInputAction,
 } from './flows/permission-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
+
+import type { IPermissionRequest } from './types.js';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 
 interface IProps {
   request: IPermissionRequest;

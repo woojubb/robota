@@ -1,12 +1,13 @@
+import { ValidationError } from '../utils/errors';
+
+import type { IToolExecutionBatchContext } from './tool-execution-service';
+import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
   IToolExecutionResult,
   IToolExecutionContext,
   TToolParameters,
 } from '../interfaces/tool';
 import type { ILogger } from '../utils/logger';
-import { ValidationError } from '../utils/errors';
-import type { IToolExecutionBatchContext } from './tool-execution-service';
-import type { IToolExecutionRequest } from '../interfaces/service';
 
 const MIN_PARALLEL_CONCURRENCY = 1;
 

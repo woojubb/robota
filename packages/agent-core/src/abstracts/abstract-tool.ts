@@ -30,16 +30,17 @@
  * ```
  */
 
+import { SilentLogger } from '../utils/logger';
+
+import type { IBaseEventData, IEventService } from '../interfaces/event-service';
+import type { IToolSchema } from '../interfaces/provider';
 import type {
   IToolResult,
   IToolExecutionContext,
   IParameterValidationResult,
   TToolParameters,
 } from '../interfaces/tool';
-import type { IToolSchema } from '../interfaces/provider';
 import type { ILogger } from '../utils/logger';
-import { SilentLogger } from '../utils/logger';
-import type { IBaseEventData, IEventService } from '../interfaces/event-service';
 
 /**
  * Options for AbstractTool construction

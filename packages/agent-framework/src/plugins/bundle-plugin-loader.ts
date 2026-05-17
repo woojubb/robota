@@ -9,19 +9,21 @@
  */
 
 import { join } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
+import {
+  parseSkillFrontmatter,
+  validateManifest,
+  getSortedSubdirs,
+} from './bundle-plugin-utils.js';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type {
   IBundlePluginManifest,
   IBundleSkill,
   ILoadedBundlePlugin,
   TEnabledPlugins,
 } from './bundle-plugin-types.js';
-import {
-  parseSkillFrontmatter,
-  validateManifest,
-  getSortedSubdirs,
-} from './bundle-plugin-utils.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** Loader for directory-based bundle plugins from the cache directory. */
 export class BundlePluginLoader {

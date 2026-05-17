@@ -8,6 +8,12 @@
  * Server pushes IInteractiveSession events to client in real-time.
  */
 
+import {
+  handleBackgroundControlMessage,
+  handleBackgroundQueryMessage,
+} from './ws-background-messages.js';
+
+import type { TClientMessage, TServerMessage } from './ws-protocol.js';
 import type {
   IInteractiveSession,
   IExecutionResult,
@@ -16,11 +22,6 @@ import type {
   TBackgroundTaskEvent,
   IToolState,
 } from '@robota-sdk/agent-framework';
-import type { TClientMessage, TServerMessage } from './ws-protocol.js';
-import {
-  handleBackgroundControlMessage,
-  handleBackgroundQueryMessage,
-} from './ws-background-messages.js';
 
 export interface IWsHandlerOptions {
   /** IInteractiveSession to expose. */

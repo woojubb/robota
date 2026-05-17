@@ -1,6 +1,14 @@
-import OpenAI from 'openai';
 import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
-import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import OpenAI from 'openai';
+
+import {
+  DEFAULT_QWEN_PROVIDER_BASE_URL,
+  DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL,
+} from './defaults';
+import { getQwenProviderCapabilities } from './provider-capabilities';
+import { qwenChatWithStreamingAssembly } from './provider-streaming-assembly';
+import { chatStreamWithQwenResponsesApi, chatWithQwenResponsesApi } from './responses-chat';
+import { hasQwenBuiltInWebTools } from './responses-converter';
 import {
   assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
@@ -8,16 +16,15 @@ import {
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
-import {
-  DEFAULT_QWEN_PROVIDER_BASE_URL,
-  DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL,
-} from './defaults';
-import { hasQwenBuiltInWebTools } from './responses-converter';
-import { chatStreamWithQwenResponsesApi, chatWithQwenResponsesApi } from './responses-chat';
-import { getQwenProviderCapabilities } from './provider-capabilities';
-import { qwenChatWithStreamingAssembly } from './provider-streaming-assembly';
+
 import type { IQwenProviderOptions } from './types';
+import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
+import type {
+  IChatOptions,
+  IProviderCapabilities,
+  TTextDeltaCallback,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 
 export class QwenProvider extends AbstractAIProvider {
   override readonly name = 'qwen';
@@ -219,7 +226,7 @@ export class QwenProvider extends AbstractAIProvider {
     return true;
   }
 
-  override getCapabilities() {
+  override getCapabilities(): IProviderCapabilities {
     return getQwenProviderCapabilities(this.options);
   }
 

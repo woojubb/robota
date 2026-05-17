@@ -1,12 +1,15 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
 import { afterEach, describe, expect, it } from 'vitest';
+
 import {
   applyToolEnd,
   applyToolStart,
   pushToolSummaryToHistory,
 } from '../interactive-session-streaming.js';
+
 import type { IStreamingState } from '../interactive-session-streaming.js';
 
 function createState(): IStreamingState {

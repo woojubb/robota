@@ -1,8 +1,9 @@
+---
+title: 'Transparent Repo-Agnostic Workflow Client Planning for agent-cli'
+status: done
+---
+
 # Transparent Repo-Agnostic Workflow Client Planning for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 

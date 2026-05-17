@@ -11,13 +11,13 @@
  * TODO: Consider caching conversion results for performance
  */
 
+import type { IZodSchema, ISchemaConversionOptions } from './types';
 import type {
   IToolSchema,
   IParameterSchema,
   TJSONSchemaEnum,
   TUniversalValue,
 } from '@robota-sdk/agent-core';
-import type { IZodSchema, ISchemaConversionOptions } from './types';
 
 /**
  * Convert Zod schema to JSON Schema format with safe undefined handling

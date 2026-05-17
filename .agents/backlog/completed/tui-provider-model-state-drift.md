@@ -1,3 +1,8 @@
+---
+title: 'TUI Provider/Model State Drift'
+status: done
+---
+
 # TUI Provider/Model State Drift
 
 Status: completed

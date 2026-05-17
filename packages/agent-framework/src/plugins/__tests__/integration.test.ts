@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { BundlePluginLoader } from '../bundle-plugin-loader.js';
+
 import type { IBundlePluginManifest } from '../bundle-plugin-types.js';
 
 const TMP_BASE = join(tmpdir(), 'robota-bundle-integration-' + process.pid);

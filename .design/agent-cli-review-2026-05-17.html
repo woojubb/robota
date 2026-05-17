@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>agent-cli 아키텍처 코드 리뷰 — 2026-05-17</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { color: #58a6ff; font-size: 20px; margin-bottom: 8px; }
+  h2 { color: #79c0ff; font-size: 15px; margin: 32px 0 12px; border-bottom: 1px solid #21262d; padding-bottom: 6px; }
+  h3 { color: #d2a8ff; font-size: 13px; margin: 20px 0 8px; }
+  p  { margin-bottom: 10px; }
+  code {
+    background: #161b22;
+    color: #e6edf3;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: #161b22;
+    color: #e6edf3;
+    padding: 12px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 8px 0 12px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  hr { border: none; border-top: 1px solid #21262d; margin: 28px 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  th {
+    background: #161b22;
+    color: #8b949e;
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid #30363d;
+  }
+  td {
+    padding: 8px 12px;
+    border: 1px solid #21262d;
+    vertical-align: top;
+  }
+  .badge-critical { background: #da3633; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+  .badge-high     { background: #d29922; color: #0d1117; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+  .badge-medium   { background: #1f6feb; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+  .badge-low      { background: #3d444d; color: #c9d1d9; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+  .issue {
+    border-left: 3px solid #30363d;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    background: #0d1117;
+  }
+  .issue.critical { border-left-color: #da3633; }
+  .issue.high     { border-left-color: #d29922; }
+  .issue.medium   { border-left-color: #1f6feb; }
+  .issue.low      { border-left-color: #3d444d; }
+  .issue-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .issue-id { color: #8b949e; font-size: 12px; }
+  .file-ref { color: #58a6ff; font-size: 12px; }
+  .label { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 10px; margin-bottom: 3px; }
+  .positive { background: #161b22; border-left: 3px solid #238636; padding: 12px 16px; margin-bottom: 12px; }
+  footer { color: #484f58; font-size: 12px; margin-top: 48px; padding-top: 16px; border-top: 1px solid #21262d; }
+</style>
+</head>
+<body>
+
+<h1>@robota-sdk/agent-cli 아키텍처 코드 리뷰</h1>
+<p style="color:#8b949e; font-size:13px;">검토 기준: AGENTS.md / .agents/rules/code-quality.md / .agents/project-structure.md / packages/agent-cli/docs/SPEC.md</p>
+
+<hr>
+
+<h2>요약 테이블</h2>
+<table>
+  <tr>
+    <th>심각도</th>
+    <th>건수</th>
+    <th>카테고리</th>
+  </tr>
+  <tr>
+    <td><span class="badge-critical">critical</span></td>
+    <td>2</td>
+    <td>계층 위반 (agent-subagent-runner 직접 의존), InteractiveSession 직접 생성</td>
+  </tr>
+  <tr>
+    <td><span class="badge-high">high</span></td>
+    <td>3</td>
+    <td>process.* 사이드이펙트 분산, shellExec 중복, providerSettings.name 의미 혼동</td>
+  </tr>
+  <tr>
+    <td><span class="badge-medium">medium</span></td>
+    <td>3</td>
+    <td>createDefaultProviderDefinitions 중복 호출, TTY 검출 인라인 하드코딩, TODO 미해결 기능</td>
+  </tr>
+  <tr>
+    <td><span class="badge-low">low</span></td>
+    <td>2</td>
+    <td>agentName 하드코딩, TUniversalValue catch 타입 불필요</td>
+  </tr>
+</table>
+
+<hr>
+<h2>잘된 점 (긍정 평가)</h2>
+
+<div class="positive">
+  <strong>startup/ 레이어 분해 구조</strong><br>
+  <code>cli.ts</code>가 startup 단계를 Layer 0~4로 명시적으로 분리하고, 각 단계를 독립 모듈(preflight → config-phase → provider-setup → session-setup → mode)로 위임한 구조는 명확하다. 각 모듈의 파일 크기가 모두 300줄 이하로 규칙을 준수한다.
+</div>
+
+<div class="positive">
+  <strong>allow-fallback 주석 규율</strong><br>
+  모든 <code>process.exit</code> 호출 지점에 <code>// allow-fallback: terminal failure</code> 주석이 달려 있어 의도된 종료와 무의식적 silent-fail을 구분할 수 있다. 규칙상 fallback 금지 원칙의 예외를 문서화한 패턴은 유지 가능하다.
+</div>
+
+<div class="positive">
+  <strong>args-to-options.ts 경계 설계</strong><br>
+  <code>IParsedCliArgs</code>를 4개의 좁은 옵션 타입(<code>IConfigPhaseOptions</code>, <code>ISessionRunOptions</code>, <code>IUserLocalCommandOptions</code>, <code>IStartupUpdatePolicyOptions</code>)으로 분리하는 boundary 변환 계층은 각 startup 모듈이 필요 이상의 필드를 알지 않도록 잘 설계되어 있다.
+</div>
+
+<div class="positive">
+  <strong>ITerminalOutput DI 패턴</strong><br>
+  대부분의 startup 모듈이 <code>ITerminalOutput</code> 인터페이스를 주입받아 출력 사이드이펙트를 격리한다. 일부 위반(하단 참조)을 제외하면 DI 원칙을 따른다.
+</div>
+
+<hr>
+<h2>발견된 문제</h2>
+
+<!-- CRITICAL 1 -->
+<div class="issue critical">
+  <div class="issue-header">
+    <span class="badge-critical">critical</span>
+    <span class="issue-id">#C-01</span>
+    <span>계층 위반 — agent-subagent-runner 직접 의존</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/startup/subagent-setup.ts : 6</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>subagent-setup.ts</code>가 <code>@robota-sdk/agent-subagent-runner</code>를 직접 import한다.
+    <code>agent-subagent-runner</code>는 <code>agent-framework</code> 위에 선택적으로 올라오는 패키지다.
+    그러나 <code>agent-cli</code>는 이 패키지에 직접 의존함으로써, <code>agent-cli → agent-framework → agent-subagent-runner</code>
+    가 되어야 할 단방향 의존 관계를 <code>agent-cli</code>가 두 층을 동시에 쥐는 구조로 만든다.
+    <code>package.json</code>의 <code>dependencies</code>에도 <code>@robota-sdk/agent-subagent-runner</code>가 명시되어 있어
+    배포 번들 의존성이 직접 노출된다.
+  </p>
+  <p>
+    SPEC.md는 "OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O)"라고 명시하므로
+    CLI가 subagent runner 어댑터를 소유하는 것은 SPEC 범위에 있다. 그러나 현재 구현은 runner 팩토리 생성 로직과 worker 경로 해석까지 CLI 코드 안에 두어
+    <code>getDefaultSubagentWorkerPath()</code>와 <code>createChildProcessSubagentRunnerFactory()</code>를 CLI가 직접 호출한다.
+    이 두 함수가 <code>agent-framework</code>를 통해 재수출되거나, CLI가 받아야 할 것은 팩토리 자체가 아니라 설정값뿐이어야 한다.
+  </p>
+
+  <div class="label">규칙 참조</div>
+  <p><code>code-quality.md</code> — "No layer skipping. CLI must not directly use internals that should be wired through agent-sessions or agent-sdk."</p>
+  <p><code>project-structure.md</code> — "Orchestrator/adapter split. Lifecycle orchestration and handoff metadata belong in reusable lower layers."</p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    옵션 A (선호): <code>agent-framework</code>가 <code>createChildProcessSubagentRunnerFactory</code>와
+    <code>getDefaultSubagentWorkerPath</code>를 re-export하거나, <code>createAgentRuntime</code> 팩토리가
+    worker 경로를 자동 해석하는 기본 구현을 제공한다. CLI는 <code>agent-subagent-runner</code>를 직접 import하지 않는다.
+  </p>
+  <p>
+    옵션 B: CLI가 runner를 소유해야 한다면, 어댑터 인터페이스(<code>ISubagentRunnerAdapter</code> 또는 기존 <code>TSubagentRunnerFactory</code>)만 주입받고
+    실제 팩토리 생성은 <code>agent-subagent-runner</code> 패키지가 직접 공개하는 진입점을 통해서만 한다.
+    <code>package.json</code>에서 <code>agent-executor</code> 직접 의존도 동일하게 검토해야 한다.
+  </p>
+</div>
+
+<!-- CRITICAL 2 -->
+<div class="issue critical">
+  <div class="issue-header">
+    <span class="badge-critical">critical</span>
+    <span class="issue-id">#C-02</span>
+    <span>InteractiveSession 직접 생성 — print-mode.ts가 런타임을 우회</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/modes/print-mode.ts : 50–71</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>runPrintMode</code>는 <code>new InteractiveSession({ ... })</code>을 직접 호출하여 세션을 생성한다.
+    이에 반해 <code>cli.ts</code>는 <code>createAgentRuntime()</code>으로 <code>IAgentRuntime</code>을 조립한 뒤 이를 <code>runPrintMode</code>에 주입한다.
+    그런데 <code>runPrintMode</code> 내부에서는 전달받은 <code>runtime</code>의 필드를 꺼내 <code>InteractiveSession</code> 생성자에 직접 넘긴다.
+    결과적으로 <code>IAgentRuntime</code> 추상화가 무의미해지고, print-mode는 <code>createAgentRuntime</code>이 계산한 기본값
+    (예: <code>backgroundTaskRunners</code>의 기본 구현)을 신뢰하지 않고 런타임 조립을 부분적으로 재수행한다.
+  </p>
+  <p>
+    SPEC.md는 CLI가 <code>InteractiveSession</code>을 직접 소유하지 말 것을 명시하지는 않지만,
+    "<code>agent-framework</code>의 <code>InteractiveSession</code>이 세션 생명주기를 소유한다"는 원칙 하에
+    CLI는 <code>IAgentRuntime</code>을 통해 세션 팩토리를 호출해야 한다.
+    현재 구조에서 <code>print-mode.ts</code>는 <code>IAgentRuntime</code>을 주입받는다고 선언하지만 실제로는 세션 생성의 책임을 직접 가져간다.
+    이는 "Composition over integration" 및 "Interface-first extension" 규칙에 어긋난다.
+  </p>
+  <p>추가 문제: <code>InteractiveSession</code>에 전달하는 <code>agentName: 'robota-cli'</code>는 하드코딩된 제품명이다(#L-01 참조).</p>
+
+  <div class="label">규칙 참조</div>
+  <p><code>code-quality.md</code> — "CLI/TUI command thinness. agent-cli may not own command-specific state machines or setup flows."</p>
+  <p><code>agent-framework SPEC</code> — "creates InteractiveSession({ cwd, provider, commandModules }) ... subscribes to events → renders to terminal"</p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    <code>IAgentRuntime</code>에 <code>createSession(opts)</code> 팩토리 메서드를 추가하거나,
+    <code>agent-framework</code>의 <code>InteractiveSession</code> 생성자가 <code>IAgentRuntime</code>을 직접 받도록 오버로드를 제공한다.
+    <code>runPrintMode</code>는 세션을 직접 구성하는 대신 <code>runtime.createSession(opts)</code>를 호출하는 방식으로 단순화한다.
+    이로써 print-mode와 tui-mode가 동일한 런타임 계약을 신뢰하게 된다.
+  </p>
+</div>
+
+<!-- HIGH 1 -->
+<div class="issue high">
+  <div class="issue-header">
+    <span class="badge-high">high</span>
+    <span class="issue-id">#H-01</span>
+    <span>process.* 사이드이펙트가 startup 모듈 전체에 분산</span>
+  </div>
+  <div class="file-ref">
+    packages/agent-cli/src/startup/session-setup.ts : 29–30 |
+    packages/agent-cli/src/startup/config-phase.ts : 39–40 |
+    packages/agent-cli/src/startup/append-system-prompt.ts : 30–31 |
+    packages/agent-cli/src/startup/preflight.ts : 19–34
+  </div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>process.exit()</code>, <code>process.stderr.write()</code>, <code>process.stdout.write()</code> 호출이
+    <code>cli.ts</code>와 <code>bin.ts</code>에만 있는 것이 아니라 <code>startup/</code> 하위 5개 모듈에 산재해 있다.
+    이는 두 가지 심각한 결과를 낳는다.
+  </p>
+  <p>
+    1) <strong>테스트 불가능성:</strong> 각 startup 함수를 단위 테스트하려면 <code>process.exit</code>를 목(mock)해야 한다.
+    실제로 <code>cli-update-check.test.ts</code>와 <code>cli-command-composition.test.ts</code>를 보면
+    <code>vi.spyOn(process.exit)</code>나 <code>process.stdout.write</code>를 직접 패치하는 코드가 반복되어 있다.
+    이는 DI 없이 사이드이펙트를 직접 호출한 결과다.
+  </p>
+  <p>
+    2) <strong>책임 혼재:</strong> <code>session-setup.ts</code>의 경우 세션 ID 해석이라는 순수 로직 함수가
+    <code>process.exit(1)</code>를 직접 호출한다. 이 모듈은 exit 정책을 알 필요가 없다.
+    반환값으로 오류를 표현(예: <code>Result&lt;ISessionSetup, Error&gt;</code> 또는 예외 throw)하고
+    exit 결정은 <code>cli.ts</code>에서 일괄 처리해야 한다.
+  </p>
+
+  <div class="label">규칙 참조</div>
+  <p><code>code-quality.md</code> — "ALWAYS use dependency injection for logging and side concerns."</p>
+  <p><code>code-quality.md</code> — "Separate core behavior from side concerns."</p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    startup 모듈들은 오류를 <strong>throw</strong>로 표현하거나 <code>Result</code> 타입을 반환하고,
+    <code>process.exit</code>와 <code>process.stderr.write</code> 호출은 <code>cli.ts</code>의 최상위 try-catch 또는
+    <code>bin.ts</code>의 catch 핸들러에 집중한다.
+    <code>session-setup.ts</code>의 경우 <code>resolveSessionIdByIdOrName</code>가 <code>undefined</code>를 반환하면
+    <code>createSessionSetup</code>이 <code>new Error('Session not found: ...')</code>를 throw하고,
+    <code>cli.ts</code>에서 catch하여 exit한다.
+  </p>
+</div>
+
+<!-- HIGH 2 -->
+<div class="issue high">
+  <div class="issue-header">
+    <span class="badge-high">high</span>
+    <span class="issue-id">#H-02</span>
+    <span>shellExec 클로저 중복 — print-mode와 tui-mode에 동일 코드</span>
+  </div>
+  <div class="file-ref">
+    packages/agent-cli/src/modes/print-mode.ts : 10, 43–48 |
+    packages/agent-cli/src/modes/tui-mode.ts : 5, 47–52
+  </div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>SHELL_EXEC_TIMEOUT_MS = 5_000</code> 상수와 <code>execSync</code> 기반 <code>shellExec</code> 클로저가
+    <code>print-mode.ts</code>와 <code>tui-mode.ts</code> 두 파일에 완전히 동일하게 정의되어 있다.
+    이는 "No magic numbers or strings" 규칙 위반이며, <code>Parallel collection invariant</code>와 동일한
+    위험인 '동일 로직의 평행 복사본'을 만든다. timeout 값 변경 시 두 파일을 모두 찾아 수정해야 하며,
+    하나를 놓치는 버그가 발생할 수 있다.
+  </p>
+  <pre>// print-mode.ts
+const SHELL_EXEC_TIMEOUT_MS = 5_000;
+const shellExec = (command: string): string =>
+  execSync(command, { timeout: SHELL_EXEC_TIMEOUT_MS, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
+
+// tui-mode.ts — 동일한 코드
+const SHELL_EXEC_TIMEOUT_MS = 5_000;
+shellExec: (command: string): string =>
+  execSync(command, { timeout: SHELL_EXEC_TIMEOUT_MS, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),</pre>
+
+  <div class="label">규칙 참조</div>
+  <p><code>code-quality.md</code> — "No magic numbers or strings. Use named constants." / Anti-monolith: 중복 로직은 단일 소유 모듈로 분리해야 한다.</p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    <code>packages/agent-cli/src/startup/shell-exec.ts</code>와 같은 단일 유틸 모듈을 만들어
+    <code>SHELL_EXEC_TIMEOUT_MS</code>와 <code>createShellExec()</code> 팩토리를 내보내고,
+    두 mode 파일이 이를 import한다.
+    더 나아가 이 어댑터는 CLI의 "concrete local host adapter" 소유 범위이므로 startup/ 계층에서 생성하여 mode 함수에 주입하면
+    테스트 시 mock으로 교체 가능해진다.
+  </p>
+</div>
+
+<!-- HIGH 3 -->
+<div class="issue high">
+  <div class="issue-header">
+    <span class="badge-high">high</span>
+    <span class="issue-id">#H-03</span>
+    <span>providerSettings.name을 providerOverride와 providerType 양쪽에 사용 — 의미론적 혼동</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/modes/tui-mode.ts : 36–37</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>tui-mode.ts</code>는 <code>TuiTransport</code>에 아래처럼 전달한다:
+  </p>
+  <pre>providerOverride: providerSetup.providerSettings.name,
+providerType:     providerSetup.providerSettings.name,</pre>
+  <p>
+    <code>IProviderConfig.name</code>은 실제로 <strong>provider type 문자열</strong>이다
+    (예: <code>"anthropic"</code>, <code>"openai"</code>).
+    이는 <code>provider-merge.ts</code>의 <code>resolveActiveProvider</code>에서 <code>name: profile.type</code>으로 할당됨으로써 확인된다.
+  </p>
+  <p>
+    반면 <code>TuiTransport</code>의 <code>providerOverride</code>는 <code>useSideEffects.ts</code>에서
+    <code>applyActiveModelChange</code>에 전달되어 <code>{ providerOverride }</code> 옵션으로 사용된다.
+    <code>applyProviderSwitch</code>나 설정 파일 기준으로는 <strong>프로파일 이름</strong>(예: <code>"my-anthropic"</code>)이 키가 된다.
+    type 문자열을 프로파일 키로 사용하면 모델 전환 시 잘못된 프로파일을 조회하거나 무시하게 된다.
+  </p>
+  <p>
+    <code>providerType</code>의 경우 <code>SessionStatusBar</code>가 <code>cliAdapter.getProviderDisplayName(providerType)</code>을 호출하므로
+    type 문자열을 넘기는 것은 올바르다. 그러나 <code>providerOverride</code>에도 type 문자열을 넘기는 것은 오류다.
+    클리닉 사례가 드러나지 않는 이유는 대부분의 사용자가 type과 동일한 이름의 프로파일을 쓰거나,
+    모델 전환 기능이 특정 상황에서만 활성화되기 때문이다.
+  </p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    <code>IProviderSetup</code>에 <code>activeProfileName: string | undefined</code> 필드를 추가하고,
+    <code>createProviderSetup</code>에서 <code>opts.provider</code>(프로파일 이름 override) 또는
+    설정에서 읽은 <code>merged.currentProvider</code>를 그 필드에 저장한다.
+    <code>tui-mode.ts</code>는 <code>providerOverride: providerSetup.activeProfileName</code>과
+    <code>providerType: providerSetup.providerSettings.name</code>으로 명확히 구분하여 전달한다.
+  </p>
+</div>
+
+<!-- MEDIUM 1 -->
+<div class="issue medium">
+  <div class="issue-header">
+    <span class="badge-medium">medium</span>
+    <span class="issue-id">#M-01</span>
+    <span>createDefaultProviderDefinitions() 반복 호출 — 기본 인자 폭포 패턴</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/startup/provider-startup.ts : 31, 58, 78, 106</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>provider-startup.ts</code>에서 4개 함수(<code>handleProviderConfigurationArgs</code>,
+    <code>ensureConfig</code>, <code>runInteractiveProviderSetup</code>, <code>formatMissingProviderConfigMessage</code>)가
+    각각 <code>providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions()</code>를 기본 인자로 선언한다.
+    이로 인해 각 함수를 단독으로 호출할 때마다 provider definitions를 새로 생성한다.
+  </p>
+  <p>
+    실제 호출 지점(<code>config-phase.ts</code>)에서는 <code>commandSetup.providerDefinitions</code>를 인자로 전달하므로
+    기본값이 실행 경로에서 사용되지는 않는다. 그러나 이 패턴은:
+    1) 함수 시그니처가 "기본값으로 작동할 수 있다"는 거짓 계약을 표시하고,
+    2) <code>@robota-sdk/agent-provider</code>에 대한 암묵적 결합을 4곳에 복제하며,
+    3) "factory context auto-forwarding" 규칙에서 명시한 "callers must not be required to manually extract and forward values" 원칙의 정반대로, 호출자가 값을 가져야 하는데 기본값이 흡수해버린다.
+  </p>
+
+  <div class="label">규칙 참조</div>
+  <p><code>code-quality.md</code> — "No cross-package type duplication" / "Factory context auto-forwarding."</p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    <code>provider-startup.ts</code>의 모든 함수에서 <code>providerDefinitions</code> 기본 인자를 제거하고,
+    파라미터를 필수로 변경한다. 호출 계층인 <code>config-phase.ts</code>가 항상 <code>commandSetup.providerDefinitions</code>를
+    명시적으로 전달하도록 한다. 이는 현재 코드에서 이미 그렇게 동작하므로 Breaking Change가 아니다.
+  </p>
+</div>
+
+<!-- MEDIUM 2 -->
+<div class="issue medium">
+  <div class="issue-header">
+    <span class="badge-medium">medium</span>
+    <span class="issue-id">#M-02</span>
+    <span>TTY 인터랙티브 검출이 startup 모듈 내부에 인라인 하드코딩</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/startup/provider-startup.ts : 68</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>ensureConfig</code> 함수가 <code>ensureProviderConfig</code>에 아래를 전달한다:
+  </p>
+  <pre>isInteractive: () => process.stdin.isTTY === true && process.stdout.isTTY === true,</pre>
+  <p>
+    이 람다는 <code>process.stdin</code>과 <code>process.stdout</code>을 직접 참조한다.
+    결과적으로 <code>ensureConfig</code>를 단위 테스트할 때 TTY 상태를 제어하려면
+    <code>Object.defineProperty(process.stdout, 'isTTY', ...)</code>를 사용해야 한다.
+    실제로 <code>provider-startup.test.ts</code>에서 이 방식으로 테스트한다.
+    이는 취약한 환경 조작 방식이며, 실제 환경과 다른 스트림(예: HTTP 서버에서 CLI 기능을 재사용)에서 오작동한다.
+  </p>
+  <p>
+    또한 <code>print-mode.ts</code>에서도 stdin pipe 감지(<code>!process.stdin.isTTY</code>)가 인라인으로 있다.
+    이 두 TTY 검출 방식이 일관된 추상화 없이 분산되어 있다.
+  </p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    <code>ITerminalEnvironment</code> 인터페이스(또는 단순히 <code>{ isInteractive: boolean, hasStdinData: boolean }</code>)를
+    startup 단계에서 한 번 생성하여 필요한 모듈에 주입한다.
+    <code>cli.ts</code>에서 <code>process.stdin.isTTY</code>와 <code>process.stdout.isTTY</code>를 읽어 객체로 만들고,
+    startup 모듈들은 그 값을 받아 사용한다.
+  </p>
+</div>
+
+<!-- MEDIUM 3 -->
+<div class="issue medium">
+  <div class="issue-header">
+    <span class="badge-medium">medium</span>
+    <span class="issue-id">#M-03</span>
+    <span>--system-prompt 미구현 기능이 경고로만 처리되어 릴리스 코드에 잔존</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/modes/print-mode.ts : 38–41</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>print-mode.ts</code>에 아래 코드가 있다:
+  </p>
+  <pre>// TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
+if (opts.systemPrompt) {
+  process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
+}</pre>
+  <p>
+    사용자가 <code>--system-prompt</code> 옵션을 제공했을 때 아무 일도 일어나지 않으며 경고만 출력된다.
+    <code>IParsedCliArgs</code>에 <code>systemPrompt</code> 필드가 있고 <code>ISessionRunOptions</code>에도 포함되어 있으나
+    print-mode에서는 무시된다. TUI 모드에서도 이 옵션이 실제로 연결되는지 확인이 필요하다.
+    미구현 기능이 CLI 인터페이스에 노출되면 사용자 혼란을 유발한다.
+  </p>
+
+  <div class="label">규칙 참조</div>
+  <p>AGENTS.md — "deprecated 금지. 외부 소비자 없으면 삭제, 내부 소비자 있으면 마이그레이션 완료." (미구현 노출 기능도 동일 원칙 적용)</p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    옵션 A: <code>IInteractiveSessionStandardOptions</code>에 <code>systemPrompt</code> 필드를 추가하고 print-mode에서 연결한다.
+    옵션 B: 구현이 불가능한 현 시점이라면 <code>cli-args.ts</code>에서 해당 옵션을 파싱하지 않고 제거하여
+    <code>--system-prompt</code> 플래그 자체를 비노출 상태로 만든다. 백로그 아이템으로 등록한다.
+  </p>
+</div>
+
+<!-- LOW 1 -->
+<div class="issue low">
+  <div class="issue-header">
+    <span class="badge-low">low</span>
+    <span class="issue-id">#L-01</span>
+    <span>agentName 하드코딩 — 'robota-cli' 문자열이 두 곳에 분리 존재</span>
+  </div>
+  <div class="file-ref">
+    packages/agent-cli/src/modes/print-mode.ts : 70 |
+    packages/agent-cli/src/modes/tui-mode.ts : 58
+  </div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>agentName: 'robota-cli'</code>가 두 모드 파일에 문자열 리터럴로 중복 정의되어 있다.
+    AGENTS.md의 "No magic numbers or strings" 규칙에 따라 이 값은 단일 상수로 관리되어야 한다.
+    또한 <code>readVersion()</code>으로 이미 CLI 버전을 읽고 있으므로, 패키지 이름도 같은 방식으로
+    <code>package.json</code>에서 읽거나 상수로 추출할 수 있다.
+  </p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    <code>packages/agent-cli/src/constants.ts</code> 또는 <code>startup/version.ts</code>에
+    <code>export const AGENT_NAME = 'robota-cli'</code>를 선언하고 두 파일이 import한다.
+  </p>
+</div>
+
+<!-- LOW 2 -->
+<div class="issue low">
+  <div class="issue-header">
+    <span class="badge-low">low</span>
+    <span class="issue-id">#L-02</span>
+    <span>bin.ts의 catch 타입 선언 — TUniversalValue import 불필요</span>
+  </div>
+  <div class="file-ref">packages/agent-cli/src/bin.ts : 12–13, 33</div>
+
+  <div class="label">문제 설명</div>
+  <p>
+    <code>bin.ts</code>에서 <code>@robota-sdk/agent-core</code>로부터 <code>TUniversalValue</code>를 import하고
+    <code>catch((err: Error | TUniversalValue) => ...)</code> 타입 선언에 사용한다.
+    Promise의 <code>.catch()</code> 핸들러는 TypeScript에서 항상 <code>unknown</code>이므로
+    이 타입 선언은 실제 타입 안전성을 제공하지 않는다(TypeScript가 명시적 타입 annotation을 허용하더라도 narrowing은 여전히 필요하다).
+    <code>TUniversalValue</code> import는 이를 위해서만 존재하므로 불필요한 크로스-패키지 의존성이다.
+  </p>
+  <p>
+    실제로 핸들러 내부는 <code>err instanceof Error ? err.message : String(err)</code>로 올바르게 narrowing하므로
+    타입 선언 없이 <code>err: unknown</code>으로도 동작한다.
+  </p>
+
+  <div class="label">권장 조치</div>
+  <p>
+    타입 선언을 <code>(err: unknown) =></code>으로 변경하고 <code>TUniversalValue</code> import를 제거한다.
+  </p>
+</div>
+
+<hr>
+<h2>추가 관찰 — 계층 의존성 검토</h2>
+
+<table>
+  <tr>
+    <th>파일</th>
+    <th>import 대상</th>
+    <th>평가</th>
+  </tr>
+  <tr>
+    <td><code>command-setup.ts</code></td>
+    <td><code>@robota-sdk/agent-provider</code></td>
+    <td>허용 — SPEC에서 provider definition assembly는 CLI 소유</td>
+  </tr>
+  <tr>
+    <td><code>provider-startup.ts</code></td>
+    <td><code>@robota-sdk/agent-provider</code> (x4 기본 인자)</td>
+    <td>허용이나 중복 (#M-01)</td>
+  </tr>
+  <tr>
+    <td><code>subagent-setup.ts</code></td>
+    <td><code>@robota-sdk/agent-subagent-runner</code></td>
+    <td style="color:#da3633;">계층 위반 (#C-01)</td>
+  </tr>
+  <tr>
+    <td><code>print-mode.ts</code></td>
+    <td><code>new InteractiveSession</code></td>
+    <td style="color:#da3633;">런타임 우회 (#C-02)</td>
+  </tr>
+  <tr>
+    <td><code>bin.ts</code></td>
+    <td><code>@robota-sdk/agent-core / TUniversalValue</code></td>
+    <td>허용이나 불필요 (#L-02)</td>
+  </tr>
+  <tr>
+    <td>모든 startup 모듈</td>
+    <td><code>process.*</code> 직접 호출</td>
+    <td style="color:#d29922;">DI 원칙 위반 (#H-01)</td>
+  </tr>
+</table>
+
+<hr>
+<h2>startup 흐름 순서 의존성 검토</h2>
+
+<p>
+  <code>cli.ts</code>의 실행 순서(Layer 0 → 4)는 주석으로 명시되어 있으며, 각 단계의 입출력이
+  타입으로 표현되어 있다. 흐름 자체의 숨겨진 순서 의존성은 발견되지 않았다.
+  단, <code>createProviderSetup</code>은 <code>configPhaseOpts</code>의 config 단계 완료를 암묵적으로 가정하며,
+  <code>ensureConfig</code>가 실패해도 <code>provider-setup</code>은 여전히 호출될 수 있다.
+  그러나 <code>config-phase.ts</code>가 오류 시 <code>process.exit(1)</code>을 호출하므로
+  실질적인 잘못된 순서 실행은 발생하지 않는다. 이 보호가 #H-01의 수정 후에도 유지되도록 주의해야 한다.
+</p>
+
+<hr>
+<h2>결론</h2>
+
+<p>
+  <code>agent-cli</code>는 전반적으로 startup/ 분해, args-to-options 경계, DI 패턴 적용 등에서
+  명확한 설계 의도를 보여준다. 300줄 이하 파일 크기, allow-fallback 주석 규율, 인터페이스 타입 사용 등
+  프로젝트 규칙 준수율이 높다.
+</p>
+<p>
+  주요 개선 필요 영역은 두 곳이다:
+  <strong>(1) agent-subagent-runner 직접 의존</strong>으로 인한 계층 위반과
+  <strong>(2) print-mode의 InteractiveSession 직접 생성</strong>으로 인한 IAgentRuntime 추상화 우회.
+  이 두 문제를 해결하면 CLI의 "thin layer" 원칙이 완전히 구현된다.
+</p>
+
+<hr>
+<footer>
+  작성일: 2026-05-17 | 검토자: Claude Code (code-reviewer subagent) | 대상 브랜치: develop
+</footer>
+
+</body>
+</html>

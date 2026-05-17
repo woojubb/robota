@@ -1,15 +1,17 @@
+import {
+  buildPermissionModeSubcommands,
+  PERMISSION_MODE_ARGUMENT_HINT,
+  PERMISSION_MODE_COMMAND_DESCRIPTION,
+} from '@robota-sdk/agent-framework';
+
+import { executeModeCommand } from './mode-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import {
-  buildPermissionModeSubcommands,
-  PERMISSION_MODE_ARGUMENT_HINT,
-  PERMISSION_MODE_COMMAND_DESCRIPTION,
-} from '@robota-sdk/agent-framework';
-import { executeModeCommand } from './mode-command.js';
 
 export function createModeCommandEntry(): ICommand {
   return {

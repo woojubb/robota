@@ -4,12 +4,13 @@
  * Extracted from module-type-registry.ts to keep each file under 300 lines.
  * @internal
  */
-import type { IModuleDescriptor } from '../abstracts/abstract-module';
 import { ModuleCategory, ModuleLayer } from '../abstracts/abstract-module';
+
 import type {
   IModuleDescriptorValidationResult,
   IModuleDependencyResolution,
 } from './module-type-registry';
+import type { IModuleDescriptor } from '../abstracts/abstract-module';
 
 /** @internal */
 export function getBuiltinTypeDescriptors(): IModuleDescriptor[] {

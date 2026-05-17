@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
+import React, { useState, useCallback, useRef } from 'react';
+
 import {
   applySelectionInput,
   createSelectionFlowState,

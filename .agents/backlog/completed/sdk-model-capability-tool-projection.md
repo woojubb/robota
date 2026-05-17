@@ -1,8 +1,9 @@
+---
+title: 'SDK Model Capability Tool Projection'
+status: done
+---
+
 # SDK Model Capability Tool Projection
-
-## Status
-
-Completed.
 
 ## Created
 

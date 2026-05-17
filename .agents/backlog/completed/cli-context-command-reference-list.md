@@ -1,8 +1,9 @@
+---
+title: 'CLI `/context` Command — Document Reference List'
+status: done
+---
+
 # CLI `/context` Command — Document Reference List
-
-## Status
-
-Completed.
 
 ## Priority
 

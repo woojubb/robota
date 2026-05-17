@@ -1,3 +1,16 @@
+import {
+  buildProviderSetupPatch,
+  setCurrentProvider,
+  upsertProviderProfile,
+} from '@robota-sdk/agent-framework';
+
+import {
+  createProviderSetupInteraction,
+  toProviderSetupStepPrompt,
+} from './provider-command-setup.js';
+import { createProviderSetupFlow, submitProviderSetupValue } from './provider-setup-flow.js';
+
+import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 import type {
   ICommandInteraction,
   ICommandResult,
@@ -5,17 +18,6 @@ import type {
   IProviderProfileSettings,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
-import {
-  buildProviderSetupPatch,
-  setCurrentProvider,
-  upsertProviderProfile,
-} from '@robota-sdk/agent-framework';
-import { createProviderSetupFlow, submitProviderSetupValue } from './provider-setup-flow.js';
-import type { IProviderSetupFlowState } from './provider-setup-flow.js';
-import {
-  createProviderSetupInteraction,
-  toProviderSetupStepPrompt,
-} from './provider-command-setup.js';
 
 const YES = 'yes';
 const PROVIDER_RESTART_EFFECT = {

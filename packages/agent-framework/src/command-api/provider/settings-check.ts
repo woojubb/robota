@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+
 import {
   findProviderDefinition,
   getProviderCredentialRequirement,
@@ -6,6 +8,7 @@ import {
   type IProviderDefinition,
   type TProviderCredentialField,
 } from '@robota-sdk/agent-core';
+
 import type { TProviderSettingsDocument } from './provider-settings.js';
 
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
@@ -64,4 +67,20 @@ function resolveProviderCredentialValue(
   definition: IProviderDefinition,
 ): string | undefined {
   return profile[field] ?? definition.defaults?.[field];
+}
+
+export function checkSettingsFile(
+  filePath: string,
+  providerDefinitions: readonly IProviderDefinition[] = [],
+): TSettingsCheck {
+  if (!existsSync(filePath)) return 'missing';
+  try {
+    const raw = readFileSync(filePath, 'utf8').trim();
+    if (raw.length === 0) return 'incomplete';
+    const parsed = JSON.parse(raw) as TProviderSettingsDocument;
+    return checkSettingsDocument(parsed, providerDefinitions);
+  } catch {
+    // allow-fallback: corrupt settings file is a valid terminal state ('corrupt')
+    return 'corrupt';
+  }
 }

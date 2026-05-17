@@ -1,7 +1,9 @@
-import { describe, expect, it, afterEach } from 'vitest';
 import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it, afterEach } from 'vitest';
+
 import {
   ProjectMemoryStore,
   MEMORY_INDEX_MAX_LINES,

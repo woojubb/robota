@@ -1,6 +1,7 @@
-import type { ICacheEntry, ICacheStorage, ICacheStats } from '../../interfaces/cache';
-import { CacheIntegrityError } from '../../utils/errors';
 import { CacheKeyBuilder } from './cache-key-builder';
+import { CacheIntegrityError } from '../../utils/errors';
+
+import type { ICacheEntry, ICacheStorage, ICacheStats } from '../../interfaces/cache';
 
 interface IMemoryCacheStorageOptions {
   maxEntries: number;

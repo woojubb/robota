@@ -1,13 +1,22 @@
 # Backlog
 
-Future work items and ideas that are not yet scheduled as active tasks.
-Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/tasks/completed/`.
+Future work items and ideas that are tracked and executed as focused PRs. Completed items are
+archived to `completed/`.
 
 ## Process
 
-1. Add ideas here as `<topic>.md` files.
-2. When prioritized, move to `.agents/tasks/` and update status.
-3. When done, archive to `.agents/tasks/completed/`.
+1. Create a new `.md` file in this directory with the required frontmatter (see File Format below).
+2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
+3. When implementation is complete and all gates pass (see
+   [backlog-execution.md](../rules/backlog-execution.md)):
+   - Update `status: done` and add `completed: YYYY-MM-DD` in frontmatter.
+   - Use `git mv` to move the file from `backlog/` to `backlog/completed/`.
+   - Include the status update and the move in the same commit — do not split them.
+4. For items that will not be implemented, set `status: wontfix` or `status: skipped` in
+   frontmatter, then move to `completed/` in the same commit.
+
+**Never** move a file to `completed/` without first updating `status` in its frontmatter.
+**Never** set `status: done` before the User Execution Test Scenario gate passes (if applicable).
 
 ## File Format
 
@@ -17,16 +26,19 @@ required at the top of each file:
 ```markdown
 ---
 title: '<ID>: <short description>'
-status: todo | in-progress | done | wontfix | backlog
+status: todo | in-progress | done | wontfix | skipped | superseded
 created: YYYY-MM-DD
+completed: YYYY-MM-DD # required when status is done/wontfix/skipped/superseded
 priority: critical | high | medium | low
 urgency: now | soon | later | backlog
 area: <affected packages or apps>
+depends_on: [] # list of blocking backlog IDs, empty if none
 ---
 ```
 
-Inline markdown (`- **Status**: value`) is **not acceptable** for metadata. Frontmatter is the
-single source of truth for status tracking — grep-based tooling and harness scripts rely on it.
+The `status` field in frontmatter is the **single source of truth**. Do not write status
+information anywhere in the body — body sections such as `## Status` are banned. Grep-based
+tooling and harness scripts rely exclusively on frontmatter for status tracking.
 
 ## Backlog Entry Requirements
 
@@ -309,6 +321,15 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------- |
 | [MULTI-001](MULTI-001-agent-multiplexer-tui-navigation.md) | TUI 멀티에이전트 멀티플렉서 — 방향키로 main·백그라운드 에이전트 전환 및 프롬프트 입력 | high     |
 
+### Architecture Refactoring — ARCH-002 Follow-up (2026-05-17)
+
+| ID                                                           | 제목                                                                    | 우선순위 |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- | -------- |
+| [ARCH-002-p5](ARCH-002-p5-cli-terminal-io-injection.md)      | agent-cli 터미널 I/O 직접 호출 분리 — process.\* 누수 제거 (Phase 5)    | high     |
+| [ARCH-002-p6](ARCH-002-p6-provider-infra-to-framework.md)    | agent-cli provider 인프라를 agent-framework으로 이동 — 재수출 shim 삭제 | high     |
+| [ARCH-002-p7](ARCH-002-p7-slim-agent-cli-public-api.md)      | agent-cli index.ts를 startCli 단일 export로 축소                        | medium   |
+| [ARCH-002-p8](ARCH-002-p8-extract-command-module-factory.md) | createDefaultCliCommandModules를 cli.ts에서 agent-framework으로 추출    | medium   |
+
 ### Architecture Refactoring — 2026-05-15 Independent Dual Review
 
 시스템 아키텍트 + 시니어 개발자 병렬 리뷰에서 발견된 구조적 위반 및 코드 품질 개선 항목.
@@ -352,3 +373,22 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [REFACTOR-021](REFACTOR-021-getcwd-fallback-removal.md)                   | getCwd() process.cwd() silent fallback 제거            | low      |
 | [REFACTOR-022](REFACTOR-022-remote-client-emoji-logger.md)                | agent-remote-client 이모지 + 진단 로거 정리            | low      |
 | [REFACTOR-023](REFACTOR-023-tmodelconfig-interface-rename.md)             | TModelConfig / TConfigurationSnapshot → interface 변환 | low      |
+
+### agent-cli 아키텍처 코드리뷰 — 2026-05-17 ✅ 완료
+
+코드리뷰 보고서: [.design/agent-cli-review-2026-05-17.html](../../.design/agent-cli-review-2026-05-17.html)
+
+모든 10개 항목 구현 완료 (2026-05-17). 파일 위치: `completed/CLIR-*.md`
+
+| ID       | 제목                                                                        | 우선순위 | 상태 |
+| -------- | --------------------------------------------------------------------------- | -------- | ---- |
+| CLIR-C01 | subagent-setup.ts — @robota-sdk/agent-subagent-runner 직접 import 계층 위반 | critical | ✅   |
+| CLIR-C02 | print-mode.ts — new InteractiveSession() 직접 생성으로 IAgentRuntime 우회   | critical | ✅   |
+| CLIR-H01 | startup/ 모듈의 process.exit/stderr.write 직접 호출 제거                    | high     | ✅   |
+| CLIR-H02 | shellExec 클로저 중복 — print-mode와 tui-mode에 동일 코드 분리              | high     | ✅   |
+| CLIR-H03 | tui-mode.ts — providerSettings.name을 providerOverride에 잘못 사용          | high     | ✅   |
+| CLIR-M01 | provider-startup.ts — createDefaultProviderDefinitions() 기본 인자 4중 복제 | medium   | ✅   |
+| CLIR-M02 | TTY 인터랙티브 검출이 startup 모듈 내부에 인라인 하드코딩                   | medium   | ✅   |
+| CLIR-M03 | --system-prompt 미구현 플래그 완전 구현 또는 완전 제거                      | medium   | ✅   |
+| CLIR-L01 | agentName 하드코딩 — robota-cli 문자열 상수로 추출                          | low      | ✅   |
+| CLIR-L02 | bin.ts — TUniversalValue catch 타입 선언 제거 및 unknown으로 교체           | low      | ✅   |

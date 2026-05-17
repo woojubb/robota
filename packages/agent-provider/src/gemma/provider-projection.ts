@@ -1,8 +1,9 @@
-import type OpenAI from 'openai';
-import type { IChatOptions, ILogger, TUniversalMessage } from '@robota-sdk/agent-core';
-import { OpenAICompatibleResponseParser } from '../shared/openai-compatible/index.js';
 import { projectGemmaReasoningText } from './reasoning-projector';
 import { createGemmaToolCallProjector } from './tool-call-projector';
+import { OpenAICompatibleResponseParser } from '../shared/openai-compatible/index.js';
+
+import type { IChatOptions, ILogger, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export function parseGemmaChatCompletion(
   response: OpenAI.Chat.ChatCompletion,

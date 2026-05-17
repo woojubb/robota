@@ -1,12 +1,12 @@
-import type { TProviderConfigValue, IAIProvider, TTextDeltaCallback } from './provider';
-import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
-import type { IModule } from '../abstracts/abstract-module';
-import type { IToolWithEventService } from '../abstracts/abstract-tool';
-import type { TUtilLogLevel } from '../utils/logger';
-import type { TMetadata, TConfigValue } from './types';
-import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
-import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 import type { ICacheOptions } from './cache';
+import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
+import type { TProviderConfigValue, IAIProvider, TTextDeltaCallback } from './provider';
+import type { TMetadata, TConfigValue } from './types';
+import type { IModule } from '../abstracts/abstract-module';
+import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
+import type { IToolWithEventService } from '../abstracts/abstract-tool';
+import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
+import type { TUtilLogLevel } from '../utils/logger';
 
 export type {
   TUniversalMessage,

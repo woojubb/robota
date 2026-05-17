@@ -1,7 +1,9 @@
-import React from 'react';
 import { Box, Text } from 'ink';
-import type { ICommandOutputInput } from './command-output-summary.js';
+import React from 'react';
+
 import { formatCommandOutputSummary } from './command-output-summary.js';
+
+import type { ICommandOutputInput } from './command-output-summary.js';
 
 interface IProps {
   tool: ICommandOutputInput;

@@ -1,6 +1,5 @@
-import type { IBackgroundTaskState, TBackgroundPrimitive } from '@robota-sdk/agent-executor';
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
-import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
+
 import {
   EXECUTION_ORIGIN_METADATA_KEYS,
   createBackgroundGroupExecutionEntryId,
@@ -17,6 +16,9 @@ import {
   type TExecutionOriginKind,
   type TExecutionWorkspaceVisibility,
 } from './execution-workspace-types.js';
+
+import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
+import type { IBackgroundTaskState, TBackgroundPrimitive } from '@robota-sdk/agent-executor';
 
 const PREVIEW_MAX_LENGTH = 120;
 const SUCCESS_EXIT_CODE = 0;

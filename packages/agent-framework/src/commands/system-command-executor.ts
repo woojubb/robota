@@ -1,6 +1,7 @@
+import { createSystemCommands } from './system-command.js';
+
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandHostContext, ICommandResult, ISystemCommand } from '../command-api/index.js';
-import { createSystemCommands } from './system-command.js';
 
 /** Registry for system commands. */
 export class SystemCommandExecutor {

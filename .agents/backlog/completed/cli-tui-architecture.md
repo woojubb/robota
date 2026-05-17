@@ -1,3 +1,8 @@
+---
+title: 'CLI TUI 아키텍처 전환'
+status: done
+---
+
 # CLI TUI 아키텍처 전환
 
 ## 목표

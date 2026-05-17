@@ -1,9 +1,9 @@
-import type { IToolSchema } from '@robota-sdk/agent-core';
 import type {
   IOpenAIJsonSchemaDefinition,
   IOpenAIResponsesReasoningOptions,
   TOpenAIProviderOptionValue,
 } from './types';
+import type { IToolSchema } from '@robota-sdk/agent-core';
 
 export type TOpenAIResponsesInputRole = 'user' | 'assistant' | 'system' | 'developer';
 

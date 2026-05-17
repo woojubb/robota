@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import type { THooksConfig, IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 // Capture all runHooks calls for verification

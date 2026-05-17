@@ -66,9 +66,13 @@ const PROVIDER_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
 ];
 
 const DOCUMENTED_WORKSPACE_PATTERNS = [
+  { pathPattern: /^packages\/agent-command$/, textPattern: /agent-command\// },
   { pathPattern: /^packages\/agent-command-[^/]+$/, textPattern: /agent-command-\*/ },
+  { pathPattern: /^packages\/agent-provider$/, textPattern: /agent-provider\// },
   { pathPattern: /^packages\/agent-provider-[^/]+$/, textPattern: /agent-provider-\*/ },
+  { pathPattern: /^packages\/agent-transport$/, textPattern: /agent-transport\// },
   { pathPattern: /^packages\/agent-transport-[^/]+$/, textPattern: /agent-transport-\*/ },
+  { pathPattern: /^packages\/agent-plugin$/, textPattern: /agent-plugin\// },
   { pathPattern: /^packages\/agent-plugin-[^/]+$/, textPattern: /agent-plugin-\*/ },
   { pathPattern: /^packages\/agent-interface-[^/]+$/, textPattern: /agent-interface-\*/ },
   { pathPattern: /^packages\/agent-web-ui$/, textPattern: /agent-web-ui/ },
@@ -287,7 +291,10 @@ async function findPackageDependencyFindings(packages) {
     const dependencies = listAllDependencies(workspacePackage.packageJson);
     const packageJsonPath = path.join(workspacePackage.relativeDir, 'package.json');
 
-    if (workspacePackage.relativeDir.startsWith('packages/agent-command-')) {
+    const isCommandPackage =
+      workspacePackage.relativeDir === 'packages/agent-command' ||
+      workspacePackage.relativeDir.startsWith('packages/agent-command-');
+    if (isCommandPackage) {
       for (const dependency of dependencies) {
         if (
           !COMMAND_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES.some((prefix) =>
@@ -304,7 +311,10 @@ async function findPackageDependencyFindings(packages) {
       }
     }
 
-    if (workspacePackage.relativeDir.startsWith('packages/agent-provider-')) {
+    const isProviderPackage =
+      workspacePackage.relativeDir === 'packages/agent-provider' ||
+      workspacePackage.relativeDir.startsWith('packages/agent-provider-');
+    if (isProviderPackage) {
       for (const dependency of dependencies) {
         if (
           !PROVIDER_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES.some((prefix) =>

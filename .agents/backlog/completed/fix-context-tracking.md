@@ -1,3 +1,8 @@
+---
+title: 'Fix Context Window Tracking'
+status: done
+---
+
 # Fix Context Window Tracking
 
 ## What

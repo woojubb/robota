@@ -2,10 +2,11 @@
  * Tests for BashTool
  */
 
-import { describe, it, expect } from 'vitest';
 import { bashTool } from '@robota-sdk/agent-tools';
-import type { TToolResult } from '@robota-sdk/agent-tools';
+import { describe, it, expect } from 'vitest';
+
 import type { TToolParameters } from '@robota-sdk/agent-core';
+import type { TToolResult } from '@robota-sdk/agent-tools';
 
 async function run(params: TToolParameters): Promise<TToolResult> {
   const rawResult = await bashTool.execute(params);

@@ -1,8 +1,5 @@
-import React from 'react';
 import { writeFileSync } from 'node:fs';
-import { render, useApp } from 'ink';
-import InteractivePrompt from '../../InteractivePrompt.js';
-import type { TCommandInteractionPrompt as TInteractivePrompt } from '@robota-sdk/agent-framework';
+
 import {
   createProviderSetupFlow,
   formatProviderSetupHelpLinks,
@@ -12,7 +9,13 @@ import {
   type IProviderSetupFlowState,
   type TProviderSetupType,
 } from '@robota-sdk/agent-command';
+import { render, useApp } from 'ink';
+import React from 'react';
+
+import InteractivePrompt from '../../InteractivePrompt.js';
+
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { TCommandInteractionPrompt as TInteractivePrompt } from '@robota-sdk/agent-framework';
 
 const openaiDefaults = {
   apiKey: '$ENV:OPENAI_API_KEY',

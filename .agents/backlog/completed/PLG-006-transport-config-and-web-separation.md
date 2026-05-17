@@ -1,3 +1,8 @@
+---
+title: 'PLG-006: Transport Config Interface + WS/Web UI 분리'
+status: done
+---
+
 # PLG-006: Transport Config Interface + WS/Web UI 분리
 
 - **Status**: done

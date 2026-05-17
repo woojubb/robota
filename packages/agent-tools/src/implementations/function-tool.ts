@@ -1,3 +1,9 @@
+import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
+
+import { getValidationErrors, validateToolParameters } from './function-tool/parameter-validator';
+import { zodToJsonSchema } from './function-tool/schema-converter';
+
+import type { IZodSchema } from './function-tool/types';
 import type {
   IFunctionTool,
   IToolResult,
@@ -8,13 +14,9 @@ import type {
   IEventService,
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
-import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 // Import from Facade pattern modules for type safety
-import type { IZodSchema } from './function-tool/types';
-import { zodToJsonSchema } from './function-tool/schema-converter';
-import { getValidationErrors, validateToolParameters } from './function-tool/parameter-validator';
 
 /**
  * Function tool implementation

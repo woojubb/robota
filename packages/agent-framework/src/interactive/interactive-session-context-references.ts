@@ -1,18 +1,19 @@
-import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import {
+  createContextReferenceItem,
+  upsertContextReference,
+} from '../context/context-reference-inventory.js';
 import {
   formatPromptFileReferenceDiagnostics,
   hasBlockingPromptFileReferenceDiagnostics,
   resolvePromptFileReferencePaths,
   toPromptFileReferenceRecords,
 } from '../context/prompt-file-references.js';
+
 import type {
   IContextReferenceAddResult,
   IContextReferenceItem,
 } from '../context/context-reference-inventory.js';
-import {
-  createContextReferenceItem,
-  upsertContextReference,
-} from '../context/context-reference-inventory.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 
 export interface IAddInteractiveContextReferenceResult {
   references: IContextReferenceItem[];

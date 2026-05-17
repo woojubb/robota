@@ -34,14 +34,35 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from '../command-api/provider/provider-command-probe.js';
-export { checkSettingsDocument } from '../command-api/provider/settings-check.js';
+export {
+  checkSettingsDocument,
+  checkSettingsFile,
+} from '../command-api/provider/settings-check.js';
 export type { TSettingsCheck } from '../command-api/provider/settings-check.js';
+export {
+  applyProviderConfiguration,
+  applyProviderSwitch,
+  applyActiveModelChange,
+  resolveProviderSettingsWriteTargetPath,
+} from '../command-api/provider/provider-configuration.js';
+export type {
+  IProviderSwitchOptions,
+  IActiveModelChangeOptions,
+  IActiveModelChangeResult,
+  IProviderSettingsWriteTargetOptions,
+} from '../command-api/provider/provider-configuration.js';
 export {
   mergeProviders,
   mergeSettings,
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
 } from '../command-api/provider/provider-merge.js';
+export type { IReadProviderSettingsOptions } from '../command-api/provider/provider-factory.js';
+export {
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
+} from '../command-api/provider/provider-factory.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
@@ -178,6 +199,8 @@ export {
   isStatusLineCommandSettingsPatch,
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
+  readStatusLineSettings,
+  applyStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
 export type {
   ICommandAvailablePlugin,

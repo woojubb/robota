@@ -6,6 +6,16 @@
  * these with thin wrappers.
  */
 
+import {
+  createExecutionWorkspaceSnapshot,
+  createExecutionWorkspaceTaskSpawner,
+  createMainThreadDetailPage,
+  parseExecutionWorkspaceEntryId,
+} from '../background-tasks/index.js';
+
+import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
+import type { SessionExecutionController } from './interactive-session-execution-controller.js';
+import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type {
   IExecutionDetailCursor,
   IExecutionDetailPage,
@@ -16,16 +26,7 @@ import type {
   IExecutionWorkspaceSnapshotOptions,
   IExecutionWorkspaceTaskSpawner,
 } from '../background-tasks/index.js';
-import {
-  createExecutionWorkspaceSnapshot,
-  createExecutionWorkspaceTaskSpawner,
-  createMainThreadDetailPage,
-  parseExecutionWorkspaceEntryId,
-} from '../background-tasks/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
-import type { SessionExecutionController } from './interactive-session-execution-controller.js';
-import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 
 export interface IWorkspaceSnapshotDeps {
   sessionId: string;

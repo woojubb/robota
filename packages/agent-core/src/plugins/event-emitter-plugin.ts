@@ -6,9 +6,8 @@ import {
   PluginCategory,
   PluginPriority,
 } from '../abstracts/abstract-plugin';
-import type { IToolExecutionContext } from '../interfaces/tool';
 import { createLogger, type ILogger } from '../utils/logger';
-import type { TTimerId } from '../utils';
+import { InMemoryEventEmitterMetrics, type IEventEmitterMetrics } from './event-emitter/metrics';
 import {
   EVENT_EMITTER_EVENTS,
   type IEventEmitterEventData,
@@ -16,12 +15,6 @@ import {
   type TEventName,
   type TEventEmitterListener,
 } from './event-emitter/types';
-import { InMemoryEventEmitterMetrics, type IEventEmitterMetrics } from './event-emitter/metrics';
-import type {
-  IEventEmitterHandlerRegistration,
-  IEventEmitterPluginOptions,
-  IEventEmitterPluginStats,
-} from './event-emitter/plugin-types';
 import {
   validateEventEmitterOptions,
   executeEventHandler,
@@ -31,6 +24,14 @@ import {
   unregisterHandler,
   buildToolCallEmitData,
 } from './event-emitter-helpers';
+
+import type { IToolExecutionContext } from '../interfaces/tool';
+import type { TTimerId } from '../utils';
+import type {
+  IEventEmitterHandlerRegistration,
+  IEventEmitterPluginOptions,
+  IEventEmitterPluginStats,
+} from './event-emitter/plugin-types';
 
 // Re-export types that were originally exported from this file
 export type { TEventName };

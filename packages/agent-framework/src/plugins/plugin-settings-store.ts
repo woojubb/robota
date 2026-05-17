@@ -6,9 +6,11 @@
  */
 
 import { dirname } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type { TMarketplaceSource } from './marketplace-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** Persisted marketplace source entry. */
 export interface IPersistedMarketplaceSource {

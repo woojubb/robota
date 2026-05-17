@@ -1,18 +1,19 @@
-import type { IAgentConfig, IRunOptions, TUniversalMessage } from '../interfaces/agent';
-import type {
-  IPluginContract,
-  IPluginHooks,
-  IPluginOptions,
-  IPluginStats,
-} from '../abstracts/abstract-plugin';
-import type { IModule } from '../abstracts/abstract-module';
 import { AbstractAgent } from '../abstracts/abstract-agent';
+
 import type {
   TModuleStats,
   TRegisterModuleOptions,
   TExecuteModuleContext,
   TExecuteModuleResult,
 } from './robota-types';
+import type { IModule } from '../abstracts/abstract-module';
+import type {
+  IPluginContract,
+  IPluginHooks,
+  IPluginOptions,
+  IPluginStats,
+} from '../abstracts/abstract-plugin';
+import type { IAgentConfig, IRunOptions, TUniversalMessage } from '../interfaces/agent';
 
 export type TPlugin = IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks;
 

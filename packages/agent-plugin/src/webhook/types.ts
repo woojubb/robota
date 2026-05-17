@@ -1,4 +1,9 @@
-import type { TExecutionEventName } from '@robota-sdk/agent-core';
+import type {
+  IPluginExecutionResult,
+  IPluginOptions,
+  IPluginStats,
+  TExecutionEventName,
+} from '@robota-sdk/agent-core';
 
 /**
  * Webhook plugin type definitions
@@ -109,7 +114,7 @@ export interface IWebhookExecutionResult {
   success?: boolean | undefined;
   usage?: { totalTokens?: number | undefined } | undefined;
   // SSOT: reuse the canonical toolCalls shape from IPluginExecutionResult.
-  toolCalls?: import('@robota-sdk/agent-core').IPluginExecutionResult['toolCalls'];
+  toolCalls?: IPluginExecutionResult['toolCalls'];
   results?:
     | Array<{
         toolName?: string | undefined;
@@ -147,8 +152,6 @@ export interface IWebhookEndpoint {
   timeout?: number;
   secret?: string;
 }
-
-import type { IPluginOptions, IPluginStats } from '@robota-sdk/agent-core';
 
 /**
  * Webhook plugin configuration options

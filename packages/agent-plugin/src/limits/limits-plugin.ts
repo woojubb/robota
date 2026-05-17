@@ -8,14 +8,7 @@ import {
   type ILogger,
   type TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type {
-  TLimitsStrategy,
-  ILimitsPluginOptions,
-  TPluginLimitsStatusData,
-  ILimitWindow,
-  ITokenBucket,
-} from './types';
-import { validateLimitsOptions } from './validation';
+
 import {
   defaultCostCalculator,
   estimateTokensFromMessages,
@@ -23,6 +16,15 @@ import {
   checkSlidingWindow,
   checkFixedWindow,
 } from './limits-helpers';
+import { validateLimitsOptions } from './validation';
+
+import type {
+  TLimitsStrategy,
+  ILimitsPluginOptions,
+  TPluginLimitsStatusData,
+  ILimitWindow,
+  ITokenBucket,
+} from './types';
 
 const DEFAULT_MAX_TOKENS = 100000;
 const DEFAULT_MAX_REQUESTS = 1000;

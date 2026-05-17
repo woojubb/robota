@@ -3,8 +3,9 @@
  * Used by model change, permission prompts, and other yes/no confirmations.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import React, { useState, useRef, useCallback } from 'react';
+
 import {
   applyConfirmPromptInput,
   getConfirmPromptInputAction,

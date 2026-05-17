@@ -5,9 +5,10 @@
  * refreshes them before each prompt turn.
  */
 
-import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import { refreshContextEntries } from '../context/context-file-tracker.js';
+
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
+import type { IContextFileEntry } from '../context/context-file-tracker.js';
 
 export async function checkAndRefreshContextIfStale(
   agentsFileEntries: IContextFileEntry[],

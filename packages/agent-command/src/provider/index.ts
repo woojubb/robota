@@ -28,3 +28,5 @@ export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
 } from '@robota-sdk/agent-framework';
+export { ensureProviderConfig, runProviderStartupSetup } from './provider-startup.js';
+export type { IProviderStartupContext, IEnsureProviderConfigOptions } from './provider-startup.js';

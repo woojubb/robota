@@ -1,8 +1,9 @@
+---
+title: 'CLI Diff Line Background Rendering'
+status: done
+---
+
 # CLI Diff Line Background Rendering
-
-## Status
-
-Completed.
 
 ## Created
 

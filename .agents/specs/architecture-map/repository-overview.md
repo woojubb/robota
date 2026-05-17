@@ -10,14 +10,58 @@ The repository is a TypeScript pnpm monorepo. Detailed package inventory lives i
 [../../project-structure.md](../../project-structure.md); package-specific contracts live in each
 `packages/<name>/docs/SPEC.md`.
 
-| Family                               | Packages/apps                                                                                                                                                                                                                                                 | Architecture route                                                                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Agent runtime and CLI                | `agent-core`, `agent-sdk`, `agent-sessions`, `agent-runtime`, `agent-tools`, `agent-tool-mcp`, `agent-command-*`, `agent-cli`, `agent-web` (browser monitor), `agent-transport-*`                                                                             | [agent-system.md](agent-system.md), [agent-cli-composition.md](agent-cli-composition.md)     |
-| Agent providers and remote execution | `agent-provider-*`, `agent-remote-client`, `agent-team`, `apps/agent-server`                                                                                                                                                                                  | [agent-system.md](agent-system.md), [cross-cutting-contracts.md](cross-cutting-contracts.md) |
-| Agent plugins                        | `agent-plugin-conversation-history`, `agent-plugin-error-handling`, `agent-plugin-event-emitter`, `agent-plugin-execution-analytics`, `agent-plugin-limits`, `agent-plugin-logging`, `agent-plugin-performance`, `agent-plugin-usage`, `agent-plugin-webhook` | [agent-system.md](agent-system.md)                                                           |
-| Agent playground                     | `agent-playground` (package), `apps/agent-web`                                                                                                                                                                                                                | [agent-system.md](agent-system.md), [apps-and-deployment.md](apps-and-deployment.md)         |
-| Documentation and publishing         | `apps/docs`, `apps/blog`, `content/`, package docs                                                                                                                                                                                                            | [apps-and-deployment.md](apps-and-deployment.md)                                             |
-| Cross-cutting contracts              | `auth`, `credits`, shared command/provider/session specs                                                                                                                                                                                                      | [cross-cutting-contracts.md](cross-cutting-contracts.md)                                     |
+```mermaid
+graph TD
+  subgraph Runtime["Agent Runtime & CLI"]
+    core["agent-core"]
+    framework["agent-framework"]
+    session["agent-session"]
+    executor["agent-executor"]
+    command["agent-command"]
+    tools["agent-tools · agent-tool-mcp"]
+    transport["agent-transport\n/tui /headless /ws /http /mcp"]
+    cli["agent-cli"]
+    webui["agent-web-ui"]
+    subrunner["agent-subagent-runner"]
+  end
+  subgraph Providers["Providers & Remote"]
+    provider["agent-provider"]
+    remote["agent-remote-client"]
+    team["agent-team"]
+    server["apps/agent-server"]
+  end
+  subgraph Plugins["Plugins"]
+    plugin["agent-plugin"]
+  end
+  subgraph Playground["Playground"]
+    playground["agent-playground"]
+    agentWeb["apps/agent-web"]
+  end
+  subgraph Docs["Docs & Publishing"]
+    docs["apps/docs"]
+    blog["apps/blog"]
+  end
+  subgraph CrossCutting["Cross-Cutting"]
+    auth["auth"]
+    credits["credits"]
+  end
+
+  Runtime --> Providers
+  Runtime --> Plugins
+  Playground --> Runtime
+  Playground --> Providers
+  Providers --> CrossCutting
+  Runtime --> CrossCutting
+```
+
+| Family                               | Packages/apps                                                                                                                                                                                                                                              | Architecture route                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Agent runtime and CLI                | `agent-core`, `agent-framework`, `agent-session`, `agent-executor`, `agent-tools`, `agent-tool-mcp`, `agent-command`, `agent-cli`, `agent-web` (browser monitor), `agent-transport` (subpaths: /tui, /headless, /ws, /http, /mcp), `agent-subagent-runner` | [agent-system.md](agent-system.md), [agent-cli-composition.md](agent-cli-composition.md)     |
+| Agent providers and remote execution | `agent-provider`, `agent-remote-client`, `agent-team`, `apps/agent-server`                                                                                                                                                                                 | [agent-system.md](agent-system.md), [cross-cutting-contracts.md](cross-cutting-contracts.md) |
+| Agent plugins                        | `agent-plugin` (single package — event, logging, usage, etc. modules)                                                                                                                                                                                      | [agent-system.md](agent-system.md)                                                           |
+| Agent playground                     | `agent-playground` (package), `apps/agent-web`                                                                                                                                                                                                             | [agent-system.md](agent-system.md), [apps-and-deployment.md](apps-and-deployment.md)         |
+| Documentation and publishing         | `apps/docs`, `apps/blog`, `content/`, package docs                                                                                                                                                                                                         | [apps-and-deployment.md](apps-and-deployment.md)                                             |
+| Cross-cutting contracts              | `auth`, `credits`, shared command/provider/session specs                                                                                                                                                                                                   | [cross-cutting-contracts.md](cross-cutting-contracts.md)                                     |
 
 For new product-visible capabilities, read [capability-placement.md](capability-placement.md) before
 choosing an owner package. Product visibility is not ownership; architecture ownership follows the

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command",
-  "version": "3.0.0-beta.65",
+  "version": "3.0.0-beta.66",
   "description": "Consolidated command module implementations for Robota SDK CLI",
   "type": "module",
   "main": "dist/node/index.js",
@@ -25,6 +25,8 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

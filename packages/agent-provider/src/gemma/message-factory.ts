@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type OpenAI from 'openai';
+
 import type { IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export function createStreamTextMessage(
   content: string,

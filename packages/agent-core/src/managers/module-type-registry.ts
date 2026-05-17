@@ -3,9 +3,6 @@
  *
  * Builtin registrations and helpers live in ./module-type-registry-helpers.ts.
  */
-import { ModuleCategory, ModuleLayer, type IModuleDescriptor } from '../abstracts/abstract-module';
-import { createLogger, type ILogger } from '../utils/logger';
-import { ConfigurationError } from '../utils/errors';
 import {
   getBuiltinTypeDescriptors,
   validateTypeDescriptor,
@@ -13,6 +10,11 @@ import {
   checkCompatibilityHelper,
   buildTypeRegistryStats,
 } from './module-type-registry-helpers';
+import { type IModuleDescriptor } from '../abstracts/abstract-module';
+import { ConfigurationError } from '../utils/errors';
+import { createLogger, type ILogger } from '../utils/logger';
+
+import type { ModuleCategory, ModuleLayer } from '../abstracts/abstract-module';
 
 /** Module type validation result */
 export interface IModuleDescriptorValidationResult {

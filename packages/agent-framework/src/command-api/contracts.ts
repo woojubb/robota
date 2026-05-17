@@ -1,7 +1,7 @@
-import type { TCapabilitySafety } from '../capabilities/types.js';
 import type { ICommandResult } from './command-result.js';
 import type { ICommandHostContext } from './host-context.js';
 import type { ICommand } from './types.js';
+import type { TCapabilitySafety } from '../capabilities/types.js';
 
 export type TSystemCommandLifecycle = 'inline' | 'blocking' | 'background';
 

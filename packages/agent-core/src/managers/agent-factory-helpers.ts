@@ -1,5 +1,6 @@
-import type { IAgent, IAgentConfig } from '../interfaces/agent';
 import { ConfigurationError } from '../utils/errors';
+
+import type { IAgent, IAgentConfig } from '../interfaces/agent';
 
 const MAX_CONCURRENT_AGENTS = 100;
 const DEFAULT_TEMPERATURE = 0.7;

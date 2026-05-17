@@ -1,8 +1,10 @@
-import type { IProviderProbeResult, IProviderProfileConfig } from '@robota-sdk/agent-core';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
+
+import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
+
 import type { ICommandResult } from '../command-result.js';
 import type { IProviderCommandModuleOptions } from './provider-command-types.js';
-import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
+import type { IProviderProbeResult, IProviderProfileConfig } from '@robota-sdk/agent-core';
 
 export async function testProviderProfileCommand(
   currentProvider: string | undefined,

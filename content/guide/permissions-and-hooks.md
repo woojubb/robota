@@ -2,7 +2,7 @@
 
 ## Permission System
 
-Defined in `agent-core`, consumed by `agent-sessions`. Provides deterministic 3-step policy evaluation for tool calls.
+Defined in `agent-core`, consumed by `agent-session`. Provides deterministic 3-step policy evaluation for tool calls.
 
 ### Evaluation Algorithm
 
@@ -43,7 +43,7 @@ ToolName             # Match any invocation (no arg constraint)
 
 ## Hook System
 
-Lifecycle hooks for extending session behavior. Defined in `agent-core` and `agent-sdk`, consumed by `agent-sessions`.
+Lifecycle hooks for extending session behavior. Defined in `agent-core` and `agent-framework`, consumed by `agent-session`.
 
 ### Events
 
@@ -68,12 +68,12 @@ Lifecycle hooks for extending session behavior. Defined in `agent-core` and `age
 
 ### Hook Types
 
-| Type      | Layer      | Description                                                   |
-| --------- | ---------- | ------------------------------------------------------------- |
-| `command` | agent-core | Shell command; receives JSON via stdin, uses exit codes       |
-| `http`    | agent-core | HTTP POST to a URL; supports env var interpolation in headers |
-| `prompt`  | agent-sdk  | Single-turn LLM evaluation; returns model response            |
-| `agent`   | agent-sdk  | Multi-turn subagent; runs a full agent loop                   |
+| Type      | Layer           | Description                                                   |
+| --------- | --------------- | ------------------------------------------------------------- |
+| `command` | agent-core      | Shell command; receives JSON via stdin, uses exit codes       |
+| `http`    | agent-core      | HTTP POST to a URL; supports env var interpolation in headers |
+| `prompt`  | agent-framework | Single-turn LLM evaluation; returns model response            |
+| `agent`   | agent-framework | Multi-turn subagent; runs a full agent loop                   |
 
 ### Hook Input
 
@@ -140,11 +140,11 @@ These environment variables use the `CLAUDE_` prefix for compatibility with Clau
 
 The session execution loop includes context budget checks to prevent exceeding the model's context window:
 
-- **Pre-send hard guard**: Before each provider call, core checks effective context usage against 95% of the context window and returns diagnostic values if it must block. Routine auto-compaction runs earlier in `agent-sessions` at the configured threshold, defaulting to ~83.5%.
+- **Pre-send hard guard**: Before each provider call, core checks effective context usage against 95% of the context window and returns diagnostic values if it must block. Routine auto-compaction runs earlier in `agent-session` at the configured threshold, defaulting to ~83.5%.
 - **Tool result budget**: Individual tool results are checked against an 80% context budget. Results exceeding this limit are replaced with an error message indicating the output was too large.
 - **Forced summary on turn exhaustion**: When `maxRounds` is exhausted, the session injects a synthetic user message and makes a final provider call without tools to produce a summary response.
 
-See [agent-sessions SPEC.md](../../packages/agent-sessions/docs/SPEC.md) for implementation details.
+See [agent-session SPEC.md](../../packages/agent-session/docs/SPEC.md) for implementation details.
 
 ## Subagent Hook Forwarding
 

@@ -3,10 +3,13 @@
  */
 
 import { z } from 'zod';
+
+import { atomicWriteUtf8File } from './atomic-file-write.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
+
+import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
-import { atomicWriteUtf8File } from './atomic-file-write.js';
 
 const WriteSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to write'),
@@ -43,7 +46,7 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}
 /**
  * Create a WriteTool instance — register with Robota agent tools registry.
  */
-export function createWriteTool(options: ISandboxToolOptions = {}) {
+export function createWriteTool(options: ISandboxToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Write',
     'Writes a file to the local filesystem. This will overwrite an existing file if one exists.\n\nALWAYS prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.\n\nNEVER create documentation files (*.md) or README files unless explicitly requested by the user.',

@@ -1,14 +1,16 @@
-import type {
-  ICommandInteraction,
-  ICommandResult,
-  IProviderCommandModuleOptions,
-} from '@robota-sdk/agent-framework';
 import {
   deleteProviderProfile,
   sanitizeProviderProfileName,
   upsertProviderProfile,
 } from '@robota-sdk/agent-framework';
+
 import { formatProviderChoiceLabel } from './provider-command-profile-operations.js';
+
+import type {
+  ICommandInteraction,
+  ICommandResult,
+  IProviderCommandModuleOptions,
+} from '@robota-sdk/agent-framework';
 
 const YES = 'yes';
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;
@@ -191,7 +193,10 @@ function completeActiveProviderDelete(
   };
 }
 
-function suggestDuplicateProfileName(profileName: string, existingProfileNames: readonly string[]) {
+function suggestDuplicateProfileName(
+  profileName: string,
+  existingProfileNames: readonly string[],
+): string {
   const base = sanitizeProviderProfileName(`${profileName}-copy`) ?? 'provider-copy';
   if (!existingProfileNames.includes(base)) {
     return base;

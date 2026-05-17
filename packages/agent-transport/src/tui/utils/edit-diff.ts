@@ -4,6 +4,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface IDiffLine {

@@ -1,9 +1,3 @@
-import type {
-  ICommandHostContext,
-  ICommandResult,
-  TAutoCompactThreshold,
-  TAutoCompactThresholdSource,
-} from '@robota-sdk/agent-framework';
 import {
   addCommandContextReference,
   clearCommandContextReferences,
@@ -16,6 +10,13 @@ import {
   resetAutoCompactThresholdSetting,
   setCommandAutoCompactThreshold,
   writeAutoCompactThresholdSetting,
+} from '@robota-sdk/agent-framework';
+
+import type {
+  ICommandHostContext,
+  ICommandResult,
+  TAutoCompactThreshold,
+  TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
 import type { IContextReferenceItem } from '@robota-sdk/agent-framework';
 

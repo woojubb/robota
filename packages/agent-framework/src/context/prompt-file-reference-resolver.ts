@@ -1,7 +1,13 @@
 import { resolve } from 'node:path';
 
-import type { IFileSystemAsync } from '@robota-sdk/agent-core';
+import { parsePromptFileReferences } from './prompt-file-reference-parser.js';
+import {
+  isPathWithinRoot,
+  normalizeRelativePath,
+  resolveCandidatePath,
+} from './prompt-file-reference-paths.js';
 import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
+
 import type {
   IPromptFileReferenceDiagnostic,
   IPromptFileReferenceLimits,
@@ -12,12 +18,7 @@ import type {
   TPromptFileReferenceDiagnosticCode,
   TPromptFileReferenceReason,
 } from './prompt-file-reference-types.js';
-import { parsePromptFileReferences } from './prompt-file-reference-parser.js';
-import {
-  isPathWithinRoot,
-  normalizeRelativePath,
-  resolveCandidatePath,
-} from './prompt-file-reference-paths.js';
+import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 
 const DEFAULT_MAX_DEPTH = Number('2');
 const DEFAULT_MAX_REFERENCES = Number('8');
