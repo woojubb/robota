@@ -27,21 +27,21 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 38494 events in the last 7 days
+- Frequency: 39244 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p23-plugin-adapter-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p5-cli-terminal-io-injection.md`
 - First seen: 2026-05-11T11:18:09.000Z
-- Last seen: 2026-05-17T16:31:15.000Z
+- Last seen: 2026-05-17T17:08:14.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 205 events in the last 7 days
+- Frequency: 207 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-11T11:18:09.000Z
-- Last seen: 2026-05-17T16:31:15.000Z
+- Last seen: 2026-05-17T17:08:14.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
