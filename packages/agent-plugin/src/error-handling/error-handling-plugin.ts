@@ -8,11 +8,6 @@ import {
 } from '@robota-sdk/agent-core';
 
 // Import from Facade pattern modules for type safety
-import type {
-  IErrorHandlingContextData,
-  IErrorHandlingPluginOptions,
-  IErrorHandlingPluginStats,
-} from './types';
 import { toErrorContext, createPluginErrorContext } from './context-adapter';
 import {
   validateErrorHandlingOptions,
@@ -20,6 +15,12 @@ import {
   isCircuitBreakerStillOpen,
   sleep,
 } from './error-handling-helpers';
+
+import type {
+  IErrorHandlingContextData,
+  IErrorHandlingPluginOptions,
+  IErrorHandlingPluginStats,
+} from './types';
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 1000;
@@ -106,7 +107,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
       this.logger.error('Error occurred', {
         error: error.message,
         stack: error.stack,
-        context: context,
+        context,
       });
     }
 
@@ -180,8 +181,8 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
           this.failureCount = 0;
           this.circuitBreakerOpen = false;
           this.logger.info('Operation succeeded after retry', {
-            attempt: attempt,
-            context: context,
+            attempt,
+            context,
           });
         }
 
@@ -201,9 +202,9 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
           );
 
           this.logger.debug('Retrying operation', {
-            attempt: attempt,
-            delay: delay,
-            context: context,
+            attempt,
+            delay,
+            context,
           });
           await sleep(delay);
         } else {
@@ -258,7 +259,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
     // Simple logging - no additional logic
     this.logger.debug('Simple error handling applied', {
       error: error.message,
-      context: context,
+      context,
     });
   }
 
@@ -274,7 +275,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
       this.logger.warn('Circuit breaker opened', {
         failureCount: this.failureCount,
         threshold: this.pluginOptions.failureThreshold,
-        context: context,
+        context,
       });
     }
   }
@@ -287,7 +288,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
     this.logger.debug('Exponential backoff error handling applied', {
       error: _error.message,
       failureCount: this.failureCount,
-      context: context,
+      context,
     });
   }
 }
