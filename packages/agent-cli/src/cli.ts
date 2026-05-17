@@ -13,26 +13,7 @@ import { PrintTerminal } from './print-terminal.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { findProviderDefinition } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-framework';
-import { createAgentCommandModule } from '@robota-sdk/agent-command';
-import { createBackgroundCommandModule } from '@robota-sdk/agent-command';
-import { createProviderCommandModule } from '@robota-sdk/agent-command';
-import { createCompactCommandModule } from '@robota-sdk/agent-command';
-import { createContextCommandModule } from '@robota-sdk/agent-command';
-import { createExitCommandModule } from '@robota-sdk/agent-command';
-import { createHelpCommandModule } from '@robota-sdk/agent-command';
-import { createLanguageCommandModule } from '@robota-sdk/agent-command';
-import { createMemoryCommandModule } from '@robota-sdk/agent-command';
-import { createModelCommandModule } from '@robota-sdk/agent-command';
-import { createPermissionsCommandModule } from '@robota-sdk/agent-command';
-import { createPluginCommandModule } from '@robota-sdk/agent-command';
-import { createResetCommandModule } from '@robota-sdk/agent-command';
-import { createRewindCommandModule } from '@robota-sdk/agent-command';
-import { createStatusLineCommandModule } from '@robota-sdk/agent-command';
-import { createSessionCommandModule } from '@robota-sdk/agent-command';
-import { createSkillsCommandModule } from '@robota-sdk/agent-command';
-import { createUserLocalCommandModule } from '@robota-sdk/agent-command';
-import { createModeCommandModule } from '@robota-sdk/agent-command';
-import { createSettingsCommandModule } from '@robota-sdk/agent-command';
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import {
   InteractiveSession,
   createProjectSessionStore,
@@ -142,53 +123,6 @@ export interface IStartCliOptions {
   providerDefinitions?: readonly IProviderDefinition[];
 }
 
-export interface ICreateDefaultCliCommandModulesOptions {
-  cwd: string;
-  providerDefinitions: readonly IProviderDefinition[];
-}
-
-export function createDefaultCliCommandModules({
-  cwd,
-  providerDefinitions,
-}: ICreateDefaultCliCommandModulesOptions): readonly ICommandModule[] {
-  return [
-    createSkillsCommandModule({ cwd }),
-    createHelpCommandModule(),
-    createAgentCommandModule(),
-    createModelCommandModule({
-      providerDefinitions,
-      settings: {
-        readMergedSettings: () => readMergedProviderSettings(cwd),
-      },
-    }),
-    createPermissionsCommandModule(),
-    createModeCommandModule(),
-    createLanguageCommandModule(),
-    createBackgroundCommandModule(),
-    createMemoryCommandModule(),
-    createUserLocalCommandModule(),
-    createCompactCommandModule(),
-    createContextCommandModule(),
-    createExitCommandModule(),
-    createSessionCommandModule(),
-    createResetCommandModule(),
-    createRewindCommandModule(),
-    createStatusLineCommandModule(),
-    createPluginCommandModule(),
-    createSettingsCommandModule(),
-    createProviderCommandModule({
-      providerDefinitions,
-      settings: {
-        readMergedSettings: () => readMergedProviderSettings(cwd),
-        readTargetSettings: () =>
-          readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
-        writeTargetSettings: (settings) =>
-          writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
-      },
-    }),
-  ];
-}
-
 interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
   providerDefinitions: readonly IProviderDefinition[];
@@ -210,8 +144,15 @@ function buildCommandSetup(
     plugin: createCliPluginCommandAdapter(cwd),
   };
   const providerDefinitions = options.providerDefinitions ?? DEFAULT_PROVIDER_DEFINITIONS;
+  const providerSettingsAdapter = {
+    readMergedSettings: () => readMergedProviderSettings(cwd),
+    readTargetSettings: () =>
+      readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+    writeTargetSettings: (settings: TProviderSettingsDocument) =>
+      writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+  };
   const commandModules: readonly ICommandModule[] = [
-    ...createDefaultCliCommandModules({ cwd, providerDefinitions }),
+    ...createDefaultCommandModules({ cwd, providerDefinitions, providerSettingsAdapter }),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
