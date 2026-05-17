@@ -1,7 +1,7 @@
 import { fork } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { IProviderConfig } from '@robota-sdk/agent-core';
+
 import {
   BackgroundTaskError,
   createBackgroundTaskLogPage,
@@ -15,13 +15,8 @@ import {
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
 } from '@robota-sdk/agent-executor';
-import type {
-  IAgentDefinition,
-  IInProcessSubagentRunnerDeps,
-  TSubagentRunnerFactory,
-} from '@robota-sdk/agent-framework';
 import { getBuiltInAgent } from '@robota-sdk/agent-framework';
-import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
+
 import {
   createCancellationResult,
   createChildProcessSubagentResult,
@@ -31,6 +26,14 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+
+import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
+import type { IProviderConfig } from '@robota-sdk/agent-core';
+import type {
+  IAgentDefinition,
+  IInProcessSubagentRunnerDeps,
+  TSubagentRunnerFactory,
+} from '@robota-sdk/agent-framework';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
 
