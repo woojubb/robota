@@ -1,5 +1,19 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.66
+
+### Patch Changes
+
+- refactor: CLI-001/002 — agent-cli layer separation and monorepo-wide readability lint rules
+  - CLI-001: Extract startup phases into focused modules; enforce agent-cli layer separation
+  - CLI-002: Apply import/order, consistent-type-imports, explicit-function-return-type, prefer-const, object-shorthand across all packages
+  - Fix stale child-process-subagent-worker entry in agent-cli tsdown.config.ts (build fix)
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.0-beta.66
+  - @robota-sdk/agent-core@3.0.0-beta.66
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.66
+
 ## 3.0.0-beta.65
 
 ### Minor Changes
