@@ -5,8 +5,8 @@
  * All public method signatures are preserved via delegation.
  */
 import type { IModule } from '../abstracts/abstract-module';
-import type { ModuleRegistry } from '../managers/module-registry';
 import type { IModuleResultData, IModuleExecutionContext } from '../abstracts/abstract-module';
+import type { ModuleRegistry } from '../managers/module-registry';
 import type { ILogger } from '../utils/logger';
 
 /**

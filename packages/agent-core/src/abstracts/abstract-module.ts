@@ -4,18 +4,6 @@
  * Defines the core lifecycle contract for Robota modules.
  * Type definitions live in ./abstract-module-types.ts.
  */
-import type { ILogger } from '../utils/logger';
-import { SilentLogger } from '../utils/logger';
-import {
-  EVENT_EMITTER_EVENTS,
-  type IEventEmitterPlugin,
-  type TEventDataValue,
-} from '../plugins/event-emitter/types';
-import type {
-  IModuleInitializationEventData,
-  IModuleExecutionEventData,
-  IModuleDisposalEventData,
-} from './abstract-module-events';
 import {
   buildModuleContextData,
   convertModuleEventData,
@@ -29,6 +17,31 @@ import {
   emitDisposeCompleteEvent,
   emitDisposeErrorEvent,
 } from './module-helpers';
+import {
+  EVENT_EMITTER_EVENTS,
+  type IEventEmitterPlugin,
+  type TEventDataValue,
+} from '../plugins/event-emitter/types';
+import { SilentLogger } from '../utils/logger';
+
+import type {
+  IModuleInitializationEventData,
+  IModuleExecutionEventData,
+  IModuleDisposalEventData,
+} from './abstract-module-events';
+import type {
+  IModuleExecutionContext,
+  IModuleExecutionResult,
+  IModuleResultData,
+  IBaseModuleOptions,
+  IModuleCapabilities,
+  IModuleDescriptor,
+  IModuleData,
+  IModuleStats,
+  IModule,
+  IModuleHooks,
+} from './abstract-module-types';
+import type { ILogger } from '../utils/logger';
 
 // Re-export all types so existing importers keep working
 export type {
@@ -45,19 +58,6 @@ export type {
   IModuleHooks,
 } from './abstract-module-types';
 export { ModuleCategory, ModuleLayer } from './abstract-module-types';
-
-import type {
-  IModuleExecutionContext,
-  IModuleExecutionResult,
-  IModuleResultData,
-  IBaseModuleOptions,
-  IModuleCapabilities,
-  IModuleDescriptor,
-  IModuleData,
-  IModuleStats,
-  IModule,
-  IModuleHooks,
-} from './abstract-module-types';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;

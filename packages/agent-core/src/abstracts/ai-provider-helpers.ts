@@ -4,9 +4,9 @@
  * Extracted from abstracts/abstract-ai-provider.ts to keep that file under 300 lines.
  * Contains message/tool validation and executor delegation utilities.
  */
-import type { IToolSchema, IChatOptions } from '../interfaces/provider';
-import type { TUniversalMessage } from '../interfaces/messages';
 import type { IExecutor } from '../interfaces/executor';
+import type { TUniversalMessage } from '../interfaces/messages';
+import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 
 /**
  * Validate that messages is a non-empty array of messages with valid roles.

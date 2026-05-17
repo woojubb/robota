@@ -4,15 +4,16 @@
  * Extracted from abstract-workflow-validator.ts to keep each file under 300 lines.
  * @internal
  */
+import { ValidationSeverity } from '../interfaces/workflow-validator';
+
+import type { IValidatorStats, IValidationRuleConfig } from './abstract-workflow-validator';
+import type { TUniversalValue } from '../interfaces/types';
+import type { IWorkflowData } from '../interfaces/workflow-converter';
 import type {
   IValidationOptions,
   IValidationResult,
   IValidationIssue,
 } from '../interfaces/workflow-validator';
-import { ValidationSeverity } from '../interfaces/workflow-validator';
-import type { IWorkflowData } from '../interfaces/workflow-converter';
-import type { TUniversalValue } from '../interfaces/types';
-import type { IValidatorStats, IValidationRuleConfig } from './abstract-workflow-validator';
 
 const PREVIEW_LENGTH = 100;
 const TOP_ISSUES_COUNT = 10;

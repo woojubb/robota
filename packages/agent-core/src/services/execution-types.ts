@@ -1,9 +1,9 @@
 import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
-import type { TMetadata } from '../interfaces/types';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
-import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
+import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
 export const PREVIEW_LENGTH = 100;

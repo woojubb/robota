@@ -5,17 +5,18 @@
  * Creates RobotaModuleManager, RobotaPluginManager, and RobotaConfigManager
  * with all required closures bound to the Robota instance state.
  */
-import type { ILogger } from '../utils/logger';
-import type { IAgentConfig } from '../interfaces/agent';
-import type { IAgentEventData } from '../interfaces/event-service';
-import type { AIProviders } from '../managers/ai-provider-manager';
-import type { Tools } from '../managers/tool-manager';
-import type { IEventService } from '../interfaces/event-service';
-import type { ExecutionService } from '../services/execution-service';
-import { ModuleRegistry } from '../managers/module-registry';
+import { RobotaConfigManager } from './robota-config-manager';
 import { RobotaModuleManager } from './robota-module-manager';
 import { RobotaPluginManager } from './robota-plugin-manager';
-import { RobotaConfigManager } from './robota-config-manager';
+
+import type { IAgentConfig } from '../interfaces/agent';
+import type { IAgentEventData } from '../interfaces/event-service';
+import type { IEventService } from '../interfaces/event-service';
+import type { AIProviders } from '../managers/ai-provider-manager';
+import type { ModuleRegistry } from '../managers/module-registry';
+import type { Tools } from '../managers/tool-manager';
+import type { ExecutionService } from '../services/execution-service';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Mutable state references for the Robota instance.
