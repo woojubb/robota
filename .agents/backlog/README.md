@@ -361,3 +361,37 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [REFACTOR-021](REFACTOR-021-getcwd-fallback-removal.md)                   | getCwd() process.cwd() silent fallback 제거            | low      |
 | [REFACTOR-022](REFACTOR-022-remote-client-emoji-logger.md)                | agent-remote-client 이모지 + 진단 로거 정리            | low      |
 | [REFACTOR-023](REFACTOR-023-tmodelconfig-interface-rename.md)             | TModelConfig / TConfigurationSnapshot → interface 변환 | low      |
+
+### agent-cli 아키텍처 코드리뷰 — 2026-05-17
+
+코드리뷰 보고서: [.design/agent-cli-review-2026-05-17.html](../../.design/agent-cli-review-2026-05-17.html)
+
+#### Critical
+
+| ID                                                                          | 제목                                                                        | 우선순위 |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| [CLIR-C01](CLIR-C01-subagent-runner-layer-violation.md)                     | subagent-setup.ts — @robota-sdk/agent-subagent-runner 직접 import 계층 위반 | critical |
+| [CLIR-C02](CLIR-C02-print-mode-interactive-session-direct-instantiation.md) | print-mode.ts — new InteractiveSession() 직접 생성으로 IAgentRuntime 우회   | critical |
+
+#### High
+
+| ID                                                                | 제목                                                               | 우선순위 |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ | -------- |
+| [CLIR-H01](CLIR-H01-startup-process-sideeffects.md)               | startup/ 모듈의 process.exit/stderr.write 직접 호출 제거           | high     |
+| [CLIR-H02](CLIR-H02-shellexec-duplication.md)                     | shellExec 클로저 중복 — print-mode와 tui-mode에 동일 코드 분리     | high     |
+| [CLIR-H03](CLIR-H03-provider-settings-name-semantic-confusion.md) | tui-mode.ts — providerSettings.name을 providerOverride에 잘못 사용 | high     |
+
+#### Medium
+
+| ID                                                                   | 제목                                                                        | 우선순위 |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| [CLIR-M01](CLIR-M01-create-default-provider-definitions-repeated.md) | provider-startup.ts — createDefaultProviderDefinitions() 기본 인자 4중 복제 | medium   |
+| [CLIR-M02](CLIR-M02-tty-detection-inline.md)                         | TTY 인터랙티브 검출이 startup 모듈 내부에 인라인 하드코딩                   | medium   |
+| [CLIR-M03](CLIR-M03-system-prompt-implement-or-remove.md)            | --system-prompt 미구현 플래그 완전 구현 또는 완전 제거                      | medium   |
+
+#### Low
+
+| ID                                                         | 제목                                                              | 우선순위 |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- | -------- |
+| [CLIR-L01](CLIR-L01-agent-name-hardcoded.md)               | agentName 하드코딩 — robota-cli 문자열 상수로 추출                | low      |
+| [CLIR-L02](CLIR-L02-tuniversalvalue-unnecessary-import.md) | bin.ts — TUniversalValue catch 타입 선언 제거 및 unknown으로 교체 | low      |
