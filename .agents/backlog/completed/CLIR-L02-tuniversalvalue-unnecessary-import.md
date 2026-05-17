@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-L02: bin.ts — TUniversalValue catch 타입 선언 제거 및 unknown으로 교체'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: low
 urgency: later
 area: packages/agent-cli
@@ -57,3 +58,9 @@ startCli().catch((err: unknown) => {
 Not applicable — 타입 선언 변경으로 런타임 동작이 동일하다.
 `err instanceof Error ? err.message : String(err)` narrowing 로직은 변경되지 않으며,
 사용자가 관찰 가능한 제품 동작 변화가 없다. typecheck 통과로 검증한다.
+
+**Evidence (2026-05-17)**:
+
+- `pnpm --filter @robota-sdk/agent-cli typecheck` → 0 errors
+- `grep -n "TUniversalValue" packages/agent-cli/src/bin.ts` → 결과 없음 (import 삭제됨)
+- `packages/agent-cli/src/bin.ts:32: startCli().catch((err) => {` — 타입 선언 없이 올바르게 narrowing

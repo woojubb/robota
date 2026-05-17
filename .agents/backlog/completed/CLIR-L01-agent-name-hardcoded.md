@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-L01: agentName 하드코딩 — robota-cli 문자열 상수로 추출'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: low
 urgency: later
 area: packages/agent-cli
@@ -45,3 +46,9 @@ agentName: 'robota-cli',
 
 Not applicable — 하드코딩된 문자열을 상수로 추출하는 순수 내부 리팩토링으로,
 사용자가 관찰 가능한 제품 동작 변화가 없다. 빌드 및 typecheck 통과로 검증한다.
+
+**Evidence (2026-05-17)**:
+
+- `pnpm --filter @robota-sdk/agent-cli typecheck` → 0 errors
+- `grep -n "'robota-cli'" packages/agent-cli/src/modes/print-mode.ts packages/agent-cli/src/modes/tui-mode.ts` → 결과 없음 (상수 참조로 교체됨)
+- `packages/agent-cli/src/constants.ts:1: export const AGENT_CLI_NAME = 'robota-cli';` — 단일 정의 확인
