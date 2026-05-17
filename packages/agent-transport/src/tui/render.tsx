@@ -19,7 +19,6 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { ITuiCommandInteraction } from './command-interaction.js';
 
 export interface IRenderOptions {
   cwd: string;
@@ -46,7 +45,6 @@ export interface IRenderOptions {
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
-  resolveInteraction?: (commandName: string) => ITuiCommandInteraction | undefined;
 }
 
 export async function renderApp(options: IRenderOptions): Promise<void> {

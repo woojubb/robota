@@ -7,49 +7,49 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## fix-or-revert-commit
 
-- Frequency: 18 events in the last 7 days
+- Frequency: 15 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-04T14:53:45.000Z
-- Last seen: 2026-05-06T18:43:02.000Z
+- First seen: 2026-05-16T15:43:35.000Z
+- Last seen: 2026-05-16T17:37:06.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:user-correction -->
 
 ## user-correction
 
-- Frequency: 13 events in the last 7 days
+- Frequency: 9 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
-- First seen: 2026-05-10T12:20:36.000Z
-- Last seen: 2026-05-15T12:46:06.000Z
+- First seen: 2026-05-11T16:27:39.000Z
+- Last seen: 2026-05-17T02:42:17.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 11255 events in the last 7 days
+- Frequency: 17332 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/skills/branch-guard/SKILL.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-001-consolidate-provider-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-002-consolidate-transport-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-003-consolidate-command-packages.md`
-- First seen: 2026-05-10T05:29:56.000Z
-- Last seen: 2026-05-16T14:58:47.000Z
+- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-001-consolidate-provider-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-002-consolidate-transport-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-003-consolidate-command-packages.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-FIX-006-resolve-legacy-provider-fallback.md`
+- First seen: 2026-05-11T11:18:09.000Z
+- Last seen: 2026-05-17T03:27:29.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 163 events in the last 7 days
+- Frequency: 140 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-10T05:52:53.000Z
-- Last seen: 2026-05-16T14:58:47.000Z
+- First seen: 2026-05-11T11:18:09.000Z
+- Last seen: 2026-05-17T03:27:29.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 26 events in the last 7 days
+- Frequency: 18 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/ui/hooks/useSideEffects.ts`, `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`, `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-core/src/services/execution-round-provider.ts`
-- First seen: 2026-05-10T06:11:13.000Z
+- Example paths: `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-core/src/services/execution-round-provider.ts`, `packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts`, `packages/agent-framework/src/command-api/provider/provider-merge.ts`, `packages/agent-framework/src/context/prompt-file-reference-resolver.ts`
+- First seen: 2026-05-14T13:52:54.000Z
 - Last seen: 2026-05-16T05:21:26.000Z
 - Status: candidate; human review is required before promotion.
