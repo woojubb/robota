@@ -259,3 +259,24 @@ Fix: created new package `@robota-sdk/agent-subagent-runner`. Moved to it:
 (depends on `InteractiveSession`, cannot leave). `agent-cli` now imports
 `createChildProcessSubagentRunnerFactory` and `getDefaultSubagentWorkerPath` from
 `@robota-sdk/agent-subagent-runner`; the manual worker path construction is removed.
+
+### CLI-AUDIT-023: `plugin-command-adapter` + `plugin-command-source-loader` — plugin bridge owned by agent-cli, belongs in agent-command
+
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+
+`packages/agent-cli/src/plugins/plugin-command-adapter.ts` and `plugin-command-source-loader.ts`
+had zero CLI-specific type dependencies — only `agent-framework` types and Node.js stdlib.
+Both bridge BundlePlugin system (agent-framework) → CommandSource / ICommandPluginAdapter
+(agent-command contracts).
+
+Original plan was to move to `agent-framework`, but `agent-framework` cannot import from
+`agent-command` (stack order violation). The correct owner is `agent-command`, which already
+depends on `agent-framework` and owns all command-layer contracts.
+
+Fix:
+
+- Created `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`
+  (renamed `createCliPluginCommandAdapter` → `createDefaultPluginCommandAdapter`)
+- Created `packages/agent-command/src/plugins/default-plugin-command-source-loader.ts`
+- Exported both from `@robota-sdk/agent-command`
+- `agent-cli` imports both from `@robota-sdk/agent-command`; `plugins/` directory deleted

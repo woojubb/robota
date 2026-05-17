@@ -1,6 +1,6 @@
-# ARCH-002-p23: Move plugin-command-adapter and plugin-command-source-loader to agent-framework
+# ARCH-002-p23: Move plugin-command-adapter and plugin-command-source-loader out of agent-cli
 
-## Status: todo
+## Status: done
 
 ## Problem
 
@@ -22,31 +22,32 @@ is trapped in agent-cli.
 Per CLI-AUDIT-009 and the Composable-material-first rule: these are reusable SDK capabilities,
 not CLI-specific adapters.
 
-## Fix
+## Design decision (revised from original)
 
-1. Move `plugin-command-adapter.ts` to
-   `packages/agent-framework/src/plugins/default-plugin-command-adapter.ts`
-   - Rename `createCliPluginCommandAdapter` → `createDefaultPluginCommandAdapter`
-2. Move `plugin-command-source-loader.ts` to
-   `packages/agent-framework/src/plugins/default-plugin-command-source-loader.ts`
-   - Keep `reloadPluginCommandSource` name (already generic)
-3. Export both from `packages/agent-framework/src/index.ts`:
-   ```typescript
-   export { createDefaultPluginCommandAdapter } from './plugins/default-plugin-command-adapter.js';
-   export { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
-   ```
-4. Update `packages/agent-cli/src/startup/command-setup.ts`:
-   - Replace import of `createCliPluginCommandAdapter` from local with
-     `createDefaultPluginCommandAdapter` from `@robota-sdk/agent-framework`
-5. Update `packages/agent-cli/src/cli.ts`:
-   - Replace import of `reloadPluginCommandSource` from local plugin loader with
-     import from `@robota-sdk/agent-framework`
-6. Delete `packages/agent-cli/src/plugins/plugin-command-adapter.ts` and
-   `packages/agent-cli/src/plugins/plugin-command-source-loader.ts`
-7. Delete `packages/agent-cli/src/plugins/` directory if empty
-8. Build and typecheck both packages; run tests.
+Original plan was to move to `agent-framework`. Revised to `agent-command` because:
+
+- These adapters bridge BundlePlugin (agent-framework) → CommandSource (agent-command)
+- `agent-command` already depends on `agent-framework` → no new circular deps
+- `agent-framework` cannot import from `agent-command` (it's above in the stack)
+- "How plugins are loaded" (agent-framework) vs "How plugin commands are exposed" (agent-command)
+  are separate concerns
+
+## Fix (implemented)
+
+1. Created `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`
+   - Renamed `createCliPluginCommandAdapter` → `createDefaultPluginCommandAdapter`
+2. Created `packages/agent-command/src/plugins/default-plugin-command-source-loader.ts`
+   - Kept `reloadPluginCommandSource` name (already generic)
+3. Exported both from `packages/agent-command/src/index.ts`
+4. Updated `packages/agent-cli/src/startup/command-setup.ts`:
+   - Replaced `createCliPluginCommandAdapter` (local) with `createDefaultPluginCommandAdapter`
+     from `@robota-sdk/agent-command`
+5. Updated `packages/agent-cli/src/cli.ts`:
+   - Replaced local import of `reloadPluginCommandSource` with `@robota-sdk/agent-command`
+6. Deleted `packages/agent-cli/src/plugins/plugin-command-adapter.ts`,
+   `packages/agent-cli/src/plugins/plugin-command-source-loader.ts`, and the `plugins/` directory
 
 ## Architecture map update
 
-- Add `CLI-AUDIT-023` to layering-audit.md (new finding, immediately resolved)
-- Update composition-tree.md: plugin adapter imported from `@robota-sdk/agent-framework`
+- Added `CLI-AUDIT-023` to layering-audit.md (resolved)
+- Updated composition-tree.md: plugin adapter imported from `@robota-sdk/agent-command`

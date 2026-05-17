@@ -14,9 +14,11 @@ import type {
   ICommandModule,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import {
+  createDefaultCommandModules,
+  createDefaultPluginCommandAdapter,
+} from '@robota-sdk/agent-command';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
-import { createCliPluginCommandAdapter } from '../plugins/plugin-command-adapter.js';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 export interface IStartCliOptions {
@@ -42,7 +44,7 @@ export function buildCommandSetup(
       read: () => readSettings(getUserSettingsPath()),
       write: (settings) => writeSettings(getUserSettingsPath(), settings),
     },
-    plugin: createCliPluginCommandAdapter(cwd),
+    plugin: createDefaultPluginCommandAdapter(cwd),
   };
   const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
   const providerSettingsAdapter = {

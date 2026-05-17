@@ -16,7 +16,7 @@ import type {
   TPluginInstallScope,
 } from '@robota-sdk/agent-framework';
 
-interface ICliPluginServices {
+interface IPluginServices {
   cwd: string;
   marketplace: MarketplaceClient;
   installer: BundlePluginInstaller;
@@ -24,7 +24,7 @@ interface ICliPluginServices {
   settingsStore: PluginSettingsStore;
 }
 
-function createCliPluginServices(cwd: string): ICliPluginServices {
+function createPluginServices(cwd: string): IPluginServices {
   const home = homedir();
   const pluginsDir = join(home, '.robota', 'plugins');
   const userSettingsPath = join(home, '.robota', 'settings.json');
@@ -55,7 +55,7 @@ function createCliPluginServices(cwd: string): ICliPluginServices {
 }
 
 async function listInstalledPlugins(
-  services: ICliPluginServices,
+  services: IPluginServices,
 ): Promise<readonly ICommandInstalledPlugin[]> {
   const plugins = await services.loader.loadAll();
   const enabledMap = services.settingsStore.getEnabledPlugins();
@@ -75,7 +75,7 @@ async function listInstalledPlugins(
 }
 
 async function listAvailablePlugins(
-  services: ICliPluginServices,
+  services: IPluginServices,
   marketplaceName: string,
 ): Promise<readonly ICommandAvailablePlugin[]> {
   let manifest: IMarketplaceManifest;
@@ -95,7 +95,7 @@ async function listAvailablePlugins(
 }
 
 async function installPlugin(
-  services: ICliPluginServices,
+  services: IPluginServices,
   pluginId: string,
   scope?: TPluginInstallScope,
 ): Promise<void> {
@@ -122,7 +122,7 @@ async function installPlugin(
   await services.installer.install(name, marketplaceName);
 }
 
-async function removeMarketplace(services: ICliPluginServices, name: string): Promise<void> {
+async function removeMarketplace(services: IPluginServices, name: string): Promise<void> {
   const installedFromMarketplace = services.installer.getPluginsByMarketplace(name);
   for (const record of installedFromMarketplace) {
     await services.installer.uninstall(`${record.pluginName}@${record.marketplace}`);
@@ -130,15 +130,15 @@ async function removeMarketplace(services: ICliPluginServices, name: string): Pr
   services.marketplace.removeMarketplace(name);
 }
 
-function listMarketplaces(services: ICliPluginServices): readonly ICommandMarketplaceSource[] {
+function listMarketplaces(services: IPluginServices): readonly ICommandMarketplaceSource[] {
   return services.marketplace.listMarketplaces().map((marketplaceEntry) => ({
     name: marketplaceEntry.name,
     type: marketplaceEntry.source.type,
   }));
 }
 
-export function createCliPluginCommandAdapter(cwd: string): ICommandPluginAdapter {
-  const services = createCliPluginServices(cwd);
+export function createDefaultPluginCommandAdapter(cwd: string): ICommandPluginAdapter {
+  const services = createPluginServices(cwd);
   return {
     listInstalled: () => listInstalledPlugins(services),
     listAvailablePlugins: (marketplaceName) => listAvailablePlugins(services, marketplaceName),

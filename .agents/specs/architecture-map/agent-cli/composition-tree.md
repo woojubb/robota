@@ -21,7 +21,7 @@ packages/agent-cli/src/bin.ts
    |- buildCommandSetup()  (startup/command-setup.ts)
    |  |- commandHostAdapters
    |  |  |- settings adapter -> agent-framework settings-io
-   |  |  `- plugin adapter -> plugins/plugin-command-adapter.ts
+   |  |  `- plugin adapter -> createDefaultPluginCommandAdapter()  (agent-command)
    |  |- providerDefinitions = DEFAULT_PROVIDER_DEFINITIONS  (utils/provider-default-definitions.ts)
    |  |  |- agent-provider-anthropic
    |  |  |- agent-provider-openai
@@ -65,7 +65,8 @@ packages/agent-cli/src/bin.ts
    `- otherwise interactive mode
       |- new TuiTransport({ cwd, provider, ..., transportRegistry, cliAdapter })
       |  |- transportRegistry = createDefaultTransportRegistry()  (agent-transport)
-      |  `- cliAdapter = createDefaultTuiCliAdapter()  (agent-transport/tui)
+      |  `- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-transport/tui)
+      |     `- reloadPluginCommandSource  (agent-command)
       `- tuiTransport.start() -> renderApp()  (agent-transport-tui)
          `- App.tsx  (agent-transport-tui)
             |- useInteractiveSession()

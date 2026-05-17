@@ -16,6 +16,7 @@ export function reloadPluginCommandSource(registry: CommandRegistry): number {
   const pluginsDir = join(getHomeDir(), '.robota', 'plugins');
   const loader = new BundlePluginLoader(pluginsDir);
   try {
+    // allow-fallback: plugin load failure is non-fatal — clear source and return empty
     const plugins = loader.loadPluginsSync();
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);

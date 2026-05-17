@@ -19,3 +19,5 @@ export * from './settings/index.js';
 export * from './skills/index.js';
 export * from './statusline/index.js';
 export * from './user-local/index.js';
+export { createDefaultPluginCommandAdapter } from './plugins/default-plugin-command-adapter.js';
+export { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';

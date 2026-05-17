@@ -31,7 +31,7 @@ import {
   createChildProcessSubagentRunnerFactory,
   getDefaultSubagentWorkerPath,
 } from '@robota-sdk/agent-subagent-runner';
-import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
+import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { readVersion } from './startup/version.js';
 import { resetConfig } from './startup/reset-config.js';
