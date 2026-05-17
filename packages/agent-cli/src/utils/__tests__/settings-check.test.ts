@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { checkSettingsFile } from '../settings-check.js';
-import type { IProviderDefinition } from '../provider-definition.js';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const TMP_BASE = join(tmpdir(), `robota-settings-check-test-${process.pid}`);
 const providerDefinitions: readonly IProviderDefinition[] = [

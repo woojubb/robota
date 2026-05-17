@@ -5,11 +5,11 @@ import {
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
 } from '@robota-sdk/agent-framework';
-import type { TProviderSettingsDocument } from './provider-settings.js';
+import type { TProviderSettingsDocument } from '@robota-sdk/agent-framework';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
-import type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
+import type { IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 
-export type { IProviderConfig, IProviderDefinition } from './provider-definition.js';
+export type { IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 export { createProviderFromConfig, createProviderFromProfile } from '@robota-sdk/agent-executor';
 export {
   mergeProviders,

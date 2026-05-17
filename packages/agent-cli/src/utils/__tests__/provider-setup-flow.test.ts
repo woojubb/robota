@@ -9,7 +9,7 @@ import {
   runProviderSetupPromptFlow,
   submitProviderSetupValue,
 } from '@robota-sdk/agent-command';
-import type { IProviderDefinition } from '../provider-definition.js';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const openaiDefaults = {
   apiKey: '$ENV:OPENAI_API_KEY',

@@ -10,7 +10,7 @@ import {
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
 } from '@robota-sdk/agent-framework';
-import type { ITerminalOutput } from '../types.js';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 
 const CANCEL_EXIT_CODE = 130;

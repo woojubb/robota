@@ -9,7 +9,7 @@ import {
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from '../provider-setup.js';
-import type { IProviderDefinition } from '../provider-definition.js';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
 
 const NOOP_TERMINAL: ITerminalOutput = {

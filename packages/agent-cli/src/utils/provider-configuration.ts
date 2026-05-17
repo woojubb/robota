@@ -8,7 +8,7 @@ import {
   type IProviderSetupInput,
   type IProviderSettingsBuildOptions,
   type TProviderSettingsDocument,
-} from './provider-settings.js';
+} from '@robota-sdk/agent-framework';
 
 export interface IProviderSwitchOptions {
   knownProviders?: Record<string, IProviderProfileSettings>;

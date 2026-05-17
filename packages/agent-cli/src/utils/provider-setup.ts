@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { formatSupportedProviderTypes, type IProviderDefinition } from './provider-definition.js';
+import { formatSupportedProviderTypes, type IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from './cli-args.js';
 import { checkSettingsDocument } from './settings-check.js';
 import { getUserSettingsPath, readSettings, writeSettings } from '@robota-sdk/agent-framework';
@@ -14,7 +14,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { readMergedProviderSettings } from './provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
-import { type IProviderSetupInput } from './provider-settings.js';
+import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   formatProviderSetupSelectionPrompt,
   resolveProviderSetupSelection,

@@ -7,7 +7,7 @@
  */
 
 import * as readline from 'node:readline';
-import type { ITerminalOutput, ISpinner } from './types.js';
+import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
 
 export class PrintTerminal implements ITerminalOutput {
   write(text: string): void {
