@@ -63,7 +63,7 @@ packages/agent-cli/src/bin.ts
    |     `- transport.start(); session.shutdown()
    `- otherwise interactive mode
       |- new TuiTransport({ cwd, provider, ..., transportRegistry, cliAdapter })
-      |  |- transportRegistry = createDefaultTransportRegistry()  (transports/transport-registry.ts)
+      |  |- transportRegistry = createDefaultTransportRegistry()  (agent-transport)
       |  `- cliAdapter = createDefaultTuiCliAdapter()  (agent-transport/tui)
       `- tuiTransport.start() -> renderApp()  (agent-transport-tui)
          `- App.tsx  (agent-transport-tui)

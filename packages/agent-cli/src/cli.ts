@@ -29,7 +29,7 @@ import {
   runInteractiveProviderSetup,
 } from './startup/provider-startup.js';
 import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
-import { createDefaultTransportRegistry } from './transports/transport-registry.js';
+import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from './subagents/index.js';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';

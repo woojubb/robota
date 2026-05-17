@@ -14,7 +14,7 @@ import type {
   ITransportEntry,
 } from '@robota-sdk/agent-interface-transport';
 import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
-import { WsTransport } from '@robota-sdk/agent-transport/ws';
+import { WsTransport } from './ws/index.js';
 
 export class TransportRegistry {
   private readonly entries = new Map<string, IConfigurableTransport<IInteractiveSession>>();

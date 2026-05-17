@@ -192,3 +192,17 @@ category as `HeadlessTransport` which already lives in `packages/agent-transport
 Fix: moved to `packages/agent-transport/src/headless/print-terminal.ts`. Exported from
 `@robota-sdk/agent-transport/headless`. `agent-cli/src/cli.ts` now imports from
 `@robota-sdk/agent-transport/headless`. Original file deleted.
+
+### CLI-AUDIT-019: `TransportRegistry` — settings-backed transport manager owned by CLI, belongs in agent-transport
+
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+
+`packages/agent-cli/src/transports/transport-registry.ts` had zero CLI-specific type dependencies.
+It used only `TUniversalValue` from agent-core, `IInteractiveSession` / settings-io from
+agent-framework, and `IConfigurableTransport` / `ITransportConfig` / `ITransportEntry` from
+agent-interface-transport — all framework-layer contracts.
+
+Fix: moved to `packages/agent-transport/src/transport-registry.ts`. Exported `TransportRegistry`
+and `createDefaultTransportRegistry` from `@robota-sdk/agent-transport` root. `agent-cli/src/cli.ts`
+now imports `createDefaultTransportRegistry` from `@robota-sdk/agent-transport`. Original file and
+`transports/` directory deleted.

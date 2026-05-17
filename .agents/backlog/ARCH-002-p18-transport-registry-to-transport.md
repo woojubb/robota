@@ -1,6 +1,6 @@
 # ARCH-002-p18: Move TransportRegistry to agent-transport
 
-## Status: todo
+## Status: done
 
 ## Problem
 
