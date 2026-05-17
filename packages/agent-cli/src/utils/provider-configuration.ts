@@ -1,8 +1,5 @@
-import { readSettings, writeSettings } from './settings-io.js';
-import {
-  getProviderSettingsPaths,
-  readMergedProviderSettingsFromPaths,
-} from './provider-factory.js';
+import { readSettings, writeSettings, getProviderSettingsPaths } from '@robota-sdk/agent-framework';
+import { readMergedProviderSettingsFromPaths } from '@robota-sdk/agent-framework';
 import {
   buildProviderSetupPatch,
   mergeProviderPatch,

@@ -12,7 +12,7 @@ import type {
   ITransportConfig,
   ITransportEntry,
 } from '@robota-sdk/agent-interface-transport';
-import { readSettings, writeSettings, type TSettingsData } from '../utils/settings-io.js';
+import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
 
 export class TransportRegistry {
   private readonly entries = new Map<string, IConfigurableTransport<IInteractiveSession>>();

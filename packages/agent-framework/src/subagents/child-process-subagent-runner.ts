@@ -1,6 +1,6 @@
 import { fork } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import type { IProviderConfig } from '@robota-sdk/agent-core';
 import {
   BackgroundTaskError,
@@ -15,12 +15,12 @@ import {
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
 } from '@robota-sdk/agent-executor';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import type {
-  TSubagentRunnerFactory,
-  IAgentDefinition,
   IInProcessSubagentRunnerDeps,
-} from '@robota-sdk/agent-framework';
-import { getBuiltInAgent } from '@robota-sdk/agent-framework';
+  TSubagentRunnerFactory,
+} from './in-process-subagent-runner.js';
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import {
   createCancellationResult,
@@ -35,8 +35,8 @@ import {
 const DEFAULT_KILL_GRACE_MS = 2_000;
 
 export interface IChildProcessSubagentRunnerOptions {
+  workerPath: string;
   providerConfig?: IProviderConfig;
-  workerPath?: string;
   execArgv?: string[];
   killGraceMs?: number;
   env?: NodeJS.ProcessEnv;
@@ -46,7 +46,7 @@ export interface IChildProcessSubagentRunnerOptions {
 }
 
 export function createChildProcessSubagentRunnerFactory(
-  options: IChildProcessSubagentRunnerOptions = {},
+  options: IChildProcessSubagentRunnerOptions,
 ): TSubagentRunnerFactory {
   return (deps) => {
     const runner = new ChildProcessSubagentRunner(deps, options);
@@ -70,9 +70,9 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
 
   constructor(
     private readonly deps: IInProcessSubagentRunnerDeps,
-    options: IChildProcessSubagentRunnerOptions = {},
+    options: IChildProcessSubagentRunnerOptions,
   ) {
-    this.workerPath = options.workerPath ?? resolveDefaultWorkerPath();
+    this.workerPath = options.workerPath;
     this.execArgv = options.execArgv;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
     this.providerConfig = options.providerConfig;
@@ -84,7 +84,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const child = fork(this.workerPath, [], {
       cwd: job.request.cwd,
       env: { ...process.env, ...(this.env ?? {}) },
-      execArgv: this.execArgv ?? resolveDefaultExecArgv(this.workerPath),
+      execArgv: this.execArgv ?? resolveExecArgv(this.workerPath),
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     });
     const runtime: IChildProcessRuntime = {
@@ -182,23 +182,7 @@ function createProviderProfile(
   };
 }
 
-function resolveDefaultWorkerPath(): string {
-  const entryPoint = process.argv[1] ?? '';
-  const entryDir = entryPoint ? dirname(entryPoint) : process.cwd();
-  const extension = entryPoint.endsWith('.ts') || entryPoint.endsWith('.tsx') ? '.ts' : '.js';
-  const candidates = [
-    join(entryDir, 'subagents', `child-process-subagent-worker${extension}`),
-    join(entryDir, `child-process-subagent-worker${extension}`),
-  ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return candidates[0]!;
-}
-
-function resolveDefaultExecArgv(workerPath: string): string[] {
+function resolveExecArgv(workerPath: string): string[] {
   if (!workerPath.endsWith('.ts')) {
     return process.execArgv;
   }

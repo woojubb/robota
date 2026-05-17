@@ -1,14 +1,7 @@
-/**
- * Provider factory — CLI entry point for provider construction.
- *
- * Business logic lives in @robota-sdk/agent-executor and @robota-sdk/agent-framework.
- * This file owns only: CLI path discovery, file I/O, and the assembly entry points.
- */
-
-import { join } from 'node:path';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createProviderFromConfig, createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
+  getProviderSettingsPaths,
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
 } from '@robota-sdk/agent-framework';
@@ -23,6 +16,7 @@ export {
   mergeSettings,
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
+  getProviderSettingsPaths,
 } from '@robota-sdk/agent-framework';
 
 export interface IReadProviderSettingsOptions {
@@ -30,27 +24,10 @@ export interface IReadProviderSettingsOptions {
   providerDefinitions?: readonly IProviderDefinition[];
 }
 
-export function getProviderSettingsPaths(cwd: string): string[] {
-  const userHome = getUserHome();
-  return [
-    join(userHome, '.robota', 'settings.json'),
-    join(userHome, '.claude', 'settings.json'),
-    join(cwd, '.robota', 'settings.json'),
-    join(cwd, '.robota', 'settings.local.json'),
-    join(cwd, '.claude', 'settings.json'),
-    join(cwd, '.claude', 'settings.local.json'),
-  ];
-}
-
-function getUserHome(): string {
-  return process.env.HOME ?? process.env.USERPROFILE ?? '/';
-}
-
 export function readMergedProviderSettings(cwd: string): TProviderSettingsDocument {
   return readMergedProviderSettingsFromPaths(getProviderSettingsPaths(cwd));
 }
 
-/** Read provider settings from the settings file chain. */
 export function readProviderSettings(
   cwd: string,
   options: IReadProviderSettingsOptions = {},
@@ -68,7 +45,6 @@ export function readProviderSettings(
   throw new Error('No provider configuration found. Run `robota` to set up.');
 }
 
-/** Create a provider instance from settings. */
 export function createProviderFromSettings(
   cwd: string,
   modelOverride?: string,

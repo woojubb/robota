@@ -2,13 +2,17 @@ import { join } from 'node:path';
 import { formatSupportedProviderTypes, type IProviderDefinition } from './provider-definition.js';
 import type { IParsedCliArgs } from './cli-args.js';
 import { checkSettingsDocument } from './settings-check.js';
-import { getUserSettingsPath, readSettings, writeSettings } from './settings-io.js';
+import { getUserSettingsPath, readSettings, writeSettings } from '@robota-sdk/agent-framework';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
   resolveProviderSettingsWriteTargetPath,
 } from './provider-configuration.js';
-import { getProviderSettingsPaths, readMergedProviderSettings } from './provider-factory.js';
+import {
+  getProviderSettingsPaths,
+  readMergedProviderSettingsFromPaths,
+} from '@robota-sdk/agent-framework';
+import { readMergedProviderSettings } from './provider-factory.js';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import { type IProviderSetupInput } from './provider-settings.js';
 import {
@@ -16,7 +20,7 @@ import {
   resolveProviderSetupSelection,
   runProviderSetupPromptFlow,
   type TPromptInput,
-} from './provider-setup-flow.js';
+} from '@robota-sdk/agent-command';
 
 export function getSettingsPathForScope(cwd: string, scope: string | undefined): string {
   if (scope === undefined || scope === 'user') {

@@ -499,6 +499,19 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
+export {
+  ChildProcessSubagentRunner,
+  createChildProcessSubagentRunnerFactory,
+  isSubagentWorkerChildMessage,
+  isSubagentWorkerParentMessage,
+} from './subagents/index.js';
+export type {
+  IChildProcessSubagentRunnerOptions,
+  ISubagentWorkerStartPayload,
+  TSubagentWorkerChildMessage,
+  TSubagentWorkerParentMessage,
+  TSubagentWorkerWireValue,
+} from './subagents/index.js';
 export type {
   IInProcessSubagentRunnerDeps,
   IPreparedSubagentWorktree,
@@ -586,6 +599,48 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
 export { createTestInteractiveSession } from './testing/create-test-interactive-session.js';
+
+// ── Settings I/O ─────────────────────────────────────────────
+export {
+  getUserSettingsPath,
+  readSettings,
+  writeSettings,
+  updateModelInSettings,
+  deleteSettings,
+} from './config/settings-io.js';
+export type { TSettingsData } from './config/settings-io.js';
+
+// ── Provider settings paths ──────────────────────────────────
+export { getProviderSettingsPaths } from './config/provider-paths.js';
+
+// ── Git utilities ─────────────────────────────────────────────
+export { resolveGitBranch } from './git/git-branch.js';
+
+// ── Semver comparison ─────────────────────────────────────────
+export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
+
+// ── CLI update check ──────────────────────────────────────────
+export {
+  checkForCliUpdate,
+  formatCliUpdateCheckMessage,
+  formatCliUpdateNotice,
+  getStartupCliUpdateNotice,
+  getUserUpdateCheckCachePath,
+  readUpdateCheckCache,
+  shouldRunStartupCliUpdateCheck,
+  writeUpdateCheckCache,
+  CLI_UPDATE_CACHE_TTL_MS,
+  CLI_UPDATE_PACKAGE_NAME,
+  CLI_UPDATE_REGISTRY_URL,
+  CLI_UPDATE_TIMEOUT_MS,
+} from './update-check/update-check.js';
+export type {
+  ICheckForCliUpdateOptions,
+  ICliUpdateNotice,
+  IStartupCliUpdatePolicyInput,
+  IUpdateCheckCache,
+  TCliUpdateCheckResult,
+} from './update-check/update-check.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

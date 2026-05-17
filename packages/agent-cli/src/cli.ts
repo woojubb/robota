@@ -51,7 +51,7 @@ import {
   deleteSettings,
   readSettings,
   writeSettings,
-} from './utils/settings-io.js';
+} from '@robota-sdk/agent-framework';
 import {
   createProviderFromSettings,
   readMergedProviderSettings,
@@ -80,11 +80,11 @@ import {
   formatCliUpdateNotice,
   getStartupCliUpdateNotice,
   shouldRunStartupCliUpdateCheck,
-} from './utils/update-check.js';
-import type { ICliUpdateNotice } from './utils/update-check.js';
+  resolveGitBranch,
+} from '@robota-sdk/agent-framework';
+import type { ICliUpdateNotice } from '@robota-sdk/agent-framework';
 import { applyStatusLineSettings } from './utils/statusline-settings.js';
 import { applyActiveModelChange } from './utils/provider-configuration.js';
-import { resolveGitBranch } from './utils/git-branch.js';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
@@ -426,7 +426,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
+  const subagentWorkerPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'subagents',
+    'child-process-subagent-worker.js',
+  );
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
+    workerPath: subagentWorkerPath,
     providerConfig: { ...providerSettings, model: modelId },
     logsDir: paths.logs,
   });

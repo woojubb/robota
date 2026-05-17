@@ -8,7 +8,7 @@ import {
   resolveProviderSetupSelection,
   runProviderSetupPromptFlow,
   submitProviderSetupValue,
-} from '../provider-setup-flow.js';
+} from '@robota-sdk/agent-command';
 import type { IProviderDefinition } from '../provider-definition.js';
 
 const openaiDefaults = {

@@ -46,6 +46,7 @@ User-visible internal commands belong in `agent-command-*` packages or command-m
 They are the SSOT for cross-cutting contracts shared between implementation families.
 
 - `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`)
+- `agent-interface-tui` — TUI interaction contracts (`ITuiPickerItem`, `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`)
 - Future: `agent-interface-provider`, `agent-interface-plugin` if those families need isolated contracts
 
 Rules:

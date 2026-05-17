@@ -3,9 +3,12 @@ import type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
 } from '@robota-sdk/agent-framework';
-import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-framework';
-import type { TSettingsData } from './settings-io.js';
-import { readSettings, writeSettings } from './settings-io.js';
+import {
+  DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
+  readSettings,
+  writeSettings,
+} from '@robota-sdk/agent-framework';
+import type { TSettingsData } from '@robota-sdk/agent-framework';
 
 export type TStatusLineSettings = IStatusLineCommandSettings;
 export type TStatusLineSettingsPatch = TStatusLineCommandSettingsPatch;

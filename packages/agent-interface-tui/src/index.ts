@@ -1,3 +1,5 @@
+// @robota-sdk/agent-interface-tui
+
 export type {
   TOnMissingArgsAction,
   ITuiPickerItem,
@@ -5,5 +7,5 @@ export type {
   ITuiPickerInteraction,
   ITuiConfirmInteraction,
   TAnyTuiCommandInteraction,
-} from '@robota-sdk/agent-interface-tui';
-export { isPickerInteraction, isConfirmInteraction } from '@robota-sdk/agent-interface-tui';
+} from './command-interaction.js';
+export { isPickerInteraction, isConfirmInteraction } from './command-interaction.js';
