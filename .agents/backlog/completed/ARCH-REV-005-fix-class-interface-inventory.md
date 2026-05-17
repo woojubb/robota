@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-005: Fix class-interface-inventory.md stale entries (createProviderFromSettings, CommandEffectQueue)'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: now
