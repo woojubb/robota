@@ -5,7 +5,7 @@ Source-verified against `refactor/arch-002-slim-agent-cli` on 2026-05-17.
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
 
-`cli.ts` is a pure composition root (~165 lines) — no function definitions, only
+`cli.ts` is a pure composition root (196 lines) — no function definitions, only
 import-and-call. All behavior lives in dedicated startup modules, mode runners, and packages.
 
 ## CLI Composition Tree

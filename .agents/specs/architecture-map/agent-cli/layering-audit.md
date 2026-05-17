@@ -125,7 +125,7 @@ All behavior functions extracted:
 
 ### CLI-AUDIT-012: `getSettingsPathForScope` belongs in agent-framework
 
-Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `getSettingsPathForScope(cwd, scope: string | undefined)` in `utils/provider-setup.ts` is
 pure path resolution logic with no CLI-type dependencies. Equivalent path-resolution functions
@@ -136,14 +136,14 @@ in agent-cli before calling.
 
 ### CLI-AUDIT-013: `utils/provider-setup.ts` is startup orchestration, not a utility
 
-Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `provider-setup.ts` moved to `src/startup/provider-startup.ts`. Old file and test deleted.
 New test at `src/startup/__tests__/provider-startup.test.ts`.
 
 ### CLI-AUDIT-014: `ensureConfig` and `runInteractiveProviderSetup` coupled to `IParsedCliArgs`
 
-Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `ensureConfig(cwd, args: IParsedCliArgs, ...)` and `runInteractiveProviderSetup(cwd, args: IParsedCliArgs, ...)`
 use only `args.provider` and `args.settingsScope` respectively. Passing the full CLI arg struct
@@ -155,14 +155,14 @@ CLI maps `IParsedCliArgs` → `IProviderSetupContext` at call site.
 
 ### CLI-AUDIT-015: agent-cli plugin files have uncovered catch blocks
 
-Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `plugin-command-source-loader.ts` and `plugin-command-adapter.ts` catch blocks now have
 `// allow-fallback: <reason>` comments (added inline; formatter moved to next line on disk).
 
 ### CLI-AUDIT-016: `isInteractiveTerminal` — terminal I/O check leaked into agent-command
 
-Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `agent-command/src/provider/provider-startup.ts` contained `process.stdin.isTTY` /
 `process.stdout.isTTY` — a terminal I/O concern that belongs in the CLI layer.
@@ -173,7 +173,7 @@ TTY check via `isInteractive: () => process.stdin.isTTY === true && process.stdo
 
 ### CLI-AUDIT-017: `process.cwd()` fallback hidden in `createSkillsCommandModule`
 
-Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `agent-command/src/skills/skills-command-module.ts` used `options.cwd ?? process.cwd()`,
 making `cwd` silently depend on the process working directory when omitted.

@@ -266,10 +266,6 @@ export type {
   TRecommendedResponseLanguage,
 } from './commands/index.js';
 
-// ── Provider definition utilities ──────────────────────────
-export { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
-export type { IProviderDefinition } from '@robota-sdk/agent-core';
-
 // ── User-local storage and memory ──────────────────────────
 export {
   USER_LOCAL_MEMORY_CATEGORIES,

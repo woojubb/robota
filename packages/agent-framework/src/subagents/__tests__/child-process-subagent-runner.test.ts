@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IInProcessSubagentRunnerDeps, ISubagentJobStart } from '@robota-sdk/agent-framework';
-import type { TBackgroundTaskRunnerEvent } from '@robota-sdk/agent-executor';
+import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
+import type { ISubagentJobStart, TBackgroundTaskRunnerEvent } from '@robota-sdk/agent-executor';
 import { ChildProcessSubagentRunner } from '../child-process-subagent-runner.js';
 import {
   isSubagentWorkerChildMessage,
@@ -75,7 +75,7 @@ function createJob(): ISubagentJobStart {
 function createJobWithEvents(events: TBackgroundTaskRunnerEvent[]): ISubagentJobStart {
   return {
     ...createJob(),
-    emit: (event) => events.push(event),
+    emit: (event: TBackgroundTaskRunnerEvent) => events.push(event),
   };
 }
 

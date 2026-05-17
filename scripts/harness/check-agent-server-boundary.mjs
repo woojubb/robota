@@ -15,7 +15,7 @@ const PACKAGE_CHECKS = [
   {
     file: 'apps/agent-web/package.json',
     forbiddenPrefixes: [
-      '@robota-sdk/agent-provider-',
+      '@robota-sdk/agent-provider',
       '@robota-sdk/agent-server',
       '@robota-sdk/agent-remote-client',
     ],
@@ -37,7 +37,7 @@ const PACKAGE_CHECKS = [
   {
     file: 'packages/agent-remote-client/package.json',
     forbiddenPrefixes: [
-      '@robota-sdk/agent-provider-',
+      '@robota-sdk/agent-provider',
       '@robota-sdk/agent-server',
       '@robota-sdk/agent-web',
       '@robota-sdk/agent-playground',
@@ -51,7 +51,7 @@ const PACKAGE_CHECKS = [
 const REQUIRED_PACKAGE_DEPENDENCIES = [
   {
     file: 'apps/agent-server/package.json',
-    dependencyPattern: /^@robota-sdk\/agent-provider-/,
+    dependencyPattern: /^@robota-sdk\/agent-provider(?:-|$)/,
     type: 'agent-server-missing-provider-composition',
     detail: 'agent-server should remain the provider-side composition root for remote execution.',
   },
@@ -69,7 +69,7 @@ const SOURCE_IMPORT_CHECKS = [
     dir: 'apps/agent-web/src',
     forbiddenImport(specifier) {
       return (
-        specifier.startsWith('@robota-sdk/agent-provider-') ||
+        specifier.startsWith('@robota-sdk/agent-provider') ||
         specifier === '@robota-sdk/agent-server' ||
         specifier.startsWith('@robota-sdk/agent-server/') ||
         specifier === '@robota-sdk/agent-remote-client' ||
@@ -105,7 +105,7 @@ const SOURCE_IMPORT_CHECKS = [
     dir: 'packages/agent-remote-client/src',
     forbiddenImport(specifier) {
       return (
-        specifier.startsWith('@robota-sdk/agent-provider-') ||
+        specifier.startsWith('@robota-sdk/agent-provider') ||
         specifier === '@robota-sdk/agent-server' ||
         specifier.startsWith('@robota-sdk/agent-server/') ||
         specifier === '@robota-sdk/agent-web' ||
