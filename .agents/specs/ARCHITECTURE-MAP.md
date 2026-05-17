@@ -14,10 +14,11 @@ architecture lessons without duplicating package-level contract truth.
 3. Read [architecture-map/dependency-direction.md](architecture-map/dependency-direction.md) before adding, removing, or moving a package edge.
 4. Read [architecture-map/capability-placement.md](architecture-map/capability-placement.md) before deciding which package owns a new product-visible capability.
 5. Read [architecture-map/agent-system.md](architecture-map/agent-system.md) before changing agent runtime, SDK, commands, providers, transports, playground, or remote execution.
-6. Read [architecture-map/agent-cli-composition.md](architecture-map/agent-cli-composition.md) before changing the concrete `agent-cli` startup path, TUI hooks, provider/model flow, or execution modes; it routes to focused files under `architecture-map/agent-cli/`.
-7. Read [architecture-map/apps-and-deployment.md](architecture-map/apps-and-deployment.md) before changing app hosting, docs build, or deploy behavior.
-8. Read [architecture-map/cross-cutting-contracts.md](architecture-map/cross-cutting-contracts.md) before changing shared command, provider, auth, credits, event, session, background, workflow, or verification contracts.
-9. Read [architecture-map/architecture-lessons.md](architecture-map/architecture-lessons.md) before resolving or adding architecture audit findings.
+6. Read [architecture-map/agent-team.md](architecture-map/agent-team.md) before changing multi-agent delegation, relay tools, template registry, or owner-path propagation.
+7. Read [architecture-map/agent-cli-composition.md](architecture-map/agent-cli-composition.md) before changing the concrete `agent-cli` startup path, TUI hooks, provider/model flow, or execution modes; it routes to focused files under `architecture-map/agent-cli/`.
+8. Read [architecture-map/apps-and-deployment.md](architecture-map/apps-and-deployment.md) before changing app hosting, docs build, or deploy behavior.
+9. Read [architecture-map/cross-cutting-contracts.md](architecture-map/cross-cutting-contracts.md) before changing shared command, provider, auth, credits, event, session, background, workflow, or verification contracts.
+10. Read [architecture-map/architecture-lessons.md](architecture-map/architecture-lessons.md) before resolving or adding architecture audit findings.
 
 ## Document Tree
 
@@ -30,6 +31,7 @@ architecture lessons without duplicating package-level contract truth.
     ├── dependency-direction.md          # layer ownership and target dependency rules
     ├── capability-placement.md          # owner-first placement rules for new capabilities
     ├── agent-system.md                  # agent stack and playground boundaries
+    ├── agent-team.md                    # multi-agent delegation, relay tools, owner-path propagation
     ├── agent-cli-composition.md         # CLI architecture router
     ├── agent-cli/                       # CLI target, composition, command, provider, mode, inventory, and audit slices
     ├── apps-and-deployment.md           # app/service/docs deployment topology

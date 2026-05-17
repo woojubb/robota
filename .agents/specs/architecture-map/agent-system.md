@@ -126,6 +126,9 @@ See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/
 between assembly and domain — below `agent-framework` but above `agent-core`. It consumes
 `agent-core` contracts and provider adapters but does not own session persistence or UI.
 
+See [agent-team.md](agent-team.md) for the full architecture: delegation model, owner-path
+propagation, template registry, and distinction from `agent-subagent-runner` (child-process mode).
+
 | Concern                                 | Owner        | Contract                                                                         |
 | --------------------------------------- | ------------ | -------------------------------------------------------------------------------- |
 | Multi-agent task delegation and routing | `agent-team` | Coordinates sub-agents through `agent-core` contracts; no TUI or CLI dependency. |
