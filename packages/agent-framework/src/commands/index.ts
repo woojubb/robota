@@ -57,6 +57,12 @@ export {
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
 } from '../command-api/provider/provider-merge.js';
+export type { IReadProviderSettingsOptions } from '../command-api/provider/provider-factory.js';
+export {
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
+} from '../command-api/provider/provider-factory.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';

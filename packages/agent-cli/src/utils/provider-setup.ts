@@ -12,7 +12,7 @@ import {
   getProviderSettingsPaths,
   readMergedProviderSettingsFromPaths,
 } from '@robota-sdk/agent-framework';
-import { readMergedProviderSettings } from './provider-factory.js';
+import { readMergedProviderSettings } from '@robota-sdk/agent-framework';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {

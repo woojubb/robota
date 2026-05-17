@@ -58,7 +58,7 @@ import {
   createProviderFromSettings,
   readMergedProviderSettings,
   readProviderSettings,
-} from './utils/provider-factory.js';
+} from '@robota-sdk/agent-framework';
 import { DEFAULT_PROVIDER_DEFINITIONS } from './utils/provider-default-definitions.js';
 import {
   ensureConfig,

@@ -109,6 +109,12 @@ export {
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
 } from './provider/provider-merge.js';
+export type { IReadProviderSettingsOptions } from './provider/provider-factory.js';
+export {
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
+} from './provider/provider-factory.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,
