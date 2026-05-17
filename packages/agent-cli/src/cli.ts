@@ -27,7 +27,7 @@ import {
   ensureConfig,
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
-} from './utils/provider-setup.js';
+} from './startup/provider-startup.js';
 import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { createDefaultTransportRegistry } from './transports/transport-registry.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';

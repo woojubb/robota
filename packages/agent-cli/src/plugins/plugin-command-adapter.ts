@@ -82,6 +82,7 @@ async function listAvailablePlugins(
   try {
     manifest = services.marketplace.fetchManifest(marketplaceName);
   } catch {
+    // allow-fallback: marketplace manifest fetch failure is non-fatal — return empty list
     return [];
   }
   const installed = services.installer.getInstalledPlugins();

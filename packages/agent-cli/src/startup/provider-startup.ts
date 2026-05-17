@@ -1,8 +1,13 @@
 import { join } from 'node:path';
 import { formatSupportedProviderTypes, type IProviderDefinition } from '@robota-sdk/agent-core';
-import type { IParsedCliArgs } from './cli-args.js';
+import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { checkSettingsDocument } from '@robota-sdk/agent-framework';
-import { getUserSettingsPath, readSettings, writeSettings } from '@robota-sdk/agent-framework';
+import {
+  readSettings,
+  writeSettings,
+  resolveSettingsPathForScope,
+  type TSettingsScope,
+} from '@robota-sdk/agent-framework';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
@@ -13,7 +18,7 @@ import {
   readMergedProviderSettingsFromPaths,
 } from '@robota-sdk/agent-framework';
 import { readMergedProviderSettings } from '@robota-sdk/agent-framework';
-import { DEFAULT_PROVIDER_DEFINITIONS } from './provider-default-definitions.js';
+import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   formatProviderSetupSelectionPrompt,
@@ -23,12 +28,9 @@ import {
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
-export function getSettingsPathForScope(cwd: string, scope: string | undefined): string {
-  if (scope === undefined || scope === 'user') {
-    return getUserSettingsPath();
-  }
-  if (scope === 'project-local') {
-    return join(cwd, '.robota', 'settings.local.json');
+function validateSettingsScope(scope: string | undefined): TSettingsScope | undefined {
+  if (scope === undefined || scope === 'user' || scope === 'project-local') {
+    return scope as TSettingsScope | undefined;
   }
   throw new Error(`Invalid --settings-scope "${scope}". Valid: user | project-local`);
 }
@@ -39,7 +41,7 @@ export function handleProviderConfigurationArgs(
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): boolean {
-  const settingsPath = getSettingsPathForScope(cwd, args.settingsScope);
+  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
   if (args.configureProvider) {
     applyProviderConfiguration(settingsPath, buildSetupInputFromArgs(args), {
       providerDefinitions,
@@ -99,7 +101,7 @@ export async function runInteractiveProviderSetup(
 ): Promise<void> {
   const providerChoice = await promptInput(formatProviderSetupSelectionPrompt(providerDefinitions));
   const type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
-  const settingsPath = getSettingsPathForScope(cwd, args.settingsScope);
+  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
   const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
     existingProfileNames: Object.keys(readMergedProviderSettings(cwd).providers ?? {}),
   });

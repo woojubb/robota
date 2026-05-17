@@ -2,13 +2,13 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IParsedCliArgs } from '../cli-args.js';
+import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import {
   ensureConfig,
   formatMissingProviderConfigMessage,
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
-} from '../provider-setup.js';
+} from '../provider-startup.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
 
@@ -22,7 +22,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-const TMP_BASE = join(tmpdir(), `robota-provider-setup-test-${process.pid}`);
+const TMP_BASE = join(tmpdir(), `robota-provider-startup-test-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_STDIN_TTY = process.stdin.isTTY;
 const ORIGINAL_STDOUT_TTY = process.stdout.isTTY;
@@ -175,7 +175,7 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
 }
 
-describe('provider setup', () => {
+describe('provider startup', () => {
   afterEach(() => {
     process.env.HOME = ORIGINAL_HOME;
     delete process.env.OPENAI_API_KEY;

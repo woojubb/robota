@@ -24,6 +24,7 @@ export function reloadPluginCommandSource(registry: CommandRegistry): number {
     registry.replaceSource(PLUGIN_SOURCE_NAME, new PluginCommandSource(plugins));
     return plugins.length;
   } catch {
+    // allow-fallback: plugin load failure is non-fatal — clear source and return empty
     registry.replaceSource(PLUGIN_SOURCE_NAME);
     return 0;
   }

@@ -9,6 +9,18 @@ export function getUserSettingsPath(): string {
   return join(home, '.robota', 'settings.json');
 }
 
+export type TSettingsScope = 'user' | 'project-local';
+
+export function resolveSettingsPathForScope(
+  cwd: string,
+  scope: TSettingsScope | undefined,
+): string {
+  if (scope === undefined || scope === 'user') {
+    return getUserSettingsPath();
+  }
+  return join(cwd, '.robota', 'settings.local.json');
+}
+
 export function readSettings(path: string): TSettingsData {
   if (!existsSync(path)) return {};
   const raw = readFileSync(path, 'utf8');

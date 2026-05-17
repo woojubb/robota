@@ -618,12 +618,13 @@ export { createTestInteractiveSession } from './testing/create-test-interactive-
 // ── Settings I/O ─────────────────────────────────────────────
 export {
   getUserSettingsPath,
+  resolveSettingsPathForScope,
   readSettings,
   writeSettings,
   updateModelInSettings,
   deleteSettings,
 } from './config/settings-io.js';
-export type { TSettingsData } from './config/settings-io.js';
+export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
 
 // ── Provider settings paths ──────────────────────────────────
 export { getProviderSettingsPaths } from './config/provider-paths.js';

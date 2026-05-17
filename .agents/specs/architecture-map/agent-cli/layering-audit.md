@@ -103,23 +103,59 @@ SDK/runtime/command/provider capability first.
 
 ### CLI-AUDIT-010: createTuiCliAdapter belongs in agent-transport
 
-Status: active — backlog ARCH-002-p9.
+Status: resolved — commit c4282565c (refactor/arch-002-slim-agent-cli, 2026-05-17).
 
-`cli.ts` defines `createTuiCliAdapter` which wraps agent-framework functions into
-`ITuiCliAdapter`. `ITuiCliAdapter` is defined in `agent-transport/src/tui/tui-cli-adapter.ts`
-and agent-transport already depends on agent-framework. The factory belongs in agent-transport
-so cli.ts only wires, not defines.
-
-Target: `agent-transport/src/tui/create-default-tui-cli-adapter.ts` exports
-`createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })`.
+`createDefaultTuiCliAdapter` moved to `packages/agent-transport/src/tui/create-default-tui-cli-adapter.ts`.
+`cli.ts` imports and calls it — no local definition.
 
 ### CLI-AUDIT-011: cli.ts contains behavior logic — must be pure composition root
 
-Status: active — backlog ARCH-002-p10.
+Status: resolved — commit c4282565c (refactor/arch-002-slim-agent-cli, 2026-05-17).
 
-`cli.ts` directly defines: `readVersion`, `resetConfig`, `buildAppendSystemPrompt`,
-`readTaskFilePrompt`, `buildCommandSetup`, `runPrintMode`, `createTransportRegistry`.
-These are behavior functions, not composition wiring.
+All behavior functions extracted:
 
-Target: each extracted to a dedicated module inside `agent-cli/src/startup/` or
-`agent-cli/src/modes/`. `cli.ts` becomes import-and-call only (under ~120 lines).
+- `readVersion` → `src/startup/version.ts`
+- `resetConfig` → `src/startup/reset-config.ts`
+- `buildAppendSystemPrompt` → `src/startup/append-system-prompt.ts`
+- `buildCommandSetup` → `src/startup/command-setup.ts`
+- `runPrintMode` → `src/modes/print-mode.ts`
+- `createDefaultTransportRegistry` → `src/transports/transport-registry.ts`
+
+`cli.ts` is now 196 lines, zero function definitions, pure import-and-call.
+
+### CLI-AUDIT-012: `getSettingsPathForScope` belongs in agent-framework
+
+Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+
+`getSettingsPathForScope(cwd, scope: string | undefined)` in `utils/provider-setup.ts` is
+pure path resolution logic with no CLI-type dependencies. Equivalent path-resolution functions
+(`getUserSettingsPath`, `resolveProviderSettingsWriteTargetPath`) already live in agent-framework.
+
+Target: rename to `resolveSettingsPathForScope`, move to agent-framework, validate scope values
+in agent-cli before calling.
+
+### CLI-AUDIT-013: `utils/provider-setup.ts` is startup orchestration, not a utility
+
+Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+
+`provider-setup.ts` moved to `src/startup/provider-startup.ts`. Old file and test deleted.
+New test at `src/startup/__tests__/provider-startup.test.ts`.
+
+### CLI-AUDIT-014: `ensureConfig` and `runInteractiveProviderSetup` coupled to `IParsedCliArgs`
+
+Status: active — backlog ARCH-002-p14.
+
+`ensureConfig(cwd, args: IParsedCliArgs, ...)` and `runInteractiveProviderSetup(cwd, args: IParsedCliArgs, ...)`
+use only `args.provider` and `args.settingsScope` respectively. Passing the full CLI arg struct
+prevents these functions from moving to `agent-command` (where their setup flow logic naturally belongs).
+
+Target: extract `IProviderSetupContext { provider?: string; settingsScope?: string | undefined }`
+interface in agent-command. Move `ensureConfig` and `runInteractiveProviderSetup` to agent-command.
+CLI maps `IParsedCliArgs` → `IProviderSetupContext` at call site.
+
+### CLI-AUDIT-015: agent-cli plugin files have uncovered catch blocks
+
+Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
+
+`plugin-command-source-loader.ts` and `plugin-command-adapter.ts` catch blocks now have
+`// allow-fallback: <reason>` comments (added inline; formatter moved to next line on disk).
