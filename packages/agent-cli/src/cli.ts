@@ -6,7 +6,7 @@
 import { execSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PrintTerminal } from './print-terminal.js';
+import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
   projectPaths,

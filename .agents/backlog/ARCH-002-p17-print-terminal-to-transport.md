@@ -1,6 +1,6 @@
 # ARCH-002-p17: Move PrintTerminal to agent-transport/headless
 
-## Status: todo
+## Status: done
 
 ## Problem
 

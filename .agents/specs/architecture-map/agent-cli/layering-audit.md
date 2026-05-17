@@ -180,3 +180,15 @@ making `cwd` silently depend on the process working directory when omitted.
 
 Fix: `cwd` is now required in `ISkillsCommandModuleOptions`. All callers already supplied it
 explicitly; no call-site changes needed.
+
+### CLI-AUDIT-018: `PrintTerminal` — stdio adapter owned by CLI, belongs in agent-transport/headless
+
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+
+`packages/agent-cli/src/print-terminal.ts` implemented `ITerminalOutput` using Node.js `readline`
+and `process.stdout`/`stderr`. This is a terminal I/O adapter for print/headless mode — the same
+category as `HeadlessTransport` which already lives in `packages/agent-transport/src/headless/`.
+
+Fix: moved to `packages/agent-transport/src/headless/print-terminal.ts`. Exported from
+`@robota-sdk/agent-transport/headless`. `agent-cli/src/cli.ts` now imports from
+`@robota-sdk/agent-transport/headless`. Original file deleted.
