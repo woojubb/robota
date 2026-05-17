@@ -10,6 +10,50 @@ The repository is a TypeScript pnpm monorepo. Detailed package inventory lives i
 [../../project-structure.md](../../project-structure.md); package-specific contracts live in each
 `packages/<name>/docs/SPEC.md`.
 
+```mermaid
+graph TD
+  subgraph Runtime["Agent Runtime & CLI"]
+    core["agent-core"]
+    framework["agent-framework"]
+    session["agent-session"]
+    executor["agent-executor"]
+    command["agent-command"]
+    tools["agent-tools · agent-tool-mcp"]
+    transport["agent-transport\n/tui /headless /ws /http /mcp"]
+    cli["agent-cli"]
+    webui["agent-web-ui"]
+    subrunner["agent-subagent-runner"]
+  end
+  subgraph Providers["Providers & Remote"]
+    provider["agent-provider"]
+    remote["agent-remote-client"]
+    team["agent-team"]
+    server["apps/agent-server"]
+  end
+  subgraph Plugins["Plugins"]
+    plugin["agent-plugin"]
+  end
+  subgraph Playground["Playground"]
+    playground["agent-playground"]
+    agentWeb["apps/agent-web"]
+  end
+  subgraph Docs["Docs & Publishing"]
+    docs["apps/docs"]
+    blog["apps/blog"]
+  end
+  subgraph CrossCutting["Cross-Cutting"]
+    auth["auth"]
+    credits["credits"]
+  end
+
+  Runtime --> Providers
+  Runtime --> Plugins
+  Playground --> Runtime
+  Playground --> Providers
+  Providers --> CrossCutting
+  Runtime --> CrossCutting
+```
+
 | Family                               | Packages/apps                                                                                                                                                                                                                                              | Architecture route                                                                           |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Agent runtime and CLI                | `agent-core`, `agent-framework`, `agent-session`, `agent-executor`, `agent-tools`, `agent-tool-mcp`, `agent-command`, `agent-cli`, `agent-web` (browser monitor), `agent-transport` (subpaths: /tui, /headless, /ws, /http, /mcp), `agent-subagent-runner` | [agent-system.md](agent-system.md), [agent-cli-composition.md](agent-cli-composition.md)     |

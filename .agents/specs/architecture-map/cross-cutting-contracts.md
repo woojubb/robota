@@ -8,6 +8,32 @@ Detail lives in the owner document. Update the owner SPEC/spec first, then updat
 relevant architecture-map subdocument. See [capability-placement.md](capability-placement.md) before
 adding product-shell UI for a new capability.
 
+## Contract Landscape
+
+```mermaid
+graph LR
+  subgraph Repo["Repository-Level"]
+    PS["project-structure.md\npackage inventory + dependency rules"]
+    CP["capability-placement.md\nowner selection rules"]
+  end
+  subgraph Domain["Domain Contracts — package SPECs"]
+    CS["agent-core SPEC\nprovider · history · permissions\nhooks · model catalog · events"]
+    FS["agent-framework SPEC\nInteractiveSession · command contracts\nSDK facades"]
+    SS["agent-session SPEC\nconversation lifecycle · storage port\ncompaction"]
+  end
+  subgraph Functional["Functional Specs"]
+    CI["command-inventory.md\ncommand modules + lifecycle"]
+    BT["background-task-layer.md\ntask + runner composition"]
+    SP["subagent-process-manager.md\nCLI subagent process lifecycle"]
+    VP["verification-pipeline-plan.md\nhooks · harness · CI · release"]
+  end
+  subgraph Server["Server & External"]
+    OA["agent-server openapi.yaml\nHTTP API (OpenAPI 3.1)"]
+    AU["auth SPEC\nverifier ports · scope policy"]
+    CR["credits SPEC\nreservation · settlement"]
+  end
+```
+
 ## Contract Owner Index
 
 | Contract area                          | Owner document                                                                                   | Notes                                                                       |

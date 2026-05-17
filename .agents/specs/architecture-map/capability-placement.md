@@ -9,6 +9,43 @@ behavior, transport projection, session behavior, or shared policy. For spec-fir
 document authority rules, see [../../rules/documentation-sync.md](../../rules/documentation-sync.md)
 and [../../rules/spec-workflow.md](../../rules/spec-workflow.md).
 
+## Ownership Layer Map
+
+```mermaid
+flowchart TB
+  subgraph Shell["Product Shells — render + wire only"]
+    CLI2["agent-cli"]
+    Web["agent-web"]
+  end
+  subgraph Assembly["Assembly Layer — behavior + contracts"]
+    CMD["agent-command\nbuilt-in commands"]
+    FW["agent-framework\ncommand contracts · InteractiveSession"]
+  end
+  subgraph Services["Services — lifecycle state machines"]
+    SESS["agent-session\nsession + compaction"]
+    EXEC["agent-executor\nbackground tasks + subagent lifecycle"]
+    SUBRUN["agent-subagent-runner\nchild-process runner (opt-in)"]
+  end
+  subgraph Adapters["Adapters — vendor + tool + plugin"]
+    PROV["agent-provider\nprovider defs · model catalogs"]
+    TOOLS["agent-tools · agent-tool-mcp"]
+    PLUGIN["agent-plugin"]
+  end
+  subgraph Domain["Domain — ZERO agent-* deps"]
+    CORE["agent-core\nprovider · history · permissions · events"]
+    AUTH["auth · credits"]
+  end
+
+  Shell --> Assembly
+  Assembly --> Services
+  Assembly --> Adapters
+  Services --> Domain
+  Adapters --> Domain
+```
+
+New capability ownership follows the **lowest reusable boundary**: if two shells or packages need it,
+it belongs in the layer below both of them.
+
 ## Owner Selection Table
 
 | Capability concern                                      | Owner first                                                                                 | Product shell responsibility                                                |
