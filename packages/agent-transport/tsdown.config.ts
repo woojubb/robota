@@ -12,7 +12,18 @@ const shared = {
   dts: true,
   outExtensions,
   deps: {
-    neverBundle: [/^@robota-sdk\/.*/, /^hono/, /^ws$/, /^@modelcontextprotocol\/.*/, /^zod$/],
+    neverBundle: [
+      /^@robota-sdk\/.*/,
+      /^hono/,
+      /^ws$/,
+      /^@modelcontextprotocol\/.*/,
+      /^zod$/,
+      /^ink/,
+      /^react/,
+      /^chalk$/,
+      /^marked/,
+      /^string-width$/,
+    ],
   },
 };
 
@@ -24,6 +35,7 @@ export default defineConfig({
     'http/index': 'src/http/index.ts',
     'ws/index': 'src/ws/index.ts',
     'mcp/index': 'src/mcp/index.ts',
+    'tui/index': 'src/tui/index.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist/node',

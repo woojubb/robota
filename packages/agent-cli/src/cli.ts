@@ -66,8 +66,8 @@ import {
 import { resolveProviderSettingsWriteTargetPath } from './utils/provider-configuration.js';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { WsTransport } from '@robota-sdk/agent-transport/ws';
-import { TuiTransport } from '@robota-sdk/agent-transport-tui';
-import type { ITuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { TuiTransport } from '@robota-sdk/agent-transport/tui';
+import type { ITuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { TransportRegistry } from './transports/transport-registry.js';
 import {
   createDefaultBackgroundTaskRunners,

@@ -65,6 +65,18 @@
         "import": "./dist/node/mcp/index.js",
         "require": "./dist/node/mcp/index.cjs"
       }
+    },
+    "./tui": {
+      "types": "./dist/node/tui/index.d.ts",
+      "source": "./src/tui/index.ts",
+      "node": {
+        "import": "./dist/node/tui/index.js",
+        "require": "./dist/node/tui/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/tui/index.js",
+        "require": "./dist/node/tui/index.cjs"
+      }
     }
   },
   "repository": {
@@ -97,14 +109,26 @@
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.28.0",
+    "chalk": "^5.3.0",
     "hono": "^4.7.0",
+    "ink": "^7.0.1",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "marked": "^9.1.5",
+    "marked-terminal": "^7.3.0",
+    "react": "19.2.4",
+    "string-width": "^8.2.0",
     "ws": "^8.18.3",
     "zod": "^3.24.4"
   },
   "devDependencies": {
     "@robota-sdk/agent-command": "workspace:*",
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "@modelcontextprotocol/sdk": "^1.28.0",
+    "@types/react": "^19.2.14",
     "@types/ws": "^8.5.10",
+    "ink-testing-library": "^4.0.0",
     "rimraf": "^5.0.5",
     "tsdown": "^0.22.0",
     "tsx": "^4.7.0",
