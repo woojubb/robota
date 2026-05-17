@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-007: Add missing evidence to layering-audit.md (CLI-AUDIT-012 through CLI-AUDIT-023)'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: now
