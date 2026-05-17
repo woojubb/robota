@@ -18,9 +18,8 @@ export async function runUserLocalDirectCommandIfRequested(
     summary: args.summary,
     source: args.source,
   });
-  const output = result.message.endsWith('\n') ? result.message.trimEnd() : result.message;
+  const output = result.message.trimEnd();
   if (!result.success) {
-    terminal.writeError(output);
     throw new Error(output);
   }
   terminal.writeLine(output);
