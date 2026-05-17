@@ -1,11 +1,8 @@
 {
-  "name": "@robota-sdk/agent-cli",
+  "name": "@robota-sdk/agent-subagent-runner",
   "version": "3.0.0-beta.65",
-  "description": "AI coding assistant CLI built on Robota SDK",
+  "description": "Child-process subagent runner for Robota SDK — optional package for running subagents in isolated child processes",
   "type": "module",
-  "bin": {
-    "robota": "./bin/robota.cjs"
-  },
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "exports": {
@@ -30,51 +27,31 @@
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
-  "engines": {
-    "node": ">=22.0.0"
-  },
   "files": [
-    "dist",
-    "bin"
+    "dist"
   ],
   "scripts": {
-    "build": "pnpm --filter @robota-sdk/agent-web build:spa && node scripts/copy-web-assets.mjs && tsdown",
+    "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "dev": "tsx src/bin.ts",
-    "start": "node dist/node/bin.js",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint": "eslint src/ --ext .ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-provider": "workspace:*",
-    "@robota-sdk/agent-executor": "workspace:3.0.0-beta.65",
+    "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-subagent-runner": "workspace:*",
-    "@robota-sdk/agent-transport": "workspace:*",
-    "chalk": "^5.3.0",
-    "cli-highlight": "^2.1.0",
-    "marked": "^9.1.5",
-    "marked-terminal": "^7.3.0",
-    "open": "^11.0.0",
-    "string-width": "^8.2.0",
-    "ws": "^8.18.3"
+    "@robota-sdk/agent-provider": "workspace:*"
   },
   "devDependencies": {
-    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
-    "@types/marked": "^6.0.0",
-    "@types/ws": "^8.5.10",
-    "rimraf": "^5.0.5",
+    "@types/node": "^22.14.0",
+    "rimraf": "^6.0.1",
     "tsdown": "^0.22.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.3",
     "vitest": "^1.6.1"
   },
   "license": "MIT",

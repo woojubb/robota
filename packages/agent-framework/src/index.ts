@@ -510,19 +510,6 @@ export type {
 
 // ── Subagent process manager contracts ─────────────────────
 export { createInProcessSubagentRunner } from './subagents/index.js';
-export {
-  ChildProcessSubagentRunner,
-  createChildProcessSubagentRunnerFactory,
-  isSubagentWorkerChildMessage,
-  isSubagentWorkerParentMessage,
-} from './subagents/index.js';
-export type {
-  IChildProcessSubagentRunnerOptions,
-  ISubagentWorkerStartPayload,
-  TSubagentWorkerChildMessage,
-  TSubagentWorkerParentMessage,
-  TSubagentWorkerWireValue,
-} from './subagents/index.js';
 export type {
   IInProcessSubagentRunnerDeps,
   IPreparedSubagentWorktree,

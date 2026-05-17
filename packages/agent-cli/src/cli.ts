@@ -4,8 +4,6 @@
  */
 
 import { execSync } from 'node:child_process';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
@@ -29,7 +27,10 @@ import {
 import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
-import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-framework';
+import {
+  createChildProcessSubagentRunnerFactory,
+  getDefaultSubagentWorkerPath,
+} from '@robota-sdk/agent-subagent-runner';
 import { reloadPluginCommandSource } from './plugins/plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { readVersion } from './startup/version.js';
@@ -117,13 +118,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const provider = createProviderFromSettings(cwd, args.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
-  const subagentWorkerPath = join(
-    dirname(fileURLToPath(import.meta.url)),
-    'subagents',
-    'child-process-subagent-worker.js',
-  );
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
-    workerPath: subagentWorkerPath,
+    workerPath: getDefaultSubagentWorkerPath(),
     providerConfig: { ...providerSettings, model: modelId },
     logsDir: paths.logs,
   });

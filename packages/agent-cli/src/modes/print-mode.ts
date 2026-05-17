@@ -8,7 +8,7 @@ import {
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-framework';
+import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 

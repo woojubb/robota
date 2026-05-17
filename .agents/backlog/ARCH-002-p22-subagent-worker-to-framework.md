@@ -1,6 +1,6 @@
 # ARCH-002-p22: Extract child-process subagent runner into dedicated package
 
-## Status: todo
+## Status: done
 
 ## Problem
 

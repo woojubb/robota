@@ -4,14 +4,14 @@ import {
   createSubagentSession,
 } from '@robota-sdk/agent-framework';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 import {
   isSubagentWorkerParentMessage,
   type ISubagentWorkerStartPayload,
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
-} from '@robota-sdk/agent-framework';
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+} from './child-process-subagent-ipc.js';
 
 const CANCEL_EXIT_CODE = 130;
 
@@ -70,6 +70,7 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
     }
     sendChildMessage({ type: 'result', output });
   } catch (error) {
+    // allow-fallback: child process must report errors to parent via IPC, not crash silently
     if (cancelled) {
       sendChildMessage({ type: 'cancelled', reason: 'Subagent worker cancelled' });
       return;
@@ -96,8 +97,10 @@ function runFollowUp(prompt: string): void {
   }
   running = running.then(async () => {
     try {
+      // allow-fallback: child process must report errors to parent via IPC, not crash silently
       await session?.run(prompt);
     } catch (error) {
+      // allow-fallback: child process must report errors to parent via IPC, not crash silently
       const message = error instanceof Error ? error.message : String(error);
       sendChildMessage({ type: 'error', message });
     }
@@ -108,7 +111,7 @@ async function cancelWorker(reason?: string): Promise<void> {
   cancelled = true;
   session?.abort();
   sendChildMessage({ type: 'cancelled', reason });
-  await session?.shutdown({ reason: 'other' }).catch(() => undefined);
+  await session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: shutdown during cancel — process will exit regardless
   setTimeout(() => process.exit(CANCEL_EXIT_CODE), 0);
 }
 
@@ -136,7 +139,7 @@ process.on('message', (message: TSubagentWorkerWireValue) => {
 process.on('disconnect', () => {
   cancelled = true;
   session?.abort();
-  void session?.shutdown({ reason: 'other' }).catch(() => undefined);
+  void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
 });
 
 sendChildMessage({ type: 'ready' });

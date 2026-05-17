@@ -233,3 +233,29 @@ which already moved to `agent-transport/headless`.
 Fix: moved to `packages/agent-transport/src/headless/cli-input.ts`. Exported `promptInput`
 from `@robota-sdk/agent-transport/headless`. `agent-cli/src/cli.ts` imports `promptInput`
 alongside `PrintTerminal` from `@robota-sdk/agent-transport/headless`. Original file deleted.
+
+### CLI-AUDIT-022: `ChildProcessSubagentRunner` + worker — concrete runtime owned by agent-framework/agent-cli, belongs in dedicated package
+
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+
+`packages/agent-framework/src/subagents/child-process-subagent-runner.ts` (runner + factory) and
+`packages/agent-cli/src/subagents/child-process-subagent-worker.ts` (worker entry point) were split
+across two packages with no clear owner. The runner having no provider dependencies forced either
+bundling `agent-provider` into `agent-framework` (bloating all framework consumers with 6 provider
+SDKs) or keeping the worker in `agent-cli` (which should be a composition-only root).
+
+Subagent support is optional — applications that don't need child-process subagents should not
+carry the dependency. The correct design makes child-process execution an opt-in package.
+
+Fix: created new package `@robota-sdk/agent-subagent-runner`. Moved to it:
+
+- `ChildProcessSubagentRunner`, `createChildProcessSubagentRunnerFactory` (from agent-framework)
+- `child-process-subagent-worker.ts` (from agent-cli)
+- IPC types (`child-process-subagent-ipc.ts`)
+- Transport/result helpers
+- `getDefaultSubagentWorkerPath()` (new — resolves bundled worker path within the package)
+
+`agent-framework` retains only `TSubagentRunnerFactory` (port type) and `createInProcessSubagentRunner`
+(depends on `InteractiveSession`, cannot leave). `agent-cli` now imports
+`createChildProcessSubagentRunnerFactory` and `getDefaultSubagentWorkerPath` from
+`@robota-sdk/agent-subagent-runner`; the manual worker path construction is removed.

@@ -10,6 +10,7 @@ packages/
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
+├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
