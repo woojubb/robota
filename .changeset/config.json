@@ -10,9 +10,11 @@
       "@robota-sdk/agent-executor",
       "@robota-sdk/agent-framework",
       "@robota-sdk/agent-interface-transport",
+      "@robota-sdk/agent-interface-tui",
       "@robota-sdk/agent-plugin",
       "@robota-sdk/agent-provider",
       "@robota-sdk/agent-session",
+      "@robota-sdk/agent-subagent-runner",
       "@robota-sdk/agent-tools",
       "@robota-sdk/agent-transport",
       "@robota-sdk/agent-web-ui"
