@@ -163,6 +163,6 @@ In v2.0.0, `agent-core` contained everything: tools, plugins, session management
 - **Background tasks** handled by `agent-executor`
 - **SDK assembly** in `agent-framework` (was `agent-sdk`)
 - **CLI** entry point is `agent-cli`
-- **TUI** (Ink/React) extracted to `agent-transport-tui`
+- **TUI** (Ink/React) extracted to `agent-transport`
 - **Transport** (protocol-only) in `agent-transport`
 - **Permissions** and **Hooks** added to `agent-core` as general-purpose infrastructure
