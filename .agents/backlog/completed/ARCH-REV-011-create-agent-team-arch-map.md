@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-011: Create agent-team.md architecture-map subdocument (multi-agent orchestration)'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: now
