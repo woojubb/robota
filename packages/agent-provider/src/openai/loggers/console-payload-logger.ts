@@ -1,7 +1,9 @@
+import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
+
+import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
+
 import type { IPayloadLogger, IPayloadLoggerOptions } from '../interfaces/payload-logger';
 import type { IOpenAILogData } from '../types/api-types';
-import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
-import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
  * Console-based payload logger for browser environments

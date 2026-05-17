@@ -1,6 +1,7 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
 import { GemmaProvider } from './provider';
+import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 export const DEFAULT_GEMMA_PROVIDER_MODEL = 'supergemma4-26b-uncensored-v2';
 export const DEFAULT_GEMMA_PROVIDER_API_KEY = 'lm-studio';

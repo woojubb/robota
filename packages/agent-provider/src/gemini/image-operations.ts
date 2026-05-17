@@ -1,3 +1,5 @@
+import type { IGeminiProviderOptions } from './types';
+import type { GenerateContentParameters } from '@google/genai';
 import type {
   TUniversalMessage,
   TUniversalMessagePart,
@@ -7,8 +9,6 @@ import type {
   TProviderMediaResult,
   IChatOptions,
 } from '@robota-sdk/agent-core';
-import type { GenerateContentParameters } from '@google/genai';
-import type { IGeminiProviderOptions } from './types';
 
 /** Checks whether the given parts contain an image part. */
 export function hasImagePart(parts: TUniversalMessagePart[] | undefined): boolean {

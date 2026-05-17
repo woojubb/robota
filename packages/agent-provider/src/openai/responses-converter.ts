@@ -1,15 +1,15 @@
 import type {
-  IAssistantMessage,
-  IToolSchema,
-  TUniversalMessage,
-  TUniversalMessagePart,
-} from '@robota-sdk/agent-core';
-import type {
   IOpenAIResponsesFunctionTool,
   IOpenAIResponsesMessageInput,
   TOpenAIResponsesInputContent,
   TOpenAIResponsesInputItem,
 } from './responses-types';
+import type {
+  IAssistantMessage,
+  IToolSchema,
+  TUniversalMessage,
+  TUniversalMessagePart,
+} from '@robota-sdk/agent-core';
 
 export function convertToOpenAIResponsesInput(
   messages: TUniversalMessage[],
