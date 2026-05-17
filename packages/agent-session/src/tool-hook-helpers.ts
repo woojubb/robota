@@ -4,6 +4,9 @@
  */
 
 import { runHooks } from '@robota-sdk/agent-core';
+
+import { MAX_TOOL_OUTPUT_CHARS } from './permission-types.js';
+
 import type {
   IToolResult,
   TToolParameters,
@@ -11,7 +14,6 @@ import type {
   IHookInput,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
-import { MAX_TOOL_OUTPUT_CHARS } from './permission-types.js';
 
 /**
  * Truncate tool result data if it exceeds MAX_TOOL_OUTPUT_CHARS.

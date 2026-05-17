@@ -1,5 +1,5 @@
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { ISessionLogEntry } from './session-log-replay.js';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface ISessionReplayValidationIssue {
   code:

@@ -2,9 +2,9 @@
  * Permission types — interfaces and type aliases for permission enforcement.
  */
 
+import type { ISessionLogger } from './session-logger.js';
 import type { IToolWithEventService, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor, ISpinner, ITerminalOutput } from '@robota-sdk/agent-core';
-import type { ISessionLogger } from './session-logger.js';
 
 export type { ISpinner, ITerminalOutput };
 

@@ -1,12 +1,14 @@
+import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
+import type { PermissionEnforcer } from './permission-enforcer.js';
 import type {
   Robota,
   IAIProvider,
+  IContextWindowState,
+  IHistoryEntry,
   IToolSchema,
   TPermissionMode,
-  IHistoryEntry,
+  TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { PermissionEnforcer } from './permission-enforcer.js';
-import type { ContextWindowTracker } from './context-window-tracker.js';
 
 export abstract class SessionBase {
   protected abstract readonly robota: Robota;
@@ -77,11 +79,11 @@ export abstract class SessionBase {
     return this.abortController !== null;
   }
 
-  getContextState() {
+  getContextState(): IContextWindowState {
     return this.contextTracker.getContextState();
   }
 
-  getAutoCompactThreshold() {
+  getAutoCompactThreshold(): TAutoCompactThreshold {
     return this.contextTracker.getAutoCompactThreshold();
   }
 
@@ -89,7 +91,7 @@ export abstract class SessionBase {
     this.contextTracker.setAutoCompactThreshold(threshold);
   }
 
-  getHistory() {
+  getHistory(): TUniversalMessage[] {
     return this.robota.getHistory();
   }
 
