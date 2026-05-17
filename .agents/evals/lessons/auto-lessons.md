@@ -27,29 +27,29 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 19084 events in the last 7 days
+- Frequency: 21927 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p5-cli-terminal-io-injection.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p6-provider-infra-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-slim-agent-cli-tui-plugin-injection.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-BL-001-consolidate-provider-packages.md`
+- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p23-plugin-adapter-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p5-cli-terminal-io-injection.md`
 - First seen: 2026-05-11T11:18:09.000Z
-- Last seen: 2026-05-17T04:55:31.000Z
+- Last seen: 2026-05-17T08:02:57.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 147 events in the last 7 days
+- Frequency: 157 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-11T11:18:09.000Z
-- Last seen: 2026-05-17T04:55:31.000Z
+- Last seen: 2026-05-17T08:02:57.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 25 events in the last 7 days
+- Frequency: 34 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-core/src/services/execution-round-provider.ts`, `packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts`, `packages/agent-framework/src/command-api/provider/provider-merge.ts`
+- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/startup/append-system-prompt.ts`, `packages/agent-cli/src/startup/version.ts`, `packages/agent-cli/src/utils/settings-check.ts`, `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`
 - First seen: 2026-05-14T13:52:54.000Z
-- Last seen: 2026-05-17T04:50:53.000Z
+- Last seen: 2026-05-17T07:59:44.000Z
 - Status: candidate; human review is required before promotion.

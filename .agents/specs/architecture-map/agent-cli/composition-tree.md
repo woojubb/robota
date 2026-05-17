@@ -67,8 +67,8 @@ packages/agent-cli/src/bin.ts
       |  |- transportRegistry = createDefaultTransportRegistry()  (agent-transport)
       |  `- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-transport/tui)
       |     `- reloadPluginCommandSource  (agent-command)
-      `- tuiTransport.start() -> renderApp()  (agent-transport-tui)
-         `- App.tsx  (agent-transport-tui)
+      `- tuiTransport.start() -> renderApp()  (agent-transport/tui)
+         `- App.tsx  (agent-transport/tui)
             |- useInteractiveSession()
             |  |- new InteractiveSession({ cwd, provider, commandModules, commandHostAdapters, ... })
             |  |- CommandRegistry

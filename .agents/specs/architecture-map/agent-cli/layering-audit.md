@@ -9,12 +9,12 @@ Resolved audit findings, durable lessons, and mechanical guard candidates.
 
 ## Layering Audit
 
-### CLI-AUDIT-001: CLI imports `agent-sessions` directly
+### CLI-AUDIT-001: CLI imports `agent-session` directly
 
 Status: resolved — PR #205.
 
-Session persistence construction now lives behind SDK-owned APIs in
-`agent-sdk/src/interactive/session-persistence.ts`. CLI calls `createProjectSessionStore(cwd)` and
+Session persistence construction now lives behind framework-owned APIs in
+`agent-framework/src/interactive/session-persistence.ts`. CLI calls `createProjectSessionStore(cwd)` and
 related facades from `@robota-sdk/agent-framework`; it has no direct dependency on
 `@robota-sdk/agent-session`.
 
@@ -25,7 +25,7 @@ Mechanical guard: `scripts/harness/check-command-layering.mjs` flags production 
 
 Status: resolved — `fix/cli-command-effect-boundary`.
 
-`CommandEffectQueue` (`agent-transport-tui/src/hooks/command-effect-queue.ts`) now owns the explicit
+`CommandEffectQueue` (`agent-transport/src/tui/command-interaction.ts`) now owns the explicit
 effect transport. `InteractiveSession` is no longer used as an `ISideEffects` mutable carrier.
 
 Mechanical guard: `scripts/harness/check-command-layering.mjs` flags `_pendingCommandInteraction`,
@@ -57,33 +57,32 @@ Mechanical guard: command-layering harness scans for new CLI command shim files 
 
 Status: resolved.
 
-| File                                                              | Classification                                  |
-| ----------------------------------------------------------------- | ----------------------------------------------- |
-| `agent-cli/src/background/managed-shell-process-runner.ts`        | CLI adapter — Node spawn, stdin, cancellation   |
-| `agent-cli/src/subagents/child-process-subagent-runner.ts`        | CLI adapter — Node fork, worker path, payload   |
-| `agent-cli/src/subagents/child-process-subagent-transport.ts`     | CLI adapter — IPC send/cancel                   |
-| `agent-cli/src/subagents/child-process-subagent-runner-result.ts` | CLI adapter — result orchestration              |
-| `agent-cli/src/subagents/child-process-subagent-ipc.ts`           | CLI adapter protocol                            |
-| `agent-cli/src/subagents/child-process-subagent-worker.ts`        | CLI adapter worker                              |
-| `agent-cli/src/subagents/git-worktree-isolation-adapter.ts`       | CLI adapter — worktree port impl                |
-| `agent-runtime/src/background-tasks/log-pages.ts`                 | Runtime primitive — bounded output + pagination |
+| File                                                             | Classification                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `agent-cli/src/background/managed-shell-process-runner.ts`       | CLI adapter — Node spawn, stdin, cancellation                             |
+| `agent-subagent-runner/src/child-process-subagent-runner.ts`     | Optional package — Node fork, worker path, payload (moved from agent-cli) |
+| `agent-subagent-runner/src/child-process-subagent-ipc.ts`        | Optional package — IPC protocol types                                     |
+| `agent-subagent-runner/src/child-process-subagent-worker.ts`     | Optional package — worker entry point                                     |
+| `agent-subagent-runner/src/worker-path-resolver.ts`              | Optional package — bundled worker path resolver                           |
+| `agent-executor/src/subagents/git-worktree-isolation-adapter.ts` | Executor adapter — worktree port impl                                     |
+| `agent-executor/src/background-tasks/log-pages.ts`               | Runtime primitive — bounded output + pagination                           |
 
 ### CLI-AUDIT-007: SDK public exports hide package ownership
 
 Status: resolved.
 
-SDK public surface is classified in `packages/agent-framework/docs/PUBLIC-SURFACE.md`. `agent-runtime`
-re-exports are allowed only from `agent-sdk/src/background-tasks/index.ts` and
-`agent-sdk/src/subagents/index.ts`.
+SDK public surface is classified in `packages/agent-framework/docs/PUBLIC-SURFACE.md`. `agent-executor`
+re-exports are allowed only from `agent-framework/src/background-tasks/index.ts` and
+`agent-framework/src/subagents/index.ts`.
 
 Mechanical guard: `pnpm harness:scan:sdk-public-surface` rejects broad `export *` barrels and
-pass-through exports from `agent-core`, `agent-sessions`, or `agent-tools`.
+pass-through exports from `agent-core`, `agent-session`, or `agent-tools`.
 
 ### CLI-AUDIT-008: Prompt file references must not move into TUI input handling
 
 Status: resolved — `feat/cli-at-file-reference-import`.
 
-`agent-sdk` owns `@file` token parsing, workspace-root enforcement, byte limits, diagnostics, and
+`agent-framework` owns `@file` token parsing, workspace-root enforcement, byte limits, diagnostics, and
 structured `prompt-file-reference` history records. CLI routes non-slash text to
 `InteractiveSession.submit()` unchanged.
 
@@ -98,8 +97,8 @@ state, and concrete local host adapters.
 command behavior, provider semantics, permission policy, persistence contracts, retention policy,
 background task grouping, or transport-visible contracts.
 
-If a TUI component needs data or behavior not exposed by `agent-sdk` or a lower owner, add the
-SDK/runtime/command/provider capability first.
+If a TUI component needs data or behavior not exposed by `agent-framework` or a lower owner, add the
+framework/executor/command/provider capability first.
 
 ### CLI-AUDIT-010: createTuiCliAdapter belongs in agent-transport
 
