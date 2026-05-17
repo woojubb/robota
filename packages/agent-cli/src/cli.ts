@@ -9,6 +9,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PrintTerminal } from './print-terminal.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { findProviderDefinition } from '@robota-sdk/agent-framework';
 import type { IProviderDefinition } from '@robota-sdk/agent-framework';
@@ -46,6 +47,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
+import { promptInput } from './utils/cli-input.js';
 import {
   getUserSettingsPath,
   deleteSettings,
@@ -89,8 +91,6 @@ import { reloadPluginCommandSource } from './plugins/plugin-command-source-loade
 import { createCliPluginCommandAdapter } from './plugins/plugin-command-adapter.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 
-const PRINTABLE_ASCII_START = 32;
-
 /** Read version from package.json at runtime. */
 function readVersion(): string {
   try {
@@ -113,57 +113,6 @@ function readVersion(): string {
   } catch {
     return '0.0.0';
   }
-}
-
-/** Prompt for input in raw mode. Mask with asterisks if masked=true. */
-function promptInput(label: string, masked = false): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    process.stdout.write(label);
-    let input = '';
-    const stdin = process.stdin;
-    const wasRaw = stdin.isRaw;
-    if (!stdin.isTTY) {
-      reject(
-        new Error(
-          'Cannot prompt for input: stdin is not a TTY.\n' +
-            'Set your API key via environment variable instead:\n' +
-            '  ANTHROPIC_API_KEY=<key> robota\n' +
-            '  OPENAI_API_KEY=<key> robota',
-        ),
-      );
-      return;
-    }
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding('utf8');
-    const onData = (data: string): void => {
-      for (const ch of data) {
-        if (ch === '\r' || ch === '\n') {
-          stdin.removeListener('data', onData);
-          stdin.setRawMode(wasRaw ?? false);
-          stdin.pause();
-          process.stdout.write('\n');
-          resolve(input.trim());
-          return;
-        } else if (ch === '\x7f' || ch === '\b') {
-          if (input.length > 0) {
-            input = input.slice(0, -1);
-            process.stdout.write('\b \b');
-          }
-        } else if (ch === '\x03') {
-          stdin.removeListener('data', onData);
-          stdin.setRawMode(wasRaw ?? false);
-          stdin.pause();
-          process.stdout.write('\n');
-          process.exit(0);
-        } else if (ch.charCodeAt(0) >= PRINTABLE_ASCII_START) {
-          input += ch;
-          process.stdout.write(masked ? '*' : ch);
-        }
-      }
-    };
-    stdin.on('data', onData);
-  });
 }
 
 function readTaskFilePrompt(cwd: string, taskFile: string): string {
@@ -360,11 +309,18 @@ async function runPrintMode(
 }
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
-  const args = parseCliArgs();
+  let args: IParsedCliArgs;
+  try {
+    args = parseCliArgs();
+  } catch (error) {
+    // allow-fallback: argument validation errors are terminal — exit is the correct response
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
   const version = readVersion();
 
   if (args.help) {
-    printHelp();
+    process.stdout.write(printHelp());
     return;
   }
 
@@ -390,25 +346,31 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   const cwd = process.cwd();
+  const terminal = new PrintTerminal();
 
-  if (await runUserLocalDirectCommandIfRequested(args, cwd)) {
-    return;
+  try {
+    if (await runUserLocalDirectCommandIfRequested(args, cwd, terminal)) {
+      return;
+    }
+  } catch {
+    // allow-fallback: user-local command failure is terminal — exit is the correct response
+    process.exit(1);
   }
 
   const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
     buildCommandSetup(cwd, args, options, version);
 
   if (args.configure) {
-    await runInteractiveProviderSetup(cwd, args, promptInput, providerDefinitions);
+    await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
     return;
   }
 
-  if (handleProviderConfigurationArgs(cwd, args, providerDefinitions)) {
+  if (handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions)) {
     return;
   }
 
   try {
-    await ensureConfig(cwd, args, promptInput, providerDefinitions);
+    await ensureConfig(cwd, args, promptInput, terminal, providerDefinitions);
   } catch (error) {
     // allow-fallback: terminal failure — not a silent fallback
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

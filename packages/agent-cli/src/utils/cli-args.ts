@@ -1,6 +1,6 @@
 /**
  * CLI argument parsing and validation.
- * Pure functions — no side effects beyond process.exit on validation failure.
+ * Pure functions — throw on invalid input, no process.* side effects.
  */
 
 import { parseArgs } from 'node:util';
@@ -49,9 +49,9 @@ export interface IParsedCliArgs {
   disableUpdateCheck: boolean;
 }
 
-/** Print CLI usage help to stdout. */
-export function printHelp(): void {
-  process.stdout.write(`
+/** Return CLI usage help text. */
+export function printHelp(): string {
+  return `
 Usage: robota [options] [-p <prompt>]
 
 Options:
@@ -79,38 +79,33 @@ Examples:
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
   robota --continue                Resume the last session
-`);
+`;
 }
 
-/** Validate and return a TOutputFormat from a raw CLI string, or exit on error. */
+/** Validate and return a TOutputFormat from a raw CLI string, or throw on error. */
 export function parseOutputFormat(raw: string | undefined): TOutputFormat | undefined {
   if (raw === undefined) return undefined;
   if (!(VALID_OUTPUT_FORMATS as readonly string[]).includes(raw)) {
-    process.stderr.write(
-      `Invalid --output-format "${raw}". Valid: ${VALID_OUTPUT_FORMATS.join(' | ')}\n`,
-    );
-    process.exit(1);
+    throw new Error(`Invalid --output-format "${raw}". Valid: ${VALID_OUTPUT_FORMATS.join(' | ')}`);
   }
   return raw as TOutputFormat;
 }
 
-/** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
+/** Validate and return a TPermissionMode from a raw CLI string, or throw on error. */
 export function parsePermissionMode(raw: string | undefined): TPermissionMode | undefined {
   if (raw === undefined) return undefined;
   if (!VALID_MODES.includes(raw as TPermissionMode)) {
-    process.stderr.write(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}\n`);
-    process.exit(1);
+    throw new Error(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}`);
   }
   return raw as TPermissionMode;
 }
 
-/** Validate and return a positive integer from a raw CLI string, or exit on error. */
+/** Validate and return a positive integer from a raw CLI string, or throw on error. */
 export function parseMaxTurns(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
   const n = parseInt(raw, 10);
   if (isNaN(n) || n <= 0) {
-    process.stderr.write(`Invalid --max-turns "${raw}". Must be a positive integer.\n`);
-    process.exit(1);
+    throw new Error(`Invalid --max-turns "${raw}". Must be a positive integer.`);
   }
   return n;
 }

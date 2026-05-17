@@ -10,6 +10,17 @@ import {
   runInteractiveProviderSetup,
 } from '../provider-setup.js';
 import type { IProviderDefinition } from '../provider-definition.js';
+import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
+
+const NOOP_TERMINAL: ITerminalOutput = {
+  write: () => {},
+  writeLine: () => {},
+  writeMarkdown: () => {},
+  writeError: () => {},
+  prompt: () => Promise.resolve(''),
+  select: () => Promise.resolve(0),
+  spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
+};
 
 const TMP_BASE = join(tmpdir(), `robota-provider-setup-test-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;
@@ -192,6 +203,7 @@ describe('provider setup', () => {
       join(TMP_BASE, 'project'),
       baseArgs(),
       promptInput,
+      NOOP_TERMINAL,
       providerDefinitions,
     );
 
@@ -222,6 +234,7 @@ describe('provider setup', () => {
       join(TMP_BASE, 'project'),
       baseArgs(),
       promptInput,
+      NOOP_TERMINAL,
       providerDefinitions,
     );
 
@@ -254,6 +267,7 @@ describe('provider setup', () => {
       join(TMP_BASE, 'project'),
       baseArgs(),
       promptInput,
+      NOOP_TERMINAL,
       providerDefinitions,
     );
 
@@ -282,7 +296,13 @@ describe('provider setup', () => {
 
     const args = { ...baseArgs(), provider: 'missing-profile' };
     await expect(
-      ensureConfig(join(TMP_BASE, 'project'), args, promptInput, providerDefinitions),
+      ensureConfig(
+        join(TMP_BASE, 'project'),
+        args,
+        promptInput,
+        NOOP_TERMINAL,
+        providerDefinitions,
+      ),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
   });
@@ -317,7 +337,7 @@ describe('provider setup', () => {
     };
 
     await expect(
-      ensureConfig(project, baseArgs(), promptInput, providerDefinitions),
+      ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions),
     ).rejects.toThrow('No provider configuration found');
     expect(prompted).toBe(false);
   });
@@ -348,7 +368,7 @@ describe('provider setup', () => {
     const answers = ['1', 'sk-ant-project', '', 'ko'];
     const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
-    await ensureConfig(project, baseArgs(), promptInput, providerDefinitions);
+    await ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions);
 
     const settings = JSON.parse(
       readFileSync(join(project, '.robota', 'settings.local.json'), 'utf8'),
@@ -398,6 +418,7 @@ describe('provider setup', () => {
     const handled = handleProviderConfigurationArgs(
       project,
       { ...baseArgs(), provider: 'qwen', setCurrent: true },
+      NOOP_TERMINAL,
       providerDefinitions,
     );
 

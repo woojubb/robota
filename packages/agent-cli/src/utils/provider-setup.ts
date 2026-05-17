@@ -21,6 +21,7 @@ import {
   runProviderSetupPromptFlow,
   type TPromptInput,
 } from '@robota-sdk/agent-command';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 export function getSettingsPathForScope(cwd: string, scope: string | undefined): string {
   if (scope === undefined || scope === 'user') {
@@ -35,6 +36,7 @@ export function getSettingsPathForScope(cwd: string, scope: string | undefined):
 export function handleProviderConfigurationArgs(
   cwd: string,
   args: IParsedCliArgs,
+  terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): boolean {
   const settingsPath = getSettingsPathForScope(cwd, args.settingsScope);
@@ -42,7 +44,7 @@ export function handleProviderConfigurationArgs(
     applyProviderConfiguration(settingsPath, buildSetupInputFromArgs(args), {
       providerDefinitions,
     });
-    process.stdout.write(`Provider profile saved to ${settingsPath}\n`);
+    terminal.writeLine(`Provider profile saved to ${settingsPath}`);
     return !args.printMode && args.positional.length === 0;
   }
   if (args.provider && args.setCurrent) {
@@ -51,7 +53,7 @@ export function handleProviderConfigurationArgs(
     applyProviderSwitch(switchSettingsPath, args.provider, {
       knownProviders: readMergedProviderSettings(cwd).providers,
     });
-    process.stdout.write(`Current provider set to ${args.provider}\n`);
+    terminal.writeLine(`Current provider set to ${args.provider}`);
     return !args.printMode && args.positional.length === 0;
   }
   return false;
@@ -61,6 +63,7 @@ export async function ensureConfig(
   cwd: string,
   args: IParsedCliArgs,
   promptInput: TPromptInput,
+  terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): Promise<void> {
   const merged = readMergedProviderSettings(cwd);
@@ -76,6 +79,7 @@ export async function ensureConfig(
     cwd,
     selectStartupSetupArgs(cwd, args),
     promptInput,
+    terminal,
     providerDefinitions,
   );
   const updated = readMergedProviderSettings(cwd);
@@ -90,6 +94,7 @@ export async function runInteractiveProviderSetup(
   cwd: string,
   args: IParsedCliArgs,
   promptInput: TPromptInput,
+  terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): Promise<void> {
   const providerChoice = await promptInput(formatProviderSetupSelectionPrompt(providerDefinitions));
@@ -107,7 +112,7 @@ export async function runInteractiveProviderSetup(
     settings.language = language;
     writeSettings(settingsPath, settings);
   }
-  process.stdout.write(`\n  Config saved to ${settingsPath}\n\n`);
+  terminal.writeLine(`\n  Config saved to ${settingsPath}\n`);
 }
 
 function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
