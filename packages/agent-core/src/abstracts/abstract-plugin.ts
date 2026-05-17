@@ -3,6 +3,21 @@
  *
  * Type definitions live in ./abstract-plugin-types.ts.
  */
+import { PluginCategory, PluginPriority } from './abstract-plugin-types';
+import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
+import { createLogger, type ILogger } from '../utils/logger';
+
+import type {
+  IPluginOptions,
+  IPluginStats,
+  IPluginConfig,
+  IPluginData,
+  IPluginContract,
+  IPluginHooks,
+  IPluginExecutionContext,
+  IPluginExecutionResult,
+  IPluginErrorContext,
+} from './abstract-plugin-types';
 import type { IRunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type {
@@ -15,20 +30,6 @@ import type {
   IEventEmitterPlugin,
   TEventName,
 } from '../plugins/event-emitter/types';
-import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
-import { createLogger, type ILogger } from '../utils/logger';
-import type {
-  IPluginOptions,
-  IPluginStats,
-  IPluginConfig,
-  IPluginData,
-  IPluginContract,
-  IPluginHooks,
-  IPluginExecutionContext,
-  IPluginExecutionResult,
-  IPluginErrorContext,
-} from './abstract-plugin-types';
-import { PluginCategory, PluginPriority } from './abstract-plugin-types';
 
 // Re-export all types for backward compatibility
 export type {

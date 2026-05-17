@@ -1,6 +1,6 @@
 /**
  * Core transport adapter contract.
- * Moved from agent-sdk to break the circular dependency between
+ * Moved from agent-framework to break the circular dependency between
  * agent-transport-* implementations and the assembly layer.
  */
 

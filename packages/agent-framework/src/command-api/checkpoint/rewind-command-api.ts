@@ -1,10 +1,10 @@
-import type { ICommand } from '../types.js';
-import type { ICommandHostContext } from '../host-context.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../../checkpoints/index.js';
+import type { ICommandHostContext } from '../host-context.js';
+import type { ICommand } from '../types.js';
 
 export const REWIND_COMMAND_DESCRIPTION = 'List, inspect, restore, or rollback edit checkpoints.';
 export const REWIND_COMMAND_ARGUMENT_HINT =

@@ -4,6 +4,10 @@
  * and all command/skill invocation logic.
  */
 
+import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
+import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
+
+import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   ICommand,
   ICommandHostAdapters,
@@ -16,11 +20,8 @@ import type {
   TCommandInvocationSource,
   ISystemCommand,
 } from '../commands/index.js';
-import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
-import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
-import type { ICommandHostContext } from '../command-api/index.js';
+import type { TShellExecFn } from '../utils/skill-prompt.js';
 
 function normalizeSkillName(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';

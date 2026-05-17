@@ -1,4 +1,3 @@
-import type { IToolCall } from '@robota-sdk/agent-core';
 import { parseGemmaPseudoCommandEnvelopes } from './pseudo-command-envelope';
 import {
   consumeGemmaPseudoControlBlock,
@@ -9,12 +8,14 @@ import {
   longestGemmaPseudoStartPrefixSuffixLength,
   parseGemmaPseudoTag,
 } from './pseudo-tool-call-tag-parser';
+
 import type {
   IGemmaConsumedPseudoBlock,
   IGemmaParsedPseudoTag,
   IGemmaPseudoProjectionOptions,
   TGemmaJsonValue,
 } from './pseudo-tool-call-types';
+import type { IToolCall } from '@robota-sdk/agent-core';
 
 const DEFAULT_CALL_ID_PREFIX = 'gemma_call';
 

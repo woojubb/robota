@@ -1,6 +1,6 @@
-import type { TUniversalMessage } from '../../interfaces/messages';
+import type { CacheKeyBuilder } from './cache-key-builder';
 import type { ICacheStorage, ICacheStats } from '../../interfaces/cache';
-import { CacheKeyBuilder } from './cache-key-builder';
+import type { TUniversalMessage } from '../../interfaces/messages';
 
 export class ExecutionCacheService {
   constructor(

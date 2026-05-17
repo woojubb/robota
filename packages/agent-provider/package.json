@@ -136,6 +136,8 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
 import { checkSettingsDocument } from '../settings-check.js';
+
 import type { TProviderSettingsDocument } from '../provider-settings.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 

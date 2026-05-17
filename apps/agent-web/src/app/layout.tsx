@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
 import { Space_Grotesk, Fira_Code } from 'next/font/google';
+
+import type { Metadata } from 'next';
+import type { ReactElement, ReactNode } from 'react';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -22,7 +23,7 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
-}>) {
+}>): ReactElement {
   return (
     <html lang="en" className="h-full">
       <body className={`h-full ${spaceGrotesk.variable} ${firaCode.variable}`}>

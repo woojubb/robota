@@ -1,9 +1,3 @@
-import type {
-  ICommand,
-  ICommandModule,
-  ICommandSource,
-  ISystemCommand,
-} from '@robota-sdk/agent-framework';
 import {
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
@@ -11,6 +5,7 @@ import {
   RESUME_COMMAND_DESCRIPTION,
   VALIDATE_SESSION_COMMAND_DESCRIPTION,
 } from '@robota-sdk/agent-framework';
+
 import {
   executeClearCommand,
   executeCostCommand,
@@ -18,6 +13,13 @@ import {
   executeResumeCommand,
   executeValidateSessionCommand,
 } from './session-command.js';
+
+import type {
+  ICommand,
+  ICommandModule,
+  ICommandSource,
+  ISystemCommand,
+} from '@robota-sdk/agent-framework';
 
 export function createClearCommandEntry(): ICommand {
   return {

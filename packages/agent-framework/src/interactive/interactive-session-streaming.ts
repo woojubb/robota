@@ -6,11 +6,13 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+import type { IDiffLine, IToolState } from './types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { IDiffLine, IToolState } from './types.js';
 
 /** Max chars to display from first tool argument. */
 export const TOOL_ARG_DISPLAY_MAX = 80;

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import Anthropic from '@anthropic-ai/sdk';
+
+import type Anthropic from '@anthropic-ai/sdk';
 import type {
   TUniversalMessage,
   IToolSchema,
@@ -91,7 +92,7 @@ export function convertFromAnthropicResponse(response: Anthropic.Message): TUniv
     throw new Error('No content in Anthropic response');
   }
 
-  let textParts: string[] = [];
+  const textParts: string[] = [];
   const toolCalls: Array<{
     id: string;
     type: 'function';

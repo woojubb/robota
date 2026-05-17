@@ -1,8 +1,9 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
 
-import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
 import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
+
+import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
 
 export const USER_LOCAL_STORAGE_CATEGORIES = [
   'preferences',

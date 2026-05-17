@@ -1,12 +1,3 @@
-import type { IAgentConfig, IAssistantMessage, IToolMessage } from '../interfaces/agent';
-import type { IAIProviderManager } from '../interfaces/manager';
-import type { IToolManager } from '../interfaces/manager';
-import { type ConversationStore } from '../managers/conversation-history-manager';
-import type { TUniversalMessage } from '../interfaces/messages';
-import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import { callPluginHook } from './plugin-hook-dispatcher';
-import type { ILogger } from '../utils/logger';
-import type { ExecutionEventEmitter } from './execution-event-emitter';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
@@ -15,6 +6,16 @@ import {
   ID_RADIX,
   ID_RANDOM_LENGTH,
 } from './execution-types';
+import { callPluginHook } from './plugin-hook-dispatcher';
+import { type ConversationStore } from '../managers/conversation-history-manager';
+
+import type { ExecutionEventEmitter } from './execution-event-emitter';
+import type { TPluginWithHooks } from './plugin-hook-dispatcher';
+import type { IAgentConfig, IAssistantMessage, IToolMessage } from '../interfaces/agent';
+import type { IAIProviderManager } from '../interfaces/manager';
+import type { IToolManager } from '../interfaces/manager';
+import type { TUniversalMessage } from '../interfaces/messages';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Resolve the current AI provider and available tools from managers.

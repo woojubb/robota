@@ -4,12 +4,13 @@
  */
 
 import { randomUUID } from 'node:crypto';
+
+import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
-import type { IChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
+import type { IChatOptions } from '../interfaces/provider';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 
 type TProviderChat = (
   messages: TUniversalMessage[],

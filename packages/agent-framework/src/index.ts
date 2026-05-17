@@ -104,6 +104,11 @@ export type {
   IStatusLineCommandSettings,
   TProviderSettingsDocument,
   TSettingsCheck,
+  IProviderSwitchOptions,
+  IActiveModelChangeOptions,
+  IActiveModelChangeResult,
+  IProviderSettingsWriteTargetOptions,
+  IReadProviderSettingsOptions,
   TStatusLineCommandSettingsPatch,
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
@@ -119,10 +124,18 @@ export {
   buildProviderProfile,
   buildProviderSetupPatch,
   checkSettingsDocument,
+  checkSettingsFile,
+  applyProviderConfiguration,
+  applyProviderSwitch,
+  applyActiveModelChange,
+  resolveProviderSettingsWriteTargetPath,
   mergeProviders,
   mergeSettings,
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
   clearCommandContextReferences,
   deleteProviderProfile,
   formatEnvReference,
@@ -219,6 +232,8 @@ export {
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   hasSensitiveCommandMemoryContent,
   isStatusLineCommandSettingsPatch,
+  readStatusLineSettings,
+  applyStatusLineSettings,
   isCommandMemoryType,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
@@ -250,10 +265,6 @@ export type {
   TMemoryCandidateStatus,
   TRecommendedResponseLanguage,
 } from './commands/index.js';
-
-// ── Provider definition utilities ──────────────────────────
-export { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
-export type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 // ── User-local storage and memory ──────────────────────────
 export {
@@ -586,6 +597,58 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
 export { createTestInteractiveSession } from './testing/create-test-interactive-session.js';
+
+// ── Settings I/O ─────────────────────────────────────────────
+export {
+  getUserSettingsPath,
+  resolveSettingsPathForScope,
+  readSettings,
+  writeSettings,
+  updateModelInSettings,
+  deleteSettings,
+} from './config/settings-io.js';
+export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { resetUserConfig } from './config/reset-user-config.js';
+export type { IResetUserConfigResult } from './config/reset-user-config.js';
+
+// ── Provider settings paths ──────────────────────────────────
+export { getProviderSettingsPaths } from './config/provider-paths.js';
+
+// ── Git utilities ─────────────────────────────────────────────
+export { resolveGitBranch } from './git/git-branch.js';
+
+// ── Semver comparison ─────────────────────────────────────────
+export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
+
+// ── Agent runtime (composition API) ──────────────────────────
+export type { IAgentRuntimeConfig, IAgentRuntime } from './runtime/index.js';
+export { createAgentRuntime } from './runtime/index.js';
+
+// ── Package version ───────────────────────────────────────────
+export { readPackageVersion } from './utils/read-package-version.js';
+
+// ── CLI update check ──────────────────────────────────────────
+export {
+  checkForCliUpdate,
+  formatCliUpdateCheckMessage,
+  formatCliUpdateNotice,
+  getStartupCliUpdateNotice,
+  getUserUpdateCheckCachePath,
+  readUpdateCheckCache,
+  shouldRunStartupCliUpdateCheck,
+  writeUpdateCheckCache,
+  CLI_UPDATE_CACHE_TTL_MS,
+  CLI_UPDATE_PACKAGE_NAME,
+  CLI_UPDATE_REGISTRY_URL,
+  CLI_UPDATE_TIMEOUT_MS,
+} from './update-check/update-check.js';
+export type {
+  ICheckForCliUpdateOptions,
+  ICliUpdateNotice,
+  IStartupCliUpdatePolicyInput,
+  IUpdateCheckCache,
+  TCliUpdateCheckResult,
+} from './update-check/update-check.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

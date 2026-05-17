@@ -2,7 +2,6 @@
  * Default tool set factory — creates the standard set of CLI tools.
  */
 
-import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import {
   createBashTool,
   createReadTool,
@@ -13,6 +12,8 @@ import {
   webFetchTool,
   webSearchTool,
 } from '@robota-sdk/agent-tools';
+
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 /** Human-readable descriptions of the built-in tools (for system prompt) */

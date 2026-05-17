@@ -1,13 +1,14 @@
-import type OpenAI from 'openai';
-import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
-import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
-import type { IPayloadLogger } from './interfaces/payload-logger';
-import type { IOpenAIError, IOpenAILogData } from './types/api-types';
-import type { IOpenAIProviderOptions } from './types';
-import { buildOpenAIChatResponseFormat } from './openai-request-format';
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
-import { OpenAIResponseParser } from './parsers/response-parser';
+import { buildOpenAIChatResponseFormat } from './openai-request-format';
 import { assembleOpenAIStream } from './streaming/stream-assembler';
+import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
+
+import type { IPayloadLogger } from './interfaces/payload-logger';
+import type { OpenAIResponseParser } from './parsers/response-parser';
+import type { IOpenAIProviderOptions } from './types';
+import type { IOpenAIError, IOpenAILogData } from './types/api-types';
+import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export interface IOpenAIChatCompletionsOptions {
   client?: OpenAI;

@@ -1,10 +1,10 @@
+import type { IAgentToolDeps } from './agent-tool.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type {
   ISubagentJobResult,
   ISubagentManager,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
-import type { IAgentToolDeps } from './agent-tool.js';
 
 export interface IAgentToolBatchJobArgs {
   label?: string;

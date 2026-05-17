@@ -1,3 +1,13 @@
+import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
+
+import {
+  type IMCPConfig,
+  type TMCPConnectionStatus,
+  buildMCPRequest,
+  executeMCPRequest,
+  processMCPResponse,
+} from './mcp-protocol';
+
 import type {
   ITool,
   IToolResult,
@@ -6,14 +16,6 @@ import type {
   IParameterValidationResult,
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
-import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
-import {
-  type IMCPConfig,
-  type TMCPConnectionStatus,
-  buildMCPRequest,
-  executeMCPRequest,
-  processMCPResponse,
-} from './mcp-protocol';
 
 export type { IMCPConfig };
 
@@ -140,7 +142,7 @@ export class MCPTool implements ITool {
       const maxIterations = 50;
       return new Promise((resolve, reject) => {
         let iterations = 0;
-        const checkConnection = () => {
+        const checkConnection = (): void => {
           iterations++;
           if (this.connectionStatus !== 'connecting') {
             resolve();

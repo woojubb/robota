@@ -6,12 +6,14 @@
  * - appendSystemPrompt: 'EXTRA TEXT' → Session receives systemMessage ending with '\n\nEXTRA TEXT'
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IResolvedConfig } from '../config/config-types.js';
+import { join } from 'node:path';
+
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import type { IResolvedConfig } from '../config/config-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TToolResult } from '@robota-sdk/agent-tools';
 

@@ -1,9 +1,12 @@
 import { join } from 'node:path';
+
 import { loadSessionLogEntries, validateSessionReplayLogEntries } from '@robota-sdk/agent-session';
+
+import { projectPaths } from '../../paths.js';
+
+import type { TCommandEffect } from '../effects.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { ICommandSessionReplayValidationReport } from '../host-context.js';
-import type { TCommandEffect } from '../effects.js';
-import { projectPaths } from '../../paths.js';
 
 export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
 export const RENAME_COMMAND_DESCRIPTION = 'Rename the current session';

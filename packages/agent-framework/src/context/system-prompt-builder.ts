@@ -1,6 +1,3 @@
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { TTrustLevel } from '../types.js';
-import type { IProjectInfo } from './project-detector.js';
 import { composeSystemPrompt } from './system-prompt-composer.js';
 import {
   createAgentsMdSection,
@@ -14,6 +11,10 @@ import {
   createToolDescriptionSection,
   createWorkingDirectorySection,
 } from './system-prompt-section-providers.js';
+
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { TTrustLevel } from '../types.js';
+import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
 
 export interface ISystemPromptParams {

@@ -3,11 +3,13 @@
  * Displayed during session.run() execution.
  */
 
-import React from 'react';
 import { Box, Text } from 'ink';
-import type { IToolState } from '@robota-sdk/agent-framework';
+import React from 'react';
+
 import { renderMarkdown } from './render-markdown.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
+
+import type { IToolState } from '@robota-sdk/agent-framework';
 
 function getToolStyle(t: IToolState): {
   color: string;

@@ -1,22 +1,24 @@
 import { randomUUID } from 'node:crypto';
-import type OpenAI from 'openai';
-import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
-import {
-  observeProviderNativeRawPayloadStream,
-  type IOpenAICompatibleError,
-} from '../shared/openai-compatible/index.js';
+
 import {
   buildQwenResponsesTools,
   convertToQwenResponsesInput,
   getQwenBuiltInWebToolNames,
 } from './responses-converter';
 import { assembleQwenResponsesStream, parseQwenResponsesResponse } from './responses-parser';
+import {
+  observeProviderNativeRawPayloadStream,
+  type IOpenAICompatibleError,
+} from '../shared/openai-compatible/index.js';
+
 import type {
   IQwenBuiltInWebToolsOptions,
   IQwenResponsesRequestNonStreaming,
   IQwenResponsesRequestStreaming,
   TQwenResponsesStreamEvent,
 } from './types';
+import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export interface IQwenResponsesChatOptions {
   client?: OpenAI;

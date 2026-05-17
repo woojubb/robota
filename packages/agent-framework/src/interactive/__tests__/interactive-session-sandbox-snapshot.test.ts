@@ -1,10 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createUserMessage } from '@robota-sdk/agent-core';
-import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
 } from '../session-persistence.js';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 const events: string[] = [];
 

@@ -1,15 +1,17 @@
+import {
+  MEMORY_COMMAND_ARGUMENT_HINT,
+  MEMORY_COMMAND_DESCRIPTION,
+  buildMemoryCommandSubcommands,
+} from '@robota-sdk/agent-framework';
+
+import { executeMemoryCommand } from './memory-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import {
-  MEMORY_COMMAND_ARGUMENT_HINT,
-  MEMORY_COMMAND_DESCRIPTION,
-  buildMemoryCommandSubcommands,
-} from '@robota-sdk/agent-framework';
-import { executeMemoryCommand } from './memory-command.js';
 
 export function createMemoryCommandEntry(): ICommand {
   return {

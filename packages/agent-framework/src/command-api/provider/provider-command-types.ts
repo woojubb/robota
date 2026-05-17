@@ -1,5 +1,5 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TProviderSettingsDocument } from './provider-settings.js';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 export interface IProviderCommandSettingsAdapter {
   readMergedSettings(): TProviderSettingsDocument;

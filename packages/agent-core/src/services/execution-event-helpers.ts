@@ -1,6 +1,7 @@
-import type { IEventContext, IOwnerPathSegment } from '../interfaces/event-service';
-import { TOOL_EVENT_PREFIX } from './tool-execution-service';
 import { EXECUTION_EVENT_PREFIX } from './execution-constants';
+import { TOOL_EVENT_PREFIX } from './tool-execution-service';
+
+import type { IEventContext, IOwnerPathSegment } from '../interfaces/event-service';
 
 /**
  * Build the owner path from an optional IExecutionContextInjection.

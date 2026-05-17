@@ -1,11 +1,13 @@
-import type OpenAI from 'openai';
 import { isAssistantMessage } from '@robota-sdk/agent-core';
-import type { ILogger, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
-import { OpenAICompatibleResponseParser } from '../shared/openai-compatible/index.js';
-import type { IOpenAICompatibleToolCallTextProjector } from '../shared/openai-compatible/index.js';
+
 import { createStreamTextMessage, createStreamToolCallMessage } from './message-factory';
 import { GemmaReasoningProjector } from './reasoning-projector';
 import { createGemmaToolCallProjector } from './tool-call-projector';
+import { OpenAICompatibleResponseParser } from '../shared/openai-compatible/index.js';
+
+import type { IOpenAICompatibleToolCallTextProjector } from '../shared/openai-compatible/index.js';
+import type { ILogger, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export interface IGemmaStreamProjectionState {
   reasoningProjector: GemmaReasoningProjector;

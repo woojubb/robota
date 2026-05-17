@@ -1,5 +1,5 @@
-import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
-import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
+import type { ICommandResult } from './command-result.js';
+import type { ICommandHostAdapters } from './host-adapters.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -9,22 +9,22 @@ import type {
   IBackgroundTaskState,
   TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
-import type { ISubagentJobState } from '../subagents/index.js';
-import type { ICommandHostAdapters } from './host-adapters.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/index.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { TAutoCompactThreshold } from './context/context-command-api.js';
-import type { ICommandResult } from './command-result.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceItem,
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { ISubagentJobState } from '../subagents/index.js';
+import type { TAutoCompactThreshold } from './context/context-command-api.js';
+import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
 export interface ICommandListEntry {
   name: string;

@@ -1,15 +1,16 @@
+import {
+  inspectCommandEditCheckpoint,
+  listCommandEditCheckpoints,
+  restoreCommandEditCheckpoint,
+  rollbackCommandEditCheckpoint,
+} from '@robota-sdk/agent-framework';
+
 import type {
   ICommandHostContext,
   ICommandResult,
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
-} from '@robota-sdk/agent-framework';
-import {
-  inspectCommandEditCheckpoint,
-  listCommandEditCheckpoints,
-  restoreCommandEditCheckpoint,
-  rollbackCommandEditCheckpoint,
 } from '@robota-sdk/agent-framework';
 
 const SUBCOMMAND_INDEX = 0;

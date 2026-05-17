@@ -1,4 +1,5 @@
-import type { IPluginContext } from '../interfaces/types';
+import { EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS } from './execution-constants';
+
 import type {
   IPluginContract,
   IPluginHooks,
@@ -6,8 +7,8 @@ import type {
   IPluginStats,
   IPluginErrorContext,
 } from '../abstracts/abstract-plugin';
+import type { IPluginContext } from '../interfaces/types';
 import type { ILogger } from '../utils/logger';
-import { EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS } from './execution-constants';
 
 /** Combined plugin type used throughout the execution service */
 export type TPluginWithHooks = IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks;

@@ -12,7 +12,7 @@ sequenceDiagram
   participant TUI as agent-cli React/Ink
   participant Bridge as useInteractiveSession
   participant SDK as InteractiveSession
-  participant Session as agent-sessions Session
+  participant Session as agent-session Session
   participant Provider as IAIProvider
 
   User->>TUI: type prompt or slash command
@@ -41,8 +41,8 @@ See [packages/agent-cli/docs/SPEC.md](../../../../packages/agent-cli/docs/SPEC.m
 sequenceDiagram
   participant CLI as cli.ts -p path
   participant SDK as InteractiveSession
-  participant Transport as agent-transport-headless
-  participant Session as agent-sessions Session
+  participant Transport as agent-transport/headless
+  participant Session as agent-session Session
 
   CLI->>CLI: collect positional prompt or piped stdin
   CLI->>CLI: build appendSystemPrompt from flags
@@ -66,7 +66,7 @@ sequenceDiagram
   participant User as robota --web [--web-port N]
   participant TUI as agent-cli React/Ink TUI
   participant Sidecar as startWebSidecarServer
-  participant WsTransport as agent-transport-ws createWsHandler
+  participant WsTransport as agent-transport/ws createWsHandler
   participant Browser as agent-web (browser)
 
   User->>TUI: launch with --web flag

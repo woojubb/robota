@@ -1,15 +1,16 @@
+import { executeBatch } from './tool-execution-batch';
+import { ValidationError } from '../utils/errors';
+import { SilentLogger, type ILogger } from '../utils/logger';
+
+import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import type { IToolManager } from '../interfaces/manager';
+import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
   IToolExecutionContext,
   IToolExecutionResult,
   TToolParameters,
   TToolMetadata,
 } from '../interfaces/tool';
-import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
-import type { IToolExecutionRequest } from '../interfaces/service';
-import { SilentLogger, type ILogger } from '../utils/logger';
-import { ValidationError } from '../utils/errors';
-import { executeBatch } from './tool-execution-batch';
 
 /**
  * ToolExecutionService owned events
@@ -135,7 +136,7 @@ export class ToolExecutionService {
         const completeEvent: IToolEventData = {
           timestamp: new Date(),
           toolName,
-          result: result,
+          result,
         };
         eventService.emit(TOOL_EVENTS.CALL_COMPLETE, completeEvent);
         eventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, completeEvent);
@@ -143,7 +144,7 @@ export class ToolExecutionService {
 
       return {
         success: true,
-        result: result,
+        result,
         toolName,
         executionId: executionContext.executionId!,
       };

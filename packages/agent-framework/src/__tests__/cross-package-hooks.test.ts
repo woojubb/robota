@@ -6,20 +6,21 @@
  * Also verifies BundlePlugin skills flow into the system prompt builder.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { runHooks } from '@robota-sdk/agent-core';
-import type { THooksConfig, IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
-import { PromptExecutor, AgentExecutor } from '../hooks/index.js';
-import type { IPromptProvider } from '../hooks/index.js';
-import { BundlePluginLoader } from '../plugins/index.js';
-import type { IBundleSkill, ILoadedBundlePlugin } from '../plugins/index.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { PromptExecutor, AgentExecutor } from '../hooks/index.js';
+import { BundlePluginLoader } from '../plugins/index.js';
+
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { IPromptProvider } from '../hooks/index.js';
+import type { IBundleSkill, ILoadedBundlePlugin } from '../plugins/index.js';
+import type { THooksConfig, IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 let tempDirs: string[] = [];
 

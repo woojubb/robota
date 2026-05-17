@@ -4,16 +4,17 @@
  * Lifecycle and dependency helpers live in ./plugins-helpers.ts.
  * @internal
  */
-import { AbstractManager } from '../abstracts/abstract-manager';
-import { AbstractPlugin } from '../abstracts/abstract-plugin';
-import { createLogger, type ILogger } from '../utils/logger';
-import { PluginError } from '../utils/errors';
 import {
   initializePluginHelper,
   destroyPluginHelper,
   validateDependenciesHelper,
   resolveDependencyOrderHelper,
 } from './plugins-helpers';
+import { AbstractManager } from '../abstracts/abstract-manager';
+import { PluginError } from '../utils/errors';
+import { createLogger, type ILogger } from '../utils/logger';
+
+import type { AbstractPlugin } from '../abstracts/abstract-plugin';
 
 /** Plugin lifecycle events */
 export interface IPluginLifecycleEvents {

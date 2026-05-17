@@ -5,13 +5,14 @@
  * agent jobs. The class delegates to these with thin wrappers.
  */
 
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { TBackgroundTaskIsolation } from '../background-tasks/index.js';
+import type { TCommandInvocationSource } from '../commands/index.js';
 import type { ISubagentJobResult, ISubagentJobState } from '../subagents/index.js';
 import type { Session } from '@robota-sdk/agent-session';
-import type { TBackgroundTaskIsolation } from '../background-tasks/index.js';
-import { createExecutionOriginMetadata } from '../background-tasks/index.js';
-import type { TCommandInvocationSource } from '../commands/index.js';
 
 /** Retrieve agent tool deps or throw. */
 export function getAgentToolDepsOrThrow(
@@ -25,7 +26,9 @@ export function getAgentToolDepsOrThrow(
 }
 
 /** Retrieve subagent manager or throw. */
-export function getSubagentManagerOrThrow(session: Session) {
+export function getSubagentManagerOrThrow(
+  session: Session,
+): NonNullable<ReturnType<typeof getAgentToolDepsOrThrow>['subagentManager']> {
   const deps = getAgentToolDepsOrThrow(session);
   if (!deps.subagentManager) throw new Error('Subagent manager is not available for this session.');
   return deps.subagentManager;

@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 
 const TuiCliAdapterContext = createContext<ITuiCliAdapter | null>(null);

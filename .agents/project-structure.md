@@ -10,16 +10,17 @@ packages/
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
-├── agent-command-*/             # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
+├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider)
+├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
-├── agent-provider-*/            # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
+├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
 ├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
 ├── agent-transport/             # Protocol transports: headless, HTTP, WebSocket, MCP (pure TS); TUI/Ink via ./tui subpath
-└── agent-plugin-*/              # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
+└── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
 ├── agent-web-ui/           # Web application (Agent Playground)
 ├── blog/                   # Blog/content application
@@ -46,6 +47,7 @@ User-visible internal commands belong in `agent-command-*` packages or command-m
 They are the SSOT for cross-cutting contracts shared between implementation families.
 
 - `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`)
+- `agent-interface-tui` — TUI interaction contracts (`ITuiPickerItem`, `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`)
 - Future: `agent-interface-provider`, `agent-interface-plugin` if those families need isolated contracts
 
 Rules:

@@ -6,12 +6,14 @@
  */
 
 import { ConfigurationError, EVENT_EMITTER_EVENTS } from '@robota-sdk/agent-core';
+
 import {
   ConsoleLogStorage,
   FileLogStorage,
   RemoteLogStorage,
   SilentLogStorage,
 } from './storages/index';
+
 import type { ILoggingPluginOptions, ILogStorage, TLogLevel, ILogEntry } from './types';
 
 /** Validate LoggingPlugin constructor options. @internal */

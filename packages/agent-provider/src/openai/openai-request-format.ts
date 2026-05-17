@@ -1,8 +1,8 @@
-import type { IOpenAIProviderOptions, TOpenAIProviderOptionValue } from './types';
 import type {
   IOpenAIResponsesTextConfig,
   IOpenAIResponsesTextFormatJsonSchema,
 } from './responses-types';
+import type { IOpenAIProviderOptions, TOpenAIProviderOptionValue } from './types';
 
 export interface IOpenAIChatTextFormatText {
   type: 'text';

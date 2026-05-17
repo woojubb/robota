@@ -1,3 +1,4 @@
+import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskLogCursor,
@@ -6,7 +7,6 @@ import type {
   TBackgroundTaskKind,
   TBackgroundTaskStatus,
 } from '@robota-sdk/agent-executor';
-import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
 
 export const MAIN_THREAD_ENTRY_PREFIX = 'main';
 export const BACKGROUND_TASK_ENTRY_PREFIX = 'task';

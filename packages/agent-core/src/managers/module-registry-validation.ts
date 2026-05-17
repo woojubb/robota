@@ -4,9 +4,10 @@
  * Extracted from module-registry.ts to keep each file under 300 lines.
  * @internal
  */
-import type { IModule } from '../abstracts/abstract-module';
-import type { ModuleDescriptorRegistry } from './module-type-registry';
 import { ConfigurationError } from '../utils/errors';
+
+import type { ModuleDescriptorRegistry } from './module-type-registry';
+import type { IModule } from '../abstracts/abstract-module';
 import type { ILogger } from '../utils/logger';
 
 /** Validate a module before registration. @internal */

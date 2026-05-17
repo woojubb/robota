@@ -5,6 +5,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
+
+import { SilentLogger } from '@robota-sdk/agent-core';
+
+import { HttpClient, type IHttpClientConfig } from './http-client';
+
 import type { IBasicMessage } from '../types/message-types';
 import type {
   TUniversalMessage,
@@ -15,10 +20,8 @@ import type {
   ILogger,
 } from '@robota-sdk/agent-core';
 
-const DEFAULT_TIMEOUT_MS = 30000;
-import { SilentLogger } from '@robota-sdk/agent-core';
-import { HttpClient, type IHttpClientConfig } from './http-client';
 // Simple inline type checking instead of external type guards
+const DEFAULT_TIMEOUT_MS = 30000;
 
 function validateChatExecutionRequest(
   request: IChatExecutionRequest | IStreamExecutionRequest,

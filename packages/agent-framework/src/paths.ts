@@ -5,8 +5,8 @@
  * .agents/ is read-only from CLI's perspective (owned by AGENTS.md standard).
  */
 
-import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /** Project-level .robota/ paths (relative to cwd). */
 export function projectPaths(cwd: string): {

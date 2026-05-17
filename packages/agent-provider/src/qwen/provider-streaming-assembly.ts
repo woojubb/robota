@@ -1,10 +1,11 @@
-import OpenAI from 'openai';
-import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 import {
   assembleOpenAICompatibleStream,
   observeProviderNativeRawPayloadStream,
 } from '../shared/openai-compatible/index.js';
+
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
+import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export async function qwenChatWithStreamingAssembly(
   client: OpenAI,

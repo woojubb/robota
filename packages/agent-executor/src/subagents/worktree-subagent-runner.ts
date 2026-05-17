@@ -5,13 +5,14 @@ import {
   type THookEvent,
   type THooksConfig,
 } from '@robota-sdk/agent-core';
-import type { TBackgroundPrimitive } from '../background-tasks/index.js';
+
 import type {
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobStart,
   ISubagentRunner,
 } from './types.js';
+import type { TBackgroundPrimitive } from '../background-tasks/index.js';
 
 const SHORT_REVISION_LENGTH = 12;
 

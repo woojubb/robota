@@ -1,4 +1,3 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 import {
   RENAME_COMMAND_USAGE,
   clearConversationHistory,
@@ -9,6 +8,8 @@ import {
   readCommandSessionInfo,
   validateCommandSessionReplayLog,
 } from '@robota-sdk/agent-framework';
+
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
 

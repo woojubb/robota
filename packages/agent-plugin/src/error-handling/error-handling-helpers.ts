@@ -6,6 +6,7 @@
  */
 
 import { ConfigurationError } from '@robota-sdk/agent-core';
+
 import type { IErrorHandlingPluginOptions } from './types';
 
 /** Validate ErrorHandlingPlugin constructor options. @internal */

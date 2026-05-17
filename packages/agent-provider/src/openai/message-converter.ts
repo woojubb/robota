@@ -1,9 +1,10 @@
-import type OpenAI from 'openai';
-import type { IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 import {
   convertToOpenAICompatibleMessages,
   convertToOpenAICompatibleTools,
 } from '../shared/openai-compatible/index.js';
+
+import type { IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 /**
  * Convert TUniversalMessage array to OpenAI chat completion message format.

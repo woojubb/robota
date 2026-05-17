@@ -4,6 +4,16 @@
  * integration without owning the session or store directly.
  */
 
+import {
+  BackgroundJobOrchestrator,
+  createBackgroundGroupExecutionEntryId,
+  createBackgroundTaskExecutionEntryId,
+  createLineDetailPage,
+  summarizeBackgroundJobGroup,
+} from '../background-tasks/index.js';
+import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
+import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -19,16 +29,7 @@ import type {
   TBackgroundTaskEvent,
   TExecutionWorkspaceUpdateCause,
 } from '../background-tasks/index.js';
-import {
-  BackgroundJobOrchestrator,
-  createBackgroundGroupExecutionEntryId,
-  createBackgroundTaskExecutionEntryId,
-  createLineDetailPage,
-  summarizeBackgroundJobGroup,
-} from '../background-tasks/index.js';
 import type { Session } from '@robota-sdk/agent-session';
-import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 export interface IBackgroundTrackerState {
   tasks: IBackgroundTaskState[];

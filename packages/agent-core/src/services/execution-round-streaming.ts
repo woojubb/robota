@@ -1,11 +1,12 @@
-import type { TProviderNativeRawPayloadCallback } from '../interfaces/provider';
+import { callProviderWithCache } from './execution-round-provider';
+
+import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
-import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
+import type { TProviderNativeRawPayloadCallback } from '../interfaces/provider';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ILogger } from '../utils/logger';
-import { callProviderWithCache } from './execution-round-provider';
 
 export interface IRoundStreamingCallbacks {
   wrappedOnTextDelta: (delta: string) => void;
