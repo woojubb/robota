@@ -1,13 +1,11 @@
-import { execSync } from 'node:child_process';
-
-import { InteractiveSession, type IAgentRuntime } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
+import { AGENT_CLI_NAME } from '../constants.js';
+import { createShellExec } from './shell-exec.js';
 
 import type { ISessionRunOptions } from '../startup/args-to-options.js';
-
-const SHELL_EXEC_TIMEOUT_MS = 5_000;
+import type { IAgentRuntime } from '@robota-sdk/agent-framework';
 
 async function resolvePrompt(opts: ISessionRunOptions): Promise<string> {
   let prompt = opts.positional.join(' ').trim();
@@ -34,22 +32,9 @@ export async function runPrintMode(
 ): Promise<void> {
   const prompt = await resolvePrompt(opts);
   const appendSystemPrompt = buildAppendSystemPrompt(runtime.cwd, opts);
+  const shellExec = createShellExec();
 
-  // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
-  if (opts.systemPrompt) {
-    process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
-  }
-
-  const shellExec = (command: string): string =>
-    execSync(command, {
-      timeout: SHELL_EXEC_TIMEOUT_MS,
-      encoding: 'utf-8',
-      stdio: 'pipe',
-    }).trimEnd();
-
-  const session = new InteractiveSession({
-    cwd: runtime.cwd,
-    provider: runtime.provider,
+  const session = runtime.createSession({
     permissionMode: opts.permissionMode ?? 'bypassPermissions',
     maxTurns: opts.maxTurns,
     sessionStore: opts.noSessionPersistence ? undefined : runtime.sessionStore,
@@ -62,12 +47,9 @@ export async function runPrintMode(
           .filter((t) => t.length > 0)
       : undefined,
     appendSystemPrompt,
-    backgroundTaskRunners: runtime.backgroundTaskRunners,
-    subagentRunnerFactory: runtime.subagentRunnerFactory,
-    commandModules: runtime.commandModules,
-    commandHostAdapters: runtime.commandHostAdapters,
+    systemPrompt: opts.systemPrompt,
     shellExec,
-    agentName: 'robota-cli',
+    agentName: AGENT_CLI_NAME,
   });
 
   const transport = createHeadlessTransport({

@@ -361,3 +361,22 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [REFACTOR-021](REFACTOR-021-getcwd-fallback-removal.md)                   | getCwd() process.cwd() silent fallback 제거            | low      |
 | [REFACTOR-022](REFACTOR-022-remote-client-emoji-logger.md)                | agent-remote-client 이모지 + 진단 로거 정리            | low      |
 | [REFACTOR-023](REFACTOR-023-tmodelconfig-interface-rename.md)             | TModelConfig / TConfigurationSnapshot → interface 변환 | low      |
+
+### agent-cli 아키텍처 코드리뷰 — 2026-05-17 ✅ 완료
+
+코드리뷰 보고서: [.design/agent-cli-review-2026-05-17.html](../../.design/agent-cli-review-2026-05-17.html)
+
+모든 10개 항목 구현 완료 (2026-05-17). 파일 위치: `completed/CLIR-*.md`
+
+| ID       | 제목                                                                        | 우선순위 | 상태 |
+| -------- | --------------------------------------------------------------------------- | -------- | ---- |
+| CLIR-C01 | subagent-setup.ts — @robota-sdk/agent-subagent-runner 직접 import 계층 위반 | critical | ✅   |
+| CLIR-C02 | print-mode.ts — new InteractiveSession() 직접 생성으로 IAgentRuntime 우회   | critical | ✅   |
+| CLIR-H01 | startup/ 모듈의 process.exit/stderr.write 직접 호출 제거                    | high     | ✅   |
+| CLIR-H02 | shellExec 클로저 중복 — print-mode와 tui-mode에 동일 코드 분리              | high     | ✅   |
+| CLIR-H03 | tui-mode.ts — providerSettings.name을 providerOverride에 잘못 사용          | high     | ✅   |
+| CLIR-M01 | provider-startup.ts — createDefaultProviderDefinitions() 기본 인자 4중 복제 | medium   | ✅   |
+| CLIR-M02 | TTY 인터랙티브 검출이 startup 모듈 내부에 인라인 하드코딩                   | medium   | ✅   |
+| CLIR-M03 | --system-prompt 미구현 플래그 완전 구현 또는 완전 제거                      | medium   | ✅   |
+| CLIR-L01 | agentName 하드코딩 — robota-cli 문자열 상수로 추출                          | low      | ✅   |
+| CLIR-L02 | bin.ts — TUniversalValue catch 타입 선언 제거 및 unknown으로 교체           | low      | ✅   |

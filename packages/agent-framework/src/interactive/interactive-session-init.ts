@@ -131,6 +131,7 @@ export async function createInteractiveSession(
     sessionId,
     allowedTools: options.allowedTools,
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
     ...(options.commandModules?.some((module) =>
@@ -253,6 +254,7 @@ export async function initializeInteractiveSessionAsync(
     bare: options.bare,
     allowedTools: options.allowedTools,
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,

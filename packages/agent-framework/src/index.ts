@@ -621,7 +621,11 @@ export { resolveGitBranch } from './git/git-branch.js';
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
 
 // ── Agent runtime (composition API) ──────────────────────────
-export type { IAgentRuntimeConfig, IAgentRuntime } from './runtime/index.js';
+export type {
+  IAgentRuntimeConfig,
+  IAgentRuntime,
+  IHeadlessSessionOptions,
+} from './runtime/index.js';
 export { createAgentRuntime } from './runtime/index.js';
 
 // ── Package version ───────────────────────────────────────────

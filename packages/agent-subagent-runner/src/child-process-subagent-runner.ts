@@ -26,6 +26,7 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+import { getDefaultSubagentWorkerPath } from './worker-path-resolver.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import type { IProviderConfig } from '@robota-sdk/agent-core';
@@ -38,7 +39,7 @@ import type {
 const DEFAULT_KILL_GRACE_MS = 2_000;
 
 export interface IChildProcessSubagentRunnerOptions {
-  workerPath: string;
+  workerPath?: string;
   providerConfig?: IProviderConfig;
   execArgv?: string[];
   killGraceMs?: number;
@@ -75,7 +76,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     private readonly deps: IInProcessSubagentRunnerDeps,
     options: IChildProcessSubagentRunnerOptions,
   ) {
-    this.workerPath = options.workerPath;
+    this.workerPath = options.workerPath ?? getDefaultSubagentWorkerPath();
     this.execArgv = options.execArgv;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
     this.providerConfig = options.providerConfig;
