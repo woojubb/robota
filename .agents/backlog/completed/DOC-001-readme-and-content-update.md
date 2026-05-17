@@ -1,7 +1,8 @@
 ---
 title: 'DOC-001: packages README.md 전수 최신화 + content/ 문서 현행화'
-status: backlog
+status: done
 created: 2026-05-17
+completed: 2026-05-18
 priority: medium
 urgency: soon
 area: packages/*, content/
@@ -113,7 +114,11 @@ npm view @robota-sdk/agent-command
 
 **Expected**: 각 패키지의 README가 현행 기능 설명으로 표시됨
 
-**Evidence**: _(갱신 배포 후 확인)_
+**Evidence (2026-05-18)**:
+
+Phase 1: `packages/agent-interface-tui/README.md`, `packages/agent-subagent-runner/README.md` 신규 작성 (나머지 16개 패키지 README 기존 존재 확인).
+Phase 2: `content/api-reference/`에서 구 패키지명 18개 디렉토리 삭제 (agent-plugin-logging 등).
+Phase 3: `content/guide/` 5개 파일의 구식 참조 수정 (`agent-sdk`→`agent-framework`, `agent-sessions`→`agent-session`, `agent-provider-anthropic`→`agent-provider` 등 22개 라인 업데이트).
 
 ### Scenario 2: docs 사이트 api-reference 탐색
 

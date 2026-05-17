@@ -1,8 +1,9 @@
+---
+title: 'Background Work State Management for agent-cli'
+status: done
+---
+
 # Background Work State Management for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 

@@ -1,6 +1,6 @@
 ---
 title: 'REFACTOR-024: 핵심 레이어 패키지 이름 변경 (4개)'
-status: completed
+status: done
 created: 2026-05-15
 priority: high
 urgency: soon

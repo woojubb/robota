@@ -1,6 +1,9 @@
-# ARCH-002-p16: Make cwd required in createSkillsCommandModule
+---
+title: 'ARCH-002-p16: Make cwd required in createSkillsCommandModule'
+status: done
+---
 
-## Status: done
+# ARCH-002-p16: Make cwd required in createSkillsCommandModule
 
 ## Problem
 

@@ -1,8 +1,9 @@
+---
+title: 'TASK-BL-001 Logo Color Update'
+status: done
+---
+
 # TASK-BL-001 Logo Color Update
-
-## Status
-
-Completed.
 
 ## Priority
 
