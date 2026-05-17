@@ -2,19 +2,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
-  createProviderFromProfile,
   createProviderFromSettings,
   getProviderSettingsPaths,
   readProviderSettings,
-} from '../provider-factory.js';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../provider-default-definitions.js';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
-import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
-import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
-import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+} from '@robota-sdk/agent-framework';
+import {
+  AnthropicProvider,
+  createAnthropicProviderDefinition,
+} from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider, createOpenAIProviderDefinition } from '@robota-sdk/agent-provider/openai';
+import {
+  DeepSeekProvider,
+  createDeepSeekProviderDefinition,
+} from '@robota-sdk/agent-provider/deepseek';
+import { GemmaProvider, createGemmaProviderDefinition } from '@robota-sdk/agent-provider/gemma';
+import { QwenProvider, createQwenProviderDefinition } from '@robota-sdk/agent-provider/qwen';
+import { GeminiProvider, createGeminiProviderDefinition } from '@robota-sdk/agent-provider/gemini';
 
 vi.mock('@robota-sdk/agent-provider/anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -214,6 +219,15 @@ vi.mock('@robota-sdk/agent-provider/gemini', () => {
   };
 });
 
+const DEFAULT_PROVIDER_DEFINITIONS = [
+  createAnthropicProviderDefinition(),
+  createOpenAIProviderDefinition(),
+  createGeminiProviderDefinition(),
+  createGemmaProviderDefinition(),
+  createQwenProviderDefinition(),
+  createDeepSeekProviderDefinition(),
+];
+
 const TMP_BASE = join(tmpdir(), `robota-provider-factory-test-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;
 
@@ -269,7 +283,9 @@ describe('provider-factory', () => {
       },
     });
 
-    expect(readProviderSettings(cwd)).toEqual({
+    expect(
+      readProviderSettings(cwd, { providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS }),
+    ).toEqual({
       name: 'openai',
       model: 'supergemma4-26b-uncensored-v2',
       apiKey: 'lm-studio',
@@ -296,7 +312,10 @@ describe('provider-factory', () => {
       },
     });
 
-    const settings = readProviderSettings(cwd, { providerOverride: 'anthropic' });
+    const settings = readProviderSettings(cwd, {
+      providerOverride: 'anthropic',
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(settings.name).toBe('anthropic');
     expect(settings.model).toBe('claude-sonnet-4-6');
@@ -318,7 +337,9 @@ describe('provider-factory', () => {
       },
     });
 
-    const provider = createProviderFromSettings(cwd);
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(provider.name).toBe('openai');
     expect(OpenAIProvider).toHaveBeenCalledWith({
@@ -341,7 +362,9 @@ describe('provider-factory', () => {
       },
     });
 
-    const provider = createProviderFromSettings(cwd);
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(provider.name).toBe('gemma');
     expect(GemmaProvider).toHaveBeenCalledWith({
@@ -368,7 +391,9 @@ describe('provider-factory', () => {
       },
     });
 
-    const provider = createProviderFromSettings(cwd);
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(provider.name).toBe('anthropic');
     expect(AnthropicProvider).toHaveBeenCalledWith({
@@ -395,7 +420,9 @@ describe('provider-factory', () => {
       },
     });
 
-    createProviderFromSettings(cwd);
+    createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(AnthropicProvider).toHaveBeenCalledWith({
       apiKey: 'sk-ant-from-env',
@@ -459,7 +486,9 @@ describe('provider-factory', () => {
       },
     });
 
-    const provider = createProviderFromSettings(cwd);
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(provider.name).toBe('qwen');
     expect(QwenProvider).toHaveBeenCalledWith({
@@ -491,8 +520,12 @@ describe('provider-factory', () => {
       },
     });
 
-    const settings = readProviderSettings(cwd);
-    const provider = createProviderFromSettings(cwd);
+    const settings = readProviderSettings(cwd, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(settings.options).toEqual({
       responsesBaseURL:
@@ -536,7 +569,9 @@ describe('provider-factory', () => {
       },
     });
 
-    const provider = createProviderFromSettings(cwd);
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(provider.name).toBe('deepseek');
     expect(DeepSeekProvider).toHaveBeenCalledWith({
@@ -561,7 +596,9 @@ describe('provider-factory', () => {
       },
     });
 
-    const provider = createProviderFromSettings(cwd);
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(provider.name).toBe('gemini');
     expect(GeminiProvider).toHaveBeenCalledWith({
@@ -582,7 +619,9 @@ describe('provider-factory', () => {
       },
     });
 
-    createProviderFromSettings(cwd);
+    createProviderFromSettings(cwd, undefined, {
+      providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+    });
 
     expect(GeminiProvider).toHaveBeenCalledWith({
       apiKey: 'gemini-key',
@@ -603,7 +642,11 @@ describe('provider-factory', () => {
       },
     });
 
-    expect(() => createProviderFromSettings(cwd)).toThrow('Provider qwen requires apiKey');
+    expect(() =>
+      createProviderFromSettings(cwd, undefined, {
+        providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+      }),
+    ).toThrow('Provider qwen requires apiKey');
     expect(QwenProvider).not.toHaveBeenCalled();
   });
 

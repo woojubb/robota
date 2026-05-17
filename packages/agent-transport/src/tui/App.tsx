@@ -41,7 +41,6 @@ import {
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
-import type { ITuiCommandInteraction } from './command-interaction.js';
 
 interface IProps {
   cwd: string;
@@ -68,7 +67,6 @@ interface IProps {
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
-  resolveInteraction?: (commandName: string) => ITuiCommandInteraction | undefined;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -491,7 +489,6 @@ function AppInner(
         registry={registry}
         sessionName={sessionName}
         history={history}
-        resolveInteraction={props.resolveInteraction}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}
       <Text> </Text>

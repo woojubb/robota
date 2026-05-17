@@ -32,6 +32,7 @@ import {
   type ITuiCommandInteraction,
   type ITuiPickerItem,
 } from './command-interaction.js';
+import { resolveCommandInteraction } from './command-interaction-registry.js';
 
 interface IActiveInteraction {
   commandName: string;
@@ -47,7 +48,6 @@ interface IProps {
   registry?: CommandRegistry;
   sessionName?: string;
   history?: readonly IHistoryEntry[];
-  resolveInteraction?: (commandName: string) => ITuiCommandInteraction | undefined;
 }
 
 /**
@@ -79,7 +79,6 @@ export default function InputArea({
   registry,
   sessionName,
   history,
-  resolveInteraction,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
@@ -155,7 +154,7 @@ export default function InputArea({
   /** Enter: insert and execute command immediately */
   const enterSelectCommand = useCallback(
     (cmd: ICommand): void => {
-      const interaction = resolveInteraction?.(cmd.name);
+      const interaction = resolveCommandInteraction(cmd.name);
       const result = resolveEnterCommandSelection(value, cmd, interaction);
       if (result.type === 'insert') {
         setValue(result.value);
@@ -174,7 +173,7 @@ export default function InputArea({
         submitPrompt(result.value);
       }
     },
-    [value, submitPrompt, setSelectedIndex, resolveInteraction, setShowPopup],
+    [value, submitPrompt, setSelectedIndex, setShowPopup],
   );
 
   const handleSubmit = useCallback(

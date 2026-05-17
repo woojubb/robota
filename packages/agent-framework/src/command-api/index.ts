@@ -89,14 +89,32 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
-export { checkSettingsDocument } from './provider/settings-check.js';
+export { checkSettingsDocument, checkSettingsFile } from './provider/settings-check.js';
 export type { TSettingsCheck } from './provider/settings-check.js';
+export {
+  applyProviderConfiguration,
+  applyProviderSwitch,
+  applyActiveModelChange,
+  resolveProviderSettingsWriteTargetPath,
+} from './provider/provider-configuration.js';
+export type {
+  IProviderSwitchOptions,
+  IActiveModelChangeOptions,
+  IActiveModelChangeResult,
+  IProviderSettingsWriteTargetOptions,
+} from './provider/provider-configuration.js';
 export {
   mergeProviders,
   mergeSettings,
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
 } from './provider/provider-merge.js';
+export type { IReadProviderSettingsOptions } from './provider/provider-factory.js';
+export {
+  createProviderFromSettings,
+  readMergedProviderSettings,
+  readProviderSettings,
+} from './provider/provider-factory.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,

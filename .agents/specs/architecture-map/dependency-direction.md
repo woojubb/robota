@@ -9,28 +9,33 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 ```mermaid
 flowchart TD
   ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
-  Assembly["Assembly/API layers\nagent-sdk, apps/agent-server"]
-  TransportShells["Transport shells\nagent-transport-tui, agent-transport-ws, agent-transport-http,\nagent-transport-headless, agent-transport-mcp"]
+  Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
+  TransportShells["Transport shells\nagent-transport/tui, agent-transport/ws, agent-transport/http,\nagent-transport/headless, agent-transport/mcp"]
   Orchestration["Orchestration\nagent-team, agent-remote-client"]
-  Sessions["Session services\nagent-sessions"]
-  Runtime["Runtime services\nagent-runtime"]
+  Sessions["Session services\nagent-session"]
+  Executor["Runtime services\nagent-executor"]
   Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth, credits"]
-  Adapters["Adapters and providers\nagent-provider-*, agent-tools, agent-tool-mcp,\nagent-plugin-*"]
+  Adapters["Adapters and providers\nagent-provider, agent-tools, agent-tool-mcp,\nagent-plugin"]
+  OptIn["Optional runners\nagent-subagent-runner (opt-in)"]
 
   ProductShells --> Assembly
   Assembly --> Sessions
-  Assembly --> Runtime
+  Assembly --> Executor
   Assembly --> Domain
   Sessions --> Domain
-  Runtime --> Domain
+  Executor --> Domain
   Assembly --> Adapters
   ProductShells --> Adapters
+  ProductShells --> OptIn
   Adapters --> Domain
   TransportShells --> Assembly
   Assembly --> TransportShells
   Orchestration --> Domain
   Orchestration --> Adapters
   Assembly --> Orchestration
+  OptIn --> Assembly
+  OptIn --> Executor
+  OptIn --> Adapters
 ```
 
 `ProductShells → Adapters` is composition-root wiring only. A product shell may construct or select
@@ -39,6 +44,10 @@ See [capability-placement.md](capability-placement.md).
 
 `TransportShells ↔ Assembly` is bidirectional: Assembly exposes `InteractiveSession` (an
 assembly-level object) which transports consume, while Assembly registers transport adapters.
+
+`agent-subagent-runner` is opt-in: install only when child-process subagent support is needed.
+It depends on agent-framework, agent-executor, and agent-provider but must not import from
+agent-command or agent-cli.
 
 Layer rules:
 
@@ -52,10 +61,11 @@ Layer rules:
 | Runtime services    | Background task state machines, subagent lifecycle ports          | Session persistence, UI, command contracts                                |
 | Domain contracts    | Types, pure rules, ports, error shapes                            | Concrete I/O, runtime process management, deps on other agent-\* packages |
 | Adapters/providers  | Vendor implementations, filesystem/network adapters, plugins      | Cross-package contracts they merely implement                             |
+| Optional runners    | Child-process execution, IPC, worker entry, worktree isolation    | Command contracts, TUI behavior, CLI-specific types                       |
 
 ## Target Architecture
 
 1. Keep `.agents/specs/ARCHITECTURE-MAP.md` as the repo-wide router. Put detail in focused `.agents/specs/architecture-map/*.md` subdocuments.
 2. Keep `agent-cli` as a product shell: terminal rendering, input, ephemeral selection state, and concrete host adapters only.
-3. Put reusable behavior below the CLI. Background task lifecycle, command contracts, spawning ports, persistence, permissions, and provider semantics live in `agent-sdk`, `agent-runtime`, `agent-command-*`, provider packages, transports, or another lower reusable owner.
-4. Apply the same owner-first rule to every product shell. `agent-web`, docs, blog, and future shells may render or host capabilities; reusable contracts and state live in owning service/SDK/runtime/command/provider/transport/domain packages.
+3. Put reusable behavior below the CLI. Background task lifecycle, command contracts, spawning ports, persistence, permissions, and provider semantics live in `agent-framework`, `agent-executor`, `agent-command`, provider packages, transports, or another lower reusable owner.
+4. Apply the same owner-first rule to every product shell. `agent-web`, docs, blog, and future shells may render or host capabilities; reusable contracts and state live in owning service/framework/executor/command/provider/transport/domain packages.
