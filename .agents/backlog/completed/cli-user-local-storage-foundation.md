@@ -1,8 +1,9 @@
+---
+title: 'User-Local Storage Foundation for agent-cli'
+status: done
+---
+
 # User-Local Storage Foundation for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 

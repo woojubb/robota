@@ -1,8 +1,9 @@
+---
+title: 'CLI Command Compatibility Shims Retirement'
+status: done
+---
+
 # CLI Command Compatibility Shims Retirement
-
-## Status
-
-Completed.
 
 ## Priority
 

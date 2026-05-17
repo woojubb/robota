@@ -1,8 +1,9 @@
+---
+title: 'ARCH-001 — Define React Package Boundaries and Extract TUI from agent-transport'
+status: done
+---
+
 # ARCH-001 — Define React Package Boundaries and Extract TUI from agent-transport
-
-## Status
-
-`done`
 
 ## Problem
 

@@ -1,8 +1,9 @@
+---
+title: 'CLI Runtime Adapter Boundary Audit'
+status: done
+---
+
 # CLI Runtime Adapter Boundary Audit
-
-## Status
-
-Completed.
 
 ## Priority
 

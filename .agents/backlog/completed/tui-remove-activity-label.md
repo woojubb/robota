@@ -1,8 +1,9 @@
+---
+title: 'TUI Remove Activity Prefix from Status Bar'
+status: done
+---
+
 # TUI Remove Activity Prefix from Status Bar
-
-## Status
-
-Completed.
 
 ## Priority
 

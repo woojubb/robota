@@ -1,3 +1,8 @@
+---
+title: 'Slash Command Autocomplete UI'
+status: done
+---
+
 # Slash Command Autocomplete UI
 
 ## What

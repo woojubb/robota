@@ -1,8 +1,9 @@
+---
+title: 'CLI Hide Default Permission Mode In Status Bar'
+status: done
+---
+
 # CLI Hide Default Permission Mode In Status Bar
-
-## Status
-
-Completed.
 
 ## Created
 

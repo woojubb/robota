@@ -1,8 +1,9 @@
+---
+title: 'Architecture Map Document Tree Split'
+status: done
+---
+
 # Architecture Map Document Tree Split
-
-## Status
-
-Completed.
 
 ## Created
 

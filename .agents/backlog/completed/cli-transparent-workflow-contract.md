@@ -1,8 +1,9 @@
+---
+title: 'Transparent Workflow Contract for agent-cli'
+status: done
+---
+
 # Transparent Workflow Contract for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 
