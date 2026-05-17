@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-MAP-005: class-interface-inventory ownership gaps + stale file path fix'
-status: todo
+status: done
 created: 2026-05-18
+completed: 2026-05-18
 priority: low
 urgency: backlog
 area: .agents/specs/architecture-map

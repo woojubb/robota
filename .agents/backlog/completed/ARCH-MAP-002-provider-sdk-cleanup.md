@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-MAP-002: agent-provider-* individual refs + bare SDK abbreviation cleanup'
-status: todo
+status: done
 created: 2026-05-18
+completed: 2026-05-18
 priority: medium
 urgency: later
 area: .agents/specs/architecture-map
