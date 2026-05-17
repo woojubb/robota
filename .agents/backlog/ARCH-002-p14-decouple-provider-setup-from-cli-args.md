@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-002-p14: provider setup 오케스트레이션을 IParsedCliArgs에서 분리'
-status: backlog
+status: done
 created: 2026-05-17
 priority: medium
 urgency: later

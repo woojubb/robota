@@ -143,7 +143,7 @@ New test at `src/startup/__tests__/provider-startup.test.ts`.
 
 ### CLI-AUDIT-014: `ensureConfig` and `runInteractiveProviderSetup` coupled to `IParsedCliArgs`
 
-Status: active — backlog ARCH-002-p14.
+Status: resolved — commit pending (refactor/arch-002-slim-agent-cli, 2026-05-17).
 
 `ensureConfig(cwd, args: IParsedCliArgs, ...)` and `runInteractiveProviderSetup(cwd, args: IParsedCliArgs, ...)`
 use only `args.provider` and `args.settingsScope` respectively. Passing the full CLI arg struct

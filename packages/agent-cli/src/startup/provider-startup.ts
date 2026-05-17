@@ -1,29 +1,18 @@
-import { join } from 'node:path';
 import { formatSupportedProviderTypes, type IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import { checkSettingsDocument } from '@robota-sdk/agent-framework';
-import {
-  readSettings,
-  writeSettings,
-  resolveSettingsPathForScope,
-  type TSettingsScope,
-} from '@robota-sdk/agent-framework';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
+  readMergedProviderSettings,
   resolveProviderSettingsWriteTargetPath,
+  resolveSettingsPathForScope,
 } from '@robota-sdk/agent-framework';
-import {
-  getProviderSettingsPaths,
-  readMergedProviderSettingsFromPaths,
-} from '@robota-sdk/agent-framework';
-import { readMergedProviderSettings } from '@robota-sdk/agent-framework';
+import type { TSettingsScope } from '@robota-sdk/agent-framework';
 import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
-  formatProviderSetupSelectionPrompt,
-  resolveProviderSetupSelection,
-  runProviderSetupPromptFlow,
+  ensureProviderConfig,
+  runProviderStartupSetup,
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
@@ -68,28 +57,14 @@ export async function ensureConfig(
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): Promise<void> {
-  const merged = readMergedProviderSettings(cwd);
-  const selectedSettings =
-    args.provider !== undefined ? { ...merged, currentProvider: args.provider } : merged;
-  if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
-    return;
-  }
-  if (!isInteractiveTerminal()) {
-    throw new Error(formatMissingProviderConfigMessage(providerDefinitions));
-  }
-  await runInteractiveProviderSetup(
+  await ensureProviderConfig(
     cwd,
-    selectStartupSetupArgs(cwd, args),
+    { provider: args.provider, settingsScope: validateSettingsScope(args.settingsScope) },
     promptInput,
     terminal,
     providerDefinitions,
+    { formatError: formatMissingProviderConfigMessage },
   );
-  const updated = readMergedProviderSettings(cwd);
-  const updatedSettings =
-    args.provider !== undefined ? { ...updated, currentProvider: args.provider } : updated;
-  if (checkSettingsDocument(updatedSettings, providerDefinitions) !== 'valid') {
-    throw new Error(formatMissingProviderConfigMessage(providerDefinitions));
-  }
 }
 
 export async function runInteractiveProviderSetup(
@@ -99,22 +74,13 @@ export async function runInteractiveProviderSetup(
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
 ): Promise<void> {
-  const providerChoice = await promptInput(formatProviderSetupSelectionPrompt(providerDefinitions));
-  const type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
-  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
-  const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
-    existingProfileNames: Object.keys(readMergedProviderSettings(cwd).providers ?? {}),
-  });
-  applyProviderConfiguration(settingsPath, input, {
+  await runProviderStartupSetup(
+    cwd,
+    { settingsScope: validateSettingsScope(args.settingsScope) },
+    promptInput,
+    terminal,
     providerDefinitions,
-  });
-  const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
-  if (language) {
-    const settings = readSettings(settingsPath);
-    settings.language = language;
-    writeSettings(settingsPath, settings);
-  }
-  terminal.writeLine(`\n  Config saved to ${settingsPath}\n`);
+  );
 }
 
 function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
@@ -131,46 +97,6 @@ function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
     ...(args.baseURL !== undefined && { baseURL: args.baseURL }),
     setCurrent: args.setCurrent,
   };
-}
-
-function selectStartupSetupArgs(cwd: string, args: IParsedCliArgs): IParsedCliArgs {
-  if (args.settingsScope !== undefined || args.provider !== undefined) {
-    return args;
-  }
-
-  const currentProviderPath = findHighestPriorityCurrentProviderPath(getProviderSettingsPaths(cwd));
-  if (currentProviderPath === undefined) {
-    return args;
-  }
-
-  const projectSettingsPath = join(cwd, '.robota', 'settings.json');
-  const projectLocalSettingsPath = join(cwd, '.robota', 'settings.local.json');
-  if (
-    currentProviderPath === projectSettingsPath ||
-    currentProviderPath === projectLocalSettingsPath
-  ) {
-    return { ...args, settingsScope: 'project-local' };
-  }
-
-  return args;
-}
-
-function findHighestPriorityCurrentProviderPath(
-  settingsPaths: readonly string[],
-): string | undefined {
-  for (let index = settingsPaths.length - 1; index >= 0; index -= 1) {
-    const settingsPath = settingsPaths[index];
-    if (settingsPath === undefined) continue;
-    const settings = readSettings(settingsPath);
-    if (typeof settings.currentProvider === 'string') {
-      return settingsPath;
-    }
-  }
-  return undefined;
-}
-
-function isInteractiveTerminal(): boolean {
-  return process.stdin.isTTY === true && process.stdout.isTTY === true;
 }
 
 export function formatMissingProviderConfigMessage(
