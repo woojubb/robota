@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-006: Fix execution-modes.md — WebSocket sidecar marks as planned, print mode API update'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: now
