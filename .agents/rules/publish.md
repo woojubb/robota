@@ -46,14 +46,32 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Before entering the publish flow, follow [release-operations.md](release-operations.md): the Release Control Plane must identify the current SHA, target version, active gate, next action, and stop condition, and the matching release-run artifact must pass `pnpm harness:release:check -- --version <version> --publish`.
 - Build and test must pass BEFORE running `pnpm publish:beta`. The script does NOT run build/test internally — the agent must verify these before asking for OTP.
 - **npm authentication MUST be verified explicitly by the agent BEFORE anything else** — run `npm whoami --registry https://registry.npmjs.org/` as the very first step of any publish flow. Do NOT skip this and do NOT rely on `pnpm publish:beta` to surface the error on the user's behalf. If auth fails: tell the user to log in (`npm login --registry https://registry.npmjs.org/`), wait for confirmation, rerun `npm whoami`, and only then proceed. Never ask for OTP until `npm whoami` returns a username.
-- OTP must be requested ONLY after dry-run succeeds. OTP expires in 30 seconds. If publish consumes the first OTP window, the script may prompt for a fresh OTP before `beta` dist-tag sync.
-- **Agent MUST ask the user for OTP before running `pnpm publish:beta`**. Claude Code's Bash tool is not an interactive TTY — the script's internal `read -rp` prompt will fail silently and exit before publish. The correct flow: verify all preflight gates pass → ask the user "OTP를 입력해주세요" → receive OTP → immediately run `pnpm publish:beta --otp=<otp>`. Do NOT run `pnpm publish:beta` without `--otp` in this environment.
-- `pnpm publish:beta` MUST run in an interactive TTY when the agent expects the script to prompt for OTP. Non-TTY execution makes `read -rp` fail after dry-run and exits before publish. If TTY stdin is unavailable, use the script's explicit OTP argument only after the user provides a fresh OTP.
-- If `pnpm publish:beta` exits after printing only the filtered dry-run package list, do not infer the cause from that filtered output. Immediately rerun `pnpm publish -r --no-git-checks --dry-run` with full unfiltered output in the same permission context to identify the real failure.
-- Treat sandbox, network, and npm cache errors as environment failures until confirmed otherwise. Re-run npm registry preflight and full dry-run outside the restricted sandbox when the first failure includes `ENOTFOUND`, registry fetch failures, npm cache permission errors, or missing npm log output.
-- Do not ask for OTP until all of these are true in the actual publish environment: npm auth passes, full dry-run exits 0, the working tree and release commit are final, and the publish command is waiting at the OTP prompt or ready to receive the OTP argument.
 - MUST use `pnpm publish`, NEVER `npm publish`.
 - When a package is published for the first time, search `content/` and `docs/` for "not yet published" references and remove them.
+
+### OTP Protocol (non-negotiable — no exceptions)
+
+**Claude Code's Bash tool is NOT an interactive TTY.** Running `pnpm publish:beta` without `--otp` causes `read -rp` to fail silently after dry-run and exit before any package is published. The user is left waiting for nothing.
+
+**Mandatory sequence — every step must complete before the next:**
+
+1. `npm whoami` returns a username → npm auth confirmed
+2. `pnpm build` exits 0 → build confirmed
+3. `pnpm harness:release:check -- --version <version> --publish` passes
+4. **STOP. Ask the user:** "OTP를 입력해주세요 (authenticator 앱에서 확인)" — do NOT run any command yet
+5. User provides OTP in their reply
+6. Immediately run `pnpm publish:beta --otp=<otp>` with the OTP from step 5
+
+**Violations that are absolutely forbidden:**
+
+- Running `pnpm publish:beta` without `--otp` in any form
+- Running `pnpm publish:beta` before receiving OTP from the user in the current turn
+- Asking for OTP and then running a different command first (OTP expires in ~30 seconds)
+- Asking the user to "type the OTP when prompted" — Claude Code cannot relay interactive prompts
+
+If `pnpm publish:beta` exits after printing only the filtered dry-run package list, do not infer the cause from that filtered output. Immediately rerun `pnpm publish -r --no-git-checks --dry-run` with full unfiltered output in the same permission context to identify the real failure.
+
+Treat sandbox, network, and npm cache errors as environment failures until confirmed otherwise. Re-run npm registry preflight and full dry-run outside the restricted sandbox when the first failure includes `ENOTFOUND`, registry fetch failures, npm cache permission errors, or missing npm log output.
 
 ### Publish Scope Approval
 
