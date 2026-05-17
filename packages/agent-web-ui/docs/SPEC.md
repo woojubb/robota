@@ -17,11 +17,11 @@ different layers: this package is a library; the app is a deployment.
 
 ## Boundaries
 
-- Does NOT own WebSocket protocol framing — that is `@robota-sdk/agent-transport-ws`
+- Does NOT own WebSocket protocol framing — that is `@robota-sdk/agent-transport/ws`
   (`TServerMessage`, `TClientMessage`).
 - Does NOT own `InteractiveSession` or any SDK/session/runtime contracts — those live in
-  `agent-sdk`, `agent-sessions`, `agent-runtime`.
-- Does NOT own `agent-core` types directly — message types pass through `agent-transport-ws`.
+  `agent-framework`, `agent-session`, `agent-executor`.
+- Does NOT own `agent-core` types directly — message types pass through `agent-transport/ws`.
 - Does NOT own the CLI sidecar server — that is `agent-cli` (`startWebSidecarServer`).
 - OWNS: browser WebSocket client lifecycle (`IWsSessionClient`, reconnect logic).
 - OWNS: React state reconstruction from `TServerMessage` events (`useWsSession`).
@@ -35,7 +35,7 @@ agent-web (browser)
   └── useWsSession(url)
         └── createWsSessionClient  ← reconnects on disconnect (max 10 attempts, 2s delay)
               │  onMessage (TServerMessage)
-              └── agent-transport-ws  ← TServerMessage / TClientMessage types only
+              └── agent-transport/ws  ← TServerMessage / TClientMessage types only
 ```
 
 On connect the client sends `{ type: "get-messages" }` to request full history replay from
@@ -112,5 +112,5 @@ a `url` prop pointing at the CLI sidecar's WebSocket endpoint.
 
 | Port (Owner)                          | Usage                                              |
 | ------------------------------------- | -------------------------------------------------- |
-| `TServerMessage` (agent-transport-ws) | Parsed from WebSocket `onmessage` events           |
-| `TClientMessage` (agent-transport-ws) | Sent to sidecar via `ws.send(JSON.stringify(msg))` |
+| `TServerMessage` (agent-transport/ws) | Parsed from WebSocket `onmessage` events           |
+| `TClientMessage` (agent-transport/ws) | Sent to sidecar via `ws.send(JSON.stringify(msg))` |
