@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-033: fix double error reporting in user-local-direct-command'
-status: backlog
+status: done
 created: 2026-05-17
 priority: low
 urgency: soon

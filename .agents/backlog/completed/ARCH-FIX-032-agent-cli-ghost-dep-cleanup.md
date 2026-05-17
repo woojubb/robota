@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-032: remove ghost dependency agent-interface-transport from agent-cli'
-status: backlog
+status: done
 created: 2026-05-17
 priority: low
 urgency: soon

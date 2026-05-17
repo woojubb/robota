@@ -608,6 +608,8 @@ export {
   deleteSettings,
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { resetUserConfig } from './config/reset-user-config.js';
+export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
 // ── Provider settings paths ──────────────────────────────────
 export { getProviderSettingsPaths } from './config/provider-paths.js';
@@ -617,6 +619,9 @@ export { resolveGitBranch } from './git/git-branch.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
+
+// ── Package version ───────────────────────────────────────────
+export { readPackageVersion } from './utils/read-package-version.js';
 
 // ── CLI update check ──────────────────────────────────────────
 export {

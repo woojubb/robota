@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-FIX-031: move resetUserConfig orchestration to agent-framework'
-status: backlog
+status: done
 created: 2026-05-17
 priority: medium
 urgency: soon

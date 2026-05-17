@@ -5,7 +5,7 @@ import {
   setCurrentProvider,
   upsertProviderProfile,
   validateProviderProfile,
-} from '@robota-sdk/agent-framework';
+} from '../command-api/provider/provider-settings.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
