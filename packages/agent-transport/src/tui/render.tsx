@@ -2,13 +2,15 @@
  * Ink render entry point.
  */
 
-import React from 'react';
 import { render } from 'ink';
+import React from 'react';
+
 import App from './App.js';
+
+import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
 import type { TShellExecFn } from '@robota-sdk/agent-framework';
-import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 
 export interface ITuiRenderOptions {
   runtime: IAgentRuntime;

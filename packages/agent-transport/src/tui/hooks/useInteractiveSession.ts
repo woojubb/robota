@@ -1,30 +1,34 @@
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useState, useCallback, useEffect } from 'react';
-import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import type {
-  IBackgroundTaskRunner,
-  ICommandHostAdapters,
-  ICommandModule,
-  IInteractiveSession,
-  IInteractiveSessionStore,
-  TSubagentRunnerFactory,
-  IExecutionDetailPage,
-  IExecutionWorkspaceSnapshot,
-  TShellExecFn,
-} from '@robota-sdk/agent-framework';
+
+import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
+import { initializeSession, type IInitState } from './use-interactive-session-init.js';
+import { usePermissionQueue } from './usePermissionQueue.js';
+import { useSlashRouting } from './useSlashRouting.js';
+
+import type { TuiStateManager } from '../tui-state-manager.js';
+import type { IPermissionRequest } from '../types.js';
 import type {
   IAIProvider,
   TPermissionMode,
   IHistoryEntry,
   TSessionEndReason,
 } from '@robota-sdk/agent-core';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { IPermissionRequest } from '../types.js';
-import { TuiStateManager } from '../tui-state-manager.js';
-import { useSlashRouting } from './useSlashRouting.js';
-import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
-import { usePermissionQueue } from './usePermissionQueue.js';
-import { initializeSession, type IInitState } from './use-interactive-session-init.js';
+import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
+import type {
+  IBackgroundTaskRunner,
+  ICommandHostAdapters,
+  ICommandModule,
+  IInteractiveSession,
+  IInteractiveSessionStore,
+  IExecutionWorkspaceEvent,
+  TSubagentRunnerFactory,
+  IExecutionDetailPage,
+  IExecutionWorkspaceSnapshot,
+  IToolState,
+  TShellExecFn,
+} from '@robota-sdk/agent-framework';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 const SESSION_INIT_POLL_MS = 200;
 
@@ -55,7 +59,7 @@ export interface IInteractiveSessionState {
   history: IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
-  activeTools: import('@robota-sdk/agent-framework').IToolState[];
+  activeTools: IToolState[];
   isThinking: boolean;
   isAborting: boolean;
   isShuttingDown: boolean;
@@ -144,9 +148,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     const onCompact = (): void => applyCompactEventToManager(interactiveSession, manager);
     const onSkillActivation = (): void =>
       applySkillActivationEventToManager(interactiveSession, manager);
-    const onExecutionWorkspaceEvent = (
-      event: import('@robota-sdk/agent-framework').IExecutionWorkspaceEvent,
-    ): void => manager.syncExecutionWorkspaceSnapshot(event.snapshot);
+    const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void =>
+      manager.syncExecutionWorkspaceSnapshot(event.snapshot);
 
     interactiveSession.on('text_delta', manager.onTextDelta);
     interactiveSession.on('tool_start', manager.onToolStart);

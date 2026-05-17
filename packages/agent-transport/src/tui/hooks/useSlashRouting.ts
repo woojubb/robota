@@ -3,16 +3,17 @@
  * Extracted from useInteractiveSession for single-responsibility.
  */
 
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useCallback } from 'react';
+
+import type { TuiStateManager } from '../tui-state-manager.js';
+import type { ICommandEffectQueue } from './command-effect-queue.js';
 import type {
   IInteractiveSession,
   CommandRegistry,
   ICommandResult,
   TCommandEffect,
 } from '@robota-sdk/agent-framework';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { TuiStateManager } from '../tui-state-manager.js';
-import type { ICommandEffectQueue } from './command-effect-queue.js';
 
 export function useSlashRouting(
   interactiveSession: IInteractiveSession,

@@ -1,9 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type {
-  IExecutionWorkspaceEntry,
-  IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-framework';
+import React, { useEffect, useRef, useState } from 'react';
+
+import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
 import {
   applySelectionInput,
   createSelectionFlowState,
@@ -12,7 +10,11 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
-import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
+
+import type {
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+} from '@robota-sdk/agent-framework';
 
 const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
 

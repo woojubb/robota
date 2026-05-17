@@ -1,14 +1,16 @@
-import React from 'react';
 import { Box, Text } from 'ink';
+import React from 'react';
+
+import {
+  formatExecutionDetailRecord,
+  formatExecutionWorkspaceEntryRow,
+} from './execution-workspace-view-model.js';
+
 import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   TExecutionDetailRecordKind,
 } from '@robota-sdk/agent-framework';
-import {
-  formatExecutionDetailRecord,
-  formatExecutionWorkspaceEntryRow,
-} from './execution-workspace-view-model.js';
 
 const MAX_VISIBLE_DETAIL_RECORDS = 12;
 

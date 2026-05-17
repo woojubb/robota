@@ -4,8 +4,8 @@
  * Colors stay in a narrow range (dim grays) to avoid harsh contrast.
  */
 
-import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
+import React, { useState, useEffect } from 'react';
 
 // Subtle gray tones — minimal contrast, soft wave
 const WAVE_COLORS = ['#666666', '#888888', '#aaaaaa', '#888888'] as const;

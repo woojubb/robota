@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
 import { Box, Text, useStdout } from 'ink';
+import React, { useState, useEffect } from 'react';
+
 import type { ICommand } from '@robota-sdk/agent-framework';
 
 interface IProps {
@@ -21,11 +22,11 @@ const NAME_COL_MAX = 20;
 
 function useRowWidth(): number {
   const { stdout } = useStdout();
-  const measure = () => Math.max(MIN_ROW_WIDTH, (stdout.columns ?? 80) - OUTER_CHROME);
+  const measure = (): number => Math.max(MIN_ROW_WIDTH, (stdout.columns ?? 80) - OUTER_CHROME);
   const [width, setWidth] = useState(measure);
 
   useEffect(() => {
-    const onResize = () => setWidth(measure());
+    const onResize = (): void => setWidth(measure());
     stdout.on('resize', onResize);
     return () => {
       stdout.off('resize', onResize);

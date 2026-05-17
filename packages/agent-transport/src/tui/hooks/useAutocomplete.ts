@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
+
 import type { CommandRegistry, ICommand } from '@robota-sdk/agent-framework';
 
 /** Parse input to determine autocomplete state */

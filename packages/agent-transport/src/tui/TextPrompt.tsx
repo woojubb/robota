@@ -1,5 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import React, { useState, useRef, useCallback } from 'react';
+
 import {
   applyTextPromptInput,
   createTextPromptFlowState,

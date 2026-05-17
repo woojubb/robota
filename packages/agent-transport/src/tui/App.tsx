@@ -1,7 +1,36 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
 import { Box, Text, useApp, useInput } from 'ink';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+
+import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import ConfirmPrompt from './ConfirmPrompt.js';
+import {
+  countActiveBackgroundWorkspaceEntries,
+  getDefaultBackgroundWorkspaceEntries,
+} from './execution-workspace-view-model.js';
+import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
+import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
+import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
+import { useInteractiveSession } from './hooks/useInteractiveSession.js';
+import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
+import { useSideEffects } from './hooks/useSideEffects.js';
+import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
+import InputArea from './InputArea.js';
+import InteractivePrompt from './InteractivePrompt.js';
+import MessageList from './MessageList.js';
+import PermissionPrompt from './PermissionPrompt.js';
+import PluginTUI from './PluginTUI.js';
+import SessionPicker from './SessionPicker.js';
+import SessionStatusBar from './SessionStatusBar.js';
+import StreamingIndicator from './StreamingIndicator.js';
+import TransportTUI from './TransportTUI.js';
+import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
+import UpdateNotice from './UpdateNotice.js';
+
+import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -12,35 +41,8 @@ import type {
   TShellExecFn,
   IExecutionDetailPage,
 } from '@robota-sdk/agent-framework';
-import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import { useInteractiveSession } from './hooks/useInteractiveSession.js';
-import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
-import { useSideEffects } from './hooks/useSideEffects.js';
-import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
-import MessageList from './MessageList.js';
-import SessionStatusBar from './SessionStatusBar.js';
-import InputArea from './InputArea.js';
-import ConfirmPrompt from './ConfirmPrompt.js';
-import InteractivePrompt from './InteractivePrompt.js';
-import PermissionPrompt from './PermissionPrompt.js';
-import StreamingIndicator from './StreamingIndicator.js';
-import PluginTUI from './PluginTUI.js';
-import TransportTUI from './TransportTUI.js';
-import SessionPicker from './SessionPicker.js';
-import BackgroundTaskPanel from './BackgroundTaskPanel.js';
-import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
-import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
-import UpdateNotice from './UpdateNotice.js';
-import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
-import {
-  countActiveBackgroundWorkspaceEntries,
-  getDefaultBackgroundWorkspaceEntries,
-} from './execution-workspace-view-model.js';
-import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
-import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   cwd: string;
