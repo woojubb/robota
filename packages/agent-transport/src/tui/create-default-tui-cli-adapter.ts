@@ -1,10 +1,10 @@
+import { findProviderDefinition } from '@robota-sdk/agent-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import {
   applyActiveModelChange,
   applyStatusLineSettings,
   deleteSettings,
-  findProviderDefinition,
   getUserSettingsPath,
   readSettings,
   resolveGitBranch,
