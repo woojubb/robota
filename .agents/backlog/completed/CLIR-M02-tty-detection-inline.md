@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-M02: TTY 인터랙티브 검출이 startup 모듈 내부에 인라인 하드코딩'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: medium
 urgency: later
 area: packages/agent-cli
@@ -66,7 +67,17 @@ echo "hello" | robota --print
 **Expected**: 비-TTY(pipe) 환경에서 interactive provider setup이 실행되지 않음.
 리팩토링 전과 동일한 동작.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+```
+$ echo "hello" | robota --print  # non-TTY (pipe)
+No provider configuration found.
+Run `robota --configure` in an interactive terminal, or configure a provider:
+...
+EXIT: 1
+```
+
+Interactive provider setup이 실행되지 않고 error message만 출력됨 (비-TTY 경로 정상 동작).
 
 ### Scenario 2 — TTY 환경에서 interactive provider setup 실행 확인
 
@@ -81,6 +92,13 @@ robota
 **Expected**: TTY 환경에서 interactive provider 선택 프롬프트가 표시됨.
 기존과 동일한 동작.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+TUI 모드는 자동화 환경에서 실행 불가. 코드 분석으로 검증:
+
+- `cli.ts:62`: `const isTTY = process.stdin.isTTY === true && process.stdout.isTTY === true`
+- `handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal, isTTY)` — isTTY 주입됨
+- `ensureConfig(..., isInteractive)` → `isInteractive: () => isInteractive` — 클로저 아님, DI됨
+- 유닛 테스트 `provider-startup.test.ts`에서 `isInteractive=true/false` 인자로 직접 검증 (67 tests 통과)
 
 **Cleanup**: 세션 종료 (Ctrl+C)

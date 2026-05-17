@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-H02: shellExec 클로저 중복 — print-mode와 tui-mode에 동일 코드 분리'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: high
 urgency: soon
 area: packages/agent-cli
@@ -66,6 +67,15 @@ robota
 **Expected**: shell 명령이 실행되고 결과가 TUI에 표시됨.
 리팩토링 전과 동일한 동작.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+TUI 모드는 자동화 환경에서 실행 불가. 코드 분석으로 검증:
+
+- `packages/agent-cli/src/modes/shell-exec.ts` 신규 생성:
+  - `export const SHELL_EXEC_TIMEOUT_MS = 5_000`
+  - `export function createShellExec(): (command: string) => string`
+- `grep -n "SHELL_EXEC_TIMEOUT_MS" packages/agent-cli/src/modes/print-mode.ts packages/agent-cli/src/modes/tui-mode.ts` → 결과 없음 (두 파일 모두 제거됨)
+- `pnpm --filter @robota-sdk/agent-cli typecheck` → 0 errors
+- `pnpm --filter @robota-sdk/agent-cli test` → 67 tests 통과
 
 **Cleanup**: 세션 종료 (`/exit`)

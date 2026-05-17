@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-H03: tui-mode.ts — providerSettings.name을 providerOverride에 잘못 사용 (type vs profile name)'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: high
 urgency: soon
 area: packages/agent-cli, packages/agent-framework
@@ -74,6 +75,18 @@ robota --provider my-custom-anthropic
 **Expected**: `my-custom-anthropic` 프로파일이 올바르게 인식되고 모델 전환이 정상 동작함.
 type 이름(`anthropic`)이 아닌 프로파일 이름으로 조회가 이루어짐.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+TUI 모드는 자동화 환경에서 실행 불가. 코드 분석으로 검증:
+
+- `IProviderSetup.activeProfileName: string | undefined` 필드 추가됨
+- `createProviderSetup()`:
+  `activeProfileName = opts.provider ?? readMergedProviderSettings(cwd).currentProvider`
+  — type이 아닌 **프로파일 이름**으로 결정됨
+- `tui-mode.ts`:
+  - `providerOverride: providerSetup.activeProfileName` (프로파일 이름)
+  - `providerType: providerSetup.providerSettings.name` (type 문자열)
+- `pnpm --filter @robota-sdk/agent-cli typecheck` → 0 errors
+- `pnpm --filter @robota-sdk/agent-cli test` → 67 tests 통과
 
 **Cleanup**: 세션 종료 (`/exit`)

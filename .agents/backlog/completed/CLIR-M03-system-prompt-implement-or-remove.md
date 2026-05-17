@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-M03: --system-prompt 미구현 플래그 완전 구현 또는 완전 제거'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: medium
 urgency: later
 area: packages/agent-cli, packages/agent-framework
@@ -74,7 +75,17 @@ echo "What language are you speaking?" | robota --print --system-prompt "Always 
 
 **Expected**: AI가 프랑스어로 응답함.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+옵션 A(완전 구현)로 진행. API 키 없는 환경에서 실제 AI 응답 확인 불가. 코드 분석으로 검증:
+
+- `IInteractiveSessionStandardOptions.systemPrompt?: string` 추가됨 (agent-framework)
+- `IInitOptions.systemPrompt?: string` 추가됨 (agent-framework)
+- `createInteractiveSession()`: `systemPrompt ? { systemPromptBuilder: () => systemPrompt } : {}`
+- `print-mode.ts`: `runtime.createSession({ ..., systemPrompt: opts.systemPrompt })` — TODO 블록 제거됨
+- `grep -n "TODO.*system-prompt" packages/agent-cli/src/modes/print-mode.ts` → 결과 없음
+- `pnpm --filter @robota-sdk/agent-framework typecheck` → 0 errors
+- `pnpm --filter @robota-sdk/agent-cli typecheck` → 0 errors
 
 ---
 
@@ -92,4 +103,4 @@ robota --help
 
 **Expected**: `--system-prompt` 옵션이 help 출력에 없음.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence**: 옵션 A(구현)를 선택했으므로 해당 없음. `robota --help` 출력에 `--system-prompt <text>` 표시됨.

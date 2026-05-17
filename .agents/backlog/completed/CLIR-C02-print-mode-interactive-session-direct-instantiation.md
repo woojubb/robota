@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-C02: print-mode.ts — new InteractiveSession() 직접 생성으로 IAgentRuntime 추상화 우회'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: critical
 urgency: soon
 area: packages/agent-cli, packages/agent-framework
@@ -75,7 +76,15 @@ echo "What is 1+1?" | robota --print
 **Expected**: AI 응답이 stdout에 출력되고 정상 종료 (exit 0).
 리팩토링 전과 동일한 응답 형식.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+API 키 없는 환경에서 직접 실행 불가. 코드 분석 및 unit test로 검증:
+
+- `print-mode.ts`: `runtime.createSession({...})` — `new InteractiveSession` 직접 생성 제거됨
+- `grep -n "new InteractiveSession" packages/agent-cli/src/modes/print-mode.ts` → 결과 없음
+- `IAgentRuntime.createSession(opts: IHeadlessSessionOptions): InteractiveSession` 추가됨
+- `agent-framework` 유닛 테스트 828개 통과 (`interactive-session-behavior.test.ts` 31개 포함)
+- `pnpm --filter @robota-sdk/agent-cli typecheck` → 0 errors
 
 **Cleanup**: 없음 (단발 실행)
 
@@ -95,4 +104,7 @@ robota
 **Expected**: 두 모드 모두 동일한 `IAgentRuntime` 기반으로 세션이 생성되어
 동일한 설정(backgroundTaskRunners, commandModules 등)이 적용됨.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+코드 분석으로 검증: print-mode는 `runtime.createSession(opts)`, tui-mode는 `TuiTransport` 내부에서
+같은 `runtime` 인스턴스 사용. 두 경로 모두 `createAgentRuntime()`이 조립한 동일한 `runtime`에서 출발.

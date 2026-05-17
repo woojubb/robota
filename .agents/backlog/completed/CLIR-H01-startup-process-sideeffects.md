@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-H01: startup/ 모듈의 process.exit/stderr.write 직접 호출 제거'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: high
 urgency: soon
 area: packages/agent-cli
@@ -71,7 +72,15 @@ robota --resume-session non-existent-session-id
 **Expected**: "Session not found: non-existent-session-id" 에러 메시지 출력 후 non-zero exit.
 리팩토링 전과 동일한 메시지.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+```
+$ robota --resume non-existent-session-id-xyz
+Session not found: non-existent-session-id-xyz
+EXIT: 1
+```
+
+(테스트 환경: ANTHROPIC_API_KEY=fake-key, 임시 cwd with .robota/settings.json)
 
 ### Scenario 2 — 설정 파일 읽기 실패 시 에러 메시지 확인
 
@@ -85,4 +94,7 @@ robota  # 설정 로드 실패 시나리오
 
 **Expected**: 에러 메시지 출력 후 non-zero exit. 기존과 동일한 동작.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+코드 분석으로 검증: `config-phase.ts`의 try-catch 제거로 `ensureConfig`의 에러가 `cli.ts`의
+catch로 전파되어 `terminal.writeError()` 후 `process.exit(1)` 호출됨. 유닛 테스트 67개 통과.

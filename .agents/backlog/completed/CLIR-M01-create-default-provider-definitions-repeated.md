@@ -1,7 +1,8 @@
 ---
 title: 'CLIR-M01: provider-startup.ts — createDefaultProviderDefinitions() 기본 인자 4중 복제 제거'
-status: todo
+status: done
 created: 2026-05-17
+completed: 2026-05-17
 priority: medium
 urgency: later
 area: packages/agent-cli
@@ -73,4 +74,12 @@ robota --configure-provider test --type openai --model gpt-4o --set-current
 
 **Expected**: `Provider profile saved to <path>` 메시지 출력 후 정상 종료. 기존과 동일.
 
-**Evidence**: (구현 후 채울 것)
+**Evidence (2026-05-17)**:
+
+```
+$ OPENAI_API_KEY=sk-fake-key robota --configure-provider test --type openai --model gpt-4o --api-key-env OPENAI_API_KEY --set-current
+Provider profile saved to /Users/jungyoun/.robota/settings.json
+EXIT: 0
+```
+
+(빌드된 CLI: packages/agent-cli/dist/node/bin.js, 테스트 후 ~/.robota/settings.json 삭제 완료)
