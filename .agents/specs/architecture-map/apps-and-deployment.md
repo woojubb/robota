@@ -12,7 +12,7 @@ frontend shell and provider/API-key work in the server-side service.
 ```mermaid
 flowchart TD
   Browser["Browser"]
-  AgentWeb["agent-web\nNext.js frontend host"]
+  AgentWeb["apps/agent-web\nNext.js frontend host"]
   AgentServer["agent-server\nprovider proxy + Playground WebSocket"]
   Providers["AI providers\nOpenAI, Anthropic, Gemini, etc."]
   SessionStorage["Session/runtime storage"]
@@ -25,34 +25,34 @@ flowchart TD
 
 Deployment ownership:
 
-| Deploy unit      | Runtime shape                       | Deploy platform    | Required contract                                                                                                                                                                      |
-| ---------------- | ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/agent-web` | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. Routes: `/` (→ `/playground`), `/playground`, `/playground/demo`, `/monitor` (CLI second-screen). |
-| `agent-server`   | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.                                                                                                    |
-| `apps/docs`      | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.                                                                                                              |
-| `apps/blog`      | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                                                                                                                               |
+| Deploy unit         | Runtime shape                       | Deploy platform    | Required contract                                                                                                                                                                      |
+| ------------------- | ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/agent-web`    | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. Routes: `/` (→ `/playground`), `/playground`, `/playground/demo`, `/monitor` (CLI second-screen). |
+| `apps/agent-server` | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.                                                                                                    |
+| `apps/docs`         | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.                                                                                                              |
+| `apps/blog`         | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                                                                                                                               |
 
-`packages/agent-web-ui vs `apps/agent-web` disambiguation:
+`packages/agent-web-ui` vs `apps/agent-web` disambiguation:
 
-| Item                   | Kind              | Role                                                                                     |
-| ---------------------- | ----------------- | ---------------------------------------------------------------------------------------- |
-| `packages/agent-web-ui | Published npm lib | Browser React components for monitoring a CLI session over `--web` WebSocket sidecar.    |
-| `apps/agent-web`       | Next.js host app  | Full Playground web application; consumes `agent-playground` and `packages/agent-web-ui. |
+| Item                    | Kind              | Role                                                                                      |
+| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
+| `packages/agent-web-ui` | Published npm lib | Browser React components for monitoring a CLI session over `--web` WebSocket sidecar.     |
+| `apps/agent-web`        | Next.js host app  | Full Playground web application; consumes `agent-playground` and `packages/agent-web-ui`. |
 
 They share the `agent-web` name prefix but are different layers: the package is a reusable library;
 the app is the deployment host. Do not import `apps/agent-web` from anywhere; use
-`@robota-sdk/agent-web` for the published library surface.
+`@robota-sdk/agent-web-ui` for the published library surface.
 
 Deployment decision:
 
-- Keep `agent-web` deployable on a frontend platform.
+- Keep `apps/agent-web` deployable on a frontend platform.
 - Keep provider credentials, provider API calls, and long-running WebSocket handling out of the
   frontend shell.
-- Keep reusable Playground behavior in `agent-playground`; `agent-web` owns only the product route
-  and deployment host.
+- Keep reusable Playground behavior in `agent-playground`; `apps/agent-web` owns only the product
+  route and deployment host.
 - Remote execution contract ownership stays in `agent-remote-client` and reusable Playground
-  execution behavior stays in `agent-playground`; `agent-web` and `agent-server` compose those
-  packages without owning their contracts.
+  execution behavior stays in `agent-playground`; `apps/agent-web` and `apps/agent-server` compose
+  those packages without owning their contracts.
 
 ## Documentation Deployment Stack
 
