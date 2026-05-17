@@ -100,3 +100,26 @@ background task grouping, or transport-visible contracts.
 
 If a TUI component needs data or behavior not exposed by `agent-sdk` or a lower owner, add the
 SDK/runtime/command/provider capability first.
+
+### CLI-AUDIT-010: createTuiCliAdapter belongs in agent-transport
+
+Status: active — backlog ARCH-002-p9.
+
+`cli.ts` defines `createTuiCliAdapter` which wraps agent-framework functions into
+`ITuiCliAdapter`. `ITuiCliAdapter` is defined in `agent-transport/src/tui/tui-cli-adapter.ts`
+and agent-transport already depends on agent-framework. The factory belongs in agent-transport
+so cli.ts only wires, not defines.
+
+Target: `agent-transport/src/tui/create-default-tui-cli-adapter.ts` exports
+`createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })`.
+
+### CLI-AUDIT-011: cli.ts contains behavior logic — must be pure composition root
+
+Status: active — backlog ARCH-002-p10.
+
+`cli.ts` directly defines: `readVersion`, `resetConfig`, `buildAppendSystemPrompt`,
+`readTaskFilePrompt`, `buildCommandSetup`, `runPrintMode`, `createTransportRegistry`.
+These are behavior functions, not composition wiring.
+
+Target: each extracted to a dedicated module inside `agent-cli/src/startup/` or
+`agent-cli/src/modes/`. `cli.ts` becomes import-and-call only (under ~120 lines).

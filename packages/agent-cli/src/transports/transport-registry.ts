@@ -7,12 +7,14 @@
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import { getUserSettingsPath } from '@robota-sdk/agent-framework';
 import type {
   IConfigurableTransport,
   ITransportConfig,
   ITransportEntry,
 } from '@robota-sdk/agent-interface-transport';
 import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
+import { WsTransport } from '@robota-sdk/agent-transport/ws';
 
 export class TransportRegistry {
   private readonly entries = new Map<string, IConfigurableTransport<IInteractiveSession>>();
@@ -87,4 +89,10 @@ export class TransportRegistry {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
     return raw as Record<string, TSettingsData>;
   }
+}
+
+export function createDefaultTransportRegistry(): TransportRegistry {
+  const registry = new TransportRegistry(getUserSettingsPath());
+  registry.register(new WsTransport());
+  return registry;
 }
