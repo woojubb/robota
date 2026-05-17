@@ -206,3 +206,18 @@ Fix: moved to `packages/agent-transport/src/transport-registry.ts`. Exported `Tr
 and `createDefaultTransportRegistry` from `@robota-sdk/agent-transport` root. `agent-cli/src/cli.ts`
 now imports `createDefaultTransportRegistry` from `@robota-sdk/agent-transport`. Original file and
 `transports/` directory deleted.
+
+### CLI-AUDIT-020: `DEFAULT_PROVIDER_DEFINITIONS` — default provider set owned by CLI, belongs in agent-provider
+
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+
+`packages/agent-cli/src/utils/provider-default-definitions.ts` assembled the standard set of all
+`IProviderDefinition` instances. It had zero CLI-specific type dependencies — only `IProviderDefinition`
+from `agent-core` and factory functions from `@robota-sdk/agent-provider/*` sub-paths.
+
+The decision of "which providers are available by default" is a provider package concern.
+`agent-provider` already re-exports all providers from its root.
+
+Fix: added `createDefaultProviderDefinitions()` to `packages/agent-provider/src/default-provider-definitions.ts`,
+exported from `@robota-sdk/agent-provider` root. All callers in `agent-cli` now import from
+`@robota-sdk/agent-provider`. Original file deleted.

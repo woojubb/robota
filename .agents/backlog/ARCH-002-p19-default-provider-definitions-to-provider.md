@@ -1,6 +1,6 @@
 # ARCH-002-p19: Move DEFAULT_PROVIDER_DEFINITIONS to agent-provider
 
-## Status: todo
+## Status: done
 
 ## Problem
 

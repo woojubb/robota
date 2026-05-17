@@ -22,7 +22,6 @@ import {
 import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { promptInput } from './utils/cli-input.js';
-import { DEFAULT_PROVIDER_DEFINITIONS } from './utils/provider-default-definitions.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,

@@ -8,7 +8,7 @@ import {
   resolveSettingsPathForScope,
 } from '@robota-sdk/agent-framework';
 import type { TSettingsScope } from '@robota-sdk/agent-framework';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   ensureProviderConfig,
@@ -28,7 +28,7 @@ export function handleProviderConfigurationArgs(
   cwd: string,
   args: IParsedCliArgs,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): boolean {
   const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
   if (args.configureProvider) {
@@ -55,7 +55,7 @@ export async function ensureConfig(
   args: IParsedCliArgs,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): Promise<void> {
   await ensureProviderConfig(
     cwd,
@@ -75,7 +75,7 @@ export async function runInteractiveProviderSetup(
   args: IParsedCliArgs,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): Promise<void> {
   await runProviderStartupSetup(
     cwd,
@@ -103,7 +103,7 @@ function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
 }
 
 export function formatMissingProviderConfigMessage(
-  providerDefinitions: readonly IProviderDefinition[] = DEFAULT_PROVIDER_DEFINITIONS,
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): string {
   return [
     'No provider configuration found.',

@@ -11,7 +11,7 @@ import {
   type TSubagentWorkerWireValue,
 } from '@robota-sdk/agent-framework';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../utils/provider-default-definitions.js';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 
 const CANCEL_EXIT_CODE = 130;
 
@@ -44,7 +44,7 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
     const provider = createProviderFromProfile(
       payload.providerProfile,
       payload.request.model,
-      DEFAULT_PROVIDER_DEFINITIONS,
+      createDefaultProviderDefinitions(),
     );
     const sessionLogger = payload.logsDir
       ? createSubagentLogger(payload.request.parentSessionId, payload.jobId, payload.logsDir)

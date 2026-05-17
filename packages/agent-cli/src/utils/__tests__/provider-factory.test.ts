@@ -8,13 +8,18 @@ import {
   getProviderSettingsPaths,
   readProviderSettings,
 } from '@robota-sdk/agent-framework';
-import { DEFAULT_PROVIDER_DEFINITIONS } from '../provider-default-definitions.js';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
-import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
-import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
-import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+import {
+  AnthropicProvider,
+  createAnthropicProviderDefinition,
+} from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider, createOpenAIProviderDefinition } from '@robota-sdk/agent-provider/openai';
+import {
+  DeepSeekProvider,
+  createDeepSeekProviderDefinition,
+} from '@robota-sdk/agent-provider/deepseek';
+import { GemmaProvider, createGemmaProviderDefinition } from '@robota-sdk/agent-provider/gemma';
+import { QwenProvider, createQwenProviderDefinition } from '@robota-sdk/agent-provider/qwen';
+import { GeminiProvider, createGeminiProviderDefinition } from '@robota-sdk/agent-provider/gemini';
 
 vi.mock('@robota-sdk/agent-provider/anthropic', () => {
   const MockAnthropicProvider = vi.fn().mockImplementation((options: unknown) => ({
@@ -213,6 +218,15 @@ vi.mock('@robota-sdk/agent-provider/gemini', () => {
     }),
   };
 });
+
+const DEFAULT_PROVIDER_DEFINITIONS = [
+  createAnthropicProviderDefinition(),
+  createOpenAIProviderDefinition(),
+  createGeminiProviderDefinition(),
+  createGemmaProviderDefinition(),
+  createQwenProviderDefinition(),
+  createDeepSeekProviderDefinition(),
+];
 
 const TMP_BASE = join(tmpdir(), `robota-provider-factory-test-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;
