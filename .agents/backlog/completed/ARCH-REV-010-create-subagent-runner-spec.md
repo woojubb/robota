@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-010: Create packages/agent-subagent-runner/docs/SPEC.md — only package missing a SPEC'
-status: todo
+status: done
 created: 2026-05-18
 priority: critical
 urgency: now
