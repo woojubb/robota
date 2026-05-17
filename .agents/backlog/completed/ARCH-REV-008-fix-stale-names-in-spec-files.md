@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-REV-008: Fix stale package names in agent-team and agent-web-ui SPEC.md files'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: now
