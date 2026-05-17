@@ -2,6 +2,7 @@ import type { IParsedCliArgs, TOutputFormat } from '../utils/cli-args.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface IConfigPhaseOptions {
+  configure: boolean;
   provider?: string;
   settingsScope?: string;
   configureProvider?: string;
@@ -17,6 +18,7 @@ export interface IConfigPhaseOptions {
 
 export interface ISessionRunOptions {
   positional: readonly string[];
+  language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionName?: string;
@@ -47,6 +49,7 @@ export interface IStartupUpdatePolicyOptions {
 
 export function toConfigPhaseOptions(args: IParsedCliArgs): IConfigPhaseOptions {
   return {
+    configure: args.configure,
     provider: args.provider,
     settingsScope: args.settingsScope,
     configureProvider: args.configureProvider,
@@ -64,6 +67,7 @@ export function toConfigPhaseOptions(args: IParsedCliArgs): IConfigPhaseOptions 
 export function toSessionRunOptions(args: IParsedCliArgs): ISessionRunOptions {
   return {
     positional: args.positional,
+    language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     sessionName: args.sessionName,

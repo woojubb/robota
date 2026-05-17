@@ -125,6 +125,7 @@ const providerDefinitions: readonly IProviderDefinition[] = [
 
 function baseArgs(): IConfigPhaseOptions {
   return {
+    configure: false,
     positional: [],
     printMode: false,
     provider: undefined,
