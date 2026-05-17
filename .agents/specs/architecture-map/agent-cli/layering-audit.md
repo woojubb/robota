@@ -221,3 +221,15 @@ The decision of "which providers are available by default" is a provider package
 Fix: added `createDefaultProviderDefinitions()` to `packages/agent-provider/src/default-provider-definitions.ts`,
 exported from `@robota-sdk/agent-provider` root. All callers in `agent-cli` now import from
 `@robota-sdk/agent-provider`. Original file deleted.
+
+### CLI-AUDIT-021: `promptInput` — raw stdin adapter owned by CLI, belongs in agent-transport/headless
+
+Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+
+`packages/agent-cli/src/utils/cli-input.ts` implemented raw-mode stdin reading for masked
+API key entry. It had zero CLI-specific type dependencies — same category as `PrintTerminal`
+which already moved to `agent-transport/headless`.
+
+Fix: moved to `packages/agent-transport/src/headless/cli-input.ts`. Exported `promptInput`
+from `@robota-sdk/agent-transport/headless`. `agent-cli/src/cli.ts` imports `promptInput`
+alongside `PrintTerminal` from `@robota-sdk/agent-transport/headless`. Original file deleted.

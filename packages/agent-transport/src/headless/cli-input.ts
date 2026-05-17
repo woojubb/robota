@@ -1,8 +1,6 @@
-import type { TPromptInput } from '@robota-sdk/agent-command';
-
 const PRINTABLE_ASCII_START = 32;
 
-export const promptInput: TPromptInput = (label: string, masked = false): Promise<string> =>
+export const promptInput = (label: string, masked = false): Promise<string> =>
   new Promise<string>((resolve, reject) => {
     process.stdout.write(label);
     let input = '';

@@ -6,7 +6,7 @@
 import { execSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
+import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
   projectPaths,
@@ -21,7 +21,6 @@ import {
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
-import { promptInput } from './utils/cli-input.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
