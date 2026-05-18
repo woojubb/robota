@@ -3,7 +3,7 @@
 The simplest way to use Robota SDK programmatically.
 
 ```typescript
-import { createQuery } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -30,7 +30,7 @@ const response = await query('Refactor the error handling in src/utils.ts');
 
 ```typescript
 #!/usr/bin/env tsx
-import { createQuery } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });

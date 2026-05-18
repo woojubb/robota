@@ -41,20 +41,28 @@ pnpm --filter @robota-sdk/<pkg> test
 packages/
 ├── agent-core/                 ← Foundation (zero deps)
 ├── agent-tools/                ← Tools + 8 built-in CLI tools
-├── agent-sessions/             ← Session with permissions/hooks
-├── agent-sdk/                  ← Assembly layer
-├── agent-cli/                  ← Terminal UI
-├── agent-provider-anthropic/   ← Claude provider
-├── agent-provider-openai/      ← OpenAI provider
-├── agent-provider-gemini/      ← Canonical Gemini provider
-├── agent-provider-google/      ← Gemini compatibility wrapper
-├── agent-provider-deepseek/    ← DeepSeek API provider
-├── agent-provider-gemma/       ← Gemma local model provider
-├── agent-provider-qwen/        ← Qwen/DashScope provider
-├── agent-plugin-*/             ← 9 extracted plugins
-├── agent-team/                 ← Multi-agent task assignment
+├── agent-session/              ← Session with permissions/hooks
+├── agent-executor/             ← Background task and subagent lifecycle
+├── agent-framework/            ← Assembly layer (InteractiveSession, createQuery)
+├── agent-command/              ← All slash command modules in one package
+├── agent-provider/             ← Consolidated AI provider (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
+├── agent-plugin/               ← Consolidated plugin package
+├── agent-transport/            ← Protocol transports + TUI (sub-paths: /tui, /headless, /http, /ws, /mcp)
+├── agent-interface-transport/  ← Transport type contracts (zero deps)
+├── agent-interface-tui/        ← TUI interaction type contracts (zero deps)
+├── agent-cli/                  ← Terminal AI coding assistant
+├── agent-subagent-runner/      ← Opt-in child-process subagent runner
+├── agent-team/                 ← Multi-agent task delegation (playground stack)
 ├── agent-remote-client/        ← HTTP client for remote agents
-└── agent-tool-mcp/             ← MCP tool protocol
+├── agent-web-ui/               ← Browser React component library
+├── agent-tool-mcp/             ← MCP tool client adapter
+└── agent-playground/           ← Playground executor, hooks, and components
+
+apps/
+├── agent-web/                  ← Next.js playground host
+├── agent-server/               ← AI provider proxy + WebSocket server
+├── docs/                       ← VitePress documentation site
+└── blog/                       ← Blog
 ```
 
 ## Key Rules
