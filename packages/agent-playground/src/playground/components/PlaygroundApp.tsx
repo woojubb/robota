@@ -167,6 +167,7 @@ function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
   const { setToolItems } = usePlaygroundActions();
   const { createAgent, getDefaultAgentConfig, executePrompt, canExecute } = useRobotaExecution();
+  const { injectToolIntoAgent } = usePlaygroundActions();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
   const { toast } = useToast();
@@ -235,6 +236,37 @@ function PlaygroundContent(): React.ReactElement {
   const handleDisconnectByok = () => {
     byokHistoryRef.current = [];
     clearConfig();
+  };
+
+  const currentAgentId = state.currentAgentConfig
+    ? state.currentAgentConfig.id || state.currentAgentConfig.name
+    : null;
+
+  const agentActiveToolIds = currentAgentId ? (state.addedToolsByAgent[currentAgentId] ?? []) : [];
+  const activeTools = useMemo(
+    () => toolItems.filter((t) => agentActiveToolIds.includes(t.id)),
+    [toolItems, agentActiveToolIds],
+  );
+
+  const handleDropTool = async (tool: IPlaygroundToolMeta) => {
+    if (!currentAgentId) {
+      toast({ title: 'Create an agent first', variant: 'destructive' });
+      return;
+    }
+    if (agentActiveToolIds.includes(tool.id)) {
+      toast({ title: `${tool.name} already added`, variant: 'default' });
+      return;
+    }
+    if (tool.type !== 'builtin') {
+      toast({ title: 'Custom tools cannot be injected yet', variant: 'destructive' });
+      return;
+    }
+    await injectToolIntoAgent(currentAgentId, {
+      id: tool.id,
+      name: tool.name,
+      description: tool.description,
+    });
+    toast({ title: `${tool.name} added to agent` });
   };
 
   if (!state.isInitialized && !providerConfig) {
@@ -307,7 +339,11 @@ function PlaygroundContent(): React.ReactElement {
             </span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <WorkflowVisualization events={state.conversationHistory} />
+            <WorkflowVisualization
+              events={state.conversationHistory}
+              activeTools={activeTools}
+              onDropTool={handleDropTool}
+            />
           </div>
         </div>
 

@@ -57,10 +57,20 @@ function useHistoryAuthActions(
     }
   }, [logger, refs.executorRef]);
 
+  const injectToolIntoAgent = useCallback(
+    async (agentId: string, card: { id: string; name: string; description?: string }) => {
+      if (!refs.executorRef.current) throw new Error('No executor available');
+      await refs.executorRef.current.updateAgentToolsFromCard(agentId, card);
+      dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId: card.id } });
+    },
+    [dispatch, refs.executorRef],
+  );
+
   return {
     clearHistory,
     setAuth,
     disposeExecutor,
+    injectToolIntoAgent,
   };
 }
 
