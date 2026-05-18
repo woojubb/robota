@@ -4,21 +4,47 @@
 
 Robota SDK follows a strict bottom-up layered assembly model. Each layer builds on the layer below.
 
-```
-agent-cli                ← CLI entry point: argument parsing, provider wiring, TUI startup
-agent-transport/tui      ← TUI layer: Ink/React terminal components, TuiTransport
-agent-command            ← Consolidated slash command package — all 20 command modules in one import
-agent-transport          ← Protocol transports (pure TS): headless, HTTP, WebSocket, MCP
-  ↓ (command and transport packages consume)
-agent-framework          ← Assembly layer: InteractiveSession, CommandRegistry,
-  │                          config, context, createQuery(), skill/agent runtime APIs
-  ↓
-agent-session     ← Session lifecycle: permissions, hooks, compaction, persistence, replay events
-agent-executor    ← Background task and subagent lifecycle primitives
-agent-tools       ← Tool infrastructure + 8 built-in CLI tools
-agent-provider    ← AI provider implementations (Anthropic, OpenAI, DeepSeek, Gemini, Gemma, Qwen)
-  ↓
-agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugins
+```mermaid
+flowchart TB
+    CLI["**agent-cli**\nCLI entry point · argument parsing · provider wiring · TUI startup"]
+    TUI["**agent-transport/tui**\nInk/React terminal UI · TuiTransport"]
+    CMD["**agent-command**\n20 slash command modules"]
+    TRANS["**agent-transport**\nHTTP · WebSocket · MCP · Headless"]
+    FW["**agent-framework**\nInteractiveSession · CommandRegistry · createQuery()"]
+    SESS["**agent-session**\nsession lifecycle · permissions · hooks · compaction"]
+    EXEC["**agent-executor**\nbackground tasks · subagent lifecycle"]
+    TOOLS["**agent-tools**\nToolRegistry · createZodFunctionTool · 8 built-in CLI tools"]
+    PROV["**agent-provider**\nAnthropic · OpenAI · DeepSeek · Gemini · Gemma · Qwen"]
+    PLUG["**agent-plugin**\n8 official plugins"]
+    CORE["**agent-core**\nFoundation · Robota engine · DI · events · plugin system"]
+
+    CLI --> FW
+    CLI --> TUI
+    CLI --> CMD
+    CLI --> TRANS
+    TUI --> FW
+    CMD --> FW
+    TRANS --> FW
+    FW --> SESS
+    FW --> EXEC
+    FW --> TOOLS
+    FW --> PROV
+    FW --> PLUG
+    SESS --> CORE
+    EXEC --> CORE
+    TOOLS --> CORE
+    PROV --> CORE
+    PLUG --> CORE
+
+    classDef cli fill:#1e1e3f,stroke:#a78bfa,color:#e8e4ff
+    classDef framework fill:#1a1a38,stroke:#7c6bf7,color:#e8e4ff
+    classDef general fill:#161630,stroke:#5a4de6,color:#e8e4ff
+    classDef core fill:#0d0d25,stroke:#4f44d0,color:#fff
+
+    class CLI,TUI,CMD,TRANS cli
+    class FW framework
+    class SESS,EXEC,TOOLS,PROV,PLUG general
+    class CORE core
 ```
 
 ## Package Roles
