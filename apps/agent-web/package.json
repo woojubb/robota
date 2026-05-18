@@ -1,5 +1,5 @@
 {
-  "name": "@robota-sdk/agent-web-ui",
+  "name": "robota-web",
   "version": "0.1.0",
   "private": true,
   "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
