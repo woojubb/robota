@@ -14,7 +14,7 @@ import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Bot, Trash2, Wrench } from 'lucide-react';
+import { Bot, Trash2, Wrench, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import { ChatInterface } from '../../components/playground/chat-interface';
@@ -49,6 +49,62 @@ function generateSixCharToken(): string {
 
 function buildToolId(name: string): string {
   return `${slugifyKebab(name).slice(0, MAX_TOOL_SLUG_LENGTH)}-${generateSixCharToken()}`;
+}
+
+type TConnectionScreenProps = {
+  status: 'connecting' | 'failed';
+  error: string | null;
+  serverUrl: string;
+};
+
+function ConnectionScreen({
+  status,
+  error,
+  serverUrl,
+}: TConnectionScreenProps): React.ReactElement {
+  const isConnecting = status === 'connecting';
+  return (
+    <div className="w-full h-full min-h-[60vh] flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-6 max-w-sm text-center px-6">
+        {isConnecting ? (
+          <div className="relative flex items-center justify-center w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10">
+            <WifiOff className="w-8 h-8 text-destructive" />
+          </div>
+        )}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1">
+            {isConnecting ? 'Connecting to server' : 'Connection failed'}
+          </h2>
+          {isConnecting ? (
+            <p className="text-sm text-muted-foreground font-mono break-all">{serverUrl}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-2">Could not reach the Robota server.</p>
+          )}
+          {error && (
+            <p className="text-xs font-mono text-destructive bg-destructive/10 rounded px-3 py-2 break-all mt-2">
+              {error}
+            </p>
+          )}
+        </div>
+        {!isConnecting && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="gap-2"
+          >
+            <Wifi className="w-4 h-4" />
+            Retry connection
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function PlaygroundContent(): React.ReactElement {
@@ -113,6 +169,16 @@ function PlaygroundContent(): React.ReactElement {
     return result.response;
   };
 
+  if (!state.isInitialized) {
+    return (
+      <ConnectionScreen
+        status={state.error ? 'failed' : 'connecting'}
+        error={state.error}
+        serverUrl={state.serverUrl}
+      />
+    );
+  }
+
   return (
     <div className="w-full h-full min-h-[60vh] flex flex-col bg-background">
       <header className="px-4 py-2 border-b border-border flex items-center justify-between">
@@ -134,19 +200,16 @@ function PlaygroundContent(): React.ReactElement {
             <Bot className="h-4 w-4 mr-2" />
             Create Agent
           </Button>
-          <Badge variant={state.isInitialized ? 'default' : 'secondary'}>
-            {state.isInitialized ? 'Ready' : 'Initializing'}
+          <Badge variant={state.isWebSocketConnected ? 'default' : 'secondary'} className="gap-1">
+            <Wifi className="h-3 w-3" />
+            {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
           </Badge>
         </div>
       </header>
       <main className="flex-1 overflow-hidden flex">
         {/* Left: Chat */}
         <div className="flex-1 h-full overflow-hidden border-r border-border">
-          {state.isInitialized ? (
-            <ChatInterface isAgentReady={canExecute} onSendMessage={handleSendMessage} />
-          ) : (
-            <div className="p-4 text-sm text-muted-foreground">Initializing playground...</div>
-          )}
+          <ChatInterface isAgentReady={canExecute} onSendMessage={handleSendMessage} />
         </div>
 
         {/* Center: Workflow Visualization */}
