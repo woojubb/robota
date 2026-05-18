@@ -208,6 +208,9 @@ export default defineConfig({
       }),
     ],
 
+    // Mermaid diagram support
+    ['script', { defer: true, src: 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js' }],
+
     // Google Analytics configuration
     ...(googleAnalyticsId
       ? [
