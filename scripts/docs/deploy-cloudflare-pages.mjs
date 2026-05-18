@@ -46,10 +46,10 @@ const args = [
   `--project-name=${projectName}`,
 ];
 
-const branch = process.env.CLOUDFLARE_PAGES_BRANCH;
-if (branch) {
-  args.push(`--branch=${branch}`);
-}
+// Default to main so wrangler treats this as a production deployment.
+// Override with CLOUDFLARE_PAGES_BRANCH for intentional preview deployments.
+const branch = process.env.CLOUDFLARE_PAGES_BRANCH ?? 'main';
+args.push(`--branch=${branch}`);
 
 const deployEnv = {
   ...process.env,
