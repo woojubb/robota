@@ -126,7 +126,7 @@ export class PlaygroundExecutor {
         tools: this.localConfig.toolIds.length > 0 ? this.localConfig.toolIds : undefined,
         systemPrompt: this.localConfig.systemPrompt,
         message: prompt,
-        history: this.conversationHistory,
+        history: [...this.conversationHistory],
       });
 
       for await (const sseEvent of stream) {
@@ -201,7 +201,7 @@ export class PlaygroundExecutor {
         tools: this.localConfig.toolIds.length > 0 ? this.localConfig.toolIds : undefined,
         systemPrompt: this.localConfig.systemPrompt,
         message: prompt,
-        history: this.conversationHistory,
+        history: [...this.conversationHistory],
       });
 
       for await (const sseEvent of stream) {
