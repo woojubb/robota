@@ -13,7 +13,6 @@ import {
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import { Bot, Trash2, Wrench, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
@@ -67,7 +66,7 @@ function ConnectionScreen({
 }: TConnectionScreenProps): React.ReactElement {
   const isConnecting = status === 'connecting';
   return (
-    <div className="w-full h-full min-h-[60vh] flex items-center justify-center bg-background">
+    <div className="w-full h-full flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-6 max-w-sm text-center px-6">
         {isConnecting ? (
           <div className="relative flex items-center justify-center w-16 h-16">
@@ -168,6 +167,7 @@ function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
   const { setToolItems } = usePlaygroundActions();
   const { createAgent, getDefaultAgentConfig, executePrompt, canExecute } = useRobotaExecution();
+  const { injectToolIntoAgent } = usePlaygroundActions();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
   const { toast } = useToast();
@@ -238,6 +238,37 @@ function PlaygroundContent(): React.ReactElement {
     clearConfig();
   };
 
+  const currentAgentId = state.currentAgentConfig
+    ? state.currentAgentConfig.id || state.currentAgentConfig.name
+    : null;
+
+  const agentActiveToolIds = currentAgentId ? (state.addedToolsByAgent[currentAgentId] ?? []) : [];
+  const activeTools = useMemo(
+    () => toolItems.filter((t) => agentActiveToolIds.includes(t.id)),
+    [toolItems, agentActiveToolIds],
+  );
+
+  const handleDropTool = async (tool: IPlaygroundToolMeta) => {
+    if (!currentAgentId) {
+      toast({ title: 'Create an agent first', variant: 'destructive' });
+      return;
+    }
+    if (agentActiveToolIds.includes(tool.id)) {
+      toast({ title: `${tool.name} already added`, variant: 'default' });
+      return;
+    }
+    if (tool.type !== 'builtin') {
+      toast({ title: 'Custom tools cannot be injected yet', variant: 'destructive' });
+      return;
+    }
+    await injectToolIntoAgent(currentAgentId, {
+      id: tool.id,
+      name: tool.name,
+      description: tool.description,
+    });
+    toast({ title: `${tool.name} added to agent` });
+  };
+
   if (!state.isInitialized && !providerConfig) {
     if (state.error) {
       return <ProviderSetupScreen onConnect={setProviderConfig} />;
@@ -248,8 +279,8 @@ function PlaygroundContent(): React.ReactElement {
   const isAgentReady = isByokMode || canExecute;
 
   return (
-    <div className="w-full h-full min-h-[60vh] flex flex-col bg-background">
-      <header className="px-4 py-2 border-b border-border flex items-center justify-between">
+    <div className="w-full h-full flex flex-col bg-background">
+      <header className="px-4 py-2 border-b border-border flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Playground</h1>
           <p className="text-sm text-muted-foreground">
@@ -278,10 +309,15 @@ function PlaygroundContent(): React.ReactElement {
               Disconnect
             </Button>
           ) : (
-            <Badge variant={state.isWebSocketConnected ? 'default' : 'secondary'} className="gap-1">
+            <Button
+              size="sm"
+              variant={state.isWebSocketConnected ? 'default' : 'secondary'}
+              className="gap-1 pointer-events-none"
+              tabIndex={-1}
+            >
               <Wifi className="h-3 w-3" />
               {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
-            </Badge>
+            </Button>
           )}
         </div>
       </header>
@@ -303,7 +339,11 @@ function PlaygroundContent(): React.ReactElement {
             </span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <WorkflowVisualization events={state.conversationHistory} />
+            <WorkflowVisualization
+              events={state.conversationHistory}
+              activeTools={activeTools}
+              onDropTool={handleDropTool}
+            />
           </div>
         </div>
 

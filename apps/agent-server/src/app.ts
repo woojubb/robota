@@ -46,6 +46,7 @@ export function createApp(): express.Application {
     cors({
       origin: process.env.CORS_ORIGINS?.split(',') || [
         'http://localhost:3000',
+        'http://localhost:7071',
         'https://robota.io',
       ],
       credentials: true,

@@ -60,7 +60,7 @@ export function ProviderSetupScreen({ onConnect }: TProviderSetupScreenProps): R
   };
 
   return (
-    <div className="w-full h-full min-h-[60vh] flex items-center justify-center bg-background">
+    <div className="w-full h-full flex items-center justify-center bg-background">
       <div className="flex flex-col gap-4 max-w-sm w-full px-6">
         <div className="flex items-center gap-2 mb-2">
           <Key className="w-5 h-5 text-primary" />
