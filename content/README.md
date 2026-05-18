@@ -1,15 +1,23 @@
 ---
 layout: home
 title: Robota SDK
-description: A TypeScript SDK for building AI agents with multi-provider support.
+description: The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable.
 lang: en-US
 ---
 
 # Robota SDK
 
-A TypeScript framework for building AI agents with multi-provider support, tool calling, and extensible plugin architecture.
+**The open-source alternative to Claude Code.** Multi-provider, TypeScript-native, self-hostable.
 
-![Robota CLI](./images/cli-demo.png)
+[![npm version](https://img.shields.io/npm/v/@robota-sdk/agent-core?label=npm)](https://www.npmjs.com/package/@robota-sdk/agent-core)
+[![npm downloads](https://img.shields.io/npm/dm/@robota-sdk/agent-cli?label=downloads)](https://www.npmjs.com/package/@robota-sdk/agent-cli)
+[![GitHub stars](https://img.shields.io/github/stars/woojubb/robota?style=social)](https://github.com/woojubb/robota)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
+
+**[→ 2-minute CLI install](#installation)** &nbsp;|&nbsp; **[→ Build your first agent](./getting-started/)**
+
+---
 
 ## Overview
 
@@ -21,7 +29,70 @@ Robota SDK ships three layers you can use independently or together:
 
 The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled from the Agent Library. You can enter at any layer.
 
+## Robota vs Alternatives
+
+|                                | **Robota**   | Claude Code       | LangChain JS      | OpenAI Agents SDK |
+| ------------------------------ | ------------ | ----------------- | ----------------- | ----------------- |
+| Multi-provider (one API)       | ✅           | ❌ Anthropic only | ✅ complex        | ❌ OpenAI only    |
+| TypeScript-first, strict types | ✅           | ✅                | ⚠️ Python primary | ✅                |
+| Ready-to-use CLI included      | ✅           | ✅                | ❌                | ❌                |
+| Self-hostable / open source    | ✅ MIT       | ❌ proprietary    | ✅                | ✅                |
+| Local model support            | ✅ LM Studio | ❌                | ✅                | ❌                |
+| Embeddable SDK (HTTP/WS/MCP)   | ✅           | ❌                | ⚠️ limited        | ⚠️ limited        |
+| Zero `any` in production code  | ✅           | n/a               | ❌                | ❌                |
+
+## Claude Code Users: Drop-in Compatible
+
+Already using Claude Code? **Robota reads your existing `.claude/` settings without modification.**
+
+- Keep your existing `CLAUDE.md`, `AGENTS.md`, and agent definitions
+- Add multi-provider support — switch to OpenAI, Gemini, DeepSeek, or local models
+- Self-host your own coding assistant
+- No lock-in to Anthropic pricing
+
+```bash
+# Your existing .claude/ config just works
+npm install -g @robota-sdk/agent-cli
+robota  # reads .claude/settings.json, CLAUDE.md, AGENTS.md automatically
+```
+
+## Installation
+
+### Just want the CLI?
+
+```bash
+npm install -g @robota-sdk/agent-cli
+robota
+```
+
+### Building a custom agent?
+
+```bash
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider @anthropic-ai/sdk
+```
+
+### Building an app with multi-turn sessions?
+
+```bash
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider @anthropic-ai/sdk
+```
+
+### Need tool calling?
+
+```bash
+# Add to any of the above:
+npm install @robota-sdk/agent-tools zod
+```
+
 ## Quick Start
+
+### Use the CLI (2 minutes)
+
+```bash
+npm install -g @robota-sdk/agent-cli
+robota                              # Interactive TUI
+robota -p "Explain this project"    # Print mode
+```
 
 ### Build an Agent (agent-core)
 
@@ -45,38 +116,6 @@ const response = await agent.run('Explain TypeScript generics.');
 console.log(response);
 ```
 
-### Add Tools
-
-```typescript
-import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { z } from 'zod';
-
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const calculatorTool = createZodFunctionTool(
-  'calculator',
-  'Perform arithmetic calculations',
-  z.object({
-    expression: z.string().describe('Math expression to evaluate'),
-  }),
-  async ({ expression }) => {
-    // WARNING: eval() is used here for brevity only. Do not use in production.
-    return { data: String(eval(expression)) }; // eslint-disable-line no-eval
-  },
-);
-
-const agent = new Robota({
-  name: 'ToolAgent',
-  aiProviders: [provider],
-  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' }, // see CLAUDE_MODELS for available model IDs
-  tools: [calculatorTool],
-});
-
-const response = await agent.run('What is 42 * 17?');
-```
-
 ### Use the Framework (agent-framework)
 
 ```typescript
@@ -89,12 +128,23 @@ const query = createQuery({ provider });
 const response = await query('List all TypeScript files in src/');
 ```
 
-### Use the CLI (agent-cli)
+### Switch Providers — No Code Changes
 
-```bash
-npm install -g @robota-sdk/agent-cli
-robota                              # Interactive TUI
-robota -p "Explain this project"    # Print mode
+```typescript
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+const agent = new Robota({
+  name: 'MultiProviderAgent',
+  aiProviders: [
+    new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+    new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+  ],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+});
+
+// Switch to OpenAI mid-conversation — same agent logic, zero rewrites
+agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 ```
 
 ## Why Robota SDK?
@@ -148,33 +198,15 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 - [Examples](./examples/) — Working code samples
 - [Development](./development/) — Contributing and monorepo setup
 
-## Installation
+---
+
+## Ready to build?
 
 ```bash
-# Core — build custom agents
-npm install @robota-sdk/agent-core
-
-# Provider (all providers in one package — pick the peer deps for your chosen provider)
-npm install @robota-sdk/agent-provider
-# + @anthropic-ai/sdk   for /anthropic
-# + openai              for /openai
-# + @google/genai       for /gemini or /google
-
-# Tools — FunctionTool, Zod tools, built-in CLI tools
-npm install @robota-sdk/agent-tools
-
-# Framework — assembly layer with createQuery() and InteractiveSession
-npm install @robota-sdk/agent-framework
-
-# Command modules — all slash commands in one package
-npm install @robota-sdk/agent-command
-
-# Transport (TUI, headless, HTTP, WebSocket, MCP — all in one package)
-npm install @robota-sdk/agent-transport
-
-# CLI — terminal AI coding assistant
-npm install -g @robota-sdk/agent-cli
+npm install -g @robota-sdk/agent-cli && robota
 ```
+
+[Documentation](./getting-started/) · [Examples](./examples/) · [GitHub](https://github.com/woojubb/robota)
 
 ## License
 

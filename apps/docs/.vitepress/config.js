@@ -8,7 +8,7 @@ export default defineConfig({
   // Basic configuration
   title: 'Robota SDK',
   description:
-    'A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI',
+    'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
 
   // SEO configuration
   lang: 'en-US',
@@ -113,7 +113,7 @@ export default defineConfig({
       {
         name: 'description',
         content:
-          'A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI',
+          'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
       },
     ],
     [
@@ -121,7 +121,7 @@ export default defineConfig({
       {
         name: 'keywords',
         content:
-          'AI, agent, LLM, function calling, TypeScript, JavaScript, OpenAI, Anthropic, Google AI, Claude, GPT, Gemini, tool integration, SDK, library, chatbot, conversational AI, artificial intelligence, machine learning, natural language processing, NLP',
+          'AI agent SDK, TypeScript AI agent, Claude Code alternative, open source AI CLI, multi-provider AI, LangChain alternative TypeScript, AI coding assistant, self-hostable AI, DeepSeek TypeScript, OpenAI agents SDK alternative, MCP server TypeScript, build coding agent CLI',
       },
     ],
     ['meta', { name: 'author', content: 'Robota SDK Team' }],
@@ -129,13 +129,16 @@ export default defineConfig({
 
     // Open Graph tags
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'Robota SDK - Build AI Agents with TypeScript' }],
+    [
+      'meta',
+      { property: 'og:title', content: 'Robota SDK — The open-source Claude Code alternative' },
+    ],
     [
       'meta',
       {
         property: 'og:description',
         content:
-          'A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI',
+          'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
       },
     ],
     ['meta', { property: 'og:url', content: 'https://robota.io/' }],
@@ -154,7 +157,7 @@ export default defineConfig({
       {
         name: 'twitter:description',
         content:
-          'A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI',
+          'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
       },
     ],
     ['meta', { name: 'twitter:image', content: 'https://robota.io/og-image.png' }],
@@ -186,7 +189,7 @@ export default defineConfig({
         '@type': 'SoftwareApplication',
         name: 'Robota SDK',
         description:
-          'A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI',
+          'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
         url: 'https://robota.io/',
         applicationCategory: 'DeveloperApplication',
         operatingSystem: 'Cross-platform',
@@ -204,6 +207,9 @@ export default defineConfig({
         codeRepository: 'https://github.com/woojubb/robota',
       }),
     ],
+
+    // Mermaid diagram support
+    ['script', { defer: true, src: 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js' }],
 
     // Google Analytics configuration
     ...(googleAnalyticsId
