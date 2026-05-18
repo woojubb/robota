@@ -24,6 +24,8 @@ flowchart TB
   subgraph Services["Services — lifecycle state machines"]
     SESS["agent-session\nsession + compaction"]
     EXEC["agent-executor\nbackground tasks + subagent lifecycle"]
+  end
+  subgraph OptIn["Opt-In Runners — install only when needed"]
     SUBRUN["agent-subagent-runner\nchild-process runner (opt-in)"]
   end
   subgraph Adapters["Adapters — vendor + tool + plugin"]
@@ -34,7 +36,7 @@ flowchart TB
   subgraph Orchestration["Orchestration — multi-agent coordination"]
     TEAM["agent-team\nmulti-agent delegation"]
   end
-  subgraph TypeContracts["Type Contracts — no runtime deps"]
+  subgraph TypeContracts["Type Contracts — zero runtime deps"]
     IFTRANSPORT["agent-interface-transport\nITransportAdapter · IConfigurableTransport"]
     IFTUI["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter"]
   end
@@ -43,6 +45,7 @@ flowchart TB
   end
 
   Shell --> Assembly
+  Shell --> OptIn
   Assembly --> Services
   Assembly --> Adapters
   Assembly --> Orchestration
@@ -50,7 +53,8 @@ flowchart TB
   Services --> Domain
   Adapters --> Domain
   Orchestration --> Domain
-  TypeContracts --> Domain
+  OptIn --> Assembly
+  OptIn --> Services
 ```
 
 New capability ownership follows the **lowest reusable boundary**: if two shells or packages need it,
