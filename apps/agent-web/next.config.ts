@@ -87,6 +87,15 @@ const nextConfig: NextConfig = {
         tls: false,
         worker_threads: false,
       };
+      // node: protocol modules are not polyfillable in the browser — alias to false (empty module)
+      config.resolve.alias = {
+        ...(config.resolve.alias ?? {}),
+        'node:child_process': false,
+        'node:fs': false,
+        'node:net': false,
+        'node:tls': false,
+        'node:worker_threads': false,
+      };
       // agent-core compiles `import { randomUUID } from 'node:crypto'` to
       // `import { randomUUID } from 'crypto'` in its browser dist.
       // Next.js/webpack has no polyfill for crypto.randomUUID, so we swap
@@ -97,6 +106,10 @@ const nextConfig: NextConfig = {
         new NormalModuleReplacementPlugin(
           /^(node:)?crypto$/,
           require('path').resolve(__dirname, 'src/lib/crypto-browser.js'),
+        ),
+        new NormalModuleReplacementPlugin(
+          /^(node:)?child_process$/,
+          require('path').resolve(__dirname, 'src/lib/child-process-browser.js'),
         ),
       ];
     }

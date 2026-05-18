@@ -11,7 +11,7 @@ export function ChatInterface(props: IChatPanelProps) {
   const chat = useChatInterfaceState(props);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <ChatHeader
         isAgentReady={isAgentReady}
         hasMessages={chat.messages.length > 0}

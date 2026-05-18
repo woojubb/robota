@@ -13,7 +13,6 @@ import {
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import { Bot, Trash2, Wrench, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
@@ -67,7 +66,7 @@ function ConnectionScreen({
 }: TConnectionScreenProps): React.ReactElement {
   const isConnecting = status === 'connecting';
   return (
-    <div className="w-full h-full min-h-[60vh] flex items-center justify-center bg-background">
+    <div className="w-full h-full flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-6 max-w-sm text-center px-6">
         {isConnecting ? (
           <div className="relative flex items-center justify-center w-16 h-16">
@@ -248,8 +247,8 @@ function PlaygroundContent(): React.ReactElement {
   const isAgentReady = isByokMode || canExecute;
 
   return (
-    <div className="w-full h-full min-h-[60vh] flex flex-col bg-background">
-      <header className="px-4 py-2 border-b border-border flex items-center justify-between">
+    <div className="w-full h-full flex flex-col bg-background">
+      <header className="px-4 py-2 border-b border-border flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Playground</h1>
           <p className="text-sm text-muted-foreground">
@@ -278,10 +277,15 @@ function PlaygroundContent(): React.ReactElement {
               Disconnect
             </Button>
           ) : (
-            <Badge variant={state.isWebSocketConnected ? 'default' : 'secondary'} className="gap-1">
+            <Button
+              size="sm"
+              variant={state.isWebSocketConnected ? 'default' : 'secondary'}
+              className="gap-1 pointer-events-none"
+              tabIndex={-1}
+            >
               <Wifi className="h-3 w-3" />
               {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
-            </Badge>
+            </Button>
           )}
         </div>
       </header>
