@@ -18,8 +18,10 @@ import type {
   IConversationEvent,
 } from '../../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../../tools/catalog';
+import type { IPlaygroundSkillMeta } from '../../../skills/catalog';
 import { AgentNode } from './nodes/agent-node';
 import { ToolNode } from './nodes/tool-node';
+import { SkillNode } from './nodes/skill-node';
 import {
   UserMessageNode,
   AssistantResponseNode,
@@ -32,6 +34,7 @@ import { eventsToFlow } from '../workflow-visualization/events-to-flow';
 const nodeTypes = {
   agent: AgentNode,
   tool: ToolNode,
+  skill: SkillNode,
   user_message: UserMessageNode,
   assistant_response: AssistantResponseNode,
   tool_call_start: ToolCallNode,
@@ -39,17 +42,22 @@ const nodeTypes = {
   tool_call_error: ToolErrorNode,
 };
 
-const AGENT_POSITION = { x: 120, y: 120 };
-const TOOL_START_X = 450;
+const AGENT_POSITION = { x: 220, y: 120 };
+const TOOL_START_X = 550;
 const TOOL_START_Y = 60;
 const TOOL_GAP_Y = 130;
+const SKILL_START_X = -220;
+const SKILL_START_Y = 60;
+const SKILL_GAP_Y = 130;
 const EVENT_CHAIN_OFFSET_X = 40;
 const EVENT_CHAIN_OFFSET_Y = 340;
 
 export interface IAssemblyCanvasProps {
   agentConfig: IPlaygroundAgentConfig | null;
   activeTools: IPlaygroundToolMeta[];
+  activeSkills?: IPlaygroundSkillMeta[];
   onDropTool: (tool: IPlaygroundToolMeta) => void;
+  onDropSkill?: (skill: IPlaygroundSkillMeta) => void;
   events?: IConversationEvent[];
 }
 
@@ -60,7 +68,9 @@ function buildAgentNodeId(config: IPlaygroundAgentConfig): string {
 function AssemblyCanvasContent({
   agentConfig,
   activeTools,
+  activeSkills = [],
   onDropTool,
+  onDropSkill,
   events = [],
 }: IAssemblyCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -106,6 +116,23 @@ function AssemblyCanvasContent({
       style: { stroke: '#7c3aed', strokeWidth: 2, opacity: 0.8 },
     }));
 
+    const skillNodes: Node[] = activeSkills.map((skill, idx) => ({
+      id: `skill-${skill.id}`,
+      type: 'skill',
+      position: { x: SKILL_START_X, y: SKILL_START_Y + idx * SKILL_GAP_Y },
+      data: { name: skill.name, description: skill.description },
+    }));
+
+    const skillEdges: Edge[] = activeSkills.map((skill) => ({
+      id: `edge-skill-${skill.id}`,
+      source: `skill-${skill.id}`,
+      sourceHandle: 'skill-output',
+      target: agentNodeId,
+      targetHandle: 'tool-input',
+      animated: true,
+      style: { stroke: '#8b5cf6', strokeWidth: 1.5, opacity: 0.7, strokeDasharray: '4 2' },
+    }));
+
     const { nodes: rawEventNodes, edges: eventEdges } = eventsToFlow(events);
 
     const eventNodes: Node[] = rawEventNodes.map((n) => ({
@@ -130,12 +157,15 @@ function AssemblyCanvasContent({
           ]
         : [];
 
-    setNodes([agentNode, ...toolNodes, ...eventNodes]);
-    setEdges([...toolEdges, ...agentToChainEdge, ...eventEdges]);
-  }, [agentConfig, activeTools, events, setNodes, setEdges]);
+    setNodes([agentNode, ...skillNodes, ...toolNodes, ...eventNodes]);
+    setEdges([...skillEdges, ...toolEdges, ...agentToChainEdge, ...eventEdges]);
+  }, [agentConfig, activeTools, activeSkills, events, setNodes, setEdges]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/robota-tool')) {
+    if (
+      e.dataTransfer.types.includes('application/robota-tool') ||
+      e.dataTransfer.types.includes('application/robota-skill')
+    ) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
       setIsDragOver(true);
@@ -152,12 +182,19 @@ function AssemblyCanvasContent({
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
-      const raw = e.dataTransfer.getData('application/robota-tool');
-      if (!raw) return;
-      const tool = JSON.parse(raw) as IPlaygroundToolMeta;
-      onDropTool(tool);
+      const rawTool = e.dataTransfer.getData('application/robota-tool');
+      if (rawTool) {
+        const tool = JSON.parse(rawTool) as IPlaygroundToolMeta;
+        onDropTool(tool);
+        return;
+      }
+      const rawSkill = e.dataTransfer.getData('application/robota-skill');
+      if (rawSkill && onDropSkill) {
+        const skill = JSON.parse(rawSkill) as IPlaygroundSkillMeta;
+        onDropSkill(skill);
+      }
     },
-    [onDropTool],
+    [onDropTool, onDropSkill],
   );
 
   if (!agentConfig) {

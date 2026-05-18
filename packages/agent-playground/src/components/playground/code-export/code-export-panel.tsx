@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Copy, Code } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../../tools/catalog';
+import type { IPlaygroundSkillMeta } from '../../../skills/catalog';
 import { generateAgentCode } from '../../../lib/code-generator';
 import { SyntaxHighlighter } from './syntax-highlighter';
 import { InstallGuide } from './install-guide';
@@ -14,6 +15,7 @@ const COPY_FEEDBACK_MS = 2000;
 interface ICodeExportPanelProps {
   agentConfig: IPlaygroundAgentConfig | null;
   activeTools: IPlaygroundToolMeta[];
+  activeSkills?: IPlaygroundSkillMeta[];
 }
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -25,7 +27,11 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced;
 }
 
-export function CodeExportPanel({ agentConfig, activeTools }: ICodeExportPanelProps) {
+export function CodeExportPanel({
+  agentConfig,
+  activeTools,
+  activeSkills = [],
+}: ICodeExportPanelProps) {
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -39,9 +45,10 @@ export function CodeExportPanel({ agentConfig, activeTools }: ICodeExportPanelPr
               systemPrompt: agentConfig.defaultModel.systemMessage ?? '',
             },
             tools: activeTools.map((t) => t.id),
+            skills: activeSkills.map((s) => s.id),
           }
         : null,
-    [agentConfig, activeTools],
+    [agentConfig, activeTools, activeSkills],
   );
 
   const debouncedState = useDebounced(assemblyState, DEBOUNCE_MS);
