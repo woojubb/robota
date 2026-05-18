@@ -1,6 +1,7 @@
 ---
 title: 'MKT-001: GitHub 커뮤니티 개설 + 블로그 런치 콘텐츠 3편'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: soon

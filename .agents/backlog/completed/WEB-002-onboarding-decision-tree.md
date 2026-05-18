@@ -1,6 +1,7 @@
 ---
 title: 'WEB-002: 온보딩 결정 트리 + 로컬 모델 첫 번째 경로'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: soon

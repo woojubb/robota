@@ -10,6 +10,8 @@ interface IMessagesAreaProps {
   isLoading: boolean;
   copiedId: string | null;
   onCopyMessage: (text: string, messageId: string) => void;
+  starterPrompts?: string[];
+  onSelectStarterPrompt?: (prompt: string) => void;
 }
 
 export function MessagesArea({
@@ -18,12 +20,18 @@ export function MessagesArea({
   isLoading,
   copiedId,
   onCopyMessage,
+  starterPrompts,
+  onSelectStarterPrompt,
 }: IMessagesAreaProps) {
   return (
     <ScrollArea className="flex-1 p-4">
       <div className="space-y-4">
         {messages.length === 0 ? (
-          <EmptyChatState isAgentReady={isAgentReady} />
+          <EmptyChatState
+            isAgentReady={isAgentReady}
+            starterPrompts={starterPrompts}
+            onSelectStarterPrompt={onSelectStarterPrompt}
+          />
         ) : (
           messages.map((message) => (
             <MessageCard
