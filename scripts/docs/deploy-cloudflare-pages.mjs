@@ -23,16 +23,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '../../');
 const distDir = path.join(rootDir, 'apps/docs/.vitepress/dist');
-const projectName = 'robota';
+const projectName = 'robota-docs';
 const wranglerVersion = '4.87.0';
-
-function requireEnv(name) {
-  const value = process.env[name];
-  if (!value) {
-    console.error(`Error: ${name} must be set for Cloudflare Pages deployment.`);
-    process.exit(1);
-  }
-}
 
 if (!existsSync(distDir)) {
   console.error('Error: Build output not found at apps/docs/.vitepress/dist/.');
@@ -44,9 +36,6 @@ if (!existsSync(path.join(distDir, 'index.html'))) {
   console.error('Error: index.html not found in build output. Build may have failed.');
   process.exit(1);
 }
-
-requireEnv('CLOUDFLARE_ACCOUNT_ID');
-requireEnv('CLOUDFLARE_API_TOKEN');
 
 const args = [
   'dlx',
@@ -62,5 +51,10 @@ if (branch) {
   args.push(`--branch=${branch}`);
 }
 
+const deployEnv = {
+  ...process.env,
+  CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID ?? 'fe3f6646d4d9ea3a38e9e198607023dd',
+};
+
 console.log(`\nDeploying docs to Cloudflare Pages project "${projectName}"...\n`);
-execFileSync('pnpm', args, { cwd: rootDir, stdio: 'inherit', env: process.env });
+execFileSync('pnpm', args, { cwd: rootDir, stdio: 'inherit', env: deployEnv });
