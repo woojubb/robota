@@ -22,6 +22,7 @@ import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { CreateAgentModal, AddToolModal } from './playground-modals';
 import { AssemblyCanvas } from '../../components/playground/assembly-canvas';
+import { CodeExportPanel } from '../../components/playground/code-export/code-export-panel';
 import { useProviderConfig } from '../../hooks/use-provider-config';
 import type { IProviderConfig } from '../../hooks/use-provider-config';
 import { ProviderSetupScreen } from './ProviderSetupScreen';
@@ -170,6 +171,7 @@ function PlaygroundContent(): React.ReactElement {
   const { injectToolIntoAgent } = usePlaygroundActions();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
+  const [chatTab, setChatTab] = useState<'chat' | 'code'>('chat');
   const { toast } = useToast();
   const toolItems = state.toolItems;
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -322,13 +324,43 @@ function PlaygroundContent(): React.ReactElement {
         </div>
       </header>
       <main className="flex-1 overflow-hidden flex">
-        {/* Left: Chat */}
-        <div className="flex-1 h-full overflow-hidden border-r border-border">
-          <ChatInterface
-            isAgentReady={isAgentReady}
-            onSendMessage={handleSendMessage}
-            starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
-          />
+        {/* Left: Chat / Code Export tabs */}
+        <div className="flex-1 h-full overflow-hidden border-r border-border flex flex-col">
+          <div className="px-3 py-1.5 border-b border-border flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setChatTab('chat')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                chatTab === 'chat'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setChatTab('code')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                chatTab === 'code'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Code Export
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {chatTab === 'chat' ? (
+              <ChatInterface
+                isAgentReady={isAgentReady}
+                onSendMessage={handleSendMessage}
+                starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
+              />
+            ) : (
+              <CodeExportPanel agentConfig={state.currentAgentConfig} activeTools={activeTools} />
+            )}
+          </div>
         </div>
 
         {/* Center: Agent Assembly Canvas */}
