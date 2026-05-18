@@ -1,6 +1,7 @@
 import type { IAssemblyState } from './index';
 import { getProviderTemplate } from './provider-templates';
 import { getToolImportEntry } from './tool-import-registry';
+import { getSkillById } from '../../skills/catalog';
 
 function escapeTemplateLiteral(str: string): string {
   return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
@@ -45,8 +46,16 @@ function buildRobotaOptions(
     `    model: '${state.agent.model}',`,
   ];
 
-  if (state.agent.systemPrompt) {
-    const escaped = escapeTemplateLiteral(state.agent.systemPrompt);
+  const skillAdditions = (state.skills ?? [])
+    .map((id) => getSkillById(id)?.systemPromptAddition)
+    .filter(Boolean) as string[];
+
+  const fullSystemPrompt = [state.agent.systemPrompt, ...skillAdditions]
+    .filter(Boolean)
+    .join('\n\n');
+
+  if (fullSystemPrompt) {
+    const escaped = escapeTemplateLiteral(fullSystemPrompt);
     lines.push(`    systemMessage: \`${escaped}\`,`);
   }
 

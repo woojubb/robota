@@ -13,9 +13,11 @@ import {
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
-import { Bot, Trash2, Wrench, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Bot, Trash2, Wrench, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
+import type { IPlaygroundSkillMeta } from '../../skills/catalog';
+import { getPlaygroundSkillCatalog } from '../../skills/catalog';
 import { ChatInterface } from '../../components/playground/chat-interface';
 import { Toaster } from '../../components/ui/sonner';
 import { WebLogger } from '../../lib/web-logger';
@@ -172,8 +174,11 @@ function PlaygroundContent(): React.ReactElement {
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
   const [chatTab, setChatTab] = useState<'chat' | 'code'>('chat');
+  const [rightTab, setRightTab] = useState<'tools' | 'skills'>('tools');
   const { toast } = useToast();
   const toolItems = state.toolItems;
+  const skillCatalog = useMemo(() => getPlaygroundSkillCatalog(), []);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [lastAddedToolId, setLastAddedToolId] = useState<string | null>(null);
   const sortedToolItems = useMemo(
@@ -249,6 +254,10 @@ function PlaygroundContent(): React.ReactElement {
     () => toolItems.filter((t) => agentActiveToolIds.includes(t.id)),
     [toolItems, agentActiveToolIds],
   );
+  const activeSkills = useMemo(
+    () => skillCatalog.filter((s) => activeSkillIds.includes(s.id)),
+    [skillCatalog, activeSkillIds],
+  );
 
   const handleDropTool = async (tool: IPlaygroundToolMeta) => {
     if (!currentAgentId) {
@@ -269,6 +278,24 @@ function PlaygroundContent(): React.ReactElement {
       description: tool.description,
     });
     toast({ title: `${tool.name} added to agent` });
+  };
+
+  const handleDropSkill = (skill: IPlaygroundSkillMeta) => {
+    if (!currentAgentId) {
+      toast({ title: 'Create an agent first', variant: 'destructive' });
+      return;
+    }
+    if (activeSkillIds.includes(skill.id)) {
+      toast({ title: `${skill.name} already added`, variant: 'default' });
+      return;
+    }
+    setActiveSkillIds((prev) => [...prev, skill.id]);
+    toast({ title: `${skill.name} added to agent` });
+  };
+
+  const handleRemoveSkill = (skill: IPlaygroundSkillMeta) => {
+    setActiveSkillIds((prev) => prev.filter((id) => id !== skill.id));
+    toast({ title: 'Skill removed', description: `${skill.name} was removed.` });
   };
 
   if (!state.isInitialized && !providerConfig) {
@@ -358,7 +385,11 @@ function PlaygroundContent(): React.ReactElement {
                 starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
               />
             ) : (
-              <CodeExportPanel agentConfig={state.currentAgentConfig} activeTools={activeTools} />
+              <CodeExportPanel
+                agentConfig={state.currentAgentConfig}
+                activeTools={activeTools}
+                activeSkills={activeSkills}
+              />
             )}
           </div>
         </div>
@@ -368,85 +399,173 @@ function PlaygroundContent(): React.ReactElement {
           <AssemblyCanvas
             agentConfig={state.currentAgentConfig}
             activeTools={activeTools}
+            activeSkills={activeSkills}
             onDropTool={handleDropTool}
+            onDropSkill={handleDropSkill}
             events={state.conversationHistory}
           />
         </div>
 
-        {/* Right: Tools */}
-        <div className="w-64 h-full bg-card border-l border-border overflow-y-auto">
-          <div className="p-4 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-3">
-              <Wrench className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-semibold text-foreground">Tools</h3>
-            </div>
-            <div className="space-y-2 overflow-auto pr-1">
-              {sortedToolItems.map((tool) => (
-                <div
-                  key={tool.id}
-                  className="border border-border rounded bg-card hover:shadow-sm transition-shadow"
-                >
-                  <div className="flex items-start gap-2 p-3">
-                    <button
-                      type="button"
-                      className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-primary rounded"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
-                      }}
-                      title="Drag onto an agent node to add"
-                      ref={(el) => {
-                        if (el) toolItemRefs.current.set(tool.id, el);
-                      }}
-                    >
-                      <div className="text-sm font-medium text-foreground">{tool.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-4">
-                        {tool.description}
-                      </div>
-                      {tool.tags && tool.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {tool.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-block bg-primary/10 text-primary text-xs px-2 py-1 rounded"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={tool.type === 'builtin'}
-                      onClick={() => handleRemoveTool(tool)}
-                      title={
-                        tool.type === 'builtin' ? 'Builtin tools cannot be removed' : 'Remove tool'
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => {
-                  setToolDraft({ name: '', description: '' });
-                  openModal('addTool');
-                }}
-              >
-                + Add Tool
-              </Button>
-            </div>
+        {/* Right: Tools / Skills tabs */}
+        <div className="w-64 h-full bg-card border-l border-border flex flex-col overflow-hidden">
+          {/* Tab header */}
+          <div className="px-3 py-2 border-b border-border flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setRightTab('tools')}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                rightTab === 'tools'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              Tools
+            </button>
+            <button
+              type="button"
+              onClick={() => setRightTab('skills')}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                rightTab === 'skills'
+                  ? 'bg-violet-500/15 text-violet-400'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Skills
+            </button>
           </div>
+
+          {/* Tools panel */}
+          {rightTab === 'tools' && (
+            <div className="flex-1 flex flex-col overflow-hidden p-3">
+              <div className="flex-1 space-y-2 overflow-auto pr-1">
+                {sortedToolItems.map((tool) => (
+                  <div
+                    key={tool.id}
+                    className="border border-border rounded bg-card hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-start gap-2 p-3">
+                      <button
+                        type="button"
+                        className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
+                        }}
+                        title="Drag onto an agent node to add"
+                        ref={(el) => {
+                          if (el) toolItemRefs.current.set(tool.id, el);
+                        }}
+                      >
+                        <div className="text-sm font-medium text-foreground">{tool.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-4">
+                          {tool.description}
+                        </div>
+                        {tool.tags && tool.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {tool.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-block bg-primary/10 text-primary text-xs px-2 py-1 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={tool.type === 'builtin'}
+                        onClick={() => handleRemoveTool(tool)}
+                        title={
+                          tool.type === 'builtin'
+                            ? 'Builtin tools cannot be removed'
+                            : 'Remove tool'
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    setToolDraft({ name: '', description: '' });
+                    openModal('addTool');
+                  }}
+                >
+                  + Add Tool
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Skills panel */}
+          {rightTab === 'skills' && (
+            <div className="flex-1 flex flex-col overflow-hidden p-3">
+              <div className="flex-1 space-y-2 overflow-auto pr-1">
+                {skillCatalog.map((skill) => (
+                  <div
+                    key={skill.id}
+                    className="border border-violet-500/30 rounded bg-card hover:shadow-sm hover:border-violet-500/50 transition-all"
+                  >
+                    <div className="flex items-start gap-2 p-3">
+                      <button
+                        type="button"
+                        className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-violet-500 rounded"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/robota-skill', JSON.stringify(skill));
+                        }}
+                        title="Drag onto an agent node to add"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="h-3 w-3 text-violet-400 shrink-0" />
+                          <div className="text-sm font-medium text-foreground">{skill.name}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-3">
+                          {skill.description}
+                        </div>
+                        {skill.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {skill.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-block bg-violet-500/10 text-violet-400 text-xs px-2 py-1 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={!activeSkillIds.includes(skill.id)}
+                        onClick={() => handleRemoveSkill(skill)}
+                        title={activeSkillIds.includes(skill.id) ? 'Remove skill' : 'Not yet added'}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <CreateAgentModal
