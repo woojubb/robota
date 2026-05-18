@@ -31,6 +31,8 @@ export interface IPlaygroundAgentConfig {
   id?: string;
   name: string;
   aiProviders: import('@robota-sdk/agent-core').IAIProvider[];
+  /** Provider API key (BYOK). Sent as X-Provider-API-Key to the SSE endpoint. */
+  apiKey?: string;
   defaultModel: {
     provider: string;
     model: string;
