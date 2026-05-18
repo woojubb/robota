@@ -47,7 +47,7 @@ function NodeShell({
 export function UserMessageNode({ data }: NodeProps) {
   const d = data as IFlowNodeData;
   return (
-    <NodeShell accentColor="border-l-4 border-l-blue-500" hasTarget={false}>
+    <NodeShell accentColor="border-l-4 border-l-blue-500">
       <div className="flex items-center gap-1.5 mb-1">
         <MessageSquare className="h-3 w-3 text-blue-400 shrink-0" />
         <span className="font-semibold text-xs text-foreground">User</span>
