@@ -64,7 +64,7 @@ function WorkflowVisualizationContent({
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+    if (!e.currentTarget.contains(e.relatedTarget as HTMLElement | null)) {
       setIsDragOver(false);
     }
   };
