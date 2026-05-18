@@ -13,32 +13,56 @@ import {
   type Edge,
 } from '@xyflow/react';
 import { Bot } from 'lucide-react';
-import type { IPlaygroundAgentConfig } from '../../../lib/playground/robota-executor';
+import type {
+  IPlaygroundAgentConfig,
+  IConversationEvent,
+} from '../../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../../tools/catalog';
 import { AgentNode } from './nodes/agent-node';
 import { ToolNode } from './nodes/tool-node';
+import {
+  UserMessageNode,
+  AssistantResponseNode,
+  ToolCallNode,
+  ToolResultNode,
+  ToolErrorNode,
+} from '../workflow-visualization/workflow-nodes';
+import { eventsToFlow } from '../workflow-visualization/events-to-flow';
 
 const nodeTypes = {
   agent: AgentNode,
   tool: ToolNode,
+  user_message: UserMessageNode,
+  assistant_response: AssistantResponseNode,
+  tool_call_start: ToolCallNode,
+  tool_call_complete: ToolResultNode,
+  tool_call_error: ToolErrorNode,
 };
 
 const AGENT_POSITION = { x: 120, y: 120 };
 const TOOL_START_X = 450;
 const TOOL_START_Y = 60;
 const TOOL_GAP_Y = 130;
+const EVENT_CHAIN_OFFSET_X = 40;
+const EVENT_CHAIN_OFFSET_Y = 340;
 
 export interface IAssemblyCanvasProps {
   agentConfig: IPlaygroundAgentConfig | null;
   activeTools: IPlaygroundToolMeta[];
   onDropTool: (tool: IPlaygroundToolMeta) => void;
+  events?: IConversationEvent[];
 }
 
 function buildAgentNodeId(config: IPlaygroundAgentConfig): string {
   return `agent-${config.id ?? config.name}`;
 }
 
-function AssemblyCanvasContent({ agentConfig, activeTools, onDropTool }: IAssemblyCanvasProps) {
+function AssemblyCanvasContent({
+  agentConfig,
+  activeTools,
+  onDropTool,
+  events = [],
+}: IAssemblyCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -82,9 +106,33 @@ function AssemblyCanvasContent({ agentConfig, activeTools, onDropTool }: IAssemb
       style: { stroke: '#7c3aed', strokeWidth: 2, opacity: 0.8 },
     }));
 
-    setNodes([agentNode, ...toolNodes]);
-    setEdges(toolEdges);
-  }, [agentConfig, activeTools, setNodes, setEdges]);
+    const { nodes: rawEventNodes, edges: eventEdges } = eventsToFlow(events);
+
+    const eventNodes: Node[] = rawEventNodes.map((n) => ({
+      ...n,
+      position: {
+        x: n.position.x + EVENT_CHAIN_OFFSET_X,
+        y: n.position.y + EVENT_CHAIN_OFFSET_Y,
+      },
+    }));
+
+    const agentToChainEdge: Edge[] =
+      events.length > 0
+        ? [
+            {
+              id: `edge-agent-to-chain`,
+              source: agentNodeId,
+              sourceHandle: 'chain-output',
+              target: events[0].id,
+              animated: true,
+              style: { stroke: '#6366f1', strokeWidth: 1.5, opacity: 0.6 },
+            },
+          ]
+        : [];
+
+    setNodes([agentNode, ...toolNodes, ...eventNodes]);
+    setEdges([...toolEdges, ...agentToChainEdge, ...eventEdges]);
+  }, [agentConfig, activeTools, events, setNodes, setEdges]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/robota-tool')) {
