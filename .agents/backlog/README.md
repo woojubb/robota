@@ -413,3 +413,30 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [ARCH-REV-011](ARCH-REV-011-create-agent-team-arch-map.md)                 | agent-team.md 아키텍처 맵 서브문서 생성 (멀티에이전트 오케스트레이션)   | high     |
 | [ARCH-REV-012](ARCH-REV-012-create-transport-architecture-doc.md)          | transport-architecture.md 서브문서 생성                                 | high     |
 | [ARCH-REV-013](ARCH-REV-013-expand-agent-system-mcp-sidecar-playground.md) | agent-system.md 확장 (MCP 명확화, 사이드카 교차참조, 플레이그라운드)    | high     |
+
+### Product Marketing — 상품성 개선 (2026-05-18)
+
+3인 병렬 분석(기획자·CEO·디자이너)에서 도출된 랜딩·온보딩·브랜드·커뮤니티·성장 개선 항목.  
+분석 보고서: [.design/planning/comprehensive-report.md](../../.design/planning/comprehensive-report.md)
+
+#### Phase 1 — 빠른 Win (1~3일)
+
+| ID                                                   | 제목                                                             | 우선순위 |
+| ---------------------------------------------------- | ---------------------------------------------------------------- | -------- |
+| [WEB-001](WEB-001-landing-positioning-quick-wins.md) | 랜딩 포지셔닝 + 신뢰 신호 배지 + 경쟁 섹션 + Playground nav 링크 | high     |
+
+#### Phase 2 — 구조 개선 (1~2주)
+
+| ID                                               | 제목                                                               | 우선순위 |
+| ------------------------------------------------ | ------------------------------------------------------------------ | -------- |
+| [WEB-002](WEB-002-onboarding-decision-tree.md)   | 온보딩 결정 트리 + 로컬 모델(LM Studio) 첫 번째 경로               | high     |
+| [WEB-003](WEB-003-brand-design-system.md)        | 브랜드 컬러 통합 + 코드 탭 전환 + 사이드바 계층화                  | high     |
+| [MKT-001](MKT-001-community-and-blog-content.md) | GitHub 커뮤니티 개설(Discussions + CONTRIBUTING.md) + 블로그 3편   | high     |
+| [MKT-002](MKT-002-v1-launch-seo.md)              | v1.0.0 선언 계획 수립 + SEO 메타/sitemap 정비 + 공개 로드맵 페이지 | medium   |
+
+#### Phase 3 — 인터랙티브 경험 (2~4주)
+
+| ID                                              | 제목                                                         | 우선순위 |
+| ----------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [WEB-004](WEB-004-playground-interactive-ux.md) | Playground 온보딩/에러 상태 UI + Mermaid 아키텍처 다이어그램 | high     |
+| [PROD-001](PROD-001-public-playground.md)       | 퍼블릭 플레이그라운드 — API 키 입력 즉시 체험 데모 (BYOK)    | high     |
