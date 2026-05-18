@@ -16,8 +16,8 @@ A TypeScript framework for building AI agents with multi-provider support, tool 
 Robota SDK ships three layers you can use independently or together:
 
 - **CLI** (`agent-cli`) — A ready-to-use AI coding assistant in your terminal. Install and run immediately, no code required.
-- **Assembly Layer** (`agent-sdk`) — A programmable interface for embedding the same assistant capabilities into your own scripts, tools, or workflows.
-- **Agent Library** (`agent-core`, `agent-tools`, `agent-sessions`, and providers) — Low-level building blocks for constructing any AI agent system from scratch.
+- **Assembly Layer** (`agent-framework`) — A programmable interface for embedding the same assistant capabilities into your own scripts, tools, or workflows.
+- **Agent Library** (`agent-core`, `agent-tools`, `agent-session`, and providers) — Low-level building blocks for constructing any AI agent system from scratch.
 
 The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled from the Agent Library. You can enter at any layer.
 
@@ -77,10 +77,10 @@ const agent = new Robota({
 const response = await agent.run('What is 42 * 17?');
 ```
 
-### Use the SDK (agent-sdk)
+### Use the Framework (agent-framework)
 
 ```typescript
-import { createQuery } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -114,10 +114,10 @@ agent-cli              ← Interactive terminal AI coding assistant
 agent-command          ← All slash command modules (/agent, /help, /provider, /skills, /plugin, …)
 agent-transport        ← Consolidated transport package (sub-paths: /tui, /headless, /http, /ws, /mcp)
   ↓ (product/transport layers consume)
-agent-sdk              ← Assembly layer: InteractiveSession, config, context, createQuery()
+agent-framework        ← Assembly layer: InteractiveSession, config, context, createQuery()
   ↓
-agent-sessions         ← Session lifecycle: permissions, hooks, compaction
-agent-runtime          ← Background task and subagent lifecycle primitives
+agent-session          ← Session lifecycle: permissions, hooks, compaction
+agent-executor         ← Background task and subagent lifecycle primitives
 agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports/manifests
 agent-provider         ← Consolidated AI provider package (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
   ↓
@@ -126,17 +126,19 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 ## Packages
 
-| Package                                                      | Description                                                                                                                                                                                      |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-core`](./packages/agent-core/)           | Core agent runtime, abstractions, and plugin system                                                                                                                                              |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)         | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                             |
-| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)   | Session with permissions, hooks, and compaction                                                                                                                                                  |
-| [`@robota-sdk/agent-runtime`](./packages/agent-runtime/)     | Background task and subagent lifecycle primitives                                                                                                                                                |
-| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)             | Assembly layer with config/context loading and createQuery()                                                                                                                                     |
-| [`@robota-sdk/agent-command`](./packages/agent-command/)     | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                  |
-| [`@robota-sdk/agent-provider`](./packages/agent-provider/)   | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
-| [`@robota-sdk/agent-cli`](./packages/agent-cli/)             | Interactive terminal AI coding assistant                                                                                                                                                         |
-| [`@robota-sdk/agent-transport`](./packages/agent-transport/) | Consolidated transport package — TUI (`/tui`), headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`) in one package                                                            |
+| Package                                                                  | Description                                                                                                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@robota-sdk/agent-core`](./packages/agent-core/)                       | Core agent runtime, abstractions, and plugin system                                                                                                                                              |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                     | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                             |
+| [`@robota-sdk/agent-session`](./packages/agent-session/)                 | Session with permissions, hooks, and compaction                                                                                                                                                  |
+| [`@robota-sdk/agent-executor`](./packages/agent-executor/)               | Background task and subagent lifecycle primitives                                                                                                                                                |
+| [`@robota-sdk/agent-framework`](./packages/agent-framework/)             | Assembly layer with config/context loading, `InteractiveSession`, and `createQuery()`                                                                                                            |
+| [`@robota-sdk/agent-command`](./packages/agent-command/)                 | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                  |
+| [`@robota-sdk/agent-provider`](./packages/agent-provider/)               | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
+| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                         | Interactive terminal AI coding assistant                                                                                                                                                         |
+| [`@robota-sdk/agent-transport`](./packages/agent-transport/)             | Consolidated transport package — TUI (`/tui`), headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`) in one package                                                            |
+| [`@robota-sdk/agent-subagent-runner`](./packages/agent-subagent-runner/) | Opt-in child-process subagent runner — install only when using `/agent` with child-process isolation                                                                                             |
+| [`@robota-sdk/agent-team`](./packages/agent-team/)                       | Multi-agent task delegation for playground and orchestration use cases                                                                                                                           |
 
 ## Documentation
 
@@ -161,8 +163,8 @@ npm install @robota-sdk/agent-provider
 # Tools — FunctionTool, Zod tools, built-in CLI tools
 npm install @robota-sdk/agent-tools
 
-# SDK — assembly layer with createQuery() and InteractiveSession
-npm install @robota-sdk/agent-sdk
+# Framework — assembly layer with createQuery() and InteractiveSession
+npm install @robota-sdk/agent-framework
 
 # Command modules — all slash commands in one package
 npm install @robota-sdk/agent-command
