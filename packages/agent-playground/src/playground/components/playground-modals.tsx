@@ -62,9 +62,36 @@ export function CreateAgentModal({
                   <SelectContent>
                     <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="anthropic">Anthropic</SelectItem>
-                    <SelectItem value="google">Google</SelectItem>
+                    <SelectItem value="gemini">Google Gemini</SelectItem>
+                    <SelectItem value="deepseek">DeepSeek</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Model</Label>
+                <Input
+                  value={agentDraft.defaultModel.model}
+                  onChange={(e) =>
+                    setAgentDraft({
+                      ...agentDraft,
+                      defaultModel: { ...agentDraft.defaultModel, model: e.target.value },
+                    })
+                  }
+                  className="h-8 text-xs"
+                  placeholder="gpt-4o-mini"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">API Key (BYOK)</Label>
+                <Input
+                  type="password"
+                  value={agentDraft.apiKey ?? ''}
+                  onChange={(e) => setAgentDraft({ ...agentDraft, apiKey: e.target.value })}
+                  className="h-8 text-xs"
+                  placeholder="sk-..."
+                />
               </div>
             </div>
             <div className="space-y-1">
