@@ -5,6 +5,7 @@ export interface IAssemblyState {
     systemPrompt: string;
   };
   tools: string[];
+  skills: string[];
 }
 
 export { serializeToCode as generateAgentCode } from './assembly-serializer';
