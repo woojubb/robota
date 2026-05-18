@@ -50,7 +50,7 @@ const REQUIRED_FILES = [
   },
   {
     file: '.agents/specs/architecture-map/agent-system.md',
-    pattern: /Background workspace\/read model\s+\|\s+`agent-sdk`\s+\+\s+`agent-runtime`/,
+    pattern: /Background workspace\/read model\s+\|\s+`agent-framework`\s+\+\s+`agent-executor`/,
     type: 'missing-architecture-map-workspace-owner',
     detail:
       'Architecture map must keep background workspace ownership in agent-framework + agent-executor.',
