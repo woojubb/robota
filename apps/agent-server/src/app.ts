@@ -9,6 +9,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
+import { playgroundRouter } from './routes/playground.js';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 import type { PlaygroundWebSocketServer } from './websocket-server';
@@ -224,6 +225,9 @@ export function createApp(): express.Application {
       environment: process.env.NODE_ENV || 'development',
     });
   });
+
+  // Playground API routes (PLG-015~017 endpoints added here incrementally)
+  app.use('/api/playground', playgroundRouter);
 
   // 404 handler
   app.use('*', (req, res) => {
