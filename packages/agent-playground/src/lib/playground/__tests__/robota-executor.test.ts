@@ -1,21 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlaygroundExecutor } from '../robota-executor';
-import type { IPlaygroundAgentConfig, IPlaygroundTool } from '../robota-executor';
+import type { IPlaygroundAgentConfig } from '../robota-executor';
+import type { TSseEvent } from '../robota-executor/sse-client';
 
-const sdkMocks = vi.hoisted(() => ({
-  robotaInstances: [] as Array<{
-    config: {
-      name: string;
-      defaultModel: { provider: string; model: string };
-      tools: unknown[];
-    };
-    run: ReturnType<typeof vi.fn>;
-    runStream: ReturnType<typeof vi.fn>;
-    updateTools: ReturnType<typeof vi.fn>;
-    getConfiguration: ReturnType<typeof vi.fn>;
-    getHistory: ReturnType<typeof vi.fn>;
-    destroy: ReturnType<typeof vi.fn>;
-  }>,
+const sseMocks = vi.hoisted(() => ({
+  sseExecute: vi.fn(),
   logger: {
     debug: vi.fn(),
     error: vi.fn(),
@@ -24,91 +13,31 @@ const sdkMocks = vi.hoisted(() => ({
   },
 }));
 
-const providerMocks = vi.hoisted(() => ({
-  openAiConfigs: [] as unknown[],
-  anthropicConfigs: [] as unknown[],
-  remoteExecutorConfigs: [] as unknown[],
+vi.mock('../robota-executor/sse-client', () => ({
+  sseExecute: sseMocks.sseExecute,
 }));
 
-const toolMocks = vi.hoisted(() => {
-  class MockFunctionTool {
-    readonly schema: unknown;
-    readonly handler: (params: unknown, context?: unknown) => Promise<unknown>;
-
-    constructor(
-      schema: unknown,
-      handler: (params: unknown, context?: unknown) => Promise<unknown>,
-    ) {
-      this.schema = schema;
-      this.handler = handler;
+function makeEventStream(...events: TSseEvent[]) {
+  return async function* () {
+    for (const event of events) {
+      yield event;
     }
-  }
+  };
+}
 
-  return { MockFunctionTool };
-});
-
-vi.mock('@robota-sdk/agent-core', () => ({
-  Robota: vi.fn(
-    (config: {
-      name: string;
-      defaultModel: { provider: string; model: string };
-      tools: unknown[];
-    }) => {
-      const instance = {
-        config,
-        run: vi.fn(async (prompt: string) => `response:${prompt}`),
-        runStream: vi.fn(async function* (prompt: string) {
-          yield `stream:${prompt}`;
-        }),
-        updateTools: vi.fn(async () => ({ version: 2 })),
-        getConfiguration: vi.fn(() => ({
-          version: 1,
-          tools: [],
-          updatedAt: 123,
-        })),
-        getHistory: vi.fn(() => []),
-        destroy: vi.fn(async () => undefined),
-      };
-      sdkMocks.robotaInstances.push(instance);
-      return instance;
-    },
-  ),
-  SilentLogger: sdkMocks.logger,
-}));
-
-vi.mock('@robota-sdk/agent-provider/openai', () => ({
-  OpenAIProvider: vi.fn((config: unknown) => {
-    providerMocks.openAiConfigs.push(config);
-    return { provider: 'openai', config };
-  }),
-}));
-
-vi.mock('@robota-sdk/agent-provider/anthropic', () => ({
-  AnthropicProvider: vi.fn((config: unknown) => {
-    providerMocks.anthropicConfigs.push(config);
-    return { provider: 'anthropic', config };
-  }),
-}));
-
-vi.mock('@robota-sdk/agent-remote-client', () => ({
-  RemoteExecutor: vi.fn((config: unknown) => {
-    providerMocks.remoteExecutorConfigs.push(config);
-    return { kind: 'remote-executor', config };
-  }),
-}));
-
-vi.mock('@robota-sdk/agent-tools', () => ({
-  FunctionTool: toolMocks.MockFunctionTool,
-}));
+const DONE_EVENT: TSseEvent = {
+  type: 'done',
+  data: { usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } },
+};
 
 function createExecutor(): PlaygroundExecutor {
-  return new PlaygroundExecutor('ws://api.example.test/ws', 'token-1', {
+  return new PlaygroundExecutor('ws://api.example.test/ws/playground', 'token-1', {
     eventService: {},
-    logger: sdkMocks.logger,
+    logger: sseMocks.logger,
   });
 }
 
-function createConfig(tools: IPlaygroundTool[] = []): IPlaygroundAgentConfig {
+function createConfig(overrides: Partial<IPlaygroundAgentConfig> = {}): IPlaygroundAgentConfig {
   return {
     id: 'agent-1',
     name: 'Test Agent',
@@ -117,141 +46,223 @@ function createConfig(tools: IPlaygroundTool[] = []): IPlaygroundAgentConfig {
       provider: 'openai',
       model: 'gpt-4o-mini',
     },
-    tools,
+    tools: [],
+    ...overrides,
   };
 }
 
 describe('PlaygroundExecutor', () => {
   beforeEach(() => {
-    sdkMocks.robotaInstances.length = 0;
-    providerMocks.openAiConfigs.length = 0;
-    providerMocks.anthropicConfigs.length = 0;
-    providerMocks.remoteExecutorConfigs.length = 0;
-    sdkMocks.logger.debug.mockClear();
-    sdkMocks.logger.error.mockClear();
+    sseMocks.sseExecute.mockClear();
+    sseMocks.logger.debug.mockClear();
+    sseMocks.logger.error.mockClear();
   });
 
-  it('creates agents with remote provider executors and normalized tools', async () => {
-    const tool: IPlaygroundTool = {
-      name: 'echo',
-      description: 'Echo input',
-      execute: vi.fn(async (params) => params),
-    };
+  it('creates agent and records UI interaction', async () => {
     const executor = createExecutor();
 
-    await executor.createAgent(createConfig([tool]));
+    await executor.createAgent(createConfig());
 
-    expect(providerMocks.remoteExecutorConfigs).toEqual([
-      {
-        serverUrl: 'http://api.example.test/api/v1/remote',
-        userApiKey: 'token-1',
-        timeout: 30000,
-        enableWebSocket: false,
-      },
-    ]);
-    expect(providerMocks.openAiConfigs).toHaveLength(1);
-    expect(providerMocks.anthropicConfigs).toHaveLength(1);
-    expect(sdkMocks.robotaInstances).toHaveLength(1);
-    expect(sdkMocks.robotaInstances[0]?.config).toMatchObject({
-      name: 'Test Agent',
-      defaultModel: { provider: 'openai', model: 'gpt-4o-mini' },
-    });
-    expect(sdkMocks.robotaInstances[0]?.config.tools[0]).toBeInstanceOf(toolMocks.MockFunctionTool);
     expect(executor.getPlaygroundStatistics().uiInteractions).toBe(1);
   });
 
-  it('returns successful run results and records execution metrics', async () => {
-    const executor = createExecutor();
-    await executor.createAgent(createConfig());
-
-    const result = await executor.run('hello');
-
-    expect(sdkMocks.robotaInstances[0]?.run).toHaveBeenCalledWith('hello');
-    expect(result).toMatchObject({
-      success: true,
-      response: 'response:hello',
-      uiError: undefined,
-    });
-    expect(executor.getPlaygroundStatistics()).toMatchObject({
-      totalChatExecutions: 1,
-      agentModeExecutions: 1,
-      errorCount: 0,
-    });
-  });
-
-  it('returns UI-classified failures when no agent is configured', async () => {
+  it('returns failure when no agent is configured', async () => {
     const executor = createExecutor();
 
     const result = await executor.run('hello');
 
     expect(result).toMatchObject({
       success: false,
-      response: 'Execution failed',
-      uiError: {
-        kind: 'recoverable',
-        message: 'No agent configured for execution',
-      },
+      response: 'No agent configured',
     });
-    expect(result.error?.message).toBe('No agent configured for execution');
+    expect(sseMocks.sseExecute).not.toHaveBeenCalled();
   });
 
-  it('executes direct prompts with optional chunks', async () => {
-    const onChunk = vi.fn();
+  it('runs prompt via SSE and accumulates text_delta into response', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
-    const result = await executor.execute('direct', onChunk);
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream(
+        { type: 'text_delta', data: { text: 'hello ' } },
+        { type: 'text_delta', data: { text: 'world' } },
+        DONE_EVENT,
+      ),
+    );
 
-    expect(sdkMocks.robotaInstances[0]?.run).toHaveBeenCalledWith('direct');
-    expect(onChunk).toHaveBeenCalledWith('response:direct');
+    const result = await executor.run('say something');
+
+    expect(sseMocks.sseExecute).toHaveBeenCalledWith(
+      'ws://api.example.test/ws/playground',
+      undefined,
+      expect.objectContaining({
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        message: 'say something',
+      }),
+    );
     expect(result).toMatchObject({
       success: true,
-      response: 'response:direct',
+      response: 'hello world',
     });
   });
 
-  it('updates and reads agent tool configuration', async () => {
+  it('forwards BYOK apiKey to sseExecute', async () => {
     const executor = createExecutor();
-    await executor.createAgent(createConfig());
+    await executor.createAgent(createConfig({ apiKey: 'sk-byok-key' }));
 
-    const result = await executor.updateAgentTools('agent-1', [
-      {
-        name: 'later',
-        description: 'Later tool',
-        execute: vi.fn(async () => 'ok'),
-      },
-    ]);
-    const configuration = await executor.getAgentConfiguration('agent-1');
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream({ type: 'text_delta', data: { text: 'ok' } }, DONE_EVENT),
+    );
 
-    expect(result).toEqual({ version: 2 });
-    expect(sdkMocks.robotaInstances[0]?.updateTools).toHaveBeenCalledWith([
-      expect.any(toolMocks.MockFunctionTool),
-    ]);
-    expect(configuration).toEqual({
-      version: 1,
-      tools: [],
-      updatedAt: 123,
-    });
-  });
+    await executor.run('test');
 
-  it('rejects remote provider creation without server URL and auth token', async () => {
-    const executor = new PlaygroundExecutor('', '', {
-      eventService: {},
-      logger: sdkMocks.logger,
-    });
-
-    await expect(executor.createAgent(createConfig())).rejects.toThrow(
-      'Server URL and auth token required for remote executor',
+    expect(sseMocks.sseExecute).toHaveBeenCalledWith(
+      expect.any(String),
+      'sk-byok-key',
+      expect.any(Object),
     );
   });
 
-  it('disposes the current agent and clears history resources', async () => {
+  it('returns failure when SSE stream emits an error event', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream({ type: 'error', data: { message: 'Provider error' } }),
+    );
+
+    const result = await executor.run('test');
+
+    expect(result).toMatchObject({
+      success: false,
+      response: 'Execution failed',
+    });
+  });
+
+  it('executes prompt and calls onChunk for each text_delta', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream(
+        { type: 'text_delta', data: { text: 'part1' } },
+        { type: 'text_delta', data: { text: 'part2' } },
+        DONE_EVENT,
+      ),
+    );
+
+    const onChunk = vi.fn();
+    const result = await executor.execute('direct', onChunk);
+
+    expect(onChunk).toHaveBeenCalledWith('part1');
+    expect(onChunk).toHaveBeenCalledWith('part2');
+    expect(result).toMatchObject({
+      success: true,
+      response: 'part1part2',
+    });
+  });
+
+  it('adds tool IDs via updateAgentToolsFromCard', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    await executor.updateAgentToolsFromCard('agent-1', {
+      id: 'tool-calculator',
+      name: 'calculator',
+      description: 'A calculator',
+    });
+
+    const config = await executor.getAgentConfiguration('agent-1');
+    expect(config.tools).toEqual([{ name: 'tool-calculator' }]);
+  });
+
+  it('deduplicates tool IDs on repeated updateAgentToolsFromCard calls', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    await executor.updateAgentToolsFromCard('agent-1', {
+      id: 'tool-a',
+      name: 'a',
+      description: 'A',
+    });
+    await executor.updateAgentToolsFromCard('agent-1', {
+      id: 'tool-a',
+      name: 'a',
+      description: 'A',
+    });
+
+    const config = await executor.getAgentConfiguration('agent-1');
+    expect(config.tools).toEqual([{ name: 'tool-a' }]);
+  });
+
+  it('includes registered tools in sseExecute request body', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+    await executor.updateAgentToolsFromCard('agent-1', { id: 'web_search', name: 'web_search' });
+
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream({ type: 'text_delta', data: { text: 'done' } }, DONE_EVENT),
+    );
+
+    await executor.run('search something');
+
+    expect(sseMocks.sseExecute).toHaveBeenCalledWith(
+      expect.any(String),
+      undefined,
+      expect.objectContaining({ tools: ['web_search'] }),
+    );
+  });
+
+  it('passes conversation history to subsequent SSE calls', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    sseMocks.sseExecute
+      .mockImplementationOnce(
+        makeEventStream({ type: 'text_delta', data: { text: 'first reply' } }, DONE_EVENT),
+      )
+      .mockImplementationOnce(
+        makeEventStream({ type: 'text_delta', data: { text: 'second reply' } }, DONE_EVENT),
+      );
+
+    await executor.run('first message');
+    await executor.run('second message');
+
+    const secondCallBody = sseMocks.sseExecute.mock.calls[1]?.[2];
+    expect(secondCallBody.history).toEqual([
+      { role: 'user', content: 'first message' },
+      { role: 'assistant', content: 'first reply' },
+    ]);
+  });
+
+  it('clears conversation history on clearHistory', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream({ type: 'text_delta', data: { text: 'reply' } }, DONE_EVENT),
+    );
+    await executor.run('message');
+
+    executor.clearHistory();
+    sseMocks.sseExecute.mockClear();
+
+    sseMocks.sseExecute.mockImplementation(
+      makeEventStream({ type: 'text_delta', data: { text: 'reply2' } }, DONE_EVENT),
+    );
+    await executor.run('after clear');
+
+    const body = sseMocks.sseExecute.mock.calls[0]?.[2];
+    expect(body.history).toEqual([]);
+  });
+
+  it('disposes the history plugin on dispose', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
     await executor.dispose();
 
-    expect(sdkMocks.robotaInstances[0]?.destroy).toHaveBeenCalledTimes(1);
-    expect(sdkMocks.logger.debug).toHaveBeenCalledWith('PlaygroundHistoryPlugin disposed');
+    expect(sseMocks.logger.debug).toHaveBeenCalledWith('PlaygroundHistoryPlugin disposed');
   });
 });
