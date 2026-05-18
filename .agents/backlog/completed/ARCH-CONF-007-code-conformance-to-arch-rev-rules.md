@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-CONF-007: Code conformance verification — ARCH-REV boundary rules'
-status: todo
+status: done
 created: 2026-05-18
 priority: high
 urgency: soon
