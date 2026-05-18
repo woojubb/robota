@@ -5,7 +5,7 @@ Expose InteractiveSession as a Model Context Protocol server.
 ## Basic Setup
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';

@@ -6,7 +6,7 @@ Robota SDK follows a strict bottom-up layered assembly model. Each layer builds 
 
 ```
 agent-cli                ← CLI entry point: argument parsing, provider wiring, TUI startup
-agent-transport-tui      ← TUI layer: Ink/React terminal components, TuiTransport
+agent-transport/tui      ← TUI layer: Ink/React terminal components, TuiTransport
 agent-command            ← Consolidated slash command package — all 20 command modules in one import
 agent-transport          ← Protocol transports (pure TS): headless, HTTP, WebSocket, MCP
   ↓ (command and transport packages consume)
@@ -34,17 +34,18 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 | **agent-command**             | Consolidated slash command package — all 20 command modules in a single import                                                                                      | SDK-specific |
 | **agent-framework**           | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery() | SDK-specific |
 | **agent-transport**           | Protocol transports (pure TS, zero React/Ink): headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`)                                              | Transport    |
-| **agent-transport-tui**       | TUI rendering layer — all Ink/React terminal UI components, hooks, and `TuiTransport` adapter                                                                       | Transport    |
-| **agent-cli**                 | CLI entry point: argument parsing, provider factory, TUI startup; wires `agent-transport-tui`, `agent-transport`, `agent-command`, `agent-framework`                | CLI          |
+| **agent-transport/tui**       | TUI rendering layer — all Ink/React terminal UI components, hooks, and `TuiTransport` adapter (subpath of `agent-transport`)                                        | Transport    |
+| **agent-cli**                 | CLI entry point: argument parsing, provider factory, TUI startup; wires `agent-transport/tui`, `agent-transport`, `agent-command`, `agent-framework`                | CLI          |
 | **agent-remote-client**       | HTTP client for calling a remote Robota agent exposed via `agent-transport/http`                                                                                    | Client       |
 | **agent-web-ui**              | Browser React component library for monitoring a CLI session over WebSocket                                                                                         | Browser UI   |
 | **agent-interface-transport** | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                           | Contracts    |
+| **agent-interface-tui**       | TUI interaction type contracts only: `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps                                                | Contracts    |
 
 ## Dependency Flow
 
 ```
-agent-cli              ─→ agent-framework, agent-transport-tui, agent-transport, agent-command
-agent-transport-tui    ─→ agent-framework, agent-interface-transport, agent-core
+agent-cli              ─→ agent-framework, agent-transport/tui, agent-transport, agent-command
+agent-transport/tui    ─→ agent-framework, agent-interface-tui, agent-interface-transport, agent-core
 agent-transport        ─→ agent-interface-transport, agent-framework, agent-core
 agent-command          ─→ agent-core, agent-framework
 agent-remote-client                    (HTTP client, no agent-framework dependency)
@@ -55,7 +56,7 @@ agent-web-ui           ─→ agent-transport (ws types only)
 
 | Category          | Packages allowed                                  | Rule                                        |
 | ----------------- | ------------------------------------------------- | ------------------------------------------- |
-| React + Ink (TUI) | `agent-transport-tui` only                        | Never in protocol transport or SDK packages |
+| React + Ink (TUI) | `agent-transport/tui` only                        | Never in protocol transport or SDK packages |
 | React (browser)   | `agent-playground`, `agent-web-ui`                | Browser app packages only                   |
 | Pure TypeScript   | Everything else (core, framework, transport, CLI) | No React or Ink dependencies                |
 
@@ -127,7 +128,7 @@ Key responsibilities:
 | **Universal history** | Maintains `IHistoryEntry[]` — unified timeline of chat messages and session events; `getFullHistory()` returns the complete list |
 | **CommandRegistry**   | SDK-owned utility used by clients to aggregate built-in, skill, plugin, and command-module sources for slash-command discovery   |
 
-`agent-transport-tui`'s `useInteractiveSession` hook subscribes to these events and translates them into React state via `TuiStateManager`. `InteractiveSession` itself has no React dependency.
+`agent-transport/tui`'s `useInteractiveSession` hook subscribes to these events and translates them into React state via `TuiStateManager`. `InteractiveSession` itself has no React dependency.
 
 ## Transport Layer
 
@@ -135,7 +136,7 @@ The transport layer exposes `InteractiveSession` over various protocols. Each tr
 
 | Package                      | Protocol                       | Runtime                                        |
 | ---------------------------- | ------------------------------ | ---------------------------------------------- |
-| **agent-transport-tui**      | Terminal (stdin, Ink TUI)      | Node.js (Ink + React)                          |
+| **agent-transport/tui**      | Terminal (stdin, Ink TUI)      | Node.js (Ink + React)                          |
 | **agent-transport/http**     | HTTP / REST                    | Cloudflare Workers, Node.js, AWS Lambda (Hono) |
 | **agent-transport/mcp**      | MCP                            | Node.js stdio / SSE (MCP SDK)                  |
 | **agent-transport/ws**       | WebSocket                      | Any WS library (framework-agnostic)            |
@@ -161,8 +162,8 @@ In v2.0.0, `agent-core` contained everything: tools, plugins, session management
 - **Plugins** consolidated in `@robota-sdk/agent-plugin`
 - **Session** created as `agent-session` with permission and hook support
 - **Background tasks** handled by `agent-executor`
-- **SDK assembly** in `agent-framework` (was `agent-sdk`)
+- **SDK assembly** in `agent-framework`
 - **CLI** entry point is `agent-cli`
-- **TUI** (Ink/React) extracted to `agent-transport`
+- **TUI** (Ink/React) in `agent-transport/tui` subpath of `agent-transport`
 - **Transport** (protocol-only) in `agent-transport`
 - **Permissions** and **Hooks** added to `agent-core` as general-purpose infrastructure
