@@ -3,6 +3,7 @@ import { Router, type IRouter } from 'express';
 import { getProviderCatalog } from '../catalog/providers.js';
 import { getToolCatalog } from '../catalog/tools.js';
 import { byokKeySanitizer } from '../middleware/byok-key-sanitizer.js';
+import { playgroundExecuteHandler } from './handlers/playground-execute.js';
 
 export const playgroundRouter: IRouter = Router();
 
@@ -24,4 +25,7 @@ playgroundRouter.get('/catalog/tools', (_req, res) => {
   res.json(getToolCatalog());
 });
 
-// PLG-015: POST /api/playground/execute — added in PLG-015
+// PLG-015: POST /api/playground/execute — SSE streaming agent execution
+playgroundRouter.post('/execute', (req, res) => {
+  void playgroundExecuteHandler(req, res);
+});
