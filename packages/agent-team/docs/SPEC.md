@@ -8,16 +8,16 @@
 
 ## Boundaries
 
-- Does not redefine core agent contracts. `Robota`, tool interfaces (`IToolSchema`, `IToolResult`, `TToolParameters`), and event interfaces (`IEventService`, `IAIProvider`) are imported from `@robota-sdk/agent-core`. `FunctionTool` is imported from `@robota-sdk/agent-tools`. `RelayMcpTool` is imported from `@robota-sdk/agent-tool-mcp`. `bindWithOwnerPath` is imported from `@robota-sdk/agent-event-service`.
+- Does not redefine core agent contracts. `Robota`, tool interfaces (`IToolSchema`, `IToolResult`, `TToolParameters`), event interfaces (`IEventService`, `IAIProvider`), and `bindWithOwnerPath` are imported from `@robota-sdk/agent-core`. `FunctionTool` is imported from `@robota-sdk/agent-tools`. `RelayMcpTool` is imported from `@robota-sdk/agent-tool-mcp`.
 - Keeps team coordination policies explicit and separate from provider integration.
 - Does not own AI provider implementations; provider and model selection is resolved through `@robota-sdk/agent-core` infrastructure.
 - Does not manage session persistence or conversation history; those concerns belong to `@robota-sdk/agent-session`.
 - Template definitions are static JSON; no runtime template creation or persistence API is exposed.
 - Implements relay tool behavior (delegating work to child agents) using the tool contract from
   `@robota-sdk/agent-tools` and MCP relay support from `@robota-sdk/agent-tool-mcp`. Allowed
-  dependencies: `@robota-sdk/agent-core`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-tool-mcp`,
-  and `@robota-sdk/agent-event-service`. Must not import `agent-sdk`, `agent-sessions`,
-  `agent-cli`, or any other agent-\* package outside this list.
+  dependencies: `@robota-sdk/agent-core`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-tool-mcp`.
+  Must not import `agent-framework`, `agent-session`, `agent-cli`, or any other agent-\* package
+  outside this list.
 - Injected by the consuming layer (agent-cli or composition root) at construction time.
   This package does not own a global agent registry; the consumer provides AI providers and
   event service at wiring time.
@@ -100,13 +100,13 @@ None. This package defines no classes. All exports are tool instances created vi
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                              | Consumer                                                                   | Location                               |
-| ----------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------- |
-| `FunctionTool` (agent-tools)              | `listTemplateCategoriesTool`, `listTemplatesTool`, `getTemplateDetailTool` | `src/assign-task/relay-assign-task.ts` |
-| `RelayMcpTool` (agent-tool-mcp)           | `createAssignTaskRelayTool` result                                         | `src/assign-task/relay-assign-task.ts` |
-| `IEventService` (agents)                  | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
-| `IAIProvider` (agents)                    | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
-| `bindWithOwnerPath` (agent-event-service) | relay tool owner-path propagation                                          | `src/assign-task/relay-assign-task.ts` |
+| Port (Owner)                     | Consumer                                                                   | Location                               |
+| -------------------------------- | -------------------------------------------------------------------------- | -------------------------------------- |
+| `FunctionTool` (agent-tools)     | `listTemplateCategoriesTool`, `listTemplatesTool`, `getTemplateDetailTool` | `src/assign-task/relay-assign-task.ts` |
+| `RelayMcpTool` (agent-tool-mcp)  | `createAssignTaskRelayTool` result                                         | `src/assign-task/relay-assign-task.ts` |
+| `IEventService` (agents)         | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
+| `IAIProvider` (agents)           | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
+| `bindWithOwnerPath` (agent-core) | relay tool owner-path propagation                                          | `src/assign-task/relay-assign-task.ts` |
 
 ## Test Strategy
 
