@@ -8,6 +8,7 @@ export const enConfig = {
       { text: 'Examples', link: '/examples/' },
       { text: 'Packages', link: '/packages/' },
       { text: 'Development', link: '/development/' },
+      { text: 'Playground', link: 'https://play.robota.io', target: '_blank' },
     ],
 
     // Footer configuration
