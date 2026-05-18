@@ -23,6 +23,9 @@ import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { CreateAgentModal, AddToolModal } from './playground-modals';
 import { WorkflowVisualization } from '../../components/playground/workflow-visualization';
+import { useProviderConfig } from '../../hooks/use-provider-config';
+import type { IProviderConfig } from '../../hooks/use-provider-config';
+import { ProviderSetupScreen } from './ProviderSetupScreen';
 
 export type TToolDraft = { name: string; description: string };
 
@@ -107,6 +110,60 @@ function ConnectionScreen({
   );
 }
 
+const BYOK_STARTER_PROMPTS = [
+  'Explain what you can do',
+  'Write a TypeScript function that reverses a string',
+  'What are the key differences between TypeScript and JavaScript?',
+];
+
+type TByokMessage = { role: string; content: string };
+
+async function sendByokMessage(
+  message: string,
+  config: IProviderConfig,
+  baseUrl: string,
+  historyRef: React.MutableRefObject<TByokMessage[]>,
+): Promise<string> {
+  historyRef.current.push({ role: 'user', content: message });
+  const resp = await fetch(`${baseUrl}/api/v1/byok/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: config.provider,
+      apiKey: config.apiKey,
+      messages: historyRef.current,
+    }),
+  });
+  if (!resp.ok) {
+    const errJson = (await resp.json().catch(() => ({ error: 'Request failed' }))) as {
+      error?: string;
+    };
+    throw new Error(errJson.error ?? 'Chat request failed');
+  }
+  const data = (await resp.json()) as {
+    content?: string | Array<{ type: string; text?: string }>;
+  };
+  const text =
+    typeof data.content === 'string'
+      ? data.content
+      : Array.isArray(data.content)
+        ? data.content
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text ?? '')
+            .join('')
+        : '';
+  historyRef.current.push({ role: 'assistant', content: text });
+  return text;
+}
+
+function buildByokBaseUrl(wsUrl: string): string {
+  return wsUrl
+    .replace(/^wss/, 'https')
+    .replace(/^ws/, 'http')
+    .replace(/\/ws\/playground$/, '')
+    .replace(/\/ws$/, '');
+}
+
 function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
   const { setToolItems } = usePlaygroundActions();
@@ -122,6 +179,10 @@ function PlaygroundContent(): React.ReactElement {
     [toolItems],
   );
   const [toolDraft, setToolDraft] = useState<TToolDraft>({ name: '', description: '' });
+  const { config: providerConfig, setConfig: setProviderConfig, clearConfig } = useProviderConfig();
+  const byokHistoryRef = useRef<TByokMessage[]>([]);
+  const isByokMode = !state.isInitialized && !!providerConfig;
+  const byokBaseUrl = buildByokBaseUrl(state.serverUrl);
 
   useEffect(() => {
     if (!lastAddedToolId) return;
@@ -165,19 +226,26 @@ function PlaygroundContent(): React.ReactElement {
   };
 
   const handleSendMessage = async (message: string): Promise<string> => {
+    if (isByokMode && providerConfig) {
+      return sendByokMessage(message, providerConfig, byokBaseUrl, byokHistoryRef);
+    }
     const result = await executePrompt(message);
     return result.response;
   };
 
-  if (!state.isInitialized) {
-    return (
-      <ConnectionScreen
-        status={state.error ? 'failed' : 'connecting'}
-        error={state.error}
-        serverUrl={state.serverUrl}
-      />
-    );
+  const handleDisconnectByok = () => {
+    byokHistoryRef.current = [];
+    clearConfig();
+  };
+
+  if (!state.isInitialized && !providerConfig) {
+    if (state.error) {
+      return <ProviderSetupScreen onConnect={setProviderConfig} />;
+    }
+    return <ConnectionScreen status="connecting" error={null} serverUrl={state.serverUrl} />;
   }
+
+  const isAgentReady = isByokMode || canExecute;
 
   return (
     <div className="w-full h-full min-h-[60vh] flex flex-col bg-background">
@@ -185,31 +253,46 @@ function PlaygroundContent(): React.ReactElement {
         <div>
           <h1 className="text-lg font-semibold text-foreground">Playground</h1>
           <p className="text-sm text-muted-foreground">
-            Interactive workflow visualization and controls
+            {isByokMode
+              ? `${providerConfig!.provider} · BYOK mode`
+              : 'Interactive workflow visualization and controls'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => {
-              setAgentDraft(getDefaultAgentConfig());
-              openModal('createAgent');
-            }}
-            size="sm"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Bot className="h-4 w-4 mr-2" />
-            Create Agent
-          </Button>
-          <Badge variant={state.isWebSocketConnected ? 'default' : 'secondary'} className="gap-1">
-            <Wifi className="h-3 w-3" />
-            {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
-          </Badge>
+          {!isByokMode && (
+            <Button
+              onClick={() => {
+                setAgentDraft(getDefaultAgentConfig());
+                openModal('createAgent');
+              }}
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              <Bot className="h-4 w-4 mr-2" />
+              Create Agent
+            </Button>
+          )}
+          {isByokMode ? (
+            <Button size="sm" variant="outline" onClick={handleDisconnectByok} className="gap-1">
+              <WifiOff className="h-3 w-3" />
+              Disconnect
+            </Button>
+          ) : (
+            <Badge variant={state.isWebSocketConnected ? 'default' : 'secondary'} className="gap-1">
+              <Wifi className="h-3 w-3" />
+              {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
+            </Badge>
+          )}
         </div>
       </header>
       <main className="flex-1 overflow-hidden flex">
         {/* Left: Chat */}
         <div className="flex-1 h-full overflow-hidden border-r border-border">
-          <ChatInterface isAgentReady={canExecute} onSendMessage={handleSendMessage} />
+          <ChatInterface
+            isAgentReady={isAgentReady}
+            onSendMessage={handleSendMessage}
+            starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
+          />
         </div>
 
         {/* Center: Workflow Visualization */}
