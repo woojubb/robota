@@ -1,6 +1,7 @@
 ---
 title: 'MKT-002: v1.0.0 선언 계획 수립 + SEO 기반 정비'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: medium
 urgency: soon
