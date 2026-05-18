@@ -31,6 +31,12 @@ export function AgentNode({ data }: { data: IAgentNodeData }) {
         id="tool-input"
         className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="chain-output"
+        className="!w-3 !h-3 !bg-violet-500 !border-2 !border-background"
+      />
       <div className="px-4 py-3">
         <div className="flex items-center gap-2 mb-2">
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10">

@@ -21,7 +21,6 @@ import { Toaster } from '../../components/ui/sonner';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { CreateAgentModal, AddToolModal } from './playground-modals';
-import { WorkflowVisualization } from '../../components/playground/workflow-visualization';
 import { AssemblyCanvas } from '../../components/playground/assembly-canvas';
 import { useProviderConfig } from '../../hooks/use-provider-config';
 import type { IProviderConfig } from '../../hooks/use-provider-config';
@@ -164,8 +163,6 @@ function buildByokBaseUrl(wsUrl: string): string {
     .replace(/\/ws$/, '');
 }
 
-type TCanvasTab = 'assembly' | 'execution';
-
 function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
   const { setToolItems } = usePlaygroundActions();
@@ -173,7 +170,6 @@ function PlaygroundContent(): React.ReactElement {
   const { injectToolIntoAgent } = usePlaygroundActions();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
-  const [canvasTab, setCanvasTab] = useState<TCanvasTab>('assembly');
   const { toast } = useToast();
   const toolItems = state.toolItems;
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -226,7 +222,6 @@ function PlaygroundContent(): React.ReactElement {
       await createAgent(agentDraft);
       setAgentDraft(null);
       closeModal();
-      setCanvasTab('assembly');
     }
   };
 
@@ -336,47 +331,14 @@ function PlaygroundContent(): React.ReactElement {
           />
         </div>
 
-        {/* Center: Assembly / Execution Canvas */}
-        <div className="flex-1 h-full overflow-hidden border-r border-border flex flex-col">
-          <div className="px-3 py-1.5 border-b border-border flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => setCanvasTab('assembly')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                canvasTab === 'assembly'
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Assembly
-            </button>
-            <button
-              type="button"
-              onClick={() => setCanvasTab('execution')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                canvasTab === 'execution'
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Execution
-            </button>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            {canvasTab === 'assembly' ? (
-              <AssemblyCanvas
-                agentConfig={state.currentAgentConfig}
-                activeTools={activeTools}
-                onDropTool={handleDropTool}
-              />
-            ) : (
-              <WorkflowVisualization
-                events={state.conversationHistory}
-                activeTools={activeTools}
-                onDropTool={handleDropTool}
-              />
-            )}
-          </div>
+        {/* Center: Agent Assembly Canvas */}
+        <div className="flex-1 h-full overflow-hidden border-r border-border">
+          <AssemblyCanvas
+            agentConfig={state.currentAgentConfig}
+            activeTools={activeTools}
+            onDropTool={handleDropTool}
+            events={state.conversationHistory}
+          />
         </div>
 
         {/* Right: Tools */}
