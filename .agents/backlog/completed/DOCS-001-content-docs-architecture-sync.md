@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-001: Sync content/ documentation to current architecture'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: soon

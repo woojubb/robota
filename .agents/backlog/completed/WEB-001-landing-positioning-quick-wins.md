@@ -1,6 +1,7 @@
 ---
 title: 'WEB-001: 랜딩 포지셔닝 + 신뢰 신호 + Claude Code 호환 Quick Wins'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: now

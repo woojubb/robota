@@ -1,6 +1,7 @@
 ---
 title: 'WEB-003: 브랜드 컬러 통합 + 코드 탭 전환 + 사이드바 계층화'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: soon

@@ -1,14 +1,18 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createLogger } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 import { GoogleProvider } from '@robota-sdk/agent-provider/google';
-import { PlaygroundWebSocketServer } from './websocket-server';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import cors from 'cors';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
+
+import type { PlaygroundWebSocketServer } from './websocket-server';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const appLogger = createLogger('agent-server');
 
@@ -120,6 +124,55 @@ export function createApp(): express.Application {
       res.json(response);
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // BYOK (Bring Your Own Key) endpoint — creates a per-request provider using the caller's API key.
+  // The apiKey is intentionally never logged to avoid leaking credentials.
+  app.post('/api/v1/byok/chat', async (req, res) => {
+    const { provider: providerName, apiKey, messages, model } = req.body;
+    if (typeof providerName !== 'string' || !providerName) {
+      res.status(400).json({ error: 'Missing or invalid "provider" field' });
+      return;
+    }
+    if (typeof apiKey !== 'string' || !apiKey) {
+      res.status(400).json({ error: 'Missing "apiKey" field' });
+      return;
+    }
+    if (!Array.isArray(messages) || messages.length === 0) {
+      res
+        .status(400)
+        .json({ error: 'Missing or invalid "messages" field: must be a non-empty array' });
+      return;
+    }
+    const modelStr = typeof model === 'string' ? model : undefined;
+    let byokProvider: IAIProvider;
+    switch (providerName) {
+      case 'anthropic':
+        byokProvider = new AnthropicProvider({ apiKey });
+        break;
+      case 'openai':
+        byokProvider = new OpenAIProvider({ apiKey });
+        break;
+      case 'gemini':
+        byokProvider = new GeminiProvider({ apiKey });
+        break;
+      case 'deepseek':
+        byokProvider = new DeepSeekProvider({ apiKey });
+        break;
+      default:
+        res.status(400).json({ error: `Unsupported provider: ${providerName}` });
+        return;
+    }
+    try {
+      const response = await byokProvider.chat(messages, { model: modelStr });
+      res.json(response);
+    } catch (err) {
+      appLogger.error(
+        'BYOK chat failed',
+        new Error(err instanceof Error ? err.message : 'Chat error'),
+      );
+      res.status(500).json({ error: 'Chat request failed' });
     }
   });
 

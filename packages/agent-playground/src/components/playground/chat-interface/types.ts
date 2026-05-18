@@ -12,4 +12,5 @@ export interface IChatPanelMessage {
 export interface IChatPanelProps {
   isAgentReady: boolean;
   onSendMessage?: (message: string) => Promise<string>;
+  starterPrompts?: string[];
 }
