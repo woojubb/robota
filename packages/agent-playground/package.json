@@ -63,7 +63,6 @@
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-provider": "workspace:^",
     "@robota-sdk/agent-remote-client": "workspace:*",
-    "@robota-sdk/agent-team": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^",
     "@xyflow/react": "^12.8.2",
     "class-variance-authority": "^0.7.1",

@@ -1,6 +1,6 @@
 ---
 title: 'PLG-017: Tool Registry API — GET /api/playground/catalog/tools + 서버사이드 tool 등록'
-status: todo
+status: done
 created: 2026-05-19
 priority: medium
 urgency: soon

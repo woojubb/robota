@@ -1,6 +1,6 @@
 ---
 title: 'PLG-013: Code Export UI — 코드 미리보기 패널 + syntax highlight + Copy 버튼'
-status: todo
+status: done
 created: 2026-05-19
 priority: high
 urgency: later
