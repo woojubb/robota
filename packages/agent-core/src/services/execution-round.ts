@@ -258,6 +258,7 @@ export async function executeRound(
     config,
     fullContext.signal,
     fullContext.onExecutionEvent,
+    fullContext.maxSameToolInputs ?? config.maxSameToolInputs,
   );
 
   if (toolOutcome.contextOverflowed) {
