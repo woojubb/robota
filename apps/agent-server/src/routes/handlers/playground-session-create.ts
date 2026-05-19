@@ -1,3 +1,4 @@
+import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
@@ -12,8 +13,9 @@ import type { IResolvedConfig, ICommandModule } from '@robota-sdk/agent-framewor
 import type { Request, Response } from 'express';
 
 export interface IRestoredMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool_call' | 'tool_result';
   content: string;
+  toolName?: string;
 }
 
 const ENV_KEY_MAP: Record<string, string> = {
@@ -149,17 +151,19 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
     const record = sessionStore.load(resolvedResumeSessionId);
     if (record) {
       for (const msg of record.messages) {
-        if (msg.role !== 'user' && msg.role !== 'assistant') continue;
-        const content =
-          typeof msg.content === 'string'
-            ? msg.content
-            : Array.isArray(msg.content)
-              ? msg.content
-                  .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-                  .map((p) => p.text)
-                  .join('')
-              : '';
-        if (content) restoredMessages.push({ role: msg.role, content });
+        if (isUserMessage(msg)) {
+          if (msg.content) restoredMessages.push({ role: 'user', content: msg.content });
+        } else if (isAssistantMessage(msg)) {
+          // toolCalls may be cleared after session resume/resave, so we derive
+          // tool_call events from the IToolMessage entries instead (see below)
+          if (msg.content) restoredMessages.push({ role: 'assistant', content: msg.content });
+        } else if (isToolMessage(msg)) {
+          const toolName = msg.name ?? 'unknown';
+          // Emit tool_call_start + tool_call_complete pair from the tool message,
+          // because the preceding assistant's toolCalls array is cleared on re-save
+          restoredMessages.push({ role: 'tool_call', content: '', toolName });
+          restoredMessages.push({ role: 'tool_result', content: msg.content, toolName });
+        }
       }
     }
   }

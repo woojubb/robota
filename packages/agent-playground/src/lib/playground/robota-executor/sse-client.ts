@@ -64,8 +64,9 @@ export interface ISessionCreateRequest {
 }
 
 export interface IRestoredMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool_call' | 'tool_result';
   content: string;
+  toolName?: string;
 }
 
 export interface ISessionCreateResponse {

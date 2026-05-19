@@ -275,13 +275,18 @@ function PlaygroundContent(): React.ReactElement {
         skills,
         ...(resolvedResumeSessionId ? { resumeSessionId: resolvedResumeSessionId } : {}),
       });
-      const restored = popRestoredMessages().map((m, i) => ({
-        id: `restored-${i}`,
-        role: m.role,
-        content: m.content,
-        timestamp: new Date(),
-        status: 'sent' as const,
-      }));
+      const restored = popRestoredMessages()
+        .filter(
+          (m): m is typeof m & { role: 'user' | 'assistant' } =>
+            m.role === 'user' || m.role === 'assistant',
+        )
+        .map((m, i) => ({
+          id: `restored-${i}`,
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(),
+          status: 'sent' as const,
+        }));
       setInitialMessages(restored);
       setChatKey((k) => k + 1);
       setAgentDraft(null);
@@ -373,13 +378,18 @@ function PlaygroundContent(): React.ReactElement {
     const config = state.currentAgentConfig ?? getDefaultAgentConfig();
     await createAgent({ ...config, skills: activeSkills, resumeSessionId: sessionSummary.id });
     const restoredMsgs = popRestoredMessages();
-    const restored = restoredMsgs.map((m, i) => ({
-      id: `restored-${i}`,
-      role: m.role,
-      content: m.content,
-      timestamp: new Date(),
-      status: 'sent' as const,
-    }));
+    const restored = restoredMsgs
+      .filter(
+        (m): m is typeof m & { role: 'user' | 'assistant' } =>
+          m.role === 'user' || m.role === 'assistant',
+      )
+      .map((m, i) => ({
+        id: `chat-restored-${i}`,
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(),
+        status: 'sent' as const,
+      }));
     setInitialMessages(restored);
     setChatKey((k) => k + 1);
     setConversationHistory(
@@ -387,9 +397,14 @@ function PlaygroundContent(): React.ReactElement {
         id: `restored-${i}`,
         type: (m.role === 'user'
           ? 'user_message'
-          : 'assistant_response') as import('../../lib/playground/plugins/playground-history-plugin').TPlaygroundEventName,
+          : m.role === 'assistant'
+            ? 'assistant_response'
+            : m.role === 'tool_call'
+              ? 'tool_call_start'
+              : 'tool_call_complete') as import('../../lib/playground/plugins/playground-history-plugin').TPlaygroundEventName,
         timestamp: new Date(),
         content: m.content,
+        toolName: m.toolName,
       })),
     );
     toast({ title: 'Session restored', description: `${restored.length} messages loaded` });
