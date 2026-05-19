@@ -604,9 +604,6 @@ importers:
       '@robota-sdk/agent-remote-client':
         specifier: workspace:*
         version: link:../agent-remote-client
-      '@robota-sdk/agent-team':
-        specifier: workspace:^
-        version: link:../agent-team
       '@robota-sdk/agent-tools':
         specifier: workspace:^
         version: link:../agent-tools
