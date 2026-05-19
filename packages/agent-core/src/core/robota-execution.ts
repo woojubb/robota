@@ -36,6 +36,9 @@ function buildRunContext(
     ...(options.maxExecutionRounds !== undefined && {
       maxExecutionRounds: options.maxExecutionRounds,
     }),
+    ...(options.maxSameToolInputs !== undefined && {
+      maxSameToolInputs: options.maxSameToolInputs,
+    }),
   };
 }
 

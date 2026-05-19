@@ -1,6 +1,6 @@
 ---
 title: 'PLG-014: Skills Support — Skills 패널 + skill 노드 + Code Export 반영'
-status: todo
+status: done
 created: 2026-05-19
 priority: medium
 urgency: later
