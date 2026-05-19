@@ -26,7 +26,10 @@ export function mapSseEventToConversationEvent(
         id: makeId(),
         type: 'tool_call_complete',
         timestamp: new Date(),
-        content: JSON.stringify(event.data.output),
+        content:
+          typeof event.data.output === 'string'
+            ? event.data.output
+            : JSON.stringify(event.data.output),
         metadata: { toolCallId: event.data.id },
       };
 
@@ -61,8 +64,12 @@ export function mapSseEventToConversationEvent(
         type: 'agent_job_created',
         timestamp: new Date(),
         taskId: event.data.taskId,
-        content: event.data.label,
-        metadata: { agentType: event.data.agentType, label: event.data.label },
+        content: event.data.promptPreview ?? event.data.label,
+        metadata: {
+          agentType: event.data.agentType,
+          label: event.data.label,
+          promptPreview: event.data.promptPreview,
+        },
       };
 
     case 'agent_job_started':

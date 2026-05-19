@@ -88,6 +88,7 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
             taskId: event.task.id,
             label: event.task.label,
             agentType: event.task.agentType ?? 'general-purpose',
+            promptPreview: event.task.promptPreview,
           },
         });
         break;
