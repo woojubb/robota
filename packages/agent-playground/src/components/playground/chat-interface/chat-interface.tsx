@@ -7,11 +7,11 @@ import { useChatInterfaceState } from './use-chat-interface-state';
 import type { IChatPanelProps } from './types';
 
 export function ChatInterface(props: IChatPanelProps) {
-  const { isAgentReady } = props;
+  const { isAgentReady, starterPrompts } = props;
   const chat = useChatInterfaceState(props);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <ChatHeader
         isAgentReady={isAgentReady}
         hasMessages={chat.messages.length > 0}
@@ -24,6 +24,8 @@ export function ChatInterface(props: IChatPanelProps) {
         isLoading={chat.isLoading}
         copiedId={chat.copiedId}
         onCopyMessage={chat.copyToClipboard}
+        starterPrompts={starterPrompts}
+        onSelectStarterPrompt={chat.selectStarterPrompt}
       />
       <ChatInputArea
         input={chat.input}

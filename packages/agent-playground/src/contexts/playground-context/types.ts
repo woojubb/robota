@@ -24,6 +24,10 @@ export interface IPlaygroundActionsValue {
   setExecuting: (isExecuting: boolean) => void;
   setToolItems: (tools: IPlaygroundToolMeta[]) => void;
   addToolToAgentOverlay: (agentId: string, toolId: string) => void;
+  injectToolIntoAgent: (
+    agentId: string,
+    card: { id: string; name: string; description?: string },
+  ) => Promise<void>;
   getVisualizationData: () => IVisualizationData | null;
   getConnectionStatus: () => { connected: boolean; url: string };
 }

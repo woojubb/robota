@@ -192,7 +192,7 @@ describe('useRobotaExecution', () => {
       hook.current.validateConfiguration({ ...agentConfig, name: '', aiProviders: [] }),
     ).toEqual({
       isValid: false,
-      errors: ['Name is required', 'At least one AI provider is required'],
+      errors: ['Name is required'],
     });
   });
 

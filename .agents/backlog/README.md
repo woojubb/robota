@@ -440,3 +440,29 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | ----------------------------------------------- | ------------------------------------------------------------ | -------- |
 | [WEB-004](WEB-004-playground-interactive-ux.md) | Playground 온보딩/에러 상태 UI + Mermaid 아키텍처 다이어그램 | high     |
 | [PROD-001](PROD-001-public-playground.md)       | 퍼블릭 플레이그라운드 — API 키 입력 즉시 체험 데모 (BYOK)    | high     |
+
+### Playground — Visual Agent Code Generator (2026-05-19)
+
+`@robota-sdk/agent-framework` 기반 에이전트 앱 조립 도구. 캔버스에서 provider + model +
+tools + skills를 조립하면 새 프로젝트에 붙여넣을 수 있는 TypeScript 코드가 생성된다.
+Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
+
+#### Backend Foundation
+
+| ID                                               | 제목                                                                  | 우선순위 |
+| ------------------------------------------------ | --------------------------------------------------------------------- | -------- |
+| [PLG-018](PLG-018-playground-router-module.md)   | Playground Router Module — /api/playground/\* 라우터 + BYOK sanitizer | medium   |
+| [PLG-016](PLG-016-provider-model-catalog-api.md) | Provider & Model Catalog API                                          | medium   |
+| [PLG-017](PLG-017-tool-registry-api.md)          | Tool Registry API + 서버사이드 tool 등록                              | medium   |
+| [PLG-015](PLG-015-playground-execution-api.md)   | Playground Execution API — SSE 스트리밍 에이전트 실행                 | high     |
+
+#### Frontend Migration & Redesign
+
+| ID                                                  | 제목                                                         | 우선순위 |
+| --------------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [PLG-009](PLG-009-framework-executor-client.md)     | Framework Executor Client — PlaygroundExecutor SSE 기반 교체 | high     |
+| [PLG-010](PLG-010-assembly-canvas-redesign.md)      | Assembly Canvas 재설계 — AgentNode + ToolNode + 엣지 연결    | high     |
+| [PLG-011](PLG-011-execution-timeline-separation.md) | Execution Timeline 분리                                      | medium   |
+| [PLG-012](PLG-012-code-generator-engine.md)         | Code Generator 엔진 — 캔버스 상태 → TypeScript 코드          | high     |
+| [PLG-013](PLG-013-code-export-ui.md)                | Code Export UI — 미리보기 + syntax highlight + Copy 버튼     | high     |
+| [PLG-014](PLG-014-skills-support.md)                | Skills Support — Skills 패널 + skill 노드 + Code Export 반영 | medium   |

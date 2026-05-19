@@ -19,6 +19,7 @@ interface IUseChatInterfaceStateReturn {
   copyToClipboard: (text: string, messageId: string) => Promise<void>;
   clearChat: () => void;
   retryLastMessage: () => void;
+  selectStarterPrompt: (prompt: string) => void;
 }
 
 export function useChatInterfaceState({
@@ -62,6 +63,11 @@ export function useChatInterfaceState({
     inputRef.current?.focus();
   }, [messages]);
 
+  const selectStarterPrompt = useCallback((prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+  }, []);
+
   return {
     messages,
     input,
@@ -74,5 +80,6 @@ export function useChatInterfaceState({
     copyToClipboard,
     clearChat,
     retryLastMessage,
+    selectStarterPrompt,
   };
 }

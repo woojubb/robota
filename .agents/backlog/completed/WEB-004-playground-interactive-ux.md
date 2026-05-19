@@ -1,6 +1,7 @@
 ---
 title: 'WEB-004: Playground 온보딩/에러 상태 UI + Mermaid 아키텍처 다이어그램'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: soon

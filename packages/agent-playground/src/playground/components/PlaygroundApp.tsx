@@ -13,16 +13,21 @@ import {
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Bot, Trash2, Wrench, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Bot, Trash2, Wrench, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
+import type { IPlaygroundSkillMeta } from '../../skills/catalog';
+import { getPlaygroundSkillCatalog } from '../../skills/catalog';
 import { ChatInterface } from '../../components/playground/chat-interface';
 import { Toaster } from '../../components/ui/sonner';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { CreateAgentModal, AddToolModal } from './playground-modals';
-import { WorkflowVisualization } from '../../components/playground/workflow-visualization';
+import { AssemblyCanvas } from '../../components/playground/assembly-canvas';
+import { CodeExportPanel } from '../../components/playground/code-export/code-export-panel';
+import { useProviderConfig } from '../../hooks/use-provider-config';
+import type { IProviderConfig } from '../../hooks/use-provider-config';
+import { ProviderSetupScreen } from './ProviderSetupScreen';
 
 export type TToolDraft = { name: string; description: string };
 
@@ -64,7 +69,7 @@ function ConnectionScreen({
 }: TConnectionScreenProps): React.ReactElement {
   const isConnecting = status === 'connecting';
   return (
-    <div className="w-full h-full min-h-[60vh] flex items-center justify-center bg-background">
+    <div className="w-full h-full flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-6 max-w-sm text-center px-6">
         {isConnecting ? (
           <div className="relative flex items-center justify-center w-16 h-16">
@@ -107,14 +112,73 @@ function ConnectionScreen({
   );
 }
 
+const BYOK_STARTER_PROMPTS = [
+  'Explain what you can do',
+  'Write a TypeScript function that reverses a string',
+  'What are the key differences between TypeScript and JavaScript?',
+];
+
+type TByokMessage = { role: string; content: string };
+
+async function sendByokMessage(
+  message: string,
+  config: IProviderConfig,
+  baseUrl: string,
+  historyRef: React.MutableRefObject<TByokMessage[]>,
+): Promise<string> {
+  historyRef.current.push({ role: 'user', content: message });
+  const resp = await fetch(`${baseUrl}/api/v1/byok/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: config.provider,
+      apiKey: config.apiKey,
+      messages: historyRef.current,
+    }),
+  });
+  if (!resp.ok) {
+    const errJson = (await resp.json().catch(() => ({ error: 'Request failed' }))) as {
+      error?: string;
+    };
+    throw new Error(errJson.error ?? 'Chat request failed');
+  }
+  const data = (await resp.json()) as {
+    content?: string | Array<{ type: string; text?: string }>;
+  };
+  const text =
+    typeof data.content === 'string'
+      ? data.content
+      : Array.isArray(data.content)
+        ? data.content
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text ?? '')
+            .join('')
+        : '';
+  historyRef.current.push({ role: 'assistant', content: text });
+  return text;
+}
+
+function buildByokBaseUrl(wsUrl: string): string {
+  return wsUrl
+    .replace(/^wss/, 'https')
+    .replace(/^ws/, 'http')
+    .replace(/\/ws\/playground$/, '')
+    .replace(/\/ws$/, '');
+}
+
 function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
   const { setToolItems } = usePlaygroundActions();
   const { createAgent, getDefaultAgentConfig, executePrompt, canExecute } = useRobotaExecution();
+  const { injectToolIntoAgent } = usePlaygroundActions();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
+  const [chatTab, setChatTab] = useState<'chat' | 'code'>('chat');
+  const [rightTab, setRightTab] = useState<'tools' | 'skills'>('tools');
   const { toast } = useToast();
   const toolItems = state.toolItems;
+  const skillCatalog = useMemo(() => getPlaygroundSkillCatalog(), []);
+  const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [lastAddedToolId, setLastAddedToolId] = useState<string | null>(null);
   const sortedToolItems = useMemo(
@@ -122,6 +186,10 @@ function PlaygroundContent(): React.ReactElement {
     [toolItems],
   );
   const [toolDraft, setToolDraft] = useState<TToolDraft>({ name: '', description: '' });
+  const { config: providerConfig, setConfig: setProviderConfig, clearConfig } = useProviderConfig();
+  const byokHistoryRef = useRef<TByokMessage[]>([]);
+  const isByokMode = !state.isInitialized && !!providerConfig;
+  const byokBaseUrl = buildByokBaseUrl(state.serverUrl);
 
   useEffect(() => {
     if (!lastAddedToolId) return;
@@ -165,139 +233,339 @@ function PlaygroundContent(): React.ReactElement {
   };
 
   const handleSendMessage = async (message: string): Promise<string> => {
+    if (isByokMode && providerConfig) {
+      return sendByokMessage(message, providerConfig, byokBaseUrl, byokHistoryRef);
+    }
     const result = await executePrompt(message);
     return result.response;
   };
 
-  if (!state.isInitialized) {
-    return (
-      <ConnectionScreen
-        status={state.error ? 'failed' : 'connecting'}
-        error={state.error}
-        serverUrl={state.serverUrl}
-      />
-    );
+  const handleDisconnectByok = () => {
+    byokHistoryRef.current = [];
+    clearConfig();
+  };
+
+  const currentAgentId = state.currentAgentConfig
+    ? state.currentAgentConfig.id || state.currentAgentConfig.name
+    : null;
+
+  const agentActiveToolIds = currentAgentId ? (state.addedToolsByAgent[currentAgentId] ?? []) : [];
+  const activeTools = useMemo(
+    () => toolItems.filter((t) => agentActiveToolIds.includes(t.id)),
+    [toolItems, agentActiveToolIds],
+  );
+  const activeSkills = useMemo(
+    () => skillCatalog.filter((s) => activeSkillIds.includes(s.id)),
+    [skillCatalog, activeSkillIds],
+  );
+
+  const handleDropTool = async (tool: IPlaygroundToolMeta) => {
+    if (!currentAgentId) {
+      toast({ title: 'Create an agent first', variant: 'destructive' });
+      return;
+    }
+    if (agentActiveToolIds.includes(tool.id)) {
+      toast({ title: `${tool.name} already added`, variant: 'default' });
+      return;
+    }
+    if (tool.type !== 'builtin') {
+      toast({ title: 'Custom tools cannot be injected yet', variant: 'destructive' });
+      return;
+    }
+    await injectToolIntoAgent(currentAgentId, {
+      id: tool.id,
+      name: tool.name,
+      description: tool.description,
+    });
+    toast({ title: `${tool.name} added to agent` });
+  };
+
+  const handleDropSkill = (skill: IPlaygroundSkillMeta) => {
+    if (!currentAgentId) {
+      toast({ title: 'Create an agent first', variant: 'destructive' });
+      return;
+    }
+    if (activeSkillIds.includes(skill.id)) {
+      toast({ title: `${skill.name} already added`, variant: 'default' });
+      return;
+    }
+    setActiveSkillIds((prev) => [...prev, skill.id]);
+    toast({ title: `${skill.name} added to agent` });
+  };
+
+  const handleRemoveSkill = (skill: IPlaygroundSkillMeta) => {
+    setActiveSkillIds((prev) => prev.filter((id) => id !== skill.id));
+    toast({ title: 'Skill removed', description: `${skill.name} was removed.` });
+  };
+
+  if (!state.isInitialized && !providerConfig) {
+    if (state.error) {
+      return <ProviderSetupScreen onConnect={setProviderConfig} />;
+    }
+    return <ConnectionScreen status="connecting" error={null} serverUrl={state.serverUrl} />;
   }
 
+  const isAgentReady = isByokMode || canExecute;
+
   return (
-    <div className="w-full h-full min-h-[60vh] flex flex-col bg-background">
-      <header className="px-4 py-2 border-b border-border flex items-center justify-between">
+    <div className="w-full h-full flex flex-col bg-background">
+      <header className="px-4 py-2 border-b border-border flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Playground</h1>
           <p className="text-sm text-muted-foreground">
-            Interactive workflow visualization and controls
+            {isByokMode
+              ? `${providerConfig!.provider} · BYOK mode`
+              : 'Interactive workflow visualization and controls'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => {
-              setAgentDraft(getDefaultAgentConfig());
-              openModal('createAgent');
-            }}
-            size="sm"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Bot className="h-4 w-4 mr-2" />
-            Create Agent
-          </Button>
-          <Badge variant={state.isWebSocketConnected ? 'default' : 'secondary'} className="gap-1">
-            <Wifi className="h-3 w-3" />
-            {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
-          </Badge>
+          {!isByokMode && (
+            <Button
+              onClick={() => {
+                setAgentDraft(getDefaultAgentConfig());
+                openModal('createAgent');
+              }}
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              <Bot className="h-4 w-4 mr-2" />
+              Create Agent
+            </Button>
+          )}
+          {isByokMode ? (
+            <Button size="sm" variant="outline" onClick={handleDisconnectByok} className="gap-1">
+              <WifiOff className="h-3 w-3" />
+              Disconnect
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant={state.isWebSocketConnected ? 'default' : 'secondary'}
+              className="gap-1 pointer-events-none"
+              tabIndex={-1}
+            >
+              <Wifi className="h-3 w-3" />
+              {state.isWebSocketConnected ? 'Connected' : 'Disconnected'}
+            </Button>
+          )}
         </div>
       </header>
       <main className="flex-1 overflow-hidden flex">
-        {/* Left: Chat */}
-        <div className="flex-1 h-full overflow-hidden border-r border-border">
-          <ChatInterface isAgentReady={canExecute} onSendMessage={handleSendMessage} />
-        </div>
-
-        {/* Center: Workflow Visualization */}
+        {/* Left: Chat / Code Export tabs */}
         <div className="flex-1 h-full overflow-hidden border-r border-border flex flex-col">
-          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Workflow
-            </span>
+          <div className="px-3 py-1.5 border-b border-border flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setChatTab('chat')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                chatTab === 'chat'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setChatTab('code')}
+              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                chatTab === 'code'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Code Export
+            </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            <WorkflowVisualization events={state.conversationHistory} />
+            {chatTab === 'chat' ? (
+              <ChatInterface
+                isAgentReady={isAgentReady}
+                onSendMessage={handleSendMessage}
+                starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
+              />
+            ) : (
+              <CodeExportPanel
+                agentConfig={state.currentAgentConfig}
+                activeTools={activeTools}
+                activeSkills={activeSkills}
+              />
+            )}
           </div>
         </div>
 
-        {/* Right: Tools */}
-        <div className="w-64 h-full bg-card border-l border-border overflow-y-auto">
-          <div className="p-4 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-3">
-              <Wrench className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-semibold text-foreground">Tools</h3>
-            </div>
-            <div className="space-y-2 overflow-auto pr-1">
-              {sortedToolItems.map((tool) => (
-                <div
-                  key={tool.id}
-                  className="border border-border rounded bg-card hover:shadow-sm transition-shadow"
-                >
-                  <div className="flex items-start gap-2 p-3">
-                    <button
-                      type="button"
-                      className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-primary rounded"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
-                      }}
-                      title="Drag onto an agent node to add"
-                      ref={(el) => {
-                        if (el) toolItemRefs.current.set(tool.id, el);
-                      }}
-                    >
-                      <div className="text-sm font-medium text-foreground">{tool.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-4">
-                        {tool.description}
-                      </div>
-                      {tool.tags && tool.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {tool.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-block bg-primary/10 text-primary text-xs px-2 py-1 rounded"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={tool.type === 'builtin'}
-                      onClick={() => handleRemoveTool(tool)}
-                      title={
-                        tool.type === 'builtin' ? 'Builtin tools cannot be removed' : 'Remove tool'
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => {
-                  setToolDraft({ name: '', description: '' });
-                  openModal('addTool');
-                }}
-              >
-                + Add Tool
-              </Button>
-            </div>
+        {/* Center: Agent Assembly Canvas */}
+        <div className="flex-1 h-full overflow-hidden border-r border-border">
+          <AssemblyCanvas
+            agentConfig={state.currentAgentConfig}
+            activeTools={activeTools}
+            activeSkills={activeSkills}
+            onDropTool={handleDropTool}
+            onDropSkill={handleDropSkill}
+            events={state.conversationHistory}
+          />
+        </div>
+
+        {/* Right: Tools / Skills tabs */}
+        <div className="w-64 h-full bg-card border-l border-border flex flex-col overflow-hidden">
+          {/* Tab header */}
+          <div className="px-3 py-2 border-b border-border flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setRightTab('tools')}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                rightTab === 'tools'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              Tools
+            </button>
+            <button
+              type="button"
+              onClick={() => setRightTab('skills')}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                rightTab === 'skills'
+                  ? 'bg-violet-500/15 text-violet-400'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Skills
+            </button>
           </div>
+
+          {/* Tools panel */}
+          {rightTab === 'tools' && (
+            <div className="flex-1 flex flex-col overflow-hidden p-3">
+              <div className="flex-1 space-y-2 overflow-auto pr-1">
+                {sortedToolItems.map((tool) => (
+                  <div
+                    key={tool.id}
+                    className="border border-border rounded bg-card hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-start gap-2 p-3">
+                      <button
+                        type="button"
+                        className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
+                        }}
+                        title="Drag onto an agent node to add"
+                        ref={(el) => {
+                          if (el) toolItemRefs.current.set(tool.id, el);
+                        }}
+                      >
+                        <div className="text-sm font-medium text-foreground">{tool.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-4">
+                          {tool.description}
+                        </div>
+                        {tool.tags && tool.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {tool.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-block bg-primary/10 text-primary text-xs px-2 py-1 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={tool.type === 'builtin'}
+                        onClick={() => handleRemoveTool(tool)}
+                        title={
+                          tool.type === 'builtin'
+                            ? 'Builtin tools cannot be removed'
+                            : 'Remove tool'
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    setToolDraft({ name: '', description: '' });
+                    openModal('addTool');
+                  }}
+                >
+                  + Add Tool
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Skills panel */}
+          {rightTab === 'skills' && (
+            <div className="flex-1 flex flex-col overflow-hidden p-3">
+              <div className="flex-1 space-y-2 overflow-auto pr-1">
+                {skillCatalog.map((skill) => (
+                  <div
+                    key={skill.id}
+                    className="border border-violet-500/30 rounded bg-card hover:shadow-sm hover:border-violet-500/50 transition-all"
+                  >
+                    <div className="flex items-start gap-2 p-3">
+                      <button
+                        type="button"
+                        className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-violet-500 rounded"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/robota-skill', JSON.stringify(skill));
+                        }}
+                        title="Drag onto an agent node to add"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="h-3 w-3 text-violet-400 shrink-0" />
+                          <div className="text-sm font-medium text-foreground">{skill.name}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-3">
+                          {skill.description}
+                        </div>
+                        {skill.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {skill.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-block bg-violet-500/10 text-violet-400 text-xs px-2 py-1 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={!activeSkillIds.includes(skill.id)}
+                        onClick={() => handleRemoveSkill(skill)}
+                        title={activeSkillIds.includes(skill.id) ? 'Remove skill' : 'Not yet added'}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <CreateAgentModal
