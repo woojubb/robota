@@ -370,11 +370,7 @@ function PlaygroundContent(): React.ReactElement {
 
   const handleRestoreSession = async (sessionSummary: ISessionSummary) => {
     setSessionsOpen(false);
-    const config = state.currentAgentConfig;
-    if (!config) {
-      toast({ title: 'Create an agent first to restore a session', variant: 'destructive' });
-      return;
-    }
+    const config = state.currentAgentConfig ?? getDefaultAgentConfig();
     await createAgent({ ...config, skills: activeSkills, resumeSessionId: sessionSummary.id });
     const restored = popRestoredMessages().map((m, i) => ({
       id: `restored-${i}`,
