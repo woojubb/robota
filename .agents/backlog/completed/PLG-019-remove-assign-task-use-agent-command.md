@@ -1,6 +1,6 @@
 ---
 title: 'PLG-019: AssignTask 제거 — 서브에이전트는 Agent Command로만 구현'
-status: todo
+status: done
 created: 2026-05-20
 priority: high
 urgency: now
@@ -36,10 +36,10 @@ depends_on: []
 
 ### 검증 항목
 
-- [ ] AssignTask 관련 코드가 레포에 남아있지 않음 (`grep -r "assignTask\|AssignTask\|assign_task" --include="*.ts"`)
-- [ ] `@robota-sdk/agent-team` import가 agent-playground에 남아있지 않음
-- [ ] Playground에서 에이전트 생성 후 "병렬로 두 가지 작업을 동시에 처리해줘" 요청 시 `robota_command_agent` tool이 호출되어 DAG에 `agent_job_created`, `agent_job_completed` 노드가 정상 표시됨
-- [ ] typecheck, lint, test 통과
+- [x] AssignTask 관련 코드가 레포에 남아있지 않음 (`grep -r "assignTask\|AssignTask\|assign_task" --include="*.ts"`)
+- [x] `@robota-sdk/agent-team` import가 agent-playground에 남아있지 않음
+- [x] Playground에서 에이전트 생성 후 "병렬로 두 가지 작업을 동시에 처리해줘" 요청 시 `robota_command_agent` tool이 호출되어 DAG에 `agent_job_created`, `agent_job_completed` 노드가 정상 표시됨
+- [x] typecheck, lint, test 통과
 
 ## User Execution Test Scenarios
 
