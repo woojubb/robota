@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, ReactNode } from 'react';
 
 import type {
+  IConversationEvent,
   IPlaygroundAgentConfig,
   IPlaygroundExecutorResult,
   IVisualizationData,
@@ -12,6 +13,7 @@ import type { IPlaygroundState, TPlaygroundReducerAction } from '../playground-r
 export interface IPlaygroundActionsValue {
   createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
   popRestoredMessages: () => import('../../lib/playground/robota-executor/sse-client').IRestoredMessage[];
+  setConversationHistory: (events: IConversationEvent[]) => void;
   addAgentConfig: (config: IPlaygroundAgentConfig) => void;
   updateAgentConfig: (index: number, config: IPlaygroundAgentConfig) => void;
   executePrompt: (prompt: string) => Promise<IPlaygroundExecutorResult>;

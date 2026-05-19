@@ -1,7 +1,10 @@
 import type { ILogger } from '@robota-sdk/agent-core';
 import { useCallback } from 'react';
 
-import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
+import type {
+  IConversationEvent,
+  IPlaygroundAgentConfig,
+} from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import type { IPlaygroundRefs, TPlaygroundDispatch } from './types';
 
@@ -102,12 +105,19 @@ function useStateUpdateActions(dispatch: TPlaygroundDispatch) {
     [dispatch],
   );
 
+  const setConversationHistory = useCallback(
+    (events: IConversationEvent[]) =>
+      dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: events }),
+    [dispatch],
+  );
+
   return {
     addAgentConfig,
     updateAgentConfig,
     setExecuting,
     setToolItems,
     addToolToAgentOverlay,
+    setConversationHistory,
   };
 }
 

@@ -183,7 +183,7 @@ function buildByokBaseUrl(wsUrl: string): string {
 
 function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
-  const { setToolItems } = usePlaygroundActions();
+  const { setToolItems, setConversationHistory } = usePlaygroundActions();
   const { createAgent, popRestoredMessages, getDefaultAgentConfig, executePrompt, canExecute } =
     useRobotaExecution();
   const { injectToolIntoAgent } = usePlaygroundActions();
@@ -372,7 +372,8 @@ function PlaygroundContent(): React.ReactElement {
     setSessionsOpen(false);
     const config = state.currentAgentConfig ?? getDefaultAgentConfig();
     await createAgent({ ...config, skills: activeSkills, resumeSessionId: sessionSummary.id });
-    const restored = popRestoredMessages().map((m, i) => ({
+    const restoredMsgs = popRestoredMessages();
+    const restored = restoredMsgs.map((m, i) => ({
       id: `restored-${i}`,
       role: m.role,
       content: m.content,
@@ -381,6 +382,16 @@ function PlaygroundContent(): React.ReactElement {
     }));
     setInitialMessages(restored);
     setChatKey((k) => k + 1);
+    setConversationHistory(
+      restoredMsgs.map((m, i) => ({
+        id: `restored-${i}`,
+        type: (m.role === 'user'
+          ? 'user_message'
+          : 'assistant_response') as import('../../lib/playground/plugins/playground-history-plugin').TPlaygroundEventName,
+        timestamp: new Date(),
+        content: m.content,
+      })),
+    );
     toast({ title: 'Session restored', description: `${restored.length} messages loaded` });
   };
 
