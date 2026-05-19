@@ -90,8 +90,21 @@ function AssemblyCanvasContent({
         unknown
       >) ?? {}),
       test: (mockEvents: IConversationEvent[]) => eventsToFlow(mockEvents),
+      renderMock: (mockEvents: IConversationEvent[]) => {
+        const { nodes: raw, edges: mockEdges } = eventsToFlow(mockEvents);
+        setNodes(
+          raw.map((n) => ({
+            ...n,
+            position: {
+              x: n.position.x + EVENT_CHAIN_OFFSET_X,
+              y: n.position.y + EVENT_CHAIN_OFFSET_Y,
+            },
+          })),
+        );
+        setEdges(mockEdges);
+      },
     };
-  }, []);
+  }, [setNodes, setEdges]);
 
   useEffect(() => {
     if (!agentConfig) {
@@ -177,6 +190,10 @@ function AssemblyCanvasContent({
     setEdges([...skillEdges, ...toolEdges, ...agentToChainEdge, ...eventEdges]);
 
     (window as unknown as Record<string, unknown>).__robota_dag = {
+      ...(((window as unknown as Record<string, unknown>).__robota_dag as Record<
+        string,
+        unknown
+      >) ?? {}),
       events,
       eventNodes: rawEventNodes,
       eventEdges,
