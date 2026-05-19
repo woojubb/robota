@@ -85,6 +85,7 @@ export interface ICreateSessionOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
