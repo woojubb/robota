@@ -37,13 +37,45 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+function classifyFetchError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+
+  if (err.name === 'AbortError') {
+    return `Request timed out after ${DEFAULT_TIMEOUT_MS / 1000}s. The server did not respond in time.`;
+  }
+
+  const code = (err as NodeJS.ErrnoException).code;
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    return `Network error: DNS resolution failed for this host. The URL may be incorrect or the host does not exist. Do not retry with the same URL.`;
+  }
+  if (code === 'ECONNREFUSED') {
+    return `Network error: Connection refused. The server is not accepting connections at this address. Do not retry with the same URL.`;
+  }
+  if (code === 'ECONNRESET') {
+    return `Network error: Connection was reset by the server. The server may be temporarily unavailable.`;
+  }
+  if (code === 'ETIMEDOUT') {
+    return `Network error: Connection timed out. The server is not reachable within the expected time.`;
+  }
+  if (code === 'CERT_HAS_EXPIRED' || code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') {
+    return `Network error: SSL certificate error (${code}). The server's certificate is invalid. Do not retry with the same URL.`;
+  }
+
+  return `Network error: ${err.message} Check that the URL is correct and the server is reachable.`;
+}
+
 async function runWebFetch(args: TWebFetchArgs): Promise<string> {
   const { url, headers } = args;
 
   try {
     new URL(url);
   } catch {
-    const result: TToolResult = { success: false, output: '', error: `Invalid URL: ${url}` };
+    // allow-fallback: URL parse failure is a structured tool result, not a thrown error
+    const result: TToolResult = {
+      success: false,
+      output: '',
+      error: `Invalid URL: "${url}". Fix the URL format before retrying.`,
+    };
     return JSON.stringify(result);
   }
 
@@ -63,10 +95,14 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
     clearTimeout(timeout);
 
     if (!response.ok) {
+      const retryHint =
+        response.status >= 500
+          ? ' The server is temporarily unavailable — retrying may help.'
+          : ' Do not retry with the same URL.';
       const result: TToolResult = {
         success: false,
         output: '',
-        error: `HTTP ${response.status} ${response.statusText}`,
+        error: `HTTP ${response.status} ${response.statusText}.${retryHint}`,
       };
       return JSON.stringify(result);
     }
@@ -78,7 +114,7 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
       const result: TToolResult = {
         success: false,
         output: '',
-        error: `Response too large: ${buffer.byteLength} bytes (max ${MAX_RESPONSE_BYTES})`,
+        error: `Response too large: ${buffer.byteLength} bytes (max ${MAX_RESPONSE_BYTES}). Consider fetching a more specific URL or a paginated endpoint.`,
       };
       return JSON.stringify(result);
     }
@@ -93,8 +129,8 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
     const result: TToolResult = { success: true, output: text };
     return JSON.stringify(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const result: TToolResult = { success: false, output: '', error: message };
+    // allow-fallback: fetch errors are structured tool results returned to the LLM, not thrown
+    const result: TToolResult = { success: false, output: '', error: classifyFetchError(err) };
     return JSON.stringify(result);
   }
 }
