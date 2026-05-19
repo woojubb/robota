@@ -1,6 +1,6 @@
 ---
 title: 'PLG-010: Assembly Canvas 재설계 — AgentNode + ToolNode + 엣지 연결 도구 주입'
-status: todo
+status: done
 created: 2026-05-19
 priority: high
 urgency: later

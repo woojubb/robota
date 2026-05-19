@@ -1,6 +1,6 @@
 ---
 title: 'PLG-018: Playground Router Module — /api/playground/* 전용 라우터 분리 + BYOK 키 sanitizer 미들웨어'
-status: todo
+status: done
 created: 2026-05-19
 priority: medium
 urgency: soon
