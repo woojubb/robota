@@ -42,6 +42,7 @@ export interface IInProcessSubagentRunnerDeps {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }

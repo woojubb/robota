@@ -654,6 +654,9 @@ export type {
   TCliUpdateCheckResult,
 } from './update-check/update-check.js';
 
+// ── Config types (for advanced consumers passing config directly) ─
+export type { IResolvedConfig } from './config/config-types.js';
+
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createSession()        — assembly factory

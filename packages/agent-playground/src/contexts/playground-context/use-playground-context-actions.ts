@@ -22,13 +22,19 @@ export function usePlaygroundContextActions(
   );
   const commonActions = useCommonActions(refs, dispatch, logger);
 
+  const popRestoredMessages = useMemo(
+    () => () => refs.executorRef.current?.popRestoredMessages?.() ?? [],
+    [refs.executorRef],
+  );
+
   return useMemo(
     () => ({
       createAgent,
+      popRestoredMessages,
       executePrompt,
       executeStreamPrompt,
       ...commonActions,
     }),
-    [commonActions, createAgent, executePrompt, executeStreamPrompt],
+    [commonActions, createAgent, popRestoredMessages, executePrompt, executeStreamPrompt],
   );
 }

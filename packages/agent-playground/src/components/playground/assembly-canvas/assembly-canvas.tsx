@@ -28,6 +28,9 @@ import {
   ToolCallNode,
   ToolResultNode,
   ToolErrorNode,
+  AgentJobCreatedNode,
+  AgentJobCompletedNode,
+  AgentJobFailedNode,
 } from '../workflow-visualization/workflow-nodes';
 import { eventsToFlow } from '../workflow-visualization/events-to-flow';
 
@@ -40,6 +43,9 @@ const nodeTypes = {
   tool_call_start: ToolCallNode,
   tool_call_complete: ToolResultNode,
   tool_call_error: ToolErrorNode,
+  agent_job_created: AgentJobCreatedNode,
+  agent_job_completed: AgentJobCompletedNode,
+  agent_job_failed: AgentJobFailedNode,
 };
 
 const AGENT_POSITION = { x: 220, y: 120 };

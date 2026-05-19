@@ -44,6 +44,10 @@ export interface IPlaygroundAgentConfig {
   plugins?: IPlaygroundPlugin[];
   systemMessage?: string;
   metadata?: Record<string, TUniversalValue>;
+  /** Skills to activate in the server-side InteractiveSession. */
+  skills?: import('../../skills/catalog').IPlaygroundSkillMeta[];
+  /** If set, restores a previous session's conversation history. */
+  resumeSessionId?: string;
 }
 
 export interface IPlaygroundExecutorResult {

@@ -25,8 +25,9 @@ interface IUseChatInterfaceStateReturn {
 export function useChatInterfaceState({
   isAgentReady,
   onSendMessage,
+  initialMessages,
 }: IChatPanelProps): IUseChatInterfaceStateReturn {
-  const [messages, setMessages] = useState<IChatPanelMessage[]>([]);
+  const [messages, setMessages] = useState<IChatPanelMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

@@ -71,6 +71,7 @@ export interface ISubagentOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
 }
 
