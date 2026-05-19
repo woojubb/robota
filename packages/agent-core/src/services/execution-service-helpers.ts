@@ -249,6 +249,9 @@ export function buildFullExecutionContext(
     ...(context?.maxExecutionRounds !== undefined && {
       maxExecutionRounds: context.maxExecutionRounds,
     }),
+    ...(context?.maxSameToolInputs !== undefined && {
+      maxSameToolInputs: context.maxSameToolInputs,
+    }),
   };
 }
 

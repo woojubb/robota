@@ -80,6 +80,7 @@ describe('execution-round helpers', () => {
         lastTrackedAssistantMessage: undefined,
         cumulativeInputTokens: 0,
         consecutiveUnknownToolFailureRounds: 0,
+        sameToolInputCounts: new Map(),
       });
       expect(result.thinkingNodeId).toBe('thinking_conv-1_round1');
       expect(result.previousThinkingNodeId).toBeUndefined();
@@ -92,6 +93,7 @@ describe('execution-round helpers', () => {
         toolsExecuted: ['search'],
         cumulativeInputTokens: 0,
         consecutiveUnknownToolFailureRounds: 0,
+        sameToolInputCounts: new Map(),
         lastTrackedAssistantMessage: {
           id: 'msg-1',
           role: 'assistant',
