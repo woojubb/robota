@@ -57,10 +57,20 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
     });
   };
 
+  let mainComplete = false;
+  let pendingBackgroundTasks = 0;
+
+  const tryClose = (): void => {
+    if (mainComplete && pendingBackgroundTasks === 0) {
+      cleanup();
+      sendEvent(res, { type: 'done', data: { usage: {} } });
+      res.end();
+    }
+  };
+
   const onComplete = (): void => {
-    cleanup();
-    sendEvent(res, { type: 'done', data: { usage: {} } });
-    res.end();
+    mainComplete = true;
+    tryClose();
   };
 
   const onError = (error: Error): void => {
@@ -78,6 +88,12 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void => {
     switch (event.type) {
       case 'background_task_created': {
+        pendingBackgroundTasks += 1;
+        console.log(
+          '[SSE] bg_task_created: taskId=%s pendingBg=%d',
+          event.task.id,
+          pendingBackgroundTasks,
+        );
         const originToolCallId = event.task.metadata?.['executionOriginToolCallId'];
         sendEvent(res, {
           type: 'agent_job_created',
@@ -113,6 +129,12 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
         });
         break;
       case 'background_task_completed':
+        pendingBackgroundTasks = Math.max(0, pendingBackgroundTasks - 1);
+        console.log(
+          '[SSE] bg_task_completed: taskId=%s pendingBg=%d',
+          event.task.id,
+          pendingBackgroundTasks,
+        );
         sendEvent(res, {
           type: 'agent_job_completed',
           data: {
@@ -121,12 +143,15 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
             agentType: event.task.agentType,
           },
         });
+        tryClose();
         break;
       case 'background_task_failed':
+        pendingBackgroundTasks = Math.max(0, pendingBackgroundTasks - 1);
         sendEvent(res, {
           type: 'agent_job_failed',
           data: { taskId: event.task.id, label: event.task.label },
         });
+        tryClose();
         break;
     }
   };
