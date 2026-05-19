@@ -53,7 +53,9 @@ interface IRunManagedAgentBatchInput {
     agentDef: IAgentDefinition,
     deps: IAgentToolDeps,
     label?: string,
+    toolCallId?: string,
   ) => ISubagentSpawnRequest;
+  toolCallId?: string;
 }
 
 function stringifyAgentBatchResult(input: {
@@ -139,7 +141,14 @@ async function spawnBatchJob(
 ): Promise<TStartedBatchJob> {
   try {
     const state = await input.manager.spawn(
-      input.createSpawnRequest(job.job, job.agentType, job.agentDef, input.deps, job.label),
+      input.createSpawnRequest(
+        job.job,
+        job.agentType,
+        job.agentDef,
+        input.deps,
+        job.label,
+        input.toolCallId,
+      ),
     );
     return { ...job, agentId: state.id };
   } catch (error) {

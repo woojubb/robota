@@ -111,6 +111,7 @@ export function ToolCallNode({ data }: NodeProps) {
           {toolDisplayName(d.toolName) || 'Tool call'}
         </span>
       </div>
+      {d.content && <ContentDisplay content={d.content} />}
     </NodeShell>
   );
 }

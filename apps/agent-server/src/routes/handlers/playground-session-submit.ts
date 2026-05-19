@@ -34,15 +34,12 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  const toolStartIds = new Map<string, string>();
-
   const onTextDelta = (delta: string): void => {
     sendEvent(res, { type: 'text_delta', data: { text: delta } });
   };
 
   const onToolStart = (state: IToolState): void => {
-    const toolId = crypto.randomUUID();
-    toolStartIds.set(state.toolName, toolId);
+    const toolId = state.executionId ?? crypto.randomUUID();
     sendEvent(res, {
       type: 'tool_call_start',
       data: { id: toolId, name: state.toolName, input: { arg: state.firstArg } },
@@ -50,8 +47,7 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
   };
 
   const onToolEnd = (state: IToolState): void => {
-    const toolId = toolStartIds.get(state.toolName) ?? crypto.randomUUID();
-    toolStartIds.delete(state.toolName);
+    const toolId = state.executionId ?? crypto.randomUUID();
     sendEvent(res, {
       type: 'tool_call_complete',
       data: {
@@ -81,7 +77,8 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
 
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void => {
     switch (event.type) {
-      case 'background_task_created':
+      case 'background_task_created': {
+        const originToolCallId = event.task.metadata?.['executionOriginToolCallId'];
         sendEvent(res, {
           type: 'agent_job_created',
           data: {
@@ -89,9 +86,11 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
             label: event.task.label,
             agentType: event.task.agentType ?? 'general-purpose',
             promptPreview: event.task.promptPreview,
+            ...(typeof originToolCallId === 'string' ? { originToolCallId } : {}),
           },
         });
         break;
+      }
       case 'background_task_started':
         sendEvent(res, { type: 'agent_job_started', data: { taskId: event.task.id } });
         break;

@@ -34,6 +34,7 @@ import type {
   ISubagentJobResult,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
+import type { IToolExecutionContext } from '@robota-sdk/agent-core';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 export const AGENT_TOOL_DESCRIPTION = [
@@ -178,6 +179,7 @@ function createSpawnRequest(
   agentDef: IAgentDefinition,
   deps: IAgentToolDeps,
   label = agentDef.name,
+  toolCallId?: string,
 ): ISubagentSpawnRequest {
   return {
     type: agentType,
@@ -193,6 +195,7 @@ function createSpawnRequest(
       kind: 'tool_call',
       sessionId: deps.parentSessionId ?? 'unknown-session',
       label,
+      ...(toolCallId ? { toolCallId } : {}),
     }),
   };
 }
@@ -201,6 +204,7 @@ async function runManagedAgent(
   args: TAgentArgs,
   deps: IAgentToolDeps,
   manager: ISubagentManager,
+  toolCallId?: string,
 ): Promise<string> {
   if (typeof args.prompt !== 'string' || args.prompt.length === 0) {
     return stringifyAgentError('prompt is required when jobs is omitted');
@@ -215,7 +219,9 @@ async function runManagedAgent(
 
   let agentId: string | undefined;
   try {
-    const state = await manager.spawn(createSpawnRequest(singleArgs, agentType, agentDef, deps));
+    const state = await manager.spawn(
+      createSpawnRequest(singleArgs, agentType, agentDef, deps, undefined, toolCallId),
+    );
     agentId = state.id;
     const response = await manager.wait(state.id);
     return stringifyAgentSuccess(response);
@@ -237,8 +243,9 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
     'Agent',
     AGENT_TOOL_DESCRIPTION,
     asZodSchema(AgentSchema),
-    async (params) => {
+    async (params, context) => {
       const args = params as TAgentArgs;
+      const toolCallId = (context as IToolExecutionContext | undefined)?.executionId;
       if (Array.isArray(args.jobs) && args.jobs.length > 0) {
         return runManagedAgentBatch({
           jobs: args.jobs as TAgentJobArgs[],
@@ -246,6 +253,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
           manager,
           resolveAgentDefinition,
           createSpawnRequest,
+          toolCallId,
         });
       }
       return runManagedAgent(
@@ -257,6 +265,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
         },
         deps,
         manager,
+        toolCallId,
       );
     },
   );

@@ -6,7 +6,7 @@ const NODE_WIDTH = 220;
 const NODE_HEIGHT: Record<string, number> = {
   user_message: 80,
   assistant_response: 100,
-  tool_call_start: 64,
+  tool_call_start: 100,
   tool_call_complete: 64,
   tool_call_error: 64,
   agent_job_created: 72,
@@ -55,78 +55,148 @@ export function eventsToFlow(events: IConversationEvent[]): { nodes: Node[]; edg
 
   const edges: Edge[] = [];
 
-  // Main-thread cursor
+  // ── Main-thread cursor ──────────────────────────────────────────────────
   let lastMainId: string | null = null;
 
-  // Per-task branch tracking
+  // ── Agent-branch tracking ───────────────────────────────────────────────
   const taskLastId = new Map<string, string>();
   const taskDone = new Map<string, boolean>();
   const openBranches = new Set<string>();
+  let agentForkSourceId: string | null = null;
 
-  // The main-thread node that caused the fork (used to avoid a self-loop in convergence)
-  let forkSourceId: string | null = null;
+  // ── Parallel tool-call tracking ─────────────────────────────────────────
+  // Open tool_call_start nodeIds, in arrival order. FIFO-matched with completes.
+  const openToolStarts: string[] = [];
+  // toolCallId → tool_call_start nodeId (for ID-based matching when IDs are reliable)
+  const toolStartById = new Map<string, string>();
+  // Source node before the current parallel group forked
+  let parallelGroupForkId: string | null = null;
+  // Whether the current group has more than 1 tool (i.e., truly parallel)
+  let parallelGroupSize = 0;
+  // tool_call_complete nodeIds for the current parallel group (converge later)
+  const parallelTails = new Set<string>();
+
+  // FIFO queue of agent-spawning tool_call_start nodeIds, for matching agent_job_created
+  const agentToolStartQueue: string[] = [];
 
   for (const event of events) {
-    if (!isAgentJobEvent(event.type) || !event.taskId) {
-      // ── Main-thread event ──────────────────────────────────────────────
+    // ── tool_call_start ───────────────────────────────────────────────────
+    if (event.type === 'tool_call_start') {
+      const toolCallId = (event.metadata?.toolCallId as string) ?? event.id;
 
-      // Converge only when ALL open branches have completed.
-      const allDone =
-        openBranches.size > 0 && [...openBranches].every((tid) => taskDone.get(tid) === true);
-
-      if (allDone) {
-        // Draw join edges from every completed branch endpoint to this event.
-        for (const tid of openBranches) {
-          const branchTail = taskLastId.get(tid);
-          if (branchTail) {
-            edges.push({
-              id: `edge-join-${tid}-${event.id}`,
-              source: branchTail,
-              target: event.id,
-              animated: false,
-              style: { stroke: '#6366f1', strokeDasharray: '4 2' },
-            });
-          }
-        }
-        // Also pull in any main-thread events that occurred while branches were open.
-        if (lastMainId && lastMainId !== forkSourceId) {
+      if (openToolStarts.length === 0) {
+        // First tool in a new group — sequential from lastMainId
+        parallelGroupForkId = lastMainId;
+        parallelGroupSize = 0;
+        if (lastMainId) {
           edges.push({
-            id: `edge-main-join-${lastMainId}-${event.id}`,
+            id: `edge-${lastMainId}-${event.id}`,
             source: lastMainId,
             target: event.id,
             animated: false,
-            style: { stroke: '#6366f1', strokeDasharray: '4 2' },
           });
         }
-        openBranches.clear();
-        taskDone.clear();
-        forkSourceId = null;
-      } else if (lastMainId) {
-        // Sequential edge — branches still open or no branches.
+        lastMainId = event.id;
+      } else {
+        // Parallel sibling — fork from same source as the first tool
+        parallelGroupSize += 1;
+        if (parallelGroupForkId) {
+          edges.push({
+            id: `edge-pf-${parallelGroupForkId}-${event.id}`,
+            source: parallelGroupForkId,
+            target: event.id,
+            animated: false,
+            style: { stroke: '#a78bfa' },
+          });
+        }
+        // Keep lastMainId pointing to the first tool so agent_job_created forks from it
+      }
+
+      openToolStarts.push(event.id);
+      toolStartById.set(toolCallId, event.id);
+
+      if (event.toolName === 'robota_command_agent') {
+        agentToolStartQueue.push(event.id);
+      }
+
+      continue;
+    }
+
+    // ── tool_call_complete ────────────────────────────────────────────────
+    if (event.type === 'tool_call_complete') {
+      const toolCallId = (event.metadata?.toolCallId as string) ?? '';
+      let startNodeId: string | undefined;
+
+      // Try ID-based match first
+      if (toolCallId && toolStartById.has(toolCallId)) {
+        startNodeId = toolStartById.get(toolCallId)!;
+        toolStartById.delete(toolCallId);
+        const idx = openToolStarts.indexOf(startNodeId);
+        if (idx !== -1) openToolStarts.splice(idx, 1);
+      } else if (openToolStarts.length > 0) {
+        // Fallback: FIFO order
+        startNodeId = openToolStarts.shift()!;
+        for (const [k, v] of toolStartById) {
+          if (v === startNodeId) {
+            toolStartById.delete(k);
+            break;
+          }
+        }
+      }
+
+      if (startNodeId) {
         edges.push({
-          id: `edge-${lastMainId}-${event.id}`,
-          source: lastMainId,
+          id: `edge-tc-${startNodeId}-${event.id}`,
+          source: startNodeId,
           target: event.id,
           animated: false,
         });
+
+        if (parallelGroupSize > 0) {
+          // Part of a truly parallel group — collect tails for later convergence
+          parallelTails.add(event.id);
+        } else {
+          // Single (sequential) tool call — clean state
+          parallelGroupForkId = null;
+        }
+        lastMainId = event.id;
+      } else {
+        // No matching start — sequential fallback
+        if (lastMainId) {
+          edges.push({
+            id: `edge-${lastMainId}-${event.id}`,
+            source: lastMainId,
+            target: event.id,
+          });
+        }
+        lastMainId = event.id;
       }
 
-      lastMainId = event.id;
-    } else {
-      // ── Branch event ────────────────────────────────────────────────────
+      // If all parallel tools have completed, convergence will happen at the next main event
+      continue;
+    }
+
+    // ── agent_job_* (branch events) ────────────────────────────────────────
+    if (isAgentJobEvent(event.type) && event.taskId) {
       const { taskId } = event;
 
       if (event.type === 'agent_job_created') {
-        // Fork from the last main-thread node.
-        if (lastMainId) {
+        // Use explicit originToolCallId when available, fall back to FIFO queue
+        const originToolCallId = event.metadata?.originToolCallId as string | undefined;
+        const agentToolStart = originToolCallId
+          ? toolStartById.get(originToolCallId)
+          : agentToolStartQueue.shift();
+        const forkFrom = agentToolStart ?? lastMainId;
+
+        if (forkFrom) {
           edges.push({
-            id: `edge-fork-${lastMainId}-${event.id}`,
-            source: lastMainId,
+            id: `edge-fork-${forkFrom}-${event.id}`,
+            source: forkFrom,
             target: event.id,
             animated: true,
             style: { stroke: '#a78bfa' },
           });
-          forkSourceId = lastMainId;
+          agentForkSourceId = forkFrom;
         }
         taskLastId.set(taskId, event.id);
         taskDone.set(taskId, false);
@@ -144,9 +214,93 @@ export function eventsToFlow(events: IConversationEvent[]): { nodes: Node[]; edg
           });
         }
         taskLastId.set(taskId, event.id);
-        taskDone.set(taskId, true); // Mark this branch as completed.
+        taskDone.set(taskId, true);
       }
+
+      continue;
     }
+
+    // ── Main-thread events (user_message, assistant_response, etc.) ────────
+
+    const allBranchesDone =
+      openBranches.size > 0 && [...openBranches].every((tid) => taskDone.get(tid) === true);
+
+    // Parallel group is done when all starts have been matched to completes
+    const parallelGroupDone = parallelTails.size > 0 && openToolStarts.length === 0;
+
+    const shouldConverge = allBranchesDone || (parallelGroupDone && openBranches.size === 0);
+
+    if (shouldConverge) {
+      // Converge parallel tool tails (if any)
+      if (parallelGroupDone) {
+        for (const tail of parallelTails) {
+          edges.push({
+            id: `edge-pconv-${tail}-${event.id}`,
+            source: tail,
+            target: event.id,
+            animated: false,
+            style: { stroke: '#6366f1', strokeDasharray: '4 2' },
+          });
+        }
+        parallelTails.clear();
+        parallelGroupForkId = null;
+        parallelGroupSize = 0;
+      }
+
+      // Converge agent branches
+      if (allBranchesDone) {
+        for (const tid of openBranches) {
+          const branchTail = taskLastId.get(tid);
+          if (branchTail) {
+            edges.push({
+              id: `edge-join-${tid}-${event.id}`,
+              source: branchTail,
+              target: event.id,
+              animated: false,
+              style: { stroke: '#6366f1', strokeDasharray: '4 2' },
+            });
+          }
+        }
+        // Also pull in any main-thread node that ran while branches were open,
+        // but only if it wasn't already included in the parallel convergence above.
+        if (lastMainId && lastMainId !== agentForkSourceId && !parallelTails.has(lastMainId)) {
+          edges.push({
+            id: `edge-main-join-${lastMainId}-${event.id}`,
+            source: lastMainId,
+            target: event.id,
+            animated: false,
+            style: { stroke: '#6366f1', strokeDasharray: '4 2' },
+          });
+        }
+        openBranches.clear();
+        taskDone.clear();
+        agentForkSourceId = null;
+      }
+    } else if (parallelGroupDone) {
+      // Parallel tools done but agent branches still open → converge tool tails now
+      for (const tail of parallelTails) {
+        edges.push({
+          id: `edge-pconv-${tail}-${event.id}`,
+          source: tail,
+          target: event.id,
+          animated: false,
+          style: { stroke: '#6366f1', strokeDasharray: '4 2' },
+        });
+      }
+      parallelTails.clear();
+      parallelGroupForkId = null;
+      parallelGroupSize = 0;
+    } else if (lastMainId) {
+      // Plain sequential edge
+      edges.push({
+        id: `edge-${lastMainId}-${event.id}`,
+        source: lastMainId,
+        target: event.id,
+        animated: false,
+      });
+    }
+
+    lastMainId = event.id;
   }
 
   const graph = new dagre.graphlib.Graph();

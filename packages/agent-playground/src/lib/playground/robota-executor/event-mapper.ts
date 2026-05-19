@@ -69,6 +69,7 @@ export function mapSseEventToConversationEvent(
           agentType: event.data.agentType,
           label: event.data.label,
           promptPreview: event.data.promptPreview,
+          ...(event.data.originToolCallId ? { originToolCallId: event.data.originToolCallId } : {}),
         },
       };
 

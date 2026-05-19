@@ -39,7 +39,13 @@ export interface ISseError {
 
 export interface ISseAgentJobCreated {
   type: 'agent_job_created';
-  data: { taskId: string; label: string; agentType: string; promptPreview?: string };
+  data: {
+    taskId: string;
+    label: string;
+    agentType: string;
+    promptPreview?: string;
+    originToolCallId?: string;
+  };
 }
 
 export interface ISseAgentJobStarted {

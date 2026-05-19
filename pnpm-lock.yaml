@@ -107,6 +107,9 @@ importers:
 
   apps/agent-server:
     dependencies:
+      '@robota-sdk/agent-command':
+        specifier: workspace:*
+        version: link:../../packages/agent-command
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core

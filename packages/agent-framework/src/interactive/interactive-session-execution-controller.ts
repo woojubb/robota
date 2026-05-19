@@ -116,6 +116,7 @@ export class SessionExecutionController {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }): void {
     const streamingState = {
       activeTools: this.activeTools,
