@@ -84,6 +84,29 @@ function AssemblyCanvasContent({
   const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
+    (window as unknown as Record<string, unknown>).__robota_dag = {
+      ...(((window as unknown as Record<string, unknown>).__robota_dag as Record<
+        string,
+        unknown
+      >) ?? {}),
+      test: (mockEvents: IConversationEvent[]) => eventsToFlow(mockEvents),
+      renderMock: (mockEvents: IConversationEvent[]) => {
+        const { nodes: raw, edges: mockEdges } = eventsToFlow(mockEvents);
+        setNodes(
+          raw.map((n) => ({
+            ...n,
+            position: {
+              x: n.position.x + EVENT_CHAIN_OFFSET_X,
+              y: n.position.y + EVENT_CHAIN_OFFSET_Y,
+            },
+          })),
+        );
+        setEdges(mockEdges);
+      },
+    };
+  }, [setNodes, setEdges]);
+
+  useEffect(() => {
     if (!agentConfig) {
       setNodes([]);
       setEdges([]);
@@ -165,6 +188,17 @@ function AssemblyCanvasContent({
 
     setNodes([agentNode, ...skillNodes, ...toolNodes, ...eventNodes]);
     setEdges([...skillEdges, ...toolEdges, ...agentToChainEdge, ...eventEdges]);
+
+    (window as unknown as Record<string, unknown>).__robota_dag = {
+      ...(((window as unknown as Record<string, unknown>).__robota_dag as Record<
+        string,
+        unknown
+      >) ?? {}),
+      events,
+      eventNodes: rawEventNodes,
+      eventEdges,
+      test: (mockEvents: IConversationEvent[]) => eventsToFlow(mockEvents),
+    };
   }, [agentConfig, activeTools, activeSkills, events, setNodes, setEdges]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {

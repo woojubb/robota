@@ -25,6 +25,7 @@ interface IUseChatInterfaceStateReturn {
 export function useChatInterfaceState({
   isAgentReady,
   onSendMessage,
+  onClearChat,
   initialMessages,
 }: IChatPanelProps): IUseChatInterfaceStateReturn {
   const [messages, setMessages] = useState<IChatPanelMessage[]>(initialMessages ?? []);
@@ -54,7 +55,8 @@ export function useChatInterfaceState({
 
   const clearChat = useCallback(() => {
     setMessages([]);
-  }, []);
+    onClearChat?.();
+  }, [onClearChat]);
 
   const retryLastMessage = useCallback(() => {
     const lastUserMessage = findLastUserMessage(messages);
