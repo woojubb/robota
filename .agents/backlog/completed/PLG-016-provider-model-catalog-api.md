@@ -1,6 +1,6 @@
 ---
 title: 'PLG-016: Provider & Model Catalog API — GET /api/playground/catalog/providers'
-status: todo
+status: done
 created: 2026-05-19
 priority: medium
 urgency: soon

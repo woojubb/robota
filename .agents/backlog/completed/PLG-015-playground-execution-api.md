@@ -1,6 +1,6 @@
 ---
 title: 'PLG-015: Playground Execution API — POST /api/playground/execute SSE 스트리밍 에이전트 실행'
-status: todo
+status: done
 created: 2026-05-19
 priority: high
 urgency: soon

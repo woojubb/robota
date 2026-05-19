@@ -181,6 +181,7 @@ export class ExecutionService {
         lastTrackedAssistantMessage: undefined,
         cumulativeInputTokens: 0,
         consecutiveUnknownToolFailureRounds: 0,
+        sameToolInputCounts: new Map(),
       };
 
       for (const msg of conversationStore.getMessages()) {

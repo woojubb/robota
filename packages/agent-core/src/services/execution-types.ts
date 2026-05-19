@@ -74,6 +74,8 @@ export interface IExecutionRoundState {
   consecutiveUnknownToolFailureRounds: number;
   /** Optional instruction used when forcing a final response after loop guard trips. */
   forcedSummaryInstruction?: string;
+  /** Tracks how many times each (toolName, inputHash) pair has been called this turn. */
+  sameToolInputCounts: Map<string, number>;
 }
 
 /**
@@ -113,6 +115,8 @@ export interface IExecutionContext {
   onExecutionEvent?: TExecutionEventCallback;
   /** Per-run model/tool round limit. Use 0 for no core round cap. */
   maxExecutionRounds?: number;
+  /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
+  maxSameToolInputs?: number;
 }
 
 /**

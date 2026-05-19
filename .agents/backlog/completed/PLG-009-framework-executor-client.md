@@ -1,6 +1,6 @@
 ---
 title: 'PLG-009: Framework Executor Client — PlaygroundExecutor를 PLG-015 SSE 엔드포인트 기반으로 교체'
-status: todo
+status: done
 created: 2026-05-19
 priority: high
 urgency: soon
