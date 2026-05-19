@@ -20,4 +20,5 @@ export interface IChatPanelProps {
   onSendMessage?: (message: string) => Promise<string>;
   starterPrompts?: string[];
   availableCommands?: ISlashCommand[];
+  initialMessages?: IChatPanelMessage[];
 }

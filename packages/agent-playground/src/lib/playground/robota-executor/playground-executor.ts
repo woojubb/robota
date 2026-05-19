@@ -20,6 +20,7 @@ import {
 } from '../plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
 import { createSession, sseSessionSubmit, destroySession } from './sse-client';
+import type { IRestoredMessage } from './sse-client';
 import { mapSseEventToConversationEvent } from './event-mapper';
 import type {
   IPlaygroundAgentConfig,
@@ -45,6 +46,7 @@ export class PlaygroundExecutor {
   private readonly logger: ILogger;
   private localConfig: ILocalAgentConfig | null = null;
   private sessionId: string | null = null;
+  private restoredMessages: IRestoredMessage[] = [];
 
   constructor(
     private serverUrl: string,
@@ -78,12 +80,28 @@ export class PlaygroundExecutor {
       model: config.defaultModel.model,
     });
 
+    const skills = config.skills?.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      skillMdContent: s.skillMdContent,
+    }));
+
     const sessionResponse = await createSession(this.serverUrl, this.localConfig.apiKey, {
       provider: this.localConfig.provider,
       model: this.localConfig.model,
       systemPrompt: this.localConfig.systemPrompt,
+      ...(skills && skills.length > 0 ? { skills } : {}),
+      ...(config.resumeSessionId ? { resumeSessionId: config.resumeSessionId } : {}),
     });
     this.sessionId = sessionResponse.sessionId;
+    this.restoredMessages = sessionResponse.messages ?? [];
+  }
+
+  popRestoredMessages(): IRestoredMessage[] {
+    const msgs = this.restoredMessages;
+    this.restoredMessages = [];
+    return msgs;
   }
 
   async updateAgentTools(

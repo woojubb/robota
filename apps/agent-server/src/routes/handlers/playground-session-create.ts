@@ -4,11 +4,17 @@ import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
+import { getPlaygroundSessionStore } from '../../session/persistent-session-store.js';
 import { addSession } from '../../session/playground-session-store.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IResolvedConfig, ICommandModule } from '@robota-sdk/agent-framework';
 import type { Request, Response } from 'express';
+
+export interface IRestoredMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 const ENV_KEY_MAP: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
@@ -46,6 +52,7 @@ interface ISessionCreateBody {
   permissionMode?: unknown;
   maxTurns?: unknown;
   skills?: unknown;
+  resumeSessionId?: unknown;
 }
 
 function buildSkillCommandModule(skills: ISkillEntry[]): ICommandModule {
@@ -78,7 +85,15 @@ function buildSkillCommandModule(skills: ISkillEntry[]): ICommandModule {
 
 export async function playgroundSessionCreateHandler(req: Request, res: Response): Promise<void> {
   const body = req.body as ISessionCreateBody;
-  const { provider: providerName, model, systemPrompt, permissionMode, maxTurns, skills } = body;
+  const {
+    provider: providerName,
+    model,
+    systemPrompt,
+    permissionMode,
+    maxTurns,
+    skills,
+    resumeSessionId,
+  } = body;
 
   if (typeof providerName !== 'string' || !providerName) {
     res.status(400).json({ error: 'Missing or invalid "provider" field' });
@@ -124,6 +139,31 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
     commandModules.push(buildSkillCommandModule(skills as ISkillEntry[]));
   }
 
+  const sessionStore = getPlaygroundSessionStore();
+
+  const resolvedResumeSessionId =
+    typeof resumeSessionId === 'string' && resumeSessionId ? resumeSessionId : undefined;
+
+  const restoredMessages: IRestoredMessage[] = [];
+  if (resolvedResumeSessionId) {
+    const record = sessionStore.load(resolvedResumeSessionId);
+    if (record) {
+      for (const msg of record.messages) {
+        if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+        const content =
+          typeof msg.content === 'string'
+            ? msg.content
+            : Array.isArray(msg.content)
+              ? msg.content
+                  .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+                  .map((p) => p.text)
+                  .join('')
+              : '';
+        if (content) restoredMessages.push({ role: msg.role, content });
+      }
+    }
+  }
+
   const session = new InteractiveSession({
     cwd: process.cwd(),
     provider,
@@ -131,6 +171,8 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
     maxTurns: resolvedMaxTurns,
     bare: true,
     config,
+    sessionStore,
+    ...(resolvedResumeSessionId ? { resumeSessionId: resolvedResumeSessionId } : {}),
     ...(commandModules.length > 0 ? { commandModules } : {}),
     ...(typeof systemPrompt === 'string' && systemPrompt.trim().length > 0
       ? { systemPrompt: systemPrompt.trim() }
@@ -140,5 +182,5 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
   const sessionId = crypto.randomUUID();
   addSession(sessionId, session);
 
-  res.json({ sessionId });
+  res.json({ sessionId, messages: restoredMessages });
 }

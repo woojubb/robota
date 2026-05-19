@@ -11,6 +11,7 @@ import type { IPlaygroundState, TPlaygroundReducerAction } from '../playground-r
 
 export interface IPlaygroundActionsValue {
   createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
+  popRestoredMessages: () => import('../../lib/playground/robota-executor/sse-client').IRestoredMessage[];
   addAgentConfig: (config: IPlaygroundAgentConfig) => void;
   updateAgentConfig: (index: number, config: IPlaygroundAgentConfig) => void;
   executePrompt: (prompt: string) => Promise<IPlaygroundExecutorResult>;

@@ -8,6 +8,7 @@ import { playgroundExecuteHandler } from './handlers/playground-execute.js';
 import { playgroundSessionCreateHandler } from './handlers/playground-session-create.js';
 import { playgroundSessionDestroyHandler } from './handlers/playground-session-destroy.js';
 import { playgroundSessionSubmitHandler } from './handlers/playground-session-submit.js';
+import { playgroundSessionsListHandler } from './handlers/playground-sessions-list.js';
 
 export const playgroundRouter: IRouter = Router();
 
@@ -37,6 +38,11 @@ playgroundRouter.get('/catalog/skills', (_req, res) => {
 // PLG-015: POST /api/playground/execute — SSE streaming agent execution (legacy)
 playgroundRouter.post('/execute', (req, res) => {
   void playgroundExecuteHandler(req, res);
+});
+
+// PLG-F-005: Session list
+playgroundRouter.get('/sessions', (req, res) => {
+  playgroundSessionsListHandler(req, res);
 });
 
 // PLG-F-002: InteractiveSession-based session lifecycle

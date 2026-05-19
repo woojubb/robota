@@ -60,10 +60,26 @@ export interface ISessionCreateRequest {
   permissionMode?: string;
   maxTurns?: number;
   skills?: ISessionSkill[];
+  resumeSessionId?: string;
+}
+
+export interface IRestoredMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface ISessionCreateResponse {
   sessionId: string;
+  messages?: IRestoredMessage[];
+}
+
+export interface ISessionSummary {
+  id: string;
+  name?: string;
+  cwd: string;
+  updatedAt: string;
+  messageCount: number;
+  preview: string;
 }
 
 function buildBaseUrl(serverUrl: string): string {
@@ -153,6 +169,18 @@ export async function destroySession(
     method: 'DELETE',
     headers: buildHeaders(apiKey),
   });
+}
+
+export async function fetchSessions(
+  serverUrl: string,
+  apiKey: string | undefined,
+): Promise<ISessionSummary[]> {
+  const baseUrl = buildBaseUrl(serverUrl);
+  const resp = await fetch(`${baseUrl}/api/playground/sessions`, {
+    headers: buildHeaders(apiKey),
+  });
+  if (!resp.ok) return [];
+  return resp.json() as Promise<ISessionSummary[]>;
 }
 
 async function* readSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<TSseEvent> {

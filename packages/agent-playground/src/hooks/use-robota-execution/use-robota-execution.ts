@@ -16,5 +16,6 @@ export function useRobotaExecution(): IRobotaExecutionHookReturn {
     state,
     localState,
     actions,
+    contextActions,
   });
 }
