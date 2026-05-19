@@ -1,6 +1,6 @@
 ---
 title: 'CORE-001: 동일 input tool call 반복 제한 (maxSameToolInputs)'
-status: todo
+status: done
 created: 2026-05-20
 priority: high
 urgency: now

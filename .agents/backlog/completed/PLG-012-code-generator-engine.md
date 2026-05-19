@@ -1,6 +1,6 @@
 ---
 title: 'PLG-012: Code Generator 엔진 — 캔버스 상태 → 실행 가능한 TypeScript 코드 직렬화'
-status: todo
+status: done
 created: 2026-05-19
 priority: high
 urgency: later
