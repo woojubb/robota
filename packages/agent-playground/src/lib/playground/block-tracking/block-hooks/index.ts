@@ -29,7 +29,6 @@ export function createDelegationTrackingHooks(
   return createBlockTrackingHooks(blockCollector, logger, {
     ...options,
     blockTypeMapping: {
-      assignTask: 'tool_call',
       delegate_to_agent: 'tool_call',
     },
   });
