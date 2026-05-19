@@ -128,7 +128,7 @@ export class PlaygroundExecutor {
   }
 
   async run(prompt: string): Promise<IPlaygroundExecutorResult> {
-    if (!this.localConfig || !this.sessionId) {
+    if (!this.localConfig) {
       return createFailureResult({
         response: 'No agent configured',
         duration: 0,
@@ -136,6 +136,15 @@ export class PlaygroundExecutor {
         visualizationData: this.getVisualizationData(),
         includeUiError: true,
       });
+    }
+
+    if (!this.sessionId) {
+      const sessionResponse = await createSession(this.serverUrl, this.localConfig.apiKey, {
+        provider: this.localConfig.provider,
+        model: this.localConfig.model,
+        systemPrompt: this.localConfig.systemPrompt,
+      });
+      this.sessionId = sessionResponse.sessionId;
     }
 
     const startTime = Date.now();
@@ -301,6 +310,11 @@ export class PlaygroundExecutor {
   }
 
   clearHistory(): void {
+    if (this.sessionId) {
+      const sessionId = this.sessionId;
+      this.sessionId = null;
+      void destroySession(this.serverUrl, this.localConfig?.apiKey, sessionId);
+    }
     this.historyPlugin.clearEvents();
   }
 

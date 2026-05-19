@@ -231,6 +231,9 @@ export function eventsToFlow(events: IConversationEvent[]): { nodes: Node[]; edg
     const shouldConverge = allBranchesDone || (parallelGroupDone && openBranches.size === 0);
 
     if (shouldConverge) {
+      // Snapshot tails before clearing so the main-join check below can test membership.
+      const parallelTailsSnapshot = new Set(parallelTails);
+
       // Converge parallel tool tails (if any)
       if (parallelGroupDone) {
         for (const tail of parallelTails) {
@@ -261,9 +264,13 @@ export function eventsToFlow(events: IConversationEvent[]): { nodes: Node[]; edg
             });
           }
         }
-        // Also pull in any main-thread node that ran while branches were open,
-        // but only if it wasn't already included in the parallel convergence above.
-        if (lastMainId && lastMainId !== agentForkSourceId && !parallelTails.has(lastMainId)) {
+        // Pull in the main-thread node that was active while branches were open,
+        // but skip it if it was already converged as a parallel tool tail above.
+        if (
+          lastMainId &&
+          lastMainId !== agentForkSourceId &&
+          !parallelTailsSnapshot.has(lastMainId)
+        ) {
           edges.push({
             id: `edge-main-join-${lastMainId}-${event.id}`,
             source: lastMainId,
