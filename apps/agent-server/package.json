@@ -34,6 +34,7 @@
     "clean": "rm -rf dist lib"
   },
   "dependencies": {
+    "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-playground": "workspace:*",

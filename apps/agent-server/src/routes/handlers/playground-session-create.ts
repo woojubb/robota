@@ -1,3 +1,4 @@
+import { createAgentCommandModule } from '@robota-sdk/agent-command';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
@@ -136,7 +137,7 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
 
   const provider = createProvider(providerName, apiKey);
 
-  const commandModules: ICommandModule[] = [];
+  const commandModules: ICommandModule[] = [createAgentCommandModule()];
   if (Array.isArray(skills) && skills.length > 0) {
     commandModules.push(buildSkillCommandModule(skills as ISkillEntry[]));
   }
