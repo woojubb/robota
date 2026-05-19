@@ -7,7 +7,7 @@ import { useChatInterfaceState } from './use-chat-interface-state';
 import type { IChatPanelProps } from './types';
 
 export function ChatInterface(props: IChatPanelProps) {
-  const { isAgentReady, starterPrompts } = props;
+  const { isAgentReady, starterPrompts, availableCommands } = props;
   const chat = useChatInterfaceState(props);
 
   return (
@@ -35,6 +35,7 @@ export function ChatInterface(props: IChatPanelProps) {
         onInputChange={chat.setInput}
         onKeyDown={chat.handleKeyDown}
         onSend={chat.sendMessage}
+        availableCommands={availableCommands}
       />
     </div>
   );

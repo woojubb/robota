@@ -384,6 +384,10 @@ function PlaygroundContent(): React.ReactElement {
                 isAgentReady={isAgentReady}
                 onSendMessage={handleSendMessage}
                 starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
+                availableCommands={activeSkills.map((s) => ({
+                  name: s.id,
+                  description: s.description,
+                }))}
               />
             ) : (
               <CodeExportPanel

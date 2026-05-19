@@ -95,8 +95,10 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
   session.on('error', onError);
   session.on('interrupted', onInterrupted);
 
+  const isSlashCommand = message.startsWith('/');
+
   try {
-    await session.submit(message);
+    await session.submit(message, undefined, isSlashCommand ? message : undefined);
   } catch (err) {
     cleanup();
     sendEvent(res, {
