@@ -28,7 +28,7 @@ describe('CodeExportPanel', () => {
     await act(async () => {
       vi.advanceTimersByTime(400);
     });
-    expect(screen.getAllByText(/Robota/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/robota-sdk/).length).toBeGreaterThan(0);
   });
 
   it('shows Copy Code button when agent is configured', () => {

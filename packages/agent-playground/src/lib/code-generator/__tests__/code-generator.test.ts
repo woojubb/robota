@@ -119,7 +119,7 @@ describe('generateAgentCode', () => {
     expect(code).toContain('InteractiveSession');
   });
 
-  it('generates InteractiveSession with skill-only systemPrompt when base prompt is empty', () => {
+  it('generates InteractiveSession with skill content in commandModules when base prompt is empty', () => {
     const state: IAssemblyState = {
       agent: { provider: 'openai', model: 'gpt-4o-mini', systemPrompt: '' },
       tools: [],
@@ -127,7 +127,8 @@ describe('generateAgentCode', () => {
     };
     const code = generateAgentCode(state);
 
-    expect(code).toContain('systemPrompt:');
+    expect(code).not.toContain('systemPrompt:');
+    expect(code).toContain('commandModules');
     expect(code).toContain('You are an expert at summarizing content.');
     expect(code).toContain('InteractiveSession');
   });

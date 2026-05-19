@@ -4,7 +4,9 @@ import type { IPlaygroundAgentConfig } from '../robota-executor';
 import type { TSseEvent } from '../robota-executor/sse-client';
 
 const sseMocks = vi.hoisted(() => ({
-  sseExecute: vi.fn(),
+  createSession: vi.fn(),
+  sseSessionSubmit: vi.fn(),
+  destroySession: vi.fn(),
   logger: {
     debug: vi.fn(),
     error: vi.fn(),
@@ -14,7 +16,9 @@ const sseMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../robota-executor/sse-client', () => ({
-  sseExecute: sseMocks.sseExecute,
+  createSession: sseMocks.createSession,
+  sseSessionSubmit: sseMocks.sseSessionSubmit,
+  destroySession: sseMocks.destroySession,
 }));
 
 function makeEventStream(...events: TSseEvent[]) {
@@ -53,9 +57,16 @@ function createConfig(overrides: Partial<IPlaygroundAgentConfig> = {}): IPlaygro
 
 describe('PlaygroundExecutor', () => {
   beforeEach(() => {
-    sseMocks.sseExecute.mockClear();
+    sseMocks.createSession.mockReset();
+    sseMocks.createSession.mockResolvedValue({ sessionId: 'test-session-id' });
+    sseMocks.sseSessionSubmit.mockReset();
+    sseMocks.sseSessionSubmit.mockImplementation(makeEventStream(DONE_EVENT));
+    sseMocks.destroySession.mockReset();
+    sseMocks.destroySession.mockResolvedValue(undefined);
     sseMocks.logger.debug.mockClear();
     sseMocks.logger.error.mockClear();
+    sseMocks.logger.info.mockClear();
+    sseMocks.logger.warn.mockClear();
   });
 
   it('creates agent and records UI interaction', async () => {
@@ -75,14 +86,14 @@ describe('PlaygroundExecutor', () => {
       success: false,
       response: 'No agent configured',
     });
-    expect(sseMocks.sseExecute).not.toHaveBeenCalled();
+    expect(sseMocks.sseSessionSubmit).not.toHaveBeenCalled();
   });
 
   it('runs prompt via SSE and accumulates text_delta into response', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
-    sseMocks.sseExecute.mockImplementation(
+    sseMocks.sseSessionSubmit.mockImplementation(
       makeEventStream(
         { type: 'text_delta', data: { text: 'hello ' } },
         { type: 'text_delta', data: { text: 'world' } },
@@ -92,14 +103,11 @@ describe('PlaygroundExecutor', () => {
 
     const result = await executor.run('say something');
 
-    expect(sseMocks.sseExecute).toHaveBeenCalledWith(
+    expect(sseMocks.sseSessionSubmit).toHaveBeenCalledWith(
       'ws://api.example.test/ws/playground',
       undefined,
-      expect.objectContaining({
-        provider: 'openai',
-        model: 'gpt-4o-mini',
-        message: 'say something',
-      }),
+      'test-session-id',
+      'say something',
     );
     expect(result).toMatchObject({
       success: true,
@@ -107,17 +115,11 @@ describe('PlaygroundExecutor', () => {
     });
   });
 
-  it('forwards BYOK apiKey to sseExecute', async () => {
+  it('forwards BYOK apiKey to createSession', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig({ apiKey: 'sk-byok-key' }));
 
-    sseMocks.sseExecute.mockImplementation(
-      makeEventStream({ type: 'text_delta', data: { text: 'ok' } }, DONE_EVENT),
-    );
-
-    await executor.run('test');
-
-    expect(sseMocks.sseExecute).toHaveBeenCalledWith(
+    expect(sseMocks.createSession).toHaveBeenCalledWith(
       expect.any(String),
       'sk-byok-key',
       expect.any(Object),
@@ -128,7 +130,7 @@ describe('PlaygroundExecutor', () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
-    sseMocks.sseExecute.mockImplementation(
+    sseMocks.sseSessionSubmit.mockImplementation(
       makeEventStream({ type: 'error', data: { message: 'Provider error' } }),
     );
 
@@ -144,7 +146,7 @@ describe('PlaygroundExecutor', () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
-    sseMocks.sseExecute.mockImplementation(
+    sseMocks.sseSessionSubmit.mockImplementation(
       makeEventStream(
         { type: 'text_delta', data: { text: 'part1' } },
         { type: 'text_delta', data: { text: 'part2' } },
@@ -196,73 +198,57 @@ describe('PlaygroundExecutor', () => {
     expect(config.tools).toEqual([{ name: 'tool-a' }]);
   });
 
-  it('includes registered tools in sseExecute request body', async () => {
+  it('stores registered tools in agent configuration', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
     await executor.updateAgentToolsFromCard('agent-1', { id: 'web_search', name: 'web_search' });
 
-    sseMocks.sseExecute.mockImplementation(
-      makeEventStream({ type: 'text_delta', data: { text: 'done' } }, DONE_EVENT),
-    );
-
-    await executor.run('search something');
-
-    expect(sseMocks.sseExecute).toHaveBeenCalledWith(
-      expect.any(String),
-      undefined,
-      expect.objectContaining({ tools: ['web_search'] }),
-    );
+    const config = await executor.getAgentConfiguration('agent-1');
+    expect(config.tools).toEqual([{ name: 'web_search' }]);
   });
 
-  it('passes conversation history to subsequent SSE calls', async () => {
+  it('submits subsequent prompts via same session ID', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
-
-    sseMocks.sseExecute
-      .mockImplementationOnce(
-        makeEventStream({ type: 'text_delta', data: { text: 'first reply' } }, DONE_EVENT),
-      )
-      .mockImplementationOnce(
-        makeEventStream({ type: 'text_delta', data: { text: 'second reply' } }, DONE_EVENT),
-      );
 
     await executor.run('first message');
     await executor.run('second message');
 
-    const secondCallBody = sseMocks.sseExecute.mock.calls[1]?.[2];
-    expect(secondCallBody.history).toEqual([
-      { role: 'user', content: 'first message' },
-      { role: 'assistant', content: 'first reply' },
-    ]);
+    expect(sseMocks.sseSessionSubmit).toHaveBeenCalledTimes(2);
+    expect(sseMocks.sseSessionSubmit).toHaveBeenNthCalledWith(
+      2,
+      expect.any(String),
+      undefined,
+      'test-session-id',
+      'second message',
+    );
   });
 
-  it('clears conversation history on clearHistory', async () => {
+  it('clears visualization events on clearHistory', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
-    sseMocks.sseExecute.mockImplementation(
+    sseMocks.sseSessionSubmit.mockImplementation(
       makeEventStream({ type: 'text_delta', data: { text: 'reply' } }, DONE_EVENT),
     );
     await executor.run('message');
 
     executor.clearHistory();
-    sseMocks.sseExecute.mockClear();
 
-    sseMocks.sseExecute.mockImplementation(
-      makeEventStream({ type: 'text_delta', data: { text: 'reply2' } }, DONE_EVENT),
-    );
-    await executor.run('after clear');
-
-    const body = sseMocks.sseExecute.mock.calls[0]?.[2];
-    expect(body.history).toEqual([]);
+    expect(executor.getVisualizationData().events).toHaveLength(0);
   });
 
-  it('disposes the history plugin on dispose', async () => {
+  it('calls destroySession and disposes history plugin on dispose', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
 
     await executor.dispose();
 
+    expect(sseMocks.destroySession).toHaveBeenCalledWith(
+      expect.any(String),
+      undefined,
+      'test-session-id',
+    );
     expect(sseMocks.logger.debug).toHaveBeenCalledWith('PlaygroundHistoryPlugin disposed');
   });
 });
