@@ -119,6 +119,7 @@ export interface IAgentConfig {
   // Performance and limits
   timeout?: number;
   maxExecutionRounds?: number;
+  maxSameToolInputs?: number;
   retryAttempts?: number;
   rateLimiting?: {
     enabled?: boolean;
@@ -174,6 +175,8 @@ export interface IRunOptions {
    * Use 0 for no core round cap.
    */
   maxExecutionRounds?: number;
+  /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
+  maxSameToolInputs?: number;
 }
 
 export type TExecutionEventData = Record<string, unknown>;

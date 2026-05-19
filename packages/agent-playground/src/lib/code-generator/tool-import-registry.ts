@@ -8,10 +8,6 @@ const TOOL_IMPORTS: Record<string, IToolImportEntry> = {
     importPath: '@robota-sdk/agent-tools',
     factoryName: 'createCurrentTimeTool',
   },
-  assignTask: {
-    importPath: '@robota-sdk/agent-team',
-    factoryName: 'createAssignTaskRelayTool',
-  },
 };
 
 export function getToolImportEntry(toolId: string): IToolImportEntry | undefined {

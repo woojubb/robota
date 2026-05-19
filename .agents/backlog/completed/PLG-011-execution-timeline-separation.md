@@ -1,6 +1,6 @@
 ---
 title: 'PLG-011: Execution Timeline 분리 — 조립 캔버스와 실행 트레이스를 별도 영역으로'
-status: todo
+status: done
 created: 2026-05-19
 priority: medium
 urgency: later
