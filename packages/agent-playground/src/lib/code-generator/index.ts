@@ -6,6 +6,8 @@ export interface IAssemblyState {
   };
   tools: string[];
   skills: string[];
+  permissionMode?: 'bypassPermissions' | 'default' | 'acceptEdits' | 'plan';
+  maxTurns?: number;
 }
 
 export { serializeToCode as generateAgentCode } from './assembly-serializer';

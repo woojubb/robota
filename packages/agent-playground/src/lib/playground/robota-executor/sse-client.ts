@@ -46,6 +46,18 @@ export interface ISseExecuteRequest {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
+export interface ISessionCreateRequest {
+  provider: string;
+  model: string;
+  systemPrompt?: string;
+  permissionMode?: string;
+  maxTurns?: number;
+}
+
+export interface ISessionCreateResponse {
+  sessionId: string;
+}
+
 function buildBaseUrl(serverUrl: string): string {
   return serverUrl
     .replace(/^wss/, 'https')
@@ -54,20 +66,23 @@ function buildBaseUrl(serverUrl: string): string {
     .replace(/\/ws$/, '');
 }
 
+function buildHeaders(apiKey: string | undefined): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['X-Provider-API-Key'] = apiKey;
+  }
+  return headers;
+}
+
 export async function* sseExecute(
   serverUrl: string,
   apiKey: string | undefined,
   body: ISseExecuteRequest,
 ): AsyncGenerator<TSseEvent> {
   const baseUrl = buildBaseUrl(serverUrl);
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey) {
-    headers['X-Provider-API-Key'] = apiKey;
-  }
-
   const resp = await fetch(`${baseUrl}/api/playground/execute`, {
     method: 'POST',
-    headers,
+    headers: buildHeaders(apiKey),
     body: JSON.stringify(body),
   });
 
@@ -76,7 +91,64 @@ export async function* sseExecute(
     throw new Error(`SSE request failed (${resp.status}): ${text}`);
   }
 
-  const reader = resp.body.getReader();
+  yield* readSseStream(resp.body);
+}
+
+export async function createSession(
+  serverUrl: string,
+  apiKey: string | undefined,
+  body: ISessionCreateRequest,
+): Promise<ISessionCreateResponse> {
+  const baseUrl = buildBaseUrl(serverUrl);
+  const resp = await fetch(`${baseUrl}/api/playground/sessions`, {
+    method: 'POST',
+    headers: buildHeaders(apiKey),
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => 'Unknown error'); // allow-fallback: http error body read is best-effort
+    throw new Error(`Session create failed (${resp.status}): ${text}`);
+  }
+
+  return resp.json() as Promise<ISessionCreateResponse>;
+}
+
+export async function* sseSessionSubmit(
+  serverUrl: string,
+  apiKey: string | undefined,
+  sessionId: string,
+  message: string,
+): AsyncGenerator<TSseEvent> {
+  const baseUrl = buildBaseUrl(serverUrl);
+  const resp = await fetch(`${baseUrl}/api/playground/sessions/${sessionId}/submit`, {
+    method: 'POST',
+    headers: buildHeaders(apiKey),
+    body: JSON.stringify({ message }),
+  });
+
+  if (!resp.ok || !resp.body) {
+    const text = await resp.text().catch(() => 'Unknown error'); // allow-fallback: http error body read is best-effort
+    throw new Error(`Session submit failed (${resp.status}): ${text}`);
+  }
+
+  yield* readSseStream(resp.body);
+}
+
+export async function destroySession(
+  serverUrl: string,
+  apiKey: string | undefined,
+  sessionId: string,
+): Promise<void> {
+  const baseUrl = buildBaseUrl(serverUrl);
+  await fetch(`${baseUrl}/api/playground/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: buildHeaders(apiKey),
+  });
+}
+
+async function* readSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator<TSseEvent> {
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 
