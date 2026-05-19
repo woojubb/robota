@@ -18,6 +18,7 @@ export interface ISlashCommand {
 export interface IChatPanelProps {
   isAgentReady: boolean;
   onSendMessage?: (message: string) => Promise<string>;
+  onClearChat?: () => void;
   starterPrompts?: string[];
   availableCommands?: ISlashCommand[];
   initialMessages?: IChatPanelMessage[];

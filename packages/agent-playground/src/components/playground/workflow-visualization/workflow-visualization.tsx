@@ -61,6 +61,16 @@ function WorkflowVisualizationContent({
     setEdges(flowData.edges);
   }, [flowData, setNodes, setEdges]);
 
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__robota_dag = {
+      nodes,
+      edges,
+      events,
+      recompute: () => eventsToFlow(events),
+      test: (mockEvents: IConversationEvent[]) => eventsToFlow(mockEvents),
+    };
+  }, [nodes, edges, events]);
+
   const handleDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/robota-tool')) {
       e.preventDefault();

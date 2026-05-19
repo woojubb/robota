@@ -183,7 +183,7 @@ function buildByokBaseUrl(wsUrl: string): string {
 
 function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
-  const { setToolItems, setConversationHistory } = usePlaygroundActions();
+  const { setToolItems, setConversationHistory, clearHistory } = usePlaygroundActions();
   const { createAgent, popRestoredMessages, getDefaultAgentConfig, executePrompt, canExecute } =
     useRobotaExecution();
   const { injectToolIntoAgent } = usePlaygroundActions();
@@ -292,6 +292,16 @@ function PlaygroundContent(): React.ReactElement {
       setAgentDraft(null);
       closeModal();
     }
+  };
+
+  const handleClearChat = () => {
+    if (isByokMode) {
+      byokHistoryRef.current = [];
+    } else {
+      clearHistory();
+    }
+    setInitialMessages([]);
+    setChatKey((k) => k + 1);
   };
 
   const handleSendMessage = async (message: string): Promise<string> => {
@@ -552,6 +562,7 @@ function PlaygroundContent(): React.ReactElement {
                 key={chatKey}
                 isAgentReady={isAgentReady}
                 onSendMessage={handleSendMessage}
+                onClearChat={handleClearChat}
                 starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
                 availableCommands={activeSkills.map((s) => ({
                   name: s.id,
