@@ -441,6 +441,12 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [WEB-004](WEB-004-playground-interactive-ux.md) | Playground 온보딩/에러 상태 UI + Mermaid 아키텍처 다이어그램 | high     |
 | [PROD-001](PROD-001-public-playground.md)       | 퍼블릭 플레이그라운드 — API 키 입력 즉시 체험 데모 (BYOK)    | high     |
 
+### Tool Quality (2026-05-19)
+
+| ID                                             | 제목                                                                 | 우선순위 |
+| ---------------------------------------------- | -------------------------------------------------------------------- | -------- |
+| [TOOL-001](TOOL-001-web-fetch-error-detail.md) | WebFetch 오류 메시지 구체화 — LLM이 실패 원인을 정확히 파악하게 개선 | high     |
+
 ### Playground — Visual Agent Code Generator (2026-05-19)
 
 `@robota-sdk/agent-framework` 기반 에이전트 앱 조립 도구. 캔버스에서 provider + model +

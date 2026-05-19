@@ -130,11 +130,17 @@ export class PermissionEnforcer {
             toolArgs: parameters as TToolArgs,
             success: false,
             denied: true,
+            executionId: context?.executionId,
           });
           return PERMISSION_DENIED_RESULT;
         }
 
-        enforcer.onToolExecution?.({ type: 'start', toolName, toolArgs: parameters as TToolArgs });
+        enforcer.onToolExecution?.({
+          type: 'start',
+          toolName,
+          toolArgs: parameters as TToolArgs,
+          executionId: context?.executionId,
+        });
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
 
@@ -150,6 +156,7 @@ export class PermissionEnforcer {
             typeof truncatedResult.data === 'string'
               ? truncatedResult.data
               : JSON.stringify(truncatedResult.data),
+          executionId: context?.executionId,
         });
 
         const dataSize =
