@@ -48,6 +48,7 @@ export interface IPermissionEnforcerOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];

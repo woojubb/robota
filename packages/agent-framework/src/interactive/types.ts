@@ -25,6 +25,7 @@ export interface IToolState {
   diffLines?: IDiffLine[];
   diffFile?: string;
   toolResultData?: string;
+  executionId?: string;
 }
 
 /** A single diff line for Edit tool display. */

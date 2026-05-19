@@ -13,12 +13,27 @@ import {
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
-import { Bot, Trash2, Wrench, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import {
+  Bot,
+  Trash2,
+  Wrench,
+  Sparkles,
+  Wifi,
+  WifiOff,
+  Loader2,
+  FileText,
+  X,
+  History,
+  Clock,
+} from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import type { IPlaygroundSkillMeta } from '../../skills/catalog';
 import { getPlaygroundSkillCatalog } from '../../skills/catalog';
 import { ChatInterface } from '../../components/playground/chat-interface';
+import type { IChatPanelMessage } from '../../components/playground/chat-interface/types';
+import { fetchSessions } from '../../lib/playground/robota-executor/sse-client';
+import type { ISessionSummary } from '../../lib/playground/robota-executor/sse-client';
 import { Toaster } from '../../components/ui/sonner';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
@@ -168,8 +183,9 @@ function buildByokBaseUrl(wsUrl: string): string {
 
 function PlaygroundContent(): React.ReactElement {
   const state = usePlaygroundState();
-  const { setToolItems } = usePlaygroundActions();
-  const { createAgent, getDefaultAgentConfig, executePrompt, canExecute } = useRobotaExecution();
+  const { setToolItems, setConversationHistory } = usePlaygroundActions();
+  const { createAgent, popRestoredMessages, getDefaultAgentConfig, executePrompt, canExecute } =
+    useRobotaExecution();
   const { injectToolIntoAgent } = usePlaygroundActions();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
@@ -179,6 +195,7 @@ function PlaygroundContent(): React.ReactElement {
   const toolItems = state.toolItems;
   const skillCatalog = useMemo(() => getPlaygroundSkillCatalog(), []);
   const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
+  const [skillMdViewer, setSkillMdViewer] = useState<IPlaygroundSkillMeta | null>(null);
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [lastAddedToolId, setLastAddedToolId] = useState<string | null>(null);
   const sortedToolItems = useMemo(
@@ -190,6 +207,30 @@ function PlaygroundContent(): React.ReactElement {
   const byokHistoryRef = useRef<TByokMessage[]>([]);
   const isByokMode = !state.isInitialized && !!providerConfig;
   const byokBaseUrl = buildByokBaseUrl(state.serverUrl);
+
+  // Session management state
+  const [chatKey, setChatKey] = useState(0);
+  const [initialMessages, setInitialMessages] = useState<IChatPanelMessage[]>([]);
+  const [sessions, setSessions] = useState<ISessionSummary[]>([]);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const sessionsRef = useRef<HTMLDivElement | null>(null);
+
+  // Close sessions dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sessionsRef.current && !sessionsRef.current.contains(e.target as Node)) {
+        setSessionsOpen(false);
+      }
+    };
+    if (sessionsOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [sessionsOpen]);
+
+  const loadSessions = async () => {
+    if (isByokMode) return;
+    const list = await fetchSessions(state.serverUrl, undefined);
+    setSessions(list);
+  };
 
   useEffect(() => {
     if (!lastAddedToolId) return;
@@ -224,9 +265,30 @@ function PlaygroundContent(): React.ReactElement {
     toast({ title: 'Tool removed', description: `${tool.name} was removed.` });
   };
 
-  const handleAgentSubmit = async () => {
+  const handleAgentSubmit = async (resumeSessionId?: string) => {
+    const resolvedResumeSessionId =
+      typeof resumeSessionId === 'string' ? resumeSessionId : undefined;
     if (agentDraft) {
-      await createAgent(agentDraft);
+      const skills = activeSkills;
+      await createAgent({
+        ...agentDraft,
+        skills,
+        ...(resolvedResumeSessionId ? { resumeSessionId: resolvedResumeSessionId } : {}),
+      });
+      const restored = popRestoredMessages()
+        .filter(
+          (m): m is typeof m & { role: 'user' | 'assistant' } =>
+            m.role === 'user' || m.role === 'assistant',
+        )
+        .map((m, i) => ({
+          id: `restored-${i}`,
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(),
+          status: 'sent' as const,
+        }));
+      setInitialMessages(restored);
+      setChatKey((k) => k + 1);
       setAgentDraft(null);
       closeModal();
     }
@@ -280,6 +342,15 @@ function PlaygroundContent(): React.ReactElement {
     toast({ title: `${tool.name} added to agent` });
   };
 
+  const recreateAgentWithSkills = async (newSkillIds: string[]) => {
+    const config = state.currentAgentConfig;
+    if (!config) return;
+    const newSkills = skillCatalog.filter((s) => newSkillIds.includes(s.id));
+    await createAgent({ ...config, skills: newSkills });
+    setInitialMessages([]);
+    setChatKey((k) => k + 1);
+  };
+
   const handleDropSkill = (skill: IPlaygroundSkillMeta) => {
     if (!currentAgentId) {
       toast({ title: 'Create an agent first', variant: 'destructive' });
@@ -289,13 +360,54 @@ function PlaygroundContent(): React.ReactElement {
       toast({ title: `${skill.name} already added`, variant: 'default' });
       return;
     }
-    setActiveSkillIds((prev) => [...prev, skill.id]);
+    const newIds = [...activeSkillIds, skill.id];
+    setActiveSkillIds(newIds);
+    void recreateAgentWithSkills(newIds);
     toast({ title: `${skill.name} added to agent` });
   };
 
   const handleRemoveSkill = (skill: IPlaygroundSkillMeta) => {
-    setActiveSkillIds((prev) => prev.filter((id) => id !== skill.id));
+    const newIds = activeSkillIds.filter((id) => id !== skill.id);
+    setActiveSkillIds(newIds);
+    void recreateAgentWithSkills(newIds);
     toast({ title: 'Skill removed', description: `${skill.name} was removed.` });
+  };
+
+  const handleRestoreSession = async (sessionSummary: ISessionSummary) => {
+    setSessionsOpen(false);
+    const config = state.currentAgentConfig ?? getDefaultAgentConfig();
+    await createAgent({ ...config, skills: activeSkills, resumeSessionId: sessionSummary.id });
+    const restoredMsgs = popRestoredMessages();
+    const restored = restoredMsgs
+      .filter(
+        (m): m is typeof m & { role: 'user' | 'assistant' } =>
+          m.role === 'user' || m.role === 'assistant',
+      )
+      .map((m, i) => ({
+        id: `chat-restored-${i}`,
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(),
+        status: 'sent' as const,
+      }));
+    setInitialMessages(restored);
+    setChatKey((k) => k + 1);
+    setConversationHistory(
+      restoredMsgs.map((m, i) => ({
+        id: `restored-${i}`,
+        type: (m.role === 'user'
+          ? 'user_message'
+          : m.role === 'assistant'
+            ? 'assistant_response'
+            : m.role === 'tool_call'
+              ? 'tool_call_start'
+              : 'tool_call_complete') as import('../../lib/playground/plugins/playground-history-plugin').TPlaygroundEventName,
+        timestamp: new Date(),
+        content: m.content,
+        toolName: m.toolName,
+      })),
+    );
+    toast({ title: 'Session restored', description: `${restored.length} messages loaded` });
   };
 
   if (!state.isInitialized && !providerConfig) {
@@ -319,6 +431,63 @@ function PlaygroundContent(): React.ReactElement {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {!isByokMode && state.isInitialized && (
+            <div ref={sessionsRef} className="relative">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={async () => {
+                  if (!sessionsOpen) await loadSessions();
+                  setSessionsOpen((o) => !o);
+                }}
+              >
+                <History className="h-3.5 w-3.5" />
+                Sessions
+              </Button>
+              {sessionsOpen && (
+                <div className="absolute right-0 top-full mt-1 w-80 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border text-xs font-medium text-muted-foreground">
+                    Saved sessions
+                  </div>
+                  {sessions.length === 0 ? (
+                    <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                      No saved sessions yet
+                    </div>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto">
+                      {sessions.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
+                          onClick={() => void handleRestoreSession(s)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-foreground truncate">
+                              {s.name ?? s.id.slice(0, 8)}
+                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {s.messageCount}
+                            </span>
+                          </div>
+                          {s.preview && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {s.preview}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground/60 mt-0.5">
+                            {new Date(s.updatedAt).toLocaleString()}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {!isByokMode && (
             <Button
               onClick={() => {
@@ -380,9 +549,15 @@ function PlaygroundContent(): React.ReactElement {
           <div className="flex-1 overflow-hidden">
             {chatTab === 'chat' ? (
               <ChatInterface
+                key={chatKey}
                 isAgentReady={isAgentReady}
                 onSendMessage={handleSendMessage}
                 starterPrompts={isAgentReady ? BYOK_STARTER_PROMPTS : undefined}
+                availableCommands={activeSkills.map((s) => ({
+                  name: s.id,
+                  description: s.description,
+                }))}
+                initialMessages={initialMessages}
               />
             ) : (
               <CodeExportPanel
@@ -549,17 +724,31 @@ function PlaygroundContent(): React.ReactElement {
                           </div>
                         )}
                       </button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={!activeSkillIds.includes(skill.id)}
-                        onClick={() => handleRemoveSkill(skill)}
-                        title={activeSkillIds.includes(skill.id) ? 'Remove skill' : 'Not yet added'}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSkillMdViewer(skill)}
+                          title="View SKILL.md"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-violet-400" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={!activeSkillIds.includes(skill.id)}
+                          onClick={() => handleRemoveSkill(skill)}
+                          title={
+                            activeSkillIds.includes(skill.id) ? 'Remove skill' : 'Not yet added'
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -585,6 +774,33 @@ function PlaygroundContent(): React.ReactElement {
         onSubmit={handleSubmitAddTool}
         onClose={closeModal}
       />
+      {skillMdViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg shadow-xl w-[640px] max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                <span className="text-sm font-semibold text-foreground">
+                  {skillMdViewer.name} — SKILL.md
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setSkillMdViewer(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-5">
+              <pre className="text-xs text-muted-foreground font-mono whitespace-pre-wrap leading-relaxed">
+                {skillMdViewer.skillMdContent}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

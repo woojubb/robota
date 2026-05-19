@@ -19,7 +19,8 @@ import {
   type IVisualizationData,
 } from '../plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
-import { sseExecute } from './sse-client';
+import { createSession, sseSessionSubmit, destroySession } from './sse-client';
+import type { IRestoredMessage } from './sse-client';
 import { mapSseEventToConversationEvent } from './event-mapper';
 import type {
   IPlaygroundAgentConfig,
@@ -44,7 +45,8 @@ export class PlaygroundExecutor {
   private readonly eventService: IEventService;
   private readonly logger: ILogger;
   private localConfig: ILocalAgentConfig | null = null;
-  private conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  private sessionId: string | null = null;
+  private restoredMessages: IRestoredMessage[] = [];
 
   constructor(
     private serverUrl: string,
@@ -58,6 +60,12 @@ export class PlaygroundExecutor {
   }
 
   async createAgent(config: IPlaygroundAgentConfig): Promise<void> {
+    if (this.sessionId) {
+      const oldSessionId = this.sessionId;
+      this.sessionId = null;
+      void destroySession(this.serverUrl, this.localConfig?.apiKey, oldSessionId);
+    }
+
     this.localConfig = {
       provider: config.defaultModel.provider,
       model: config.defaultModel.model,
@@ -65,13 +73,35 @@ export class PlaygroundExecutor {
       systemPrompt: config.defaultModel.systemMessage ?? config.systemMessage,
       toolIds: [],
     };
-    this.conversationHistory = [];
     this.historyPlugin.clearEvents();
     await this.statisticsPlugin.recordUIInteraction('agent_create', {
       agentName: config.name,
       provider: config.defaultModel.provider,
       model: config.defaultModel.model,
     });
+
+    const skills = config.skills?.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      skillMdContent: s.skillMdContent,
+    }));
+
+    const sessionResponse = await createSession(this.serverUrl, this.localConfig.apiKey, {
+      provider: this.localConfig.provider,
+      model: this.localConfig.model,
+      systemPrompt: this.localConfig.systemPrompt,
+      ...(skills && skills.length > 0 ? { skills } : {}),
+      ...(config.resumeSessionId ? { resumeSessionId: config.resumeSessionId } : {}),
+    });
+    this.sessionId = sessionResponse.sessionId;
+    this.restoredMessages = sessionResponse.messages ?? [];
+  }
+
+  popRestoredMessages(): IRestoredMessage[] {
+    const msgs = this.restoredMessages;
+    this.restoredMessages = [];
+    return msgs;
   }
 
   async updateAgentTools(
@@ -98,7 +128,7 @@ export class PlaygroundExecutor {
   }
 
   async run(prompt: string): Promise<IPlaygroundExecutorResult> {
-    if (!this.localConfig) {
+    if (!this.localConfig || !this.sessionId) {
       return createFailureResult({
         response: 'No agent configured',
         duration: 0,
@@ -110,9 +140,11 @@ export class PlaygroundExecutor {
 
     const startTime = Date.now();
     const textAccumulator = { value: '' };
+    const taskTextAccumulators = new Map<string, string>();
+    const sessionId = this.sessionId;
+    const { apiKey } = this.localConfig;
 
     try {
-      // allow-fallback: execution errors return IPlaygroundExecutorResult, not thrown
       this.historyPlugin.recordEvent({
         id: crypto.randomUUID(),
         type: 'user_message',
@@ -120,17 +152,14 @@ export class PlaygroundExecutor {
         content: prompt,
       });
 
-      const stream = sseExecute(this.serverUrl, this.localConfig.apiKey, {
-        provider: this.localConfig.provider,
-        model: this.localConfig.model,
-        tools: this.localConfig.toolIds.length > 0 ? this.localConfig.toolIds : undefined,
-        systemPrompt: this.localConfig.systemPrompt,
-        message: prompt,
-        history: [...this.conversationHistory],
-      });
+      const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
 
       for await (const sseEvent of stream) {
-        const conversationEvent = mapSseEventToConversationEvent(sseEvent, textAccumulator);
+        const conversationEvent = mapSseEventToConversationEvent(
+          sseEvent,
+          textAccumulator,
+          taskTextAccumulators,
+        );
         if (conversationEvent) {
           this.historyPlugin.recordEvent(conversationEvent);
         }
@@ -140,9 +169,6 @@ export class PlaygroundExecutor {
       }
 
       const response = textAccumulator.value || 'No response';
-      this.conversationHistory.push({ role: 'user', content: prompt });
-      this.conversationHistory.push({ role: 'assistant', content: response });
-
       const duration = Date.now() - startTime;
       await recordExecutionStats(this.statisticsPlugin, this.mode, {
         success: true,
@@ -180,7 +206,7 @@ export class PlaygroundExecutor {
     prompt: string,
     onChunk?: (chunk: string) => void,
   ): Promise<IPlaygroundExecutorResult> {
-    if (!this.localConfig) {
+    if (!this.localConfig || !this.sessionId) {
       return createFailureResult({
         response: 'No agent configured',
         duration: 0,
@@ -192,23 +218,22 @@ export class PlaygroundExecutor {
 
     const startTime = Date.now();
     const textAccumulator = { value: '' };
+    const taskTextAccumulators = new Map<string, string>();
+    const sessionId = this.sessionId;
+    const { apiKey } = this.localConfig;
 
     try {
-      // allow-fallback: execution errors return IPlaygroundExecutorResult, not thrown
-      const stream = sseExecute(this.serverUrl, this.localConfig.apiKey, {
-        provider: this.localConfig.provider,
-        model: this.localConfig.model,
-        tools: this.localConfig.toolIds.length > 0 ? this.localConfig.toolIds : undefined,
-        systemPrompt: this.localConfig.systemPrompt,
-        message: prompt,
-        history: [...this.conversationHistory],
-      });
+      const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
 
       for await (const sseEvent of stream) {
         if (sseEvent.type === 'text_delta') {
           onChunk?.(sseEvent.data.text);
         }
-        const conversationEvent = mapSseEventToConversationEvent(sseEvent, textAccumulator);
+        const conversationEvent = mapSseEventToConversationEvent(
+          sseEvent,
+          textAccumulator,
+          taskTextAccumulators,
+        );
         if (conversationEvent) {
           this.historyPlugin.recordEvent(conversationEvent);
         }
@@ -218,9 +243,6 @@ export class PlaygroundExecutor {
       }
 
       const response = textAccumulator.value || 'No response';
-      this.conversationHistory.push({ role: 'user', content: prompt });
-      this.conversationHistory.push({ role: 'assistant', content: response });
-
       const duration = Date.now() - startTime;
       return createSuccessResult({
         response,
@@ -279,11 +301,15 @@ export class PlaygroundExecutor {
   }
 
   clearHistory(): void {
-    this.conversationHistory = [];
     this.historyPlugin.clearEvents();
   }
 
   async dispose(): Promise<void> {
+    if (this.sessionId) {
+      const sessionId = this.sessionId;
+      this.sessionId = null;
+      await destroySession(this.serverUrl, this.localConfig?.apiKey, sessionId);
+    }
     await this.historyPlugin.dispose();
   }
 
