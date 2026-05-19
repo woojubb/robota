@@ -8,6 +8,7 @@ function makeId(): string {
 export function mapSseEventToConversationEvent(
   event: TSseEvent,
   textAccumulator: { value: string },
+  taskTextAccumulators?: Map<string, string>,
 ): IConversationEvent | null {
   switch (event.type) {
     case 'tool_call_start':
@@ -52,6 +53,56 @@ export function mapSseEventToConversationEvent(
         type: 'tool_call_error',
         timestamp: new Date(),
         content: event.data.message,
+      };
+
+    case 'agent_job_created':
+      return {
+        id: `job-created-${event.data.taskId}`,
+        type: 'agent_job_created',
+        timestamp: new Date(),
+        taskId: event.data.taskId,
+        content: event.data.label,
+        metadata: { agentType: event.data.agentType, label: event.data.label },
+      };
+
+    case 'agent_job_started':
+      return null;
+
+    case 'agent_job_text_delta':
+      if (taskTextAccumulators) {
+        const prev = taskTextAccumulators.get(event.data.taskId) ?? '';
+        taskTextAccumulators.set(event.data.taskId, prev + event.data.delta);
+      }
+      return null;
+
+    case 'agent_job_tool_start':
+      return null;
+
+    case 'agent_job_tool_end':
+      return null;
+
+    case 'agent_job_completed': {
+      const accumulatedText = taskTextAccumulators?.get(event.data.taskId) ?? '';
+      taskTextAccumulators?.delete(event.data.taskId);
+      return {
+        id: `job-completed-${event.data.taskId}`,
+        type: 'agent_job_completed',
+        timestamp: new Date(),
+        taskId: event.data.taskId,
+        content: accumulatedText,
+        metadata: { agentType: event.data.agentType, label: event.data.label },
+      };
+    }
+
+    case 'agent_job_failed':
+      taskTextAccumulators?.delete(event.data.taskId);
+      return {
+        id: `job-failed-${event.data.taskId}`,
+        type: 'agent_job_failed',
+        timestamp: new Date(),
+        taskId: event.data.taskId,
+        content: event.data.label,
+        metadata: { label: event.data.label },
       };
   }
 }

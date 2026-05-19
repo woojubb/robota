@@ -1,6 +1,6 @@
 import { getSession } from '../../session/playground-session-store.js';
 
-import type { IToolState } from '@robota-sdk/agent-framework';
+import type { IToolState, TBackgroundTaskEvent } from '@robota-sdk/agent-framework';
 import type { Request, Response } from 'express';
 
 interface ISessionSubmitBody {
@@ -79,6 +79,58 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
     res.end();
   };
 
+  const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void => {
+    switch (event.type) {
+      case 'background_task_created':
+        sendEvent(res, {
+          type: 'agent_job_created',
+          data: {
+            taskId: event.task.id,
+            label: event.task.label,
+            agentType: event.task.agentType ?? 'general-purpose',
+          },
+        });
+        break;
+      case 'background_task_started':
+        sendEvent(res, { type: 'agent_job_started', data: { taskId: event.task.id } });
+        break;
+      case 'background_task_text_delta':
+        sendEvent(res, {
+          type: 'agent_job_text_delta',
+          data: { taskId: event.taskId, delta: event.delta },
+        });
+        break;
+      case 'background_task_tool_start':
+        sendEvent(res, {
+          type: 'agent_job_tool_start',
+          data: { taskId: event.taskId, toolName: event.toolName, firstArg: event.firstArg },
+        });
+        break;
+      case 'background_task_tool_end':
+        sendEvent(res, {
+          type: 'agent_job_tool_end',
+          data: { taskId: event.taskId, toolName: event.toolName, success: event.success },
+        });
+        break;
+      case 'background_task_completed':
+        sendEvent(res, {
+          type: 'agent_job_completed',
+          data: {
+            taskId: event.task.id,
+            label: event.task.label,
+            agentType: event.task.agentType,
+          },
+        });
+        break;
+      case 'background_task_failed':
+        sendEvent(res, {
+          type: 'agent_job_failed',
+          data: { taskId: event.task.id, label: event.task.label },
+        });
+        break;
+    }
+  };
+
   function cleanup(): void {
     session.off('text_delta', onTextDelta);
     session.off('tool_start', onToolStart);
@@ -86,6 +138,7 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
     session.off('complete', onComplete);
     session.off('error', onError);
     session.off('interrupted', onInterrupted);
+    session.off('background_task_event', onBackgroundTaskEvent);
   }
 
   session.on('text_delta', onTextDelta);
@@ -94,6 +147,7 @@ export async function playgroundSessionSubmitHandler(req: Request, res: Response
   session.on('complete', onComplete);
   session.on('error', onError);
   session.on('interrupted', onInterrupted);
+  session.on('background_task_event', onBackgroundTaskEvent);
 
   const isSlashCommand = message.startsWith('/');
 

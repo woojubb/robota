@@ -3,7 +3,14 @@ export type TSseEventType =
   | 'tool_call_complete'
   | 'text_delta'
   | 'done'
-  | 'error';
+  | 'error'
+  | 'agent_job_created'
+  | 'agent_job_started'
+  | 'agent_job_text_delta'
+  | 'agent_job_tool_start'
+  | 'agent_job_tool_end'
+  | 'agent_job_completed'
+  | 'agent_job_failed';
 
 export interface ISseToolCallStart {
   type: 'tool_call_start';
@@ -30,12 +37,54 @@ export interface ISseError {
   data: { message: string };
 }
 
+export interface ISseAgentJobCreated {
+  type: 'agent_job_created';
+  data: { taskId: string; label: string; agentType: string };
+}
+
+export interface ISseAgentJobStarted {
+  type: 'agent_job_started';
+  data: { taskId: string };
+}
+
+export interface ISseAgentJobTextDelta {
+  type: 'agent_job_text_delta';
+  data: { taskId: string; delta: string };
+}
+
+export interface ISseAgentJobToolStart {
+  type: 'agent_job_tool_start';
+  data: { taskId: string; toolName: string; firstArg?: string };
+}
+
+export interface ISseAgentJobToolEnd {
+  type: 'agent_job_tool_end';
+  data: { taskId: string; toolName: string; success: boolean };
+}
+
+export interface ISseAgentJobCompleted {
+  type: 'agent_job_completed';
+  data: { taskId: string; label: string; agentType?: string };
+}
+
+export interface ISseAgentJobFailed {
+  type: 'agent_job_failed';
+  data: { taskId: string; label: string };
+}
+
 export type TSseEvent =
   | ISseToolCallStart
   | ISseToolCallComplete
   | ISseTextDelta
   | ISseDone
-  | ISseError;
+  | ISseError
+  | ISseAgentJobCreated
+  | ISseAgentJobStarted
+  | ISseAgentJobTextDelta
+  | ISseAgentJobToolStart
+  | ISseAgentJobToolEnd
+  | ISseAgentJobCompleted
+  | ISseAgentJobFailed;
 
 export interface ISseExecuteRequest {
   provider: string;

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { MessageSquare, Bot, Wrench, CheckCircle, XCircle } from 'lucide-react';
+import { MessageSquare, Bot, Wrench, CheckCircle, XCircle, Cpu, AlertTriangle } from 'lucide-react';
 import type { IFlowNodeData } from './events-to-flow';
 
 const CONTENT_PREVIEW_LENGTH = 80;
@@ -108,6 +108,53 @@ export function ToolErrorNode({ data }: NodeProps) {
       {d.content && (
         <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{preview(d.content)}</p>
       )}
+    </NodeShell>
+  );
+}
+
+export function AgentJobCreatedNode({ data }: NodeProps) {
+  const d = data as IFlowNodeData;
+  const label = (d.metadata?.label as string) || d.content || 'Agent job';
+  const agentType = (d.metadata?.agentType as string) || '';
+  return (
+    <NodeShell accentColor="border-l-4 border-l-violet-500">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Cpu className="h-3 w-3 text-violet-400 shrink-0 animate-pulse" />
+        <span className="font-semibold text-xs text-foreground">Agent spawned</span>
+      </div>
+      <p className="text-xs text-violet-300 font-medium leading-relaxed truncate">{label}</p>
+      {agentType && <p className="text-xs text-muted-foreground leading-relaxed">{agentType}</p>}
+    </NodeShell>
+  );
+}
+
+export function AgentJobCompletedNode({ data }: NodeProps) {
+  const d = data as IFlowNodeData;
+  const label = (d.metadata?.label as string) || 'Agent result';
+  return (
+    <NodeShell accentColor="border-l-4 border-l-teal-500">
+      <div className="flex items-center gap-1.5 mb-1">
+        <CheckCircle className="h-3 w-3 text-teal-400 shrink-0" />
+        <span className="font-semibold text-xs text-foreground">Agent done</span>
+      </div>
+      <p className="text-xs text-teal-300 font-medium leading-none truncate mb-1">{label}</p>
+      {d.content && (
+        <p className="text-xs text-muted-foreground leading-relaxed">{preview(d.content)}</p>
+      )}
+    </NodeShell>
+  );
+}
+
+export function AgentJobFailedNode({ data }: NodeProps) {
+  const d = data as IFlowNodeData;
+  const label = (d.metadata?.label as string) || d.content || 'Agent job';
+  return (
+    <NodeShell accentColor="border-l-4 border-l-rose-500">
+      <div className="flex items-center gap-1.5 mb-1">
+        <AlertTriangle className="h-3 w-3 text-rose-400 shrink-0" />
+        <span className="font-semibold text-xs text-foreground">Agent failed</span>
+      </div>
+      <p className="text-xs text-rose-300 font-medium leading-relaxed truncate">{label}</p>
     </NodeShell>
   );
 }

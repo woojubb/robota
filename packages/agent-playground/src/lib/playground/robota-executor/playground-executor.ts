@@ -140,6 +140,7 @@ export class PlaygroundExecutor {
 
     const startTime = Date.now();
     const textAccumulator = { value: '' };
+    const taskTextAccumulators = new Map<string, string>();
     const sessionId = this.sessionId;
     const { apiKey } = this.localConfig;
 
@@ -154,7 +155,11 @@ export class PlaygroundExecutor {
       const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
 
       for await (const sseEvent of stream) {
-        const conversationEvent = mapSseEventToConversationEvent(sseEvent, textAccumulator);
+        const conversationEvent = mapSseEventToConversationEvent(
+          sseEvent,
+          textAccumulator,
+          taskTextAccumulators,
+        );
         if (conversationEvent) {
           this.historyPlugin.recordEvent(conversationEvent);
         }
@@ -213,6 +218,7 @@ export class PlaygroundExecutor {
 
     const startTime = Date.now();
     const textAccumulator = { value: '' };
+    const taskTextAccumulators = new Map<string, string>();
     const sessionId = this.sessionId;
     const { apiKey } = this.localConfig;
 
@@ -223,7 +229,11 @@ export class PlaygroundExecutor {
         if (sseEvent.type === 'text_delta') {
           onChunk?.(sseEvent.data.text);
         }
-        const conversationEvent = mapSseEventToConversationEvent(sseEvent, textAccumulator);
+        const conversationEvent = mapSseEventToConversationEvent(
+          sseEvent,
+          textAccumulator,
+          taskTextAccumulators,
+        );
         if (conversationEvent) {
           this.historyPlugin.recordEvent(conversationEvent);
         }
