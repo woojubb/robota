@@ -1,6 +1,7 @@
 ---
 title: 'PROD-001: 퍼블릭 플레이그라운드 — API 키 입력 즉시 체험 데모'
-status: todo
+status: done
+completed: 2026-05-18
 created: 2026-05-18
 priority: high
 urgency: later

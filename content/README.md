@@ -15,7 +15,7 @@ lang: en-US
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-**[→ 2-minute CLI install](#installation)** &nbsp;|&nbsp; **[→ Build your first agent](./getting-started/)**
+**[→ 2-minute CLI install](#installation)** &nbsp;|&nbsp; **[→ Build your first agent](./getting-started/)** &nbsp;|&nbsp; **[→ Try Playground](https://play.robota.io/playground)**
 
 ---
 

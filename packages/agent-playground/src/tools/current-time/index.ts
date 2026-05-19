@@ -5,6 +5,7 @@ import type { IPlaygroundToolMeta } from '../types';
 export const CURRENT_TIME_META: IPlaygroundToolMeta = {
   id: 'current-time',
   name: 'Current Time',
+  type: 'builtin',
   description: 'Get current date and time information with timezone support',
   category: 'utility',
   tags: ['time', 'date', 'timezone', 'utility'],
