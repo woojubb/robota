@@ -301,6 +301,7 @@ export class PlaygroundExecutor {
   }
 
   clearHistory(): void {
+    this.conversationHistory = [];
     this.historyPlugin.clearEvents();
   }
 
