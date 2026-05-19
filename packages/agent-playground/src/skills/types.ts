@@ -3,5 +3,6 @@ export interface IPlaygroundSkillMeta {
   name: string;
   description: string;
   tags: string[];
-  systemPromptAddition: string;
+  /** Full SKILL.md content including frontmatter */
+  skillMdContent: string;
 }

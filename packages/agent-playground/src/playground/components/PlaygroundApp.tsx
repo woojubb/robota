@@ -13,7 +13,7 @@ import {
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
-import { Bot, Trash2, Wrench, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Bot, Trash2, Wrench, Sparkles, Wifi, WifiOff, Loader2, FileText, X } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import type { IPlaygroundSkillMeta } from '../../skills/catalog';
@@ -179,6 +179,7 @@ function PlaygroundContent(): React.ReactElement {
   const toolItems = state.toolItems;
   const skillCatalog = useMemo(() => getPlaygroundSkillCatalog(), []);
   const [activeSkillIds, setActiveSkillIds] = useState<string[]>([]);
+  const [skillMdViewer, setSkillMdViewer] = useState<IPlaygroundSkillMeta | null>(null);
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [lastAddedToolId, setLastAddedToolId] = useState<string | null>(null);
   const sortedToolItems = useMemo(
@@ -549,17 +550,31 @@ function PlaygroundContent(): React.ReactElement {
                           </div>
                         )}
                       </button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={!activeSkillIds.includes(skill.id)}
-                        onClick={() => handleRemoveSkill(skill)}
-                        title={activeSkillIds.includes(skill.id) ? 'Remove skill' : 'Not yet added'}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSkillMdViewer(skill)}
+                          title="View SKILL.md"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-violet-400" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={!activeSkillIds.includes(skill.id)}
+                          onClick={() => handleRemoveSkill(skill)}
+                          title={
+                            activeSkillIds.includes(skill.id) ? 'Remove skill' : 'Not yet added'
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -585,6 +600,33 @@ function PlaygroundContent(): React.ReactElement {
         onSubmit={handleSubmitAddTool}
         onClose={closeModal}
       />
+      {skillMdViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg shadow-xl w-[640px] max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-violet-400" />
+                <span className="text-sm font-semibold text-foreground">
+                  {skillMdViewer.name} — SKILL.md
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setSkillMdViewer(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-5">
+              <pre className="text-xs text-muted-foreground font-mono whitespace-pre-wrap leading-relaxed">
+                {skillMdViewer.skillMdContent}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

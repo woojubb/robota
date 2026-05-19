@@ -46,12 +46,20 @@ export interface ISseExecuteRequest {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
+export interface ISessionSkill {
+  id: string;
+  name: string;
+  description: string;
+  skillMdContent: string;
+}
+
 export interface ISessionCreateRequest {
   provider: string;
   model: string;
   systemPrompt?: string;
   permissionMode?: string;
   maxTurns?: number;
+  skills?: ISessionSkill[];
 }
 
 export interface ISessionCreateResponse {

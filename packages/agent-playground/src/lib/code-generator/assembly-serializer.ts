@@ -6,14 +6,6 @@ function escapeTemplateLiteral(str: string): string {
   return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 }
 
-function buildSystemPrompt(state: IAssemblyState): string {
-  const skillAdditions = (state.skills ?? [])
-    .map((id) => getSkillById(id)?.systemPromptAddition)
-    .filter(Boolean) as string[];
-
-  return [state.agent.systemPrompt, ...skillAdditions].filter(Boolean).join('\n\n');
-}
-
 function hasSkills(state: IAssemblyState): boolean {
   return (state.skills ?? []).length > 0;
 }
@@ -30,13 +22,11 @@ function buildProviderParts(state: IAssemblyState): {
 }
 
 function buildCommonOptions(state: IAssemblyState, providerLine: string): string[] {
-  const systemPrompt = buildSystemPrompt(state);
   const permissionMode = state.permissionMode ?? 'bypassPermissions';
-
   const options: string[] = [providerLine, `  permissionMode: '${permissionMode}',`];
 
-  if (systemPrompt) {
-    const escaped = escapeTemplateLiteral(systemPrompt);
+  if (state.agent.systemPrompt) {
+    const escaped = escapeTemplateLiteral(state.agent.systemPrompt);
     options.push(`  systemPrompt: \`${escaped}\`,`);
   }
 
@@ -45,6 +35,40 @@ function buildCommonOptions(state: IAssemblyState, providerLine: string): string
   }
 
   return options;
+}
+
+function buildSkillCommandSourceLines(state: IAssemblyState): string[] {
+  const skillIds = state.skills ?? [];
+  const skills = skillIds
+    .map((id) => getSkillById(id))
+    .filter((s): s is NonNullable<typeof s> => s !== undefined);
+
+  if (skills.length === 0) return [];
+
+  const skillEntries = skills
+    .map((s) => `    { name: '${s.id}', content: \`${escapeTemplateLiteral(s.skillMdContent)}\` },`)
+    .join('\n');
+
+  return [
+    '  commandModules: [',
+    '    {',
+    "      name: 'playground-skills',",
+    '      commandSources: [',
+    '        {',
+    "          name: 'skill',",
+    '          getCommands() {',
+    '            return [',
+    ...skills.map(
+      (s) =>
+        `              { name: '${s.id}', description: '${s.description}', source: 'skill', skillContent: \`${escapeTemplateLiteral(s.skillMdContent)}\` },`,
+    ),
+    '            ];',
+    '          },',
+    '        },',
+    '      ],',
+    '    },',
+    '  ],',
+  ];
 }
 
 // The string literals below are written into generated code files — not executed here.
@@ -70,7 +94,12 @@ function generateCreateQueryCode(state: IAssemblyState): string {
 
 function generateInteractiveSessionCode(state: IAssemblyState): string {
   const { importLine, providerLine } = buildProviderParts(state);
-  const options = ['  cwd: process.cwd(),', ...buildCommonOptions(state, providerLine)];
+  const skillLines = buildSkillCommandSourceLines(state);
+  const options = [
+    '  cwd: process.cwd(),',
+    ...buildCommonOptions(state, providerLine),
+    ...skillLines,
+  ];
 
   return [
     `import { InteractiveSession } from '@robota-sdk/agent-framework';`,

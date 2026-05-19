@@ -7,7 +7,7 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { addSession } from '../../session/playground-session-store.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IResolvedConfig } from '@robota-sdk/agent-framework';
+import type { IResolvedConfig, ICommandModule } from '@robota-sdk/agent-framework';
 import type { Request, Response } from 'express';
 
 const ENV_KEY_MAP: Record<string, string> = {
@@ -32,17 +32,53 @@ function createProvider(providerName: string, apiKey: string): IAIProvider {
   }
 }
 
+interface ISkillEntry {
+  id?: unknown;
+  name?: unknown;
+  description?: unknown;
+  skillMdContent?: unknown;
+}
+
 interface ISessionCreateBody {
   provider?: unknown;
   model?: unknown;
   systemPrompt?: unknown;
   permissionMode?: unknown;
   maxTurns?: unknown;
+  skills?: unknown;
+}
+
+function buildSkillCommandModule(skills: ISkillEntry[]): ICommandModule {
+  const commands = skills
+    .filter(
+      (s): s is { id: string; name: string; description: string; skillMdContent: string } =>
+        typeof s.skillMdContent === 'string' &&
+        typeof s.name === 'string' &&
+        typeof s.description === 'string',
+    )
+    .map((s) => ({
+      name: typeof s.id === 'string' && s.id ? s.id : s.name,
+      description: s.description,
+      source: 'skill' as const,
+      skillContent: s.skillMdContent,
+    }));
+
+  return {
+    name: 'playground-skills',
+    commandSources: [
+      {
+        name: 'skill',
+        getCommands() {
+          return commands;
+        },
+      },
+    ],
+  };
 }
 
 export async function playgroundSessionCreateHandler(req: Request, res: Response): Promise<void> {
   const body = req.body as ISessionCreateBody;
-  const { provider: providerName, model, systemPrompt, permissionMode, maxTurns } = body;
+  const { provider: providerName, model, systemPrompt, permissionMode, maxTurns, skills } = body;
 
   if (typeof providerName !== 'string' || !providerName) {
     res.status(400).json({ error: 'Missing or invalid "provider" field' });
@@ -83,6 +119,11 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
 
   const provider = createProvider(providerName, apiKey);
 
+  const commandModules: ICommandModule[] = [];
+  if (Array.isArray(skills) && skills.length > 0) {
+    commandModules.push(buildSkillCommandModule(skills as ISkillEntry[]));
+  }
+
   const session = new InteractiveSession({
     cwd: process.cwd(),
     provider,
@@ -90,6 +131,7 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
     maxTurns: resolvedMaxTurns,
     bare: true,
     config,
+    ...(commandModules.length > 0 ? { commandModules } : {}),
     ...(typeof systemPrompt === 'string' && systemPrompt.trim().length > 0
       ? { systemPrompt: systemPrompt.trim() }
       : {}),
