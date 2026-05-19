@@ -214,8 +214,17 @@ function logBackgroundTaskEvent(
   sessionId: string,
   event: TBackgroundTaskEvent,
 ): void {
+  const correlationFields: Record<string, string> = {};
+  if (event.type === 'background_task_created') {
+    correlationFields['taskId'] = event.task.id;
+    const originToolCallId = event.task.metadata?.['executionOriginToolCallId'];
+    if (typeof originToolCallId === 'string') {
+      correlationFields['originToolCallId'] = originToolCallId;
+    }
+  }
   logger.log(sessionId, 'background_task_event', {
     backgroundEventType: event.type,
     backgroundEvent: event,
+    ...correlationFields,
   });
 }
