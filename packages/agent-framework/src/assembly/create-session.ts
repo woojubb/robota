@@ -3,6 +3,8 @@
  * tools, and provider.
  */
 
+import { join } from 'node:path';
+
 import { Session } from '@robota-sdk/agent-session';
 
 import {
@@ -14,6 +16,7 @@ import {
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
+import { readSettings, writeSettings } from '../config/settings-io.js';
 import { AgentExecutor } from '../hooks/agent-executor.js';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
@@ -183,6 +186,26 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     deny: options.config.permissions.deny ?? [],
   };
 
+  const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
+  function onProjectAllowTool(toolName: string): void {
+    const pattern = `${toolName}(*)`;
+    const settings = readSettings(projectSettingsPath);
+    const currentAllow = Array.isArray(settings.permissions)
+      ? []
+      : (((settings.permissions as Record<string, unknown> | undefined)?.allow as
+          | string[]
+          | undefined) ?? []);
+    if (!currentAllow.includes(pattern)) {
+      writeSettings(projectSettingsPath, {
+        ...settings,
+        permissions: {
+          ...((settings.permissions as Record<string, unknown>) ?? {}),
+          allow: [...currentAllow, pattern],
+        },
+      });
+    }
+  }
+
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
     tools,
@@ -199,6 +222,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     sessionStore: options.sessionStore,
     sessionId,
     permissionHandler: options.permissionHandler,
+    onProjectAllowTool,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
