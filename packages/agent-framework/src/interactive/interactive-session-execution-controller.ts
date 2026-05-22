@@ -21,6 +21,7 @@ import {
   applyToolStart,
   applyToolEnd,
 } from './interactive-session-streaming.js';
+import { humanizeApiError } from '../utils/error-humanizer.js';
 
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
@@ -246,9 +247,10 @@ export class SessionExecutionController {
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
     } catch (err) {
+      // allow-fallback: fork-skill errors must not crash the main execution thread
       const error = err instanceof Error ? err : new Error(String(err));
       this.histTracker.append(
-        messageToHistoryEntry(createSystemMessage(`Error: ${error.message}`)),
+        messageToHistoryEntry(createSystemMessage(`Error: ${humanizeApiError(error)}`)),
       );
       this.callbacks.emit('error', error);
       return { mode: 'fork', result: '' };

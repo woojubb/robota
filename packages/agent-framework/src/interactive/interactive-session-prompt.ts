@@ -20,6 +20,7 @@ import {
   preparePromptInput,
 } from './interactive-session-execution.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
+import { humanizeApiError } from '../utils/error-humanizer.js';
 
 import type { IToolState, IExecutionResult } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
@@ -109,9 +110,10 @@ export async function executePromptTurn(
     } else {
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
       ctx.clearStreaming();
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errObj = err instanceof Error ? err : new Error(String(err));
+      const errMsg = humanizeApiError(errObj);
       history.push(messageToHistoryEntry(createSystemMessage(`Error: ${errMsg}`)));
-      ctx.onError(err instanceof Error ? err : new Error(errMsg));
+      ctx.onError(errObj);
     }
   }
 }
