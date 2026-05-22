@@ -2,6 +2,7 @@ import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from '@robota-sdk/agent-framework';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { printHelp } from '../utils/cli-args.js';
+import { runInitCommand } from '../init/init-command.js';
 import { runResetConfig } from './reset-config.js';
 
 export type TPreflightResult = { handled: true } | { handled: false };
@@ -9,12 +10,17 @@ export type TPreflightResult = { handled: true } | { handled: false };
 export interface IPreflightContext {
   version: string;
   terminal: ITerminalOutput;
+  cwd: string;
 }
 
 export async function handlePreflightCommands(
   args: IParsedCliArgs,
   ctx: IPreflightContext,
 ): Promise<TPreflightResult> {
+  if (args.positional[0] === 'init') {
+    await runInitCommand(ctx.cwd, ctx.terminal);
+    return { handled: true };
+  }
   if (args.help) {
     ctx.terminal.write(printHelp());
     return { handled: true };

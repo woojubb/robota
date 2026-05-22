@@ -75,8 +75,12 @@ Options:
   --version                  Show version number
   -h, --help                 Show this help message
 
+Commands:
+  robota init                      Initialize AGENTS.md and .robota/settings.json
+
 Examples:
   robota                           Start interactive TUI session
+  robota init                      Initialize project files
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
   robota --continue                Resume the last session
