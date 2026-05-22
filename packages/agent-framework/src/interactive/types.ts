@@ -13,8 +13,9 @@ import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/
 import type { ICompactEvent } from '@robota-sdk/agent-session';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
- *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
-export type TPermissionResultValue = boolean | 'allow-session';
+ *  true = allow, false = deny, 'allow-session' = allow and remember for this session,
+ *  'allow-project' = allow and persist to .robota/settings.local.json. */
+export type TPermissionResultValue = boolean | 'allow-session' | 'allow-project';
 
 /** Tool execution state visible to clients. */
 export interface IToolState {
