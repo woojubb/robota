@@ -31,15 +31,17 @@ The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled f
 
 ## Robota vs Alternatives
 
-|                                | **Robota**   | Claude Code       | LangChain JS      | OpenAI Agents SDK |
-| ------------------------------ | ------------ | ----------------- | ----------------- | ----------------- |
-| Multi-provider (one API)       | ✅           | ❌ Anthropic only | ✅ complex        | ❌ OpenAI only    |
-| TypeScript-first, strict types | ✅           | ✅                | ⚠️ Python primary | ✅                |
-| Ready-to-use CLI included      | ✅           | ✅                | ❌                | ❌                |
-| Self-hostable / open source    | ✅ MIT       | ❌ proprietary    | ✅                | ✅                |
-| Local model support            | ✅ LM Studio | ❌                | ✅                | ❌                |
-| Embeddable SDK (HTTP/WS/MCP)   | ✅           | ❌                | ⚠️ limited        | ⚠️ limited        |
-| Zero `any` in production code  | ✅           | n/a               | ❌                | ❌                |
+|                                        | **Robota** |    Claude Code    |     Cursor      | Aider | Cline |
+| -------------------------------------- | :--------: | :---------------: | :-------------: | :---: | :---: |
+| Multi-provider (one config)            |     ✅     | ❌ Anthropic only |   ❌ limited    |  ✅   |  ✅   |
+| BYOK — no subscription required        |     ✅     |        ✅         | ❌ subscription |  ✅   |  ✅   |
+| Local model support (Ollama/LM Studio) |     ✅     |        ❌         |       ❌        |  ✅   |  ✅   |
+| Embeddable SDK (use in your own app)   |     ✅     |        ❌         |       ❌        |  ❌   |  ❌   |
+| Open source (MIT)                      |     ✅     |  ❌ proprietary   | ❌ proprietary  |  ✅   |  ✅   |
+| Terminal CLI                           |     ✅     |        ✅         |   ❌ IDE only   |  ✅   |  ✅   |
+| Session persistence & resume           |     ✅     |        ✅         |       ✅        |  ❌   |  ❌   |
+
+**[→ Full comparison: features, cost, and when to choose each tool](/compare/)**
 
 ## Claude Code Users: Drop-in Compatible
 
