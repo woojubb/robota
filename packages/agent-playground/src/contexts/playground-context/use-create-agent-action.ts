@@ -17,6 +17,7 @@ export function useCreateAgentAction(
         await refs.executorRef.current.createAgent(config);
         dispatch({ type: 'ADD_AGENT_CONFIG', payload: config });
         dispatch({ type: 'CLEAR_AGENT_TOOL_OVERLAY', payload: config.id ?? config.name });
+        dispatch({ type: 'CLEAR_CONVERSATION_HISTORY' });
         dispatch({ type: 'SET_LOADING', payload: false });
       } catch (error) {
         dispatch({

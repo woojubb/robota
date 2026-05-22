@@ -47,6 +47,9 @@ export class PlaygroundExecutor {
   private localConfig: ILocalAgentConfig | null = null;
   private sessionId: string | null = null;
   private restoredMessages: IRestoredMessage[] = [];
+  // Incremented on every clearHistory()/createAgent() call so in-flight SSE loops can
+  // detect a mid-execution clear and stop recording stale events.
+  private executionToken = 0;
 
   constructor(
     private serverUrl: string,
@@ -73,6 +76,7 @@ export class PlaygroundExecutor {
       systemPrompt: config.defaultModel.systemMessage ?? config.systemMessage,
       toolIds: [],
     };
+    this.executionToken++;
     this.historyPlugin.clearEvents();
     await this.statisticsPlugin.recordUIInteraction('agent_create', {
       agentName: config.name,
@@ -152,6 +156,7 @@ export class PlaygroundExecutor {
     const taskTextAccumulators = new Map<string, string>();
     const sessionId = this.sessionId;
     const { apiKey } = this.localConfig;
+    const myToken = this.executionToken;
 
     try {
       this.historyPlugin.recordEvent({
@@ -164,6 +169,8 @@ export class PlaygroundExecutor {
       const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
 
       for await (const sseEvent of stream) {
+        // clearHistory()/createAgent() increments executionToken; stop recording stale events.
+        if (this.executionToken !== myToken) break;
         const conversationEvent = mapSseEventToConversationEvent(
           sseEvent,
           textAccumulator,
@@ -230,11 +237,14 @@ export class PlaygroundExecutor {
     const taskTextAccumulators = new Map<string, string>();
     const sessionId = this.sessionId;
     const { apiKey } = this.localConfig;
+    const myToken = this.executionToken;
 
     try {
       const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
 
       for await (const sseEvent of stream) {
+        // clearHistory()/createAgent() increments executionToken; stop recording stale events.
+        if (this.executionToken !== myToken) break;
         if (sseEvent.type === 'text_delta') {
           onChunk?.(sseEvent.data.text);
         }
@@ -310,6 +320,7 @@ export class PlaygroundExecutor {
   }
 
   clearHistory(): void {
+    this.executionToken++;
     if (this.sessionId) {
       const sessionId = this.sessionId;
       this.sessionId = null;
