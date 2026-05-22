@@ -1,6 +1,6 @@
 ---
 title: 'PM-012: 플러그인 개발 가이드 + 플러그인 디렉토리 페이지'
-status: todo
+status: done
 created: 2026-05-23
 priority: high
 urgency: later

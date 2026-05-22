@@ -46,6 +46,7 @@ export default defineConfig({
             'local-llm.md',
             'permissions-and-hooks.md',
             'context-management.md',
+            'plugins.md',
           ];
 
           // Check if current path is guide folder
