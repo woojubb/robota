@@ -22,11 +22,11 @@ nvm use 22
 ## Installation
 
 ```bash
-# Global install
-npm install -g @robota-sdk/agent-cli
-
-# Or run directly with npx
+# Try it now — no install needed
 npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
+npm install -g @robota-sdk/agent-cli
 ```
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.

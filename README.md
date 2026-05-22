@@ -9,6 +9,10 @@ A TypeScript framework for building AI agents with multi-provider support, tool 
 ### CLI — AI Coding Assistant
 
 ```bash
+# Try it now (no install needed)
+npx @robota-sdk/agent-cli
+
+# Or install globally for persistent use
 npm install -g @robota-sdk/agent-cli
 robota
 ```

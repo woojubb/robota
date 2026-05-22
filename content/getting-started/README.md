@@ -24,8 +24,7 @@
 Install [LM Studio](https://lmstudio.ai/) → Download any model → Enable local server
 
 ```bash
-npm install -g @robota-sdk/agent-cli
-robota  # Select "LM Studio" when prompted — no API key needed
+npx @robota-sdk/agent-cli  # Select "LM Studio" when prompted — no API key needed
 ```
 
 ---
@@ -43,6 +42,10 @@ Choose the packages you need based on your use case:
 ### I want a ready-to-use coding assistant
 
 ```bash
+# Try it now — no install needed
+npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
 npm install -g @robota-sdk/agent-cli
 ```
 
@@ -60,17 +63,12 @@ npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-pro
 
 ## Quick Start — CLI (Robota Coding Assistant)
 
-Install the CLI globally:
-
 ```bash
+# Try it now — no install needed
+npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
 npm install -g @robota-sdk/agent-cli
-# or
-pnpm add -g @robota-sdk/agent-cli
-```
-
-Start the assistant:
-
-```bash
 robota
 ```
 
