@@ -43,6 +43,7 @@ export default defineConfig({
             'building-agents.md',
             'sdk.md',
             'cli.md',
+            'local-llm.md',
             'permissions-and-hooks.md',
             'context-management.md',
           ];

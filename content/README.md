@@ -43,6 +43,26 @@ The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled f
 
 **[→ Full comparison: features, cost, and when to choose each tool](/compare/)**
 
+## No API Key Needed — Run Local Models
+
+Robota works offline with [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai). Your code and prompts never leave your machine.
+
+```bash
+# 1. Start Ollama
+ollama pull llama3.2 && ollama serve
+
+# 2. Configure Robota to use it
+robota --configure
+# Select "Gemma / LM Studio", set URL: http://localhost:11434/v1
+
+# 3. Run with no API key
+robota
+```
+
+**→ [Full local LLM setup guide](/guide/local-llm)**
+
+---
+
 ## Claude Code Users: Drop-in Compatible
 
 Already using Claude Code? **Robota reads your existing `.claude/` settings without modification.**
