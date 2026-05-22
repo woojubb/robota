@@ -11,7 +11,7 @@ flowchart TD
   ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
   Assembly["Assembly/API layers\nagent-framework, agent-command"]
   TransportShells["Transport shells\nagent-transport/tui, agent-transport/ws, agent-transport/http,\nagent-transport/headless, agent-transport/mcp"]
-  Orchestration["Orchestration\nagent-team, agent-remote-client"]
+  Orchestration["Orchestration\nagent-remote-client (agent-team: placeholder)"]
   Playground["Playground packages\nagent-playground"]
   Sessions["Session services\nagent-session"]
   Executor["Runtime services\nagent-executor"]
@@ -61,8 +61,8 @@ types, but the current packages achieve full isolation with no deps at all.
 It depends on agent-framework, agent-executor, and agent-provider but must not import from
 agent-command or agent-cli.
 
-`Playground → Orchestration`: agent-playground is the sole production consumer of agent-team.
-No Assembly-layer package (agent-framework, agent-command) depends on agent-team.
+`Playground → Orchestration`: `agent-remote-client` is consumed by `agent-playground`.
+`agent-team` is a placeholder (no exports) — the previous `assignTask` pattern was removed in TOOL-002.
 
 Layer rules:
 
