@@ -34,6 +34,7 @@ export function buildPermissionEnforcer(
     onToolExecution: options.onToolExecution,
     hookTypeExecutors: options.hookTypeExecutors,
     transcriptPath,
+    onProjectAllowTool: options.onProjectAllowTool,
   });
 }
 
