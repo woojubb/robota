@@ -1,6 +1,6 @@
 ---
 title: 'PM-010: Changelog 공개 페이지 (robota.io/changelog)'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later

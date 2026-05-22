@@ -216,7 +216,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 - [Getting Started](./getting-started/) — Installation and first steps
 - [Guide](./guide/) — Architecture, building agents, SDK, CLI
-- [Release Notes: 2026-05-02](./guide/release-2026-05-02.md) — Beta.59 snapshot, CI/deploy build reuse, and npm dist-tag status
+- [Changelog](./changelog/) — What's new in each release
 - [Examples](./examples/) — Working code samples
 - [Development](./development/) — Contributing and monorepo setup
 
