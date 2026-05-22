@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-SPEC-001: 누락된 SPEC.md 작성 — agent-interface-transport, agent-interface-tui, agent-remote-client'
-status: todo
+status: done
+completed: 2026-05-22
 created: 2026-05-20
 priority: medium
 urgency: later

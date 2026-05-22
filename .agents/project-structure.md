@@ -47,7 +47,7 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 
 ## Command Package Rule
 
-User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
+User-visible internal commands belong in `agent-command` or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
 
 ## Interface Package Rule
 
