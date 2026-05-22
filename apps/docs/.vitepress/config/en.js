@@ -3,6 +3,7 @@ export const enConfig = {
     // Navigation menu
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Why Robota', link: '/compare/' },
       { text: 'Getting Started', link: '/getting-started/' },
       { text: 'Guide', link: '/guide/' },
       { text: 'Examples', link: '/examples/' },
