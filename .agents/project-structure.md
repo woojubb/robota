@@ -13,7 +13,7 @@ packages/
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
-├── agent-team/                  # Team collaboration (assignTask relay tools)
+├── agent-team/                  # Reserved for future multi-agent coordination capabilities
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
@@ -47,7 +47,7 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 
 ## Command Package Rule
 
-User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
+User-visible internal commands belong in `agent-command` or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
 
 ## Interface Package Rule
 

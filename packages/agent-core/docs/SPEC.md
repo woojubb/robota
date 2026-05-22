@@ -460,22 +460,25 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                                        | Description                                                          |
-| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                 |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context       |
-| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries           |
-| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.          |
-| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls    |
-| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call               |
-| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited. |
-| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks        |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback     |
-| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds     |
-| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                        |
-| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion        |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled       |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`          |
+| Interface                    | Field                                        | Description                                                                        |
+| ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                               |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                     |
+| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                         |
+| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                        |
+| `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run. |
+| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                  |
+| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                             |
+| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.               |
+| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                 |
+| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                      |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                   |
+| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                   |
+| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                      |
+| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                  |
+| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                      |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                     |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                        |
 
 ### Replay Boundary Events
 
@@ -651,6 +654,8 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 ### Execution Loop Error Handling
 
 The default core execution round limit is 10 model/tool rounds. Callers can override it with `IRunOptions.maxExecutionRounds`, `IExecutionContext.maxExecutionRounds`, or `IAgentConfig.maxExecutionRounds`. Run-scoped values win over config defaults. A value of `0` means the execution loop has no round cap and relies on abort, context-window checks, provider idle timeout, and runtime-level controls to stop runaway execution.
+
+**Identical tool-input guard (`maxSameToolInputs`)**: If the same tool is invoked with byte-identical serialized inputs `N` or more times within a single run, the execution loop throws `AbortError` with message `"Tool '<name>' called with the same inputs <N> times. Aborting to prevent infinite loop."`. The threshold is resolved from (in priority order) `IExecutionContext.maxSameToolInputs`, `IRunOptions.maxSameToolInputs`, `IAgentConfig.maxSameToolInputs`. When undefined, the guard is disabled. Introduced in CORE-001.
 
 When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 

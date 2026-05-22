@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-REV-003: Fix stale package names in code-quality.md Layered Assembly Architecture section'
-status: todo
+status: done
+completed: 2026-05-22
 created: 2026-05-18
 priority: high
 urgency: now

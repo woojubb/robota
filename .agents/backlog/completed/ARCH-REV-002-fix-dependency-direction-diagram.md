@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-REV-002: Fix dependency-direction.md diagram errors (4 inaccuracies verified against package.json)'
-status: todo
+status: done
+completed: 2026-05-22
 created: 2026-05-18
 priority: critical
 urgency: now
