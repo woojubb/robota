@@ -7,6 +7,10 @@ State is managed by `TuiStateManager`, a pure TypeScript class (no React depende
 ## Installation
 
 ```bash
+# Try it now — no install needed
+npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
 npm install -g @robota-sdk/agent-cli
 ```
 
