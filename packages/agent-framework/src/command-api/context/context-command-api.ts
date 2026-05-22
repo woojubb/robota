@@ -25,6 +25,8 @@ export const AUTO_COMPACT_THRESHOLD_SETTINGS_KEY = 'autoCompactThreshold';
 export interface ICompactContextResult {
   before: IContextWindowState;
   after: IContextWindowState;
+  beforeMessageCount: number;
+  afterMessageCount: number;
 }
 
 /** Read context-window state through the command host facade. */
@@ -94,9 +96,11 @@ export async function compactCommandContext(
   instructions?: string,
 ): Promise<ICompactContextResult> {
   const before = readCommandContextState(context);
+  const beforeMessageCount = context.getSession().getMessageCount();
   await context.compactContext(instructions);
   const after = readCommandContextState(context);
-  return { before, after };
+  const afterMessageCount = context.getSession().getMessageCount();
+  return { before, after, beforeMessageCount, afterMessageCount };
 }
 
 /** List context reference inventory entries through the command host facade. */
