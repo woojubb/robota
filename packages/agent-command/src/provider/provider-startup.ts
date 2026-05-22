@@ -10,6 +10,7 @@ import {
   applyProviderConfiguration,
 } from '@robota-sdk/agent-framework';
 
+import { runOnboardingBranch } from './provider-onboarding.js';
 import {
   formatProviderSetupSelectionPrompt,
   resolveProviderSetupSelection,
@@ -38,11 +39,22 @@ export async function runProviderStartupSetup(
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[],
 ): Promise<void> {
-  const providerChoice = await promptInput(formatProviderSetupSelectionPrompt(providerDefinitions));
-  const type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
+  const onboarding = await runOnboardingBranch(promptInput, terminal);
+  const existingProfileNames = Object.keys(readMergedProviderSettings(cwd).providers ?? {});
   const settingsPath = resolveSettingsPathForScope(cwd, ctx.settingsScope);
+
+  let type: string;
+  if (onboarding.preselectedType !== undefined) {
+    type = onboarding.preselectedType;
+  } else {
+    const providerChoice = await promptInput(
+      formatProviderSetupSelectionPrompt(providerDefinitions),
+    );
+    type = resolveProviderSetupSelection(providerChoice, providerDefinitions);
+  }
+
   const input = await runProviderSetupPromptFlow(type, promptInput, providerDefinitions, {
-    existingProfileNames: Object.keys(readMergedProviderSettings(cwd).providers ?? {}),
+    existingProfileNames,
   });
   applyProviderConfiguration(settingsPath, input, { providerDefinitions });
   const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
