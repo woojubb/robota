@@ -6,7 +6,7 @@ import type { IUniversalObjectValue, TUniversalValue } from '../interfaces/types
  */
 export interface IExecutionProxyConfig {
   eventService: IEventService;
-  sourceType: 'agent' | 'team' | 'tool';
+  sourceType: 'agent' | 'tool';
   sourceId: string;
   enabledEvents?: {
     execution?: boolean;
