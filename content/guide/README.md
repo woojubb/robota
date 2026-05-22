@@ -10,3 +10,4 @@
 - [Release Notes: 2026-05-02](./release-2026-05-02.md) — Beta.59 snapshot covering agents, CLI, providers, CI/deploy, publish, and replay work
 - [Permissions and Hooks](./permissions-and-hooks.md) — Security model and lifecycle hooks
 - [Context Management](./context-management.md) — Token tracking, compaction, and streaming
+- [Building Plugins](./plugins.md) — Extend Robota with lifecycle hooks, event subscriptions, and community plugins
