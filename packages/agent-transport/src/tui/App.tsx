@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
+import { ContextWarningBanner } from './ContextWarningBanner.js';
 import {
   countActiveBackgroundWorkspaceEntries,
   getDefaultBackgroundWorkspaceEntries,
@@ -456,6 +457,7 @@ function AppInner(
           }}
         />
       )}
+      <ContextWarningBanner percentage={contextState.percentage} />
       <SessionStatusBar
         cwd={cwd}
         permissionMode={permissionMode}
