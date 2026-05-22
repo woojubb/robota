@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-REV-001: Fix project-structure.md accuracy — wrong paths and phantom packages'
-status: todo
+status: done
+completed: 2026-05-22
 created: 2026-05-18
 priority: critical
 urgency: now
