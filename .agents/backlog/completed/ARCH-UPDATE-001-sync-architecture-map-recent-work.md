@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-UPDATE-001: Architecture Map Sync — PLG-008~019, CORE-001, TOOL-001, DAG fix 반영'
-status: todo
+status: done
+completed: 2026-05-22
 created: 2026-05-20
 priority: high
 urgency: soon

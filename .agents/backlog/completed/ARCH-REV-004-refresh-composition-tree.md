@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-REV-004: Refresh composition-tree.md — stale post-CLIR refactor (startup sequence, TuiTransport, App.tsx)'
-status: todo
+status: done
+completed: 2026-05-22
 created: 2026-05-18
 priority: critical
 urgency: now
