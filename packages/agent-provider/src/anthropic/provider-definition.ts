@@ -29,7 +29,8 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
   return {
     type: 'anthropic',
     displayName: 'Anthropic',
-    description: 'Claude models through Anthropic API',
+    description: 'Claude series — strong at coding tasks. API key required.',
+    category: 'cloud-paid',
     defaults: {
       model: DEFAULT_ANTHROPIC_PROVIDER_MODEL,
       apiKey: DEFAULT_ANTHROPIC_PROVIDER_API_KEY_REFERENCE,
