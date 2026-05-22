@@ -26,7 +26,8 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     type: 'gemini',
     aliases: ['google'],
     displayName: 'Gemini',
-    description: 'Google Gemini API provider',
+    description: 'Google Gemini series — free tier available.',
+    category: 'cloud-free',
     defaults: {
       model: DEFAULT_GEMINI_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,

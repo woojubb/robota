@@ -177,12 +177,21 @@ export function formatProviderSetupPromptLabel(
   return `${prefix}  ${step.title}${suffix}: `;
 }
 
+const CATEGORY_BADGES: Record<string, string> = {
+  'cloud-paid': '[Cloud/Paid]',
+  'cloud-free': '[Cloud/Free]',
+  'local-free': '[Local/Free]',
+};
+
 export function formatProviderSetupChoiceLabel(definition: IProviderDefinition): string {
-  const label =
+  const badge =
+    definition.category !== undefined ? `${CATEGORY_BADGES[definition.category] ?? ''} ` : '';
+  const name =
     definition.displayName !== undefined
       ? `${definition.displayName} (${definition.type})`
       : definition.type;
-  return definition.description !== undefined ? `${label} - ${definition.description}` : label;
+  const label = `${badge}${name}`;
+  return definition.description !== undefined ? `${label} — ${definition.description}` : label;
 }
 
 export function formatProviderSetupHelpLinks(

@@ -72,7 +72,8 @@ export function createQwenProviderDefinition(): IProviderDefinition {
   return {
     type: 'qwen',
     displayName: 'Qwen',
-    description: 'Alibaba Cloud Model Studio OpenAI-compatible endpoint',
+    description: 'Alibaba Cloud Qwen series. API key required.',
+    category: 'cloud-paid',
     defaults: {
       model: DEFAULT_QWEN_PROVIDER_MODEL,
       apiKey: DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE,

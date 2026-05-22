@@ -25,7 +25,8 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
   return {
     type: 'openai',
     displayName: 'OpenAI',
-    description: 'Official OpenAI Responses API provider',
+    description: 'GPT series — general-purpose assistant. API key required.',
+    category: 'cloud-paid',
     defaults: {
       apiKey: DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE,
     },
