@@ -96,7 +96,6 @@ flowchart TD
   AgentServer["apps/agent-server\nAI provider proxy + WebSocket"]
   ClientEntry["agent-playground/client\nbrowser-safe React entry"]
   Playground["agent-playground\nexecutor + hooks + components"]
-  Team["agent-team\nmulti-agent task delegation"]
   RemoteClient["agent-remote-client\nRemoteExecutor (API keys stay server-side)"]
   Core["agent-core / agent-tools"]
   Providers["agent-provider\nprovider adapters"]
@@ -106,7 +105,6 @@ flowchart TD
   AgentWeb --> ClientEntry
   ClientEntry --> Playground
   Playground --> RemoteClient
-  Playground --> Team
   Playground --> Core
   Playground --> Providers
   RemoteClient --> Core
@@ -126,7 +124,6 @@ Playground ownership:
 | AI provider proxy + WebSocket host     | `apps/agent-server`       | API keys and server-side provider policy stay here; never in browser.                                                                                   |
 | Browser-safe React package entry       | `agent-playground/client` | Must not expose Node-only services.                                                                                                                     |
 | Executor, hooks, components, context   | `agent-playground`        | Internal modules under `src/lib/` and `src/components/`; see [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md). |
-| Multi-agent task delegation            | `agent-team`              | `agent-playground` is the sole consumer. See [agent-team.md](agent-team.md).                                                                            |
 | Secure provider execution from browser | `agent-remote-client`     | API keys stay server-side through `RemoteExecutor`.                                                                                                     |
 
 **No agent-framework session stack (intentional)**: `agent-playground` does not depend on
@@ -151,13 +148,16 @@ For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/e
 
 ## Multi-Agent Orchestration
 
-`agent-team` owns multi-agent task delegation and coordination. It sits in the orchestration layer
-between assembly and domain — below `agent-framework` but above `agent-core`. It consumes
-`agent-core` contracts and provider adapters but does not own session persistence or UI.
+`agent-team` is reserved for future multi-agent coordination capabilities. The previous
+`assignTask` relay tool pattern was removed (TOOL-002) in favour of the Agent Command pattern
+(`robota_command_agent` via `@robota-sdk/agent-command`).
 
-See [agent-team.md](agent-team.md) for the full architecture: delegation model, owner-path
-propagation, template registry, and distinction from `agent-subagent-runner` (child-process mode).
+See [agent-team.md](agent-team.md) for current state and future direction.
 
-| Concern                                 | Owner        | Contract                                                                         |
-| --------------------------------------- | ------------ | -------------------------------------------------------------------------------- |
-| Multi-agent task delegation and routing | `agent-team` | Coordinates sub-agents through `agent-core` contracts; no TUI or CLI dependency. |
+The `agent-subagent-runner` package handles child-process subagent execution (opt-in, CLI only).
+
+| Concern                           | Owner                   | Contract                                                                                      |
+| --------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| Multi-agent coordination (future) | `agent-team`            | Placeholder — no exports until new features are designed. See [agent-team.md](agent-team.md). |
+| Child-process subagent runner     | `agent-subagent-runner` | Opt-in. CLI imports factory; forks worker via `child_process.fork()`.                         |
+| Agent Command (spawn + delegate)  | `agent-command`         | `robota_command_agent` tool — spawns background agent job via `agent-executor` contracts.     |
