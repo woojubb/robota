@@ -60,6 +60,11 @@ secrets.*
 # Finder (MacOS) folder config
 .DS_Store
 
+# Screenshot/capture files at repo root (session evidence, not source)
+/*.png
+/*.jpg
+/*.jpeg
+
 # Environment variables
 .env
 .env.local
