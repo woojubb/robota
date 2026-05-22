@@ -238,6 +238,40 @@ describe('PlaygroundExecutor', () => {
     expect(executor.getVisualizationData().events).toHaveLength(0);
   });
 
+  it('does not record events into historyPlugin after clearHistory is called mid-execution', async () => {
+    const executor = createExecutor();
+    await executor.createAgent(createConfig());
+
+    // Stream that yields one event, then we'll call clearHistory, then yield another
+    let resolveNext!: () => void;
+    const gate = new Promise<void>((res) => {
+      resolveNext = res;
+    });
+
+    sseMocks.sseSessionSubmit.mockImplementation(() =>
+      (async function* () {
+        yield { type: 'text_delta', data: { text: 'before' } } as TSseEvent;
+        // Pause — caller will call clearHistory() and then allow continuation
+        await gate;
+        yield { type: 'text_delta', data: { text: 'after' } } as TSseEvent;
+        yield DONE_EVENT;
+      })(),
+    );
+
+    const runPromise = executor.run('prompt');
+
+    // Allow the first event to be processed, then clear
+    await new Promise((r) => setTimeout(r, 0));
+    executor.clearHistory();
+    resolveNext();
+
+    await runPromise;
+
+    // Only events recorded after the clear would appear; historyPlugin should be empty
+    // because clearHistory() increments executionToken, causing the loop to break
+    expect(executor.getVisualizationData().events).toHaveLength(0);
+  });
+
   it('calls destroySession and disposes history plugin on dispose', async () => {
     const executor = createExecutor();
     await executor.createAgent(createConfig());
