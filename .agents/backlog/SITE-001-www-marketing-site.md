@@ -1,6 +1,6 @@
 ---
 title: 'SITE-001: www.robota.io 마케팅 랜딩 사이트 신설'
-status: todo
+status: done
 created: 2026-05-23
 priority: high
 urgency: soon
