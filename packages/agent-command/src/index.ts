@@ -8,7 +8,6 @@ export * from './help/index.js';
 export * from './language/index.js';
 export * from './memory/index.js';
 export * from './mode/index.js';
-export * from './model/index.js';
 export * from './permissions/index.js';
 export * from './plugin/index.js';
 export * from './provider/index.js';

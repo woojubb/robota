@@ -11,6 +11,10 @@ import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import {
+  createProviderFromSettings,
+  readProviderSettings,
+} from '../command-api/provider/provider-factory.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
@@ -25,11 +29,16 @@ import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
+  ICommandResult,
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
-import type { TUniversalMessage, TSessionEndReason } from '@robota-sdk/agent-core';
+import type {
+  TUniversalMessage,
+  TSessionEndReason,
+  IProviderDefinition,
+} from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -62,6 +71,7 @@ export class InteractiveSession
   private agentsFileEntries: IContextFileEntry[] = [];
   private claudeFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
+  private providerDefinitions: readonly IProviderDefinition[] = [];
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -142,6 +152,11 @@ export class InteractiveSession
         ),
       persistSession: () => this.persistCurrentSession(),
     });
+
+    if ('providerDefinitions' in options) {
+      this.providerDefinitions =
+        (options as IInteractiveSessionStandardOptions).providerDefinitions ?? [];
+    }
 
     const hasInjectedSession = this.configureInjectedSession(options);
     this.restoreSessionRecordIfNeeded(options);
@@ -406,5 +421,39 @@ export class InteractiveSession
       { references: histState.contextReferences },
       { snapshotId: this.sandboxSnapshotId },
     );
+  }
+
+  private async switchProvider(profileName: string): Promise<void> {
+    const session = this.getSessionOrThrow();
+    const cwd = this.getCwd();
+    const settings = readProviderSettings(cwd, {
+      providerOverride: profileName,
+      providerDefinitions: this.providerDefinitions,
+    });
+    const provider = createProviderFromSettings(cwd, undefined, {
+      providerOverride: profileName,
+      providerDefinitions: this.providerDefinitions,
+    });
+    session.swapProvider(provider, settings.model);
+  }
+
+  override async executeCommand(
+    name: string,
+    args: string,
+  ): Promise<import('../commands/index.js').ICommandResult | null> {
+    const result = await super.executeCommand(name, args);
+    if (result === null) return null;
+    const hotSwapEffect = result.effects?.find(
+      (e): e is { type: 'provider-hot-swap-requested'; profileName: string } =>
+        e.type === 'provider-hot-swap-requested',
+    );
+    if (hotSwapEffect) {
+      await this.switchProvider(hotSwapEffect.profileName);
+      return {
+        ...result,
+        effects: result.effects?.filter((e) => e.type !== 'provider-hot-swap-requested'),
+      };
+    }
+    return result;
   }
 }

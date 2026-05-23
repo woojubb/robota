@@ -18,7 +18,6 @@ export interface IParsedCliArgs {
   printMode: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
-  model: string | undefined;
   language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
@@ -63,7 +62,6 @@ Options:
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
-  --model <model>            Override model for this session
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
@@ -129,7 +127,6 @@ const PARSE_ARGS_CONFIG = {
     p: { type: 'boolean', short: 'p', default: false },
     continue: { type: 'boolean', short: 'c', default: false },
     resume: { type: 'string', short: 'r' },
-    model: { type: 'string' },
     language: { type: 'string' },
     'permission-mode': { type: 'string' },
     'max-turns': { type: 'string' },
@@ -173,7 +170,6 @@ function mapParsedValues(
     printMode: values['p'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
-    model: values['model'],
     language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
     maxTurns: parseMaxTurns(values['max-turns']),

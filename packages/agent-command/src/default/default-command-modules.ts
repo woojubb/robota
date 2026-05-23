@@ -7,7 +7,6 @@ import { createHelpCommandModule } from '../help/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
-import { createModelCommandModule } from '../model/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
 import { createProviderCommandModule } from '../provider/index.js';
@@ -37,10 +36,6 @@ export function createDefaultCommandModules({
     createSkillsCommandModule({ cwd }),
     createHelpCommandModule(),
     createAgentCommandModule(),
-    createModelCommandModule({
-      providerDefinitions,
-      settings: { readMergedSettings: () => providerSettingsAdapter.readMergedSettings() },
-    }),
     createPermissionsCommandModule(),
     createModeCommandModule(),
     createLanguageCommandModule(),

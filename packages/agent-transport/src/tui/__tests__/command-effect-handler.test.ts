@@ -55,7 +55,6 @@ function createDeps(settingsPath: string) {
   return {
     addEntry: vi.fn(),
     requestShutdown: vi.fn(),
-    requestModelChange: vi.fn(),
     openPluginTUI: vi.fn(),
     openTransportTUI: vi.fn(),
     openSessionPicker: vi.fn(),
