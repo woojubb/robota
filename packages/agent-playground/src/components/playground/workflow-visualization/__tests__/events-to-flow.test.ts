@@ -136,19 +136,25 @@ describe('eventsToFlow', () => {
 
   describe('single agent branch (one tool → one agent)', () => {
     it('forks agent from tool_call_start and joins at assistant_response', () => {
+      // Real-world order: tool returns immediately ("Started job"), agent completes async
       const events = [
         userMsg('u1'),
         toolStart('tc1', 'robota_command_agent', 'call-1'),
         agentJobCreated('T1', 'call-1'),
-        agentJobCompleted('T1'),
         toolComplete('tcc1', 'call-1'),
+        agentJobCompleted('T1'),
         assistantResponse('ar1'),
       ];
       const { edges } = eventsToFlow(events);
 
       expect(hasEdge(edges, 'u1', 'tc1')).toBe(true);
+      // tool_call_start forks to agent_job_created
       expect(hasEdge(edges, 'tc1', 'job-created-T1')).toBe(true);
-      expect(hasEdge(edges, 'job-created-T1', 'job-completed-T1')).toBe(true);
+      // tool_call_complete hangs from agent_job_created (not tool_call_start)
+      expect(hasEdge(edges, 'job-created-T1', 'tcc1')).toBe(true);
+      // agent_job_completed follows tool_call_complete in the branch
+      expect(hasEdge(edges, 'tcc1', 'job-completed-T1')).toBe(true);
+      // branch tail converges to assistant
       expect(hasEdge(edges, 'job-completed-T1', 'ar1')).toBe(true);
     });
   });
@@ -160,6 +166,8 @@ describe('eventsToFlow', () => {
     //   agent_job_completed / agent_job_failed →
     //   tool_call_complete × 2 → assistant_response
 
+    // Real-world order: both tools return "Started job" immediately,
+    // then agents complete asynchronously afterward.
     function makeParallelAgentEvents(options: { devFirst?: boolean } = {}) {
       return [
         userMsg('u1'),
@@ -167,11 +175,11 @@ describe('eventsToFlow', () => {
         toolStart('tc2', 'robota_command_agent', 'call-2'),
         agentJobCreated('T1', 'call-1'),
         agentJobCreated('T2', 'call-2'),
+        toolComplete('tcc1', 'call-1'),
+        toolComplete('tcc2', 'call-2'),
         ...(options.devFirst
           ? [agentJobCompleted('T1'), agentJobFailed('T2')]
           : [agentJobFailed('T2'), agentJobCompleted('T1')]),
-        toolComplete('tcc1', 'call-1'),
-        toolComplete('tcc2', 'call-2'),
         assistantResponse('ar1'),
       ];
     }
@@ -183,11 +191,15 @@ describe('eventsToFlow', () => {
       expect(hasEdge(edges, 'tc2', 'job-created-T2')).toBe(true);
     });
 
-    it('connects agent_job_completed and agent_job_failed to their created nodes', () => {
+    it('connects agent_job_completed and agent_job_failed after tool_call_complete in branch', () => {
       const { edges } = eventsToFlow(makeParallelAgentEvents({ devFirst: true }));
 
-      expect(hasEdge(edges, 'job-created-T1', 'job-completed-T1')).toBe(true);
-      expect(hasEdge(edges, 'job-created-T2', 'job-failed-T2')).toBe(true);
+      // tool_call_complete now hangs from agent_job_created
+      expect(hasEdge(edges, 'job-created-T1', 'tcc1')).toBe(true);
+      expect(hasEdge(edges, 'job-created-T2', 'tcc2')).toBe(true);
+      // agent_job_completed/failed follow tool_call_complete in the branch
+      expect(hasEdge(edges, 'tcc1', 'job-completed-T1')).toBe(true);
+      expect(hasEdge(edges, 'tcc2', 'job-failed-T2')).toBe(true);
     });
 
     it('converges both branches to the assistant_response node', () => {
@@ -197,19 +209,19 @@ describe('eventsToFlow', () => {
       expect(hasEdge(edges, 'job-failed-T2', 'ar1')).toBe(true);
     });
 
-    it('converges tool_call_complete tails to the assistant_response node', () => {
+    it('tool_call_complete does not directly converge to assistant_response', () => {
       const { edges } = eventsToFlow(makeParallelAgentEvents({ devFirst: true }));
 
-      expect(hasEdge(edges, 'tcc1', 'ar1')).toBe(true);
-      expect(hasEdge(edges, 'tcc2', 'ar1')).toBe(true);
+      // tcc nodes are in the branch chain, not parallel tails — no direct tcc→ar1 edge
+      expect(hasEdge(edges, 'tcc1', 'ar1')).toBe(false);
+      expect(hasEdge(edges, 'tcc2', 'ar1')).toBe(false);
     });
 
     it('produces no duplicate edges to assistant_response', () => {
       const { edges } = eventsToFlow(makeParallelAgentEvents({ devFirst: true }));
 
-      // The main-join check must not add a duplicate tcc2→ar1 edge
-      expect(edgeCount(edges, 'tcc2', 'ar1')).toBe(1);
-      expect(edgeCount(edges, 'tcc1', 'ar1')).toBe(1);
+      expect(edgeCount(edges, 'job-completed-T1', 'ar1')).toBe(1);
+      expect(edgeCount(edges, 'job-failed-T2', 'ar1')).toBe(1);
     });
 
     it('works the same way when designer fails before developer completes', () => {
@@ -217,9 +229,9 @@ describe('eventsToFlow', () => {
 
       expect(hasEdge(edges, 'job-completed-T1', 'ar1')).toBe(true);
       expect(hasEdge(edges, 'job-failed-T2', 'ar1')).toBe(true);
-      expect(hasEdge(edges, 'tcc1', 'ar1')).toBe(true);
-      expect(hasEdge(edges, 'tcc2', 'ar1')).toBe(true);
-      expect(edgeCount(edges, 'tcc2', 'ar1')).toBe(1);
+      expect(hasEdge(edges, 'tcc1', 'ar1')).toBe(false);
+      expect(hasEdge(edges, 'tcc2', 'ar1')).toBe(false);
+      expect(edgeCount(edges, 'job-completed-T1', 'ar1')).toBe(1);
     });
 
     it('includes all expected nodes', () => {
