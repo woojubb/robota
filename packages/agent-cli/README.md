@@ -6,17 +6,20 @@ AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for proje
 
 ## Prerequisites
 
-Node.js **22 or higher** is required.
+Node.js **22 or higher** is required. The TUI renderer ([ink 7.x](https://github.com/vadimdemedes/ink)) requires Node.js 22+.
 
 ```bash
 node --version  # Must output v22.x.x or higher
 ```
 
-If your version is below 22, upgrade using [nvm](https://github.com/nvm-sh/nvm):
+If your version is below 22, upgrade using one of:
 
 ```bash
-nvm install 22
-nvm use 22
+# nvm
+nvm install 22 && nvm use 22
+
+# Volta
+volta install node@22
 ```
 
 ## Installation
