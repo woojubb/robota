@@ -19,7 +19,7 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               {[
                 { label: 'Why Robota', href: '/compare' },
-                { label: 'Cost Calculator', href: '/tools/cost-calculator' },
+                // { label: 'Cost Calculator', href: '/tools/cost-calculator' }, // 요금 페이지 미준비
                 { label: 'Showcase', href: '/showcase' },
                 { label: 'Roadmap', href: '/roadmap' },
               ].map(({ label, href }) => (

@@ -138,7 +138,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Cost teaser */}
+      {/* Cost teaser — 요금 페이지 미준비, 준비 후 주석 해제
       <section className="py-16 sm:py-20 bg-[var(--card)]">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
@@ -156,6 +156,7 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+      */}
 
       {/* CTA */}
       <section className="py-16 sm:py-24">

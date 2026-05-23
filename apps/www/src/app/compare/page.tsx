@@ -96,13 +96,14 @@ const FEATURE_ROWS = [
   },
 ];
 
-const COST_ROWS = [
-  { tool: 'Robota', model: 'BYOK — pay your provider', estimate: '~$5–30 depending on model' },
-  { tool: 'Claude Code', model: 'BYOK (Anthropic API)', estimate: '~$20–80 with Claude Sonnet' },
-  { tool: 'Cursor', model: 'Subscription', estimate: '$20/mo (Pro) + API overages' },
-  { tool: 'Aider', model: 'BYOK', estimate: '~$5–30 depending on model' },
-  { tool: 'Cline', model: 'BYOK (VSCode extension)', estimate: '~$5–30 depending on model' },
-];
+// Cost rows — 요금 섹션 미준비, 준비 후 주석 해제
+// const COST_ROWS = [
+//   { tool: 'Robota', model: 'BYOK — pay your provider', estimate: '~$5–30 depending on model' },
+//   { tool: 'Claude Code', model: 'BYOK (Anthropic API)', estimate: '~$20–80 with Claude Sonnet' },
+//   { tool: 'Cursor', model: 'Subscription', estimate: '$20/mo (Pro) + API overages' },
+//   { tool: 'Aider', model: 'BYOK', estimate: '~$5–30 depending on model' },
+//   { tool: 'Cline', model: 'BYOK (VSCode extension)', estimate: '~$5–30 depending on model' },
+// ];
 
 function Check() {
   return <span className="text-green-400 font-bold">✓</span>;
@@ -181,7 +182,7 @@ export default function ComparePage() {
         </div>
       </section>
 
-      {/* Cost comparison */}
+      {/* Cost comparison — 요금 섹션 미준비, 준비 후 주석 해제
       <section className="mb-14">
         <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">Cost Comparison</h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
@@ -227,6 +228,7 @@ export default function ComparePage() {
           fully offline.
         </p>
       </section>
+      */}
 
       {/* Key differentiators */}
       <section className="mb-14">
@@ -297,12 +299,14 @@ export default function ComparePage() {
         >
           Try Robota now →
         </a>
+        {/* cost calculator link — 요금 페이지 미준비, 준비 후 주석 해제
         <p className="mt-3 text-sm text-[var(--muted-foreground)]">
           Or{' '}
           <Link href="/tools/cost-calculator" className="text-[var(--primary)] hover:underline">
             calculate your exact cost
           </Link>
         </p>
+        */}
       </div>
     </div>
   );
