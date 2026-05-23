@@ -9,6 +9,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { getAllSlugs, getPageContent, extractTitle } from '@/lib/content';
 import { buildSidebar } from '@/lib/sidebar';
 import { extractToc } from '@/lib/toc';
+import { remarkMermaid } from '@/lib/remark-mermaid';
 import { DocsLayout } from '@/components/DocsLayout';
 import { CodeBlock } from '@/components/mdx/CodeBlock';
 import { MermaidDiagram } from '@/components/mdx/MermaidDiagram';
@@ -351,7 +352,7 @@ export default async function DocsPage({ params }: { params: Promise<PageParams>
         options={{
           mdxOptions: {
             format: 'md',
-            remarkPlugins: [remarkGfm],
+            remarkPlugins: [remarkMermaid, remarkGfm],
             rehypePlugins: [
               rehypeSlug,
               [
